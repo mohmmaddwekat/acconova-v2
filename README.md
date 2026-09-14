@@ -70,6 +70,40 @@ The existing `Membership` model and `BelongsToOrganization` scope remain in plac
 
 Raw SQL, pivot writes, and `withoutGlobalScopes` remain trusted infrastructure APIs and bypass Eloquent tenant scoping. Never use them with unverified request IDs. Database ownership protections supplement, rather than replace, application authorization. Organization creation must use the atomic application flow: inserting directly into the organizations table alone cannot establish the required owner membership. There is no organization deletion API in this phase.
 
+## Party / Contact domain
+
+Party is AccoNova's unified contact entity. A Party represents either a person or a company and must be stored only once, even if it serves as both a customer and a supplier.
+
+A Party can be:
+
+- **person**: an individual (stored with a name, no company_name).
+- **company**: a legal entity (stored with a company_name, no name).
+
+A Party can hold one or more business roles. Supported roles are:
+
+- **customer**: a buyer or consuming organization.
+- **supplier**: a vendor or providing organization.
+
+A Party may be customer-only, supplier-only, or customer and supplier simultaneously. Contact information (email, phone, address, tax number) is stored once on the Party record and is never duplicated across separate customer or supplier records. Party roles are stored separately in a normalized `party_roles` table, preventing duplicate role assignments.
+
+Example:
+
+```
+Party: Smart Tech Inc.
+Type: company
+Email: contact@smarttech.com
+Phone: +1-555-0100
+Tax Number: 12-3456789
+
+Roles:
+- customer
+- supplier
+```
+
+Smart Tech's contact data exists in a single Party record. Two separate rows in `party_roles` indicate that Smart Tech can be selected as either a buyer or a vendor.
+
+All Party data is organization scoped. Creating a Party without an active `TenantContext` fails closed. Party queries include a global scope that filters by the current organization. Updating or deleting a Party belonging to another organization raises a LogicException. Soft deletes preserve historical Party identity so future quotes, invoices, and payments can reference it.
+
 ## Migrations
 
 Run `php artisan migrate --no-interaction` against the intended development database before manually testing the changes.
