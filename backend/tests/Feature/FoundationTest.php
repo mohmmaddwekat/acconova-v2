@@ -288,15 +288,39 @@ class FoundationTest extends TestCase
         DB::table('memberships')->insert(['organization_id' => 999999, 'user_id' => $user->id, 'role' => 'employee']);
     }
 
-    public function test_deleting_an_organization_removes_only_its_memberships(): void
+    /**
+     * Verify that soft-deleting an organization hides the organization while
+     * preserving its memberships and users for a future restore operation.
+     */
+    public function test_soft_deleting_an_organization_preserves_memberships_and_users(): void
     {
         $first = $this->organization(User::factory()->create());
         $second = $this->organization(User::factory()->create());
 
         $first->delete();
 
-        $this->assertDatabaseMissing('memberships', ['organization_id' => $first->id]);
-        $this->assertDatabaseHas('memberships', ['organization_id' => $second->id]);
+        $this->assertSoftDeleted('organizations', [
+            'id' => $first->id,
+        ]);
+
+        $this->assertDatabaseHas('memberships', [
+            'organization_id' => $first->id,
+        ]);
+
+        $this->assertDatabaseHas('memberships', [
+            'organization_id' => $second->id,
+        ]);
+
+        // Normal Organization queries must hide a soft-deleted tenant.
+        $this->assertNull(
+            Organization::query()->find($first->id),
+        );
+
+        // The record itself still exists and can later be restored safely.
+        $this->assertNotNull(
+            Organization::withTrashed()->find($first->id),
+        );
+
         $this->assertDatabaseCount('users', 2);
     }
 

@@ -2,24 +2,38 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Organizations\SwitchActiveOrganization;
+use App\Http\Requests\SwitchActiveOrganizationRequest;
+use App\Http\Resources\OrganizationResource;
 use App\Tenancy\OrganizationAccess;
-use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class ActiveOrganizationController extends Controller
 {
-    public function update(Request $request, OrganizationAccess $access, TenantContext $context): JsonResponse
-    {
-        $data = $request->validate(['organization_id' => ['required', 'integer', 'min:1']]);
+    /**
+     * Verify the requested organization, persist it as the active tenant in
+     * the session, and return the user's organization-specific role.
+     */
+    public function update(
+        SwitchActiveOrganizationRequest $request,
+        SwitchActiveOrganization $switchActiveOrganization,
+    ): JsonResponse {
+        $selection = $switchActiveOrganization->execute(
+            $request->user(),
+            (int) $request->validated('organization_id'),
+        );
 
-        try {
-            $access->resolve($request->user(), (int) $data['organization_id'], $context);
-            $request->session()->put(OrganizationAccess::SESSION_KEY, $context->id());
+        $request->session()->put(
+            OrganizationAccess::SESSION_KEY,
+            $selection['organization']->id,
+        );
 
-            return response()->json(['data' => $context->organization(), 'role' => $context->role()->value]);
-        } finally {
-            $context->clear();
-        }
+        return response()->json([
+            'data' => (new OrganizationResource(
+                $selection['organization'],
+            ))->resolve($request),
+
+            'role' => $selection['role']->value,
+        ]);
     }
 }

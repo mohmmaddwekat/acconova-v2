@@ -364,4 +364,91 @@ class OrganizationFoundationTest extends TestCase
         }
         $this->assertContextCleared();
     }
+
+    /**
+     * Verify the complete HTTP lifecycle for deleting and restoring an
+     * organization while preserving its ownership data.
+     */
+    public function test_owner_can_soft_delete_and_restore_organization(): void
+    {
+        $owner = User::factory()->create();
+        $organization = $this->organization($owner);
+
+        $this->actingAs($owner)
+            ->withSession([
+                OrganizationAccess::SESSION_KEY => $organization->id,
+            ])
+            ->deleteJson("/api/organizations/{$organization->id}")
+            ->assertNoContent()
+            ->assertSessionMissing(
+                OrganizationAccess::SESSION_KEY,
+            );
+
+        $this->assertSoftDeleted('organizations', [
+            'id' => $organization->id,
+        ]);
+
+        $this->assertDatabaseHas('memberships', [
+            'organization_id' => $organization->id,
+            'user_id' => $owner->id,
+            'role' => 'owner',
+        ]);
+
+        $this->getJson(
+            "/api/organizations/{$organization->id}",
+        )->assertNotFound();
+
+        $this->postJson(
+            "/api/organizations/{$organization->id}/restore",
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.id',
+                $organization->id,
+            );
+
+        $this->assertDatabaseHas('organizations', [
+            'id' => $organization->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    /**
+     * Verify that preserved organization membership does not allow a non-Owner
+     * to restore a deleted tenant.
+     */
+    public function test_non_owner_cannot_restore_deleted_organization(): void
+    {
+        $admin = User::factory()->create();
+
+        $organization = $this->organization(
+            $admin,
+            OrganizationRole::Admin->value,
+        );
+
+        $ownerMembership = DB::table('memberships')
+            ->where('organization_id', $organization->id)
+            ->where('role', 'owner')
+            ->first();
+
+        $owner = User::findOrFail(
+            $ownerMembership->user_id,
+        );
+
+        $this->actingAs($owner)
+            ->deleteJson(
+                "/api/organizations/{$organization->id}",
+            )
+            ->assertNoContent();
+
+        $this->actingAs($admin)
+            ->postJson(
+                "/api/organizations/{$organization->id}/restore",
+            )
+            ->assertNotFound();
+
+        $this->assertSoftDeleted('organizations', [
+            'id' => $organization->id,
+        ]);
+    }
 }

@@ -20,9 +20,16 @@ class PartyRole extends Model
         static::addGlobalScope('organization', function (Builder $builder): void {
             $organizationId = app(TenantContext::class)->id();
 
+            /*
+            * Include soft-deleted Parties while proving tenant ownership so preserved
+            * role rows remain safely accessible during archive and restore workflows.
+            */
             $builder->whereHas('party', function (Builder $partyQuery) use ($organizationId): void {
-                $partyQuery->where('organization_id', $organizationId);
+                $partyQuery
+                    ->withTrashed()
+                    ->where('organization_id', $organizationId);
             });
+
         });
 
         static::saving(function (PartyRole $partyRole): void {
