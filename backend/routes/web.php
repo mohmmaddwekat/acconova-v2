@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActiveOrganizationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MembershipController;
 use App\Http\Controllers\OrganizationController;
@@ -18,6 +19,8 @@ Route::prefix('api')->group(function () {
     Route::middleware('auth')->group(function () {
         Route::get('user', fn (Request $request) => $request->user());
         Route::post('logout', [AuthController::class, 'logout']);
+        Route::put('current-organization', [ActiveOrganizationController::class, 'update']);
+        Route::get('current-organization', [OrganizationController::class, 'show'])->middleware(ResolveOrganization::class);
         Route::get('organizations', [OrganizationController::class, 'index']);
         Route::post('organizations', [OrganizationController::class, 'store']);
         Route::prefix('organizations/{organization}')->whereNumber('organization')->middleware(ResolveOrganization::class)->group(function () {

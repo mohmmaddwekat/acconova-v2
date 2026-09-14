@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrganizationRole;
 use App\Models\Organization;
+use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,8 @@ class OrganizationController extends Controller
 
             return $organization;
         });
+
+        $request->session()->put(OrganizationAccess::SESSION_KEY, $organization->id);
 
         return response()->json(['data' => $organization], 201);
     }

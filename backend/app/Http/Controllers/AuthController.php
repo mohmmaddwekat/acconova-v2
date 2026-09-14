@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Tenancy\OrganizationAccess;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -28,6 +30,7 @@ class AuthController extends Controller
 
         $user = User::create($data);
         Auth::login($user);
+        $request->session()->forget(OrganizationAccess::SESSION_KEY);
         $request->session()->regenerate();
 
         return response()->json(['user' => $user], 201);
@@ -44,6 +47,7 @@ class AuthController extends Controller
         if (! Auth::attempt($data)) {
             throw ValidationException::withMessages(['email' => ['The provided credentials are incorrect.']]);
         }
+        $request->session()->forget(OrganizationAccess::SESSION_KEY);
         $request->session()->regenerate();
 
         return response()->json(['user' => $request->user()]);
@@ -52,6 +56,7 @@ class AuthController extends Controller
     public function logout(Request $request): Response
     {
         Auth::logout();
+        app(TenantContext::class)->clear();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

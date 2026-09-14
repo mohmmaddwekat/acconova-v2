@@ -20,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Gate::define('manage-organization', fn (User $user) => in_array(app(TenantContext::class)->role(), [OrganizationRole::Owner, OrganizationRole::Admin], true));
+        Gate::define('manage-organization', fn (User $user) => app(TenantContext::class)->role() === OrganizationRole::Owner);
         Gate::define('manage-members', fn (User $user) => in_array(app(TenantContext::class)->role(), [OrganizationRole::Owner, OrganizationRole::Admin], true));
 
         RateLimiter::for('auth', fn (Request $request) => [

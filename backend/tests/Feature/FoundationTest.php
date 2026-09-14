@@ -20,6 +20,9 @@ class FoundationTest extends TestCase
     private function organization(User $user, string $role = 'owner'): Organization
     {
         $organization = Organization::create(['name' => 'Organization '.$user->id]);
+        if ($role !== 'owner') {
+            $organization->users()->attach(User::factory()->create()->id, ['role' => 'owner']);
+        }
         $organization->users()->attach($user->id, ['role' => $role]);
 
         return $organization;
@@ -90,7 +93,7 @@ class FoundationTest extends TestCase
     {
         $user = User::factory()->create();
         $other = $this->organization(User::factory()->create());
-        $response = $this->actingAs($user)->postJson('/api/organizations', ['name' => 'AccoNova', 'role' => 'member'])->assertCreated();
+        $response = $this->actingAs($user)->postJson('/api/organizations', ['name' => 'AccoNova', 'role' => 'employee'])->assertCreated();
         $this->assertDatabaseHas('memberships', ['organization_id' => $response->json('data.id'), 'user_id' => $user->id, 'role' => 'owner']);
         $this->getJson('/api/organizations')->assertJsonCount(1, 'data')->assertJsonMissing(['id' => $other->id, 'name' => $other->name]);
     }
@@ -109,10 +112,10 @@ class FoundationTest extends TestCase
     {
         $user = User::factory()->create();
         $owned = $this->organization($user);
-        $memberOf = $this->organization($user, 'member');
+        $memberOf = $this->organization($user, 'employee');
         $this->actingAs($user)->patchJson("/api/organizations/{$owned->id}", ['name' => 'Updated'])->assertOk();
         $this->patchJson("/api/organizations/{$memberOf->id}", ['name' => 'Forbidden'])->assertForbidden();
-        $this->getJson("/api/organizations/{$memberOf->id}")->assertOk()->assertJsonPath('role', 'member');
+        $this->getJson("/api/organizations/{$memberOf->id}")->assertOk()->assertJsonPath('role', 'employee');
         $this->getJson("/api/organizations/{$memberOf->id}/memberships")->assertForbidden();
     }
 
@@ -123,7 +126,7 @@ class FoundationTest extends TestCase
         $other = $this->organization(User::factory()->create());
         $user = User::factory()->create();
         $response = $this->actingAs($owner)->postJson("/api/organizations/{$organization->id}/memberships", [
-            'user_id' => $user->id, 'role' => 'member', 'organization_id' => $other->id,
+            'user_id' => $user->id, 'role' => 'employee', 'organization_id' => $other->id,
         ])->assertCreated()->assertJsonPath('data.organization_id', $organization->id);
         $id = $response->json('data.id');
         $this->patchJson("/api/organizations/{$organization->id}/memberships/{$id}", ['role' => 'admin'])->assertOk();
@@ -136,7 +139,7 @@ class FoundationTest extends TestCase
         $owner = User::factory()->create();
         $organization = $this->organization($owner);
         $id = DB::table('memberships')->where('organization_id', $organization->id)->value('id');
-        $this->actingAs($owner)->postJson("/api/organizations/{$organization->id}/memberships", ['user_id' => $owner->id, 'role' => 'member'])->assertUnprocessable();
+        $this->actingAs($owner)->postJson("/api/organizations/{$organization->id}/memberships", ['user_id' => $owner->id, 'role' => 'employee'])->assertUnprocessable();
         $this->postJson("/api/organizations/{$organization->id}/memberships", ['user_id' => User::factory()->create()->id, 'role' => 'owner'])->assertUnprocessable();
         $this->patchJson("/api/organizations/{$organization->id}/memberships/{$id}", ['role' => 'admin'])->assertForbidden();
         $this->deleteJson("/api/organizations/{$organization->id}/memberships/{$id}")->assertForbidden();
@@ -152,10 +155,10 @@ class FoundationTest extends TestCase
         $this->actingAs($admin)->postJson("/api/organizations/{$organization->id}/memberships", [
             'user_id' => User::factory()->create()->id, 'role' => 'admin',
         ])->assertForbidden();
-        $this->patchJson("/api/organizations/{$organization->id}/memberships/{$id}", ['role' => 'member'])->assertForbidden();
+        $this->patchJson("/api/organizations/{$organization->id}/memberships/{$id}", ['role' => 'employee'])->assertForbidden();
         $this->deleteJson("/api/organizations/{$organization->id}/memberships/{$id}")->assertForbidden();
         $this->postJson("/api/organizations/{$organization->id}/memberships", [
-            'user_id' => User::factory()->create()->id, 'role' => 'member',
+            'user_id' => User::factory()->create()->id, 'role' => 'employee',
         ])->assertCreated();
     }
 
@@ -164,11 +167,11 @@ class FoundationTest extends TestCase
         $owner = User::factory()->create();
         $organization = $this->organization($owner);
         $other = $this->organization(User::factory()->create());
-        $other->users()->attach(User::factory()->create()->id, ['role' => 'member']);
-        $id = DB::table('memberships')->where('organization_id', $other->id)->where('role', 'member')->value('id');
+        $other->users()->attach(User::factory()->create()->id, ['role' => 'employee']);
+        $id = DB::table('memberships')->where('organization_id', $other->id)->where('role', 'employee')->value('id');
         $this->actingAs($owner)->patchJson("/api/organizations/{$organization->id}/memberships/{$id}", ['role' => 'admin'])->assertNotFound();
         $this->deleteJson("/api/organizations/{$organization->id}/memberships/{$id}")->assertNotFound();
-        $this->assertDatabaseHas('memberships', ['id' => $id, 'role' => 'member']);
+        $this->assertDatabaseHas('memberships', ['id' => $id, 'role' => 'employee']);
     }
 
     public function test_tenant_context_is_cleared_after_success_and_exception(): void
@@ -196,17 +199,23 @@ class FoundationTest extends TestCase
     public function test_tenant_creates_fail_closed_without_context(): void
     {
         $this->expectException(LogicException::class);
-        Membership::create(['user_id' => User::factory()->create()->id, 'role' => 'member']);
+        Membership::create(['user_id' => User::factory()->create()->id, 'role' => 'employee']);
     }
 
     public function test_scope_filters_reads_and_bulk_updates_and_deletes(): void
     {
         $first = $this->organization(User::factory()->create());
         $second = $this->organization(User::factory()->create());
+        $first->users()->attach(User::factory()->create()->id, ['role' => 'employee']);
+        $second->users()->attach(User::factory()->create()->id, ['role' => 'employee']);
         $this->context($first);
-        $this->assertSame(1, Membership::count());
-        Membership::where('role', 'member')->update(['role' => 'admin']);
-        Membership::query()->delete();
+        $this->assertSame(2, Membership::count());
+        Membership::where('role', 'employee')->update(['role' => 'admin']);
+        $this->assertDatabaseHas('memberships', ['organization_id' => $first->id, 'role' => 'admin']);
+        Membership::where('role', 'admin')->delete();
+        $this->assertDatabaseMissing('memberships', ['organization_id' => $first->id, 'role' => 'admin']);
+        $this->assertDatabaseHas('memberships', ['organization_id' => $first->id, 'role' => 'owner']);
+        $this->assertDatabaseHas('memberships', ['organization_id' => $second->id, 'role' => 'employee']);
         $this->assertDatabaseHas('memberships', ['organization_id' => $second->id, 'role' => 'owner']);
     }
 
@@ -237,7 +246,7 @@ class FoundationTest extends TestCase
         $first = $this->organization(User::factory()->create());
         $second = $this->organization(User::factory()->create());
         $this->context($first);
-        $record = new Membership(['user_id' => User::factory()->create()->id, 'role' => 'member']);
+        $record = new Membership(['user_id' => User::factory()->create()->id, 'role' => 'employee']);
         $record->organization_id = $second->id;
         $this->expectException(LogicException::class);
         $record->save();
@@ -246,7 +255,7 @@ class FoundationTest extends TestCase
     public function test_database_allows_multiple_admins_and_members_in_one_organization(): void
     {
         $organization = $this->organization(User::factory()->create());
-        foreach (['admin', 'admin', 'member', 'member'] as $role) {
+        foreach (['admin', 'admin', 'employee', 'employee'] as $role) {
             $organization->users()->attach(User::factory()->create()->id, ['role' => $role]);
         }
 
@@ -257,7 +266,7 @@ class FoundationTest extends TestCase
     {
         $organization = $this->organization(User::factory()->create());
         $member = User::factory()->create();
-        $organization->users()->attach($member->id, ['role' => 'member']);
+        $organization->users()->attach($member->id, ['role' => 'employee']);
 
         $this->expectException(QueryException::class);
         $organization->users()->updateExistingPivot($member->id, ['role' => 'owner']);
@@ -268,7 +277,7 @@ class FoundationTest extends TestCase
         $organization = $this->organization(User::factory()->create());
 
         $this->expectException(QueryException::class);
-        $organization->users()->attach(999999, ['role' => 'member']);
+        $organization->users()->attach(999999, ['role' => 'employee']);
     }
 
     public function test_database_rejects_membership_for_missing_organization(): void
@@ -276,7 +285,7 @@ class FoundationTest extends TestCase
         $user = User::factory()->create();
 
         $this->expectException(QueryException::class);
-        DB::table('memberships')->insert(['organization_id' => 999999, 'user_id' => $user->id, 'role' => 'member']);
+        DB::table('memberships')->insert(['organization_id' => 999999, 'user_id' => $user->id, 'role' => 'employee']);
     }
 
     public function test_deleting_an_organization_removes_only_its_memberships(): void
@@ -305,7 +314,7 @@ class FoundationTest extends TestCase
         $user = User::factory()->create();
         $organization = $this->organization($user);
         $this->expectException(QueryException::class);
-        $organization->users()->attach($user->id, ['role' => 'member']);
+        $organization->users()->attach($user->id, ['role' => 'employee']);
     }
 
     public function test_database_rejects_invalid_roles(): void

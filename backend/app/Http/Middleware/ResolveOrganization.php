@@ -2,11 +2,12 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\OrganizationRole;
-use App\Models\Organization;
+use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Closure;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 class ResolveOrganization
@@ -15,17 +16,26 @@ class ResolveOrganization
     {
         $context = app(TenantContext::class);
         $context->clear();
+        $organizationId = $request->route('organization') ?? $request->session()->get(OrganizationAccess::SESSION_KEY);
 
         try {
-            // The organization identifier is only trusted after checking authenticated membership.
-            $organization = Organization::query()
-                ->whereKey($request->route('organization'))
-                ->whereHas('users', fn ($query) => $query->where('users.id', $request->user()->id))
-                ->firstOrFail();
-            $membership = $organization->users()->where('users.id', $request->user()->id)->firstOrFail();
-            $context->set($organization, OrganizationRole::from($membership->pivot->role));
+            abort_unless(is_numeric($organizationId) && (int) $organizationId > 0, 404);
 
-            return $next($request);
+            $resolve = function () use ($request, $next, $context, $organizationId): Response {
+                try {
+                    app(OrganizationAccess::class)->resolve($request->user(), (int) $organizationId, $context, ! $request->isMethodSafe());
+                } catch (ModelNotFoundException $exception) {
+                    if ((string) $request->session()->get(OrganizationAccess::SESSION_KEY) === (string) $organizationId) {
+                        $request->session()->forget(OrganizationAccess::SESSION_KEY);
+                    }
+
+                    throw $exception;
+                }
+
+                return $next($request);
+            };
+
+            return $request->isMethodSafe() ? $resolve() : DB::transaction($resolve);
         } finally {
             $context->clear();
         }

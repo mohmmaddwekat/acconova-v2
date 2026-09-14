@@ -27,9 +27,9 @@ class MembershipController extends Controller
         Gate::authorize('manage-members');
         $data = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id', Rule::unique('memberships', 'user_id')->where('organization_id', $context->id())],
-            'role' => ['required', Rule::in(['admin', 'member'])],
+            'role' => ['required', Rule::in(OrganizationRole::assignableBy(OrganizationRole::Owner))],
         ]);
-        abort_if($context->role() === OrganizationRole::Admin && $data['role'] !== 'member', 403);
+        abort_unless(in_array($data['role'], OrganizationRole::assignableBy($context->role()), true), 403);
 
         return response()->json(['data' => Membership::create($data)], 201);
     }
@@ -37,7 +37,7 @@ class MembershipController extends Controller
     public function update(Request $request, TenantContext $context, string $organization, string $membership): JsonResponse
     {
         Gate::authorize('manage-members');
-        $data = $request->validate(['role' => ['required', Rule::in(['admin', 'member'])]]);
+        $data = $request->validate(['role' => ['required', Rule::in(OrganizationRole::assignableBy(OrganizationRole::Owner))]]);
 
         return DB::transaction(function () use ($membership, $context, $data) {
             $record = Membership::lockForUpdate()->findOrFail($membership);
@@ -63,9 +63,8 @@ class MembershipController extends Controller
 
     private function authorizeChange(Membership $record, TenantContext $context, ?string $newRole = null): void
     {
-        // Ownership is established at organization creation and cannot be removed here.
         abort_if($record->role === OrganizationRole::Owner, 403);
         abort_if($context->role() === OrganizationRole::Admin &&
-            ($record->role !== OrganizationRole::Member || ($newRole !== null && $newRole !== 'member')), 403);
+            ($record->role === OrganizationRole::Admin || ($newRole !== null && ! in_array($newRole, OrganizationRole::assignableBy(OrganizationRole::Admin), true))), 403);
     }
 }
