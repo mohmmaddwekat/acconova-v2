@@ -1,14 +1,12 @@
 # AccoNova
 
-Phase 0 backend: Laravel 13, MySQL 8.4, session authentication, organizations, tenant isolation, and organization roles.
+Phase 0 only: Laravel 13, MySQL 8.4, session authentication, organizations, organization roles, and tenant isolation. No frontend or business modules are implemented.
 
-## Structure and initial audit
+## Local development
 
-The initial workspace contained only an empty `.dist/` directory: no application, Git repository, product specification, or existing tests. The backend lives in `backend/`; `compose.yaml` provisions local MySQL, and `.github/workflows/tests.yml` runs SQLite and MySQL tests.
+The Laravel application lives in `backend/`. WampServer can serve `backend/public` through the `acconova.test` virtual host. Use PHP 8.4.1 or newer with the committed dependencies; this machine has `C:\wamp64\bin\php\php8.4.3\php.exe`. Ensure both Apache and CLI use a compatible PHP version.
 
-Use PHP 8.4 with this lockfile (including development dependencies), Composer 2, and Docker Desktop. On the audited Windows machine, PHP 8.4 is at `C:\wamp64\bin\php\php8.4.3\php.exe`; the default PATH PHP is 8.2 and cannot run this project. The PHP 8.4 installation already includes `pdo_mysql`.
-
-## Run locally
+MySQL **8.4** remains the primary database. The repository's Docker Compose service supplies MySQL 8.4 at `127.0.0.1:33069`; Wamp's installed MySQL version is independent of the PHP/Apache server. Do not substitute another MySQL major version when verifying this application.
 
 From the repository root:
 
@@ -17,78 +15,91 @@ docker compose up -d --wait
 cd backend
 composer install
 cp .env.example .env
-php artisan key:generate
-php artisan migrate
-php artisan serve
+php artisan key:generate --no-interaction
+php artisan migrate --no-interaction
 ```
 
-The MySQL port is 33069, bound only to localhost. The Compose password is for local development. Configure a separate restricted database account and secrets in production. No default application user is seeded.
+Serve through Wamp or run `php artisan serve`. The root URL returns `{"name":"AccoNova","phase":0}`; it is a backend status response.
+
+Compose credentials are local development examples. Keep real credentials in the ignored `.env`. There are no seeded application users.
 
 ## Authentication and API
 
-This is a same-origin session-based JSON backend. Keep the session cookie from `GET /api/csrf-token`, then send its returned `csrf_token` as `X-CSRF-TOKEN` on state-changing requests. Send `Accept: application/json`. Refresh the CSRF token after login, registration, or logout because sessions/tokens rotate.
+Keep the session cookie from `GET /api/csrf-token`, then send its `csrf_token` as `X-CSRF-TOKEN` on state-changing requests. Send `Accept: application/json`. Refresh the CSRF token after login, registration, or logout.
 
-- `POST /api/register`: name, email, password, password_confirmation (minimum 12 characters).
+- `POST /api/register`: name, email, password, password_confirmation; minimum password length 12.
 - `POST /api/login`: email, password. Authentication endpoints are rate-limited.
 - `GET /api/user`, `POST /api/logout`: authenticated session.
-- `GET /api/organizations`, `POST /api/organizations` (name): list memberships or create an organization with the creator as owner.
-- `GET /api/organizations/{organization}`, `PATCH /api/organizations/{organization}` (name).
-- `GET|POST /api/organizations/{organization}/memberships`: list or add an existing user by user_id and role.
+- `GET /api/organizations`: paginated organizations the user belongs to.
+- `POST /api/organizations`: name; atomically creates the organization and its sole owner, then selects it.
+- `PUT /api/current-organization`: organization_id; switches to a verified membership and returns the organization and current role.
+- `GET /api/current-organization`: returns the selected organization and freshly verified role; 404 if none is selected or membership has been revoked.
+- `GET|PATCH /api/organizations/{organization}`: read or update the organization (name).
+- `GET|POST /api/organizations/{organization}/memberships`: list memberships or add an existing user (user_id, role).
 - `PATCH|DELETE /api/organizations/{organization}/memberships/{membership}`: change role or remove membership.
 
-All lists are paginated. Unrelated organization and membership identifiers return 404. Invalid inputs return 422, unauthenticated requests 401, and denied role permissions 403.
+Unrelated organization and membership IDs return 404. Invalid input returns 422, unauthenticated requests 401, and denied permissions 403.
 
-| Capability | Owner | Admin | Member |
-| --- | --- | --- | --- |
-| Read organization | Yes | Yes | Yes |
-| Update organization | Yes | Yes | No |
-| List memberships | Yes | Yes | No |
-| Add/remove members | Yes | Yes | No |
-| Assign/manage admins | Yes | No | No |
-| Remove/change owner | No | No | No |
+## Phase 0 roles
 
-Roles are scoped per organization; there is no global superadmin. Adding users requires an existing account. Invitations, password recovery, email verification, ownership transfer, organization deletion, UI, and business-domain modules are later phases.
+| Capability | Owner | Admin | Manager | Accountant | Employee |
+| --- | --- | --- | --- | --- | --- |
+| Access/switch to own organization | Yes | Yes | Yes | Yes | Yes |
+| Update organization | Yes | No | No | No | No |
+| List memberships | Yes | Yes | No | No | No |
+| Add/change/remove Manager, Accountant, Employee | Yes | Yes | No | No | No |
+| Assign/change/remove Admin | Yes | No | No | No | No |
+| Assign Owner through membership endpoints | No | No | No | No | No |
+| Remove, replace, or demote Owner | No | No | No | No | No |
 
-## Tenant isolation contract
+An Admin cannot modify another Admin or their own membership. Only the Owner can assign Admin. Roles belong to individual organizations; there is no global administrator and no permissions for future modules.
 
-`ResolveOrganization` verifies the authenticated user's membership before creating request-scoped `TenantContext`, and clears context even when a request fails. Route identifiers cannot select an unrelated tenant. Membership queries use a global organization scope; queries and model writes without context throw. Creation assigns the current organization. Saving/deleting a model loaded under a different tenant throws.
+Each organization created through the application has exactly one owner. A transaction rolls back organization creation if owner insertion fails. A generated-column unique index rejects a second owner. Database triggers reject owner deletion, role changes, user replacement, and movement to another organization, including bulk SQL writes. Ownership transfer is outside Phase 0.
 
-Future organization-owned Eloquent models must use `BelongsToOrganization`, a non-null organization foreign key, and tenant-scoped uniqueness constraints. Jobs and CLI tasks must explicitly set context and clear it in a `finally` block. Never derive it from an unverified request body.
+## Current organization and isolation
 
-Tenant isolation is enforced by the application and its foreign keys. Raw SQL, `withoutGlobalScopes`, relation pivot writes, and bulk inserts bypass model hooks; use those only in audited infrastructure such as organization creation. Do not bulk-update organization_id. Tenant-scoped routes must authorize actions and validate inputs before persistence. Global users and the organization membership bootstrap are intentionally outside the tenant model scope.
+Only `active_organization_id` is saved in the server-side session, never a cached role or a serialized TenantContext. Switching verifies membership before setting context or saving selection. A rejected switch preserves the previous selection. Every current-organization request rechecks membership; revoked/deleted membership clears the invalid selection and fails closed. Role changes take effect on the next request.
 
-Database constraints enforce organization/user foreign keys, unique memberships, valid roles, and at most one owner. The API creates the owner atomically and forbids removing or demoting it.
+Existing explicit `/organizations/{organization}` routes retain their behavior: they independently verify membership and scope all data to that URL's organization. They do not silently switch the saved current organization. An organization ID in the body cannot override the tenant scope.
+
+`ResolveOrganization` verifies membership before populating the existing scoped `TenantContext`. Mutating organization requests lock the organization row in a transaction before reading the actor's membership, serializing membership/role changes for that organization. Global `ClearTenantContext` and middleware `finally` blocks clear context after success, denied access, and exceptions, including non-tenant requests.
+
+Session requests use Laravel session blocking so switching and logout cannot overwrite one another with stale session state. The configured cache store must support atomic locks (the default database cache does). Login and registration discard previous selection. Logout invalidates the session, regenerates CSRF state, and clears context.
+
+The existing `Membership` model and `BelongsToOrganization` scope remain in place. Tenant queries and writes without context fail closed. A stale model cannot be saved/deleted under another tenant. Foreign membership IDs cannot escape the current query scope.
+
+Raw SQL, pivot writes, and `withoutGlobalScopes` remain trusted infrastructure APIs and bypass Eloquent tenant scoping. Never use them with unverified request IDs. Database ownership protections supplement, rather than replace, application authorization. Organization creation must use the atomic application flow: inserting directly into the organizations table alone cannot establish the required owner membership. There is no organization deletion API in this phase.
+
+## Migrations
+
+Run `php artisan migrate --no-interaction` against the intended development database before manually testing the changes.
+
+The historical foundation migration is retained for existing databases. New forward migrations expand roles, convert existing `member` memberships to `employee`, remove the legacy role, and install owner-protection triggers. IDs, organization membership, and timestamps are preserved. No database reset is required. The ownership migration refuses existing organizations without exactly one owner; repair such legacy data deliberately before retrying.
+
+Role rollback maps Manager, Accountant, and Employee back to Member, so it intentionally loses the distinctions between those three roles. Owner and Admin are preserved. Trigger rollback precedes role rollback. Migration tests exercise upgrade and rollback with existing rows on both database engines.
+
+Schema Builder manages the enum transition and generated unique index. The owner immutability triggers use separate MySQL and SQLite syntax; migration credentials need permission to create triggers. With MySQL binary logging enabled, the server must also permit trusted trigger creation or migrations must run under an appropriately privileged migration account. Local Compose and the isolated CI service explicitly enable log_bin_trust_function_creators; no SUPER grant is added to the application account. MySQL 8.4 is authoritative; SQLite remains an additional portability check. Direct administrative schema changes can bypass application invariants and are not an ownership-management interface.
 
 ## Verification
 
+From `backend/`, using PHP 8.4.1 or newer:
+
 ```sh
-cd backend
-php artisan test
-php artisan test --configuration=phpunit.sqlite.xml
-vendor/bin/pint --test
+php artisan test --compact
+php artisan test --compact --configuration=phpunit.sqlite.xml
+vendor/bin/pint --dirty --format agent
 ```
 
-The default suite uses MySQL as the primary verification database; `phpunit.sqlite.xml` provides an additional in-memory portability check. The MySQL configuration exclusively targets `acconova_test` on port 33069; tests migrate/reset that database. Never point tests at application data. Docker initializes the test database on first volume creation. If the volume predates this setup, create `acconova_test` explicitly.
-
-CI runs both suites against PHP 8.4 and MySQL 8.4. Coverage includes authentication, CSRF, throttling, role boundaries, cross-tenant reads/writes, context cleanup, stale model writes, and database constraints.
-
-### Windows commands on the audited machine
-
-From `backend/`, the following commands use the installed PHP version without changing system configuration:
+On this Windows machine, prefix PHP entry points with:
 
 ```powershell
-& 'C:\wamp64\bin\php\php8.4.3\php.exe' artisan migrate
-& 'C:\wamp64\bin\php\php8.4.3\php.exe' vendor/phpunit/phpunit/phpunit --configuration=phpunit.sqlite.xml
-& 'C:\wamp64\bin\php\php8.4.3\php.exe' artisan test
+& 'C:\wamp64\bin\php\php8.4.3\php.exe' artisan test --compact
+& 'C:\wamp64\bin\php\php8.4.3\php.exe' artisan test --compact --configuration=phpunit.sqlite.xml
+& 'C:\wamp64\bin\php\php8.4.3\php.exe' vendor/bin/pint --dirty --format agent
 ```
 
+The default test configuration targets only `acconova_test` on MySQL port 33069 and resets that test database. SQLite tests use `:memory:`. Do not point tests at application data. CI runs both engines.
 
-The MySQL conversion retains the authentication and tenant-isolation suite and adds coverage for owner uniqueness, multiple non-owner memberships, and foreign-key deletion behavior.
-## Database portability and future modules
+Coverage includes all five roles, immutable ownership, escalation denial, existing-data migration/rollback, authentication, CSRF, throttling, active organization selection/revalidation, cross-tenant reads/writes, request cleanup, and database constraints.
 
-MySQL 8.4 is the primary database. Use Laravel Schema Builder, InnoDB foreign keys, utf8mb4, and strict SQL mode. The unique membership key begins with organization_id; the reverse user/organization index supports membership resolution. The owner constraint uses a Schema Builder generated column containing a standard SQL CASE expression and a composite unique index, verified on both MySQL and SQLite. No partial indexes, engine-specific raw migration SQL, JSONB, or database row-security dependency is used. The generated column is internal and excluded from API serialization.
-
-The foundation migration was updated for a fresh MySQL installation. Existing databases on another engine are not migrated or deleted automatically; moving existing business data requires a separate export/import plan.
-
-Party/Contact and invoice snapshots remain requirements for later business modules; they are not implemented in Phase 0. These modules must retain organization ownership and authorization, use tenant-scoped relationships and constraints, and preserve historical invoice snapshots independently of changes to live party/contact data. Their detailed fields and workflows still need to be defined.
-Validation: 31 tests and 86 assertions pass on MySQL 8.4 and SQLite. The MySQL development database migrations have been applied. GitHub's pre-existing application is a separate 2023 codebase at repository root; the current rebuild runs from backend/.
+GitHub commits and pushes wait for the user's manual testing and explicit confirmation that the changes are working.

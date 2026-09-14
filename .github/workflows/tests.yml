@@ -27,6 +27,8 @@ jobs:
           php-version: '8.4'
           extensions: pdo_mysql, pdo_sqlite
           coverage: none
+      - name: Enable trigger migrations on the isolated test server
+        run: docker exec ${{ job.services.mysql.id }} mysql -uroot -plocal-root-only -e "SET GLOBAL log_bin_trust_function_creators = 1"
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env && php artisan key:generate
       - run: vendor/bin/pint --test
