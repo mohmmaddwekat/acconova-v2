@@ -31,6 +31,13 @@ jobs:
         run: docker exec ${{ job.services.mysql.id }} mysql -uroot -plocal-root-only -e "SET GLOBAL log_bin_trust_function_creators = 1"
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env && php artisan key:generate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run build
       - run: vendor/bin/pint --test
       - run: php artisan test
       - run: vendor/bin/phpunit --configuration=phpunit.sqlite.xml
