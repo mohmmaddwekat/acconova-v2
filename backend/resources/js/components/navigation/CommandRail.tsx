@@ -16,41 +16,62 @@ import {
 
 type NavigationItem = {
     label: string;
+
     description: string;
+
     href?: string;
+
     icon: LucideIcon;
+
     disabled?: boolean;
 };
 
 const navigationItems: NavigationItem[] = [
     {
         label: 'Command',
-        description: 'Business pulse',
+
+        description:
+            'Business pulse',
+
         href: '/app',
+
         icon: Gauge,
     },
     {
         label: 'Parties',
-        description: 'Relationships',
+
+        description:
+            'Relationships',
+
         href: '/app/parties',
+
         icon: ContactRound,
     },
     {
         label: 'Products',
-        description: 'Catalog',
+
+        description:
+            'Catalog',
+
+        href: '/app/products',
+
         icon: Boxes,
-        disabled: true,
     },
     {
         label: 'Invoices',
-        description: 'Revenue',
+
+        description:
+            'Revenue',
+
         icon: ReceiptText,
+
         disabled: true,
     },
 ];
 
 type CommandRailProps = {
     expanded: boolean;
+
     mobileOpen: boolean;
 
     onExpandedChange: (
@@ -64,6 +85,9 @@ type CommandRailProps = {
 
 /**
  * Determine whether a navigation destination matches the current Inertia URL.
+ *
+ * The Command destination matches only /app itself while feature destinations
+ * remain active for any nested feature route.
  */
 function destinationIsActive(
     currentUrl: string,
@@ -74,7 +98,8 @@ function destinationIsActive(
     }
 
     if (href === '/app') {
-        return currentUrl === '/app';
+        return currentUrl ===
+            '/app';
     }
 
     return currentUrl.startsWith(
@@ -86,8 +111,8 @@ function destinationIsActive(
  * Render AccoNova's adaptive primary command navigation.
  *
  * Desktop devices receive a rail that smoothly expands into a full navigation
- * surface. Phones keep the same left-side navigation language through a
- * slide-in drawer instead of converting it into bottom tabs.
+ * surface. Phones preserve the same left-side navigation language through a
+ * slide-in drawer rather than falling back to generic bottom navigation.
  */
 export function CommandRail({
     expanded,
@@ -95,7 +120,8 @@ export function CommandRail({
     onExpandedChange,
     onMobileOpenChange,
 }: CommandRailProps) {
-    const page = usePage();
+    const page =
+        usePage();
 
     return (
         <>
@@ -147,12 +173,16 @@ export function CommandRail({
 
                 <nav className="flex flex-1 flex-col gap-1.5 overflow-hidden px-2 py-5">
                     {navigationItems.map(
-                        (item) => (
+                        (
+                            item,
+                        ) => (
                             <DesktopNavigationItem
                                 key={
                                     item.label
                                 }
-                                item={item}
+                                item={
+                                    item
+                                }
                                 active={destinationIsActive(
                                     page.url,
                                     item.href,
@@ -224,7 +254,9 @@ export function CommandRail({
             </aside>
 
             <div
-                aria-hidden={! mobileOpen}
+                aria-hidden={
+                    ! mobileOpen
+                }
                 onClick={() =>
                     onMobileOpenChange(
                         false,
@@ -248,6 +280,7 @@ export function CommandRail({
                 style={{
                     paddingTop:
                         'env(safe-area-inset-top)',
+
                     paddingBottom:
                         'env(safe-area-inset-bottom)',
                 }}
@@ -274,7 +307,8 @@ export function CommandRail({
                             </p>
 
                             <p className="text-[8px] font-semibold uppercase tracking-[0.17em] text-[var(--ac-text-muted)]">
-                                Business operating system
+                                Business operating
+                                system
                             </p>
                         </div>
                     </Link>
@@ -289,18 +323,24 @@ export function CommandRail({
                         }
                         className="flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-soft)]"
                     >
-                        <X size={18} />
+                        <X
+                            size={18}
+                        />
                     </button>
                 </div>
 
                 <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-5">
                     {navigationItems.map(
-                        (item) => (
+                        (
+                            item,
+                        ) => (
                             <MobileNavigationItem
                                 key={
                                     item.label
                                 }
-                                item={item}
+                                item={
+                                    item
+                                }
                                 active={destinationIsActive(
                                     page.url,
                                     item.href,
@@ -338,12 +378,17 @@ export function CommandRail({
 
 type DesktopNavigationItemProps = {
     item: NavigationItem;
+
     active: boolean;
+
     expanded: boolean;
 };
 
 /**
  * Render one desktop command-rail destination.
+ *
+ * Disabled future modules retain their visual position without becoming
+ * clickable before the feature is ready.
  */
 function DesktopNavigationItem({
     item,
@@ -363,7 +408,9 @@ function DesktopNavigationItem({
                         : 'text-[var(--ac-text-muted)]',
                 ].join(' ')}
             >
-                <Icon size={17} />
+                <Icon
+                    size={17}
+                />
             </div>
 
             <div
@@ -410,7 +457,9 @@ function DesktopNavigationItem({
 
     return (
         <Link
-            href={item.href}
+            href={
+                item.href
+            }
             title={
                 expanded
                     ? undefined
@@ -421,6 +470,7 @@ function DesktopNavigationItem({
                 expanded
                     ? 'gap-3 px-2'
                     : 'justify-center px-1',
+
                 active
                     ? 'bg-[var(--ac-surface-strong)] text-[var(--ac-text)]'
                     : 'text-[var(--ac-text-soft)] hover:bg-[var(--ac-bg-soft)]',
@@ -437,12 +487,14 @@ function DesktopNavigationItem({
 
 type MobileNavigationItemProps = {
     item: NavigationItem;
+
     active: boolean;
+
     onNavigate: () => void;
 };
 
 /**
- * Render one mobile drawer destination.
+ * Render one mobile navigation destination.
  */
 function MobileNavigationItem({
     item,
@@ -459,7 +511,9 @@ function MobileNavigationItem({
         return (
             <div className="flex items-center gap-3 rounded-[16px] px-3 py-3 opacity-35">
                 <div className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)]">
-                    <Icon size={17} />
+                    <Icon
+                        size={17}
+                    />
                 </div>
 
                 <div>
@@ -468,7 +522,9 @@ function MobileNavigationItem({
                     </p>
 
                     <p className="mt-0.5 text-[11px] text-[var(--ac-text-muted)]">
-                        {item.description}
+                        {
+                            item.description
+                        }
                     </p>
                 </div>
             </div>
@@ -477,7 +533,9 @@ function MobileNavigationItem({
 
     return (
         <Link
-            href={item.href}
+            href={
+                item.href
+            }
             onClick={
                 onNavigate
             }
@@ -496,7 +554,9 @@ function MobileNavigationItem({
                         : 'bg-[var(--ac-bg-soft)]',
                 ].join(' ')}
             >
-                <Icon size={17} />
+                <Icon
+                    size={17}
+                />
             </div>
 
             <div>

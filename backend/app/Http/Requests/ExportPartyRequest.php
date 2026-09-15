@@ -11,8 +11,7 @@ use Illuminate\Validation\Rule;
 class ExportPartyRequest extends FormRequest
 {
     /**
-     * Authorize Party exports through the same read permission used by the
-     * relationship ledger.
+     * Authorize Party exports through the same read permission as the ledger.
      */
     public function authorize(): bool
     {
@@ -23,10 +22,10 @@ class ExportPartyRequest extends FormRequest
     }
 
     /**
-     * Validate only filters that affect the exported dataset.
+     * Validate filters affecting the full exported dataset.
      *
-     * Pagination parameters are intentionally not part of this contract
-     * because exports always contain every matching record.
+     * Pagination is intentionally absent because exports always contain every
+     * matching Party.
      *
      * @return array<string, mixed>
      */
@@ -62,6 +61,16 @@ class ExportPartyRequest extends FormRequest
                 ]),
             ],
 
+            'contact' => [
+                'nullable',
+                Rule::in([
+                    'missing_email',
+                    'missing_phone',
+                    'missing_both',
+                    'complete',
+                ]),
+            ],
+
             'sort' => [
                 'nullable',
                 Rule::in([
@@ -82,13 +91,17 @@ class ExportPartyRequest extends FormRequest
     }
 
     /**
-     * Normalize text-based export filters before validation and querying.
+     * Normalize export filtering values before validation and querying.
      */
     protected function prepareForValidation(): void
     {
         $data = [];
 
-        if ($this->has('search')) {
+        if (
+            $this->has(
+                'search',
+            )
+        ) {
             $search = trim(
                 (string) $this->input(
                     'search',
@@ -106,6 +119,7 @@ class ExportPartyRequest extends FormRequest
                 'type',
                 'role',
                 'status',
+                'contact',
                 'sort',
             ] as $field
         ) {
@@ -125,6 +139,8 @@ class ExportPartyRequest extends FormRequest
             }
         }
 
-        $this->merge($data);
+        $this->merge(
+            $data,
+        );
     }
 }

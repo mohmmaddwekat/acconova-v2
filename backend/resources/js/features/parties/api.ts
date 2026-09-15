@@ -16,6 +16,12 @@ export type PartySort =
     | 'newest'
     | 'oldest';
 
+export type PartyContactQuality =
+    | 'missing_email'
+    | 'missing_phone'
+    | 'missing_both'
+    | 'complete';
+
 export type PartyFilters = {
     search?: string;
 
@@ -24,6 +30,8 @@ export type PartyFilters = {
     type?: PartyType;
 
     status?: PartyLifecycle;
+
+    contact?: PartyContactQuality;
 
     sort?: PartySort;
 
@@ -47,17 +55,29 @@ export type PartyPayload = {
 
     tax_number: string | null;
 
-    address_line_1: string | null;
+    address_line_1:
+        | string
+        | null;
 
-    address_line_2: string | null;
+    address_line_2:
+        | string
+        | null;
 
-    city: string | null;
+    city:
+        | string
+        | null;
 
-    state: string | null;
+    state:
+        | string
+        | null;
 
-    postal_code: string | null;
+    postal_code:
+        | string
+        | null;
 
-    country_code: string | null;
+    country_code:
+        | string
+        | null;
 
     roles: PartyRole[];
 };
@@ -78,9 +98,13 @@ export type PartyImportPreview = {
     sample: Array<{
         row: number;
 
-        name: string | null;
+        name:
+            | string
+            | null;
 
-        email: string | null;
+        email:
+            | string
+            | null;
 
         status:
             | 'create'
@@ -105,8 +129,18 @@ export type PartyImportResult = {
     total: number;
 };
 
+export type PartyBulkAction =
+    | 'archive'
+    | 'restore';
+
+export type PartyBulkResult = {
+    action: PartyBulkAction;
+
+    affected: number;
+};
+
 /**
- * Build the Party query string shared by listing and full-dataset exports.
+ * Build the shared Party query string used by listing and exports.
  */
 export function buildPartyQuery(
     filters: PartyFilters,
@@ -138,6 +172,13 @@ export function buildPartyQuery(
         );
     }
 
+    if (filters.contact) {
+        query.set(
+            'contact',
+            filters.contact,
+        );
+    }
+
     query.set(
         'status',
         filters.status ??
@@ -150,18 +191,14 @@ export function buildPartyQuery(
             'name_asc',
     );
 
-    if (
-        filters.locale
-    ) {
+    if (filters.locale) {
         query.set(
             'locale',
             filters.locale,
         );
     }
 
-    if (
-        includePagination
-    ) {
+    if (includePagination) {
         query.set(
             'page',
             String(
@@ -194,9 +231,7 @@ export async function fetchParties(
 }
 
 /**
- * Build a full-dataset Party export URL.
- *
- * Pagination is intentionally omitted.
+ * Build a full-dataset Party export URL without pagination.
  */
 export function partyExportUrl(
     format:
@@ -216,7 +251,7 @@ export function partyImportTemplateUrl(): string {
 }
 
 /**
- * Preview a Party workbook without writing database records.
+ * Preview a Party workbook without changing database state.
  */
 export async function previewPartyImport(
     file: File,
@@ -245,7 +280,7 @@ export async function previewPartyImport(
 }
 
 /**
- * Commit a previously previewed Party workbook.
+ * Commit one validated Party workbook.
  */
 export async function importPartyWorkbook(
     file: File,
@@ -315,13 +350,39 @@ export async function updateParty(
         }>(
             `/api/parties/${partyId}`,
             {
-                method:
-                    'PATCH',
+                method: 'PATCH',
 
                 body:
                     JSON.stringify(
                         payload,
                     ),
+            },
+        );
+
+    return response.data;
+}
+
+/**
+ * Update one active Party's internal workspace notes.
+ */
+export async function updatePartyNotes(
+    partyId: number,
+    notes: string,
+): Promise<Party> {
+    const response =
+        await apiRequest<{
+            data: Party;
+        }>(
+            `/api/parties/${partyId}/notes`,
+            {
+                method: 'PATCH',
+
+                body:
+                    JSON.stringify({
+                        notes:
+                            notes.trim() ||
+                            null,
+                    }),
             },
         );
 
@@ -355,6 +416,33 @@ export async function restoreParty(
             `/api/parties/${partyId}/restore`,
             {
                 method: 'POST',
+            },
+        );
+
+    return response.data;
+}
+
+/**
+ * Archive or restore multiple selected Parties in one atomic operation.
+ */
+export async function bulkPartyAction(
+    action: PartyBulkAction,
+    partyIds: number[],
+): Promise<PartyBulkResult> {
+    const response =
+        await apiRequest<{
+            data: PartyBulkResult;
+        }>(
+            '/api/parties/bulk',
+            {
+                method: 'POST',
+
+                body:
+                    JSON.stringify({
+                        action,
+                        party_ids:
+                            partyIds,
+                    }),
             },
         );
 

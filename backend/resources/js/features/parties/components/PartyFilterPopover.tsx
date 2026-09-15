@@ -5,7 +5,10 @@ import {
     Check,
     Filter,
     History,
+    MailWarning,
+    PhoneOff,
     RotateCcw,
+    ShieldCheck,
     UserRound,
     X,
 } from 'lucide-react';
@@ -17,6 +20,7 @@ import {
 } from 'react';
 
 import type {
+    PartyContactQuality,
     PartyLifecycle,
     PartySort,
 } from '@/features/parties/api';
@@ -29,6 +33,8 @@ export type PartyFilterState = {
     role?: PartyRole;
 
     type?: PartyType;
+
+    contact?: PartyContactQuality;
 
     status: PartyLifecycle;
 
@@ -44,7 +50,8 @@ type PartyFilterPopoverProps = {
 };
 
 /**
- * Count Party filters that differ from the default active alphabetical view.
+ * Count filters that differ from AccoNova's normal active alphabetical Party
+ * view.
  */
 export function countPartyFilters(
     filters: PartyFilterState,
@@ -56,6 +63,10 @@ export function countPartyFilters(
     }
 
     if (filters.type) {
+        count++;
+    }
+
+    if (filters.contact) {
         count++;
     }
 
@@ -77,10 +88,10 @@ export function countPartyFilters(
 }
 
 /**
- * Render AccoNova's responsive Party filtering surface.
+ * Render responsive Party filtering.
  *
- * Phones use a bottom sheet, tablet and compact laptop widths use a centered
- * dialog, and wide desktop screens use an anchored popover beside the trigger.
+ * Phones use a bottom sheet, medium screens use a centered dialog, and wide
+ * desktop screens use an anchored popover.
  */
 export function PartyFilterPopover({
     value,
@@ -124,9 +135,7 @@ export function PartyFilterPopover({
         }
 
         /**
-         * Close the wide-desktop anchored popover when clicking elsewhere.
-         *
-         * Tablet and mobile modes have their own explicit backdrop.
+         * Close only the wide desktop popover when clicking elsewhere.
          */
         function handlePointerDown(
             event: MouseEvent,
@@ -149,7 +158,7 @@ export function PartyFilterPopover({
         }
 
         /**
-         * Let users close every filter presentation with the Escape key.
+         * Close every filter presentation with Escape.
          */
         function handleKeyDown(
             event: KeyboardEvent,
@@ -188,7 +197,7 @@ export function PartyFilterPopover({
     ]);
 
     /**
-     * Restore the normal Party index filtering defaults.
+     * Restore the normal active Party filtering defaults.
      */
     function reset(): void {
         setDraft({
@@ -198,7 +207,7 @@ export function PartyFilterPopover({
     }
 
     /**
-     * Commit the current draft filters and close the filter surface.
+     * Apply draft filtering to the Party index.
      */
     function apply(): void {
         onChange(
@@ -225,24 +234,19 @@ export function PartyFilterPopover({
                     )
                 }
                 className={[
-                    'relative flex h-11 w-full min-w-0 items-center justify-center gap-2 rounded-[14px] border px-4 text-sm font-semibold transition sm:w-auto',
+                    'relative flex h-11 w-full items-center justify-center gap-2 rounded-[14px] border px-4 text-sm font-semibold transition sm:w-auto',
                     open ||
                     count > 0
                         ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                        : 'border-[var(--ac-line)] bg-white text-[var(--ac-text)] hover:border-[var(--ac-line-strong)] hover:shadow-[var(--ac-shadow-soft)]',
+                        : 'border-[var(--ac-line)] bg-white text-[var(--ac-text)] hover:border-[var(--ac-line-strong)]',
                 ].join(' ')}
             >
-                <Filter
-                    size={15}
-                    className="shrink-0"
-                />
+                <Filter size={15} />
 
-                <span>
-                    Filters
-                </span>
+                Filters
 
                 {count > 0 && (
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--ac-accent-strong)] text-[9px] font-bold text-white">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-[var(--ac-accent-strong)] text-[9px] font-bold text-white">
                         {count}
                     </span>
                 )}
@@ -250,11 +254,6 @@ export function PartyFilterPopover({
 
             {open && (
                 <>
-                    {/*
-                     * Mobile and tablet/compact-laptop modes use a real
-                     * viewport backdrop. Wide desktops intentionally do not,
-                     * because the filter becomes a lightweight anchored popover.
-                     */}
                     <button
                         type="button"
                         aria-label="Close filters"
@@ -266,27 +265,7 @@ export function PartyFilterPopover({
                         className="fixed inset-0 z-[129] bg-[var(--ac-text)]/20 backdrop-blur-[2px] xl:hidden"
                     />
 
-                    <section
-                        className={[
-                            /*
-                             * Mobile:
-                             * bottom sheet spanning the viewport width.
-                             */
-                            'fixed inset-x-0 bottom-0 z-[130] max-h-[88dvh] overflow-hidden rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)]',
-
-                            /*
-                             * Tablet / compact laptop:
-                             * centered dialog so it can never fall off-screen.
-                             */
-                            'sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(560px,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[26px]',
-
-                            /*
-                             * Wide desktop:
-                             * anchored popover beside the Filters button.
-                             */
-                            'xl:absolute xl:left-auto xl:right-0 xl:top-[calc(100%+0.65rem)] xl:w-[440px] xl:max-w-[calc(100vw-2rem)] xl:translate-x-0 xl:translate-y-0 xl:rounded-[22px]',
-                        ].join(' ')}
-                    >
+                    <section className="fixed inset-x-0 bottom-0 z-[130] max-h-[88dvh] overflow-hidden rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)] sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(600px,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[26px] xl:absolute xl:left-auto xl:right-0 xl:top-[calc(100%+0.65rem)] xl:w-[480px] xl:max-w-[calc(100vw-2rem)] xl:translate-x-0 xl:translate-y-0 xl:rounded-[22px]">
                         <header className="flex items-center justify-between border-b border-[var(--ac-line)] px-5 py-4">
                             <div className="flex min-w-0 items-center gap-3">
                                 <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
@@ -314,31 +293,27 @@ export function PartyFilterPopover({
                                         false,
                                     )
                                 }
-                                className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)]"
+                                className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]"
                             >
-                                <X
-                                    size={16}
-                                />
+                                <X size={16} />
                             </button>
                         </header>
 
-                        <div className="max-h-[calc(88dvh-146px)] overflow-y-auto overscroll-contain p-4 sm:max-h-[min(68dvh,650px)] sm:p-5 xl:max-h-[70vh]">
-                            <div className="grid gap-5 sm:gap-6">
+                        <div className="max-h-[calc(88dvh-146px)] overflow-y-auto overscroll-contain p-4 sm:max-h-[min(68dvh,700px)] sm:p-5 xl:max-h-[72vh]">
+                            <div className="grid gap-6">
                                 <FilterSection
                                     title="Relationship"
                                 >
-                                    <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
+                                    <div className="grid gap-2 min-[380px]:grid-cols-3">
                                         <ChoiceButton
                                             active={
                                                 ! draft.role
                                             }
                                             onClick={() =>
-                                                setDraft(
-                                                    {
-                                                        ...draft,
-                                                        role: undefined,
-                                                    },
-                                                )
+                                                setDraft({
+                                                    ...draft,
+                                                    role: undefined,
+                                                })
                                             }
                                         >
                                             Everyone
@@ -350,12 +325,10 @@ export function PartyFilterPopover({
                                                 'customer'
                                             }
                                             onClick={() =>
-                                                setDraft(
-                                                    {
-                                                        ...draft,
-                                                        role: 'customer',
-                                                    },
-                                                )
+                                                setDraft({
+                                                    ...draft,
+                                                    role: 'customer',
+                                                })
                                             }
                                         >
                                             Customers
@@ -367,12 +340,10 @@ export function PartyFilterPopover({
                                                 'supplier'
                                             }
                                             onClick={() =>
-                                                setDraft(
-                                                    {
-                                                        ...draft,
-                                                        role: 'supplier',
-                                                    },
-                                                )
+                                                setDraft({
+                                                    ...draft,
+                                                    role: 'supplier',
+                                                })
                                             }
                                         >
                                             Suppliers
@@ -383,18 +354,16 @@ export function PartyFilterPopover({
                                 <FilterSection
                                     title="Entity type"
                                 >
-                                    <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
+                                    <div className="grid gap-2 min-[380px]:grid-cols-3">
                                         <ChoiceButton
                                             active={
                                                 ! draft.type
                                             }
                                             onClick={() =>
-                                                setDraft(
-                                                    {
-                                                        ...draft,
-                                                        type: undefined,
-                                                    },
-                                                )
+                                                setDraft({
+                                                    ...draft,
+                                                    type: undefined,
+                                                })
                                             }
                                         >
                                             All types
@@ -409,12 +378,10 @@ export function PartyFilterPopover({
                                                 'person'
                                             }
                                             onClick={() =>
-                                                setDraft(
-                                                    {
-                                                        ...draft,
-                                                        type: 'person',
-                                                    },
-                                                )
+                                                setDraft({
+                                                    ...draft,
+                                                    type: 'person',
+                                                })
                                             }
                                         >
                                             People
@@ -429,12 +396,10 @@ export function PartyFilterPopover({
                                                 'company'
                                             }
                                             onClick={() =>
-                                                setDraft(
-                                                    {
-                                                        ...draft,
-                                                        type: 'company',
-                                                    },
-                                                )
+                                                setDraft({
+                                                    ...draft,
+                                                    type: 'company',
+                                                })
                                             }
                                         >
                                             Companies
@@ -442,7 +407,96 @@ export function PartyFilterPopover({
                                     </div>
                                 </FilterSection>
 
-                                <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+                                <FilterSection
+                                    title="Contact quality"
+                                >
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        <ChoiceButton
+                                            active={
+                                                ! draft.contact
+                                            }
+                                            onClick={() =>
+                                                setDraft({
+                                                    ...draft,
+                                                    contact: undefined,
+                                                })
+                                            }
+                                        >
+                                            Any quality
+                                        </ChoiceButton>
+
+                                        <ChoiceButton
+                                            icon={
+                                                ShieldCheck
+                                            }
+                                            active={
+                                                draft.contact ===
+                                                'complete'
+                                            }
+                                            onClick={() =>
+                                                setDraft({
+                                                    ...draft,
+                                                    contact: 'complete',
+                                                })
+                                            }
+                                        >
+                                            Complete contact
+                                        </ChoiceButton>
+
+                                        <ChoiceButton
+                                            icon={
+                                                MailWarning
+                                            }
+                                            active={
+                                                draft.contact ===
+                                                'missing_email'
+                                            }
+                                            onClick={() =>
+                                                setDraft({
+                                                    ...draft,
+                                                    contact: 'missing_email',
+                                                })
+                                            }
+                                        >
+                                            Missing email
+                                        </ChoiceButton>
+
+                                        <ChoiceButton
+                                            icon={
+                                                PhoneOff
+                                            }
+                                            active={
+                                                draft.contact ===
+                                                'missing_phone'
+                                            }
+                                            onClick={() =>
+                                                setDraft({
+                                                    ...draft,
+                                                    contact: 'missing_phone',
+                                                })
+                                            }
+                                        >
+                                            Missing phone
+                                        </ChoiceButton>
+
+                                        <ChoiceButton
+                                            active={
+                                                draft.contact ===
+                                                'missing_both'
+                                            }
+                                            onClick={() =>
+                                                setDraft({
+                                                    ...draft,
+                                                    contact: 'missing_both',
+                                                })
+                                            }
+                                        >
+                                            Missing both
+                                        </ChoiceButton>
+                                    </div>
+                                </FilterSection>
+
+                                <div className="grid gap-6 sm:grid-cols-2">
                                     <FilterSection
                                         title="Lifecycle"
                                     >
@@ -453,12 +507,10 @@ export function PartyFilterPopover({
                                                     'active'
                                                 }
                                                 onClick={() =>
-                                                    setDraft(
-                                                        {
-                                                            ...draft,
-                                                            status: 'active',
-                                                        },
-                                                    )
+                                                    setDraft({
+                                                        ...draft,
+                                                        status: 'active',
+                                                    })
                                                 }
                                             >
                                                 Active
@@ -473,12 +525,10 @@ export function PartyFilterPopover({
                                                     'deleted'
                                                 }
                                                 onClick={() =>
-                                                    setDraft(
-                                                        {
-                                                            ...draft,
-                                                            status: 'deleted',
-                                                        },
-                                                    )
+                                                    setDraft({
+                                                        ...draft,
+                                                        status: 'deleted',
+                                                    })
                                                 }
                                             >
                                                 Archived
@@ -499,12 +549,10 @@ export function PartyFilterPopover({
                                                     'name_asc'
                                                 }
                                                 onClick={() =>
-                                                    setDraft(
-                                                        {
-                                                            ...draft,
-                                                            sort: 'name_asc',
-                                                        },
-                                                    )
+                                                    setDraft({
+                                                        ...draft,
+                                                        sort: 'name_asc',
+                                                    })
                                                 }
                                             >
                                                 Name A–Z
@@ -519,12 +567,10 @@ export function PartyFilterPopover({
                                                     'name_desc'
                                                 }
                                                 onClick={() =>
-                                                    setDraft(
-                                                        {
-                                                            ...draft,
-                                                            sort: 'name_desc',
-                                                        },
-                                                    )
+                                                    setDraft({
+                                                        ...draft,
+                                                        sort: 'name_desc',
+                                                    })
                                                 }
                                             >
                                                 Name Z–A
@@ -536,12 +582,10 @@ export function PartyFilterPopover({
                                                     'newest'
                                                 }
                                                 onClick={() =>
-                                                    setDraft(
-                                                        {
-                                                            ...draft,
-                                                            sort: 'newest',
-                                                        },
-                                                    )
+                                                    setDraft({
+                                                        ...draft,
+                                                        sort: 'newest',
+                                                    })
                                                 }
                                             >
                                                 Newest
@@ -553,12 +597,10 @@ export function PartyFilterPopover({
                                                     'oldest'
                                                 }
                                                 onClick={() =>
-                                                    setDraft(
-                                                        {
-                                                            ...draft,
-                                                            sort: 'oldest',
-                                                        },
-                                                    )
+                                                    setDraft({
+                                                        ...draft,
+                                                        sort: 'oldest',
+                                                    })
                                                 }
                                             >
                                                 Oldest
@@ -581,16 +623,13 @@ export function PartyFilterPopover({
                                 onClick={
                                     reset
                                 }
-                                className="flex h-11 min-w-0 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-3 text-sm font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-line-strong)]"
+                                className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-3 text-sm font-semibold text-[var(--ac-text-soft)]"
                             >
                                 <RotateCcw
                                     size={14}
-                                    className="shrink-0"
                                 />
 
-                                <span className="truncate">
-                                    Reset
-                                </span>
+                                Reset
                             </button>
 
                             <button
@@ -598,16 +637,13 @@ export function PartyFilterPopover({
                                 onClick={
                                     apply
                                 }
-                                className="flex h-11 min-w-0 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-3 text-sm font-semibold text-white shadow-[var(--ac-shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-panel)]"
+                                className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-3 text-sm font-semibold text-white"
                             >
                                 <Check
                                     size={14}
-                                    className="shrink-0"
                                 />
 
-                                <span className="truncate">
-                                    Apply filters
-                                </span>
+                                Apply filters
                             </button>
                         </footer>
                     </section>
@@ -624,7 +660,7 @@ type FilterSectionProps = {
 };
 
 /**
- * Render one clearly separated filter category.
+ * Render one Party filtering dimension.
  */
 function FilterSection({
     title,
@@ -652,7 +688,7 @@ type ChoiceButtonProps = {
 };
 
 /**
- * Render one responsive filter choice with a clear selected state.
+ * Render one responsive filter choice.
  */
 function ChoiceButton({
     active,
@@ -670,7 +706,7 @@ function ChoiceButton({
                 'flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-[12px] border px-2.5 py-2 text-[11px] font-semibold transition',
                 active
                     ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                    : 'border-[var(--ac-line)] bg-white text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-bg-soft)]',
+                    : 'border-[var(--ac-line)] bg-white text-[var(--ac-text-soft)] hover:bg-[var(--ac-bg-soft)]',
             ].join(' ')}
         >
             {Icon && (

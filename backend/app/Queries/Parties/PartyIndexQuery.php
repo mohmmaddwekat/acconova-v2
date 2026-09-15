@@ -11,16 +11,16 @@ use Illuminate\Support\Str;
 class PartyIndexQuery
 {
     /**
-     * Build the shared tenant-scoped Party query used by index screens,
-     * printing, spreadsheets, and PDFs.
+     * Build the shared tenant-scoped Party query used by indexes and exports.
      *
      * @param  array<string, mixed>  $filters
      */
     public function query(
         array $filters,
     ): Builder {
-        $query = Party::query()
-            ->with('roles');
+        $query =
+            Party::query()
+                ->with('roles');
 
         $this->applyLifecycle(
             $query,
@@ -42,6 +42,11 @@ class PartyIndexQuery
             $filters,
         );
 
+        $this->applyContactQuality(
+            $query,
+            $filters,
+        );
+
         $this->applySort(
             $query,
             $filters,
@@ -51,28 +56,28 @@ class PartyIndexQuery
     }
 
     /**
-     * Return one paginated Party page for the interactive index.
+     * Return one paginated Party page.
      *
      * @param  array<string, mixed>  $filters
      */
     public function execute(
         array $filters,
     ): LengthAwarePaginator {
-        return $this->query(
-            $filters,
-        )->paginate(
-            perPage: (int) (
-                $filters['per_page']
-                ?? 25
-            ),
-        );
+        return $this
+            ->query(
+                $filters,
+            )
+            ->paginate(
+                perPage: (int) (
+                    $filters[
+                        'per_page'
+                    ] ?? 25
+                ),
+            );
     }
 
     /**
-     * Return every matching Party without pagination.
-     *
-     * Exports intentionally use this method so Excel, PDF, and Print always
-     * contain the complete filtered dataset rather than the current page.
+     * Return every matching Party without pagination for exports.
      *
      * @param  array<string, mixed>  $filters
      * @return Collection<int, Party>
@@ -80,9 +85,11 @@ class PartyIndexQuery
     public function all(
         array $filters,
     ): Collection {
-        return $this->query(
-            $filters,
-        )->get();
+        return $this
+            ->query(
+                $filters,
+            )
+            ->get();
     }
 
     /**
@@ -95,11 +102,12 @@ class PartyIndexQuery
         array $filters,
     ): void {
         $status =
-            $filters['status']
-            ?? 'active';
+            $filters['status'] ??
+            'active';
 
         if (
-            $status === 'deleted'
+            $status ===
+            'deleted'
         ) {
             $query->onlyTrashed();
 
@@ -107,7 +115,8 @@ class PartyIndexQuery
         }
 
         if (
-            $status === 'all'
+            $status ===
+            'all'
         ) {
             $query->withTrashed();
         }
@@ -116,8 +125,7 @@ class PartyIndexQuery
     /**
      * Apply tokenized multi-field search.
      *
-     * Every entered search word must match at least one searchable field,
-     * allowing searches such as "ahmad nablus" or "acme supplier@email.com".
+     * Each entered word must match at least one searchable Party field.
      *
      * @param  array<string, mixed>  $filters
      */
@@ -133,24 +141,28 @@ class PartyIndexQuery
             return;
         }
 
-        $search = Str::squish(
-            (string) $filters['search'],
-        );
+        $search =
+            Str::squish(
+                (string) $filters[
+                    'search'
+                ],
+            );
 
-        $terms = preg_split(
-            '/\s+/u',
-            $search,
-            -1,
-            PREG_SPLIT_NO_EMPTY,
-        ) ?: [];
+        $terms =
+            preg_split(
+                '/\s+/u',
+                $search,
+                -1,
+                PREG_SPLIT_NO_EMPTY,
+            ) ?: [];
 
         foreach (
             $terms as $term
         ) {
             $query->where(
                 /**
-                 * Each search token may match any useful Party identity or
-                 * contact field while all tokens remain required overall.
+                 * One token may match any useful Party identity or contact
+                 * field while all tokens remain required overall.
                  */
                 function (
                     Builder $query,
@@ -249,7 +261,7 @@ class PartyIndexQuery
         $query->whereHas(
             'roles',
             /**
-             * Match the requested business relationship role.
+             * Match one requested business relationship role.
              */
             function (
                 Builder $query,
@@ -258,14 +270,143 @@ class PartyIndexQuery
             ): void {
                 $query->where(
                     'role',
-                    $filters['role'],
+                    $filters['role']
                 );
             },
         );
     }
 
     /**
-     * Apply a portable deterministic Party ordering.
+     * Filter records by contact-data completeness.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyContactQuality(
+        Builder $query,
+        array $filters,
+    ): void {
+        $contact =
+            $filters['contact'] ??
+            null;
+
+        if (
+            $contact ===
+            null
+        ) {
+            return;
+        }
+
+        if (
+            $contact ===
+            'missing_email'
+        ) {
+            $query->where(
+                /**
+                 * Treat both null and empty email values as missing.
+                 */
+                fn (
+                    Builder $query,
+                ): Builder => $query
+                    ->whereNull(
+                        'email',
+                    )
+                    ->orWhere(
+                        'email',
+                        '',
+                    ),
+            );
+
+            return;
+        }
+
+        if (
+            $contact ===
+            'missing_phone'
+        ) {
+            $query->where(
+                /**
+                 * Treat both null and empty phone values as missing.
+                 */
+                fn (
+                    Builder $query,
+                ): Builder => $query
+                    ->whereNull(
+                        'phone',
+                    )
+                    ->orWhere(
+                        'phone',
+                        '',
+                    ),
+            );
+
+            return;
+        }
+
+        if (
+            $contact ===
+            'missing_both'
+        ) {
+            $query
+                ->where(
+                    /**
+                     * Require email to be missing.
+                     */
+                    fn (
+                        Builder $query,
+                    ): Builder => $query
+                        ->whereNull(
+                            'email',
+                        )
+                        ->orWhere(
+                            'email',
+                            '',
+                        ),
+                )
+                ->where(
+                    /**
+                     * Require phone to be missing.
+                     */
+                    fn (
+                        Builder $query,
+                    ): Builder => $query
+                        ->whereNull(
+                            'phone',
+                        )
+                        ->orWhere(
+                            'phone',
+                            '',
+                        ),
+                );
+
+            return;
+        }
+
+        if (
+            $contact ===
+            'complete'
+        ) {
+            $query
+                ->whereNotNull(
+                    'email',
+                )
+                ->where(
+                    'email',
+                    '<>',
+                    '',
+                )
+                ->whereNotNull(
+                    'phone',
+                )
+                ->where(
+                    'phone',
+                    '<>',
+                    '',
+                );
+        }
+    }
+
+    /**
+     * Apply a deterministic portable Party ordering.
      *
      * @param  array<string, mixed>  $filters
      */
@@ -274,33 +415,41 @@ class PartyIndexQuery
         array $filters,
     ): void {
         $sort =
-            $filters['sort']
-            ?? 'name_asc';
+            $filters['sort'] ??
+            'name_asc';
 
         match ($sort) {
             'name_desc' => $query
                 ->orderByRaw(
                     'COALESCE(company_name, name) DESC',
                 )
-                ->orderByDesc('id'),
+                ->orderByDesc(
+                    'id',
+                ),
 
             'newest' => $query
                 ->orderByDesc(
                     'created_at',
                 )
-                ->orderByDesc('id'),
+                ->orderByDesc(
+                    'id',
+                ),
 
             'oldest' => $query
                 ->orderBy(
                     'created_at',
                 )
-                ->orderBy('id'),
+                ->orderBy(
+                    'id',
+                ),
 
             default => $query
                 ->orderByRaw(
                     'COALESCE(company_name, name) ASC',
                 )
-                ->orderBy('id'),
+                ->orderBy(
+                    'id',
+                ),
         };
     }
 }

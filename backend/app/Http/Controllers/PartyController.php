@@ -11,6 +11,7 @@ use App\Http\Requests\IndexPartyRequest;
 use App\Http\Requests\RestorePartyRequest;
 use App\Http\Requests\ShowPartyRequest;
 use App\Http\Requests\StorePartyRequest;
+use App\Http\Requests\UpdatePartyNotesRequest;
 use App\Http\Requests\UpdatePartyRequest;
 use App\Http\Resources\PartyResource;
 use App\Queries\Parties\PartyIndexQuery;
@@ -40,28 +41,34 @@ class PartyController extends Controller
     public function show(
         ShowPartyRequest $request,
     ): JsonResponse {
-        return (new PartyResource(
-            $request->party(),
-        ))->response();
+        return (
+            new PartyResource(
+                $request->party(),
+            )
+        )->response();
     }
 
     /**
      * Create a new Party for the current organization.
-     *
-     * Validation and authorization are handled by StorePartyRequest while
-     * CreateParty owns the transactional business operation.
      */
     public function store(
         StorePartyRequest $request,
         CreateParty $createParty,
     ): JsonResponse {
-        $party = $createParty->execute(
-            $request->validated(),
-        );
+        $party =
+            $createParty->execute(
+                $request->validated(),
+            );
 
-        return (new PartyResource($party))
+        return (
+            new PartyResource(
+                $party,
+            )
+        )
             ->response()
-            ->setStatusCode(201);
+            ->setStatusCode(
+                201,
+            );
     }
 
     /**
@@ -71,13 +78,38 @@ class PartyController extends Controller
         UpdatePartyRequest $request,
         UpdateParty $updateParty,
     ): JsonResponse {
-        $party = $updateParty->execute(
-            $request->party(),
-            $request->validated(),
-        );
+        $party =
+            $updateParty->execute(
+                $request->party(),
+                $request->validated(),
+            );
 
-        return (new PartyResource($party))
-            ->response();
+        return (
+            new PartyResource(
+                $party,
+            )
+        )->response();
+    }
+
+    /**
+     * Update internal Party notes using the normal Party update action so the
+     * standard PartyUpdated domain event remains consistent.
+     */
+    public function updateNotes(
+        UpdatePartyNotesRequest $request,
+        UpdateParty $updateParty,
+    ): JsonResponse {
+        $party =
+            $updateParty->execute(
+                $request->party(),
+                $request->validated(),
+            );
+
+        return (
+            new PartyResource(
+                $party,
+            )
+        )->response();
     }
 
     /**
@@ -91,21 +123,26 @@ class PartyController extends Controller
             $request->party(),
         );
 
-        return response()->noContent();
+        return response()
+            ->noContent();
     }
 
     /**
-     * Restore a previously soft-deleted Party inside the current tenant.
+     * Restore a previously archived Party inside the current tenant.
      */
     public function restore(
         RestorePartyRequest $request,
         RestoreParty $restoreParty,
     ): JsonResponse {
-        $party = $restoreParty->execute(
-            $request->party(),
-        );
+        $party =
+            $restoreParty->execute(
+                $request->party(),
+            );
 
-        return (new PartyResource($party))
-            ->response();
+        return (
+            new PartyResource(
+                $party,
+            )
+        )->response();
     }
 }

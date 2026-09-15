@@ -14,18 +14,21 @@ import {
     useState,
 } from 'react';
 
+import { DataPagination } from '@/components/data/DataPagination';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import {
     FeedbackToast,
     type FeedbackTone,
 } from '@/components/feedback/FeedbackToast';
-import { DataPagination } from '@/components/data/DataPagination';
 import {
     archiveParty,
+    bulkPartyAction,
     fetchParties,
     restoreParty,
+    type PartyBulkAction,
     type PartyFilters,
 } from '@/features/parties/api';
+import { PartyBulkActionBar } from '@/features/parties/components/PartyBulkActionBar';
 import { PartyDataActions } from '@/features/parties/components/PartyDataActions';
 import { PartyDetailDrawer } from '@/features/parties/components/PartyDetailDrawer';
 import { PartyEditorDrawer } from '@/features/parties/components/PartyEditorDrawer';
@@ -58,6 +61,12 @@ type PendingAction = {
     party: Party;
 };
 
+type PendingBulkAction = {
+    action: PartyBulkAction;
+
+    ids: number[];
+};
+
 type ToastState = {
     message: string;
 
@@ -65,7 +74,7 @@ type ToastState = {
 };
 
 /**
- * Resolve the current document language for exports without assuming English.
+ * Resolve the document language used by exports.
  */
 function currentLocale(): string {
     if (
@@ -82,11 +91,11 @@ function currentLocale(): string {
 }
 
 /**
- * Render AccoNova's complete relationship index workspace.
+ * Render the complete AccoNova Party operating workspace.
  *
- * Search is debounced, filters live in a responsive popover, pagination is
- * server-side, exports include every filtered row, and spreadsheet imports
- * support preview and duplicate handling.
+ * This index combines responsive pagination, live search, advanced filters,
+ * full-dataset export, bulk import, Party details, internal notes, and atomic
+ * multi-record archive or restore operations.
  */
 export default function PartiesIndex() {
     const {
@@ -149,6 +158,14 @@ export default function PartiesIndex() {
         useState(25);
 
     const [
+        selectedIds,
+        setSelectedIds,
+    ] =
+        useState<Set<number>>(
+            new Set(),
+        );
+
+    const [
         editorOpen,
         setEditorOpen,
     ] = useState(false);
@@ -178,6 +195,14 @@ export default function PartiesIndex() {
         );
 
     const [
+        pendingBulk,
+        setPendingBulk,
+    ] =
+        useState<PendingBulkAction | null>(
+            null,
+        );
+
+    const [
         actionBusy,
         setActionBusy,
     ] = useState(false);
@@ -195,28 +220,35 @@ export default function PartiesIndex() {
             null,
         );
 
-    /**
-     * Build the complete Party list/export filter contract.
-     */
     const partyFilters:
         PartyFilters = {
         search,
+
         role:
             filters.role,
+
         type:
             filters.type,
+
+        contact:
+            filters.contact,
+
         status:
             filters.status,
+
         sort:
             filters.sort,
+
         page,
+
         perPage,
+
         locale:
             currentLocale(),
     };
 
     /**
-     * Load one Party page from the active tenant.
+     * Load the current Party page from Laravel.
      */
     const loadParties =
         useCallback(
@@ -258,6 +290,7 @@ export default function PartiesIndex() {
             },
             [
                 activeOrganization,
+                filters.contact,
                 filters.role,
                 filters.sort,
                 filters.status,
@@ -306,6 +339,22 @@ export default function PartiesIndex() {
     ]);
 
     useEffect(() => {
+        /*
+         * Selection intentionally belongs to one visible view. Changing
+         * search, filtering, page, or page size clears it so hidden records
+         * are never modified accidentally.
+         */
+        setSelectedIds(
+            new Set(),
+        );
+    }, [
+        filters,
+        page,
+        perPage,
+        search,
+    ]);
+
+    useEffect(() => {
         if (! toast) {
             return;
         }
@@ -341,7 +390,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Reset the live search immediately.
+     * Reset the live Party search.
      */
     function clearSearch(): void {
         setDraftSearch('');
@@ -350,7 +399,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Apply popup filters and restart pagination.
+     * Apply advanced Party filters.
      */
     function applyFilters(
         nextFilters: PartyFilterState,
@@ -363,7 +412,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Change page size and return to the first page.
+     * Change page size and return to page one.
      */
     function changePerPage(
         nextPerPage: number,
@@ -398,7 +447,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Open one Party context surface.
+     * Open the Party context surface.
      */
     function openDetail(
         party: Party,
@@ -409,7 +458,120 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Ask for confirmation before archiving a Party.
+     * Reflect an inline Party detail update and refresh the list data.
+     */
+    function handlePartyChanged(
+        party: Party,
+    ): void {
+        setDetailParty(
+            party,
+        );
+
+        void loadParties();
+    }
+
+    /**
+     * Toggle one Party selection.
+     */
+    function handleSelectionChange(
+        party: Party,
+        selected: boolean,
+    ): void {
+        setSelectedIds(
+            (
+                current,
+            ) => {
+                const next =
+                    new Set(
+                        current,
+                    );
+
+                if (selected) {
+                    next.add(
+                        party.id,
+                    );
+                } else {
+                    next.delete(
+                        party.id,
+                    );
+                }
+
+                return next;
+            },
+        );
+    }
+
+    const parties =
+        response?.data ?? [];
+
+    const total =
+        response?.meta.total ??
+        0;
+
+    const currentPage =
+        response?.meta
+            .current_page ?? 1;
+
+    const lastPage =
+        response?.meta
+            .last_page ?? 1;
+
+    const selectedCount =
+        selectedIds.size;
+
+    const allPageSelected =
+        parties.length > 0 &&
+        parties.every(
+            (
+                party,
+            ) =>
+                selectedIds.has(
+                    party.id,
+                ),
+        );
+
+    /**
+     * Select or unselect every record on the currently visible page.
+     */
+    function toggleCurrentPageSelection(): void {
+        setSelectedIds(
+            (
+                current,
+            ) => {
+                const next =
+                    new Set(
+                        current,
+                    );
+
+                if (
+                    allPageSelected
+                ) {
+                    parties.forEach(
+                        (
+                            party,
+                        ) =>
+                            next.delete(
+                                party.id,
+                            ),
+                    );
+                } else {
+                    parties.forEach(
+                        (
+                            party,
+                        ) =>
+                            next.add(
+                                party.id,
+                            ),
+                    );
+                }
+
+                return next;
+            },
+        );
+    }
+
+    /**
+     * Ask for confirmation before archiving one Party.
      */
     function requestArchive(
         party: Party,
@@ -421,7 +583,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Ask for confirmation before restoring a Party.
+     * Ask for confirmation before restoring one Party.
      */
     function requestRestore(
         party: Party,
@@ -433,7 +595,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Execute the confirmed archive or restore action.
+     * Execute one confirmed Party lifecycle action.
      */
     async function confirmPendingAction(): Promise<void> {
         if (
@@ -488,19 +650,79 @@ export default function PartiesIndex() {
         }
     }
 
-    const parties =
-        response?.data ?? [];
+    /**
+     * Open bulk-action confirmation for all selected visible records.
+     */
+    function requestBulkAction(): void {
+        if (
+            selectedIds.size ===
+            0
+        ) {
+            return;
+        }
 
-    const total =
-        response?.meta.total ?? 0;
+        setPendingBulk({
+            action:
+                filters.status ===
+                'deleted'
+                    ? 'restore'
+                    : 'archive',
 
-    const currentPage =
-        response?.meta
-            .current_page ?? 1;
+            ids:
+                Array.from(
+                    selectedIds,
+                ),
+        });
+    }
 
-    const lastPage =
-        response?.meta
-            .last_page ?? 1;
+    /**
+     * Execute one confirmed bulk Party action.
+     */
+    async function confirmBulkAction(): Promise<void> {
+        if (
+            ! pendingBulk ||
+            actionBusy
+        ) {
+            return;
+        }
+
+        setActionBusy(true);
+
+        try {
+            const result =
+                await bulkPartyAction(
+                    pendingBulk.action,
+                    pendingBulk.ids,
+                );
+
+            showToast(
+                pendingBulk.action ===
+                'restore'
+                    ? `${result.affected} relationships restored.`
+                    : `${result.affected} relationships archived.`,
+            );
+
+            setSelectedIds(
+                new Set(),
+            );
+
+            setPendingBulk(null);
+
+            await loadParties();
+        } catch (exception) {
+            showToast(
+                exception instanceof
+                ApiError
+                    ? exception.message
+                    : 'AccoNova could not complete the bulk action.',
+                'error',
+            );
+        } finally {
+            setActionBusy(
+                false,
+            );
+        }
+    }
 
     const activeFilterCount =
         countPartyFilters(
@@ -508,11 +730,12 @@ export default function PartiesIndex() {
         );
 
     const pendingLabel =
-        pendingAction?.party.type ===
-        'company'
+        pendingAction?.party
+            .type === 'company'
             ? pendingAction.party
                   .company_name
-            : pendingAction?.party.name;
+            : pendingAction?.party
+                  .name;
 
     return (
         <AppShell>
@@ -540,11 +763,10 @@ export default function PartiesIndex() {
 
                         <p className="mt-4 max-w-[650px] text-[13px] leading-5 text-[var(--ac-text-soft)] sm:text-sm sm:leading-6">
                             Search, filter, import,
-                            export, and maintain
-                            every customer and
-                            supplier from one
-                            reusable business
-                            identity.
+                            export, maintain notes,
+                            and manage customers and
+                            suppliers from one
+                            reusable identity.
                         </p>
                     </div>
 
@@ -608,9 +830,11 @@ export default function PartiesIndex() {
                                             onClick={
                                                 clearSearch
                                             }
-                                            className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)] transition hover:bg-white"
+                                            className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)]"
                                         >
-                                            <X size={14} />
+                                            <X
+                                                size={14}
+                                            />
                                         </button>
                                     )}
                                 </div>
@@ -646,9 +870,11 @@ export default function PartiesIndex() {
                                         onClick={
                                             openCreate
                                         }
-                                        className="flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white shadow-[var(--ac-shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-panel)] xl:w-auto"
+                                        className="flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white shadow-[var(--ac-shadow-soft)] transition hover:-translate-y-0.5 xl:w-auto"
                                     >
-                                        <Plus size={16} />
+                                        <Plus
+                                            size={16}
+                                        />
 
                                         New relationship
                                     </button>
@@ -723,11 +949,10 @@ export default function PartiesIndex() {
                                 </h2>
 
                                 <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ac-text-soft)]">
-                                    Clear the search or
+                                    Clear the search,
                                     adjust the filters,
-                                    or import your
-                                    existing business
-                                    data in bulk.
+                                    or import existing
+                                    business data.
                                 </p>
                             </div>
                         ) : (
@@ -743,11 +968,20 @@ export default function PartiesIndex() {
                                             party={
                                                 party
                                             }
+                                            selected={selectedIds.has(
+                                                party.id,
+                                            )}
+                                            selectable={
+                                                allowArchive
+                                            }
                                             canEdit={
                                                 allowEdit
                                             }
                                             canArchive={
                                                 allowArchive
+                                            }
+                                            onSelectionChange={
+                                                handleSelectionChange
                                             }
                                             onView={
                                                 openDetail
@@ -812,6 +1046,9 @@ export default function PartiesIndex() {
                             null,
                         )
                     }
+                    onChanged={
+                        handlePartyChanged
+                    }
                     onEdit={
                         openEdit
                     }
@@ -872,6 +1109,32 @@ export default function PartiesIndex() {
                     }}
                 />
 
+                <PartyBulkActionBar
+                    selectedCount={
+                        selectedCount
+                    }
+                    action={
+                        filters.status ===
+                        'deleted'
+                            ? 'restore'
+                            : 'archive'
+                    }
+                    allPageSelected={
+                        allPageSelected
+                    }
+                    onTogglePage={
+                        toggleCurrentPageSelection
+                    }
+                    onClear={() =>
+                        setSelectedIds(
+                            new Set(),
+                        )
+                    }
+                    onAction={
+                        requestBulkAction
+                    }
+                />
+
                 <ConfirmDialog
                     open={
                         pendingAction !==
@@ -889,7 +1152,7 @@ export default function PartiesIndex() {
                             ?.kind ===
                         'restore'
                             ? `${pendingLabel ?? 'This relationship'} will return to the active ledger.`
-                            : `${pendingLabel ?? 'This relationship'} will leave the active ledger while historical data remains preserved.`
+                            : `${pendingLabel ?? 'This relationship'} will become unavailable for new business while its historical data remains preserved.`
                     }
                     confirmLabel={
                         pendingAction
@@ -919,6 +1182,56 @@ export default function PartiesIndex() {
                     }}
                     onConfirm={() =>
                         void confirmPendingAction()
+                    }
+                />
+
+                <ConfirmDialog
+                    open={
+                        pendingBulk !==
+                        null
+                    }
+                    title={
+                        pendingBulk
+                            ?.action ===
+                        'restore'
+                            ? 'Restore selected relationships?'
+                            : 'Archive selected relationships?'
+                    }
+                    description={
+                        pendingBulk
+                            ?.action ===
+                        'restore'
+                            ? `${pendingBulk.ids.length} selected relationships will return to active business use.`
+                            : `${pendingBulk?.ids.length ?? 0} selected relationships will become unavailable for new business while their history remains preserved.`
+                    }
+                    confirmLabel={
+                        pendingBulk
+                            ?.action ===
+                        'restore'
+                            ? 'Restore selected'
+                            : 'Archive selected'
+                    }
+                    tone={
+                        pendingBulk
+                            ?.action ===
+                        'restore'
+                            ? 'positive'
+                            : 'danger'
+                    }
+                    busy={
+                        actionBusy
+                    }
+                    onCancel={() => {
+                        if (
+                            ! actionBusy
+                        ) {
+                            setPendingBulk(
+                                null,
+                            );
+                        }
+                    }}
+                    onConfirm={() =>
+                        void confirmBulkAction()
                     }
                 />
 

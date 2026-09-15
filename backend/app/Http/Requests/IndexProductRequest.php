@@ -2,27 +2,26 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\PartyRole;
-use App\Enums\PartyType;
-use App\Models\Party;
+use App\Enums\ProductType;
+use App\Models\Product;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class IndexPartyRequest extends FormRequest
+class IndexProductRequest extends FormRequest
 {
     /**
-     * Authorize Party listing through PartyPolicy.
+     * Authorize catalog listing through ProductPolicy.
      */
     public function authorize(): bool
     {
         return $this->user()?->can(
             'viewAny',
-            Party::class,
+            Product::class,
         ) ?? false;
     }
 
     /**
-     * Validate the Party index filtering and pagination contract.
+     * Validate Product catalog filters and pagination.
      *
      * @return array<string, mixed>
      */
@@ -38,14 +37,7 @@ class IndexPartyRequest extends FormRequest
             'type' => [
                 'nullable',
                 Rule::enum(
-                    PartyType::class,
-                ),
-            ],
-
-            'role' => [
-                'nullable',
-                Rule::enum(
-                    PartyRole::class,
+                    ProductType::class,
                 ),
             ],
 
@@ -54,17 +46,15 @@ class IndexPartyRequest extends FormRequest
                 Rule::in([
                     'active',
                     'deleted',
-                    'all',
                 ]),
             ],
 
-            'contact' => [
+            'quality' => [
                 'nullable',
                 Rule::in([
-                    'missing_email',
-                    'missing_phone',
-                    'missing_both',
-                    'complete',
+                    'missing_sku',
+                    'zero_price',
+                    'missing_cost',
                 ]),
             ],
 
@@ -73,9 +63,17 @@ class IndexPartyRequest extends FormRequest
                 Rule::in([
                     'name_asc',
                     'name_desc',
+                    'price_low',
+                    'price_high',
                     'newest',
                     'oldest',
                 ]),
+            ],
+
+            'page' => [
+                'sometimes',
+                'integer',
+                'min:1',
             ],
 
             'per_page' => [
@@ -87,24 +85,11 @@ class IndexPartyRequest extends FormRequest
                     100,
                 ]),
             ],
-
-            'page' => [
-                'sometimes',
-                'integer',
-                'min:1',
-            ],
-
-            'locale' => [
-                'nullable',
-                'string',
-                'max:10',
-                'regex:/^[A-Za-z]{2,3}(?:[-_][A-Za-z]{2})?$/',
-            ],
         ];
     }
 
     /**
-     * Normalize user-entered filtering values before querying.
+     * Normalize filter strings before validation.
      */
     protected function prepareForValidation(): void
     {
@@ -115,11 +100,12 @@ class IndexPartyRequest extends FormRequest
                 'search',
             )
         ) {
-            $search = trim(
-                (string) $this->input(
-                    'search',
-                ),
-            );
+            $search =
+                trim(
+                    (string) $this->input(
+                        'search',
+                    ),
+                );
 
             $data['search'] =
                 $search === ''
@@ -130,9 +116,8 @@ class IndexPartyRequest extends FormRequest
         foreach (
             [
                 'type',
-                'role',
                 'status',
-                'contact',
+                'quality',
                 'sort',
             ] as $field
         ) {

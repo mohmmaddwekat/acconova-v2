@@ -32,6 +32,7 @@ class Party extends Model
         'state',
         'postal_code',
         'country_code',
+        'notes',
     ];
 
     /**
@@ -47,7 +48,7 @@ class Party extends Model
     }
 
     /**
-     * Return customer/supplier roles belonging to this Party.
+     * Return customer and supplier roles attached to this Party.
      */
     public function roles(): HasMany
     {
@@ -59,9 +60,9 @@ class Party extends Model
     /**
      * Restrict a Party query to records that may participate in new business.
      *
-     * Archived Parties remain available for historical reporting and existing
-     * documents but must never be selectable for new quotes, invoices,
-     * payments, or other future business operations.
+     * Archived Parties remain available for historical documents and reports
+     * but cannot be selected for new invoices, quotes, payments, or similar
+     * business operations.
      */
     public function scopeUsableForNewBusiness(
         Builder $query,
@@ -72,10 +73,7 @@ class Party extends Model
     }
 
     /**
-     * Determine whether this Party may be used by a new business transaction.
-     *
-     * Historical documents can continue referencing archived records while
-     * new business must require this method to return true.
+     * Determine whether this Party may participate in a new transaction.
      */
     public function isUsableForNewBusiness(): bool
     {

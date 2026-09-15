@@ -5,30 +5,43 @@ import {
     Edit3,
     Mail,
     MapPin,
+    NotebookPen,
     Phone,
     RotateCcw,
+    Save,
     ShieldCheck,
     UserRound,
     X,
 } from 'lucide-react';
 import {
     useEffect,
+    useState,
 } from 'react';
 
+import {
+    updatePartyNotes,
+} from '@/features/parties/api';
 import type {
     Party,
 } from '@/features/parties/types';
+import { ApiError } from '@/lib/http';
 
 type PartyDetailDrawerProps = {
     open: boolean;
 
-    party: Party | null;
+    party:
+        | Party
+        | null;
 
     canEdit: boolean;
 
     canArchive: boolean;
 
     onClose: () => void;
+
+    onChanged: (
+        party: Party,
+    ) => void;
 
     onEdit: (
         party: Party,
@@ -44,13 +57,14 @@ type PartyDetailDrawerProps = {
 };
 
 /**
- * Return the correct human-facing identity name for a Party.
+ * Return the correct human-facing Party identity.
  */
 function partyLabel(
     party: Party,
 ): string {
     if (
-        party.type === 'company'
+        party.type ===
+        'company'
     ) {
         return (
             party.company_name ??
@@ -65,7 +79,7 @@ function partyLabel(
 }
 
 /**
- * Format an API timestamp for concise human-facing presentation.
+ * Format an API timestamp for human-facing Party context.
  */
 function formatDate(
     value: string,
@@ -78,13 +92,14 @@ function formatDate(
             year: 'numeric',
         },
     ).format(
-        new Date(value),
+        new Date(
+            value,
+        ),
     );
 }
 
 /**
- * Render a responsive Party context surface with identity, contact, location,
- * lifecycle, and permitted actions.
+ * Render the responsive Party detail workspace.
  */
 export function PartyDetailDrawer({
     open,
@@ -92,29 +107,60 @@ export function PartyDetailDrawer({
     canEdit,
     canArchive,
     onClose,
+    onChanged,
     onEdit,
     onArchive,
     onRestore,
 }: PartyDetailDrawerProps) {
+    const [notes, setNotes] =
+        useState('');
+
+    const [
+        notesBusy,
+        setNotesBusy,
+    ] = useState(false);
+
+    const [
+        notesMessage,
+        setNotesMessage,
+    ] =
+        useState<string | null>(
+            null,
+        );
+
+    useEffect(() => {
+        setNotes(
+            party?.notes ?? '',
+        );
+
+        setNotesMessage(
+            null,
+        );
+    }, [
+        party,
+    ]);
+
     useEffect(() => {
         if (! open) {
             return;
         }
 
         const previousOverflow =
-            document.body.style.overflow;
+            document.body.style
+                .overflow;
 
-        document.body.style.overflow =
-            'hidden';
+        document.body.style
+            .overflow = 'hidden';
 
         /**
-         * Allow keyboard users to close the Party context surface.
+         * Allow keyboard users to close the Party detail surface.
          */
         function handleKeyDown(
             event: KeyboardEvent,
         ): void {
             if (
-                event.key === 'Escape'
+                event.key ===
+                'Escape'
             ) {
                 onClose();
             }
@@ -126,7 +172,8 @@ export function PartyDetailDrawer({
         );
 
         return () => {
-            document.body.style.overflow =
+            document.body.style
+                .overflow =
                 previousOverflow;
 
             window.removeEventListener(
@@ -139,6 +186,11 @@ export function PartyDetailDrawer({
         open,
     ]);
 
+    /*
+     * Stop rendering before any Party-specific behavior runs when no Party is
+     * currently selected. After this guard we copy the Party reference into a
+     * non-null constant so TypeScript can safely use it inside async handlers.
+     */
     if (
         ! open ||
         ! party
@@ -146,38 +198,92 @@ export function PartyDetailDrawer({
         return null;
     }
 
+    const resolvedParty:
+        Party = party;
+
     const archived =
-        party.deleted_at !== null;
+        resolvedParty.deleted_at !==
+        null;
 
     const label =
-        partyLabel(party);
+        partyLabel(
+            resolvedParty,
+        );
 
     const location = [
-        party.address_line_1,
-        party.address_line_2,
-        party.city,
-        party.state,
-        party.postal_code,
-        party.country_code,
+        resolvedParty.address_line_1,
+        resolvedParty.address_line_2,
+        resolvedParty.city,
+        resolvedParty.state,
+        resolvedParty.postal_code,
+        resolvedParty.country_code,
     ]
         .filter(Boolean)
         .join(', ');
+
+    /**
+     * Persist internal Party notes without leaving the context surface.
+     */
+    async function handleSaveNotes(): Promise<void> {
+        if (
+            notesBusy ||
+            archived ||
+            ! canEdit
+        ) {
+            return;
+        }
+
+        setNotesBusy(true);
+        setNotesMessage(null);
+
+        try {
+            const updated =
+                await updatePartyNotes(
+                    resolvedParty.id,
+                    notes,
+                );
+
+            setNotes(
+                updated.notes ??
+                    '',
+            );
+
+            onChanged(
+                updated,
+            );
+
+            setNotesMessage(
+                'Notes saved.',
+            );
+        } catch (exception) {
+            setNotesMessage(
+                exception instanceof
+                ApiError
+                    ? exception.message
+                    : 'AccoNova could not save these notes.',
+            );
+        } finally {
+            setNotesBusy(false);
+        }
+    }
 
     return (
         <div className="fixed inset-0 z-[120]">
             <button
                 type="button"
                 aria-label="Close Party details"
-                onClick={onClose}
+                onClick={
+                    onClose
+                }
                 className="absolute inset-0 bg-[var(--ac-text)]/20 backdrop-blur-[3px]"
             />
 
-            <aside className="absolute inset-y-0 right-0 z-10 flex w-full flex-col border-l border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] motion-safe:animate-[slideInRight_220ms_ease-out] sm:max-w-[580px]">
+            <aside className="absolute inset-y-0 right-0 z-10 flex w-full flex-col border-l border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[600px]">
                 <header className="border-b border-[var(--ac-line)] px-4 py-5 sm:px-6 sm:py-6">
                     <div className="flex items-start justify-between gap-5">
                         <div className="flex min-w-0 items-start gap-3.5">
-                            <div className="flex size-12 shrink-0 items-center justify-center rounded-[17px] bg-[var(--ac-surface-strong)] text-[var(--ac-text)]">
-                                {party.type ===
+                            <div className="flex size-12 shrink-0 items-center justify-center rounded-[17px] bg-[var(--ac-surface-strong)]">
+                                {resolvedParty.type ===
                                 'company' ? (
                                     <Building2
                                         size={20}
@@ -194,12 +300,12 @@ export function PartyDetailDrawer({
                                     Relationship context
                                 </p>
 
-                                <h2 className="mt-1.5 break-words text-2xl font-semibold tracking-[-0.045em] text-[var(--ac-text)] sm:text-3xl">
+                                <h2 className="mt-1.5 break-words text-2xl font-semibold tracking-[-0.045em] sm:text-3xl">
                                     {label}
                                 </h2>
 
                                 <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {party.roles.map(
+                                    {resolvedParty.roles.map(
                                         (
                                             role,
                                         ) => (
@@ -227,8 +333,10 @@ export function PartyDetailDrawer({
 
                         <button
                             type="button"
-                            onClick={onClose}
-                            className="flex size-10 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-bg-soft)]"
+                            onClick={
+                                onClose
+                            }
+                            className="flex size-10 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-line)] text-[var(--ac-text-muted)]"
                         >
                             <X size={18} />
                         </button>
@@ -246,12 +354,12 @@ export function PartyDetailDrawer({
                                 icon={Mail}
                                 label="Email"
                                 value={
-                                    party.email ??
+                                    resolvedParty.email ??
                                     'Not provided'
                                 }
                                 href={
-                                    party.email
-                                        ? `mailto:${party.email}`
+                                    resolvedParty.email
+                                        ? `mailto:${resolvedParty.email}`
                                         : undefined
                                 }
                             />
@@ -260,15 +368,102 @@ export function PartyDetailDrawer({
                                 icon={Phone}
                                 label="Phone"
                                 value={
-                                    party.phone ??
+                                    resolvedParty.phone ??
                                     'Not provided'
                                 }
                                 href={
-                                    party.phone
-                                        ? `tel:${party.phone}`
+                                    resolvedParty.phone
+                                        ? `tel:${resolvedParty.phone}`
                                         : undefined
                                 }
                             />
+                        </div>
+                    </section>
+
+                    <section className="mt-8">
+                        <SectionHeading>
+                            Internal notes
+                        </SectionHeading>
+
+                        <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
+                            <div className="flex items-start gap-3">
+                                <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-white text-[var(--ac-text-muted)] shadow-[var(--ac-shadow-soft)]">
+                                    <NotebookPen
+                                        size={16}
+                                    />
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-semibold">
+                                        Workspace note
+                                    </p>
+
+                                    <p className="mt-1 text-[10px] leading-4 text-[var(--ac-text-muted)]">
+                                        Internal only. This note is not customer-facing.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <textarea
+                                value={
+                                    notes
+                                }
+                                disabled={
+                                    archived ||
+                                    ! canEdit
+                                }
+                                maxLength={
+                                    5000
+                                }
+                                rows={5}
+                                onChange={(
+                                    event,
+                                ) =>
+                                    setNotes(
+                                        event
+                                            .target
+                                            .value,
+                                    )
+                                }
+                                placeholder="Add useful context, preferences, follow-up information, or internal reminders…"
+                                className="mt-4 w-full resize-y rounded-[15px] border border-[var(--ac-line)] bg-white px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)] disabled:bg-[var(--ac-bg-soft)] disabled:text-[var(--ac-text-muted)]"
+                            />
+
+                            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-[10px] text-[var(--ac-text-muted)]">
+                                    {archived
+                                        ? 'Restore this relationship before changing notes.'
+                                        : `${notes.length} / 5000`}
+                                </p>
+
+                                {! archived &&
+                                    canEdit && (
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                notesBusy
+                                            }
+                                            onClick={() =>
+                                                void handleSaveNotes()
+                                            }
+                                            className="flex h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-text)] px-4 text-xs font-semibold text-white disabled:opacity-50"
+                                        >
+                                            <Save
+                                                size={14}
+                                            />
+
+                                            {notesBusy
+                                                ? 'Saving…'
+                                                : 'Save notes'}
+                                        </button>
+                                    )}
+                            </div>
+
+                            {notesMessage && (
+                                <p className="mt-3 text-xs text-[var(--ac-text-soft)]">
+                                    {notesMessage}
+                                </p>
+                            )}
                         </div>
                     </section>
 
@@ -281,7 +476,7 @@ export function PartyDetailDrawer({
                             <DetailRow
                                 label="Entity type"
                                 value={
-                                    party.type ===
+                                    resolvedParty.type ===
                                     'company'
                                         ? 'Company'
                                         : 'Person'
@@ -291,14 +486,14 @@ export function PartyDetailDrawer({
                             <DetailRow
                                 label="Tax number"
                                 value={
-                                    party.tax_number ??
+                                    resolvedParty.tax_number ??
                                     'Not provided'
                                 }
                             />
 
                             <DetailRow
                                 label="Relationship"
-                                value={party.roles
+                                value={resolvedParty.roles
                                     .map(
                                         (
                                             role,
@@ -326,14 +521,14 @@ export function PartyDetailDrawer({
 
                         <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
                             <div className="flex items-start gap-3">
-                                <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-white text-[var(--ac-text-muted)] shadow-[var(--ac-shadow-soft)]">
+                                <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-white text-[var(--ac-text-muted)]">
                                     <MapPin
                                         size={16}
                                     />
                                 </div>
 
                                 <div>
-                                    <p className="text-xs font-semibold text-[var(--ac-text)]">
+                                    <p className="text-xs font-semibold">
                                         Business address
                                     </p>
 
@@ -358,7 +553,7 @@ export function PartyDetailDrawer({
                                 }
                                 label="Created"
                                 value={formatDate(
-                                    party.created_at,
+                                    resolvedParty.created_at,
                                 )}
                             />
 
@@ -368,7 +563,7 @@ export function PartyDetailDrawer({
                                 }
                                 label="Last updated"
                                 value={formatDate(
-                                    party.updated_at,
+                                    resolvedParty.updated_at,
                                 )}
                             />
                         </div>
@@ -383,15 +578,13 @@ export function PartyDetailDrawer({
                                     type="button"
                                     onClick={() =>
                                         onEdit(
-                                            party,
+                                            resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-5 text-sm font-semibold text-[var(--ac-text)] transition hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-soft)]"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-5 text-sm font-semibold"
                                 >
                                     <Edit3
-                                        size={
-                                            15
-                                        }
+                                        size={15}
                                     />
 
                                     Edit
@@ -404,15 +597,13 @@ export function PartyDetailDrawer({
                                     type="button"
                                     onClick={() =>
                                         onArchive(
-                                            party,
+                                            resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white"
                                 >
                                     <Archive
-                                        size={
-                                            15
-                                        }
+                                        size={15}
                                     />
 
                                     Archive
@@ -425,15 +616,13 @@ export function PartyDetailDrawer({
                                     type="button"
                                     onClick={() =>
                                         onRestore(
-                                            party,
+                                            resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-accent-strong)] px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-accent-strong)] px-5 text-sm font-semibold text-white"
                                 >
                                     <RotateCcw
-                                        size={
-                                            15
-                                        }
+                                        size={15}
                                     />
 
                                     Restore
@@ -451,7 +640,7 @@ type SectionHeadingProps = {
 };
 
 /**
- * Render one small section heading inside the Party context surface.
+ * Render one Party context section heading.
  */
 function SectionHeading({
     children,
@@ -474,8 +663,7 @@ type ContactActionProps = {
 };
 
 /**
- * Render contact information as an actionable surface when a destination is
- * available and a passive surface otherwise.
+ * Render contact information as an action when a destination exists.
  */
 function ContactAction({
     icon: Icon,
@@ -494,7 +682,7 @@ function ContactAction({
                     {label}
                 </p>
 
-                <p className="mt-1 truncate text-xs font-semibold text-[var(--ac-text)]">
+                <p className="mt-1 truncate text-xs font-semibold">
                     {value}
                 </p>
             </div>
@@ -512,7 +700,7 @@ function ContactAction({
     return (
         <a
             href={href}
-            className="flex min-w-0 items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-white p-3 transition hover:-translate-y-0.5 hover:border-[var(--ac-line-strong)] hover:shadow-[var(--ac-shadow-soft)]"
+            className="flex min-w-0 items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-soft)]"
         >
             {content}
         </a>
@@ -521,11 +709,12 @@ function ContactAction({
 
 type DetailRowProps = {
     label: string;
+
     value: string;
 };
 
 /**
- * Render one stable business-identity value.
+ * Render one Party business-identity value.
  */
 function DetailRow({
     label,
@@ -537,7 +726,7 @@ function DetailRow({
                 {label}
             </span>
 
-            <span className="max-w-[60%] text-right text-xs font-semibold text-[var(--ac-text)]">
+            <span className="max-w-[60%] text-right text-xs font-semibold">
                 {value}
             </span>
         </div>
@@ -553,7 +742,7 @@ type LifecycleCardProps = {
 };
 
 /**
- * Render a compact Party lifecycle signal.
+ * Render one compact Party lifecycle signal.
  */
 function LifecycleCard({
     icon: Icon,
@@ -571,7 +760,7 @@ function LifecycleCard({
                 {label}
             </p>
 
-            <p className="mt-1 text-sm font-semibold text-[var(--ac-text)]">
+            <p className="mt-1 text-sm font-semibold">
                 {value}
             </p>
         </div>

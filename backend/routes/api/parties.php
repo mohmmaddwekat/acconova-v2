@@ -1,13 +1,14 @@
 <?php
 
+use App\Http\Controllers\PartyBulkActionController;
 use App\Http\Controllers\PartyController;
 use App\Http\Controllers\PartyDataTransferController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
 /*
- * All Party operations require an authenticated, email-verified user and an
- * explicitly resolved active tenant before business data is accessed.
+ * Party operations require authentication, verified email, and an explicitly
+ * resolved active organization before tenant business data is accessed.
  */
 
 Route::middleware([
@@ -54,6 +55,11 @@ Route::middleware([
         ],
     );
 
+    Route::post(
+        'parties/bulk',
+        PartyBulkActionController::class,
+    );
+
     Route::get(
         'parties',
         [
@@ -75,6 +81,16 @@ Route::middleware([
         [
             PartyController::class,
             'show',
+        ],
+    )->whereNumber(
+        'party',
+    );
+
+    Route::patch(
+        'parties/{party}/notes',
+        [
+            PartyController::class,
+            'updateNotes',
         ],
     )->whereNumber(
         'party',

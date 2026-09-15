@@ -19,12 +19,16 @@ Route::get(
 Route::middleware('guest')->group(function (): void {
     Route::get(
         '/login',
-        fn () => Inertia::render('Auth/Login'),
+        fn () => Inertia::render(
+            'Auth/Login',
+        ),
     )->name('login');
 
     Route::get(
         '/register',
-        fn () => Inertia::render('Auth/Register'),
+        fn () => Inertia::render(
+            'Auth/Register',
+        ),
     )->name('register');
 
     Route::get(
@@ -37,8 +41,7 @@ Route::middleware('guest')->group(function (): void {
     Route::get(
         '/reset-password/{token}',
         /**
-         * Forward Laravel's secure reset token and account email into the
-         * React reset-password surface.
+         * Forward Laravel's reset token and account email into React.
          */
         fn (
             Request $request,
@@ -47,8 +50,11 @@ Route::middleware('guest')->group(function (): void {
             'Auth/ResetPassword',
             [
                 'token' => $token,
+
                 'email' => $request
-                    ->string('email')
+                    ->string(
+                        'email',
+                    )
                     ->toString(),
             ],
         ),
@@ -56,21 +62,25 @@ Route::middleware('guest')->group(function (): void {
 });
 
 /*
- * An authenticated user may access verification screens before their email
- * has been verified.
+ * Authenticated users may access verification pages before verification.
  */
 Route::middleware('auth')->group(function (): void {
     Route::get(
         '/verify-email',
         /**
-         * Verified users have no reason to remain on the verification notice.
+         * Verified users should return to the application immediately.
          */
-        function (Request $request) {
+        function (
+            Request $request,
+        ) {
             if (
-                $request->user()
+                $request
+                    ->user()
                     ->hasVerifiedEmail()
             ) {
-                return redirect('/app');
+                return redirect(
+                    '/app',
+                );
             }
 
             return Inertia::render(
@@ -90,11 +100,13 @@ Route::middleware('auth')->group(function (): void {
             'signed',
             'throttle:6,1',
         ])
-        ->name('verification.verify');
+        ->name(
+            'verification.verify',
+        );
 });
 
 /*
- * Normal application pages require both authentication and verified email.
+ * Normal application pages require authentication and verified email.
  */
 Route::middleware([
     'auth',
@@ -105,29 +117,54 @@ Route::middleware([
         fn () => Inertia::render(
             'Onboarding/Workspace',
         ),
-    )->name('onboarding.workspace');
+    )->name(
+        'onboarding.workspace',
+    );
 
     Route::get(
         '/app',
         fn () => Inertia::render(
             'Dashboard',
         ),
-    )->name('app.dashboard');
+    )->name(
+        'app.dashboard',
+    );
 
     Route::get(
         '/app/parties',
         fn () => Inertia::render(
             'Parties/Index',
         ),
-    )->name('app.parties');
+    )->name(
+        'app.parties',
+    );
+
+    Route::get(
+        '/app/products',
+        fn () => Inertia::render(
+            'Products/Index',
+        ),
+    )->name(
+        'app.products',
+    );
 });
 
 /*
  * Session-authenticated JSON APIs retain Laravel's web middleware stack.
  */
 Route::prefix('api')->group(function (): void {
-    require __DIR__.'/api/auth.php';
-    require __DIR__.'/api/organizations.php';
-    require __DIR__.'/api/memberships.php';
-    require __DIR__.'/api/parties.php';
+    require __DIR__
+        .'/api/auth.php';
+
+    require __DIR__
+        .'/api/organizations.php';
+
+    require __DIR__
+        .'/api/memberships.php';
+
+    require __DIR__
+        .'/api/parties.php';
+
+    require __DIR__
+        .'/api/products.php';
 });
