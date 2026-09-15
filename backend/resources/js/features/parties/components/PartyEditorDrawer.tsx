@@ -24,13 +24,17 @@ import { ApiError } from '@/lib/http';
 
 type PartyEditorDrawerProps = {
     open: boolean;
+
     party: Party | null;
+
     onClose: () => void;
+
     onSaved: () => void;
 };
 
 type PartyForm = {
     type: PartyType;
+
     displayName: string;
 
     email: string;
@@ -39,6 +43,7 @@ type PartyForm = {
 
     addressLine1: string;
     addressLine2: string;
+
     city: string;
     state: string;
     postalCode: string;
@@ -48,24 +53,30 @@ type PartyForm = {
 };
 
 /**
- * Convert one Party into editable browser form state.
+ * Convert an existing Party into editable form state.
  *
- * @param party Existing Party, or null when creating a new record.
+ * Passing null creates the defaults used when adding a new relationship.
  */
 function formFromParty(
     party: Party | null,
 ): PartyForm {
     return {
-        type: party?.type ?? 'person',
+        type:
+            party?.type ?? 'person',
 
         displayName:
             party?.type === 'company'
                 ? party.company_name ?? ''
                 : party?.name ?? '',
 
-        email: party?.email ?? '',
-        phone: party?.phone ?? '',
-        taxNumber: party?.tax_number ?? '',
+        email:
+            party?.email ?? '',
+
+        phone:
+            party?.phone ?? '',
+
+        taxNumber:
+            party?.tax_number ?? '',
 
         addressLine1:
             party?.address_line_1 ?? '',
@@ -73,8 +84,12 @@ function formFromParty(
         addressLine2:
             party?.address_line_2 ?? '',
 
-        city: party?.city ?? '',
-        state: party?.state ?? '',
+        city:
+            party?.city ?? '',
+
+        state:
+            party?.state ?? '',
+
         postalCode:
             party?.postal_code ?? '',
 
@@ -89,9 +104,7 @@ function formFromParty(
 }
 
 /**
- * Convert browser form values into Laravel's Party API contract.
- *
- * @param form Current Party editor state.
+ * Convert browser form state into Laravel's stable Party API contract.
  */
 function payloadFromForm(
     form: PartyForm,
@@ -143,7 +156,10 @@ function payloadFromForm(
 }
 
 /**
- * Render the shared Party create/edit workspace.
+ * Render the shared create/edit Party workspace.
+ *
+ * A right-side working surface keeps the user inside the relationship context
+ * instead of navigating away to a disconnected form page.
  */
 export function PartyEditorDrawer({
     open,
@@ -161,6 +177,9 @@ export function PartyEditorDrawer({
             Record<string, string[]>
         >({});
 
+    const [message, setMessage] =
+        useState<string | null>(null);
+
     const [busy, setBusy] =
         useState(false);
 
@@ -174,22 +193,39 @@ export function PartyEditorDrawer({
         );
 
         setErrors({});
+        setMessage(null);
     }, [
         open,
         party,
     ]);
 
     /**
-     * Toggle one Party relationship while keeping at least one selected.
-     *
-     * @param role Customer or supplier role.
+     * Change Party identity type while keeping the entered display name
+     * available for refinement.
+     */
+    function changeType(
+        type: PartyType,
+    ): void {
+        setForm(
+            (current) => ({
+                ...current,
+                type,
+            }),
+        );
+    }
+
+    /**
+     * Toggle customer or supplier status while guaranteeing that every Party
+     * retains at least one business relationship role.
      */
     function toggleRole(
         role: PartyRole,
     ): void {
         setForm((current) => {
             const selected =
-                current.roles.includes(role);
+                current.roles.includes(
+                    role,
+                );
 
             if (
                 selected &&
@@ -214,8 +250,42 @@ export function PartyEditorDrawer({
         });
     }
 
+    type FieldLabelProps = {
+    label: string;
+    required: boolean;
+};
+
+/**
+ * Render a form label with an explicit Required or Optional state so users
+ * never have to infer form requirements from missing asterisks.
+ */
+function FieldLabel({
+    label,
+    required,
+}: FieldLabelProps) {
+    return (
+        <span className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-[var(--ac-text)]">
+                {label}
+            </span>
+
+            <span
+                className={[
+                    'rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em]',
+                    required
+                        ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
+                        : 'bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]',
+                ].join(' ')}
+            >
+                {required
+                    ? 'Required'
+                    : 'Optional'}
+            </span>
+        </span>
+    );
+}
     /**
-     * Persist the Party and refresh the parent workspace.
+     * Persist the form as either a new Party or an update to an existing one.
      */
     async function handleSubmit(
         event: FormEvent<HTMLFormElement>,
@@ -224,6 +294,7 @@ export function PartyEditorDrawer({
 
         setBusy(true);
         setErrors({});
+        setMessage(null);
 
         try {
             const payload =
@@ -242,14 +313,24 @@ export function PartyEditorDrawer({
 
             onSaved();
             onClose();
-        } catch (error) {
+        } catch (exception) {
             if (
-                error instanceof ApiError
+                exception instanceof ApiError
             ) {
                 setErrors(
-                    error.errors,
+                    exception.errors,
                 );
+
+                setMessage(
+                    exception.message,
+                );
+
+                return;
             }
+
+            setMessage(
+                'AccoNova could not save this relationship.',
+            );
         } finally {
             setBusy(false);
         }
@@ -267,31 +348,31 @@ export function PartyEditorDrawer({
         <div className="fixed inset-0 z-[100]">
             <button
                 type="button"
-                aria-label="Close Party editor"
+                aria-label="Close relationship editor"
                 onClick={onClose}
                 className="absolute inset-0 bg-[var(--ac-text)]/20 backdrop-blur-[2px]"
             />
 
-            <aside className="absolute right-0 top-0 flex h-full w-full max-w-[620px] flex-col border-l border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.14)]">
-                <header className="flex items-start justify-between border-b border-[var(--ac-line)] px-7 py-6">
+            <aside className="absolute inset-y-0 right-0 z-10 flex h-full w-full flex-col border-l border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.14)] sm:max-w-[640px]">
+                <header className="flex items-start justify-between gap-4 border-b border-[var(--ac-line)] px-4 py-5 sm:px-7 sm:py-6">
                     <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ac-accent-strong)]">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--ac-accent-strong)]">
                             {party
-                                ? 'Edit Party'
-                                : 'New Party'}
+                                ? 'Relationship record'
+                                : 'New relationship'}
                         </p>
 
-                        <h2 className="mt-2 text-3xl font-medium tracking-[-0.045em]">
+                        <h2 className="mt-2 text-3xl font-medium tracking-[-0.05em] text-[var(--ac-text)]">
                             {party
-                                ? 'Update the relationship.'
-                                : 'Grow your network.'}
+                                ? 'Refine what you know.'
+                                : 'Add someone you do business with.'}
                         </h2>
                     </div>
 
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex size-10 items-center justify-center rounded-[14px] border border-[var(--ac-line)] text-[var(--ac-text-soft)]"
+                        className="flex size-10 items-center justify-center rounded-[14px] border border-[var(--ac-line)] text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-bg-soft)]"
                     >
                         <X size={18} />
                     </button>
@@ -301,8 +382,8 @@ export function PartyEditorDrawer({
                     onSubmit={handleSubmit}
                     className="flex min-h-0 flex-1 flex-col"
                 >
-                    <div className="flex-1 overflow-y-auto px-7 py-6">
-                        <p className="mb-3 text-xs font-semibold text-[var(--ac-text-soft)]">
+                    <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-7">
+                        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)]">
                             Identity
                         </p>
 
@@ -310,23 +391,16 @@ export function PartyEditorDrawer({
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setForm(
-                                        (
-                                            current,
-                                        ) => ({
-                                            ...current,
-                                            type: 'person',
-                                            displayName:
-                                                '',
-                                        }),
+                                    changeType(
+                                        'person',
                                     )
                                 }
                                 className={[
                                     'flex items-center gap-3 rounded-[18px] border p-4 text-left transition',
                                     form.type ===
                                     'person'
-                                        ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
-                                        : 'border-[var(--ac-line)]',
+                                        ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
+                                        : 'border-[var(--ac-line)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
                                 ].join(' ')}
                             >
                                 <UserRound
@@ -341,23 +415,16 @@ export function PartyEditorDrawer({
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setForm(
-                                        (
-                                            current,
-                                        ) => ({
-                                            ...current,
-                                            type: 'company',
-                                            displayName:
-                                                '',
-                                        }),
+                                    changeType(
+                                        'company',
                                     )
                                 }
                                 className={[
                                     'flex items-center gap-3 rounded-[18px] border p-4 text-left transition',
                                     form.type ===
                                     'company'
-                                        ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
-                                        : 'border-[var(--ac-line)]',
+                                        ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
+                                        : 'border-[var(--ac-line)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
                                 ].join(' ')}
                             >
                                 <Building2
@@ -371,50 +438,49 @@ export function PartyEditorDrawer({
                         </div>
 
                         <label className="mt-5 block">
-                            <span className="mb-2 block text-sm font-medium">
-                                {form.type ===
-                                'person'
-                                    ? 'Full name'
-                                    : 'Company name'}
-                            </span>
+                            <FieldLabel
+                                label={
+                                    form.type === 'person'
+                                        ? 'Full name'
+                                        : 'Company name'
+                                }
+                                required
+                            />
 
                             <input
                                 required
-                                value={
-                                    form.displayName
-                                }
-                                onChange={(
-                                    event,
-                                ) =>
+                                value={form.displayName}
+                                onChange={(event) =>
                                     setForm(
-                                        (
-                                            current,
-                                        ) => ({
+                                        (current) => ({
                                             ...current,
+
                                             displayName:
-                                                event
-                                                    .target
-                                                    .value,
+                                                event.target.value,
                                         }),
                                     )
                                 }
-                                className="h-12 w-full rounded-[15px] border border-[var(--ac-line-strong)] px-4 text-sm outline-none focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                                className="h-12 w-full rounded-[16px] border border-[var(--ac-line-strong)] bg-white px-4 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                             />
 
                             {identityError && (
                                 <p className="mt-2 text-xs text-[var(--ac-danger)]">
-                                    {
-                                        identityError
-                                    }
+                                    {identityError}
                                 </p>
                             )}
                         </label>
 
-                        <p className="mb-3 mt-7 text-xs font-semibold text-[var(--ac-text-soft)]">
-                            Relationship
-                        </p>
+                        <div className="mb-3 mt-8 flex items-center justify-between gap-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)]">
+                                Business relationship
+                            </p>
 
-                        <div className="flex gap-2">
+                            <span className="rounded-full bg-[var(--ac-accent-soft)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-accent-strong)]">
+                                Required
+                            </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
                             {(
                                 [
                                     'customer',
@@ -436,7 +502,7 @@ export function PartyEditorDrawer({
                                             )
                                         }
                                         className={[
-                                            'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium capitalize',
+                                            'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium capitalize transition',
                                             selected
                                                 ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
                                                 : 'border-[var(--ac-line)] text-[var(--ac-text-soft)]',
@@ -458,12 +524,12 @@ export function PartyEditorDrawer({
                             })}
                         </div>
 
-                        <p className="mb-3 mt-7 text-xs font-semibold text-[var(--ac-text-soft)]">
+                        <p className="mb-3 mt-8 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)]">
                             Contact
                         </p>
 
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <PartyInput
+                            <PartyField
                                 label="Email"
                                 type="email"
                                 value={
@@ -487,7 +553,7 @@ export function PartyEditorDrawer({
                                 }
                             />
 
-                            <PartyInput
+                            <PartyField
                                 label="Phone"
                                 value={
                                     form.phone
@@ -510,7 +576,7 @@ export function PartyEditorDrawer({
                                 }
                             />
 
-                            <PartyInput
+                            <PartyField
                                 label="Tax number"
                                 value={
                                     form.taxNumber
@@ -527,6 +593,7 @@ export function PartyEditorDrawer({
                                             current,
                                         ) => ({
                                             ...current,
+
                                             taxNumber:
                                                 value,
                                         }),
@@ -534,7 +601,7 @@ export function PartyEditorDrawer({
                                 }
                             />
 
-                            <PartyInput
+                            <PartyField
                                 label="Country code"
                                 value={
                                     form.countryCode
@@ -552,6 +619,7 @@ export function PartyEditorDrawer({
                                             current,
                                         ) => ({
                                             ...current,
+
                                             countryCode:
                                                 value.toUpperCase(),
                                         }),
@@ -560,13 +628,13 @@ export function PartyEditorDrawer({
                             />
                         </div>
 
-                        <p className="mb-3 mt-7 text-xs font-semibold text-[var(--ac-text-soft)]">
+                        <p className="mb-3 mt-8 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)]">
                             Location
                         </p>
 
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="sm:col-span-2">
-                                <PartyInput
+                                <PartyField
                                     label="Address line 1"
                                     value={
                                         form.addressLine1
@@ -583,6 +651,7 @@ export function PartyEditorDrawer({
                                                 current,
                                             ) => ({
                                                 ...current,
+
                                                 addressLine1:
                                                     value,
                                             }),
@@ -592,7 +661,7 @@ export function PartyEditorDrawer({
                             </div>
 
                             <div className="sm:col-span-2">
-                                <PartyInput
+                                <PartyField
                                     label="Address line 2"
                                     value={
                                         form.addressLine2
@@ -609,6 +678,7 @@ export function PartyEditorDrawer({
                                                 current,
                                             ) => ({
                                                 ...current,
+
                                                 addressLine2:
                                                     value,
                                             }),
@@ -617,10 +687,14 @@ export function PartyEditorDrawer({
                                 />
                             </div>
 
-                            <PartyInput
+                            <PartyField
                                 label="City"
                                 value={
                                     form.city
+                                }
+                                error={
+                                    errors
+                                        .city?.[0]
                                 }
                                 onChange={(
                                     value,
@@ -636,10 +710,14 @@ export function PartyEditorDrawer({
                                 }
                             />
 
-                            <PartyInput
+                            <PartyField
                                 label="State"
                                 value={
                                     form.state
+                                }
+                                error={
+                                    errors
+                                        .state?.[0]
                                 }
                                 onChange={(
                                     value,
@@ -655,10 +733,14 @@ export function PartyEditorDrawer({
                                 }
                             />
 
-                            <PartyInput
+                            <PartyField
                                 label="Postal code"
                                 value={
                                     form.postalCode
+                                }
+                                error={
+                                    errors
+                                        .postal_code?.[0]
                                 }
                                 onChange={(
                                     value,
@@ -668,6 +750,7 @@ export function PartyEditorDrawer({
                                             current,
                                         ) => ({
                                             ...current,
+
                                             postalCode:
                                                 value,
                                         }),
@@ -675,28 +758,40 @@ export function PartyEditorDrawer({
                                 }
                             />
                         </div>
+
+                        {message && (
+                            <div className="mt-6 rounded-[16px] border border-[var(--ac-danger)]/20 bg-[var(--ac-danger)]/5 px-4 py-3 text-sm text-[var(--ac-danger)]">
+                                {message}
+                            </div>
+                        )}
                     </div>
 
-                    <footer className="flex justify-end gap-3 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-7 py-5">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="h-11 rounded-[14px] px-5 text-sm font-medium text-[var(--ac-text-soft)]"
-                        >
-                            Cancel
-                        </button>
+                    <footer className="flex flex-col-reverse gap-3 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7 sm:py-5">
+                        <p className="hidden text-xs text-[var(--ac-text-muted)] sm:block">
+                            Stored inside the active workspace.
+                        </p>
 
-                        <button
-                            type="submit"
-                            disabled={busy}
-                            className="h-11 rounded-[14px] bg-[var(--ac-text)] px-6 text-sm font-semibold text-white disabled:opacity-60"
-                        >
-                            {busy
-                                ? 'Saving…'
-                                : party
-                                  ? 'Save changes'
-                                  : 'Create Party'}
-                        </button>
+                        <div className="flex w-full gap-2 sm:w-auto">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="h-11 flex-1 rounded-[14px] px-5 text-sm font-medium text-[var(--ac-text-soft)] sm:flex-none"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="submit"
+                                disabled={busy}
+                                className="h-11 flex-1 rounded-[14px] bg-[var(--ac-text)] px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60 sm:flex-none"
+                            >
+                                {busy
+                                    ? 'Saving…'
+                                    : party
+                                      ? 'Save changes'
+                                      : 'Add relationship'}
+                            </button>
+                        </div>
                     </footer>
                 </form>
             </aside>
@@ -704,35 +799,50 @@ export function PartyEditorDrawer({
     );
 }
 
-type PartyInputProps = {
+type PartyFieldProps = {
     label: string;
+
     value: string;
+
     onChange: (
         value: string,
     ) => void;
+
     error?: string;
+
     type?: string;
+
     maxLength?: number;
+
+    required?: boolean;
 };
 
 /**
- * Render one reusable Party text field with consistent validation feedback.
+ * Render a consistent optional Party detail field with Laravel validation
+ * feedback.
  */
-function PartyInput({
+/**
+ * Render a consistent Party detail field and clearly communicate whether the
+ * value is required or optional.
+ */
+function PartyField({
     label,
     value,
     onChange,
     error,
     type = 'text',
     maxLength,
-}: PartyInputProps) {
+    required = false,
+}: PartyFieldProps) {
     return (
         <label className="block">
-            <span className="mb-2 block text-sm font-medium">
-                {label}
-            </span>
+            <FieldLabel
+                label={label}
+                required={required}
+            />
 
             <input
+                required={required}
                 type={type}
                 value={value}
                 maxLength={maxLength}
@@ -741,7 +851,7 @@ function PartyInput({
                         event.target.value,
                     )
                 }
-                className="h-12 w-full rounded-[15px] border border-[var(--ac-line)] px-4 text-sm outline-none focus:border-[var(--ac-accent)]"
+                className="h-12 w-full rounded-[16px] border border-[var(--ac-line)] bg-white px-4 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
             />
 
             {error && (
@@ -750,5 +860,40 @@ function PartyInput({
                 </p>
             )}
         </label>
+    );
+}
+
+type FieldLabelProps = {
+    label: string;
+    required: boolean;
+};
+
+/**
+ * Render a form label with an explicit Required or Optional state so users
+ * never have to infer form requirements from missing asterisks.
+ */
+function FieldLabel({
+    label,
+    required,
+}: FieldLabelProps) {
+    return (
+        <span className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-[var(--ac-text)]">
+                {label}
+            </span>
+
+            <span
+                className={[
+                    'rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em]',
+                    required
+                        ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
+                        : 'bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]',
+                ].join(' ')}
+            >
+                {required
+                    ? 'Required'
+                    : 'Optional'}
+            </span>
+        </span>
     );
 }

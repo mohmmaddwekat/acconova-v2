@@ -5,135 +5,509 @@ import {
 import {
     Boxes,
     ContactRound,
-    FileText,
     Gauge,
-    Settings,
-    WalletCards,
+    PanelLeftClose,
+    PanelLeftOpen,
+    ReceiptText,
+    Sparkles,
+    X,
+    type LucideIcon,
 } from 'lucide-react';
 
-type CommandRailItem = {
+type NavigationItem = {
     label: string;
-    icon: typeof Gauge;
+    description: string;
     href?: string;
-    exact?: boolean;
+    icon: LucideIcon;
+    disabled?: boolean;
 };
 
-const navigation: CommandRailItem[] = [
+const navigationItems: NavigationItem[] = [
     {
         label: 'Command',
-        icon: Gauge,
+        description: 'Business pulse',
         href: '/app',
-        exact: true,
+        icon: Gauge,
     },
     {
         label: 'Parties',
-        icon: ContactRound,
+        description: 'Relationships',
         href: '/app/parties',
+        icon: ContactRound,
     },
     {
         label: 'Products',
+        description: 'Catalog',
         icon: Boxes,
+        disabled: true,
     },
     {
         label: 'Invoices',
-        icon: FileText,
-    },
-    {
-        label: 'Payments',
-        icon: WalletCards,
+        description: 'Revenue',
+        icon: ReceiptText,
+        disabled: true,
     },
 ];
 
+type CommandRailProps = {
+    expanded: boolean;
+    mobileOpen: boolean;
+
+    onExpandedChange: (
+        expanded: boolean,
+    ) => void;
+
+    onMobileOpenChange: (
+        open: boolean,
+    ) => void;
+};
+
 /**
- * Render AccoNova's compact global navigation rail.
- *
- * Live modules use Inertia navigation while future modules remain visibly
- * present but intentionally non-interactive until their business layer exists.
+ * Determine whether a navigation destination matches the current Inertia URL.
  */
-export function CommandRail() {
-    const { url } = usePage();
+function destinationIsActive(
+    currentUrl: string,
+    href: string | undefined,
+): boolean {
+    if (! href) {
+        return false;
+    }
+
+    if (href === '/app') {
+        return currentUrl === '/app';
+    }
+
+    return currentUrl.startsWith(
+        href,
+    );
+}
+
+/**
+ * Render AccoNova's adaptive primary command navigation.
+ *
+ * Desktop devices receive a rail that smoothly expands into a full navigation
+ * surface. Phones keep the same left-side navigation language through a
+ * slide-in drawer instead of converting it into bottom tabs.
+ */
+export function CommandRail({
+    expanded,
+    mobileOpen,
+    onExpandedChange,
+    onMobileOpenChange,
+}: CommandRailProps) {
+    const page = usePage();
 
     return (
-        <aside className="flex w-[92px] shrink-0 flex-col border-r border-[var(--ac-line)] bg-white/70 px-3 py-4 backdrop-blur-xl">
-            <div className="flex h-14 items-center justify-center">
-                <div className="flex size-10 items-center justify-center rounded-[18px] border border-[var(--ac-line-strong)] bg-[var(--ac-accent-soft)]">
-                    <span className="text-sm font-semibold tracking-[-0.06em] text-[var(--ac-accent-strong)]">
-                        AN
-                    </span>
+        <>
+            <aside
+                className={[
+                    'fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-[var(--ac-line)] bg-white/92 shadow-[10px_0_40px_rgba(25,35,31,0.025)] backdrop-blur-xl transition-[width] duration-300 ease-out md:flex',
+                    expanded
+                        ? 'w-[248px]'
+                        : 'w-[84px]',
+                ].join(' ')}
+            >
+                <div
+                    className={[
+                        'flex h-[72px] shrink-0 items-center border-b border-[var(--ac-line)] transition-[padding] duration-300',
+                        expanded
+                            ? 'justify-start px-4'
+                            : 'justify-center px-2',
+                    ].join(' ')}
+                >
+                    <Link
+                        href="/app"
+                        aria-label="AccoNova home"
+                        className="group flex min-w-0 items-center gap-3"
+                    >
+                        <div className="relative flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-text)] text-[11px] font-bold tracking-[-0.02em] text-white shadow-[var(--ac-shadow-soft)] transition duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[var(--ac-shadow-panel)]">
+                            AN
+
+                            <span className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-white bg-[var(--ac-accent)] motion-safe:animate-pulse" />
+                        </div>
+
+                        <div
+                            className={[
+                                'min-w-0 overflow-hidden transition-all duration-300',
+                                expanded
+                                    ? 'max-w-[150px] opacity-100'
+                                    : 'max-w-0 opacity-0',
+                            ].join(' ')}
+                        >
+                            <p className="whitespace-nowrap text-sm font-semibold tracking-[-0.03em] text-[var(--ac-text)]">
+                                AccoNova
+                            </p>
+
+                            <p className="mt-0.5 whitespace-nowrap text-[8px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-text-muted)]">
+                                Operating system
+                            </p>
+                        </div>
+                    </Link>
                 </div>
+
+                <nav className="flex flex-1 flex-col gap-1.5 overflow-hidden px-2 py-5">
+                    {navigationItems.map(
+                        (item) => (
+                            <DesktopNavigationItem
+                                key={
+                                    item.label
+                                }
+                                item={item}
+                                active={destinationIsActive(
+                                    page.url,
+                                    item.href,
+                                )}
+                                expanded={
+                                    expanded
+                                }
+                            />
+                        ),
+                    )}
+                </nav>
+
+                <div className="border-t border-[var(--ac-line)] p-2">
+                    {expanded && (
+                        <div className="mb-2 rounded-[16px] bg-[var(--ac-accent-soft)] px-3 py-3">
+                            <div className="flex items-center gap-2 text-[var(--ac-accent-strong)]">
+                                <Sparkles
+                                    size={14}
+                                />
+
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">
+                                    Signal ready
+                                </span>
+                            </div>
+
+                            <p className="mt-2 text-[11px] leading-4 text-[var(--ac-text-soft)]">
+                                AccoNova is watching
+                                the operating picture.
+                            </p>
+                        </div>
+                    )}
+
+                    <button
+                        type="button"
+                        aria-label={
+                            expanded
+                                ? 'Collapse navigation'
+                                : 'Expand navigation'
+                        }
+                        onClick={() =>
+                            onExpandedChange(
+                                ! expanded,
+                            )
+                        }
+                        className={[
+                            'flex h-11 w-full items-center rounded-[14px] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-bg-soft)] hover:text-[var(--ac-text)]',
+                            expanded
+                                ? 'justify-start gap-3 px-3'
+                                : 'justify-center px-2',
+                        ].join(' ')}
+                    >
+                        {expanded ? (
+                            <PanelLeftClose
+                                size={17}
+                            />
+                        ) : (
+                            <PanelLeftOpen
+                                size={17}
+                            />
+                        )}
+
+                        {expanded && (
+                            <span className="text-xs font-semibold">
+                                Collapse
+                            </span>
+                        )}
+                    </button>
+                </div>
+            </aside>
+
+            <div
+                aria-hidden={! mobileOpen}
+                onClick={() =>
+                    onMobileOpenChange(
+                        false,
+                    )
+                }
+                className={[
+                    'fixed inset-0 z-[70] bg-[var(--ac-text)]/22 backdrop-blur-[3px] transition-opacity duration-300 md:hidden',
+                    mobileOpen
+                        ? 'pointer-events-auto opacity-100'
+                        : 'pointer-events-none opacity-0',
+                ].join(' ')}
+            />
+
+            <aside
+                className={[
+                    'fixed inset-y-0 left-0 z-[80] flex w-[min(84vw,310px)] flex-col border-r border-[var(--ac-line)] bg-white shadow-[30px_0_80px_rgba(20,35,30,0.18)] transition-transform duration-300 ease-out md:hidden',
+                    mobileOpen
+                        ? 'translate-x-0'
+                        : '-translate-x-full',
+                ].join(' ')}
+                style={{
+                    paddingTop:
+                        'env(safe-area-inset-top)',
+                    paddingBottom:
+                        'env(safe-area-inset-bottom)',
+                }}
+            >
+                <div className="flex h-[68px] items-center justify-between border-b border-[var(--ac-line)] px-4">
+                    <Link
+                        href="/app"
+                        onClick={() =>
+                            onMobileOpenChange(
+                                false,
+                            )
+                        }
+                        className="flex items-center gap-3"
+                    >
+                        <div className="relative flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-text)] text-[10px] font-bold text-white">
+                            AN
+
+                            <span className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-white bg-[var(--ac-accent)] motion-safe:animate-pulse" />
+                        </div>
+
+                        <div>
+                            <p className="text-sm font-semibold tracking-[-0.03em]">
+                                AccoNova
+                            </p>
+
+                            <p className="text-[8px] font-semibold uppercase tracking-[0.17em] text-[var(--ac-text-muted)]">
+                                Business operating system
+                            </p>
+                        </div>
+                    </Link>
+
+                    <button
+                        type="button"
+                        aria-label="Close navigation"
+                        onClick={() =>
+                            onMobileOpenChange(
+                                false,
+                            )
+                        }
+                        className="flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-soft)]"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-5">
+                    {navigationItems.map(
+                        (item) => (
+                            <MobileNavigationItem
+                                key={
+                                    item.label
+                                }
+                                item={item}
+                                active={destinationIsActive(
+                                    page.url,
+                                    item.href,
+                                )}
+                                onNavigate={() =>
+                                    onMobileOpenChange(
+                                        false,
+                                    )
+                                }
+                            />
+                        ),
+                    )}
+                </nav>
+
+                <div className="m-3 rounded-[18px] bg-[var(--ac-accent-soft)] p-4">
+                    <div className="flex items-center gap-2 text-[var(--ac-accent-strong)]">
+                        <Sparkles
+                            size={15}
+                        />
+
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.16em]">
+                            Business signal
+                        </span>
+                    </div>
+
+                    <p className="mt-2 text-xs leading-5 text-[var(--ac-text-soft)]">
+                        Keep the business moving
+                        from one operating surface.
+                    </p>
+                </div>
+            </aside>
+        </>
+    );
+}
+
+type DesktopNavigationItemProps = {
+    item: NavigationItem;
+    active: boolean;
+    expanded: boolean;
+};
+
+/**
+ * Render one desktop command-rail destination.
+ */
+function DesktopNavigationItem({
+    item,
+    active,
+    expanded,
+}: DesktopNavigationItemProps) {
+    const Icon =
+        item.icon;
+
+    const content = (
+        <>
+            <div
+                className={[
+                    'flex size-10 shrink-0 items-center justify-center rounded-[13px] transition duration-200',
+                    active
+                        ? 'bg-white text-[var(--ac-text)] shadow-[var(--ac-shadow-soft)]'
+                        : 'text-[var(--ac-text-muted)]',
+                ].join(' ')}
+            >
+                <Icon size={17} />
             </div>
 
-            <nav className="mt-7 flex flex-1 flex-col gap-2">
-                {navigation.map((item) => {
-                    const Icon = item.icon;
-
-                    const active =
-                        item.href !== undefined &&
-                        (item.exact
-                            ? url === item.href
-                            : url.startsWith(item.href));
-
-                    const classes = [
-                        'group relative flex h-[62px] flex-col items-center justify-center gap-1.5 rounded-[18px] transition',
-                        active
-                            ? 'bg-[var(--ac-surface-strong)] text-[var(--ac-text)]'
-                            : item.href
-                              ? 'text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)]'
-                              : 'cursor-not-allowed text-[var(--ac-text-faint)] opacity-55',
-                    ].join(' ');
-
-                    const content = (
-                        <>
-                            {active && (
-                                <span className="absolute -left-3 h-7 w-[3px] rounded-full bg-[var(--ac-accent)]" />
-                            )}
-
-                            <Icon
-                                size={19}
-                                strokeWidth={1.7}
-                            />
-
-                            <span className="text-[10px] font-medium tracking-wide">
-                                {item.label}
-                            </span>
-                        </>
-                    );
-
-                    return item.href ? (
-                        <Link
-                            key={item.label}
-                            href={item.href}
-                            className={classes}
-                        >
-                            {content}
-                        </Link>
-                    ) : (
-                        <button
-                            key={item.label}
-                            type="button"
-                            disabled
-                            className={classes}
-                        >
-                            {content}
-                        </button>
-                    );
-                })}
-            </nav>
-
-            <button
-                type="button"
-                disabled
-                className="flex h-[62px] cursor-not-allowed flex-col items-center justify-center gap-1.5 rounded-[18px] text-[var(--ac-text-faint)] opacity-55"
+            <div
+                className={[
+                    'min-w-0 overflow-hidden transition-all duration-300',
+                    expanded
+                        ? 'max-w-[150px] opacity-100'
+                        : 'max-w-0 opacity-0',
+                ].join(' ')}
             >
-                <Settings
-                    size={19}
-                    strokeWidth={1.7}
-                />
+                <p className="whitespace-nowrap text-xs font-semibold">
+                    {item.label}
+                </p>
 
-                <span className="text-[10px] font-medium tracking-wide">
-                    Settings
-                </span>
-            </button>
-        </aside>
+                <p className="mt-0.5 whitespace-nowrap text-[10px] text-[var(--ac-text-muted)]">
+                    {item.description}
+                </p>
+            </div>
+        </>
+    );
+
+    if (
+        item.disabled ||
+        ! item.href
+    ) {
+        return (
+            <div
+                title={
+                    expanded
+                        ? undefined
+                        : item.label
+                }
+                className={[
+                    'flex min-h-12 items-center rounded-[16px] opacity-35',
+                    expanded
+                        ? 'gap-3 px-2'
+                        : 'justify-center px-1',
+                ].join(' ')}
+            >
+                {content}
+            </div>
+        );
+    }
+
+    return (
+        <Link
+            href={item.href}
+            title={
+                expanded
+                    ? undefined
+                    : item.label
+            }
+            className={[
+                'relative flex min-h-12 items-center rounded-[16px] transition duration-200',
+                expanded
+                    ? 'gap-3 px-2'
+                    : 'justify-center px-1',
+                active
+                    ? 'bg-[var(--ac-surface-strong)] text-[var(--ac-text)]'
+                    : 'text-[var(--ac-text-soft)] hover:bg-[var(--ac-bg-soft)]',
+            ].join(' ')}
+        >
+            {active && (
+                <span className="absolute -left-2 h-6 w-[3px] rounded-r-full bg-[var(--ac-accent)]" />
+            )}
+
+            {content}
+        </Link>
+    );
+}
+
+type MobileNavigationItemProps = {
+    item: NavigationItem;
+    active: boolean;
+    onNavigate: () => void;
+};
+
+/**
+ * Render one mobile drawer destination.
+ */
+function MobileNavigationItem({
+    item,
+    active,
+    onNavigate,
+}: MobileNavigationItemProps) {
+    const Icon =
+        item.icon;
+
+    if (
+        item.disabled ||
+        ! item.href
+    ) {
+        return (
+            <div className="flex items-center gap-3 rounded-[16px] px-3 py-3 opacity-35">
+                <div className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)]">
+                    <Icon size={17} />
+                </div>
+
+                <div>
+                    <p className="text-sm font-semibold">
+                        {item.label}
+                    </p>
+
+                    <p className="mt-0.5 text-[11px] text-[var(--ac-text-muted)]">
+                        {item.description}
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <Link
+            href={item.href}
+            onClick={
+                onNavigate
+            }
+            className={[
+                'flex items-center gap-3 rounded-[16px] px-3 py-3 transition',
+                active
+                    ? 'bg-[var(--ac-surface-strong)]'
+                    : 'hover:bg-[var(--ac-bg-soft)]',
+            ].join(' ')}
+        >
+            <div
+                className={[
+                    'flex size-10 items-center justify-center rounded-[13px]',
+                    active
+                        ? 'bg-white shadow-[var(--ac-shadow-soft)]'
+                        : 'bg-[var(--ac-bg-soft)]',
+                ].join(' ')}
+            >
+                <Icon size={17} />
+            </div>
+
+            <div>
+                <p className="text-sm font-semibold">
+                    {item.label}
+                </p>
+
+                <p className="mt-0.5 text-[11px] text-[var(--ac-text-muted)]">
+                    {item.description}
+                </p>
+            </div>
+        </Link>
     );
 }

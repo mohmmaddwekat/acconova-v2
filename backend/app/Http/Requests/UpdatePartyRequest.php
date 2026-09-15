@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Enums\PartyRole;
 use App\Enums\PartyType;
 use App\Models\Party;
+use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use LogicException;
@@ -43,7 +44,9 @@ class UpdatePartyRequest extends FormRequest
     public function rules(): array
     {
         $candidateType = $this->candidateType();
-
+        $organizationId = app(
+            TenantContext::class,
+        )->id();
         $switchingType = $candidateType !== null
             && $this->resolvedParty !== null
             && $candidateType !== $this->resolvedParty->type;
@@ -96,6 +99,22 @@ class UpdatePartyRequest extends FormRequest
                 'nullable',
                 'email',
                 'max:255',
+
+                /*
+                * Ignore this Party itself while preventing another Party in the same
+                * organization from claiming the same normalized email.
+                */
+                Rule::unique(
+                    'parties',
+                    'email',
+                )
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->ignore(
+                        $this->resolvedParty?->id,
+                    ),
             ],
 
             'phone' => [
@@ -232,5 +251,17 @@ class UpdatePartyRequest extends FormRequest
             ?? throw new LogicException(
                 'Party was not resolved.',
             );
+    }
+
+    /**
+     * Provide clear business-facing validation feedback.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'email.unique' => 'A relationship with this email already exists in this workspace.',
+        ];
     }
 }

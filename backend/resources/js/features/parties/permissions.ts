@@ -1,9 +1,12 @@
-import type { OrganizationRole } from '@/types/app';
+import type {
+    OrganizationRole,
+} from '@/types/app';
 
 /**
- * Determine whether the current role should see create/edit Party controls.
+ * Determine whether the organization role can create or edit Parties.
  *
- * Laravel policies remain the real security boundary.
+ * This controls UI visibility only. Laravel policies remain the actual
+ * authorization boundary on the server.
  */
 export function canEditParties(
     role: OrganizationRole | undefined,
@@ -13,11 +16,15 @@ export function canEditParties(
         'admin',
         'manager',
         'accountant',
-    ].includes(role ?? '');
+    ].includes(
+        role ?? '',
+    );
 }
 
 /**
- * Determine whether the current role should see archive/restore controls.
+ * Determine whether the organization role can archive or restore Parties.
+ *
+ * Laravel remains responsible for enforcing the same permission server-side.
  */
 export function canArchiveParties(
     role: OrganizationRole | undefined,
@@ -26,5 +33,7 @@ export function canArchiveParties(
         'owner',
         'admin',
         'manager',
-    ].includes(role ?? '');
+    ].includes(
+        role ?? '',
+    );
 }

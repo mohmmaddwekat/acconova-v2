@@ -1,0 +1,79 @@
+import {
+    AlertCircle,
+    CheckCircle2,
+    X,
+} from 'lucide-react';
+
+export type FeedbackTone =
+    | 'success'
+    | 'error';
+
+type FeedbackToastProps = {
+    message: string | null;
+
+    tone?: FeedbackTone;
+
+    onDismiss: () => void;
+};
+
+/**
+ * Render lightweight application feedback without interrupting the user's
+ * operating flow.
+ */
+export function FeedbackToast({
+    message,
+    tone = 'success',
+    onDismiss,
+}: FeedbackToastProps) {
+    if (! message) {
+        return null;
+    }
+
+    const success =
+        tone === 'success';
+
+    return (
+        <div
+            role="status"
+            className="fixed bottom-4 left-3 right-3 z-[160] motion-safe:animate-[fadeIn_180ms_ease-out] sm:bottom-6 sm:left-auto sm:right-6 sm:w-[380px]"
+            style={{
+                bottom:
+                    'max(1rem, env(safe-area-inset-bottom))',
+            }}
+        >
+            <div className="flex items-start gap-3 rounded-[18px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-panel)]">
+                <div
+                    className={[
+                        'flex size-9 shrink-0 items-center justify-center rounded-[13px]',
+                        success
+                            ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
+                            : 'bg-[var(--ac-danger)]/8 text-[var(--ac-danger)]',
+                    ].join(' ')}
+                >
+                    {success ? (
+                        <CheckCircle2
+                            size={17}
+                        />
+                    ) : (
+                        <AlertCircle
+                            size={17}
+                        />
+                    )}
+                </div>
+
+                <p className="min-w-0 flex-1 pt-1 text-sm font-medium leading-5 text-[var(--ac-text)]">
+                    {message}
+                </p>
+
+                <button
+                    type="button"
+                    aria-label="Dismiss message"
+                    onClick={onDismiss}
+                    className="flex size-8 shrink-0 items-center justify-center rounded-[11px] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-bg-soft)]"
+                >
+                    <X size={15} />
+                </button>
+            </div>
+        </div>
+    );
+}
