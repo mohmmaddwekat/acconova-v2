@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ClearTenantContext;
+use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,7 +14,19 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        /*
+     * Clear tenant state before every request so organization context
+     * can never leak between requests or long-lived processes.
+     */
         $middleware->prepend(ClearTenantContext::class);
+
+        /*
+     * Inertia is part of the web stack because the application UI uses
+     * Laravel sessions, authentication, cookies, and CSRF protection.
+     */
+        $middleware->web(append: [
+            HandleInertiaRequests::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

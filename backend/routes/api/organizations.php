@@ -5,7 +5,7 @@ use App\Http\Controllers\OrganizationController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(['auth', 'verified'])->group(function (): void {
     /*
      * Switch the tenant stored in the authenticated user's session.
      */

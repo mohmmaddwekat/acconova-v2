@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
  * module file. ResolveOrganization guarantees organization isolation before
  * membership Requests, Policies, Controllers, or Actions execute.
  */
-Route::middleware(['auth', ResolveOrganization::class])
+Route::middleware(['auth', 'verified', ResolveOrganization::class])
     ->prefix('organizations/{organization}')
     ->whereNumber('organization')
     ->group(function (): void {

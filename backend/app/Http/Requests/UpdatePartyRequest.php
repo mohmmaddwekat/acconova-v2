@@ -112,14 +112,14 @@ class UpdatePartyRequest extends FormRequest
                 'max:100',
             ],
 
-            'address1' => [
+            'address_line_1' => [
                 'sometimes',
                 'nullable',
                 'string',
                 'max:255',
             ],
 
-            'address2' => [
+            'address_line_2' => [
                 'sometimes',
                 'nullable',
                 'string',

@@ -27,8 +27,8 @@ class PartyResource extends JsonResource
             'phone' => $this->phone,
             'tax_number' => $this->tax_number,
 
-            'address1' => $this->address1,
-            'address2' => $this->address2,
+            'address_line_1' => $this->address_line_1,
+            'address_line_2' => $this->address_line_2,
             'city' => $this->city,
             'state' => $this->state,
             'postal_code' => $this->postal_code,

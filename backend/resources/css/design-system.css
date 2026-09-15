@@ -1,0 +1,89 @@
+:root {
+    /*
+     * Core surfaces
+     */
+    --ac-bg: #f5f6f2;
+    --ac-bg-soft: #eef1ec;
+    --ac-surface: #ffffff;
+    --ac-surface-soft: #f9faf7;
+    --ac-surface-strong: #edf2ee;
+
+    /*
+     * Borders
+     */
+    --ac-line: rgba(26, 39, 34, 0.08);
+    --ac-line-strong: rgba(26, 39, 34, 0.14);
+
+    /*
+     * Typography
+     */
+    --ac-text: #19231f;
+    --ac-text-soft: #5f6d67;
+    --ac-text-muted: #8a9691;
+    --ac-text-faint: #a8b1ad;
+
+    /*
+     * AccoNova signature accent
+     */
+    --ac-accent: #43c99a;
+    --ac-accent-hover: #35b98a;
+    --ac-accent-soft: rgba(67, 201, 154, 0.12);
+    --ac-accent-strong: #145b46;
+
+    /*
+     * Semantic states
+     */
+    --ac-success: #43c99a;
+    --ac-warning: #d9a34f;
+    --ac-danger: #df6b70;
+    --ac-info: #6681e8;
+
+    /*
+     * Shape language
+     */
+    --ac-radius-xs: 10px;
+    --ac-radius-sm: 14px;
+    --ac-radius-md: 20px;
+    --ac-radius-lg: 28px;
+
+    /*
+     * Elevation
+     */
+    --ac-shadow-soft:
+        0 1px 2px rgba(23, 35, 30, 0.03),
+        0 10px 32px rgba(23, 35, 30, 0.05);
+
+    --ac-shadow-panel:
+        0 1px 2px rgba(23, 35, 30, 0.03),
+        0 18px 54px rgba(23, 35, 30, 0.07);
+
+    /*
+     * Motion
+     */
+    --ac-transition-fast: 140ms;
+    --ac-transition-normal: 220ms;
+}
+
+html {
+    background: var(--ac-bg);
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+
+    background:
+        radial-gradient(
+            circle at 16% -10%,
+            rgba(67, 201, 154, 0.09),
+            transparent 34%
+        ),
+        radial-gradient(
+            circle at 94% 8%,
+            rgba(102, 129, 232, 0.05),
+            transparent 30%
+        ),
+        var(--ac-bg);
+
+    color: var(--ac-text);
+}
