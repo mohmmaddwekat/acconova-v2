@@ -3,12 +3,8 @@ import {
     usePage,
 } from '@inertiajs/react';
 import {
-    ArrowLeft,
-    ArrowRight,
-    Building2,
     Plus,
     Search,
-    UserRound,
     UsersRound,
     X,
 } from 'lucide-react';
@@ -16,7 +12,6 @@ import {
     useCallback,
     useEffect,
     useState,
-    type FormEvent,
 } from 'react';
 
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
@@ -24,14 +19,22 @@ import {
     FeedbackToast,
     type FeedbackTone,
 } from '@/components/feedback/FeedbackToast';
+import { DataPagination } from '@/components/data/DataPagination';
 import {
     archiveParty,
     fetchParties,
     restoreParty,
-    type PartyLifecycle,
+    type PartyFilters,
 } from '@/features/parties/api';
+import { PartyDataActions } from '@/features/parties/components/PartyDataActions';
 import { PartyDetailDrawer } from '@/features/parties/components/PartyDetailDrawer';
 import { PartyEditorDrawer } from '@/features/parties/components/PartyEditorDrawer';
+import {
+    countPartyFilters,
+    PartyFilterPopover,
+    type PartyFilterState,
+} from '@/features/parties/components/PartyFilterPopover';
+import { PartyImportDialog } from '@/features/parties/components/PartyImportDialog';
 import { PartyListItem } from '@/features/parties/components/PartyListItem';
 import {
     canArchiveParties,
@@ -40,8 +43,6 @@ import {
 import type {
     Party,
     PartyIndexResponse,
-    PartyRole,
-    PartyType,
 } from '@/features/parties/types';
 import { ApiError } from '@/lib/http';
 import { AppShell } from '@/layouts/AppShell';
@@ -64,11 +65,28 @@ type ToastState = {
 };
 
 /**
- * Render AccoNova's tenant-scoped relationship operating surface.
+ * Resolve the current document language for exports without assuming English.
+ */
+function currentLocale(): string {
+    if (
+        typeof document ===
+        'undefined'
+    ) {
+        return 'en';
+    }
+
+    return (
+        document.documentElement
+            .lang || 'en'
+    );
+}
+
+/**
+ * Render AccoNova's complete relationship index workspace.
  *
- * The workspace combines search, business-role filtering, entity-type
- * filtering, lifecycle management, detail context, editing, and responsive
- * feedback without navigating away from the business ledger.
+ * Search is debounced, filters live in a responsive popover, pagination is
+ * server-side, exports include every filtered row, and spreadsheet imports
+ * support preview and duplicate handling.
  */
 export default function PartiesIndex() {
     const {
@@ -103,7 +121,9 @@ export default function PartiesIndex() {
         useState(false);
 
     const [error, setError] =
-        useState<string | null>(null);
+        useState<string | null>(
+            null,
+        );
 
     const [
         draftSearch,
@@ -113,19 +133,20 @@ export default function PartiesIndex() {
     const [search, setSearch] =
         useState('');
 
-    const [role, setRole] =
-        useState<PartyRole | undefined>();
-
-    const [partyType, setPartyType] =
-        useState<PartyType | undefined>();
-
-    const [status, setStatus] =
-        useState<PartyLifecycle>(
-            'active',
-        );
+    const [
+        filters,
+        setFilters,
+    ] =
+        useState<PartyFilterState>({
+            status: 'active',
+            sort: 'name_asc',
+        });
 
     const [page, setPage] =
         useState(1);
+
+    const [perPage, setPerPage] =
+        useState(25);
 
     const [
         editorOpen,
@@ -162,6 +183,11 @@ export default function PartiesIndex() {
     ] = useState(false);
 
     const [
+        importOpen,
+        setImportOpen,
+    ] = useState(false);
+
+    const [
         toast,
         setToast,
     ] =
@@ -170,7 +196,27 @@ export default function PartiesIndex() {
         );
 
     /**
-     * Load the selected Party view from the active organization.
+     * Build the complete Party list/export filter contract.
+     */
+    const partyFilters:
+        PartyFilters = {
+        search,
+        role:
+            filters.role,
+        type:
+            filters.type,
+        status:
+            filters.status,
+        sort:
+            filters.sort,
+        page,
+        perPage,
+        locale:
+            currentLocale(),
+    };
+
+    /**
+     * Load one Party page from the active tenant.
      */
     const loadParties =
         useCallback(
@@ -179,7 +225,6 @@ export default function PartiesIndex() {
                     ! activeOrganization
                 ) {
                     setResponse(null);
-                    setLoading(false);
 
                     return;
                 }
@@ -190,13 +235,7 @@ export default function PartiesIndex() {
                 try {
                     const data =
                         await fetchParties(
-                            {
-                                search,
-                                role,
-                                type: partyType,
-                                status,
-                                page,
-                            },
+                            partyFilters,
                         );
 
                     setResponse(
@@ -219,11 +258,13 @@ export default function PartiesIndex() {
             },
             [
                 activeOrganization,
+                filters.role,
+                filters.sort,
+                filters.status,
+                filters.type,
                 page,
-                partyType,
-                role,
+                perPage,
                 search,
-                status,
             ],
         );
 
@@ -231,6 +272,37 @@ export default function PartiesIndex() {
         void loadParties();
     }, [
         loadParties,
+    ]);
+
+    useEffect(() => {
+        const timeout =
+            window.setTimeout(
+                () => {
+                    const nextSearch =
+                        draftSearch.trim();
+
+                    if (
+                        nextSearch !==
+                        search
+                    ) {
+                        setSearch(
+                            nextSearch,
+                        );
+
+                        setPage(1);
+                    }
+                },
+                350,
+            );
+
+        return () => {
+            window.clearTimeout(
+                timeout,
+            );
+        };
+    }, [
+        draftSearch,
+        search,
     ]);
 
     useEffect(() => {
@@ -243,7 +315,7 @@ export default function PartiesIndex() {
                 () => {
                     setToast(null);
                 },
-                3400,
+                3600,
             );
 
         return () => {
@@ -256,7 +328,7 @@ export default function PartiesIndex() {
     ]);
 
     /**
-     * Surface a short-lived business operation result.
+     * Surface temporary application feedback.
      */
     function showToast(
         message: string,
@@ -269,33 +341,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Submit the current search term to Laravel.
-     */
-    function handleSearch(
-        event: FormEvent<HTMLFormElement>,
-    ): void {
-        event.preventDefault();
-
-        const nextSearch =
-            draftSearch.trim();
-
-        setPage(1);
-
-        if (
-            nextSearch === search
-        ) {
-            void loadParties();
-
-            return;
-        }
-
-        setSearch(
-            nextSearch,
-        );
-    }
-
-    /**
-     * Clear both draft and active search state.
+     * Reset the live search immediately.
      */
     function clearSearch(): void {
         setDraftSearch('');
@@ -304,7 +350,33 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Start a clean Party creation flow.
+     * Apply popup filters and restart pagination.
+     */
+    function applyFilters(
+        nextFilters: PartyFilterState,
+    ): void {
+        setFilters(
+            nextFilters,
+        );
+
+        setPage(1);
+    }
+
+    /**
+     * Change page size and return to the first page.
+     */
+    function changePerPage(
+        nextPerPage: number,
+    ): void {
+        setPerPage(
+            nextPerPage,
+        );
+
+        setPage(1);
+    }
+
+    /**
+     * Open the clean Party creation editor.
      */
     function openCreate(): void {
         setDetailParty(null);
@@ -313,7 +385,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Open one Party inside the shared editor.
+     * Open one Party for editing.
      */
     function openEdit(
         party: Party,
@@ -326,7 +398,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Open one Party inside its read-oriented context surface.
+     * Open one Party context surface.
      */
     function openDetail(
         party: Party,
@@ -337,7 +409,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Request confirmation before archiving a business relationship.
+     * Ask for confirmation before archiving a Party.
      */
     function requestArchive(
         party: Party,
@@ -349,7 +421,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Request confirmation before restoring an archived relationship.
+     * Ask for confirmation before restoring a Party.
      */
     function requestRestore(
         party: Party,
@@ -361,7 +433,7 @@ export default function PartiesIndex() {
     }
 
     /**
-     * Execute the confirmed archive or restore operation.
+     * Execute the confirmed archive or restore action.
      */
     async function confirmPendingAction(): Promise<void> {
         if (
@@ -372,7 +444,6 @@ export default function PartiesIndex() {
         }
 
         setActionBusy(true);
-        setError(null);
 
         try {
             if (
@@ -385,7 +456,7 @@ export default function PartiesIndex() {
                 );
 
                 showToast(
-                    'Relationship archived. Historical business data remains preserved.',
+                    'Relationship archived. Historical data remains preserved.',
                 );
             } else {
                 await restoreParty(
@@ -394,7 +465,7 @@ export default function PartiesIndex() {
                 );
 
                 showToast(
-                    'Relationship restored and returned to the active ledger.',
+                    'Relationship restored to the active ledger.',
                 );
             }
 
@@ -403,62 +474,18 @@ export default function PartiesIndex() {
 
             await loadParties();
         } catch (exception) {
-            const message =
+            showToast(
                 exception instanceof
                 ApiError
                     ? exception.message
-                    : 'AccoNova could not complete this relationship action.';
-
-            showToast(
-                message,
+                    : 'AccoNova could not complete this action.',
                 'error',
             );
         } finally {
-            setActionBusy(false);
+            setActionBusy(
+                false,
+            );
         }
-    }
-
-    /**
-     * Change lifecycle status and restart pagination.
-     */
-    function changeStatus(
-        nextStatus: PartyLifecycle,
-    ): void {
-        setStatus(
-            nextStatus,
-        );
-
-        setPage(1);
-    }
-
-    /**
-     * Change relationship-role filtering and restart pagination.
-     */
-    function changeRole(
-        nextRole:
-            | PartyRole
-            | undefined,
-    ): void {
-        setRole(
-            nextRole,
-        );
-
-        setPage(1);
-    }
-
-    /**
-     * Change person/company filtering and restart pagination.
-     */
-    function changePartyType(
-        nextType:
-            | PartyType
-            | undefined,
-    ): void {
-        setPartyType(
-            nextType,
-        );
-
-        setPage(1);
     }
 
     const parties =
@@ -468,12 +495,17 @@ export default function PartiesIndex() {
         response?.meta.total ?? 0;
 
     const currentPage =
-        response?.meta.current_page ??
-        1;
+        response?.meta
+            .current_page ?? 1;
 
     const lastPage =
-        response?.meta.last_page ??
-        1;
+        response?.meta
+            .last_page ?? 1;
+
+    const activeFilterCount =
+        countPartyFilters(
+            filters,
+        );
 
     const pendingLabel =
         pendingAction?.party.type ===
@@ -487,7 +519,7 @@ export default function PartiesIndex() {
             <Head title="Relationships · AccoNova" />
 
             <main className="mx-auto w-full max-w-[1680px] min-w-0 px-3 py-5 sm:px-5 sm:py-7 lg:px-8 lg:py-9 2xl:px-10">
-                <section className="grid min-w-0 gap-5 lg:gap-8 xl:grid-cols-[minmax(0,1fr)_290px]">
+                <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_290px] xl:gap-8">
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
                             <span className="relative flex size-2">
@@ -496,41 +528,39 @@ export default function PartiesIndex() {
                                 <span className="relative inline-flex size-2 rounded-full bg-[var(--ac-accent)]" />
                             </span>
 
-                            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--ac-accent-strong)] sm:text-[10px] sm:tracking-[0.24em]">
+                            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--ac-accent-strong)] sm:text-[10px]">
                                 Relationship ledger
                             </p>
                         </div>
 
-                        <h1 className="mt-3 max-w-[780px] text-[2rem] font-medium leading-[0.94] tracking-[-0.055em] text-[var(--ac-text)] sm:text-[2.7rem] md:text-[3.4rem] lg:text-[4rem] xl:text-[4.7rem]">
+                        <h1 className="mt-3 max-w-[800px] text-[2rem] font-medium leading-[0.94] tracking-[-0.055em] sm:text-[2.8rem] md:text-[3.5rem] lg:text-[4rem] xl:text-[4.7rem]">
                             Know who your business
                             moves with.
                         </h1>
 
-                        <p className="mt-4 max-w-[620px] text-[13px] leading-5 text-[var(--ac-text-soft)] sm:mt-5 sm:text-sm sm:leading-6">
-                            Customers and suppliers
-                            share one reusable
-                            business identity,
-                            ready for future quotes,
-                            invoices, payments,
-                            and automation.
+                        <p className="mt-4 max-w-[650px] text-[13px] leading-5 text-[var(--ac-text-soft)] sm:text-sm sm:leading-6">
+                            Search, filter, import,
+                            export, and maintain
+                            every customer and
+                            supplier from one
+                            reusable business
+                            identity.
                         </p>
                     </div>
 
-                    <div className="group relative flex min-w-0 items-center gap-3 overflow-hidden rounded-[18px] border border-[var(--ac-line)] bg-white px-4 py-3 shadow-[var(--ac-shadow-soft)] transition duration-300 hover:-translate-y-1 hover:shadow-[var(--ac-shadow-panel)] sm:rounded-[22px] sm:px-5 sm:py-4 xl:flex-col xl:items-start xl:justify-end xl:gap-4 xl:p-5">
-                        <div className="absolute -right-10 -top-12 size-32 rounded-full bg-[var(--ac-accent)]/[0.07] blur-2xl transition duration-500 group-hover:scale-125" />
-
-                        <div className="relative flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)] sm:size-10 sm:rounded-[14px]">
+                    <div className="flex items-center gap-3 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] xl:flex-col xl:items-start xl:justify-end xl:p-5">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
                             <UsersRound
                                 size={17}
                             />
                         </div>
 
-                        <div className="relative min-w-0">
+                        <div className="min-w-0">
                             <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
-                                Current view
+                                Matching view
                             </p>
 
-                            <p className="mt-0.5 text-lg font-semibold tracking-[-0.04em] text-[var(--ac-text)] sm:text-xl">
+                            <p className="mt-1 text-xl font-semibold tracking-[-0.04em]">
                                 {total}{' '}
                                 relationships
                             </p>
@@ -544,28 +574,11 @@ export default function PartiesIndex() {
                     </div>
                 </section>
 
-                {! activeOrganization ? (
-                    <section className="mt-6 rounded-[20px] border border-dashed border-[var(--ac-line-strong)] bg-white/70 px-4 py-12 text-center sm:mt-8 sm:rounded-[28px] sm:px-6 sm:py-16">
-                        <p className="text-lg font-semibold tracking-[-0.03em]">
-                            No active workspace.
-                        </p>
-
-                        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ac-text-soft)]">
-                            Select a workspace
-                            before working with
-                            relationship data.
-                        </p>
-                    </section>
-                ) : (
-                    <section className="mt-6 min-w-0 overflow-hidden rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] shadow-[var(--ac-shadow-soft)] sm:mt-8 sm:rounded-[26px] lg:mt-10">
-                        <div className="border-b border-[var(--ac-line)] bg-white p-3 sm:p-5 lg:p-6">
-                            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-3">
-                                <form
-                                    onSubmit={
-                                        handleSearch
-                                    }
-                                    className="relative min-w-0"
-                                >
+                {activeOrganization && (
+                    <section className="mt-7 overflow-visible rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] shadow-[var(--ac-shadow-soft)] lg:mt-10 lg:rounded-[28px]">
+                        <div className="rounded-t-[22px] border-b border-[var(--ac-line)] bg-white p-3 sm:p-5 lg:rounded-t-[28px] lg:p-6">
+                            <div className="grid gap-2 xl:grid-cols-[minmax(260px,1fr)_auto_auto] xl:items-center">
+                                <div className="relative">
                                     <Search
                                         size={15}
                                         className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
@@ -584,8 +597,8 @@ export default function PartiesIndex() {
                                                     .value,
                                             )
                                         }
-                                        placeholder="Search name, email, phone, tax number…"
-                                        className="h-11 w-full min-w-0 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-bg)] pl-10 pr-11 text-sm outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[var(--ac-accent)] focus:bg-white focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                                        placeholder="Search name, email, phone, tax number, city…"
+                                        className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-bg)] pl-10 pr-11 text-sm outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[var(--ac-accent)] focus:bg-white focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                     />
 
                                     {draftSearch && (
@@ -597,14 +610,35 @@ export default function PartiesIndex() {
                                             }
                                             className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)] transition hover:bg-white"
                                         >
-                                            <X
-                                                size={
-                                                    14
-                                                }
-                                            />
+                                            <X size={14} />
                                         </button>
                                     )}
-                                </form>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 sm:flex">
+                                    <PartyFilterPopover
+                                        value={
+                                            filters
+                                        }
+                                        onChange={
+                                            applyFilters
+                                        }
+                                    />
+
+                                    <PartyDataActions
+                                        filters={
+                                            partyFilters
+                                        }
+                                        canImport={
+                                            allowEdit
+                                        }
+                                        onImport={() =>
+                                            setImportOpen(
+                                                true,
+                                            )
+                                        }
+                                    />
+                                </div>
 
                                 {allowEdit && (
                                     <button
@@ -612,166 +646,50 @@ export default function PartiesIndex() {
                                         onClick={
                                             openCreate
                                         }
-                                        className="flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white shadow-[var(--ac-shadow-soft)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-panel)] active:scale-[0.99] sm:w-auto"
+                                        className="flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white shadow-[var(--ac-shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-panel)] xl:w-auto"
                                     >
-                                        <Plus
-                                            size={
-                                                16
-                                            }
-                                        />
+                                        <Plus size={16} />
 
                                         New relationship
                                     </button>
                                 )}
                             </div>
 
-                            <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-                                <div className="grid min-w-0 gap-4">
-                                    <FilterGroup
-                                        label="Relationship"
-                                    >
-                                        <FilterButton
-                                            active={
-                                                role ===
-                                                undefined
-                                            }
-                                            onClick={() =>
-                                                changeRole(
-                                                    undefined,
-                                                )
-                                            }
-                                        >
-                                            Everyone
-                                        </FilterButton>
+                            {(search ||
+                                activeFilterCount >
+                                    0) && (
+                                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--ac-text-muted)]">
+                                    <span>
+                                        View refined by
+                                    </span>
 
-                                        <FilterButton
-                                            active={
-                                                role ===
-                                                'customer'
-                                            }
-                                            onClick={() =>
-                                                changeRole(
-                                                    'customer',
-                                                )
-                                            }
-                                        >
-                                            Customers
-                                        </FilterButton>
+                                    {search && (
+                                        <span className="rounded-full bg-[var(--ac-bg-soft)] px-2.5 py-1 font-semibold text-[var(--ac-text-soft)]">
+                                            “{search}”
+                                        </span>
+                                    )}
 
-                                        <FilterButton
-                                            active={
-                                                role ===
-                                                'supplier'
-                                            }
-                                            onClick={() =>
-                                                changeRole(
-                                                    'supplier',
-                                                )
-                                            }
-                                        >
-                                            Suppliers
-                                        </FilterButton>
-                                    </FilterGroup>
-
-                                    <FilterGroup
-                                        label="Entity type"
-                                    >
-                                        <FilterButton
-                                            active={
-                                                partyType ===
-                                                undefined
-                                            }
-                                            onClick={() =>
-                                                changePartyType(
-                                                    undefined,
-                                                )
-                                            }
-                                        >
-                                            All types
-                                        </FilterButton>
-
-                                        <FilterButton
-                                            active={
-                                                partyType ===
-                                                'person'
-                                            }
-                                            onClick={() =>
-                                                changePartyType(
-                                                    'person',
-                                                )
-                                            }
-                                            icon={
-                                                UserRound
-                                            }
-                                        >
-                                            People
-                                        </FilterButton>
-
-                                        <FilterButton
-                                            active={
-                                                partyType ===
-                                                'company'
-                                            }
-                                            onClick={() =>
-                                                changePartyType(
-                                                    'company',
-                                                )
-                                            }
-                                            icon={
-                                                Building2
-                                            }
-                                        >
-                                            Companies
-                                        </FilterButton>
-                                    </FilterGroup>
+                                    {activeFilterCount >
+                                        0 && (
+                                        <span className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 font-semibold text-[var(--ac-accent-strong)]">
+                                            {
+                                                activeFilterCount
+                                            }{' '}
+                                            filters
+                                        </span>
+                                    )}
                                 </div>
-
-                                <div>
-                                    <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
-                                        Lifecycle
-                                    </p>
-
-                                    <div className="grid w-full grid-cols-2 rounded-[13px] bg-[var(--ac-bg-soft)] p-1 xl:w-auto">
-                                        <StatusButton
-                                            active={
-                                                status ===
-                                                'active'
-                                            }
-                                            onClick={() =>
-                                                changeStatus(
-                                                    'active',
-                                                )
-                                            }
-                                        >
-                                            Active
-                                        </StatusButton>
-
-                                        <StatusButton
-                                            active={
-                                                status ===
-                                                'deleted'
-                                            }
-                                            onClick={() =>
-                                                changeStatus(
-                                                    'deleted',
-                                                )
-                                            }
-                                        >
-                                            Archived
-                                        </StatusButton>
-                                    </div>
-                                </div>
-                            </div>
+                            )}
                         </div>
 
                         {error && (
-                            <div className="border-b border-[var(--ac-danger)]/15 bg-[var(--ac-danger)]/5 px-4 py-3 text-xs leading-5 text-[var(--ac-danger)] sm:px-6 sm:text-sm">
+                            <div className="border-b border-[var(--ac-danger)]/15 bg-[var(--ac-danger)]/5 px-4 py-3 text-sm text-[var(--ac-danger)]">
                                 {error}
                             </div>
                         )}
 
                         {loading ? (
-                            <div className="space-y-3 p-3 sm:p-4 lg:space-y-0 lg:p-0">
+                            <div className="space-y-3 p-3 lg:space-y-0 lg:p-0">
                                 {[
                                     1,
                                     2,
@@ -792,32 +710,28 @@ export default function PartiesIndex() {
                             </div>
                         ) : parties.length ===
                           0 ? (
-                            <div className="px-4 py-14 text-center sm:px-6 sm:py-20">
-                                <div className="mx-auto flex size-11 items-center justify-center rounded-[16px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)] sm:size-12 sm:rounded-[18px]">
+                            <div className="px-4 py-16 text-center sm:py-20">
+                                <div className="mx-auto flex size-12 items-center justify-center rounded-[18px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]">
                                     <UsersRound
-                                        size={
-                                            19
-                                        }
+                                        size={19}
                                     />
                                 </div>
 
-                                <h2 className="mt-4 text-lg font-semibold tracking-[-0.04em] sm:mt-5 sm:text-xl">
-                                    {status ===
-                                    'deleted'
-                                        ? 'Nothing archived in this view.'
-                                        : search
-                                          ? 'No matching relationships.'
-                                          : 'Your relationship ledger is empty.'}
+                                <h2 className="mt-5 text-xl font-semibold tracking-[-0.04em]">
+                                    No relationships
+                                    match this view.
                                 </h2>
 
-                                <p className="mx-auto mt-2 max-w-md text-[13px] leading-5 text-[var(--ac-text-soft)] sm:text-sm sm:leading-6">
-                                    {search
-                                        ? 'Clear the search or adjust your filters to widen the view.'
-                                        : 'Add customers and suppliers once, then reuse their identity across future business activity.'}
+                                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ac-text-soft)]">
+                                    Clear the search or
+                                    adjust the filters,
+                                    or import your
+                                    existing business
+                                    data in bulk.
                                 </p>
                             </div>
                         ) : (
-                            <div className="min-w-0 py-0.5 lg:py-0">
+                            <div>
                                 {parties.map(
                                     (
                                         party,
@@ -853,80 +767,29 @@ export default function PartiesIndex() {
                             </div>
                         )}
 
-                        {lastPage > 1 && (
-                            <footer className="grid gap-3 border-t border-[var(--ac-line)] bg-white px-4 py-4 sm:grid-cols-[1fr_auto] sm:items-center sm:px-5 lg:px-6">
-                                <p className="text-center text-xs text-[var(--ac-text-muted)] sm:text-left">
-                                    Page{' '}
-                                    {
-                                        currentPage
-                                    }{' '}
-                                    of{' '}
-                                    {
-                                        lastPage
-                                    }
-                                </p>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        type="button"
-                                        disabled={
-                                            currentPage <=
-                                            1
-                                        }
-                                        onClick={() =>
-                                            setPage(
-                                                (
-                                                    value,
-                                                ) =>
-                                                    Math.max(
-                                                        1,
-                                                        value -
-                                                            1,
-                                                    ),
-                                            )
-                                        }
-                                        className="flex h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] px-3 text-xs font-semibold disabled:opacity-40"
-                                    >
-                                        <ArrowLeft
-                                            size={
-                                                14
-                                            }
-                                        />
-
-                                        Previous
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        disabled={
-                                            currentPage >=
-                                            lastPage
-                                        }
-                                        onClick={() =>
-                                            setPage(
-                                                (
-                                                    value,
-                                                ) =>
-                                                    Math.min(
-                                                        lastPage,
-                                                        value +
-                                                            1,
-                                                    ),
-                                            )
-                                        }
-                                        className="flex h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] px-3 text-xs font-semibold disabled:opacity-40"
-                                    >
-                                        Next
-
-                                        <ArrowRight
-                                            size={
-                                                14
-                                            }
-                                        />
-                                    </button>
-                                </div>
-                            </footer>
-                        )}
+                        <DataPagination
+                            page={
+                                currentPage
+                            }
+                            lastPage={
+                                lastPage
+                            }
+                            perPage={
+                                perPage
+                            }
+                            total={
+                                total
+                            }
+                            loading={
+                                loading
+                            }
+                            onPageChange={
+                                setPage
+                            }
+                            onPerPageChange={
+                                changePerPage
+                            }
+                        />
                     </section>
                 )}
 
@@ -980,7 +843,29 @@ export default function PartiesIndex() {
                         showToast(
                             editingParty
                                 ? 'Relationship updated successfully.'
-                                : 'New relationship added to this workspace.',
+                                : 'Relationship added successfully.',
+                        );
+
+                        void loadParties();
+                    }}
+                />
+
+                <PartyImportDialog
+                    open={
+                        importOpen
+                    }
+                    onClose={() =>
+                        setImportOpen(
+                            false,
+                        )
+                    }
+                    onImported={(
+                        result,
+                    ) => {
+                        setPage(1);
+
+                        showToast(
+                            `Import complete: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped.`,
                         );
 
                         void loadParties();
@@ -1003,8 +888,8 @@ export default function PartiesIndex() {
                         pendingAction
                             ?.kind ===
                         'restore'
-                            ? `${pendingLabel ?? 'This relationship'} will return to the active business ledger.`
-                            : `${pendingLabel ?? 'This relationship'} will leave the active ledger, but its historical data will remain preserved.`
+                            ? `${pendingLabel ?? 'This relationship'} will return to the active ledger.`
+                            : `${pendingLabel ?? 'This relationship'} will leave the active ledger while historical data remains preserved.`
                     }
                     confirmLabel={
                         pendingAction
@@ -1053,105 +938,5 @@ export default function PartiesIndex() {
                 />
             </main>
         </AppShell>
-    );
-}
-
-type FilterGroupProps = {
-    label: string;
-
-    children:
-        React.ReactNode;
-};
-
-/**
- * Render one horizontally scrollable Party filtering dimension.
- */
-function FilterGroup({
-    label,
-    children,
-}: FilterGroupProps) {
-    return (
-        <div className="min-w-0">
-            <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
-                {label}
-            </p>
-
-            <div className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {children}
-            </div>
-        </div>
-    );
-}
-
-type FilterButtonProps = {
-    active: boolean;
-
-    onClick: () => void;
-
-    children: string;
-
-    icon?: typeof UserRound;
-};
-
-/**
- * Render one non-wrapping Party filter control.
- */
-function FilterButton({
-    active,
-    onClick,
-    children,
-    icon: Icon,
-}: FilterButtonProps) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={[
-                'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3.5 py-2 text-[11px] font-semibold transition duration-200 sm:px-4 sm:text-xs',
-                active
-                    ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                    : 'border-[var(--ac-line)] bg-white text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
-            ].join(' ')}
-        >
-            {Icon && (
-                <Icon
-                    size={13}
-                />
-            )}
-
-            {children}
-        </button>
-    );
-}
-
-type StatusButtonProps = {
-    active: boolean;
-
-    onClick: () => void;
-
-    children: string;
-};
-
-/**
- * Render one Party lifecycle-state segment.
- */
-function StatusButton({
-    active,
-    onClick,
-    children,
-}: StatusButtonProps) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={[
-                'rounded-[10px] px-4 py-2 text-[11px] font-semibold transition sm:text-xs',
-                active
-                    ? 'bg-white text-[var(--ac-text)] shadow-sm'
-                    : 'text-[var(--ac-text-muted)]',
-            ].join(' ')}
-        >
-            {children}
-        </button>
     );
 }

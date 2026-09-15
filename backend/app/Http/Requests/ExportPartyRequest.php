@@ -8,10 +8,11 @@ use App\Models\Party;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class IndexPartyRequest extends FormRequest
+class ExportPartyRequest extends FormRequest
 {
     /**
-     * Authorize Party listing and exports through PartyPolicy.
+     * Authorize Party exports through the same read permission used by the
+     * relationship ledger.
      */
     public function authorize(): bool
     {
@@ -22,7 +23,10 @@ class IndexPartyRequest extends FormRequest
     }
 
     /**
-     * Validate the shared Party index/filter/export contract.
+     * Validate only filters that affect the exported dataset.
+     *
+     * Pagination parameters are intentionally not part of this contract
+     * because exports always contain every matching record.
      *
      * @return array<string, mixed>
      */
@@ -68,22 +72,6 @@ class IndexPartyRequest extends FormRequest
                 ]),
             ],
 
-            'per_page' => [
-                'sometimes',
-                'integer',
-                Rule::in([
-                    25,
-                    50,
-                    100,
-                ]),
-            ],
-
-            'page' => [
-                'sometimes',
-                'integer',
-                'min:1',
-            ],
-
             'locale' => [
                 'nullable',
                 'string',
@@ -94,7 +82,7 @@ class IndexPartyRequest extends FormRequest
     }
 
     /**
-     * Normalize filter values before validation and querying.
+     * Normalize text-based export filters before validation and querying.
      */
     protected function prepareForValidation(): void
     {
@@ -109,8 +97,8 @@ class IndexPartyRequest extends FormRequest
 
             $data['search'] =
                 $search === ''
-                    ? null
-                    : $search;
+                ? null
+                : $search;
         }
 
         foreach (
