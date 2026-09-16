@@ -1,5 +1,7 @@
-import { useLocale } from '@/lib/i18n';
-import { t } from '@/lib/i18n';
+import {
+    t,
+    useLocale,
+} from '@/lib/i18n';
 import {
     Archive,
     ArrowUpRight,
@@ -11,6 +13,9 @@ import {
     RotateCcw,
     UserRound,
 } from 'lucide-react';
+import type {
+    MouseEvent as ReactMouseEvent,
+} from 'react';
 
 import type {
     Party,
@@ -61,13 +66,17 @@ function partyLabel(
     ) {
         return (
             party.company_name ??
-            t('ui.unnamed_company')
+            t(
+                'ui.unnamed_company',
+            )
         );
     }
 
     return (
         party.name ??
-        t('ui.unnamed_person')
+        t(
+            'ui.unnamed_person',
+        )
     );
 }
 
@@ -81,12 +90,19 @@ function partyLocation(
         party.city,
         party.country_code,
     ]
-        .filter(Boolean)
-        .join(', ');
+        .filter(
+            Boolean,
+        )
+        .join(
+            ', ',
+        );
 }
 
 /**
  * Render one selectable Party relationship card or operating row.
+ *
+ * Double-clicking non-interactive row space opens the Party Show surface while
+ * every explicit action remains isolated from that gesture.
  */
 export function PartyListItem({
     party,
@@ -101,6 +117,7 @@ export function PartyListItem({
     onRestore,
 }: PartyListItemProps) {
     useLocale();
+
     const archived =
         party.deleted_at !==
         null;
@@ -115,14 +132,49 @@ export function PartyListItem({
             party,
         );
 
+    /**
+     * Open Party context on a deliberate row double-click.
+     *
+     * Interactive descendants are excluded so checkboxes and action buttons
+     * never accidentally open the record while the user is operating them.
+     */
+    function handleRowDoubleClick(
+        event: ReactMouseEvent<HTMLElement>,
+    ): void {
+        const target =
+            event.target instanceof
+            Element
+                ? event.target
+                : null;
+
+        if (
+            target?.closest(
+                'button, a, input, textarea, select, label',
+            )
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+
+        onView(
+            party,
+        );
+    }
+
     return (
         <article
+            onDoubleClick={
+                handleRowDoubleClick
+            }
             className={[
-                'group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border bg-white p-4 shadow-[var(--ac-shadow-soft)] transition duration-300 sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[auto_minmax(220px,1.3fr)_minmax(180px,1fr)_minmax(160px,0.8fr)_auto] lg:items-center lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:p-5 lg:shadow-none xl:px-6',
+                'ac-index-row group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border bg-white p-4 shadow-[var(--ac-shadow-soft)] transition duration-300 sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[auto_minmax(220px,1.3fr)_minmax(180px,1fr)_minmax(160px,0.8fr)_auto] lg:items-center lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:p-5 lg:shadow-none xl:px-6',
                 selected
                     ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]/30'
                     : 'border-[var(--ac-line)] hover:border-[var(--ac-line-strong)]',
-            ].join(' ')}
+            ].join(
+                ' ',
+            )}
         >
             {selectable && (
                 <label className="flex items-center">
@@ -131,7 +183,12 @@ export function PartyListItem({
                         checked={
                             selected
                         }
-                        aria-label={t('action.select', { name: label })}
+                        aria-label={t(
+                            'action.select',
+                            {
+                                name: label,
+                            },
+                        )}
                         onChange={(
                             event,
                         ) =>
@@ -156,22 +213,28 @@ export function PartyListItem({
                 }
                 className="flex min-w-0 items-start gap-3 text-start sm:gap-4 lg:items-center"
             >
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)] transition group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)] transition duration-200 group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]">
                     {party.type ===
                     'company' ? (
                         <Building2
-                            size={17}
+                            size={
+                                17
+                            }
                         />
                     ) : (
                         <UserRound
-                            size={17}
+                            size={
+                                17
+                            }
                         />
                     )}
                 </div>
 
                 <div className="min-w-0 flex-1">
                     <p className="break-words text-[15px] font-semibold leading-5 tracking-[-0.02em]">
-                        {label}
+                        {
+                            label
+                        }
                     </p>
 
                     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -180,17 +243,26 @@ export function PartyListItem({
                                 role,
                             ) => (
                                 <span
-                                    key={t(role === 'customer' ? 'role.customer' : 'role.supplier')}
+                                    key={
+                                        role
+                                    }
                                     className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-accent-strong)]"
                                 >
-                                    {t(role === 'customer' ? 'role.customer' : 'role.supplier')}
+                                    {t(
+                                        role ===
+                                            'customer'
+                                            ? 'role.customer'
+                                            : 'role.supplier',
+                                    )}
                                 </span>
                             ),
                         )}
 
                         {archived && (
                             <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-danger)]">
-                                {t('ui.archived')}
+                                {t(
+                                    'ui.archived',
+                                )}
                             </span>
                         )}
                     </div>
@@ -200,58 +272,79 @@ export function PartyListItem({
             <div className="grid min-w-0 gap-2 text-xs text-[var(--ac-text-soft)] sm:grid-cols-2 lg:grid-cols-1">
                 <div className="flex min-w-0 items-center gap-2">
                     <Mail
-                        size={13}
+                        size={
+                            13
+                        }
                         className="shrink-0 text-[var(--ac-text-muted)]"
                     />
 
                     <span className="truncate">
                         {party.email ??
-                            t('ui.no_email')}
+                            t(
+                                'ui.no_email',
+                            )}
                     </span>
                 </div>
 
                 <div className="flex min-w-0 items-center gap-2">
                     <Phone
-                        size={13}
+                        size={
+                            13
+                        }
                         className="shrink-0 text-[var(--ac-text-muted)]"
                     />
 
                     <span className="truncate">
                         {party.phone ??
-                            t('ui.no_phone')}
+                            t(
+                                'ui.no_phone',
+                            )}
                     </span>
                 </div>
             </div>
 
             <div className="flex min-w-0 items-center gap-2 text-xs text-[var(--ac-text-soft)]">
                 <MapPin
-                    size={13}
+                    size={
+                        13
+                    }
                     className="shrink-0 text-[var(--ac-text-muted)]"
                 />
 
                 <span className="truncate">
                     {location ||
-                        t('ui.no_location')}
+                        t(
+                            'ui.no_location',
+                        )}
                 </span>
             </div>
 
             <div className="flex items-center gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0">
                 <button
                     type="button"
-                    aria-label={t('action.view', { name: label })}
+                    aria-label={t(
+                        'action.view',
+                        {
+                            name: label,
+                        },
+                    )}
                     onClick={() =>
                         onView(
                             party,
                         )
                     }
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] lg:size-9 lg:flex-none lg:px-0"
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)] lg:size-9 lg:flex-none lg:px-0"
                 >
                     <ArrowUpRight
-                        size={15}
+                        size={
+                            15
+                        }
                     />
 
                     <span className="lg:hidden">
-                        {t('ui.view')}
+                        {t(
+                            'ui.view',
+                        )}
                     </span>
                 </button>
 
@@ -259,20 +352,29 @@ export function PartyListItem({
                     canEdit && (
                         <button
                             type="button"
-                            aria-label={t('action.edit', { name: label })}
+                            aria-label={t(
+                                'action.edit',
+                                {
+                                    name: label,
+                                },
+                            )}
                             onClick={() =>
                                 onEdit(
                                     party,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] lg:size-9 lg:flex-none lg:px-0"
+                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)] lg:size-9 lg:flex-none lg:px-0"
                         >
                             <Pencil
-                                size={15}
+                                size={
+                                    15
+                                }
                             />
 
                             <span className="lg:hidden">
-                                {t('ui.edit')}
+                                {t(
+                                    'ui.edit',
+                                )}
                             </span>
                         </button>
                     )}
@@ -281,20 +383,29 @@ export function PartyListItem({
                     canArchive && (
                         <button
                             type="button"
-                            aria-label={t('action.archive', { name: label })}
+                            aria-label={t(
+                                'action.archive',
+                                {
+                                    name: label,
+                                },
+                            )}
                             onClick={() =>
                                 onArchive(
                                     party,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] hover:text-[var(--ac-danger)] lg:size-9 lg:flex-none lg:px-0"
+                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)] lg:size-9 lg:flex-none lg:px-0"
                         >
                             <Archive
-                                size={15}
+                                size={
+                                    15
+                                }
                             />
 
                             <span className="lg:hidden">
-                                {t('ui.archive')}
+                                {t(
+                                    'ui.archive',
+                                )}
                             </span>
                         </button>
                     )}
@@ -303,20 +414,29 @@ export function PartyListItem({
                     canArchive && (
                         <button
                             type="button"
-                            aria-label={t('action.restore', { name: label })}
+                            aria-label={t(
+                                'action.restore',
+                                {
+                                    name: label,
+                                },
+                            )}
                             onClick={() =>
                                 onRestore(
                                     party,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent-strong)] lg:h-9 lg:flex-none"
+                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent-strong)] transition duration-200 hover:-translate-y-px motion-reduce:transform-none lg:h-9 lg:flex-none"
                         >
                             <RotateCcw
-                                size={15}
+                                size={
+                                    15
+                                }
                             />
 
                             <span className="lg:hidden">
-                                {t('ui.restore')}
+                                {t(
+                                    'ui.restore',
+                                )}
                             </span>
                         </button>
                     )}

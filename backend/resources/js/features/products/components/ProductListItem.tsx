@@ -1,6 +1,10 @@
-import { getLocale } from '@/lib/locale';
-import { useLocale } from '@/lib/i18n';
-import { t } from '@/lib/i18n';
+import {
+    getLocale,
+} from '@/lib/locale';
+import {
+    t,
+    useLocale,
+} from '@/lib/i18n';
 import {
     Archive,
     ArrowUpRight,
@@ -9,6 +13,9 @@ import {
     RotateCcw,
     Wrench,
 } from 'lucide-react';
+import type {
+    MouseEvent as ReactMouseEvent,
+} from 'react';
 
 import type {
     Product,
@@ -16,9 +23,14 @@ import type {
 
 type ProductListItemProps = {
     product: Product;
+
     selected?: boolean;
+
     selectable?: boolean;
-    onSelectionChange?: (selected: boolean) => void;
+
+    onSelectionChange?: (
+        selected: boolean,
+    ) => void;
 
     canEdit: boolean;
 
@@ -43,6 +55,9 @@ type ProductListItemProps = {
 
 /**
  * Render one responsive Product or Service catalog row.
+ *
+ * The whole non-interactive row supports double-click detail opening while
+ * buttons, links, checkboxes, and form controls retain their own behavior.
  */
 export function ProductListItem({
     product,
@@ -57,80 +72,160 @@ export function ProductListItem({
     onRestore,
 }: ProductListItemProps) {
     useLocale();
+
     const archived =
         product.deleted_at !==
         null;
 
+    /**
+     * Open Product context when the user double-clicks the row itself.
+     *
+     * Interactive descendants are intentionally ignored so double-clicking an
+     * action or checkbox can never trigger an unrelated Show surface.
+     */
+    function handleRowDoubleClick(
+        event: ReactMouseEvent<HTMLElement>,
+    ): void {
+        const target =
+            event.target instanceof
+            Element
+                ? event.target
+                : null;
+
+        if (
+            target?.closest(
+                'button, a, input, textarea, select, label',
+            )
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+
+        onView(
+            product,
+        );
+    }
+
     return (
-        <article className="mx-3 my-3 grid gap-4 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] transition hover:border-[var(--ac-line-strong)] sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[minmax(240px,1.4fr)_minmax(120px,.6fr)_minmax(140px,.7fr)_minmax(120px,.6fr)_auto] lg:items-center lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none">
+        <article
+            onDoubleClick={
+                handleRowDoubleClick
+            }
+            className="ac-index-row group mx-3 my-3 grid gap-4 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] transition hover:border-[var(--ac-line-strong)] sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[minmax(240px,1.4fr)_minmax(120px,.6fr)_minmax(140px,.7fr)_minmax(120px,.6fr)_auto] lg:items-center lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none"
+        >
             <div className="flex min-w-0 items-center gap-2">
-            {selectable && <input type="checkbox" checked={selected} onChange={(event) => onSelectionChange?.(event.target.checked)} aria-label={t('action.select', { name: product.name })} className="size-5 shrink-0 accent-emerald-700" />}
-            <button
-                type="button"
-                onClick={() =>
-                    onView(
-                        product,
-                    )
-                }
-                className="flex min-w-0 items-start gap-3 text-start lg:items-center"
-            >
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-surface-strong)] text-[var(--ac-text-soft)]">
-                    {product.type ===
-                    'service' ? (
-                        <Wrench
-                            size={17}
-                        />
-                    ) : (
-                        <Package
-                            size={17}
-                        />
-                    )}
-                </div>
+                {selectable && (
+                    <input
+                        type="checkbox"
+                        checked={
+                            selected
+                        }
+                        onChange={(
+                            event,
+                        ) =>
+                            onSelectionChange?.(
+                                event
+                                    .target
+                                    .checked,
+                            )
+                        }
+                        aria-label={t(
+                            'action.select',
+                            {
+                                name: product.name,
+                            },
+                        )}
+                        className="size-5 shrink-0 accent-emerald-700"
+                    />
+                )}
 
-                <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold tracking-[-0.025em]">
-                        {product.name}
-                    </p>
-
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        <span className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-accent-strong)]">
-                            {t(product.type === 'service' ? 'ui.service' : 'ui.product')}
-                        </span>
-
-                        {archived && (
-                            <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase text-[var(--ac-danger)]">
-                                {t('ui.archived')}
-                            </span>
+                <button
+                    type="button"
+                    onClick={() =>
+                        onView(
+                            product,
+                        )
+                    }
+                    className="flex min-w-0 items-start gap-3 text-start lg:items-center"
+                >
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-surface-strong)] text-[var(--ac-text-soft)] transition duration-200 group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]">
+                        {product.type ===
+                        'service' ? (
+                            <Wrench
+                                size={
+                                    17
+                                }
+                            />
+                        ) : (
+                            <Package
+                                size={
+                                    17
+                                }
+                            />
                         )}
                     </div>
-                </div>
-            </button>
+
+                    <div className="min-w-0">
+                        <p className="truncate text-[15px] font-semibold tracking-[-0.025em]">
+                            {
+                                product.name
+                            }
+                        </p>
+
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            <span className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-accent-strong)]">
+                                {t(
+                                    product.type ===
+                                        'service'
+                                        ? 'ui.service'
+                                        : 'ui.product',
+                                )}
+                            </span>
+
+                            {archived && (
+                                <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase text-[var(--ac-danger)]">
+                                    {t(
+                                        'ui.archived',
+                                    )}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </button>
             </div>
 
             <div className="text-xs">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
-                    {t('ui.sku')}
+                    {t(
+                        'ui.sku',
+                    )}
                 </p>
 
                 <p className="mt-1 font-semibold">
                     {product.sku ??
-                        t('ui.no_sku')}
+                        t(
+                            'ui.no_sku',
+                        )}
                 </p>
             </div>
 
             <div className="text-xs">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
-                    {t('ui.selling_price')}
+                    {t(
+                        'ui.selling_price',
+                    )}
                 </p>
 
                 <p className="mt-1 text-base font-semibold tracking-[-0.03em]">
                     {Number(
                         product.unit_price,
                     ).toLocaleString(
-        getLocale(),
+                        getLocale(),
                         {
                             minimumFractionDigits:
                                 2,
+
                             maximumFractionDigits:
                                 4,
                         },
@@ -140,14 +235,20 @@ export function ProductListItem({
 
             <div className="text-xs">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
-                    {t('ui.unit_tax')}
+                    {t(
+                        'ui.unit_tax',
+                    )}
                 </p>
 
                 <p className="mt-1 font-semibold">
-                    {product.unit} ·{' '}
+                    {
+                        product.unit
+                    }{' '}
+                    ·{' '}
                     {Number(
                         product.tax_rate,
-                    )}%
+                    )}
+                    %
                 </p>
             </div>
 
@@ -159,14 +260,18 @@ export function ProductListItem({
                             product,
                         )
                     }
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold lg:size-9 lg:flex-none"
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold transition duration-200 hover:bg-[var(--ac-surface-strong)] lg:size-9 lg:flex-none"
                 >
                     <ArrowUpRight
-                        size={15}
+                        size={
+                            15
+                        }
                     />
 
                     <span className="lg:hidden">
-                        {t('ui.view')}
+                        {t(
+                            'ui.view',
+                        )}
                     </span>
                 </button>
 
@@ -179,14 +284,18 @@ export function ProductListItem({
                                     product,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold lg:size-9 lg:flex-none"
+                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold transition duration-200 hover:bg-[var(--ac-surface-strong)] lg:size-9 lg:flex-none"
                         >
                             <Pencil
-                                size={15}
+                                size={
+                                    15
+                                }
                             />
 
                             <span className="lg:hidden">
-                                {t('ui.edit')}
+                                {t(
+                                    'ui.edit',
+                                )}
                             </span>
                         </button>
                     )}
@@ -200,14 +309,18 @@ export function ProductListItem({
                                     product,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold hover:text-[var(--ac-danger)] lg:size-9 lg:flex-none"
+                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold transition duration-200 hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)] lg:size-9 lg:flex-none"
                         >
                             <Archive
-                                size={15}
+                                size={
+                                    15
+                                }
                             />
 
                             <span className="lg:hidden">
-                                {t('ui.archive')}
+                                {t(
+                                    'ui.archive',
+                                )}
                             </span>
                         </button>
                     )}
@@ -221,13 +334,17 @@ export function ProductListItem({
                                     product,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent-strong)]"
+                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent-strong)] transition duration-200 hover:-translate-y-px hover:bg-[var(--ac-accent)]/18 motion-reduce:transform-none"
                         >
                             <RotateCcw
-                                size={15}
+                                size={
+                                    15
+                                }
                             />
 
-                            {t('ui.restore')}
+                            {t(
+                                'ui.restore',
+                            )}
                         </button>
                     )}
             </div>

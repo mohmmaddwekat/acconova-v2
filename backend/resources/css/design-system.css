@@ -62,6 +62,26 @@
      */
     --ac-transition-fast: 140ms;
     --ac-transition-normal: 220ms;
+
+    --ac-motion-fast: 170ms;
+    --ac-motion-normal: 260ms;
+    --ac-motion-slow: 340ms;
+
+    --ac-ease-out:
+        cubic-bezier(
+            0.22,
+            1,
+            0.36,
+            1
+        );
+
+    --ac-ease-soft:
+        cubic-bezier(
+            0.16,
+            1,
+            0.3,
+            1
+        );
 }
 
 html {
@@ -86,4 +106,293 @@ body {
         var(--ac-bg);
 
     color: var(--ac-text);
+}
+
+/*
+ * Page motion
+ *
+ * Keep full operating surfaces alive without making navigation theatrical.
+ * Every current and future application main surface receives the same subtle
+ * entrance language automatically.
+ */
+@keyframes ac-page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+main {
+    animation:
+        ac-page-enter
+        var(--ac-motion-normal)
+        var(--ac-ease-out)
+        both;
+}
+
+/*
+ * Index-row motion
+ *
+ * New pages, pagination changes, workspace changes, and filters naturally
+ * mount new records. Those records should enter with a short restrained
+ * stagger rather than suddenly appearing.
+ */
+@keyframes ac-index-row-enter {
+    from {
+        opacity: 0;
+        transform:
+            translateY(8px)
+            scale(0.995);
+    }
+
+    to {
+        opacity: 1;
+        transform:
+            translateY(0)
+            scale(1);
+    }
+}
+
+.ac-index-row {
+    transform-origin: center;
+    animation:
+        ac-index-row-enter
+        var(--ac-motion-normal)
+        var(--ac-ease-out)
+        both;
+
+    transition:
+        transform var(--ac-transition-normal)
+            var(--ac-ease-out),
+        border-color var(--ac-transition-normal)
+            ease,
+        background-color var(--ac-transition-normal)
+            ease,
+        box-shadow var(--ac-transition-normal)
+            ease;
+}
+
+/*
+ * Apply a tiny stagger to the first visible records only. Long lists therefore
+ * never wait for a large animation queue.
+ */
+.ac-index-row:nth-child(2) {
+    animation-delay: 25ms;
+}
+
+.ac-index-row:nth-child(3) {
+    animation-delay: 45ms;
+}
+
+.ac-index-row:nth-child(4) {
+    animation-delay: 65ms;
+}
+
+.ac-index-row:nth-child(5) {
+    animation-delay: 85ms;
+}
+
+.ac-index-row:nth-child(6) {
+    animation-delay: 105ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .ac-index-row:hover {
+        transform: translateY(-1px);
+    }
+}
+
+/*
+ * Drawer / Show motion
+ *
+ * AccoNova drawers use logical CSS positioning (`end-0`). Their animation
+ * therefore follows document direction as well: from the right in LTR and
+ * from the left in RTL.
+ */
+@keyframes ac-drawer-enter-ltr {
+    from {
+        opacity: 0.72;
+        transform: translateX(28px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes ac-drawer-enter-rtl {
+    from {
+        opacity: 0.72;
+        transform: translateX(-28px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+html[dir='ltr']
+    aside[role='dialog'] {
+    animation:
+        ac-drawer-enter-ltr
+        var(--ac-motion-slow)
+        var(--ac-ease-soft)
+        both;
+}
+
+html[dir='rtl']
+    aside[role='dialog'] {
+    animation:
+        ac-drawer-enter-rtl
+        var(--ac-motion-slow)
+        var(--ac-ease-soft)
+        both;
+}
+
+/*
+ * Reveal drawer content in layers after the surface itself starts moving.
+ */
+@keyframes ac-drawer-content-enter {
+    from {
+        opacity: 0;
+        transform: translateY(7px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+aside[role='dialog']
+    > header {
+    animation:
+        ac-drawer-content-enter
+        250ms
+        var(--ac-ease-out)
+        45ms
+        both;
+}
+
+aside[role='dialog']
+    > div {
+    animation:
+        ac-drawer-content-enter
+        280ms
+        var(--ac-ease-out)
+        85ms
+        both;
+}
+
+aside[role='dialog']
+    > footer {
+    animation:
+        ac-drawer-content-enter
+        280ms
+        var(--ac-ease-out)
+        125ms
+        both;
+}
+
+/*
+ * Stagger the major blocks contained inside Show drawers. This creates a
+ * subtle visual hierarchy while the user is reading the record.
+ */
+aside[role='dialog']
+    > div
+    > * {
+    animation:
+        ac-drawer-content-enter
+        260ms
+        var(--ac-ease-out)
+        both;
+}
+
+aside[role='dialog']
+    > div
+    > *:nth-child(1) {
+    animation-delay: 100ms;
+}
+
+aside[role='dialog']
+    > div
+    > *:nth-child(2) {
+    animation-delay: 125ms;
+}
+
+aside[role='dialog']
+    > div
+    > *:nth-child(3) {
+    animation-delay: 150ms;
+}
+
+aside[role='dialog']
+    > div
+    > *:nth-child(4) {
+    animation-delay: 175ms;
+}
+
+aside[role='dialog']
+    > div
+    > *:nth-child(5) {
+    animation-delay: 200ms;
+}
+
+aside[role='dialog']
+    > div
+    > *:nth-child(n + 6) {
+    animation-delay: 215ms;
+}
+
+/*
+ * Accessibility
+ *
+ * Motion is enhancement only. Users asking the operating system for reduced
+ * motion receive immediate surfaces with no sliding, scaling, or stagger.
+ */
+@media (
+    prefers-reduced-motion:
+        reduce
+) {
+    main,
+    .ac-index-row,
+    aside[role='dialog'],
+    aside[role='dialog']
+        > header,
+    aside[role='dialog']
+        > div,
+    aside[role='dialog']
+        > footer,
+    aside[role='dialog']
+        > div
+        > * {
+        animation: none !important;
+        transform: none !important;
+    }
+
+    .ac-index-row {
+        transition:
+            border-color
+                var(
+                    --ac-transition-fast
+                )
+                ease,
+            background-color
+                var(
+                    --ac-transition-fast
+                )
+                ease,
+            box-shadow
+                var(
+                    --ac-transition-fast
+                )
+                ease;
+    }
 }

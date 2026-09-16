@@ -1,18 +1,25 @@
-import { useLocale } from '@/lib/i18n';
-import { t } from '@/lib/i18n';
 import {
-    Check,
+    Archive,
+    ArrowDownAZ,
+    ArrowUpAZ,
+    Clock3,
+    DollarSign,
     Filter,
+    History,
     Package,
-    RotateCcw,
+    ShieldCheck,
+    Tag,
     Wrench,
-    X,
 } from 'lucide-react';
 import {
-    useEffect,
     useState,
 } from 'react';
 
+import {
+    FilterChoice,
+    FilterDialog,
+    type FilterDialogSection,
+} from '@/components/data/FilterDialog';
 import type {
     ProductLifecycle,
     ProductQuality,
@@ -21,6 +28,10 @@ import type {
 import type {
     ProductType,
 } from '@/features/products/types';
+import {
+    t,
+    useLocale,
+} from '@/lib/i18n';
 
 export type ProductFilterState = {
     type?: ProductType;
@@ -41,18 +52,22 @@ type ProductFilterPopoverProps = {
 };
 
 /**
- * Count non-default catalog filters.
+ * Count filters that differ from the normal active alphabetical catalog view.
  */
 export function countProductFilters(
     filters: ProductFilterState,
 ): number {
     let count = 0;
 
-    if (filters.type) {
+    if (
+        filters.type
+    ) {
         count++;
     }
 
-    if (filters.quality) {
+    if (
+        filters.quality
+    ) {
         count++;
     }
 
@@ -74,62 +89,508 @@ export function countProductFilters(
 }
 
 /**
- * Render phone bottom-sheet, tablet dialog, and desktop popover filtering.
+ * Render Product filtering through a scalable category navigator.
  */
 export function ProductFilterPopover({
     value,
     onChange,
 }: ProductFilterPopoverProps) {
     useLocale();
-    const [open, setOpen] =
-        useState(false);
 
-    const [draft, setDraft] =
-        useState(
-            value,
-        );
-
-    useEffect(() => {
-        if (open) {
-            setDraft(
-                value,
-            );
-        }
-    }, [
+    const [
         open,
-        value,
-    ]);
-
-    /**
-     * Reset catalog filters to their normal active alphabetical state.
-     */
-    function reset(): void {
-        setDraft({
-            status: 'active',
-            sort: 'name_asc',
-        });
-    }
-
-    /**
-     * Apply draft catalog filters.
-     */
-    function apply(): void {
-        onChange(
-            draft,
+        setOpen,
+    ] =
+        useState(
+            false,
         );
-
-        setOpen(false);
-    }
 
     const count =
         countProductFilters(
             value,
         );
 
+    /**
+     * Apply one catalog filtering change immediately.
+     */
+    function change(
+        patch: Partial<ProductFilterState>,
+    ): void {
+        onChange({
+            ...value,
+            ...patch,
+        });
+    }
+
+    /**
+     * Restore the default active alphabetical catalog view immediately.
+     */
+    function reset(): void {
+        onChange({
+            status:
+                'active',
+
+            sort:
+                'name_asc',
+        });
+    }
+
+    const typeSummary =
+        value.type ===
+        'product'
+            ? t(
+                  'ui.products',
+              )
+            : value.type ===
+                'service'
+              ? t(
+                    'ui.services',
+                )
+              : t(
+                    'ui.everything',
+                );
+
+    const qualitySummary =
+        value.quality ===
+        'missing_sku'
+            ? t(
+                  'ui.missing_sku',
+              )
+            : value.quality ===
+                'zero_price'
+              ? t(
+                    'ui.zero_price',
+                )
+              : value.quality ===
+                  'missing_cost'
+                ? t(
+                      'ui.missing_cost',
+                  )
+                : t(
+                      'ui.any_quality',
+                  );
+
+    const lifecycleSummary =
+        value.status ===
+        'deleted'
+            ? t(
+                  'ui.archived',
+              )
+            : t(
+                  'ui.active',
+              );
+
+    const sortSummary =
+        value.sort ===
+        'name_desc'
+            ? t(
+                  'ui.name_z_a',
+              )
+            : value.sort ===
+                'price_low'
+              ? t(
+                    'ui.price_low',
+                )
+              : value.sort ===
+                  'price_high'
+                ? t(
+                      'ui.price_high',
+                  )
+                : value.sort ===
+                    'newest'
+                  ? t(
+                        'ui.newest',
+                    )
+                  : value.sort ===
+                      'oldest'
+                    ? t(
+                          'ui.oldest',
+                      )
+                    : t(
+                          'ui.name_a_z',
+                      );
+
+    const sections:
+        FilterDialogSection[] =
+        [
+            {
+                id: 'type',
+
+                title: t(
+                    'ui.type',
+                ),
+
+                summary:
+                    typeSummary,
+
+                icon: Package,
+
+                active:
+                    Boolean(
+                        value.type,
+                    ),
+
+                content: (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <FilterChoice
+                            active={
+                                ! value.type
+                            }
+                            onClick={() =>
+                                change({
+                                    type: undefined,
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.everything',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                Package
+                            }
+                            active={
+                                value.type ===
+                                'product'
+                            }
+                            onClick={() =>
+                                change({
+                                    type: 'product',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.products',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                Wrench
+                            }
+                            active={
+                                value.type ===
+                                'service'
+                            }
+                            onClick={() =>
+                                change({
+                                    type: 'service',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.services',
+                            )}
+                        </FilterChoice>
+                    </div>
+                ),
+            },
+
+            {
+                id: 'quality',
+
+                title: t(
+                    'ui.data_quality',
+                ),
+
+                summary:
+                    qualitySummary,
+
+                icon:
+                    ShieldCheck,
+
+                active:
+                    Boolean(
+                        value.quality,
+                    ),
+
+                content: (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <FilterChoice
+                            icon={
+                                ShieldCheck
+                            }
+                            active={
+                                ! value.quality
+                            }
+                            onClick={() =>
+                                change({
+                                    quality: undefined,
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.any_quality',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                Tag
+                            }
+                            active={
+                                value.quality ===
+                                'missing_sku'
+                            }
+                            onClick={() =>
+                                change({
+                                    quality:
+                                        'missing_sku',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.missing_sku',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                DollarSign
+                            }
+                            active={
+                                value.quality ===
+                                'zero_price'
+                            }
+                            onClick={() =>
+                                change({
+                                    quality:
+                                        'zero_price',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.zero_price',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                DollarSign
+                            }
+                            active={
+                                value.quality ===
+                                'missing_cost'
+                            }
+                            onClick={() =>
+                                change({
+                                    quality:
+                                        'missing_cost',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.missing_cost',
+                            )}
+                        </FilterChoice>
+                    </div>
+                ),
+            },
+
+            {
+                id: 'lifecycle',
+
+                title: t(
+                    'ui.lifecycle',
+                ),
+
+                summary:
+                    lifecycleSummary,
+
+                icon:
+                    Archive,
+
+                active:
+                    value.status !==
+                    'active',
+
+                content: (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <FilterChoice
+                            active={
+                                value.status ===
+                                'active'
+                            }
+                            onClick={() =>
+                                change({
+                                    status: 'active',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.active',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                Archive
+                            }
+                            active={
+                                value.status ===
+                                'deleted'
+                            }
+                            onClick={() =>
+                                change({
+                                    status: 'deleted',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.archived',
+                            )}
+                        </FilterChoice>
+                    </div>
+                ),
+            },
+
+            {
+                id: 'sort',
+
+                title: t(
+                    'ui.sort',
+                ),
+
+                summary:
+                    sortSummary,
+
+                icon:
+                    ArrowDownAZ,
+
+                active:
+                    value.sort !==
+                    'name_asc',
+
+                content: (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <FilterChoice
+                            icon={
+                                ArrowDownAZ
+                            }
+                            active={
+                                value.sort ===
+                                'name_asc'
+                            }
+                            onClick={() =>
+                                change({
+                                    sort: 'name_asc',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.name_a_z',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                ArrowUpAZ
+                            }
+                            active={
+                                value.sort ===
+                                'name_desc'
+                            }
+                            onClick={() =>
+                                change({
+                                    sort: 'name_desc',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.name_z_a',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                DollarSign
+                            }
+                            active={
+                                value.sort ===
+                                'price_low'
+                            }
+                            onClick={() =>
+                                change({
+                                    sort: 'price_low',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.price_low',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                DollarSign
+                            }
+                            active={
+                                value.sort ===
+                                'price_high'
+                            }
+                            onClick={() =>
+                                change({
+                                    sort: 'price_high',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.price_high',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                Clock3
+                            }
+                            active={
+                                value.sort ===
+                                'newest'
+                            }
+                            onClick={() =>
+                                change({
+                                    sort: 'newest',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.newest',
+                            )}
+                        </FilterChoice>
+
+                        <FilterChoice
+                            icon={
+                                History
+                            }
+                            active={
+                                value.sort ===
+                                'oldest'
+                            }
+                            onClick={() =>
+                                change({
+                                    sort: 'oldest',
+                                })
+                            }
+                        >
+                            {t(
+                                'ui.oldest',
+                            )}
+                        </FilterChoice>
+                    </div>
+                ),
+            },
+        ];
+
     return (
-        <div className="relative">
+        <div className="min-w-0">
             <button
                 type="button"
+                aria-expanded={
+                    open
+                }
+                aria-haspopup="dialog"
                 onClick={() =>
                     setOpen(
                         (
@@ -139,377 +600,61 @@ export function ProductFilterPopover({
                     )
                 }
                 className={[
-                    'flex h-11 w-full items-center justify-center gap-2 rounded-[14px] border px-4 text-sm font-semibold sm:w-auto',
+                    'group flex h-11 w-full items-center justify-center gap-2 rounded-[14px] border px-4 text-sm font-semibold transition duration-200 hover:-translate-y-px active:translate-y-0 motion-reduce:transform-none sm:w-auto',
                     open ||
                     count > 0
-                        ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                        : 'border-[var(--ac-line)] bg-white',
-                ].join(' ')}
+                        ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]'
+                        : 'border-[var(--ac-line)] bg-white text-[var(--ac-text)] hover:border-[var(--ac-line-strong)]',
+                ].join(
+                    ' ',
+                )}
             >
                 <Filter
-                    size={15}
+                    size={
+                        15
+                    }
+                    className="transition-transform duration-200 group-hover:rotate-6 motion-reduce:transform-none"
                 />
 
-                {t('ui.filters')}
+                {t(
+                    'ui.filters',
+                )}
 
-                {count > 0 && (
-                    <span className="flex size-5 items-center justify-center rounded-full bg-[var(--ac-accent-strong)] text-[9px] text-white">
-                        {count}
+                {count >
+                    0 && (
+                    <span className="flex size-5 items-center justify-center rounded-full bg-[var(--ac-accent-strong)] text-[9px] font-bold text-white">
+                        {
+                            count
+                        }
                     </span>
                 )}
             </button>
 
-            {open && (
-                <>
-                    <button
-                        type="button"
-                        aria-label={t('ui.close_filters')}
-                        onClick={() =>
-                            setOpen(
-                                false,
-                            )
-                        }
-                        className="fixed inset-0 z-[129] bg-[var(--ac-text)]/20 backdrop-blur-[2px] xl:hidden"
-                    />
-
-                    <section className="fixed inset-x-0 bottom-0 z-[130] max-h-[88dvh] overflow-y-auto rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)] sm:inset-x-auto sm:bottom-auto sm:start-1/2 sm:top-1/2 sm:w-[min(560px,calc(100vw-3rem))] sm:-translate-x-1/2 rtl:sm:translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[26px] xl:absolute xl:start-auto xl:end-0 xl:top-[calc(100%+0.65rem)] xl:w-[440px] xl:translate-x-0 rtl:xl:translate-x-0 xl:translate-y-0 xl:rounded-[22px]">
-                        <header className="flex items-center justify-between border-b border-[var(--ac-line)] p-5">
-                            <div>
-                                <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
-                                    {t('ui.refine_catalog')}
-                                </p>
-
-                                <h2 className="mt-1 text-lg font-semibold">
-                                    {t('ui.product_filters')}
-                                </h2>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setOpen(
-                                        false,
-                                    )
-                                }
-                                className="flex size-9 items-center justify-center rounded-[12px] bg-[var(--ac-bg-soft)]"
-                            >
-                                <X size={16} />
-                            </button>
-                        </header>
-
-                        <div className="grid gap-6 p-5">
-                            <FilterSection
-                                title={t('ui.type')}
-                            >
-                                <Choice
-                                    active={
-                                        ! draft.type
-                                    }
-                                    onClick={() =>
-                                        setDraft({
-                                            ...draft,
-                                            type: undefined,
-                                        })
-                                    }
-                                >
-                                    {t('ui.everything')}
-                                </Choice>
-
-                                <Choice
-                                    icon={
-                                        Package
-                                    }
-                                    active={
-                                        draft.type ===
-                                        'product'
-                                    }
-                                    onClick={() =>
-                                        setDraft({
-                                            ...draft,
-                                            type: 'product',
-                                        })
-                                    }
-                                >
-                                    {t('ui.products')}
-                                </Choice>
-
-                                <Choice
-                                    icon={
-                                        Wrench
-                                    }
-                                    active={
-                                        draft.type ===
-                                        'service'
-                                    }
-                                    onClick={() =>
-                                        setDraft({
-                                            ...draft,
-                                            type: 'service',
-                                        })
-                                    }
-                                >
-                                    {t('ui.services')}
-                                </Choice>
-                            </FilterSection>
-
-                            <FilterSection
-                                title={t('ui.data_quality')}
-                            >
-                                <Choice
-                                    active={
-                                        ! draft.quality
-                                    }
-                                    onClick={() =>
-                                        setDraft({
-                                            ...draft,
-                                            quality: undefined,
-                                        })
-                                    }
-                                >
-                                    {t('ui.any_quality')}
-                                </Choice>
-
-                                <Choice
-                                    active={
-                                        draft.quality ===
-                                        'missing_sku'
-                                    }
-                                    onClick={() =>
-                                        setDraft({
-                                            ...draft,
-                                            quality: 'missing_sku',
-                                        })
-                                    }
-                                >
-                                    {t('ui.missing_sku')}
-                                </Choice>
-
-                                <Choice
-                                    active={
-                                        draft.quality ===
-                                        'zero_price'
-                                    }
-                                    onClick={() =>
-                                        setDraft({
-                                            ...draft,
-                                            quality: 'zero_price',
-                                        })
-                                    }
-                                >
-                                    {t('ui.zero_price')}
-                                </Choice>
-
-                                <Choice
-                                    active={
-                                        draft.quality ===
-                                        'missing_cost'
-                                    }
-                                    onClick={() =>
-                                        setDraft({
-                                            ...draft,
-                                            quality: 'missing_cost',
-                                        })
-                                    }
-                                >
-                                    {t('ui.missing_cost')}
-                                </Choice>
-                            </FilterSection>
-
-                            <div className="grid gap-6 sm:grid-cols-2">
-                                <FilterSection
-                                    title={t('ui.lifecycle')}
-                                >
-                                    <Choice
-                                        active={
-                                            draft.status ===
-                                            'active'
-                                        }
-                                        onClick={() =>
-                                            setDraft({
-                                                ...draft,
-                                                status: 'active',
-                                            })
-                                        }
-                                    >
-                                        {t('ui.active')}
-                                    </Choice>
-
-                                    <Choice
-                                        active={
-                                            draft.status ===
-                                            'deleted'
-                                        }
-                                        onClick={() =>
-                                            setDraft({
-                                                ...draft,
-                                                status: 'deleted',
-                                            })
-                                        }
-                                    >
-                                        {t('ui.archived')}
-                                    </Choice>
-                                </FilterSection>
-
-                                <FilterSection
-                                    title={t('ui.sort')}
-                                >
-                                    {[
-                                        [
-                                            'name_asc',
-                                            t('ui.name_a_z'),
-                                        ],
-                                        [
-                                            'name_desc',
-                                            t('ui.name_z_a'),
-                                        ],
-                                        [
-                                            'price_low',
-                                            t('ui.price_low'),
-                                        ],
-                                        [
-                                            'price_high',
-                                            t('ui.price_high'),
-                                        ],
-                                        [
-                                            'newest',
-                                            t('ui.newest'),
-                                        ],
-                                        [
-                                            'oldest',
-                                            t('ui.oldest'),
-                                        ],
-                                    ].map(
-                                        ([
-                                            sort,
-                                            label,
-                                        ]) => (
-                                            <Choice
-                                                key={
-                                                    sort
-                                                }
-                                                active={
-                                                    draft.sort ===
-                                                    sort
-                                                }
-                                                onClick={() =>
-                                                    setDraft({
-                                                        ...draft,
-                                                        sort:
-                                                            sort as ProductSort,
-                                                    })
-                                                }
-                                            >
-                                                {
-                                                    label
-                                                }
-                                            </Choice>
-                                        ),
-                                    )}
-                                </FilterSection>
-                            </div>
-                        </div>
-
-                        <footer className="grid grid-cols-2 gap-2 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
-                            <button
-                                type="button"
-                                onClick={
-                                    reset
-                                }
-                                className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white text-sm font-semibold"
-                            >
-                                <RotateCcw
-                                    size={14}
-                                />
-
-                                {t('ui.reset')}
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={
-                                    apply
-                                }
-                                className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] text-sm font-semibold text-white"
-                            >
-                                <Check
-                                    size={14}
-                                />
-
-                                {t('ui.apply')}
-                            </button>
-                        </footer>
-                    </section>
-                </>
-            )}
+            <FilterDialog
+                open={
+                    open
+                }
+                eyebrow={t(
+                    'ui.refine_catalog',
+                )}
+                title={t(
+                    'ui.product_filters',
+                )}
+                activeCount={
+                    count
+                }
+                sections={
+                    sections
+                }
+                onClose={() =>
+                    setOpen(
+                        false,
+                    )
+                }
+                onReset={
+                    reset
+                }
+            />
         </div>
-    );
-}
-
-type FilterSectionProps = {
-    title: string;
-
-    children: React.ReactNode;
-};
-
-/**
- * Render one catalog filtering dimension.
- */
-function FilterSection({
-    title,
-    children,
-}: FilterSectionProps) {
-    useLocale();
-    return (
-        <section>
-            <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
-                {title}
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-                {children}
-            </div>
-        </section>
-    );
-}
-
-type ChoiceProps = {
-    active: boolean;
-
-    onClick: () => void;
-
-    children: string;
-
-    icon?: typeof Package;
-};
-
-/**
- * Render one compact Product filter option.
- */
-function Choice({
-    active,
-    onClick,
-    children,
-    icon: Icon,
-}: ChoiceProps) {
-    useLocale();
-    return (
-        <button
-            type="button"
-            onClick={
-                onClick
-            }
-            className={[
-                'flex min-h-10 items-center gap-2 rounded-[12px] border px-3 py-2 text-[11px] font-semibold',
-                active
-                    ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                    : 'border-[var(--ac-line)] bg-white text-[var(--ac-text-soft)]',
-            ].join(' ')}
-        >
-            {Icon && (
-                <Icon size={13} />
-            )}
-
-            {children}
-        </button>
     );
 }

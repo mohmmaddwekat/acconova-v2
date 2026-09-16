@@ -2,13 +2,13 @@
 
 namespace App\Actions\Auth;
 
-use App\Exceptions\SafeValidationException;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ResetUserPassword
 {
@@ -33,13 +33,17 @@ class ResetUserPassword
         return Password::reset(
             $credentials,
             /**
-             * Persist the replacement credentials only after Laravel's
-             * password broker has accepted the email and reset token.
+             * Persist replacement credentials only after Laravel's password
+             * broker has accepted the email address and reset token.
              */
-            function (User $user, string $password): void {
+            function (
+                User $user,
+                string $password,
+            ): void {
                 /*
-                 * This is a known business validation state, so expose only a
-                 * stable code whose translated copy is controlled by AccoNova.
+                 * Reusing the current password is a known business validation
+                 * state, so its copy comes from the localized safe-message
+                 * catalog rather than an inline technical response.
                  */
                 if (
                     Hash::check(
@@ -47,24 +51,32 @@ class ResetUserPassword
                         $user->password,
                     )
                 ) {
-                    throw SafeValidationException::forField(
-                        'password',
-                        'password_reuse',
-                    );
+                    throw ValidationException::withMessages([
+                        'password' => [
+                            __(
+                                'feedback.password_reuse',
+                            ),
+                        ],
+                    ]);
                 }
 
                 $user->forceFill([
                     'password' => $password,
-                    'remember_token' => Str::random(60),
+
+                    'remember_token' => Str::random(
+                        60,
+                    ),
                 ])->save();
 
                 /*
-                 * Invalidate existing database sessions after a successful
-                 * password reset so previously authenticated browsers lose
-                 * access immediately.
+                 * Invalidate database sessions after recovery so browsers
+                 * authenticated with the old password lose access.
                  */
                 if (
-                    config('session.driver') === 'database'
+                    config(
+                        'session.driver',
+                    ) ===
+                    'database'
                 ) {
                     DB::table(
                         (string) config(
@@ -80,7 +92,9 @@ class ResetUserPassword
                 }
 
                 event(
-                    new PasswordReset($user),
+                    new PasswordReset(
+                        $user,
+                    ),
                 );
             },
         );
