@@ -9,12 +9,17 @@ return [
     'file' => 'Please choose a valid spreadsheet.',
     'validation' => 'Please review the highlighted fields.',
     'throttled' => 'Too many requests. Please wait a moment and try again.',
+
     'invalid' => 'Please check this value.',
     'required' => 'This field is required.',
     'unique' => 'This value is already in use.',
     'sku' => 'This SKU is already used by another catalog item.',
     'email' => 'A relationship with this email already exists in this workspace.',
+
+    'password_reuse' => 'Your new password must be different from your current password.',
+
     'return' => 'Return to your workspace',
+
     'import_invalid' => 'Review the values in this spreadsheet row.',
     'import_duplicate' => 'This value appears more than once in the spreadsheet.',
     'import_archived' => 'Restore the archived record before importing this row.',

@@ -2,13 +2,13 @@
 
 namespace App\Actions\Auth;
 
+use App\Exceptions\SafeValidationException;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 class ResetUserPassword
 {
@@ -38,8 +38,8 @@ class ResetUserPassword
              */
             function (User $user, string $password): void {
                 /*
-                 * Never accept the existing password as the replacement.
-                 * This check occurs only after the reset token is valid.
+                 * This is a known business validation state, so expose only a
+                 * stable code whose translated copy is controlled by AccoNova.
                  */
                 if (
                     Hash::check(
@@ -47,11 +47,10 @@ class ResetUserPassword
                         $user->password,
                     )
                 ) {
-                    throw ValidationException::withMessages([
-                        'password' => [
-                            'Your new password must be different from your current password.',
-                        ],
-                    ]);
+                    throw SafeValidationException::forField(
+                        'password',
+                        'password_reuse',
+                    );
                 }
 
                 $user->forceFill([
