@@ -1,7 +1,7 @@
 export default {
     en: {
         'lifecycle.deletePermanently':
-            'Delete permanently',
+            'Delete',
 
         'lifecycle.deleteProductTitle':
             'Delete this catalog item permanently?',

@@ -1,3 +1,6 @@
+import {
+    PermanentDeleteControl,
+} from '@/components/data/PermanentDeleteControl';
 import type {
     Party,
 } from '@/features/parties/types';
@@ -99,9 +102,6 @@ function partyLocation(
 
 /**
  * Render one selectable Party operating row.
- *
- * Selection presentation comes from the shared Index design system, keeping
- * Party and Product lists visually consistent.
  */
 export function PartyListItem({
     party,
@@ -158,6 +158,15 @@ export function PartyListItem({
             party,
         );
     }
+
+    const restoreLabel =
+        t(
+            'action.restore',
+            {
+                name:
+                    label,
+            },
+        );
 
     return (
         <article
@@ -315,7 +324,7 @@ export function PartyListItem({
                 </span>
             </div>
 
-            <div className="flex items-center gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0">
+            <div className="flex flex-wrap items-center gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0">
                 <button
                     type="button"
                     aria-label={t(
@@ -330,19 +339,13 @@ export function PartyListItem({
                             party,
                         )
                     }
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)] lg:size-9 lg:flex-none lg:px-0"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)]"
                 >
                     <ArrowUpRight
                         size={
                             15
                         }
                     />
-
-                    <span className="lg:hidden">
-                        {t(
-                            'ui.view',
-                        )}
-                    </span>
                 </button>
 
                 {! archived &&
@@ -361,19 +364,13 @@ export function PartyListItem({
                                     party,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)] lg:size-9 lg:flex-none lg:px-0"
+                            className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)]"
                         >
                             <Pencil
                                 size={
                                     15
                                 }
                             />
-
-                            <span className="lg:hidden">
-                                {t(
-                                    'ui.edit',
-                                )}
-                            </span>
                         </button>
                     )}
 
@@ -393,19 +390,13 @@ export function PartyListItem({
                                     party,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)] lg:size-9 lg:flex-none lg:px-0"
+                            className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)]"
                         >
                             <Archive
                                 size={
                                     15
                                 }
                             />
-
-                            <span className="lg:hidden">
-                                {t(
-                                    'ui.archive',
-                                )}
-                            </span>
                         </button>
                     )}
 
@@ -413,33 +404,44 @@ export function PartyListItem({
                     canArchive && (
                         <button
                             type="button"
-                            aria-label={t(
-                                'action.restore',
-                                {
-                                    name:
-                                        label,
-                                },
-                            )}
+                            aria-label={
+                                restoreLabel
+                            }
+                            title={
+                                restoreLabel
+                            }
                             onClick={() =>
                                 onRestore(
                                     party,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent-strong)] transition duration-200 hover:-translate-y-px hover:bg-[var(--ac-accent)]/18 motion-reduce:transform-none lg:h-9 lg:flex-none"
+                            className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)] transition duration-200 hover:-translate-y-px hover:bg-[var(--ac-accent)]/18 active:scale-95 motion-reduce:transform-none"
                         >
                             <RotateCcw
                                 size={
                                     15
                                 }
                             />
-
-                            <span className="lg:hidden">
-                                {t(
-                                    'ui.restore',
-                                )}
-                            </span>
                         </button>
                     )}
+
+                {archived && (
+                    <PermanentDeleteControl
+                        resource="parties"
+                        recordId={
+                            party.id
+                        }
+                        recordName={
+                            label
+                        }
+                        onDeleted={() => {
+                            /*
+                             * The shared control refreshes the Index after a
+                             * successful permanent deletion.
+                             */
+                        }}
+                    />
+                )}
             </div>
         </article>
     );

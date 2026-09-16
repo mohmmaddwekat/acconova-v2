@@ -40,11 +40,8 @@ type PermanentDeleteControlProps = {
 };
 
 /**
- * Render Owner/Admin-only permanent deletion with the shared five-second
- * destructive confirmation delay.
- *
- * The backend policy and database remain authoritative; hiding the action here
- * is only a UX optimization.
+ * Render Owner/Admin-only permanent deletion as an icon-only destructive
+ * control protected by the shared five-second confirmation delay.
  */
 export function PermanentDeleteControl({
     resource,
@@ -102,8 +99,7 @@ export function PermanentDeleteControl({
         'products';
 
     /**
-     * Permanently remove the archived record and remount the current index so
-     * stale pagination state cannot continue showing a deleted entity.
+     * Permanently remove the archived record and refresh the current Index.
      */
     async function handleDelete(): Promise<void> {
         if (
@@ -184,26 +180,33 @@ export function PermanentDeleteControl({
         }
     }
 
+    const deleteLabel =
+        t(
+            'lifecycle.deletePermanently',
+        );
+
     return (
         <>
             <button
                 type="button"
+                aria-label={
+                    deleteLabel
+                }
+                title={
+                    deleteLabel
+                }
                 onClick={() =>
                     setConfirmationOpen(
                         true,
                     )
                 }
-                className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-danger)]/20 bg-[var(--ac-danger)]/6 px-5 text-sm font-semibold text-[var(--ac-danger)] transition hover:-translate-y-px hover:border-[var(--ac-danger)]/35 hover:bg-[var(--ac-danger)]/10 motion-reduce:transform-none"
+                className="flex size-10 shrink-0 items-center justify-center rounded-[13px] border border-[var(--ac-danger)]/20 bg-[var(--ac-danger)]/6 text-[var(--ac-danger)] transition duration-200 hover:-translate-y-px hover:border-[var(--ac-danger)]/35 hover:bg-[var(--ac-danger)]/10 active:scale-95 motion-reduce:transform-none"
             >
                 <Trash2
                     size={
                         15
                     }
                 />
-
-                {t(
-                    'lifecycle.deletePermanently',
-                )}
             </button>
 
             <ConfirmDialog
@@ -228,9 +231,9 @@ export function PermanentDeleteControl({
                             recordName,
                     },
                 )}
-                confirmLabel={t(
-                    'lifecycle.deletePermanently',
-                )}
+                confirmLabel={
+                    deleteLabel
+                }
                 onCancel={() =>
                     setConfirmationOpen(
                         false,

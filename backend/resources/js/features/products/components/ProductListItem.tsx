@@ -1,3 +1,6 @@
+import {
+    PermanentDeleteControl,
+} from '@/components/data/PermanentDeleteControl';
 import type {
     Product,
 } from '@/features/products/types';
@@ -54,9 +57,6 @@ type ProductListItemProps = {
 
 /**
  * Render one responsive Product or Service operating row.
- *
- * Selection presentation is owned by the shared `.ac-index-row` design-system
- * state so every current and future Index uses the same visual language.
  */
 export function ProductListItem({
     product,
@@ -77,8 +77,8 @@ export function ProductListItem({
         null;
 
     /**
-     * Open Product details from a deliberate double-click while leaving all
-     * interactive descendants responsible for their own pointer actions.
+     * Open Product details from a deliberate double-click without intercepting
+     * interactive controls.
      */
     function handleRowDoubleClick(
         event: ReactMouseEvent<HTMLElement>,
@@ -103,6 +103,15 @@ export function ProductListItem({
             product,
         );
     }
+
+    const restoreLabel =
+        t(
+            'action.restore',
+            {
+                name:
+                    product.name,
+            },
+        );
 
     return (
         <article
@@ -258,7 +267,7 @@ export function ProductListItem({
                 </p>
             </div>
 
-            <div className="flex gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0">
+            <div className="flex flex-wrap gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0">
                 <button
                     type="button"
                     aria-label={t(
@@ -273,19 +282,13 @@ export function ProductListItem({
                             product,
                         )
                     }
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold transition duration-200 hover:bg-[var(--ac-surface-strong)] lg:size-9 lg:flex-none"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)]"
                 >
                     <ArrowUpRight
                         size={
                             15
                         }
                     />
-
-                    <span className="lg:hidden">
-                        {t(
-                            'ui.view',
-                        )}
-                    </span>
                 </button>
 
                 {! archived &&
@@ -304,19 +307,13 @@ export function ProductListItem({
                                     product,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold transition duration-200 hover:bg-[var(--ac-surface-strong)] lg:size-9 lg:flex-none"
+                            className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)]"
                         >
                             <Pencil
                                 size={
                                     15
                                 }
                             />
-
-                            <span className="lg:hidden">
-                                {t(
-                                    'ui.edit',
-                                )}
-                            </span>
                         </button>
                     )}
 
@@ -336,19 +333,13 @@ export function ProductListItem({
                                     product,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold transition duration-200 hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)] lg:size-9 lg:flex-none"
+                            className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] transition duration-200 hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)]"
                         >
                             <Archive
                                 size={
                                     15
                                 }
                             />
-
-                            <span className="lg:hidden">
-                                {t(
-                                    'ui.archive',
-                                )}
-                            </span>
                         </button>
                     )}
 
@@ -356,31 +347,44 @@ export function ProductListItem({
                     canArchive && (
                         <button
                             type="button"
-                            aria-label={t(
-                                'action.restore',
-                                {
-                                    name:
-                                        product.name,
-                                },
-                            )}
+                            aria-label={
+                                restoreLabel
+                            }
+                            title={
+                                restoreLabel
+                            }
                             onClick={() =>
                                 onRestore(
                                     product,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent-strong)] transition duration-200 hover:-translate-y-px hover:bg-[var(--ac-accent)]/18 motion-reduce:transform-none"
+                            className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)] transition duration-200 hover:-translate-y-px hover:bg-[var(--ac-accent)]/18 active:scale-95 motion-reduce:transform-none"
                         >
                             <RotateCcw
                                 size={
                                     15
                                 }
                             />
-
-                            {t(
-                                'ui.restore',
-                            )}
                         </button>
                     )}
+
+                {archived && (
+                    <PermanentDeleteControl
+                        resource="products"
+                        recordId={
+                            product.id
+                        }
+                        recordName={
+                            product.name
+                        }
+                        onDeleted={() => {
+                            /*
+                             * The shared control refreshes the Index after a
+                             * successful permanent deletion.
+                             */
+                        }}
+                    />
+                )}
             </div>
         </article>
     );
