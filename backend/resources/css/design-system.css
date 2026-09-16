@@ -49,6 +49,10 @@
     /*
      * Elevation
      */
+    --ac-shadow-control:
+        0 1px 2px rgba(23, 35, 30, 0.025),
+        0 7px 20px rgba(23, 35, 30, 0.045);
+
     --ac-shadow-soft:
         0 1px 2px rgba(23, 35, 30, 0.03),
         0 10px 32px rgba(23, 35, 30, 0.05);
@@ -57,11 +61,37 @@
         0 1px 2px rgba(23, 35, 30, 0.03),
         0 18px 54px rgba(23, 35, 30, 0.07);
 
+    --ac-shadow-float:
+        0 2px 6px rgba(23, 35, 30, 0.04),
+        0 26px 76px rgba(23, 35, 30, 0.13);
+
     /*
      * Motion
      */
     --ac-transition-fast: 140ms;
     --ac-transition-normal: 220ms;
+}
+
+@keyframes ac-popover-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes ac-toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 html {
@@ -86,4 +116,15 @@ body {
         var(--ac-bg);
 
     color: var(--ac-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

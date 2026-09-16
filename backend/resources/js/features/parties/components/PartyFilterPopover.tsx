@@ -1,729 +1,243 @@
-import { useLocale } from '@/lib/i18n';
-import { t } from '@/lib/i18n';
 import {
     ArrowDownAZ,
     ArrowUpAZ,
     Building2,
-    Check,
-    Filter,
     History,
     MailWarning,
     PhoneOff,
-    RotateCcw,
     ShieldCheck,
     UserRound,
-    X,
 } from 'lucide-react';
-import {
-    useEffect,
-    useRef,
-    useState,
-    type ReactNode,
-} from 'react';
+import { useState } from 'react';
 
+import {
+    FilterGroup,
+    FilterOption,
+    FilterPopover,
+} from '@/components/data/FilterPopover';
 import type {
     PartyContactQuality,
     PartyLifecycle,
     PartySort,
 } from '@/features/parties/api';
-import type {
-    PartyRole,
-    PartyType,
-} from '@/features/parties/types';
+import type { PartyRole, PartyType } from '@/features/parties/types';
+import { t, useLocale } from '@/lib/i18n';
 
 export type PartyFilterState = {
     role?: PartyRole;
-
     type?: PartyType;
-
     contact?: PartyContactQuality;
-
     status: PartyLifecycle;
-
     sort: PartySort;
 };
 
 type PartyFilterPopoverProps = {
     value: PartyFilterState;
-
-    onChange: (
-        filters: PartyFilterState,
-    ) => void;
+    onChange: (filters: PartyFilterState) => void;
 };
 
-/**
- * Count filters that differ from AccoNova's normal active alphabetical Party
- * view.
- */
-export function countPartyFilters(
-    filters: PartyFilterState,
-): number {
+/** Count Party filters that differ from the normal active A-Z view. */
+export function countPartyFilters(filters: PartyFilterState): number {
     let count = 0;
 
-    if (filters.role) {
-        count++;
-    }
-
-    if (filters.type) {
-        count++;
-    }
-
-    if (filters.contact) {
-        count++;
-    }
-
-    if (
-        filters.status !==
-        'active'
-    ) {
-        count++;
-    }
-
-    if (
-        filters.sort !==
-        'name_asc'
-    ) {
-        count++;
-    }
+    if (filters.role) count++;
+    if (filters.type) count++;
+    if (filters.contact) count++;
+    if (filters.status !== 'active') count++;
+    if (filters.sort !== 'name_asc') count++;
 
     return count;
 }
 
 /**
- * Render responsive Party filtering.
+ * Render compact, immediately-applied Party filtering.
  *
- * Phones use a bottom sheet, medium screens use a centered dialog, and wide
- * desktop screens use an anchored popover.
+ * Users can combine relationship, entity, quality, lifecycle and sort choices
+ * without a second Apply step. Reset restores the default ledger immediately.
  */
 export function PartyFilterPopover({
     value,
     onChange,
 }: PartyFilterPopoverProps) {
     useLocale();
-    const [open, setOpen] =
-        useState(false);
+    const [open, setOpen] = useState(false);
+    const count = countPartyFilters(value);
 
-    const [
-        draft,
-        setDraft,
-    ] =
-        useState<PartyFilterState>(
-            value,
-        );
+    /** Apply one partial Party filter update without closing the popup. */
+    function update(patch: Partial<PartyFilterState>): void {
+        onChange({
+            ...value,
+            ...patch,
+        });
+    }
 
-    const containerRef =
-        useRef<HTMLDivElement>(
-            null,
-        );
-
-    const count =
-        countPartyFilters(
-            value,
-        );
-
-    useEffect(() => {
-        if (open) {
-            setDraft(
-                value,
-            );
-        }
-    }, [
-        open,
-        value,
-    ]);
-
-    useEffect(() => {
-        if (! open) {
-            return;
-        }
-
-        /**
-         * Close only the wide desktop popover when clicking elsewhere.
-         */
-        function handlePointerDown(
-            event: MouseEvent,
-        ): void {
-            if (
-                window.innerWidth <
-                1280
-            ) {
-                return;
-            }
-
-            if (
-                containerRef.current &&
-                ! containerRef.current.contains(
-                    event.target as Node,
-                )
-            ) {
-                setOpen(false);
-            }
-        }
-
-        /**
-         * Close every filter presentation with Escape.
-         */
-        function handleKeyDown(
-            event: KeyboardEvent,
-        ): void {
-            if (
-                event.key ===
-                'Escape'
-            ) {
-                setOpen(false);
-            }
-        }
-
-        document.addEventListener(
-            'mousedown',
-            handlePointerDown,
-        );
-
-        window.addEventListener(
-            'keydown',
-            handleKeyDown,
-        );
-
-        return () => {
-            document.removeEventListener(
-                'mousedown',
-                handlePointerDown,
-            );
-
-            window.removeEventListener(
-                'keydown',
-                handleKeyDown,
-            );
-        };
-    }, [
-        open,
-    ]);
-
-    /**
-     * Restore the normal active Party filtering defaults.
-     */
+    /** Restore the normal active alphabetical Party ledger. */
     function reset(): void {
-        setDraft({
+        onChange({
             status: 'active',
             sort: 'name_asc',
         });
     }
 
-    /**
-     * Apply draft filtering to the Party index.
-     */
-    function apply(): void {
-        onChange(
-            draft,
-        );
-
-        setOpen(false);
-    }
-
     return (
-        <div
-            ref={containerRef}
-            className="relative min-w-0"
+        <FilterPopover
+            open={open}
+            title={t('ui.filter_relationships')}
+            eyebrow={t('ui.refine_view')}
+            activeCount={count}
+            onOpenChange={setOpen}
+            onReset={reset}
         >
-            <button
-                type="button"
-                aria-expanded={open}
-                onClick={() =>
-                    setOpen(
-                        (
-                            current,
-                        ) =>
-                            ! current,
-                    )
-                }
-                className={[
-                    'relative flex h-11 w-full items-center justify-center gap-2 rounded-[14px] border px-4 text-sm font-semibold transition sm:w-auto',
-                    open ||
-                    count > 0
-                        ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                        : 'border-[var(--ac-line)] bg-white text-[var(--ac-text)] hover:border-[var(--ac-line-strong)]',
-                ].join(' ')}
-            >
-                <Filter size={15} />
-
-                {t('ui.filters')}
-
-                {count > 0 && (
-                    <span className="flex size-5 items-center justify-center rounded-full bg-[var(--ac-accent-strong)] text-[9px] font-bold text-white">
-                        {count}
-                    </span>
-                )}
-            </button>
-
-            {open && (
-                <>
-                    <button
-                        type="button"
-                        aria-label={t('ui.close_filters')}
-                        onClick={() =>
-                            setOpen(
-                                false,
-                            )
-                        }
-                        className="fixed inset-0 z-[129] bg-[var(--ac-text)]/20 backdrop-blur-[2px] xl:hidden"
-                    />
-
-                    <section className="fixed inset-x-0 bottom-0 z-[130] max-h-[88dvh] overflow-hidden rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)] sm:inset-x-auto sm:bottom-auto sm:start-1/2 sm:top-1/2 sm:w-[min(600px,calc(100vw-3rem))] sm:-translate-x-1/2 rtl:sm:translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[26px] xl:absolute xl:start-auto xl:end-0 xl:top-[calc(100%+0.65rem)] xl:w-[480px] xl:max-w-[calc(100vw-2rem)] xl:translate-x-0 rtl:xl:translate-x-0 xl:translate-y-0 xl:rounded-[22px]">
-                        <header className="flex items-center justify-between border-b border-[var(--ac-line)] px-5 py-4">
-                            <div className="flex min-w-0 items-center gap-3">
-                                <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
-                                    <Filter
-                                        size={15}
-                                    />
-                                </div>
-
-                                <div className="min-w-0">
-                                    <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
-                                        {t('ui.refine_view')}
-                                    </p>
-
-                                    <h2 className="mt-0.5 truncate text-lg font-semibold tracking-[-0.035em]">
-                                        {t('ui.filter_relationships')}
-                                    </h2>
-                                </div>
-                            </div>
-
-                            <button
-                                type="button"
-                                aria-label={t('ui.close_filters')}
-                                onClick={() =>
-                                    setOpen(
-                                        false,
-                                    )
-                                }
-                                className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]"
-                            >
-                                <X size={16} />
-                            </button>
-                        </header>
-
-                        <div className="max-h-[calc(88dvh-146px)] overflow-y-auto overscroll-contain p-4 sm:max-h-[min(68dvh,700px)] sm:p-5 xl:max-h-[72vh]">
-                            <div className="grid gap-6">
-                                <FilterSection
-                                    title={t('ui.relationship')}
-                                >
-                                    <div className="grid gap-2 min-[380px]:grid-cols-3">
-                                        <ChoiceButton
-                                            active={
-                                                ! draft.role
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    role: undefined,
-                                                })
-                                            }
-                                        >
-                                            {t('ui.everyone')}
-                                        </ChoiceButton>
-
-                                        <ChoiceButton
-                                            active={
-                                                draft.role ===
-                                                'customer'
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    role: 'customer',
-                                                })
-                                            }
-                                        >
-                                            {t('ui.customers')}
-                                        </ChoiceButton>
-
-                                        <ChoiceButton
-                                            active={
-                                                draft.role ===
-                                                'supplier'
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    role: 'supplier',
-                                                })
-                                            }
-                                        >
-                                            {t('ui.suppliers')}
-                                        </ChoiceButton>
-                                    </div>
-                                </FilterSection>
-
-                                <FilterSection
-                                    title={t('ui.entity_type')}
-                                >
-                                    <div className="grid gap-2 min-[380px]:grid-cols-3">
-                                        <ChoiceButton
-                                            active={
-                                                ! draft.type
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    type: undefined,
-                                                })
-                                            }
-                                        >
-                                            {t('ui.all_types')}
-                                        </ChoiceButton>
-
-                                        <ChoiceButton
-                                            icon={
-                                                UserRound
-                                            }
-                                            active={
-                                                draft.type ===
-                                                'person'
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    type: 'person',
-                                                })
-                                            }
-                                        >
-                                            {t('ui.people')}
-                                        </ChoiceButton>
-
-                                        <ChoiceButton
-                                            icon={
-                                                Building2
-                                            }
-                                            active={
-                                                draft.type ===
-                                                'company'
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    type: 'company',
-                                                })
-                                            }
-                                        >
-                                            {t('ui.companies')}
-                                        </ChoiceButton>
-                                    </div>
-                                </FilterSection>
-
-                                <FilterSection
-                                    title={t('ui.contact_quality')}
-                                >
-                                    <div className="grid gap-2 sm:grid-cols-2">
-                                        <ChoiceButton
-                                            active={
-                                                ! draft.contact
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    contact: undefined,
-                                                })
-                                            }
-                                        >
-                                            {t('ui.any_quality')}
-                                        </ChoiceButton>
-
-                                        <ChoiceButton
-                                            icon={
-                                                ShieldCheck
-                                            }
-                                            active={
-                                                draft.contact ===
-                                                'complete'
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    contact: 'complete',
-                                                })
-                                            }
-                                        >
-                                            {t('ui.complete_contact')}
-                                        </ChoiceButton>
-
-                                        <ChoiceButton
-                                            icon={
-                                                MailWarning
-                                            }
-                                            active={
-                                                draft.contact ===
-                                                'missing_email'
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    contact: 'missing_email',
-                                                })
-                                            }
-                                        >
-                                            {t('ui.missing_email')}
-                                        </ChoiceButton>
-
-                                        <ChoiceButton
-                                            icon={
-                                                PhoneOff
-                                            }
-                                            active={
-                                                draft.contact ===
-                                                'missing_phone'
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    contact: 'missing_phone',
-                                                })
-                                            }
-                                        >
-                                            {t('ui.missing_phone')}
-                                        </ChoiceButton>
-
-                                        <ChoiceButton
-                                            active={
-                                                draft.contact ===
-                                                'missing_both'
-                                            }
-                                            onClick={() =>
-                                                setDraft({
-                                                    ...draft,
-                                                    contact: 'missing_both',
-                                                })
-                                            }
-                                        >
-                                            {t('ui.missing_both')}
-                                        </ChoiceButton>
-                                    </div>
-                                </FilterSection>
-
-                                <div className="grid gap-6 sm:grid-cols-2">
-                                    <FilterSection
-                                        title={t('ui.lifecycle')}
-                                    >
-                                        <div className="grid gap-2">
-                                            <ChoiceButton
-                                                active={
-                                                    draft.status ===
-                                                    'active'
-                                                }
-                                                onClick={() =>
-                                                    setDraft({
-                                                        ...draft,
-                                                        status: 'active',
-                                                    })
-                                                }
-                                            >
-                                                {t('ui.active')}
-                                            </ChoiceButton>
-
-                                            <ChoiceButton
-                                                icon={
-                                                    History
-                                                }
-                                                active={
-                                                    draft.status ===
-                                                    'deleted'
-                                                }
-                                                onClick={() =>
-                                                    setDraft({
-                                                        ...draft,
-                                                        status: 'deleted',
-                                                    })
-                                                }
-                                            >
-                                                {t('ui.archived')}
-                                            </ChoiceButton>
-                                        </div>
-                                    </FilterSection>
-
-                                    <FilterSection
-                                        title={t('ui.sort')}
-                                    >
-                                        <div className="grid gap-2">
-                                            <ChoiceButton
-                                                icon={
-                                                    ArrowDownAZ
-                                                }
-                                                active={
-                                                    draft.sort ===
-                                                    'name_asc'
-                                                }
-                                                onClick={() =>
-                                                    setDraft({
-                                                        ...draft,
-                                                        sort: 'name_asc',
-                                                    })
-                                                }
-                                            >
-                                                {t('ui.name_a_z')}
-                                            </ChoiceButton>
-
-                                            <ChoiceButton
-                                                icon={
-                                                    ArrowUpAZ
-                                                }
-                                                active={
-                                                    draft.sort ===
-                                                    'name_desc'
-                                                }
-                                                onClick={() =>
-                                                    setDraft({
-                                                        ...draft,
-                                                        sort: 'name_desc',
-                                                    })
-                                                }
-                                            >
-                                                {t('ui.name_z_a')}
-                                            </ChoiceButton>
-
-                                            <ChoiceButton
-                                                active={
-                                                    draft.sort ===
-                                                    'newest'
-                                                }
-                                                onClick={() =>
-                                                    setDraft({
-                                                        ...draft,
-                                                        sort: 'newest',
-                                                    })
-                                                }
-                                            >
-                                                {t('ui.newest')}
-                                            </ChoiceButton>
-
-                                            <ChoiceButton
-                                                active={
-                                                    draft.sort ===
-                                                    'oldest'
-                                                }
-                                                onClick={() =>
-                                                    setDraft({
-                                                        ...draft,
-                                                        sort: 'oldest',
-                                                    })
-                                                }
-                                            >
-                                                {t('ui.oldest')}
-                                            </ChoiceButton>
-                                        </div>
-                                    </FilterSection>
-                                </div>
-                            </div>
-                        </div>
-
-                        <footer
-                            className="grid grid-cols-2 gap-2 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4"
-                            style={{
-                                paddingBottom:
-                                    'max(1rem, env(safe-area-inset-bottom))',
-                            }}
+            <div className="grid gap-3 sm:grid-cols-2">
+                <FilterGroup title={t('ui.relationship')}>
+                    <div className="grid grid-cols-3 gap-2">
+                        <FilterOption
+                            active={!value.role}
+                            onClick={() => update({ role: undefined })}
                         >
-                            <button
-                                type="button"
-                                onClick={
-                                    reset
-                                }
-                                className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-3 text-sm font-semibold text-[var(--ac-text-soft)]"
-                            >
-                                <RotateCcw
-                                    size={14}
-                                />
+                            {t('ui.everyone')}
+                        </FilterOption>
 
-                                {t('ui.reset')}
-                            </button>
+                        <FilterOption
+                            active={value.role === 'customer'}
+                            onClick={() => update({ role: 'customer' })}
+                        >
+                            {t('ui.customers')}
+                        </FilterOption>
 
-                            <button
-                                type="button"
-                                onClick={
-                                    apply
-                                }
-                                className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-3 text-sm font-semibold text-white"
-                            >
-                                <Check
-                                    size={14}
-                                />
+                        <FilterOption
+                            active={value.role === 'supplier'}
+                            onClick={() => update({ role: 'supplier' })}
+                        >
+                            {t('ui.suppliers')}
+                        </FilterOption>
+                    </div>
+                </FilterGroup>
 
-                                {t('ui.apply_filters')}
-                            </button>
-                        </footer>
-                    </section>
-                </>
-            )}
-        </div>
-    );
-}
+                <FilterGroup title={t('ui.entity_type')}>
+                    <div className="grid grid-cols-3 gap-2">
+                        <FilterOption
+                            active={!value.type}
+                            onClick={() => update({ type: undefined })}
+                        >
+                            {t('ui.all_types')}
+                        </FilterOption>
 
-type FilterSectionProps = {
-    title: string;
+                        <FilterOption
+                            icon={UserRound}
+                            active={value.type === 'person'}
+                            onClick={() => update({ type: 'person' })}
+                        >
+                            {t('ui.people')}
+                        </FilterOption>
 
-    children: ReactNode;
-};
+                        <FilterOption
+                            icon={Building2}
+                            active={value.type === 'company'}
+                            onClick={() => update({ type: 'company' })}
+                        >
+                            {t('ui.companies')}
+                        </FilterOption>
+                    </div>
+                </FilterGroup>
+            </div>
 
-/**
- * Render one Party filtering dimension.
- */
-function FilterSection({
-    title,
-    children,
-}: FilterSectionProps) {
-    useLocale();
-    return (
-        <section className="min-w-0">
-            <p className="mb-2.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
-                {title}
-            </p>
+            <FilterGroup title={t('ui.contact_quality')}>
+                <div className="grid gap-2 min-[420px]:grid-cols-2 sm:grid-cols-3">
+                    <FilterOption
+                        active={!value.contact}
+                        onClick={() => update({ contact: undefined })}
+                    >
+                        {t('ui.any_quality')}
+                    </FilterOption>
 
-            {children}
-        </section>
-    );
-}
+                    <FilterOption
+                        icon={ShieldCheck}
+                        active={value.contact === 'complete'}
+                        onClick={() => update({ contact: 'complete' })}
+                    >
+                        {t('ui.complete_contact')}
+                    </FilterOption>
 
-type ChoiceButtonProps = {
-    active: boolean;
+                    <FilterOption
+                        icon={MailWarning}
+                        active={value.contact === 'missing_email'}
+                        onClick={() => update({ contact: 'missing_email' })}
+                    >
+                        {t('ui.missing_email')}
+                    </FilterOption>
 
-    onClick: () => void;
+                    <FilterOption
+                        icon={PhoneOff}
+                        active={value.contact === 'missing_phone'}
+                        onClick={() => update({ contact: 'missing_phone' })}
+                    >
+                        {t('ui.missing_phone')}
+                    </FilterOption>
 
-    children: string;
+                    <FilterOption
+                        active={value.contact === 'missing_both'}
+                        onClick={() => update({ contact: 'missing_both' })}
+                    >
+                        {t('ui.missing_both')}
+                    </FilterOption>
+                </div>
+            </FilterGroup>
 
-    icon?: typeof UserRound;
-};
+            <div className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+                <FilterGroup title={t('ui.lifecycle')}>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
+                        <FilterOption
+                            active={value.status === 'active'}
+                            onClick={() => update({ status: 'active' })}
+                        >
+                            {t('ui.active')}
+                        </FilterOption>
 
-/**
- * Render one responsive filter choice.
- */
-function ChoiceButton({
-    active,
-    onClick,
-    children,
-    icon: Icon,
-}: ChoiceButtonProps) {
-    useLocale();
-    return (
-        <button
-            type="button"
-            onClick={
-                onClick
-            }
-            className={[
-                'flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-[12px] border px-2.5 py-2 text-[11px] font-semibold transition',
-                active
-                    ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                    : 'border-[var(--ac-line)] bg-white text-[var(--ac-text-soft)] hover:bg-[var(--ac-bg-soft)]',
-            ].join(' ')}
-        >
-            {Icon && (
-                <Icon
-                    size={13}
-                    className="shrink-0"
-                />
-            )}
+                        <FilterOption
+                            icon={History}
+                            active={value.status === 'deleted'}
+                            onClick={() => update({ status: 'deleted' })}
+                        >
+                            {t('ui.archived')}
+                        </FilterOption>
+                    </div>
+                </FilterGroup>
 
-            <span className="min-w-0 truncate">
-                {children}
-            </span>
-        </button>
+                <FilterGroup title={t('ui.sort')}>
+                    <div className="grid grid-cols-2 gap-2">
+                        <FilterOption
+                            icon={ArrowDownAZ}
+                            active={value.sort === 'name_asc'}
+                            onClick={() => update({ sort: 'name_asc' })}
+                        >
+                            {t('ui.name_a_z')}
+                        </FilterOption>
+
+                        <FilterOption
+                            icon={ArrowUpAZ}
+                            active={value.sort === 'name_desc'}
+                            onClick={() => update({ sort: 'name_desc' })}
+                        >
+                            {t('ui.name_z_a')}
+                        </FilterOption>
+
+                        <FilterOption
+                            active={value.sort === 'newest'}
+                            onClick={() => update({ sort: 'newest' })}
+                        >
+                            {t('ui.newest')}
+                        </FilterOption>
+
+                        <FilterOption
+                            active={value.sort === 'oldest'}
+                            onClick={() => update({ sort: 'oldest' })}
+                        >
+                            {t('ui.oldest')}
+                        </FilterOption>
+                    </div>
+                </FilterGroup>
+            </div>
+        </FilterPopover>
     );
 }

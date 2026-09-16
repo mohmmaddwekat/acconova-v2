@@ -14,6 +14,7 @@ return [
     'unique' => 'This value is already in use.',
     'sku' => 'This SKU is already used by another catalog item.',
     'email' => 'A relationship with this email already exists in this workspace.',
+    'password_reuse' => 'Your new password must be different from your current password.',
     'return' => 'Return to your workspace',
     'import_invalid' => 'Review the values in this spreadsheet row.',
     'import_duplicate' => 'This value appears more than once in the spreadsheet.',
