@@ -1,3 +1,6 @@
+import { getLocale } from '@/lib/locale';
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Archive,
     ArrowUpRight,
@@ -13,6 +16,9 @@ import type {
 
 type ProductListItemProps = {
     product: Product;
+    selected?: boolean;
+    selectable?: boolean;
+    onSelectionChange?: (selected: boolean) => void;
 
     canEdit: boolean;
 
@@ -40,6 +46,9 @@ type ProductListItemProps = {
  */
 export function ProductListItem({
     product,
+    selected,
+    selectable,
+    onSelectionChange,
     canEdit,
     canArchive,
     onView,
@@ -47,12 +56,15 @@ export function ProductListItem({
     onArchive,
     onRestore,
 }: ProductListItemProps) {
+    useLocale();
     const archived =
         product.deleted_at !==
         null;
 
     return (
         <article className="mx-3 my-3 grid gap-4 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] transition hover:border-[var(--ac-line-strong)] sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[minmax(240px,1.4fr)_minmax(120px,.6fr)_minmax(140px,.7fr)_minmax(120px,.6fr)_auto] lg:items-center lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none">
+            <div className="flex min-w-0 items-center gap-2">
+            {selectable && <input type="checkbox" checked={selected} onChange={(event) => onSelectionChange?.(event.target.checked)} aria-label={t('action.select', { name: product.name })} className="size-5 shrink-0 accent-emerald-700" />}
             <button
                 type="button"
                 onClick={() =>
@@ -60,7 +72,7 @@ export function ProductListItem({
                         product,
                     )
                 }
-                className="flex min-w-0 items-start gap-3 text-left lg:items-center"
+                className="flex min-w-0 items-start gap-3 text-start lg:items-center"
             >
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-surface-strong)] text-[var(--ac-text-soft)]">
                     {product.type ===
@@ -82,39 +94,40 @@ export function ProductListItem({
 
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                         <span className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-accent-strong)]">
-                            {product.type}
+                            {t(product.type === 'service' ? 'ui.service' : 'ui.product')}
                         </span>
 
                         {archived && (
                             <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase text-[var(--ac-danger)]">
-                                Archived
+                                {t('ui.archived')}
                             </span>
                         )}
                     </div>
                 </div>
             </button>
+            </div>
 
             <div className="text-xs">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
-                    SKU
+                    {t('ui.sku')}
                 </p>
 
                 <p className="mt-1 font-semibold">
                     {product.sku ??
-                        'No SKU'}
+                        t('ui.no_sku')}
                 </p>
             </div>
 
             <div className="text-xs">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
-                    Selling price
+                    {t('ui.selling_price')}
                 </p>
 
                 <p className="mt-1 text-base font-semibold tracking-[-0.03em]">
                     {Number(
                         product.unit_price,
                     ).toLocaleString(
-                        undefined,
+        getLocale(),
                         {
                             minimumFractionDigits:
                                 2,
@@ -127,7 +140,7 @@ export function ProductListItem({
 
             <div className="text-xs">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
-                    Unit · Tax
+                    {t('ui.unit_tax')}
                 </p>
 
                 <p className="mt-1 font-semibold">
@@ -153,7 +166,7 @@ export function ProductListItem({
                     />
 
                     <span className="lg:hidden">
-                        View
+                        {t('ui.view')}
                     </span>
                 </button>
 
@@ -173,7 +186,7 @@ export function ProductListItem({
                             />
 
                             <span className="lg:hidden">
-                                Edit
+                                {t('ui.edit')}
                             </span>
                         </button>
                     )}
@@ -194,7 +207,7 @@ export function ProductListItem({
                             />
 
                             <span className="lg:hidden">
-                                Archive
+                                {t('ui.archive')}
                             </span>
                         </button>
                     )}
@@ -214,7 +227,7 @@ export function ProductListItem({
                                 size={15}
                             />
 
-                            Restore
+                            {t('ui.restore')}
                         </button>
                     )}
             </div>

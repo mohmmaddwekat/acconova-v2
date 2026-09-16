@@ -1,0 +1,24 @@
+<?php
+
+return [
+    'unexpected' => 'Something went wrong. Please try again.',
+    'session' => 'Your session has expired. Please sign in again.',
+    'forbidden' => "You don't have permission to perform this action.",
+    'not_found' => 'This record is no longer available.',
+    'conflict' => 'This action conflicts with the current record. Refresh and try again.',
+    'file' => 'Please choose a valid spreadsheet.',
+    'validation' => 'Please review the highlighted fields.',
+    'throttled' => 'Too many requests. Please wait a moment and try again.',
+    'invalid' => 'Please check this value.',
+    'required' => 'This field is required.',
+    'unique' => 'This value is already in use.',
+    'sku' => 'This SKU is already used by another catalog item.',
+    'email' => 'A relationship with this email already exists in this workspace.',
+    'return' => 'Return to your workspace',
+    'import_invalid' => 'Review the values in this spreadsheet row.',
+    'import_duplicate' => 'This value appears more than once in the spreadsheet.',
+    'import_archived' => 'Restore the archived record before importing this row.',
+    'import_fix' => 'Fix the invalid spreadsheet rows before importing.',
+    'import_limit' => 'This import contains more than 5,000 rows. Split it into smaller files for this version.',
+    'import_mode' => 'Choose whether to skip or update duplicate records.',
+];

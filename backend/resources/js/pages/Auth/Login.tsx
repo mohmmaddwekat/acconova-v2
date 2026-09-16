@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Head,
     Link,
@@ -20,6 +22,7 @@ import { AuthShell } from '@/layouts/AuthShell';
  * Render the AccoNova login experience.
  */
 export default function Login() {
+    useLocale();
     const [email, setEmail] =
         useState('');
 
@@ -44,6 +47,7 @@ export default function Login() {
         event: FormEvent<HTMLFormElement>,
     ): Promise<void> {
         event.preventDefault();
+        if (busy) return;
 
         setBusy(true);
         setErrors({});
@@ -72,7 +76,7 @@ export default function Login() {
             }
 
             setMessage(
-                'AccoNova could not complete the sign in request.',
+                t('ui.acconova_could_not_complete_the_sign_in_request'),
             );
         } finally {
             setBusy(false);
@@ -81,22 +85,22 @@ export default function Login() {
 
     return (
         <>
-            <Head title="Sign in · AccoNova" />
+            <Head title={t('ui.sign_in_acconova')} />
 
             <AuthShell
-                eyebrow="Welcome back"
-                title="Enter your workspace."
-                description="Sign in to continue where your business left off."
+                eyebrow={t('ui.welcome_back')}
+                title={t('ui.enter_your_workspace')}
+                description={t('ui.sign_in_to_continue_where_your_business_left_off')}
             >
                 <form
                     className="mt-10 space-y-5"
                     onSubmit={handleSubmit}
                 >
                     <AuthInput
-                        label="Email"
+                        label={t('ui.email')}
                         type="email"
                         autoComplete="email"
-                        placeholder="you@company.com"
+                        placeholder={t('ui.you_company_com')}
                         value={email}
                         onChange={setEmail}
                         error={
@@ -105,7 +109,7 @@ export default function Login() {
                     />
 
                     <AuthInput
-                        label="Password"
+                        label={t('ui.password')}
                         type="password"
                         autoComplete="current-password"
                         value={password}
@@ -119,7 +123,7 @@ export default function Login() {
                             href="/forgot-password"
                             className="text-xs font-semibold text-[var(--ac-accent-strong)]"
                         >
-                            Forgot password?
+                            {t('ui.forgot_password')}
                         </Link>
                     </div>
 
@@ -140,8 +144,8 @@ export default function Login() {
                             />
 
                             {busy
-                                ? 'Signing in…'
-                                : 'Sign in'}
+                                ? t('ui.signing_in')
+                                : t('ui.sign_in')}
                         </span>
 
                         <ArrowRight
@@ -153,14 +157,14 @@ export default function Login() {
 
                 <div className="mt-8 flex items-center justify-between border-t border-[var(--ac-line)] pt-5">
                     <p className="text-xs text-[var(--ac-text-muted)]">
-                        New to AccoNova?
+                        {t('ui.new_to_acconova')}
                     </p>
 
                     <Link
                         href="/register"
                         className="text-sm font-semibold text-[var(--ac-accent-strong)]"
                     >
-                        Create account
+                        {t('ui.create_account')}
                     </Link>
                 </div>
             </AuthShell>

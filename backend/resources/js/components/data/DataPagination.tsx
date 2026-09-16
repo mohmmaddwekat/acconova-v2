@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     ChevronLeft,
     ChevronRight,
@@ -5,8 +7,8 @@ import {
 
 type PaginationToken =
     | number
-    | 'left-gap'
-    | 'right-gap';
+    | 'start-gap'
+    | 'end-gap';
 
 type DataPaginationProps = {
     page: number;
@@ -59,7 +61,7 @@ function paginationTokens(
         page > 4
     ) {
         tokens.push(
-            'left-gap',
+            'start-gap',
         );
     }
 
@@ -89,7 +91,7 @@ function paginationTokens(
         page < lastPage - 3
     ) {
         tokens.push(
-            'right-gap',
+            'end-gap',
         );
     }
 
@@ -115,6 +117,7 @@ export function DataPagination({
     onPageChange,
     onPerPageChange,
 }: DataPaginationProps) {
+    useLocale();
     const firstRecord =
         total === 0
             ? 0
@@ -138,24 +141,12 @@ export function DataPagination({
 
     return (
         <footer className="grid gap-4 border-t border-[var(--ac-line)] bg-white px-4 py-4 sm:px-5 lg:grid-cols-[1fr_auto_1fr] lg:items-center lg:px-6">
-            <div className="text-center text-xs text-[var(--ac-text-muted)] lg:text-left">
-                Showing{' '}
-                <span className="font-semibold text-[var(--ac-text)]">
-                    {firstRecord}
-                </span>
-                {'–'}
-                <span className="font-semibold text-[var(--ac-text)]">
-                    {lastRecord}
-                </span>{' '}
-                of{' '}
-                <span className="font-semibold text-[var(--ac-text)]">
-                    {total}
-                </span>
+            <div className="text-center text-xs text-[var(--ac-text-muted)] lg:text-start">
+                {t('pagination.range', { first: firstRecord, last: lastRecord, total })}
             </div>
 
             <div className="flex items-center justify-center gap-1">
-                <button
-                    type="button"
+                <button aria-label={t('pagination.previous')} type="button"
                     disabled={
                         loading ||
                         page <= 1
@@ -170,7 +161,7 @@ export function DataPagination({
                     }
                     className="flex size-10 items-center justify-center rounded-[13px] border border-[var(--ac-line)] text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-bg-soft)] disabled:opacity-35"
                 >
-                    <ChevronLeft
+                    <ChevronLeft className="rtl:rotate-180"
                         size={16}
                     />
                 </button>
@@ -234,11 +225,7 @@ export function DataPagination({
                     {lastPage}
                 </span>
 
-                <button
-                    type="button"
-                    disabled={
-                        loading ||
-                        page >=
+                <button aria-label={t('pagination.next')} type="button" disabled={loading || page >=
                             lastPage
                     }
                     onClick={() =>
@@ -251,14 +238,14 @@ export function DataPagination({
                     }
                     className="flex size-10 items-center justify-center rounded-[13px] border border-[var(--ac-line)] text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-bg-soft)] disabled:opacity-35"
                 >
-                    <ChevronRight
+                    <ChevronRight className="rtl:rotate-180"
                         size={16}
                     />
                 </button>
             </div>
 
             <label className="flex items-center justify-center gap-2 text-xs text-[var(--ac-text-muted)] lg:justify-end">
-                Rows
+                {t('ui.rows')}
 
                 <select
                     value={

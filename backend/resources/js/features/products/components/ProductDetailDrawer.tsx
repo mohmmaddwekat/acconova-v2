@@ -1,3 +1,6 @@
+import { useDialog } from '@/components/feedback/useDialog';
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Archive,
     Package,
@@ -50,6 +53,11 @@ export function ProductDetailDrawer({
     onArchive,
     onRestore,
 }: ProductDetailDrawerProps) {
+    useLocale();
+    const dialogRef = useDialog(open, onClose, false);
+    /** Keep the current editor visible until its mutation has finished. */
+    function closeDialog(): void { if (!false) onClose(); }
+
     if (
         ! open ||
         ! product
@@ -68,14 +76,12 @@ export function ProductDetailDrawer({
         <div className="fixed inset-0 z-[120]">
             <button
                 type="button"
-                aria-label="Close catalog details"
-                onClick={
-                    onClose
-                }
+                aria-label={t('ui.close_catalog_details')}
+                onClick={closeDialog}
                 className="absolute inset-0 bg-[var(--ac-text)]/20 backdrop-blur-[3px]"
             />
 
-            <aside className="absolute inset-y-0 right-0 z-10 flex w-full flex-col border-l border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[580px]">
+            <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('ui.catalog_context')} className="absolute inset-y-0 end-0 z-10 flex w-full flex-col border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[580px]">
                 <header className="border-b border-[var(--ac-line)] p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 gap-3">
@@ -94,7 +100,7 @@ export function ProductDetailDrawer({
 
                             <div className="min-w-0">
                                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-accent-strong)]">
-                                    Catalog context
+                                    {t('ui.catalog_context')}
                                 </p>
 
                                 <h2 className="mt-1 break-words text-2xl font-semibold tracking-[-0.045em]">
@@ -107,9 +113,7 @@ export function ProductDetailDrawer({
 
                         <button
                             type="button"
-                            onClick={
-                                onClose
-                            }
+                            onClick={closeDialog}
                             className="flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-bg-soft)]"
                         >
                             <X size={17} />
@@ -120,32 +124,32 @@ export function ProductDetailDrawer({
                 <div className="flex-1 overflow-y-auto p-5 sm:p-6">
                     <div className="grid gap-3 sm:grid-cols-2">
                         <Metric
-                            label="Selling price"
+                            label={t('ui.selling_price')}
                             value={Number(
                                 resolvedProduct.unit_price,
                             ).toLocaleString()}
                         />
 
                         <Metric
-                            label="Cost"
+                            label={t('ui.cost')}
                             value={
                                 resolvedProduct.cost_price
                                     ? Number(
                                           resolvedProduct.cost_price,
                                       ).toLocaleString()
-                                    : 'Not provided'
+                                    : t('ui.not_provided')
                             }
                         />
 
                         <Metric
-                            label="Unit"
+                            label={t('ui.unit')}
                             value={
                                 resolvedProduct.unit
                             }
                         />
 
                         <Metric
-                            label="Tax"
+                            label={t('ui.tax')}
                             value={`${Number(
                                 resolvedProduct.tax_rate,
                             )}%`}
@@ -154,34 +158,34 @@ export function ProductDetailDrawer({
 
                     <section className="mt-7">
                         <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
-                            Identity
+                            {t('ui.identity')}
                         </p>
 
                         <div className="mt-3 overflow-hidden rounded-[18px] border border-[var(--ac-line)]">
                             <Row
-                                label="Type"
+                                label={t('ui.type')}
                                 value={
                                     resolvedProduct.type ===
                                     'service'
-                                        ? 'Service'
-                                        : 'Product'
+                                        ? t('ui.service')
+                                        : t('ui.product')
                                 }
                             />
 
                             <Row
-                                label="SKU"
+                                label={t('ui.sku')}
                                 value={
                                     resolvedProduct.sku ??
-                                    'Not provided'
+                                    t('ui.not_provided')
                                 }
                             />
 
                             <Row
-                                label="Status"
+                                label={t('ui.status')}
                                 value={
                                     archived
-                                        ? 'Archived'
-                                        : 'Active'
+                                        ? t('ui.archived')
+                                        : t('ui.active')
                                 }
                             />
                         </div>
@@ -189,27 +193,23 @@ export function ProductDetailDrawer({
 
                     <section className="mt-7">
                         <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
-                            Description
+                            {t('ui.description')}
                         </p>
 
                         <div className="mt-3 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 text-sm leading-6 text-[var(--ac-text-soft)]">
                             {resolvedProduct.description ??
-                                'No description has been added.'}
+                                t('ui.no_description_has_been_added')}
                         </div>
                     </section>
 
                     {archived && (
                         <div className="mt-7 rounded-[18px] border border-[var(--ac-danger)]/15 bg-[var(--ac-danger)]/5 p-4">
                             <p className="text-sm font-semibold text-[var(--ac-danger)]">
-                                Archived catalog item
+                                {t('ui.archived_catalog_item')}
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-[var(--ac-text-soft)]">
-                                Historical documents may
-                                still reference it, but it
-                                must not be used on new
-                                quotes or invoices until
-                                restored.
+                                {t('ui.historical_documents_may_still_reference_it_but_it_must_not_be_used_on_new_quotes_or_')}
                             </p>
                         </div>
                     )}
@@ -231,7 +231,7 @@ export function ProductDetailDrawer({
                                     size={15}
                                 />
 
-                                Edit
+                                {t('ui.edit')}
                             </button>
                         )}
 
@@ -250,7 +250,7 @@ export function ProductDetailDrawer({
                                     size={15}
                                 />
 
-                                Archive
+                                {t('ui.archive')}
                             </button>
                         )}
 
@@ -269,7 +269,7 @@ export function ProductDetailDrawer({
                                     size={15}
                                 />
 
-                                Restore
+                                {t('ui.restore')}
                             </button>
                         )}
                 </footer>
@@ -291,6 +291,7 @@ function Metric({
     label,
     value,
 }: MetricProps) {
+    useLocale();
     return (
         <div className="rounded-[17px] border border-[var(--ac-line)] bg-white p-4">
             <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--ac-text-muted)]">
@@ -317,13 +318,14 @@ function Row({
     label,
     value,
 }: RowProps) {
+    useLocale();
     return (
         <div className="flex justify-between gap-5 border-b border-[var(--ac-line)] px-4 py-3.5 last:border-b-0">
             <span className="text-xs text-[var(--ac-text-muted)]">
                 {label}
             </span>
 
-            <span className="text-right text-xs font-semibold">
+            <span className="text-end text-xs font-semibold">
                 {value}
             </span>
         </div>

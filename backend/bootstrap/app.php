@@ -2,6 +2,8 @@
 
 use App\Http\Middleware\ClearTenantContext;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SetUserLocale;
+use App\Support\SafeErrorResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
      * can never leak between requests or long-lived processes.
      */
         $middleware->prepend(ClearTenantContext::class);
+        $middleware->prepend(SetUserLocale::class);
+        $middleware->encryptCookies(except: ['acconova_locale']);
 
         /*
      * Inertia is part of the web stack because the application UI uses
@@ -29,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->respond(SafeErrorResponse::render(...));
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     ArrowDownAZ,
     ArrowUpAZ,
@@ -97,6 +99,7 @@ export function PartyFilterPopover({
     value,
     onChange,
 }: PartyFilterPopoverProps) {
+    useLocale();
     const [open, setOpen] =
         useState(false);
 
@@ -243,7 +246,7 @@ export function PartyFilterPopover({
             >
                 <Filter size={15} />
 
-                Filters
+                {t('ui.filters')}
 
                 {count > 0 && (
                     <span className="flex size-5 items-center justify-center rounded-full bg-[var(--ac-accent-strong)] text-[9px] font-bold text-white">
@@ -256,7 +259,7 @@ export function PartyFilterPopover({
                 <>
                     <button
                         type="button"
-                        aria-label="Close filters"
+                        aria-label={t('ui.close_filters')}
                         onClick={() =>
                             setOpen(
                                 false,
@@ -265,7 +268,7 @@ export function PartyFilterPopover({
                         className="fixed inset-0 z-[129] bg-[var(--ac-text)]/20 backdrop-blur-[2px] xl:hidden"
                     />
 
-                    <section className="fixed inset-x-0 bottom-0 z-[130] max-h-[88dvh] overflow-hidden rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)] sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(600px,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[26px] xl:absolute xl:left-auto xl:right-0 xl:top-[calc(100%+0.65rem)] xl:w-[480px] xl:max-w-[calc(100vw-2rem)] xl:translate-x-0 xl:translate-y-0 xl:rounded-[22px]">
+                    <section className="fixed inset-x-0 bottom-0 z-[130] max-h-[88dvh] overflow-hidden rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)] sm:inset-x-auto sm:bottom-auto sm:start-1/2 sm:top-1/2 sm:w-[min(600px,calc(100vw-3rem))] sm:-translate-x-1/2 rtl:sm:translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[26px] xl:absolute xl:start-auto xl:end-0 xl:top-[calc(100%+0.65rem)] xl:w-[480px] xl:max-w-[calc(100vw-2rem)] xl:translate-x-0 rtl:xl:translate-x-0 xl:translate-y-0 xl:rounded-[22px]">
                         <header className="flex items-center justify-between border-b border-[var(--ac-line)] px-5 py-4">
                             <div className="flex min-w-0 items-center gap-3">
                                 <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
@@ -276,18 +279,18 @@ export function PartyFilterPopover({
 
                                 <div className="min-w-0">
                                     <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
-                                        Refine view
+                                        {t('ui.refine_view')}
                                     </p>
 
                                     <h2 className="mt-0.5 truncate text-lg font-semibold tracking-[-0.035em]">
-                                        Filter relationships
+                                        {t('ui.filter_relationships')}
                                     </h2>
                                 </div>
                             </div>
 
                             <button
                                 type="button"
-                                aria-label="Close filters"
+                                aria-label={t('ui.close_filters')}
                                 onClick={() =>
                                     setOpen(
                                         false,
@@ -302,7 +305,7 @@ export function PartyFilterPopover({
                         <div className="max-h-[calc(88dvh-146px)] overflow-y-auto overscroll-contain p-4 sm:max-h-[min(68dvh,700px)] sm:p-5 xl:max-h-[72vh]">
                             <div className="grid gap-6">
                                 <FilterSection
-                                    title="Relationship"
+                                    title={t('ui.relationship')}
                                 >
                                     <div className="grid gap-2 min-[380px]:grid-cols-3">
                                         <ChoiceButton
@@ -316,7 +319,7 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            Everyone
+                                            {t('ui.everyone')}
                                         </ChoiceButton>
 
                                         <ChoiceButton
@@ -331,7 +334,7 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            Customers
+                                            {t('ui.customers')}
                                         </ChoiceButton>
 
                                         <ChoiceButton
@@ -346,13 +349,13 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            Suppliers
+                                            {t('ui.suppliers')}
                                         </ChoiceButton>
                                     </div>
                                 </FilterSection>
 
                                 <FilterSection
-                                    title="Entity type"
+                                    title={t('ui.entity_type')}
                                 >
                                     <div className="grid gap-2 min-[380px]:grid-cols-3">
                                         <ChoiceButton
@@ -366,7 +369,7 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            All types
+                                            {t('ui.all_types')}
                                         </ChoiceButton>
 
                                         <ChoiceButton
@@ -384,7 +387,7 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            People
+                                            {t('ui.people')}
                                         </ChoiceButton>
 
                                         <ChoiceButton
@@ -402,13 +405,13 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            Companies
+                                            {t('ui.companies')}
                                         </ChoiceButton>
                                     </div>
                                 </FilterSection>
 
                                 <FilterSection
-                                    title="Contact quality"
+                                    title={t('ui.contact_quality')}
                                 >
                                     <div className="grid gap-2 sm:grid-cols-2">
                                         <ChoiceButton
@@ -422,7 +425,7 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            Any quality
+                                            {t('ui.any_quality')}
                                         </ChoiceButton>
 
                                         <ChoiceButton
@@ -440,7 +443,7 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            Complete contact
+                                            {t('ui.complete_contact')}
                                         </ChoiceButton>
 
                                         <ChoiceButton
@@ -458,7 +461,7 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            Missing email
+                                            {t('ui.missing_email')}
                                         </ChoiceButton>
 
                                         <ChoiceButton
@@ -476,7 +479,7 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            Missing phone
+                                            {t('ui.missing_phone')}
                                         </ChoiceButton>
 
                                         <ChoiceButton
@@ -491,14 +494,14 @@ export function PartyFilterPopover({
                                                 })
                                             }
                                         >
-                                            Missing both
+                                            {t('ui.missing_both')}
                                         </ChoiceButton>
                                     </div>
                                 </FilterSection>
 
                                 <div className="grid gap-6 sm:grid-cols-2">
                                     <FilterSection
-                                        title="Lifecycle"
+                                        title={t('ui.lifecycle')}
                                     >
                                         <div className="grid gap-2">
                                             <ChoiceButton
@@ -513,7 +516,7 @@ export function PartyFilterPopover({
                                                     })
                                                 }
                                             >
-                                                Active
+                                                {t('ui.active')}
                                             </ChoiceButton>
 
                                             <ChoiceButton
@@ -531,13 +534,13 @@ export function PartyFilterPopover({
                                                     })
                                                 }
                                             >
-                                                Archived
+                                                {t('ui.archived')}
                                             </ChoiceButton>
                                         </div>
                                     </FilterSection>
 
                                     <FilterSection
-                                        title="Sort"
+                                        title={t('ui.sort')}
                                     >
                                         <div className="grid gap-2">
                                             <ChoiceButton
@@ -555,7 +558,7 @@ export function PartyFilterPopover({
                                                     })
                                                 }
                                             >
-                                                Name A–Z
+                                                {t('ui.name_a_z')}
                                             </ChoiceButton>
 
                                             <ChoiceButton
@@ -573,7 +576,7 @@ export function PartyFilterPopover({
                                                     })
                                                 }
                                             >
-                                                Name Z–A
+                                                {t('ui.name_z_a')}
                                             </ChoiceButton>
 
                                             <ChoiceButton
@@ -588,7 +591,7 @@ export function PartyFilterPopover({
                                                     })
                                                 }
                                             >
-                                                Newest
+                                                {t('ui.newest')}
                                             </ChoiceButton>
 
                                             <ChoiceButton
@@ -603,7 +606,7 @@ export function PartyFilterPopover({
                                                     })
                                                 }
                                             >
-                                                Oldest
+                                                {t('ui.oldest')}
                                             </ChoiceButton>
                                         </div>
                                     </FilterSection>
@@ -629,7 +632,7 @@ export function PartyFilterPopover({
                                     size={14}
                                 />
 
-                                Reset
+                                {t('ui.reset')}
                             </button>
 
                             <button
@@ -643,7 +646,7 @@ export function PartyFilterPopover({
                                     size={14}
                                 />
 
-                                Apply filters
+                                {t('ui.apply_filters')}
                             </button>
                         </footer>
                     </section>
@@ -666,6 +669,7 @@ function FilterSection({
     title,
     children,
 }: FilterSectionProps) {
+    useLocale();
     return (
         <section className="min-w-0">
             <p className="mb-2.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
@@ -696,6 +700,7 @@ function ChoiceButton({
     children,
     icon: Icon,
 }: ChoiceButtonProps) {
+    useLocale();
     return (
         <button
             type="button"

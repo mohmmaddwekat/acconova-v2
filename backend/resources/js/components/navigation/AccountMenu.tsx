@@ -1,3 +1,8 @@
+import { locales, setLocale } from '@/lib/locale';
+import { useLocale } from '@/lib/i18n';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { normalizeApiError } from '@/lib/error-feedback';
+import { t } from '@/lib/i18n';
 import {
     router,
     usePage,
@@ -41,6 +46,9 @@ function userInitials(
  * Render the authenticated user's compact account control and sign-out menu.
  */
 export function AccountMenu() {
+    useLocale();
+    const locale = useLocale();
+    const { showToast } = useToast();
     const {
         auth,
     } = usePage<AppPageProps>().props;
@@ -108,6 +116,8 @@ export function AccountMenu() {
                     replace: true,
                 },
             );
+        } catch (error) {
+            showToast(normalizeApiError(error).generalMessage, 'error');
         } finally {
             setBusy(false);
             setOpen(false);
@@ -127,7 +137,7 @@ export function AccountMenu() {
                 type="button"
                 aria-expanded={open}
                 aria-haspopup="menu"
-                aria-label="Open account menu"
+                aria-label={t('ui.open_account_menu')}
                 onClick={() =>
                     setOpen(
                         (current) =>
@@ -142,7 +152,7 @@ export function AccountMenu() {
                     )}
                 </span>
 
-                <span className="hidden max-w-32 truncate pr-1 text-xs font-semibold text-[var(--ac-text)] lg:block">
+                <span className="hidden max-w-32 truncate pe-1 text-xs font-semibold text-[var(--ac-text)] lg:block">
                     {user.name}
                 </span>
             </button>
@@ -150,7 +160,7 @@ export function AccountMenu() {
             {open && (
                 <div
                     role="menu"
-                    className="absolute right-0 top-[calc(100%+0.6rem)] z-[80] w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-[20px] border border-[var(--ac-line)] bg-white p-2 shadow-[var(--ac-shadow-panel)]"
+                    className="absolute end-0 top-[calc(100%+0.6rem)] z-[80] w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-[20px] border border-[var(--ac-line)] bg-white p-2 shadow-[var(--ac-shadow-panel)]"
                 >
                     <div className="px-3 py-3">
                         <div className="flex items-center gap-3">
@@ -172,6 +182,12 @@ export function AccountMenu() {
                         </div>
                     </div>
 
+                    <label className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                        {t('common.language')}
+                        <select value={locale} onChange={(event) => setLocale(event.target.value as keyof typeof locales)} className="min-h-11 rounded-xl border border-[var(--ac-line)] bg-white px-2">
+                            {Object.entries(locales).map(([value, details]) => <option key={value} value={value}>{details.label}</option>)}
+                        </select>
+                    </label>
                     <div className="my-1 h-px bg-[var(--ac-line)]" />
 
                     <button
@@ -181,13 +197,13 @@ export function AccountMenu() {
                         onClick={() =>
                             void handleLogout()
                         }
-                        className="flex w-full items-center gap-3 rounded-[14px] px-3 py-3 text-left text-sm font-medium text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-bg-soft)] hover:text-[var(--ac-text)] disabled:opacity-50"
+                        className="flex w-full items-center gap-3 rounded-[14px] px-3 py-3 text-start text-sm font-medium text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-bg-soft)] hover:text-[var(--ac-text)] disabled:opacity-50"
                     >
                         <LogOut size={16} />
 
                         {busy
-                            ? 'Signing out…'
-                            : 'Sign out'}
+                            ? t('ui.signing_out')
+                            : t('ui.sign_out')}
                     </button>
                 </div>
             )}

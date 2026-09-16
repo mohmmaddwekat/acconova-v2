@@ -70,7 +70,7 @@ class ImportPartiesFromSpreadsheet
         ) {
             throw ValidationException::withMessages([
                 'file' => [
-                    'Fix the invalid spreadsheet rows before importing.',
+                    __('feedback.import_fix'),
                 ],
             ]);
         }
@@ -158,7 +158,7 @@ class ImportPartiesFromSpreadsheet
         ) {
             throw ValidationException::withMessages([
                 'file' => [
-                    'This import contains more than 5,000 rows. Split it into smaller files for this version.',
+                    __('feedback.import_limit'),
                 ],
             ]);
         }
@@ -195,12 +195,9 @@ class ImportPartiesFromSpreadsheet
                 $errors[] = [
                     'row' => $rowNumber,
 
-                    'message' => implode(
-                        ' ',
-                        $validator
-                            ->errors()
-                            ->all(),
-                    ),
+                    'code' => 'invalid',
+                    'fields' => array_keys($validator->errors()->toArray()),
+                    'message' => __('feedback.import_invalid'),
                 ];
 
                 continue;
@@ -220,7 +217,8 @@ class ImportPartiesFromSpreadsheet
                     $errors[] = [
                         'row' => $rowNumber,
 
-                        'message' => "Email {$email} appears more than once in this spreadsheet.",
+                        'code' => 'duplicate',
+                        'message' => __('feedback.import_duplicate'),
                     ];
 
                     continue;
@@ -251,7 +249,8 @@ class ImportPartiesFromSpreadsheet
                 $errors[] = [
                     'row' => $rowNumber,
 
-                    'message' => "Email {$email} belongs to an archived relationship. Restore it before importing this row.",
+                    'code' => 'archived',
+                    'message' => __('feedback.import_archived'),
                 ];
 
                 continue;

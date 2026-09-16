@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import { Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -20,10 +22,11 @@ export function AuthShell({
     description,
     children,
 }: AuthShellProps) {
+    useLocale();
     return (
         <main className="grid min-h-screen bg-[var(--ac-bg)] lg:grid-cols-[1.08fr_0.92fr]">
-            <section className="relative hidden min-h-screen overflow-hidden border-r border-[var(--ac-line)] lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
-                <div className="pointer-events-none absolute -left-40 top-1/3 size-[560px] rounded-full bg-[var(--ac-accent-soft)] blur-3xl" />
+            <section className="relative hidden min-h-screen overflow-hidden border-e border-[var(--ac-line)] lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+                <div className="pointer-events-none absolute -start-40 top-1/3 size-[560px] rounded-full bg-[var(--ac-accent-soft)] blur-3xl" />
 
                 <div className="relative flex items-center gap-3">
                     <div className="flex size-11 items-center justify-center rounded-[18px] bg-[var(--ac-text)] text-sm font-semibold tracking-[-0.06em] text-white">
@@ -36,7 +39,7 @@ export function AuthShell({
                         </p>
 
                         <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ac-text-muted)]">
-                            Business operating system
+                            {t('ui.business_operating_system')}
                         </p>
                     </div>
                 </div>
@@ -47,27 +50,25 @@ export function AuthShell({
                     </div>
 
                     <p className="mt-7 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--ac-accent-strong)]">
-                        From business data to business action
+                        {t('ui.from_business_data_to_business_action')}
                     </p>
 
                     <h1 className="mt-5 max-w-xl text-[clamp(3.5rem,6vw,6.8rem)] font-medium leading-[0.88] tracking-[-0.07em] text-[var(--ac-text)]">
-                        Less
+                        {t('ui.less')}
                         <br />
-                        dashboard.
+                        {t('ui.dashboard')}
                         <br />
-                        More direction.
+                        {t('ui.more_direction')}
                     </h1>
 
                     <p className="mt-7 max-w-lg text-base leading-7 text-[var(--ac-text-soft)]">
-                        Customers, revenue, operations, and the
-                        next action your business should take —
-                        connected in one coherent workspace.
+                        {t('ui.customers_revenue_operations_and_the_next_action_your_business_should_take_connected_')}
                     </p>
                 </div>
 
                 <div className="relative flex items-center justify-between text-xs text-[var(--ac-text-muted)]">
                     <span>AccoNova</span>
-                    <span>Operate with clarity.</span>
+                    <span>{t('ui.operate_with_clarity')}</span>
                 </div>
             </section>
 

@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/lib/i18n';
 import {
     AlertCircle,
     CheckCircle2,
@@ -6,7 +7,7 @@ import {
 
 export type FeedbackTone =
     | 'success'
-    | 'error';
+    | 'error' | 'warning' | 'info';
 
 type FeedbackToastProps = {
     message: string | null;
@@ -25,6 +26,7 @@ export function FeedbackToast({
     tone = 'success',
     onDismiss,
 }: FeedbackToastProps) {
+    useLocale();
     if (! message) {
         return null;
     }
@@ -34,8 +36,8 @@ export function FeedbackToast({
 
     return (
         <div
-            role="status"
-            className="fixed bottom-4 left-3 right-3 z-[160] motion-safe:animate-[fadeIn_180ms_ease-out] sm:bottom-6 sm:left-auto sm:right-6 sm:w-[380px]"
+            role={tone === 'error' ? 'alert' : 'status'} aria-live={tone === 'error' ? 'assertive' : 'polite'} aria-atomic="true"
+            className="fixed bottom-4 start-3 end-3 z-[160] motion-safe:animate-[fadeIn_180ms_ease-out] sm:bottom-6 sm:start-auto sm:end-6 sm:w-[380px]"
             style={{
                 bottom:
                     'max(1rem, env(safe-area-inset-bottom))',
@@ -47,7 +49,7 @@ export function FeedbackToast({
                         'flex size-9 shrink-0 items-center justify-center rounded-[13px]',
                         success
                             ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                            : 'bg-[var(--ac-danger)]/8 text-[var(--ac-danger)]',
+                            : tone === 'warning' ? 'bg-amber-50 text-amber-800' : tone === 'info' ? 'bg-blue-50 text-blue-800' : 'bg-[var(--ac-danger)]/8 text-[var(--ac-danger)]',
                     ].join(' ')}
                 >
                     {success ? (
@@ -61,13 +63,13 @@ export function FeedbackToast({
                     )}
                 </div>
 
-                <p className="min-w-0 flex-1 pt-1 text-sm font-medium leading-5 text-[var(--ac-text)]">
+                <p className="min-w-0 flex-1 break-words pt-1 text-sm font-medium leading-5 text-[var(--ac-text)]">
                     {message}
                 </p>
 
                 <button
                     type="button"
-                    aria-label="Dismiss message"
+                    aria-label={t('common.dismiss')}
                     onClick={onDismiss}
                     className="flex size-8 shrink-0 items-center justify-center rounded-[11px] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-bg-soft)]"
                 >

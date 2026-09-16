@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Head,
     Link,
@@ -28,6 +30,7 @@ export default function ResetPassword({
     token,
     email,
 }: ResetPasswordProps) {
+    useLocale();
     const [password, setPassword] =
         useState('');
 
@@ -54,6 +57,7 @@ export default function ResetPassword({
         event: FormEvent<HTMLFormElement>,
     ): Promise<void> {
         event.preventDefault();
+        if (busy) return;
 
         setBusy(true);
         setErrors({});
@@ -83,12 +87,12 @@ export default function ResetPassword({
 
     return (
         <>
-            <Head title="Reset password · AccoNova" />
+            <Head title={t('ui.reset_password_acconova')} />
 
             <AuthShell
-                eyebrow="Secure recovery"
-                title="Choose a new password."
-                description={`You're resetting access for ${email}.`}
+                eyebrow={t('ui.secure_recovery')}
+                title={t('ui.choose_a_new_password')}
+                description={t('auth.resetFor', { email })}
             >
                 {complete ? (
                     <div className="mt-10">
@@ -99,12 +103,11 @@ export default function ResetPassword({
                             />
 
                             <h3 className="mt-4 text-lg font-semibold">
-                                Password updated.
+                                {t('ui.password_updated')}
                             </h3>
 
                             <p className="mt-2 text-sm text-[var(--ac-text-soft)]">
-                                You can now sign in with your
-                                new password.
+                                {t('ui.you_can_now_sign_in_with_your_new_password')}
                             </p>
                         </div>
 
@@ -112,7 +115,7 @@ export default function ResetPassword({
                             href="/login"
                             className="mt-6 flex h-12 items-center justify-center rounded-[16px] bg-[var(--ac-text)] text-sm font-semibold text-white"
                         >
-                            Continue to sign in
+                            {t('ui.continue_to_sign_in')}
                         </Link>
                     </div>
                 ) : (
@@ -121,7 +124,7 @@ export default function ResetPassword({
                         onSubmit={handleSubmit}
                     >
                         <AuthInput
-                            label="New password"
+                            label={t('ui.new_password')}
                             type="password"
                             autoComplete="new-password"
                             minLength={12}
@@ -133,7 +136,7 @@ export default function ResetPassword({
                         />
 
                         <AuthInput
-                            label="Confirm new password"
+                            label={t('ui.confirm_new_password')}
                             type="password"
                             autoComplete="new-password"
                             minLength={12}
@@ -159,8 +162,8 @@ export default function ResetPassword({
                             <KeyRound size={16} />
 
                             {busy
-                                ? 'Updating…'
-                                : 'Set new password'}
+                                ? t('ui.updating')
+                                : t('ui.set_new_password')}
                         </button>
                     </form>
                 )}

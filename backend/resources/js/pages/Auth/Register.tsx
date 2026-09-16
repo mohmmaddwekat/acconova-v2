@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Head,
     Link,
@@ -20,6 +22,7 @@ import { AuthShell } from '@/layouts/AuthShell';
  * Render the AccoNova account registration experience.
  */
 export default function Register() {
+    useLocale();
     const [name, setName] =
         useState('');
 
@@ -52,6 +55,7 @@ export default function Register() {
         event: FormEvent<HTMLFormElement>,
     ): Promise<void> {
         event.preventDefault();
+        if (busy) return;
 
         setBusy(true);
         setErrors({});
@@ -85,7 +89,7 @@ export default function Register() {
             }
 
             setMessage(
-                'AccoNova could not create the account.',
+                t('ui.acconova_could_not_create_the_account'),
             );
         } finally {
             setBusy(false);
@@ -94,21 +98,21 @@ export default function Register() {
 
     return (
         <>
-            <Head title="Create account · AccoNova" />
+            <Head title={t('ui.create_account_acconova')} />
 
             <AuthShell
-                eyebrow="Start with clarity"
-                title="Create your account."
-                description="Your first workspace comes next. No business data is mixed between organizations."
+                eyebrow={t('ui.start_with_clarity')}
+                title={t('ui.create_your_account')}
+                description={t('ui.your_first_workspace_comes_next_no_business_data_is_mixed_between_organizations')}
             >
                 <form
                     className="mt-10 space-y-5"
                     onSubmit={handleSubmit}
                 >
                     <AuthInput
-                        label="Your name"
+                        label={t('ui.your_name')}
                         autoComplete="name"
-                        placeholder="Your full name"
+                        placeholder={t('ui.your_full_name')}
                         value={name}
                         onChange={setName}
                         error={
@@ -117,10 +121,10 @@ export default function Register() {
                     />
 
                     <AuthInput
-                        label="Work email"
+                        label={t('ui.work_email')}
                         type="email"
                         autoComplete="email"
-                        placeholder="you@company.com"
+                        placeholder={t('ui.you_company_com')}
                         value={email}
                         onChange={setEmail}
                         error={
@@ -129,7 +133,7 @@ export default function Register() {
                     />
 
                     <AuthInput
-                        label="Password"
+                        label={t('ui.password')}
                         type="password"
                         autoComplete="new-password"
                         minLength={12}
@@ -141,7 +145,7 @@ export default function Register() {
                     />
 
                     <AuthInput
-                        label="Confirm password"
+                        label={t('ui.confirm_password')}
                         type="password"
                         autoComplete="new-password"
                         minLength={12}
@@ -154,7 +158,7 @@ export default function Register() {
                     />
 
                     <p className="text-xs leading-5 text-[var(--ac-text-muted)]">
-                        Use at least 12 characters.
+                        {t('ui.use_at_least_12_characters')}
                     </p>
 
                     {message && (
@@ -174,8 +178,8 @@ export default function Register() {
                             />
 
                             {busy
-                                ? 'Creating account…'
-                                : 'Create account'}
+                                ? t('ui.creating_account')
+                                : t('ui.create_account')}
                         </span>
 
                         <ArrowRight
@@ -187,14 +191,14 @@ export default function Register() {
 
                 <div className="mt-8 flex items-center justify-between border-t border-[var(--ac-line)] pt-5">
                     <p className="text-xs text-[var(--ac-text-muted)]">
-                        Already have an account?
+                        {t('ui.already_have_an_account')}
                     </p>
 
                     <Link
                         href="/login"
                         className="text-sm font-semibold text-[var(--ac-accent-strong)]"
                     >
-                        Sign in
+                        {t('ui.sign_in')}
                     </Link>
                 </div>
             </AuthShell>

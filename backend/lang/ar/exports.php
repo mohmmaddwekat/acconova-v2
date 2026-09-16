@@ -35,4 +35,37 @@ return [
             'created_at' => 'تاريخ الإضافة',
         ],
     ],
+
+    'products' => [
+        'title' => 'المنتجات والخدمات',
+
+        'generated_at' => 'تاريخ الإنشاء',
+
+        'workspace' => 'مساحة العمل',
+
+        'total' => 'إجمالي عناصر الكتالوج',
+
+        'types' => [
+            'product' => 'منتج',
+            'service' => 'خدمة',
+        ],
+
+        'lifecycle' => [
+            'active' => 'نشط',
+            'archived' => 'مؤرشف',
+        ],
+
+        'columns' => [
+            'type' => 'النوع',
+            'name' => 'الاسم',
+            'sku' => 'رمز SKU',
+            'description' => 'الوصف',
+            'unit' => 'الوحدة',
+            'unit_price' => 'سعر البيع',
+            'cost_price' => 'التكلفة',
+            'tax_rate' => 'نسبة الضريبة',
+            'status' => 'الحالة',
+            'created_at' => 'تاريخ الإضافة',
+        ],
+    ],
 ];

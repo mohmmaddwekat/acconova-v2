@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import { Head } from '@inertiajs/react';
 import {
     ArrowRight,
@@ -17,6 +19,7 @@ import {
  * Render the first workspace setup step for a newly registered user.
  */
 export default function WorkspaceOnboarding() {
+    useLocale();
     const [name, setName] =
         useState('');
 
@@ -67,7 +70,7 @@ export default function WorkspaceOnboarding() {
             }
 
             setError(
-                'AccoNova could not create the workspace.',
+                t('ui.acconova_could_not_create_the_workspace'),
             );
         } finally {
             setBusy(false);
@@ -76,7 +79,7 @@ export default function WorkspaceOnboarding() {
 
     return (
         <>
-            <Head title="Create workspace · AccoNova" />
+            <Head title={t('ui.create_workspace_acconova')} />
 
             <main className="flex min-h-screen items-center justify-center bg-[var(--ac-bg)] p-6">
                 <section className="w-full max-w-2xl rounded-[32px] border border-[var(--ac-line)] bg-white p-8 shadow-[var(--ac-shadow-panel)] sm:p-12">
@@ -85,18 +88,15 @@ export default function WorkspaceOnboarding() {
                     </div>
 
                     <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--ac-accent-strong)]">
-                        Your first workspace
+                        {t('ui.your_first_workspace')}
                     </p>
 
                     <h1 className="mt-3 max-w-xl text-5xl font-medium leading-[0.95] tracking-[-0.06em] text-[var(--ac-text)]">
-                        Give your business a home.
+                        {t('ui.give_your_business_a_home')}
                     </h1>
 
                     <p className="mt-5 max-w-lg text-sm leading-6 text-[var(--ac-text-soft)]">
-                        A workspace keeps its customers,
-                        invoices, memberships, and future
-                        automation isolated from every other
-                        organization.
+                        {t('ui.a_workspace_keeps_its_customers_invoices_memberships_and_future_automation_isolated_f')}
                     </p>
 
                     <form
@@ -105,7 +105,7 @@ export default function WorkspaceOnboarding() {
                     >
                         <label className="block">
                             <span className="mb-2 block text-sm font-medium">
-                                Business or workspace name
+                                {t('ui.business_or_workspace_name')}
                             </span>
 
                             <input
@@ -115,7 +115,7 @@ export default function WorkspaceOnboarding() {
                                         event.target.value,
                                     )
                                 }
-                                placeholder="Acme Studio"
+                                placeholder={t('ui.acme_studio')}
                                 className="h-13 w-full rounded-[17px] border border-[var(--ac-line-strong)] bg-white px-4 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                 required
                             />
@@ -134,8 +134,8 @@ export default function WorkspaceOnboarding() {
                         >
                             <span>
                                 {busy
-                                    ? 'Creating workspace…'
-                                    : 'Create workspace'}
+                                    ? t('ui.creating_workspace')
+                                    : t('ui.create_workspace')}
                             </span>
 
                             <ArrowRight

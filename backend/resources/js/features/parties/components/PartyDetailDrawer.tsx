@@ -1,3 +1,8 @@
+import { getLocale } from '@/lib/locale';
+import { useDialog } from '@/components/feedback/useDialog';
+import { useLocale } from '@/lib/i18n';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { t } from '@/lib/i18n';
 import {
     Archive,
     Building2,
@@ -68,13 +73,13 @@ function partyLabel(
     ) {
         return (
             party.company_name ??
-            'Unnamed company'
+            t('ui.unnamed_company')
         );
     }
 
     return (
         party.name ??
-        'Unnamed person'
+        t('ui.unnamed_person')
     );
 }
 
@@ -85,7 +90,7 @@ function formatDate(
     value: string,
 ): string {
     return new Intl.DateTimeFormat(
-        undefined,
+        getLocale(),
         {
             day: 'numeric',
             month: 'short',
@@ -112,6 +117,8 @@ export function PartyDetailDrawer({
     onArchive,
     onRestore,
 }: PartyDetailDrawerProps) {
+    useLocale();
+    const { showToast } = useToast();
     const [notes, setNotes] =
         useState('');
 
@@ -128,6 +135,10 @@ export function PartyDetailDrawer({
             null,
         );
 
+    const dialogRef = useDialog(open, onClose, notesBusy);
+    /** Keep the current editor visible until its mutation has finished. */
+    function closeDialog(): void { if (!notesBusy) onClose(); }
+
     useEffect(() => {
         setNotes(
             party?.notes ?? '',
@@ -140,51 +151,7 @@ export function PartyDetailDrawer({
         party,
     ]);
 
-    useEffect(() => {
-        if (! open) {
-            return;
-        }
 
-        const previousOverflow =
-            document.body.style
-                .overflow;
-
-        document.body.style
-            .overflow = 'hidden';
-
-        /**
-         * Allow keyboard users to close the Party detail surface.
-         */
-        function handleKeyDown(
-            event: KeyboardEvent,
-        ): void {
-            if (
-                event.key ===
-                'Escape'
-            ) {
-                onClose();
-            }
-        }
-
-        window.addEventListener(
-            'keydown',
-            handleKeyDown,
-        );
-
-        return () => {
-            document.body.style
-                .overflow =
-                previousOverflow;
-
-            window.removeEventListener(
-                'keydown',
-                handleKeyDown,
-            );
-        };
-    }, [
-        onClose,
-        open,
-    ]);
 
     /*
      * Stop rendering before any Party-specific behavior runs when no Party is
@@ -252,15 +219,13 @@ export function PartyDetailDrawer({
                 updated,
             );
 
-            setNotesMessage(
-                'Notes saved.',
-            );
+            showToast(t('feedback.notes'));
         } catch (exception) {
             setNotesMessage(
                 exception instanceof
                 ApiError
                     ? exception.message
-                    : 'AccoNova could not save these notes.',
+                    : t('ui.acconova_could_not_save_these_notes'),
             );
         } finally {
             setNotesBusy(false);
@@ -271,14 +236,12 @@ export function PartyDetailDrawer({
         <div className="fixed inset-0 z-[120]">
             <button
                 type="button"
-                aria-label="Close Party details"
-                onClick={
-                    onClose
-                }
+                aria-label={t('ui.close_party_details')}
+                onClick={closeDialog}
                 className="absolute inset-0 bg-[var(--ac-text)]/20 backdrop-blur-[3px]"
             />
 
-            <aside className="absolute inset-y-0 right-0 z-10 flex w-full flex-col border-l border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[600px]">
+            <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('ui.relationship_context')} className="absolute inset-y-0 end-0 z-10 flex w-full flex-col border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[600px]">
                 <header className="border-b border-[var(--ac-line)] px-4 py-5 sm:px-6 sm:py-6">
                     <div className="flex items-start justify-between gap-5">
                         <div className="flex min-w-0 items-start gap-3.5">
@@ -297,7 +260,7 @@ export function PartyDetailDrawer({
 
                             <div className="min-w-0">
                                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-accent-strong)]">
-                                    Relationship context
+                                    {t('ui.relationship_context')}
                                 </p>
 
                                 <h2 className="mt-1.5 break-words text-2xl font-semibold tracking-[-0.045em] sm:text-3xl">
@@ -310,21 +273,17 @@ export function PartyDetailDrawer({
                                             role,
                                         ) => (
                                             <span
-                                                key={
-                                                    role
-                                                }
+                                                key={t(role === 'customer' ? 'role.customer' : 'role.supplier')}
                                                 className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-accent-strong)]"
                                             >
-                                                {
-                                                    role
-                                                }
+                                                {t(role === 'customer' ? 'role.customer' : 'role.supplier')}
                                             </span>
                                         ),
                                     )}
 
                                     {archived && (
                                         <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-danger)]">
-                                            Archived
+                                            {t('ui.archived')}
                                         </span>
                                     )}
                                 </div>
@@ -333,9 +292,7 @@ export function PartyDetailDrawer({
 
                         <button
                             type="button"
-                            onClick={
-                                onClose
-                            }
+                            onClick={closeDialog}
                             className="flex size-10 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-line)] text-[var(--ac-text-muted)]"
                         >
                             <X size={18} />
@@ -346,16 +303,16 @@ export function PartyDetailDrawer({
                 <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
                     <section>
                         <SectionHeading>
-                            Contact
+                            {t('ui.contact')}
                         </SectionHeading>
 
                         <div className="grid gap-2 sm:grid-cols-2">
                             <ContactAction
                                 icon={Mail}
-                                label="Email"
+                                label={t('ui.email')}
                                 value={
                                     resolvedParty.email ??
-                                    'Not provided'
+                                    t('ui.not_provided')
                                 }
                                 href={
                                     resolvedParty.email
@@ -366,10 +323,10 @@ export function PartyDetailDrawer({
 
                             <ContactAction
                                 icon={Phone}
-                                label="Phone"
+                                label={t('ui.phone')}
                                 value={
                                     resolvedParty.phone ??
-                                    'Not provided'
+                                    t('ui.not_provided')
                                 }
                                 href={
                                     resolvedParty.phone
@@ -382,7 +339,7 @@ export function PartyDetailDrawer({
 
                     <section className="mt-8">
                         <SectionHeading>
-                            Internal notes
+                            {t('ui.internal_notes')}
                         </SectionHeading>
 
                         <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
@@ -395,11 +352,11 @@ export function PartyDetailDrawer({
 
                                 <div className="min-w-0 flex-1">
                                     <p className="text-xs font-semibold">
-                                        Workspace note
+                                        {t('ui.workspace_note')}
                                     </p>
 
                                     <p className="mt-1 text-[10px] leading-4 text-[var(--ac-text-muted)]">
-                                        Internal only. This note is not customer-facing.
+                                        {t('ui.internal_only_this_note_is_not_customer_facing')}
                                     </p>
                                 </div>
                             </div>
@@ -425,14 +382,14 @@ export function PartyDetailDrawer({
                                             .value,
                                     )
                                 }
-                                placeholder="Add useful context, preferences, follow-up information, or internal reminders…"
+                                placeholder={t('ui.add_useful_context_preferences_follow_up_information_or_internal_reminders')}
                                 className="mt-4 w-full resize-y rounded-[15px] border border-[var(--ac-line)] bg-white px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)] disabled:bg-[var(--ac-bg-soft)] disabled:text-[var(--ac-text-muted)]"
                             />
 
                             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <p className="text-[10px] text-[var(--ac-text-muted)]">
                                     {archived
-                                        ? 'Restore this relationship before changing notes.'
+                                        ? t('ui.restore_this_relationship_before_changing_notes')
                                         : `${notes.length} / 5000`}
                                 </p>
 
@@ -453,8 +410,8 @@ export function PartyDetailDrawer({
                                             />
 
                                             {notesBusy
-                                                ? 'Saving…'
-                                                : 'Save notes'}
+                                                ? t('ui.saving')
+                                                : t('ui.save_notes')}
                                         </button>
                                     )}
                             </div>
@@ -469,30 +426,30 @@ export function PartyDetailDrawer({
 
                     <section className="mt-8">
                         <SectionHeading>
-                            Business identity
+                            {t('ui.business_identity')}
                         </SectionHeading>
 
                         <div className="overflow-hidden rounded-[20px] border border-[var(--ac-line)]">
                             <DetailRow
-                                label="Entity type"
+                                label={t('ui.entity_type')}
                                 value={
                                     resolvedParty.type ===
                                     'company'
-                                        ? 'Company'
-                                        : 'Person'
+                                        ? t('ui.company')
+                                        : t('ui.person')
                                 }
                             />
 
                             <DetailRow
-                                label="Tax number"
+                                label={t('ui.tax_number')}
                                 value={
                                     resolvedParty.tax_number ??
-                                    'Not provided'
+                                    t('ui.not_provided')
                                 }
                             />
 
                             <DetailRow
-                                label="Relationship"
+                                label={t('ui.relationship')}
                                 value={resolvedParty.roles
                                     .map(
                                         (
@@ -516,7 +473,7 @@ export function PartyDetailDrawer({
 
                     <section className="mt-8">
                         <SectionHeading>
-                            Location
+                            {t('ui.location')}
                         </SectionHeading>
 
                         <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
@@ -529,12 +486,12 @@ export function PartyDetailDrawer({
 
                                 <div>
                                     <p className="text-xs font-semibold">
-                                        Business address
+                                        {t('ui.business_address')}
                                     </p>
 
                                     <p className="mt-1.5 text-sm leading-6 text-[var(--ac-text-soft)]">
                                         {location ||
-                                            'No address has been added yet.'}
+                                            t('ui.no_address_has_been_added_yet')}
                                     </p>
                                 </div>
                             </div>
@@ -543,7 +500,7 @@ export function PartyDetailDrawer({
 
                     <section className="mt-8">
                         <SectionHeading>
-                            Record activity
+                            {t('ui.record_activity')}
                         </SectionHeading>
 
                         <div className="grid gap-2 sm:grid-cols-2">
@@ -551,7 +508,7 @@ export function PartyDetailDrawer({
                                 icon={
                                     CalendarDays
                                 }
-                                label="Created"
+                                label={t('ui.created')}
                                 value={formatDate(
                                     resolvedParty.created_at,
                                 )}
@@ -561,7 +518,7 @@ export function PartyDetailDrawer({
                                 icon={
                                     ShieldCheck
                                 }
-                                label="Last updated"
+                                label={t('ui.last_updated')}
                                 value={formatDate(
                                     resolvedParty.updated_at,
                                 )}
@@ -587,7 +544,7 @@ export function PartyDetailDrawer({
                                         size={15}
                                     />
 
-                                    Edit
+                                    {t('ui.edit')}
                                 </button>
                             )}
 
@@ -606,7 +563,7 @@ export function PartyDetailDrawer({
                                         size={15}
                                     />
 
-                                    Archive
+                                    {t('ui.archive')}
                                 </button>
                             )}
 
@@ -625,7 +582,7 @@ export function PartyDetailDrawer({
                                         size={15}
                                     />
 
-                                    Restore
+                                    {t('ui.restore')}
                                 </button>
                             )}
                     </div>
@@ -645,6 +602,7 @@ type SectionHeadingProps = {
 function SectionHeading({
     children,
 }: SectionHeadingProps) {
+    useLocale();
     return (
         <p className="mb-3 text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-text-muted)]">
             {children}
@@ -671,6 +629,7 @@ function ContactAction({
     value,
     href,
 }: ContactActionProps) {
+    useLocale();
     const content = (
         <>
             <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]">
@@ -720,13 +679,14 @@ function DetailRow({
     label,
     value,
 }: DetailRowProps) {
+    useLocale();
     return (
         <div className="flex items-start justify-between gap-5 border-b border-[var(--ac-line)] px-4 py-3.5 last:border-b-0">
             <span className="text-xs text-[var(--ac-text-muted)]">
                 {label}
             </span>
 
-            <span className="max-w-[60%] text-right text-xs font-semibold">
+            <span className="max-w-[60%] text-end text-xs font-semibold">
                 {value}
             </span>
         </div>
@@ -749,6 +709,7 @@ function LifecycleCard({
     label,
     value,
 }: LifecycleCardProps) {
+    useLocale();
     return (
         <div className="rounded-[17px] border border-[var(--ac-line)] bg-white p-4">
             <Icon

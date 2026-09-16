@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Head,
     Link,
@@ -22,6 +24,7 @@ import { AuthShell } from '@/layouts/AuthShell';
  * Render the password-recovery request experience.
  */
 export default function ForgotPassword() {
+    useLocale();
     const [email, setEmail] =
         useState('');
 
@@ -47,6 +50,7 @@ export default function ForgotPassword() {
         event: FormEvent<HTMLFormElement>,
     ): Promise<void> {
         event.preventDefault();
+        if (busy) return;
 
         setBusy(true);
         setSent(false);
@@ -76,7 +80,7 @@ export default function ForgotPassword() {
             }
 
             setMessage(
-                'AccoNova could not process the recovery request.',
+                t('ui.acconova_could_not_process_the_recovery_request'),
             );
         } finally {
             setBusy(false);
@@ -85,12 +89,12 @@ export default function ForgotPassword() {
 
     return (
         <>
-            <Head title="Recover password · AccoNova" />
+            <Head title={t('ui.recover_password_acconova')} />
 
             <AuthShell
-                eyebrow="Account recovery"
-                title="Find your way back."
-                description="Enter the email address registered with your AccoNova account."
+                eyebrow={t('ui.account_recovery')}
+                title={t('ui.find_your_way_back')}
+                description={t('ui.enter_the_email_address_registered_with_your_acconova_account')}
             >
                 {sent ? (
                     <div className="mt-10">
@@ -100,12 +104,11 @@ export default function ForgotPassword() {
                             </div>
 
                             <h3 className="mt-5 text-lg font-semibold">
-                                Check your inbox.
+                                {t('ui.check_your_inbox')}
                             </h3>
 
                             <p className="mt-2 text-sm leading-6 text-[var(--ac-text-soft)]">
-                                We sent a secure password
-                                recovery link to {email}.
+                                {t('ui.we_sent_a_secure_password_recovery_link_to')} {email}.
                             </p>
                         </div>
 
@@ -114,7 +117,7 @@ export default function ForgotPassword() {
                             className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[var(--ac-accent-strong)]"
                         >
                             <ArrowLeft size={15} />
-                            Back to sign in
+                            {t('ui.back_to_sign_in')}
                         </Link>
                     </div>
                 ) : (
@@ -123,10 +126,10 @@ export default function ForgotPassword() {
                         onSubmit={handleSubmit}
                     >
                         <AuthInput
-                            label="Account email"
+                            label={t('ui.account_email')}
                             type="email"
                             autoComplete="email"
-                            placeholder="you@company.com"
+                            placeholder={t('ui.you_company_com')}
                             value={email}
                             onChange={setEmail}
                             error={emailError}
@@ -144,8 +147,8 @@ export default function ForgotPassword() {
                             className="flex h-12 w-full items-center justify-center rounded-[16px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white disabled:opacity-60"
                         >
                             {busy
-                                ? 'Checking account…'
-                                : 'Send recovery link'}
+                                ? t('ui.checking_account')
+                                : t('ui.send_recovery_link')}
                         </button>
 
                         <Link
@@ -153,7 +156,7 @@ export default function ForgotPassword() {
                             className="flex items-center justify-center gap-2 text-sm font-semibold text-[var(--ac-text-soft)]"
                         >
                             <ArrowLeft size={15} />
-                            Back to sign in
+                            {t('ui.back_to_sign_in')}
                         </Link>
                     </form>
                 )}

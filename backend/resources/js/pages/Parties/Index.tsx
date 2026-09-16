@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Head,
     usePage,
@@ -16,10 +18,7 @@ import {
 
 import { DataPagination } from '@/components/data/DataPagination';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
-import {
-    FeedbackToast,
-    type FeedbackTone,
-} from '@/components/feedback/FeedbackToast';
+import { useToast } from '@/components/feedback/ToastProvider';
 import {
     archiveParty,
     bulkPartyAction,
@@ -67,12 +66,6 @@ type PendingBulkAction = {
     ids: number[];
 };
 
-type ToastState = {
-    message: string;
-
-    tone: FeedbackTone;
-};
-
 /**
  * Resolve the document language used by exports.
  */
@@ -98,6 +91,13 @@ function currentLocale(): string {
  * multi-record archive or restore operations.
  */
 export default function PartiesIndex() {
+    const { workspace } = usePage<AppPageProps>().props;
+    return <PartiesWorkspace key={workspace.activeOrganization?.id ?? 'none'} />;
+}
+
+/** Reset transient records, dialogs and selections when the authorized workspace changes. */
+function PartiesWorkspace() {
+    useLocale();
     const {
         workspace,
     } = usePage<AppPageProps>().props;
@@ -212,13 +212,7 @@ export default function PartiesIndex() {
         setImportOpen,
     ] = useState(false);
 
-    const [
-        toast,
-        setToast,
-    ] =
-        useState<ToastState | null>(
-            null,
-        );
+    const { showToast } = useToast();
 
     const partyFilters:
         PartyFilters = {
@@ -280,7 +274,7 @@ export default function PartiesIndex() {
                         exception instanceof
                         ApiError
                             ? exception.message
-                            : 'AccoNova could not load your relationships.',
+                            : t('ui.acconova_could_not_load_your_relationships'),
                     );
                 } finally {
                     setLoading(
@@ -354,40 +348,9 @@ export default function PartiesIndex() {
         search,
     ]);
 
-    useEffect(() => {
-        if (! toast) {
-            return;
-        }
 
-        const timeout =
-            window.setTimeout(
-                () => {
-                    setToast(null);
-                },
-                3600,
-            );
 
-        return () => {
-            window.clearTimeout(
-                timeout,
-            );
-        };
-    }, [
-        toast,
-    ]);
 
-    /**
-     * Surface temporary application feedback.
-     */
-    function showToast(
-        message: string,
-        tone: FeedbackTone = 'success',
-    ): void {
-        setToast({
-            message,
-            tone,
-        });
-    }
 
     /**
      * Reset the live Party search.
@@ -618,7 +581,7 @@ export default function PartiesIndex() {
                 );
 
                 showToast(
-                    'Relationship archived. Historical data remains preserved.',
+                    t('ui.relationship_archived_historical_data_remains_preserved'),
                 );
             } else {
                 await restoreParty(
@@ -627,7 +590,7 @@ export default function PartiesIndex() {
                 );
 
                 showToast(
-                    'Relationship restored to the active ledger.',
+                    t('ui.relationship_restored_to_the_active_ledger'),
                 );
             }
 
@@ -640,7 +603,7 @@ export default function PartiesIndex() {
                 exception instanceof
                 ApiError
                     ? exception.message
-                    : 'AccoNova could not complete this action.',
+                    : t('ui.acconova_could_not_complete_this_action'),
                 'error',
             );
         } finally {
@@ -698,8 +661,8 @@ export default function PartiesIndex() {
             showToast(
                 pendingBulk.action ===
                 'restore'
-                    ? `${result.affected} relationships restored.`
-                    : `${result.affected} relationships archived.`,
+                    ? t('parties.bulkRestored', { count: result.affected })
+                    : t('parties.bulkArchived', { count: result.affected }),
             );
 
             setSelectedIds(
@@ -714,7 +677,7 @@ export default function PartiesIndex() {
                 exception instanceof
                 ApiError
                     ? exception.message
-                    : 'AccoNova could not complete the bulk action.',
+                    : t('ui.acconova_could_not_complete_the_bulk_action'),
                 'error',
             );
         } finally {
@@ -739,34 +702,29 @@ export default function PartiesIndex() {
 
     return (
         <AppShell>
-            <Head title="Relationships · AccoNova" />
+            <Head title={t('ui.relationships_acconova')} />
 
             <main className="mx-auto w-full max-w-[1680px] min-w-0 px-3 py-5 sm:px-5 sm:py-7 lg:px-8 lg:py-9 2xl:px-10">
                 <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_290px] xl:gap-8">
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
                             <span className="relative flex size-2">
-                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--ac-accent)] opacity-30" />
+                                <span className="absolute inline-flex size-full motion-safe:animate-ping rounded-full bg-[var(--ac-accent)] opacity-30" />
 
                                 <span className="relative inline-flex size-2 rounded-full bg-[var(--ac-accent)]" />
                             </span>
 
                             <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--ac-accent-strong)] sm:text-[10px]">
-                                Relationship ledger
+                                {t('ui.relationship_ledger')}
                             </p>
                         </div>
 
                         <h1 className="mt-3 max-w-[800px] text-[2rem] font-medium leading-[0.94] tracking-[-0.055em] sm:text-[2.8rem] md:text-[3.5rem] lg:text-[4rem] xl:text-[4.7rem]">
-                            Know who your business
-                            moves with.
+                            {t('ui.know_who_your_business_moves_with')}
                         </h1>
 
                         <p className="mt-4 max-w-[650px] text-[13px] leading-5 text-[var(--ac-text-soft)] sm:text-sm sm:leading-6">
-                            Search, filter, import,
-                            export, maintain notes,
-                            and manage customers and
-                            suppliers from one
-                            reusable identity.
+                            {t('ui.search_filter_import_export_maintain_notes_and_manage_customers_and_suppliers_from_on')}
                         </p>
                     </div>
 
@@ -779,7 +737,7 @@ export default function PartiesIndex() {
 
                         <div className="min-w-0">
                             <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
-                                Matching view
+                                {t('ui.matching_view')}
                             </p>
 
                             <p className="mt-1 text-xl font-semibold tracking-[-0.04em]">
@@ -789,8 +747,8 @@ export default function PartiesIndex() {
 
                             <p className="mt-1 truncate text-[11px] text-[var(--ac-text-muted)]">
                                 {activeOrganization
-                                    ? `Inside ${activeOrganization.name}`
-                                    : 'No workspace selected'}
+                                    ? t('workspace.inside', { name: activeOrganization.name })
+                                    : t('ui.no_workspace_selected')}
                             </p>
                         </div>
                     </div>
@@ -803,7 +761,7 @@ export default function PartiesIndex() {
                                 <div className="relative">
                                     <Search
                                         size={15}
-                                        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
+                                        className="absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
                                     />
 
                                     <input
@@ -819,18 +777,18 @@ export default function PartiesIndex() {
                                                     .value,
                                             )
                                         }
-                                        placeholder="Search name, email, phone, tax number, city…"
-                                        className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-bg)] pl-10 pr-11 text-sm outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[var(--ac-accent)] focus:bg-white focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                                        placeholder={t('ui.search_name_email_phone_tax_number_city')}
+                                        className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-bg)] ps-10 pe-11 text-sm outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[var(--ac-accent)] focus:bg-white focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                     />
 
                                     {draftSearch && (
                                         <button
                                             type="button"
-                                            aria-label="Clear search"
+                                            aria-label={t('ui.clear_search')}
                                             onClick={
                                                 clearSearch
                                             }
-                                            className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)]"
+                                            className="absolute end-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)]"
                                         >
                                             <X
                                                 size={14}
@@ -876,7 +834,7 @@ export default function PartiesIndex() {
                                             size={16}
                                         />
 
-                                        New relationship
+                                        {t('ui.new_relationship')}
                                     </button>
                                 )}
                             </div>
@@ -886,7 +844,7 @@ export default function PartiesIndex() {
                                     0) && (
                                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--ac-text-muted)]">
                                     <span>
-                                        View refined by
+                                        {t('ui.view_refined_by')}
                                     </span>
 
                                     {search && (
@@ -898,10 +856,7 @@ export default function PartiesIndex() {
                                     {activeFilterCount >
                                         0 && (
                                         <span className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 font-semibold text-[var(--ac-accent-strong)]">
-                                            {
-                                                activeFilterCount
-                                            }{' '}
-                                            filters
+                                            {t('count.filters', { count: activeFilterCount })}
                                         </span>
                                     )}
                                 </div>
@@ -944,15 +899,11 @@ export default function PartiesIndex() {
                                 </div>
 
                                 <h2 className="mt-5 text-xl font-semibold tracking-[-0.04em]">
-                                    No relationships
-                                    match this view.
+                                    {t('ui.no_relationships_match_this_view')}
                                 </h2>
 
                                 <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ac-text-soft)]">
-                                    Clear the search,
-                                    adjust the filters,
-                                    or import existing
-                                    business data.
+                                    {t('ui.clear_the_search_adjust_the_filters_or_import_existing_business_data')}
                                 </p>
                             </div>
                         ) : (
@@ -1079,8 +1030,8 @@ export default function PartiesIndex() {
                     onSaved={() => {
                         showToast(
                             editingParty
-                                ? 'Relationship updated successfully.'
-                                : 'Relationship added successfully.',
+                                ? t('ui.relationship_updated_successfully')
+                                : t('ui.relationship_added_successfully'),
                         );
 
                         void loadParties();
@@ -1102,7 +1053,7 @@ export default function PartiesIndex() {
                         setPage(1);
 
                         showToast(
-                            `Import complete: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped.`,
+                            t('import.complete', result),
                         );
 
                         void loadParties();
@@ -1144,29 +1095,29 @@ export default function PartiesIndex() {
                         pendingAction
                             ?.kind ===
                         'restore'
-                            ? 'Restore this relationship?'
-                            : 'Archive this relationship?'
+                            ? t('ui.restore_this_relationship')
+                            : t('ui.archive_this_relationship')
                     }
                     description={
                         pendingAction
                             ?.kind ===
                         'restore'
-                            ? `${pendingLabel ?? 'This relationship'} will return to the active ledger.`
-                            : `${pendingLabel ?? 'This relationship'} will become unavailable for new business while its historical data remains preserved.`
+                            ? t('parties.restoreDescription', { name: pendingLabel ?? t('ui.this_relationship') })
+                            : t('parties.archiveDescription', { name: pendingLabel ?? t('ui.this_relationship') })
                     }
                     confirmLabel={
                         pendingAction
                             ?.kind ===
                         'restore'
-                            ? 'Restore'
-                            : 'Archive'
+                            ? t('ui.restore')
+                            : t('ui.archive')
                     }
                     tone={
                         pendingAction
                             ?.kind ===
                         'restore'
                             ? 'positive'
-                            : 'danger'
+                            : 'warning'
                     }
                     busy={
                         actionBusy
@@ -1194,29 +1145,29 @@ export default function PartiesIndex() {
                         pendingBulk
                             ?.action ===
                         'restore'
-                            ? 'Restore selected relationships?'
-                            : 'Archive selected relationships?'
+                            ? t('ui.restore_selected_relationships')
+                            : t('ui.archive_selected_relationships')
                     }
                     description={
                         pendingBulk
                             ?.action ===
                         'restore'
-                            ? `${pendingBulk.ids.length} selected relationships will return to active business use.`
-                            : `${pendingBulk?.ids.length ?? 0} selected relationships will become unavailable for new business while their history remains preserved.`
+                            ? t('parties.bulkRestoreDescription', { count: pendingBulk.ids.length })
+                            : t('parties.bulkArchiveDescription', { count: pendingBulk?.ids.length ?? 0 })
                     }
                     confirmLabel={
                         pendingBulk
                             ?.action ===
                         'restore'
-                            ? 'Restore selected'
-                            : 'Archive selected'
+                            ? t('ui.restore_selected')
+                            : t('ui.archive_selected')
                     }
                     tone={
                         pendingBulk
                             ?.action ===
                         'restore'
                             ? 'positive'
-                            : 'danger'
+                            : 'warning'
                     }
                     busy={
                         actionBusy
@@ -1232,21 +1183,6 @@ export default function PartiesIndex() {
                     }}
                     onConfirm={() =>
                         void confirmBulkAction()
-                    }
-                />
-
-                <FeedbackToast
-                    message={
-                        toast?.message ??
-                        null
-                    }
-                    tone={
-                        toast?.tone
-                    }
-                    onDismiss={() =>
-                        setToast(
-                            null,
-                        )
                     }
                 />
             </main>

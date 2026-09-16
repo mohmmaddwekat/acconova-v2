@@ -1,184 +1,54 @@
-import {
-    Archive,
-    RotateCcw,
-    X,
-} from 'lucide-react';
-import {
-    useEffect,
-} from 'react';
+﻿import { Archive, RotateCcw, Trash2, X } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { t, useLocale } from '@/lib/i18n';
+import { useDialog } from './useDialog';
 
-type ConfirmDialogTone =
-    | 'danger'
-    | 'positive';
-
+export const CONFIRMATION_DELAY_SECONDS = 5;
 type ConfirmDialogProps = {
-    open: boolean;
-
-    title: string;
-    description: string;
-
-    confirmLabel: string;
-
-    tone?: ConfirmDialogTone;
-
-    busy?: boolean;
-
-    onCancel: () => void;
-
-    onConfirm: () => void;
+    open: boolean; title: string; description: string; confirmLabel: string;
+    tone?: 'warning' | 'danger' | 'positive'; busy?: boolean;
+    onCancel: () => void; onConfirm: () => void | Promise<void>;
 };
 
-/**
- * Render a reusable confirmation surface for important business actions.
- *
- * The dialog supports keyboard dismissal, mobile layouts, destructive actions,
- * and positive recovery actions without tying itself to a specific feature.
- */
-export function ConfirmDialog({
-    open,
-    title,
-    description,
-    confirmLabel,
-    tone = 'danger',
-    busy = false,
-    onCancel,
-    onConfirm,
-}: ConfirmDialogProps) {
+/** Share a cancellable safety delay, focus trap and lifecycle styling across modules. */
+export function ConfirmDialog({ open, title, description, confirmLabel, tone = 'warning', busy = false, onCancel, onConfirm }: ConfirmDialogProps) {
+    useLocale();
+    const id = useId();
+    const [remaining, setRemaining] = useState(CONFIRMATION_DELAY_SECONDS);
+    const submitted = useRef(false);
+    const deadline = useRef(0);
+    const ref = useDialog(open, onCancel, busy);
     useEffect(() => {
-        if (! open) {
-            return;
-        }
-
-        /**
-         * Close the confirmation dialog when Escape is pressed.
-         */
-        function handleKeyDown(
-            event: KeyboardEvent,
-        ): void {
-            if (
-                event.key === 'Escape'
-                && ! busy
-            ) {
-                onCancel();
-            }
-        }
-
-        window.addEventListener(
-            'keydown',
-            handleKeyDown,
-        );
-
-        return () => {
-            window.removeEventListener(
-                'keydown',
-                handleKeyDown,
-            );
-        };
-    }, [
-        busy,
-        onCancel,
-        open,
-    ]);
-
-    if (! open) {
-        return null;
-    }
-
-    const positive =
-        tone === 'positive';
-
-    return (
-        <div
-            role="presentation"
-            className="fixed inset-0 z-[140] flex items-end justify-center p-0 sm:items-center sm:p-5"
-        >
-            <button
-                type="button"
-                aria-label="Close confirmation"
-                onClick={() => {
-                    if (! busy) {
-                        onCancel();
-                    }
-                }}
-                className="absolute inset-0 bg-[var(--ac-text)]/25 backdrop-blur-[3px]"
-            />
-
-            <section
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="confirm-dialog-title"
-                className="relative z-10 w-full overflow-hidden rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)] sm:max-w-[460px] sm:rounded-[26px]"
-            >
-                <div className="p-5 sm:p-6">
-                    <div className="flex items-start justify-between gap-5">
-                        <div
-                            className={[
-                                'flex size-11 shrink-0 items-center justify-center rounded-[16px]',
-                                positive
-                                    ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                                    : 'bg-[var(--ac-danger)]/8 text-[var(--ac-danger)]',
-                            ].join(' ')}
-                        >
-                            {positive ? (
-                                <RotateCcw
-                                    size={18}
-                                />
-                            ) : (
-                                <Archive
-                                    size={18}
-                                />
-                            )}
-                        </div>
-
-                        <button
-                            type="button"
-                            disabled={busy}
-                            onClick={onCancel}
-                            className="flex size-9 shrink-0 items-center justify-center rounded-[13px] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-bg-soft)] disabled:opacity-40"
-                        >
-                            <X size={17} />
-                        </button>
-                    </div>
-
-                    <h2
-                        id="confirm-dialog-title"
-                        className="mt-6 text-2xl font-semibold tracking-[-0.045em] text-[var(--ac-text)]"
-                    >
-                        {title}
-                    </h2>
-
-                    <p className="mt-2 text-sm leading-6 text-[var(--ac-text-soft)]">
-                        {description}
-                    </p>
-                </div>
-
-                <footer className="grid grid-cols-2 gap-2 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 sm:flex sm:justify-end">
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={onCancel}
-                        className="h-11 rounded-[14px] px-5 text-sm font-semibold text-[var(--ac-text-soft)] transition hover:bg-white disabled:opacity-40"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={onConfirm}
-                        className={[
-                            'h-11 rounded-[14px] px-5 text-sm font-semibold transition disabled:opacity-50',
-                            positive
-                                ? 'bg-[var(--ac-accent-strong)] text-white'
-                                : 'bg-[var(--ac-text)] text-white',
-                        ].join(' ')}
-                    >
-                        {busy
-                            ? 'Working…'
-                            : confirmLabel}
-                    </button>
-                </footer>
-            </section>
-        </div>
-    );
+        submitted.current = false;
+        setRemaining(CONFIRMATION_DELAY_SECONDS);
+        if (!open) return;
+        deadline.current = Date.now() + CONFIRMATION_DELAY_SECONDS * 1000;
+        const timer = window.setInterval(() => setRemaining(Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000))), 200);
+        return () => window.clearInterval(timer);
+    }, [open]);
+    useEffect(() => { if (!busy) submitted.current = false; }, [busy]);
+    if (!open) return null;
+    const Icon = tone === 'positive' ? RotateCcw : tone === 'danger' ? Trash2 : Archive;
+    const color = tone === 'positive' ? 'bg-emerald-50 text-emerald-800' : tone === 'danger' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-900';
+    return <div className="fixed inset-0 z-[140] flex items-end justify-center sm:items-center sm:p-5">
+        <div aria-hidden="true" className="absolute inset-0 bg-black/25 backdrop-blur-[3px]" onClick={() => { if (!busy) onCancel(); }} />
+        <section ref={ref} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`} aria-busy={busy} className="relative max-h-[90dvh] w-full overflow-y-auto rounded-t-[28px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-panel)] sm:max-w-[460px] sm:rounded-[26px] sm:p-6">
+            <div className="flex items-center justify-between">
+                <div className={`rounded-2xl p-3 ${color}`}><Icon size={20} /></div>
+                <button aria-label={t('common.close')} disabled={busy} onClick={onCancel} className="flex size-11 items-center justify-center rounded-xl hover:bg-slate-50"><X size={18} /></button>
+            </div>
+            <h2 id={`${id}-title`} className="mt-5 break-words text-2xl font-semibold">{title}</h2>
+            <p id={`${id}-description`} className="mt-3 break-words text-sm leading-6 text-[var(--ac-text-soft)]">{description}</p>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+                <button disabled={busy} onClick={onCancel} className="min-h-11 rounded-xl px-4 py-2 text-sm font-semibold hover:bg-slate-50">{t('common.cancel')}</button>
+                <button disabled={busy || remaining > 0} onClick={() => {
+                    if (busy || submitted.current || Date.now() < deadline.current) return;
+                    submitted.current = true;
+                    onConfirm();
+                }} className={`min-h-11 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50 ${color}`}>
+                    {busy ? t('common.working') : remaining > 0 ? t('confirm.countdown', { action: confirmLabel, seconds: remaining }) : confirmLabel}
+                </button>
+            </div>
+        </section>
+    </div>;
 }

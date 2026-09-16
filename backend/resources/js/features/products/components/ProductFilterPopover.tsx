@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Check,
     Filter,
@@ -78,6 +80,7 @@ export function ProductFilterPopover({
     value,
     onChange,
 }: ProductFilterPopoverProps) {
+    useLocale();
     const [open, setOpen] =
         useState(false);
 
@@ -147,7 +150,7 @@ export function ProductFilterPopover({
                     size={15}
                 />
 
-                Filters
+                {t('ui.filters')}
 
                 {count > 0 && (
                     <span className="flex size-5 items-center justify-center rounded-full bg-[var(--ac-accent-strong)] text-[9px] text-white">
@@ -160,7 +163,7 @@ export function ProductFilterPopover({
                 <>
                     <button
                         type="button"
-                        aria-label="Close filters"
+                        aria-label={t('ui.close_filters')}
                         onClick={() =>
                             setOpen(
                                 false,
@@ -169,15 +172,15 @@ export function ProductFilterPopover({
                         className="fixed inset-0 z-[129] bg-[var(--ac-text)]/20 backdrop-blur-[2px] xl:hidden"
                     />
 
-                    <section className="fixed inset-x-0 bottom-0 z-[130] max-h-[88dvh] overflow-y-auto rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)] sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(560px,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[26px] xl:absolute xl:left-auto xl:right-0 xl:top-[calc(100%+0.65rem)] xl:w-[440px] xl:translate-x-0 xl:translate-y-0 xl:rounded-[22px]">
+                    <section className="fixed inset-x-0 bottom-0 z-[130] max-h-[88dvh] overflow-y-auto rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)] sm:inset-x-auto sm:bottom-auto sm:start-1/2 sm:top-1/2 sm:w-[min(560px,calc(100vw-3rem))] sm:-translate-x-1/2 rtl:sm:translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[26px] xl:absolute xl:start-auto xl:end-0 xl:top-[calc(100%+0.65rem)] xl:w-[440px] xl:translate-x-0 rtl:xl:translate-x-0 xl:translate-y-0 xl:rounded-[22px]">
                         <header className="flex items-center justify-between border-b border-[var(--ac-line)] p-5">
                             <div>
                                 <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
-                                    Refine catalog
+                                    {t('ui.refine_catalog')}
                                 </p>
 
                                 <h2 className="mt-1 text-lg font-semibold">
-                                    Product filters
+                                    {t('ui.product_filters')}
                                 </h2>
                             </div>
 
@@ -196,7 +199,7 @@ export function ProductFilterPopover({
 
                         <div className="grid gap-6 p-5">
                             <FilterSection
-                                title="Type"
+                                title={t('ui.type')}
                             >
                                 <Choice
                                     active={
@@ -209,7 +212,7 @@ export function ProductFilterPopover({
                                         })
                                     }
                                 >
-                                    Everything
+                                    {t('ui.everything')}
                                 </Choice>
 
                                 <Choice
@@ -227,7 +230,7 @@ export function ProductFilterPopover({
                                         })
                                     }
                                 >
-                                    Products
+                                    {t('ui.products')}
                                 </Choice>
 
                                 <Choice
@@ -245,12 +248,12 @@ export function ProductFilterPopover({
                                         })
                                     }
                                 >
-                                    Services
+                                    {t('ui.services')}
                                 </Choice>
                             </FilterSection>
 
                             <FilterSection
-                                title="Data quality"
+                                title={t('ui.data_quality')}
                             >
                                 <Choice
                                     active={
@@ -263,7 +266,7 @@ export function ProductFilterPopover({
                                         })
                                     }
                                 >
-                                    Any quality
+                                    {t('ui.any_quality')}
                                 </Choice>
 
                                 <Choice
@@ -278,7 +281,7 @@ export function ProductFilterPopover({
                                         })
                                     }
                                 >
-                                    Missing SKU
+                                    {t('ui.missing_sku')}
                                 </Choice>
 
                                 <Choice
@@ -293,7 +296,7 @@ export function ProductFilterPopover({
                                         })
                                     }
                                 >
-                                    Zero price
+                                    {t('ui.zero_price')}
                                 </Choice>
 
                                 <Choice
@@ -308,13 +311,13 @@ export function ProductFilterPopover({
                                         })
                                     }
                                 >
-                                    Missing cost
+                                    {t('ui.missing_cost')}
                                 </Choice>
                             </FilterSection>
 
                             <div className="grid gap-6 sm:grid-cols-2">
                                 <FilterSection
-                                    title="Lifecycle"
+                                    title={t('ui.lifecycle')}
                                 >
                                     <Choice
                                         active={
@@ -328,7 +331,7 @@ export function ProductFilterPopover({
                                             })
                                         }
                                     >
-                                        Active
+                                        {t('ui.active')}
                                     </Choice>
 
                                     <Choice
@@ -343,37 +346,37 @@ export function ProductFilterPopover({
                                             })
                                         }
                                     >
-                                        Archived
+                                        {t('ui.archived')}
                                     </Choice>
                                 </FilterSection>
 
                                 <FilterSection
-                                    title="Sort"
+                                    title={t('ui.sort')}
                                 >
                                     {[
                                         [
                                             'name_asc',
-                                            'Name A–Z',
+                                            t('ui.name_a_z'),
                                         ],
                                         [
                                             'name_desc',
-                                            'Name Z–A',
+                                            t('ui.name_z_a'),
                                         ],
                                         [
                                             'price_low',
-                                            'Price low',
+                                            t('ui.price_low'),
                                         ],
                                         [
                                             'price_high',
-                                            'Price high',
+                                            t('ui.price_high'),
                                         ],
                                         [
                                             'newest',
-                                            'Newest',
+                                            t('ui.newest'),
                                         ],
                                         [
                                             'oldest',
-                                            'Oldest',
+                                            t('ui.oldest'),
                                         ],
                                     ].map(
                                         ([
@@ -418,7 +421,7 @@ export function ProductFilterPopover({
                                     size={14}
                                 />
 
-                                Reset
+                                {t('ui.reset')}
                             </button>
 
                             <button
@@ -432,7 +435,7 @@ export function ProductFilterPopover({
                                     size={14}
                                 />
 
-                                Apply
+                                {t('ui.apply')}
                             </button>
                         </footer>
                     </section>
@@ -455,6 +458,7 @@ function FilterSection({
     title,
     children,
 }: FilterSectionProps) {
+    useLocale();
     return (
         <section>
             <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
@@ -487,6 +491,7 @@ function Choice({
     children,
     icon: Icon,
 }: ChoiceProps) {
+    useLocale();
     return (
         <button
             type="button"

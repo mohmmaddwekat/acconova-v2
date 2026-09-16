@@ -1,3 +1,6 @@
+import { useDialog } from '@/components/feedback/useDialog';
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Package,
     Save,
@@ -113,6 +116,7 @@ export function ProductEditorDrawer({
     onClose,
     onSaved,
 }: ProductEditorDrawerProps) {
+    useLocale();
     const [form, setForm] =
         useState<ProductForm>(
             emptyForm(),
@@ -121,10 +125,16 @@ export function ProductEditorDrawer({
     const [busy, setBusy] =
         useState(false);
 
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+
     const [error, setError] =
         useState<string | null>(
             null,
         );
+
+    const dialogRef = useDialog(open, onClose, busy);
+    /** Keep the current editor visible until its mutation has finished. */
+    function closeDialog(): void { if (!busy) onClose(); }
 
     useEffect(() => {
         setForm(
@@ -136,6 +146,7 @@ export function ProductEditorDrawer({
         );
 
         setError(null);
+        setErrors({});
     }, [
         open,
         product,
@@ -159,6 +170,7 @@ export function ProductEditorDrawer({
 
         setBusy(true);
         setError(null);
+        setErrors({});
 
         const payload:
             ProductPayload = {
@@ -208,11 +220,12 @@ export function ProductEditorDrawer({
 
             onClose();
         } catch (exception) {
+            if (exception instanceof ApiError) setErrors(exception.errors);
             setError(
                 exception instanceof
                 ApiError
                     ? exception.message
-                    : 'AccoNova could not save this catalog item.',
+                    : t('ui.acconova_could_not_save_this_catalog_item'),
             );
         } finally {
             setBusy(false);
@@ -223,30 +236,28 @@ export function ProductEditorDrawer({
         <div className="fixed inset-0 z-[120]">
             <button
                 type="button"
-                aria-label="Close catalog editor"
-                onClick={onClose}
+                aria-label={t('ui.close_catalog_editor')}
+                onClick={closeDialog}
                 className="absolute inset-0 bg-[var(--ac-text)]/22 backdrop-blur-[3px]"
             />
 
-            <aside className="absolute inset-y-0 right-0 z-10 flex w-full flex-col border-l border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[620px]">
+            <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('ui.catalog_context')} className="absolute inset-y-0 end-0 z-10 flex w-full flex-col border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[620px]">
                 <header className="flex items-start justify-between border-b border-[var(--ac-line)] px-5 py-5 sm:px-6">
                     <div>
                         <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-accent-strong)]">
-                            Catalog editor
+                            {t('ui.catalog_editor')}
                         </p>
 
                         <h2 className="mt-1 text-2xl font-semibold tracking-[-0.045em]">
                             {product
-                                ? 'Edit catalog item.'
-                                : 'Add to your catalog.'}
+                                ? t('ui.edit_catalog_item')
+                                : t('ui.add_to_your_catalog')}
                         </h2>
                     </div>
 
                     <button
                         type="button"
-                        onClick={
-                            onClose
-                        }
+                        onClick={closeDialog}
                         className="flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]"
                     >
                         <X size={17} />
@@ -273,8 +284,8 @@ export function ProductEditorDrawer({
                                 icon={
                                     Package
                                 }
-                                title="Product"
-                                description="A physical or sellable item."
+                                title={t('ui.product')}
+                                description={t('ui.a_physical_or_sellable_item')}
                                 onClick={() =>
                                     setForm({
                                         ...form,
@@ -291,8 +302,8 @@ export function ProductEditorDrawer({
                                 icon={
                                     Wrench
                                 }
-                                title="Service"
-                                description="Time, work, or expertise."
+                                title={t('ui.service')}
+                                description={t('ui.time_work_or_expertise')}
                                 onClick={() =>
                                     setForm({
                                         ...form,
@@ -304,14 +315,12 @@ export function ProductEditorDrawer({
 
                         <div className="mt-6 grid gap-5">
                             <Field
-                                label="Name"
+                                label={t('ui.name')} error={errors.name?.[0]} errorId="product-name-error"
                                 required
                             >
                                 <input
                                     required
-                                    value={
-                                        form.name
-                                    }
+                                    aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? 'product-name-error' : undefined} value={form.name}
                                     onChange={(
                                         event,
                                     ) =>
@@ -329,13 +338,11 @@ export function ProductEditorDrawer({
 
                             <div className="grid gap-5 sm:grid-cols-2">
                                 <Field
-                                    label="SKU"
+                                    label={t('ui.sku')} error={errors.sku?.[0]} errorId="product-sku-error"
                                     optional
                                 >
                                     <input
-                                        value={
-                                            form.sku
-                                        }
+                                        aria-invalid={Boolean(errors.sku)} aria-describedby={errors.sku ? 'product-sku-error' : undefined} value={form.sku}
                                         onChange={(
                                             event,
                                         ) =>
@@ -347,20 +354,18 @@ export function ProductEditorDrawer({
                                                         .value,
                                             })
                                         }
-                                        placeholder="SKU-001"
+                                        placeholder={t('ui.sku_001')}
                                         className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] px-3.5 text-sm uppercase outline-none focus:border-[var(--ac-accent)]"
                                     />
                                 </Field>
 
                                 <Field
-                                    label="Unit"
+                                    label={t('ui.unit')} error={errors.unit?.[0]} errorId="product-unit-error"
                                     required
                                 >
                                     <input
                                         required
-                                        value={
-                                            form.unit
-                                        }
+                                        aria-invalid={Boolean(errors.unit)} aria-describedby={errors.unit ? 'product-unit-error' : undefined} value={form.unit}
                                         onChange={(
                                             event,
                                         ) =>
@@ -372,7 +377,7 @@ export function ProductEditorDrawer({
                                                         .value,
                                             })
                                         }
-                                        placeholder="unit, hour, day…"
+                                        placeholder={t('ui.unit_hour_day')}
                                         className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] px-3.5 text-sm outline-none focus:border-[var(--ac-accent)]"
                                     />
                                 </Field>
@@ -380,17 +385,15 @@ export function ProductEditorDrawer({
 
                             <div className="grid gap-5 sm:grid-cols-3">
                                 <Field
-                                    label="Selling price"
+                                    label={t('ui.selling_price')} error={errors.unit_price?.[0]} errorId="product-unit_price-error"
                                     required
                                 >
                                     <input
                                         required
-                                        type="number"
+                                        type="number" dir="ltr"
                                         min="0"
                                         step="0.0001"
-                                        value={
-                                            form.unitPrice
-                                        }
+                                        aria-invalid={Boolean(errors.unit_price)} aria-describedby={errors.unit_price ? 'product-unit_price-error' : undefined} value={form.unitPrice}
                                         onChange={(
                                             event,
                                         ) =>
@@ -407,16 +410,14 @@ export function ProductEditorDrawer({
                                 </Field>
 
                                 <Field
-                                    label="Cost"
+                                    label={t('ui.cost')} error={errors.cost_price?.[0]} errorId="product-cost_price-error"
                                     optional
                                 >
                                     <input
-                                        type="number"
+                                        type="number" dir="ltr"
                                         min="0"
                                         step="0.0001"
-                                        value={
-                                            form.costPrice
-                                        }
+                                        aria-invalid={Boolean(errors.cost_price)} aria-describedby={errors.cost_price ? 'product-cost_price-error' : undefined} value={form.costPrice}
                                         onChange={(
                                             event,
                                         ) =>
@@ -433,18 +434,16 @@ export function ProductEditorDrawer({
                                 </Field>
 
                                 <Field
-                                    label="Tax %"
+                                    label={t('ui.tax')} error={errors.tax_rate?.[0]} errorId="product-tax_rate-error"
                                     required
                                 >
                                     <input
                                         required
-                                        type="number"
+                                        type="number" dir="ltr"
                                         min="0"
                                         max="100"
                                         step="0.01"
-                                        value={
-                                            form.taxRate
-                                        }
+                                        aria-invalid={Boolean(errors.tax_rate)} aria-describedby={errors.tax_rate ? 'product-tax_rate-error' : undefined} value={form.taxRate}
                                         onChange={(
                                             event,
                                         ) =>
@@ -462,7 +461,7 @@ export function ProductEditorDrawer({
                             </div>
 
                             <Field
-                                label="Description"
+                                label={t('ui.description')} error={errors.description?.[0]} errorId="product-description-error"
                                 optional
                             >
                                 <textarea
@@ -470,9 +469,7 @@ export function ProductEditorDrawer({
                                     maxLength={
                                         5000
                                     }
-                                    value={
-                                        form.description
-                                    }
+                                    aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? 'product-description-error' : undefined} value={form.description}
                                     onChange={(
                                         event,
                                     ) =>
@@ -499,12 +496,10 @@ export function ProductEditorDrawer({
                     <footer className="grid grid-cols-2 gap-2 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 sm:px-6">
                         <button
                             type="button"
-                            onClick={
-                                onClose
-                            }
+                            onClick={closeDialog}
                             className="h-11 rounded-[14px] border border-[var(--ac-line)] bg-white text-sm font-semibold"
                         >
-                            Cancel
+                            {t('ui.cancel')}
                         </button>
 
                         <button
@@ -519,8 +514,8 @@ export function ProductEditorDrawer({
                             />
 
                             {busy
-                                ? 'Saving…'
-                                : 'Save item'}
+                                ? t('ui.saving')
+                                : t('ui.save_item')}
                         </button>
                     </footer>
                 </form>
@@ -551,6 +546,7 @@ function TypeButton({
     description,
     onClick,
 }: TypeButtonProps) {
+    useLocale();
     return (
         <button
             type="button"
@@ -558,7 +554,7 @@ function TypeButton({
                 onClick
             }
             className={[
-                'rounded-[18px] border p-4 text-left transition',
+                'rounded-[18px] border p-4 text-start transition',
                 active
                     ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
                     : 'border-[var(--ac-line)] bg-white',
@@ -580,6 +576,8 @@ function TypeButton({
 }
 
 type FieldProps = {
+    error?: string;
+    errorId?: string;
     label: string;
 
     required?: boolean;
@@ -593,11 +591,14 @@ type FieldProps = {
  * Render a Product form field with explicit required/optional communication.
  */
 function Field({
+    error,
+    errorId,
     label,
     required = false,
     optional = false,
     children,
 }: FieldProps) {
+    useLocale();
     return (
         <label className="block">
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -607,14 +608,15 @@ function Field({
 
                 <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
                     {required
-                        ? 'Required'
+                        ? t('ui.required')
                         : optional
-                          ? 'Optional'
+                          ? t('ui.optional')
                           : ''}
                 </span>
             </div>
 
             {children}
+            {error && <p id={errorId} role="alert" className="mt-1 text-xs text-red-700">{error}</p>}
         </label>
     );
 }

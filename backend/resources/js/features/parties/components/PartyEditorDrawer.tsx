@@ -1,3 +1,7 @@
+import { useId } from 'react';
+import { useDialog } from '@/components/feedback/useDialog';
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Building2,
     Check,
@@ -158,7 +162,7 @@ function payloadFromForm(
 /**
  * Render the shared create/edit Party workspace.
  *
- * A right-side working surface keeps the user inside the relationship context
+ * A end-side working surface keeps the user inside the relationship context
  * instead of navigating away to a disconnected form page.
  */
 export function PartyEditorDrawer({
@@ -167,6 +171,7 @@ export function PartyEditorDrawer({
     onClose,
     onSaved,
 }: PartyEditorDrawerProps) {
+    useLocale();
     const [form, setForm] =
         useState<PartyForm>(
             formFromParty(party),
@@ -182,6 +187,10 @@ export function PartyEditorDrawer({
 
     const [busy, setBusy] =
         useState(false);
+
+    const dialogRef = useDialog(open, onClose, busy);
+    /** Keep the current editor visible until its mutation has finished. */
+    function closeDialog(): void { if (!busy) onClose(); }
 
     useEffect(() => {
         if (! open) {
@@ -250,40 +259,6 @@ export function PartyEditorDrawer({
         });
     }
 
-    type FieldLabelProps = {
-    label: string;
-    required: boolean;
-};
-
-/**
- * Render a form label with an explicit Required or Optional state so users
- * never have to infer form requirements from missing asterisks.
- */
-function FieldLabel({
-    label,
-    required,
-}: FieldLabelProps) {
-    return (
-        <span className="mb-2 flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-[var(--ac-text)]">
-                {label}
-            </span>
-
-            <span
-                className={[
-                    'rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em]',
-                    required
-                        ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                        : 'bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]',
-                ].join(' ')}
-            >
-                {required
-                    ? 'Required'
-                    : 'Optional'}
-            </span>
-        </span>
-    );
-}
     /**
      * Persist the form as either a new Party or an update to an existing one.
      */
@@ -291,6 +266,7 @@ function FieldLabel({
         event: FormEvent<HTMLFormElement>,
     ): Promise<void> {
         event.preventDefault();
+        if (busy) return;
 
         setBusy(true);
         setErrors({});
@@ -329,7 +305,7 @@ function FieldLabel({
             }
 
             setMessage(
-                'AccoNova could not save this relationship.',
+                t('ui.acconova_could_not_save_this_relationship'),
             );
         } finally {
             setBusy(false);
@@ -348,30 +324,30 @@ function FieldLabel({
         <div className="fixed inset-0 z-[100]">
             <button
                 type="button"
-                aria-label="Close relationship editor"
-                onClick={onClose}
+                aria-label={t('ui.close_relationship_editor')}
+                onClick={closeDialog}
                 className="absolute inset-0 bg-[var(--ac-text)]/20 backdrop-blur-[2px]"
             />
 
-            <aside className="absolute inset-y-0 right-0 z-10 flex h-full w-full flex-col border-l border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.14)] sm:max-w-[640px]">
+            <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('ui.relationship_context')} className="absolute inset-y-0 end-0 z-10 flex h-full w-full flex-col border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.14)] sm:max-w-[640px]">
                 <header className="flex items-start justify-between gap-4 border-b border-[var(--ac-line)] px-4 py-5 sm:px-7 sm:py-6">
                     <div>
                         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--ac-accent-strong)]">
                             {party
-                                ? 'Relationship record'
-                                : 'New relationship'}
+                                ? t('ui.relationship_record')
+                                : t('ui.new_relationship')}
                         </p>
 
                         <h2 className="mt-2 text-3xl font-medium tracking-[-0.05em] text-[var(--ac-text)]">
                             {party
-                                ? 'Refine what you know.'
-                                : 'Add someone you do business with.'}
+                                ? t('ui.refine_what_you_know')
+                                : t('ui.add_someone_you_do_business_with')}
                         </h2>
                     </div>
 
                     <button
                         type="button"
-                        onClick={onClose}
+                        onClick={closeDialog}
                         className="flex size-10 items-center justify-center rounded-[14px] border border-[var(--ac-line)] text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-bg-soft)]"
                     >
                         <X size={18} />
@@ -384,7 +360,7 @@ function FieldLabel({
                 >
                     <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-7">
                         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)]">
-                            Identity
+                            {t('ui.identity')}
                         </p>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -396,7 +372,7 @@ function FieldLabel({
                                     )
                                 }
                                 className={[
-                                    'flex items-center gap-3 rounded-[18px] border p-4 text-left transition',
+                                    'flex items-center gap-3 rounded-[18px] border p-4 text-start transition',
                                     form.type ===
                                     'person'
                                         ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
@@ -408,7 +384,7 @@ function FieldLabel({
                                 />
 
                                 <span className="text-sm font-semibold">
-                                    Person
+                                    {t('ui.person')}
                                 </span>
                             </button>
 
@@ -420,7 +396,7 @@ function FieldLabel({
                                     )
                                 }
                                 className={[
-                                    'flex items-center gap-3 rounded-[18px] border p-4 text-left transition',
+                                    'flex items-center gap-3 rounded-[18px] border p-4 text-start transition',
                                     form.type ===
                                     'company'
                                         ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
@@ -432,7 +408,7 @@ function FieldLabel({
                                 />
 
                                 <span className="text-sm font-semibold">
-                                    Company
+                                    {t('ui.company')}
                                 </span>
                             </button>
                         </div>
@@ -441,8 +417,8 @@ function FieldLabel({
                             <FieldLabel
                                 label={
                                     form.type === 'person'
-                                        ? 'Full name'
-                                        : 'Company name'
+                                        ? t('ui.full_name')
+                                        : t('ui.company_name')
                                 }
                                 required
                             />
@@ -464,7 +440,7 @@ function FieldLabel({
                             />
 
                             {identityError && (
-                                <p className="mt-2 text-xs text-[var(--ac-danger)]">
+                                <p id="party-identity-error" role="alert" className="mt-2 text-xs text-[var(--ac-danger)]">
                                     {identityError}
                                 </p>
                             )}
@@ -472,11 +448,11 @@ function FieldLabel({
 
                         <div className="mb-3 mt-8 flex items-center justify-between gap-3">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)]">
-                                Business relationship
+                                {t('ui.business_relationship')}
                             </p>
 
                             <span className="rounded-full bg-[var(--ac-accent-soft)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-accent-strong)]">
-                                Required
+                                {t('ui.required')}
                             </span>
                         </div>
 
@@ -494,7 +470,7 @@ function FieldLabel({
 
                                 return (
                                     <button
-                                        key={role}
+                                        key={t(role === 'customer' ? 'role.customer' : 'role.supplier')}
                                         type="button"
                                         onClick={() =>
                                             toggleRole(
@@ -518,19 +494,19 @@ function FieldLabel({
                                             />
                                         )}
 
-                                        {role}
+                                        {t(role === 'customer' ? 'role.customer' : 'role.supplier')}
                                     </button>
                                 );
                             })}
                         </div>
 
                         <p className="mb-3 mt-8 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)]">
-                            Contact
+                            {t('ui.contact')}
                         </p>
 
                         <div className="grid gap-4 sm:grid-cols-2">
                             <PartyField
-                                label="Email"
+                                label={t('ui.email')}
                                 type="email"
                                 value={
                                     form.email
@@ -554,7 +530,7 @@ function FieldLabel({
                             />
 
                             <PartyField
-                                label="Phone"
+                                label={t('ui.phone')}
                                 value={
                                     form.phone
                                 }
@@ -577,7 +553,7 @@ function FieldLabel({
                             />
 
                             <PartyField
-                                label="Tax number"
+                                label={t('ui.tax_number')}
                                 value={
                                     form.taxNumber
                                 }
@@ -602,7 +578,7 @@ function FieldLabel({
                             />
 
                             <PartyField
-                                label="Country code"
+                                label={t('ui.country_code')}
                                 value={
                                     form.countryCode
                                 }
@@ -629,13 +605,13 @@ function FieldLabel({
                         </div>
 
                         <p className="mb-3 mt-8 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)]">
-                            Location
+                            {t('ui.location')}
                         </p>
 
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="sm:col-span-2">
                                 <PartyField
-                                    label="Address line 1"
+                                    label={t('ui.address_line_1')}
                                     value={
                                         form.addressLine1
                                     }
@@ -662,7 +638,7 @@ function FieldLabel({
 
                             <div className="sm:col-span-2">
                                 <PartyField
-                                    label="Address line 2"
+                                    label={t('ui.address_line_2')}
                                     value={
                                         form.addressLine2
                                     }
@@ -688,7 +664,7 @@ function FieldLabel({
                             </div>
 
                             <PartyField
-                                label="City"
+                                label={t('ui.city')}
                                 value={
                                     form.city
                                 }
@@ -711,7 +687,7 @@ function FieldLabel({
                             />
 
                             <PartyField
-                                label="State"
+                                label={t('ui.state')}
                                 value={
                                     form.state
                                 }
@@ -734,7 +710,7 @@ function FieldLabel({
                             />
 
                             <PartyField
-                                label="Postal code"
+                                label={t('ui.postal_code')}
                                 value={
                                     form.postalCode
                                 }
@@ -768,16 +744,16 @@ function FieldLabel({
 
                     <footer className="flex flex-col-reverse gap-3 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7 sm:py-5">
                         <p className="hidden text-xs text-[var(--ac-text-muted)] sm:block">
-                            Stored inside the active workspace.
+                            {t('ui.stored_inside_the_active_workspace')}
                         </p>
 
                         <div className="flex w-full gap-2 sm:w-auto">
                             <button
                                 type="button"
-                                onClick={onClose}
+                                onClick={closeDialog}
                                 className="h-11 flex-1 rounded-[14px] px-5 text-sm font-medium text-[var(--ac-text-soft)] sm:flex-none"
                             >
-                                Cancel
+                                {t('ui.cancel')}
                             </button>
 
                             <button
@@ -786,10 +762,10 @@ function FieldLabel({
                                 className="h-11 flex-1 rounded-[14px] bg-[var(--ac-text)] px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60 sm:flex-none"
                             >
                                 {busy
-                                    ? 'Saving…'
+                                    ? t('ui.saving')
                                     : party
-                                      ? 'Save changes'
-                                      : 'Add relationship'}
+                                      ? t('ui.save_changes')
+                                      : t('ui.add_relationship')}
                             </button>
                         </div>
                     </footer>
@@ -834,6 +810,8 @@ function PartyField({
     maxLength,
     required = false,
 }: PartyFieldProps) {
+    const errorId = useId();
+    useLocale();
     return (
         <label className="block">
             <FieldLabel
@@ -842,8 +820,9 @@ function PartyField({
             />
 
             <input
+                aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined}
                 required={required}
-                type={type}
+                type={type} dir={['email', 'tel', 'number'].includes(type) ? 'ltr' : undefined}
                 value={value}
                 maxLength={maxLength}
                 onChange={(event) =>
@@ -876,6 +855,7 @@ function FieldLabel({
     label,
     required,
 }: FieldLabelProps) {
+    useLocale();
     return (
         <span className="mb-2 flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-[var(--ac-text)]">
@@ -891,8 +871,8 @@ function FieldLabel({
                 ].join(' ')}
             >
                 {required
-                    ? 'Required'
-                    : 'Optional'}
+                    ? t('ui.required')
+                    : t('ui.optional')}
             </span>
         </span>
     );

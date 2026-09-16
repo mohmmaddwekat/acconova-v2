@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Archive,
     ArrowUpRight,
@@ -59,13 +61,13 @@ function partyLabel(
     ) {
         return (
             party.company_name ??
-            'Unnamed company'
+            t('ui.unnamed_company')
         );
     }
 
     return (
         party.name ??
-        'Unnamed person'
+        t('ui.unnamed_person')
     );
 }
 
@@ -98,6 +100,7 @@ export function PartyListItem({
     onArchive,
     onRestore,
 }: PartyListItemProps) {
+    useLocale();
     const archived =
         party.deleted_at !==
         null;
@@ -128,7 +131,7 @@ export function PartyListItem({
                         checked={
                             selected
                         }
-                        aria-label={`Select ${label}`}
+                        aria-label={t('action.select', { name: label })}
                         onChange={(
                             event,
                         ) =>
@@ -151,7 +154,7 @@ export function PartyListItem({
                         party,
                     )
                 }
-                className="flex min-w-0 items-start gap-3 text-left sm:gap-4 lg:items-center"
+                className="flex min-w-0 items-start gap-3 text-start sm:gap-4 lg:items-center"
             >
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)] transition group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]">
                     {party.type ===
@@ -177,19 +180,17 @@ export function PartyListItem({
                                 role,
                             ) => (
                                 <span
-                                    key={
-                                        role
-                                    }
+                                    key={t(role === 'customer' ? 'role.customer' : 'role.supplier')}
                                     className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-accent-strong)]"
                                 >
-                                    {role}
+                                    {t(role === 'customer' ? 'role.customer' : 'role.supplier')}
                                 </span>
                             ),
                         )}
 
                         {archived && (
                             <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-danger)]">
-                                Archived
+                                {t('ui.archived')}
                             </span>
                         )}
                     </div>
@@ -205,7 +206,7 @@ export function PartyListItem({
 
                     <span className="truncate">
                         {party.email ??
-                            'No email'}
+                            t('ui.no_email')}
                     </span>
                 </div>
 
@@ -217,7 +218,7 @@ export function PartyListItem({
 
                     <span className="truncate">
                         {party.phone ??
-                            'No phone'}
+                            t('ui.no_phone')}
                     </span>
                 </div>
             </div>
@@ -230,14 +231,14 @@ export function PartyListItem({
 
                 <span className="truncate">
                     {location ||
-                        'No location'}
+                        t('ui.no_location')}
                 </span>
             </div>
 
             <div className="flex items-center gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0">
                 <button
                     type="button"
-                    aria-label={`View ${label}`}
+                    aria-label={t('action.view', { name: label })}
                     onClick={() =>
                         onView(
                             party,
@@ -250,7 +251,7 @@ export function PartyListItem({
                     />
 
                     <span className="lg:hidden">
-                        View
+                        {t('ui.view')}
                     </span>
                 </button>
 
@@ -258,7 +259,7 @@ export function PartyListItem({
                     canEdit && (
                         <button
                             type="button"
-                            aria-label={`Edit ${label}`}
+                            aria-label={t('action.edit', { name: label })}
                             onClick={() =>
                                 onEdit(
                                     party,
@@ -271,7 +272,7 @@ export function PartyListItem({
                             />
 
                             <span className="lg:hidden">
-                                Edit
+                                {t('ui.edit')}
                             </span>
                         </button>
                     )}
@@ -280,7 +281,7 @@ export function PartyListItem({
                     canArchive && (
                         <button
                             type="button"
-                            aria-label={`Archive ${label}`}
+                            aria-label={t('action.archive', { name: label })}
                             onClick={() =>
                                 onArchive(
                                     party,
@@ -293,7 +294,7 @@ export function PartyListItem({
                             />
 
                             <span className="lg:hidden">
-                                Archive
+                                {t('ui.archive')}
                             </span>
                         </button>
                     )}
@@ -302,7 +303,7 @@ export function PartyListItem({
                     canArchive && (
                         <button
                             type="button"
-                            aria-label={`Restore ${label}`}
+                            aria-label={t('action.restore', { name: label })}
                             onClick={() =>
                                 onRestore(
                                     party,
@@ -315,7 +316,7 @@ export function PartyListItem({
                             />
 
                             <span className="lg:hidden">
-                                Restore
+                                {t('ui.restore')}
                             </span>
                         </button>
                     )}

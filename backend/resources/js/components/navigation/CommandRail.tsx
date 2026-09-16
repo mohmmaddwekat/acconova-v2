@@ -1,3 +1,5 @@
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Link,
     usePage,
@@ -26,48 +28,7 @@ type NavigationItem = {
     disabled?: boolean;
 };
 
-const navigationItems: NavigationItem[] = [
-    {
-        label: 'Command',
 
-        description:
-            'Business pulse',
-
-        href: '/app',
-
-        icon: Gauge,
-    },
-    {
-        label: 'Parties',
-
-        description:
-            'Relationships',
-
-        href: '/app/parties',
-
-        icon: ContactRound,
-    },
-    {
-        label: 'Products',
-
-        description:
-            'Catalog',
-
-        href: '/app/products',
-
-        icon: Boxes,
-    },
-    {
-        label: 'Invoices',
-
-        description:
-            'Revenue',
-
-        icon: ReceiptText,
-
-        disabled: true,
-    },
-];
 
 type CommandRailProps = {
     expanded: boolean;
@@ -111,7 +72,7 @@ function destinationIsActive(
  * Render AccoNova's adaptive primary command navigation.
  *
  * Desktop devices receive a rail that smoothly expands into a full navigation
- * surface. Phones preserve the same left-side navigation language through a
+ * surface. Phones preserve the same start-side navigation language through a
  * slide-in drawer rather than falling back to generic bottom navigation.
  */
 export function CommandRail({
@@ -120,6 +81,49 @@ export function CommandRail({
     onExpandedChange,
     onMobileOpenChange,
 }: CommandRailProps) {
+    const navigationItems: NavigationItem[] = [
+    {
+        label: t('ui.command'),
+
+        description:
+            t('ui.business_pulse'),
+
+        href: '/app',
+
+        icon: Gauge,
+    },
+    {
+        label: t('ui.parties'),
+
+        description:
+            t('ui.relationships'),
+
+        href: '/app/parties',
+
+        icon: ContactRound,
+    },
+    {
+        label: t('ui.products'),
+
+        description:
+            t('ui.catalog'),
+
+        href: '/app/products',
+
+        icon: Boxes,
+    },
+    {
+        label: t('ui.invoices'),
+
+        description:
+            t('ui.revenue'),
+
+        icon: ReceiptText,
+
+        disabled: true,
+    },
+];
+    useLocale();
     const page =
         usePage();
 
@@ -127,7 +131,7 @@ export function CommandRail({
         <>
             <aside
                 className={[
-                    'fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-[var(--ac-line)] bg-white/92 shadow-[10px_0_40px_rgba(25,35,31,0.025)] backdrop-blur-xl transition-[width] duration-300 ease-out md:flex',
+                    'fixed inset-y-0 start-0 z-50 hidden flex-col border-e border-[var(--ac-line)] bg-white/92 shadow-[10px_0_40px_rgba(25,35,31,0.025)] backdrop-blur-xl transition-[width] duration-300 ease-out md:flex',
                     expanded
                         ? 'w-[248px]'
                         : 'w-[84px]',
@@ -143,13 +147,13 @@ export function CommandRail({
                 >
                     <Link
                         href="/app"
-                        aria-label="AccoNova home"
+                        aria-label={t('ui.acconova_home')}
                         className="group flex min-w-0 items-center gap-3"
                     >
                         <div className="relative flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-text)] text-[11px] font-bold tracking-[-0.02em] text-white shadow-[var(--ac-shadow-soft)] transition duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[var(--ac-shadow-panel)]">
                             AN
 
-                            <span className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-white bg-[var(--ac-accent)] motion-safe:animate-pulse" />
+                            <span className="absolute -end-1 -top-1 size-2.5 rounded-full border-2 border-white bg-[var(--ac-accent)] motion-safe:animate-pulse" />
                         </div>
 
                         <div
@@ -165,7 +169,7 @@ export function CommandRail({
                             </p>
 
                             <p className="mt-0.5 whitespace-nowrap text-[8px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-text-muted)]">
-                                Operating system
+                                {t('ui.operating_system')}
                             </p>
                         </div>
                     </Link>
@@ -204,13 +208,12 @@ export function CommandRail({
                                 />
 
                                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">
-                                    Signal ready
+                                    {t('ui.signal_ready')}
                                 </span>
                             </div>
 
                             <p className="mt-2 text-[11px] leading-4 text-[var(--ac-text-soft)]">
-                                AccoNova is watching
-                                the operating picture.
+                                {t('ui.acconova_is_watching_the_operating_picture')}
                             </p>
                         </div>
                     )}
@@ -219,8 +222,8 @@ export function CommandRail({
                         type="button"
                         aria-label={
                             expanded
-                                ? 'Collapse navigation'
-                                : 'Expand navigation'
+                                ? t('ui.collapse_navigation')
+                                : t('ui.expand_navigation')
                         }
                         onClick={() =>
                             onExpandedChange(
@@ -246,7 +249,7 @@ export function CommandRail({
 
                         {expanded && (
                             <span className="text-xs font-semibold">
-                                Collapse
+                                {t('ui.collapse')}
                             </span>
                         )}
                     </button>
@@ -272,10 +275,10 @@ export function CommandRail({
 
             <aside
                 className={[
-                    'fixed inset-y-0 left-0 z-[80] flex w-[min(84vw,310px)] flex-col border-r border-[var(--ac-line)] bg-white shadow-[30px_0_80px_rgba(20,35,30,0.18)] transition-transform duration-300 ease-out md:hidden',
+                    'fixed inset-y-0 start-0 z-[80] flex w-[min(84vw,310px)] flex-col border-e border-[var(--ac-line)] bg-white shadow-[30px_0_80px_rgba(20,35,30,0.18)] transition-transform duration-300 ease-out md:hidden',
                     mobileOpen
                         ? 'translate-x-0'
-                        : '-translate-x-full',
+                        : '-translate-x-full rtl:translate-x-full',
                 ].join(' ')}
                 style={{
                     paddingTop:
@@ -298,7 +301,7 @@ export function CommandRail({
                         <div className="relative flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-text)] text-[10px] font-bold text-white">
                             AN
 
-                            <span className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-white bg-[var(--ac-accent)] motion-safe:animate-pulse" />
+                            <span className="absolute -end-1 -top-1 size-2.5 rounded-full border-2 border-white bg-[var(--ac-accent)] motion-safe:animate-pulse" />
                         </div>
 
                         <div>
@@ -307,15 +310,14 @@ export function CommandRail({
                             </p>
 
                             <p className="text-[8px] font-semibold uppercase tracking-[0.17em] text-[var(--ac-text-muted)]">
-                                Business operating
-                                system
+                                {t('ui.business_operating_system')}
                             </p>
                         </div>
                     </Link>
 
                     <button
                         type="button"
-                        aria-label="Close navigation"
+                        aria-label={t('ui.close_navigation')}
                         onClick={() =>
                             onMobileOpenChange(
                                 false,
@@ -362,13 +364,12 @@ export function CommandRail({
                         />
 
                         <span className="text-[10px] font-semibold uppercase tracking-[0.16em]">
-                            Business signal
+                            {t('ui.business_signal')}
                         </span>
                     </div>
 
                     <p className="mt-2 text-xs leading-5 text-[var(--ac-text-soft)]">
-                        Keep the business moving
-                        from one operating surface.
+                        {t('ui.keep_the_business_moving_from_one_operating_surface')}
                     </p>
                 </div>
             </aside>
@@ -395,6 +396,7 @@ function DesktopNavigationItem({
     active,
     expanded,
 }: DesktopNavigationItemProps) {
+    useLocale();
     const Icon =
         item.icon;
 
@@ -477,7 +479,7 @@ function DesktopNavigationItem({
             ].join(' ')}
         >
             {active && (
-                <span className="absolute -left-2 h-6 w-[3px] rounded-r-full bg-[var(--ac-accent)]" />
+                <span className="absolute -start-2 h-6 w-[3px] rounded-e-full bg-[var(--ac-accent)]" />
             )}
 
             {content}
@@ -501,6 +503,7 @@ function MobileNavigationItem({
     active,
     onNavigate,
 }: MobileNavigationItemProps) {
+    useLocale();
     const Icon =
         item.icon;
 

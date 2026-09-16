@@ -1,3 +1,5 @@
+import { initializeLocale } from '@/lib/locale';
+import { ToastProvider } from '@/components/feedback/ToastProvider';
 import '../css/app.css';
 
 import { createInertiaApp } from '@inertiajs/react';
@@ -43,6 +45,8 @@ function resolvePage(
 /**
  * Boot the AccoNova React application.
  */
+initializeLocale();
+
 void createInertiaApp({
     resolve: resolvePage,
 
@@ -51,7 +55,7 @@ void createInertiaApp({
      */
     setup({ el, App, props }) {
         createRoot(el).render(
-            <App {...props} />,
+            <ToastProvider><App {...props} /></ToastProvider>,
         );
     },
 });

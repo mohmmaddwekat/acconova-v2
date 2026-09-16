@@ -1,3 +1,7 @@
+import { useLocale } from '@/lib/i18n';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { normalizeApiError } from '@/lib/error-feedback';
+import { t } from '@/lib/i18n';
 import {
     router,
     usePage,
@@ -22,6 +26,8 @@ import type {
  * only the shared workspace props instead of reloading the whole browser app.
  */
 export function WorkspaceSwitcher() {
+    useLocale();
+    const { showToast } = useToast();
     const { workspace } = usePage<AppPageProps>().props;
 
     const [open, setOpen] = useState(false);
@@ -46,6 +52,7 @@ export function WorkspaceSwitcher() {
             return;
         }
 
+        if (switchingId !== null) return;
         setSwitchingId(organization.id);
 
         try {
@@ -60,7 +67,10 @@ export function WorkspaceSwitcher() {
 
             router.reload({
                 only: ['workspace'],
+                onSuccess: () => showToast(t('feedback.workspace')),
             });
+        } catch (error) {
+            showToast(normalizeApiError(error).generalMessage, 'error');
         } finally {
             setSwitchingId(null);
         }
@@ -79,16 +89,16 @@ export function WorkspaceSwitcher() {
                         .toUpperCase() ?? '?'}
                 </div>
 
-                <div className="min-w-0 text-left">
+                <div className="min-w-0 text-start">
                     <p className="truncate text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--ac-text-muted)]">
-                        Current workspace
+                        {t('ui.current_workspace')}
                     </p>
 
                     <div className="flex items-center gap-1.5">
-                        <span className="max-w-44 truncate text-sm font-medium text-[var(--ac-text)]">
+                        <span className="max-w-[40vw] truncate sm:max-w-44 text-sm font-medium text-[var(--ac-text)]">
                             {workspace.activeOrganization
                                 ?.name ??
-                                'Choose workspace'}
+                                t('ui.choose_workspace')}
                         </span>
 
                         <ChevronDown
@@ -100,14 +110,14 @@ export function WorkspaceSwitcher() {
             </button>
 
             {open && (
-                <div className="absolute left-0 top-[calc(100%+10px)] z-50 w-72 overflow-hidden rounded-[20px] border border-[var(--ac-line)] bg-white p-2 shadow-[var(--ac-shadow-panel)]">
+                <div className="absolute start-0 top-[calc(100%+10px)] z-50 w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-[20px] border border-[var(--ac-line)] bg-white p-2 shadow-[var(--ac-shadow-panel)]">
                     <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-text-muted)]">
-                        Your workspaces
+                        {t('ui.your_workspaces')}
                     </p>
 
                     {workspace.organizations.length === 0 ? (
                         <p className="px-3 py-5 text-sm text-[var(--ac-text-soft)]">
-                            No organizations available.
+                            {t('ui.no_organizations_available')}
                         </p>
                     ) : (
                         workspace.organizations.map(
@@ -124,16 +134,15 @@ export function WorkspaceSwitcher() {
 
                                 return (
                                     <button
-                                        key={
-                                            organization.id
-                                        }
+                                        disabled={switchingId !== null}
+                                        key={organization.id}
                                         type="button"
                                         onClick={() =>
                                             void switchWorkspace(
                                                 organization,
                                             )
                                         }
-                                        className="flex w-full items-center gap-3 rounded-[15px] px-3 py-3 text-left transition hover:bg-[var(--ac-surface-soft)]"
+                                        className="flex w-full items-center gap-3 rounded-[15px] px-3 py-3 text-start transition hover:bg-[var(--ac-surface-soft)]"
                                     >
                                         <div className="flex size-9 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] text-xs font-semibold">
                                             {organization.name
@@ -149,9 +158,7 @@ export function WorkspaceSwitcher() {
                                             </p>
 
                                             <p className="mt-0.5 text-[10px] uppercase tracking-[0.13em] text-[var(--ac-text-muted)]">
-                                                {
-                                                    organization.role
-                                                }
+                                                {t(organization.role === 'owner' ? 'role.owner' : organization.role === 'admin' ? 'role.admin' : organization.role === 'accountant' ? 'role.accountant' : organization.role === 'manager' ? 'role.manager' : 'role.employee')}
                                             </p>
                                         </div>
 

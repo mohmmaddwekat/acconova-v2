@@ -32,9 +32,9 @@ export function AppShell({
                 aria-hidden="true"
                 className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
             >
-                <div className="absolute -left-24 top-16 size-80 rounded-full bg-[var(--ac-accent)]/[0.055] blur-[100px] motion-safe:animate-pulse" />
+                <div className="absolute -start-24 top-16 size-80 rounded-full bg-[var(--ac-accent)]/[0.055] blur-[100px] motion-safe:animate-pulse" />
 
-                <div className="absolute right-[-10rem] top-[30%] size-[28rem] rounded-full bg-[var(--ac-info)]/[0.035] blur-[120px]" />
+                <div className="absolute end-[-10rem] top-[30%] size-[28rem] rounded-full bg-[var(--ac-info)]/[0.035] blur-[120px]" />
             </div>
 
             <CommandRail
@@ -54,8 +54,8 @@ export function AppShell({
                 className={[
                     'min-h-dvh min-w-0 transition-[padding] duration-300 ease-out',
                     railExpanded
-                        ? 'md:pl-[248px]'
-                        : 'md:pl-[84px]',
+                        ? 'md:ps-[248px]'
+                        : 'md:ps-[84px]',
                 ].join(' ')}
             >
                 <ContextBar

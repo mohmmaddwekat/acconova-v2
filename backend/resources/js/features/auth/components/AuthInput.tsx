@@ -29,7 +29,7 @@ export function AuthInput({
             </span>
 
             <input
-                type={type}
+                type={type} dir={['email', 'tel', 'number'].includes(type) ? 'ltr' : undefined}
                 value={value}
                 autoComplete={autoComplete}
                 placeholder={placeholder}

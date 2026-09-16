@@ -1,5 +1,8 @@
+import { normalizeApiError } from './error-feedback';
+import { getLocale } from './locale';
 export type ApiErrorPayload = {
     message?: string;
+    error_codes?: Record<string, string[]>;
     errors?: Record<string, string[]>;
 };
 
@@ -21,10 +24,11 @@ export class ApiError extends Error {
         status: number,
         payload: ApiErrorPayload,
     ) {
-        super(payload.message ?? 'The request could not be completed.');
+        const safe = normalizeApiError({ ...payload, status });
+        super(safe.generalMessage);
 
         this.status = status;
-        this.errors = payload.errors ?? {};
+        this.errors = safe.fieldErrors;
     }
 }
 
@@ -39,7 +43,7 @@ function csrfToken(): string {
         ?.content;
 
     if (! token) {
-        throw new Error('Missing Laravel CSRF token.');
+        throw new ApiError(419, {});
     }
 
     return token;
@@ -62,6 +66,7 @@ export async function apiRequest<T>(
     const headers = new Headers(options.headers);
 
     headers.set('Accept', 'application/json');
+    headers.set('X-Locale', getLocale());
     headers.set('X-Requested-With', 'XMLHttpRequest');
 
     if (options.body && ! (options.body instanceof FormData)) {

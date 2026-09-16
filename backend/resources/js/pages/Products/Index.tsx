@@ -1,3 +1,9 @@
+import { ProductDataActions } from '@/features/products/components/ProductDataActions';
+import { ProductImportDialog } from '@/features/products/components/ProductImportDialog';
+import { BulkActionBar } from '@/components/data/BulkActionBar';
+import { apiRequest } from '@/lib/http';
+import { useLocale } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import {
     Head,
     usePage,
@@ -20,9 +26,7 @@ import {
 import {
     ConfirmDialog,
 } from '@/components/feedback/ConfirmDialog';
-import {
-    FeedbackToast,
-} from '@/components/feedback/FeedbackToast';
+import { useToast } from '@/components/feedback/ToastProvider';
 import {
     archiveProduct,
     fetchProducts,
@@ -73,6 +77,13 @@ type PendingAction = {
  * Render the complete responsive Product and Service catalog workspace.
  */
 export default function ProductsIndex() {
+    const { workspace } = usePage<AppPageProps>().props;
+    return <ProductsWorkspace key={workspace.activeOrganization?.id ?? 'none'} />;
+}
+
+/** Reset transient records, dialogs and selections when the authorized workspace changes. */
+function ProductsWorkspace() {
+    useLocale();
     const {
         workspace,
     } = usePage<AppPageProps>().props;
@@ -100,6 +111,11 @@ export default function ProductsIndex() {
         useState<ProductIndexResponse | null>(
             null,
         );
+
+    const [importOpen, setImportOpen] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [pendingBulk, setPendingBulk] = useState<{ action: 'archive' | 'restore'; ids: number[] } | null>(null);
+    const [actionBusy, setActionBusy] = useState(false);
 
     const [loading, setLoading] =
         useState(false);
@@ -156,13 +172,7 @@ export default function ProductsIndex() {
             null,
         );
 
-    const [
-        toast,
-        setToast,
-    ] =
-        useState<string | null>(
-            null,
-        );
+    const { showToast } = useToast();
 
     const [error, setError] =
         useState<string | null>(
@@ -220,7 +230,7 @@ export default function ProductsIndex() {
                         exception instanceof
                         ApiError
                             ? exception.message
-                            : 'AccoNova could not load the catalog.',
+                            : t('ui.acconova_could_not_load_the_catalog'),
                     );
                 } finally {
                     setLoading(
@@ -302,7 +312,7 @@ export default function ProductsIndex() {
      * Execute the confirmed archive or restore operation.
      */
     async function confirmAction(): Promise<void> {
-        if (! pendingAction) {
+        if (! pendingAction || actionBusy) {
             return;
         }
 
@@ -316,8 +326,8 @@ export default function ProductsIndex() {
                         .product.id,
                 );
 
-                setToast(
-                    'Catalog item archived.',
+                showToast(
+                    t('ui.catalog_item_archived'),
                 );
             } else {
                 await restoreProduct(
@@ -325,8 +335,8 @@ export default function ProductsIndex() {
                         .product.id,
                 );
 
-                setToast(
-                    'Catalog item restored.',
+                showToast(
+                    t('ui.catalog_item_restored'),
                 );
             }
 
@@ -339,9 +349,31 @@ export default function ProductsIndex() {
                 exception instanceof
                 ApiError
                     ? exception.message
-                    : 'The catalog action could not be completed.',
+                    : t('ui.the_catalog_action_could_not_be_completed'),
             );
         }
+    }
+
+    useEffect(() => {
+        setSelectedIds(new Set());
+    }, [filters, page, perPage, search, activeOrganization?.id]);
+
+    /** Apply only the confirmed selection; the server authorizes every record atomically. */
+    async function confirmBulkAction(): Promise<void> {
+        if (!pendingBulk || actionBusy) return;
+        setActionBusy(true);
+        try {
+            const result = await apiRequest<{ data: { affected: number } }>('/api/products/bulk-action', {
+                method: 'POST', body: JSON.stringify({ action: pendingBulk.action, product_ids: pendingBulk.ids }),
+            });
+            showToast(t('products.bulkSuccess', { count: result.data.affected }));
+            setPendingBulk(null);
+            setSelectedIds(new Set());
+            setDetailProduct(null);
+            await loadProducts();
+        } catch (error) {
+            showToast(error instanceof ApiError ? error.message : t('errors.unexpected'), 'error');
+        } finally { setActionBusy(false); }
     }
 
     const products =
@@ -354,34 +386,29 @@ export default function ProductsIndex() {
 
     return (
         <AppShell>
-            <Head title="Products & Services · AccoNova" />
+            <Head title={t('ui.products_services_acconova')} />
 
             <main className="mx-auto w-full max-w-[1680px] px-3 py-5 sm:px-5 sm:py-7 lg:px-8 lg:py-9">
                 <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_290px]">
                     <div>
                         <div className="flex items-center gap-2">
                             <span className="relative flex size-2">
-                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--ac-accent)] opacity-30" />
+                                <span className="absolute inline-flex size-full motion-safe:animate-ping rounded-full bg-[var(--ac-accent)] opacity-30" />
 
                                 <span className="relative inline-flex size-2 rounded-full bg-[var(--ac-accent)]" />
                             </span>
 
                             <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--ac-accent-strong)]">
-                                Business catalog
+                                {t('ui.business_catalog')}
                             </p>
                         </div>
 
                         <h1 className="mt-3 max-w-[880px] text-[2rem] font-medium leading-[0.94] tracking-[-0.055em] sm:text-[2.8rem] md:text-[3.5rem] lg:text-[4.2rem]">
-                            Sell once. Reuse
-                            everywhere.
+                            {t('ui.sell_once_reuse_everywhere')}
                         </h1>
 
                         <p className="mt-4 max-w-[650px] text-[13px] leading-6 text-[var(--ac-text-soft)] sm:text-sm">
-                            Products and services become
-                            reusable pricing building
-                            blocks for quotes, invoices,
-                            automation, and revenue
-                            intelligence.
+                            {t('ui.products_and_services_become_reusable_pricing_building_blocks_for_quotes_invoices_aut')}
                         </p>
                     </div>
 
@@ -394,11 +421,11 @@ export default function ProductsIndex() {
 
                         <div>
                             <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
-                                Catalog view
+                                {t('ui.catalog_view')}
                             </p>
 
                             <p className="mt-1 text-xl font-semibold tracking-[-0.04em]">
-                                {total} items
+                                {t('count.items', { count: total })}
                             </p>
                         </div>
                     </div>
@@ -406,11 +433,11 @@ export default function ProductsIndex() {
 
                 <section className="mt-7 overflow-visible rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] shadow-[var(--ac-shadow-soft)] lg:mt-10 lg:rounded-[28px]">
                     <div className="rounded-t-[22px] border-b border-[var(--ac-line)] bg-white p-3 sm:p-5 lg:rounded-t-[28px] lg:p-6">
-                        <div className="grid gap-2 xl:grid-cols-[minmax(280px,1fr)_auto_auto]">
+                        <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
                             <div className="relative">
                                 <Search
                                     size={15}
-                                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
+                                    className="absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
                                 />
 
                                 <input
@@ -426,8 +453,8 @@ export default function ProductsIndex() {
                                                 .value,
                                         )
                                     }
-                                    placeholder="Search name, SKU, description, unit…"
-                                    className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-bg)] pl-10 pr-11 text-sm outline-none focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                                    placeholder={t('ui.search_name_sku_description_unit')}
+                                    className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-bg)] ps-10 pe-11 text-sm outline-none focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                 />
 
                                 {draftSearch && (
@@ -446,7 +473,7 @@ export default function ProductsIndex() {
                                                 1,
                                             );
                                         }}
-                                        className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center"
+                                        className="absolute end-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center"
                                     >
                                         <X
                                             size={14}
@@ -472,6 +499,7 @@ export default function ProductsIndex() {
                                 }}
                             />
 
+                            <ProductDataActions filters={productFilters} canImport={allowEdit} onImport={() => setImportOpen(true)} />
                             {allowEdit && (
                                 <button
                                     type="button"
@@ -484,7 +512,7 @@ export default function ProductsIndex() {
                                         size={16}
                                     />
 
-                                    New item
+                                    {t('ui.new_item')}
                                 </button>
                             )}
                         </div>
@@ -494,11 +522,8 @@ export default function ProductsIndex() {
                                 filters,
                             ) > 0) && (
                             <p className="mt-3 text-[11px] text-[var(--ac-text-muted)]">
-                                Refined catalog view ·{' '}
-                                {countProductFilters(
-                                    filters,
-                                )}{' '}
-                                filters
+                                {t('ui.refined_catalog_view')}{' '}
+                                {t('count.filters', { count: countProductFilters(filters) })}
                             </p>
                         )}
                     </div>
@@ -539,16 +564,11 @@ export default function ProductsIndex() {
                             </div>
 
                             <h2 className="mt-5 text-xl font-semibold">
-                                Your catalog is ready
-                                to grow.
+                                {t('ui.your_catalog_is_ready_to_grow')}
                             </h2>
 
                             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ac-text-soft)]">
-                                Add reusable products
-                                and services now, then
-                                pull them directly into
-                                future quotes and
-                                invoices.
+                                {t('ui.add_reusable_products_and_services_now_then_pull_them_directly_into_future_quotes_and')}
                             </p>
                         </div>
                     ) : (
@@ -561,9 +581,14 @@ export default function ProductsIndex() {
                                         key={
                                             product.id
                                         }
-                                        product={
-                                            product
-                                        }
+                                        product={product}
+                                        selected={selectedIds.has(product.id)}
+                                        selectable={allowArchive}
+                                        onSelectionChange={(selected) => setSelectedIds((current) => {
+                                            const next = new Set(current);
+                                            if (selected) next.add(product.id); else next.delete(product.id);
+                                            return next;
+                                        })}
                                         canEdit={
                                             allowEdit
                                         }
@@ -656,10 +681,10 @@ export default function ProductsIndex() {
                     onSaved={(
                         saved,
                     ) => {
-                        setToast(
+                        showToast(
                             editingProduct
-                                ? 'Catalog item updated.'
-                                : 'Catalog item created.',
+                                ? t('ui.catalog_item_updated')
+                                : t('ui.catalog_item_created'),
                         );
 
                         setDetailProduct(
@@ -712,6 +737,16 @@ export default function ProductsIndex() {
                     }
                 />
 
+                <ProductImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={(result) => {
+                    showToast(t('import.complete', result)); setPage(1); void loadProducts();
+                }} />
+                <BulkActionBar selectedCount={selectedIds.size} action={filters.status === 'deleted' ? 'restore' : 'archive'} allPageSelected={products.length > 0 && products.every((item) => selectedIds.has(item.id))}
+                    onTogglePage={() => setSelectedIds(products.every((item) => selectedIds.has(item.id)) ? new Set() : new Set(products.map((item) => item.id)))}
+                    onClear={() => setSelectedIds(new Set())}
+                    onAction={() => setPendingBulk({ action: filters.status === 'deleted' ? 'restore' : 'archive', ids: [...selectedIds] })} />
+                <ConfirmDialog open={pendingBulk !== null} title={t(pendingBulk?.action === 'restore' ? 'products.bulkRestore' : 'products.bulkArchive')}
+                    description={t('products.bulkDescription', { count: pendingBulk?.ids.length ?? 0 })} confirmLabel={t(pendingBulk?.action === 'restore' ? 'ui.restore_selected' : 'ui.archive_selected')}
+                    tone={pendingBulk?.action === 'restore' ? 'positive' : 'warning'} busy={actionBusy} onCancel={() => setPendingBulk(null)} onConfirm={() => void confirmBulkAction()} />
                 <ConfirmDialog
                     open={
                         pendingAction !==
@@ -720,26 +755,26 @@ export default function ProductsIndex() {
                     title={
                         pendingAction?.kind ===
                         'restore'
-                            ? 'Restore this catalog item?'
-                            : 'Archive this catalog item?'
+                            ? t('ui.restore_this_catalog_item')
+                            : t('ui.archive_this_catalog_item')
                     }
                     description={
                         pendingAction?.kind ===
                         'restore'
-                            ? 'It will become available for new quotes and invoices again.'
-                            : 'Historical documents remain intact, but this item will no longer be available for new business.'
+                            ? t('ui.it_will_become_available_for_new_quotes_and_invoices_again')
+                            : t('ui.historical_documents_remain_intact_but_this_item_will_no_longer_be_available_for_new_')
                     }
                     confirmLabel={
                         pendingAction?.kind ===
                         'restore'
-                            ? 'Restore'
-                            : 'Archive'
+                            ? t('ui.restore')
+                            : t('ui.archive')
                     }
                     tone={
                         pendingAction?.kind ===
                         'restore'
                             ? 'positive'
-                            : 'danger'
+                            : 'warning'
                     }
                     onCancel={() =>
                         setPendingAction(
@@ -748,17 +783,6 @@ export default function ProductsIndex() {
                     }
                     onConfirm={() =>
                         void confirmAction()
-                    }
-                />
-
-                <FeedbackToast
-                    message={
-                        toast
-                    }
-                    onDismiss={() =>
-                        setToast(
-                            null,
-                        )
                     }
                 />
             </main>
