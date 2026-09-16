@@ -1,6 +1,12 @@
 import type {
     InventoryOverview,
+    InventoryProductDetail,
+    InventorySettingsPayload,
+    OpeningStockPayload,
+    StockAdjustmentPayload,
+    StockTransferPayload,
     Warehouse,
+    WarehouseInventoryProducts,
     WarehousePayload,
     WarehouseStatus,
 } from '@/features/inventory/types';
@@ -35,6 +41,163 @@ export async function fetchWarehouses(
             data: Warehouse[];
         }>(
             `/api/warehouses?status=${encodeURIComponent(status)}`,
+        );
+
+    return response.data;
+}
+
+/**
+ * Load physical Products as viewed from one warehouse.
+ */
+export async function fetchWarehouseInventoryProducts(
+    warehouseId: number,
+    search = '',
+): Promise<WarehouseInventoryProducts> {
+    const query =
+        new URLSearchParams();
+
+    if (
+        search.trim() !==
+        ''
+    ) {
+        query.set(
+            'search',
+            search.trim(),
+        );
+    }
+
+    const suffix =
+        query.toString();
+
+    const response =
+        await apiRequest<{
+            data: WarehouseInventoryProducts;
+        }>(
+            `/api/warehouses/${warehouseId}/inventory-products${
+                suffix
+                    ? `?${suffix}`
+                    : ''
+            }`,
+        );
+
+    return response.data;
+}
+
+/**
+ * Load one Product's complete Inventory read model.
+ */
+export async function fetchInventoryProduct(
+    productId: number,
+): Promise<InventoryProductDetail> {
+    const response =
+        await apiRequest<{
+            data: InventoryProductDetail;
+        }>(
+            `/api/inventory/products/${productId}`,
+        );
+
+    return response.data;
+}
+
+/**
+ * Update inventory tracking settings for one Product.
+ */
+export async function updateInventorySettings(
+    productId: number,
+    payload: InventorySettingsPayload,
+): Promise<InventoryProductDetail> {
+    const response =
+        await apiRequest<{
+            data: InventoryProductDetail;
+        }>(
+            `/api/inventory/products/${productId}/settings`,
+            {
+                method:
+                    'PATCH',
+
+                body:
+                    JSON.stringify(
+                        payload,
+                    ),
+            },
+        );
+
+    return response.data;
+}
+
+/**
+ * Record opening stock for one Product.
+ */
+export async function recordOpeningStock(
+    productId: number,
+    payload: OpeningStockPayload,
+): Promise<InventoryProductDetail> {
+    const response =
+        await apiRequest<{
+            data: InventoryProductDetail;
+        }>(
+            `/api/inventory/products/${productId}/opening-stock`,
+            {
+                method:
+                    'POST',
+
+                body:
+                    JSON.stringify(
+                        payload,
+                    ),
+            },
+        );
+
+    return response.data;
+}
+
+/**
+ * Apply one signed stock correction.
+ */
+export async function adjustInventoryStock(
+    productId: number,
+    payload: StockAdjustmentPayload,
+): Promise<InventoryProductDetail> {
+    const response =
+        await apiRequest<{
+            data: InventoryProductDetail;
+        }>(
+            `/api/inventory/products/${productId}/adjust`,
+            {
+                method:
+                    'POST',
+
+                body:
+                    JSON.stringify(
+                        payload,
+                    ),
+            },
+        );
+
+    return response.data;
+}
+
+/**
+ * Transfer Product stock between active warehouses.
+ */
+export async function transferInventoryStock(
+    productId: number,
+    payload: StockTransferPayload,
+): Promise<InventoryProductDetail> {
+    const response =
+        await apiRequest<{
+            data: InventoryProductDetail;
+        }>(
+            `/api/inventory/products/${productId}/transfer`,
+            {
+                method:
+                    'POST',
+
+                body:
+                    JSON.stringify(
+                        payload,
+                    ),
+            },
         );
 
     return response.data;

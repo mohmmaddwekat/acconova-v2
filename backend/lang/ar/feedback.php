@@ -19,14 +19,21 @@ return [
     'password_reuse' => 'يجب أن تكون كلمة المرور الجديدة مختلفة عن كلمة المرور الحالية.',
 
     'permanent_delete_requires_archive' => 'قم بأرشفة هذا السجل قبل حذفه نهائيًا.',
-
     'permanent_delete_blocked' => 'لا يمكن حذف هذا السجل نهائيًا لأن سجلات أعمال محمية ما زالت مرتبطة به. يمكنك إبقاؤه مؤرشفًا.',
 
     'warehouse_default_archive_blocked' => 'عيّن مستودعًا افتراضيًا آخر قبل أرشفة هذا المستودع.',
-
     'warehouse_stock_archive_blocked' => 'انقل أو عدّل مخزون هذا المستودع إلى صفر قبل أرشفته.',
-
     'product_stock_archive_blocked' => 'انقل أو عدّل مخزون هذا المنتج إلى صفر قبل أرشفته.',
+
+    'inventory_tracking_products_only' => 'تتبع المخزون متاح للمنتجات المادية فقط.',
+    'inventory_tracking_disable_stock_blocked' => 'انقل أو عدّل جميع كميات المنتج إلى صفر قبل إيقاف تتبع المخزون.',
+    'inventory_not_tracked' => 'فعّل تتبع المخزون لهذا المنتج قبل تغيير الكمية.',
+    'inventory_quantity_positive' => 'أدخل كمية مخزون أكبر من صفر.',
+    'inventory_adjustment_non_zero' => 'لا يمكن أن يكون تعديل المخزون صفرًا.',
+    'inventory_insufficient_stock' => 'لا توجد كمية متاحة كافية لتنفيذ هذه العملية.',
+    'inventory_reserved_stock_blocked' => 'ستؤدي هذه العملية إلى خفض المخزون عن الكمية المحجوزة.',
+    'inventory_transfer_same_warehouse' => 'اختر مستودعين مختلفين لإجراء التحويل.',
+    'opening_stock_history_blocked' => 'يمكن تسجيل المخزون الافتتاحي فقط قبل وجود سجل حركات لهذا المنتج في المستودع المحدد.',
 
     'return' => 'العودة إلى مساحة العمل',
 

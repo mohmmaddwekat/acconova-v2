@@ -64,7 +64,26 @@ class ProductPolicy
     }
 
     /**
-     * Restrict archival to roles that manage the business catalog lifecycle.
+     * Restrict physical stock mutations to operational management roles.
+     *
+     * Accountants can edit catalog metadata but inventory movement authority
+     * stays with Owner/Admin/Manager.
+     */
+    public function manageInventory(
+        User $user,
+        Product $product,
+    ): bool {
+        return $this->belongsToCurrentOrganization(
+            $product,
+        ) && $this->hasAnyRole([
+            OrganizationRole::Owner,
+            OrganizationRole::Admin,
+            OrganizationRole::Manager,
+        ]);
+    }
+
+    /**
+     * Restrict archival to roles that manage catalog lifecycle.
      */
     public function delete(
         User $user,
@@ -80,7 +99,7 @@ class ProductPolicy
     }
 
     /**
-     * Apply the archival authority to restoration.
+     * Apply archival authority to restoration.
      */
     public function restore(
         User $user,
@@ -94,9 +113,6 @@ class ProductPolicy
 
     /**
      * Allow permanent deletion only to Owner/Admin and only after archival.
-     *
-     * Database foreign keys remain the final authority for whether historical
-     * dependencies make deletion unsafe.
      */
     public function forceDelete(
         User $user,
@@ -132,7 +148,7 @@ class ProductPolicy
     }
 
     /**
-     * Resolve the active role without leaking TenantContext failures.
+     * Resolve the active organization role safely.
      */
     private function currentRole(): ?OrganizationRole
     {
@@ -141,10 +157,9 @@ class ProductPolicy
                 TenantContext::class,
             )->role();
         } catch (
-            LogicException
-        ) {
-            return null;
-        }
+            LogicException) {
+                return null;
+            }
     }
 
     /**
@@ -154,14 +169,17 @@ class ProductPolicy
         Product $product,
     ): bool {
         try {
-            return $product->organization_id
-                === app(
+            return (int) $product
+                ->getAttribute(
+                    'organization_id',
+                )
+                ===
+                app(
                     TenantContext::class,
                 )->id();
         } catch (
-            LogicException
-        ) {
-            return false;
-        }
+            LogicException) {
+                return false;
+            }
     }
 }

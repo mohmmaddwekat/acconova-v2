@@ -1,431 +1,249 @@
 export default {
     en: {
-        'inventory.nav':
-            'Inventory',
-
-        'inventory.navDescription':
-            'Stock & warehouses',
-
-        'inventory.eyebrow':
-            'Inventory control',
-
-        'inventory.title':
-            'Know what you have. Know where it is.',
-
-        'inventory.subtitle':
-            'Warehouses are the physical layer behind your catalog. Stock balances, transfers, adjustments, invoices, and purchasing build on this foundation.',
-
-        'inventory.activeWarehouses':
-            'Active warehouses',
-
-        'inventory.archivedWarehouses':
-            'Archived warehouses',
-
-        'inventory.trackedProducts':
-            'Tracked products',
-
-        'inventory.lowStock':
-            'Low stock',
-
-        'inventory.outOfStock':
-            'Out of stock',
-
-        'inventory.inventoryValue':
-            'Stock cost value',
-
-        'inventory.locations':
-            'Warehouse directory',
-
-        'inventory.locationsHelp':
-            'Manage the physical locations where inventory is stored.',
-
-        'inventory.newWarehouse':
-            'New warehouse',
-
-        'inventory.editWarehouse':
-            'Edit warehouse',
-
-        'inventory.addWarehouse':
-            'Add warehouse',
-
-        'inventory.warehouseName':
-            'Warehouse name',
-
-        'inventory.defaultWarehouse':
-            'Default warehouse',
-
-        'inventory.defaultBadge':
-            'Default',
-
-        'inventory.defaultHandledAutomatically':
-            'Default is managed after creation',
-
-        'inventory.firstWarehouseDefaultHelp':
-            'The first warehouse becomes default automatically. For later warehouses, use the star action on an existing location to make it default.',
-
-        'inventory.currentDefaultHelp':
-            'This is the current default warehouse. Make another active warehouse default before this one can be archived.',
-
-        'inventory.makeDefault':
-            'Make default',
-
-        'inventory.defaultChanged':
-            'Default warehouse changed.',
-
-        'inventory.stockedProducts':
-            '{count} stocked products',
-
-        'inventory.stockedProductsLabel':
-            'Stocked products',
-
-        'inventory.stockHistory':
-            'Stock movements',
-
-        'inventory.noWarehouses':
-            'No active warehouses yet.',
-
-        'inventory.noWarehousesHelp':
-            'Create your first warehouse. AccoNova will make the first location default automatically.',
-
-        'inventory.noArchivedWarehouses':
-            'No archived warehouses.',
-
-        'inventory.active':
-            'Active',
-
-        'inventory.archived':
-            'Archived',
-
-        'inventory.status':
-            'Status',
-
-        'inventory.recentMovements':
-            'Recent stock movements',
-
-        'inventory.recentMovementsHelp':
-            'Every stock change leaves an audit trail here.',
-
-        'inventory.noMovements':
-            'No stock movements yet.',
-
-        'inventory.noMovementsHelp':
-            'Opening stock, adjustments, transfers, purchases, and sales will appear here as Inventory becomes active.',
-
-        'inventory.warehouseCreated':
-            'Warehouse created.',
-
-        'inventory.warehouseUpdated':
-            'Warehouse updated.',
-
-        'inventory.warehouseArchived':
-            'Warehouse archived.',
-
-        'inventory.warehouseRestored':
-            'Warehouse restored.',
-
-        'inventory.warehouseDeleted':
-            'Warehouse deleted permanently.',
-
-        'inventory.archiveWarehouseTitle':
-            'Archive this warehouse?',
-
-        'inventory.archiveWarehouseDescription':
-            '“{name}” will stop accepting new inventory activity. AccoNova blocks the archive if it is the default warehouse or still contains stock.',
-
-        'inventory.restoreWarehouseTitle':
-            'Restore this warehouse?',
-
-        'inventory.restoreWarehouseDescription':
-            '“{name}” will become available for inventory activity again.',
-
-        'inventory.deleteWarehouseTitle':
-            'Delete this warehouse permanently?',
-
-        'inventory.deleteWarehouseDescription':
-            '“{name}” will be removed permanently. This is allowed only after archive and only when the warehouse has no stock or stock-movement history.',
-
-        'inventory.archiveWarehouse':
-            'Archive warehouse',
-
-        'inventory.restoreWarehouse':
-            'Restore warehouse',
-
-        'inventory.permanentDeleteWarehouse':
-            'Delete permanently',
-
-        'inventory.editWarehouseAction':
-            'Edit warehouse',
-
-        'inventory.code':
-            'Code',
-
-        'inventory.saveWarehouse':
-            'Save warehouse',
-
-        'inventory.loading':
-            'Loading inventory…',
-
-        'inventory.loadFailed':
-            'AccoNova could not load Inventory.',
-
-        'inventory.saveFailed':
-            'AccoNova could not save this warehouse.',
-
-        'inventory.actionFailed':
-            'AccoNova could not complete this warehouse action.',
-
-        'inventory.readOnly':
-            'Your role can view Inventory but cannot change warehouse settings.',
-
-        'inventory.warehouseContext':
-            'Warehouse context',
-
-        'inventory.closeWarehouse':
-            'Close warehouse',
-
-        'inventory.historyProtected':
-            'Historical inventory protects this warehouse',
-
-        'inventory.historyProtectedHelp':
-            'It may remain archived, but permanent deletion is unavailable while stock or stock-movement history exists.',
-
-        'inventory.movement.opening':
-            'Opening stock',
-
-        'inventory.movement.adjustment':
-            'Adjustment',
-
-        'inventory.movement.transfer_out':
-            'Transfer out',
-
-        'inventory.movement.transfer_in':
-            'Transfer in',
-
-        'inventory.movement.sale':
-            'Sale',
-
-        'inventory.movement.purchase':
-            'Purchase',
-
-        'inventory.movement.customer_return':
-            'Customer return',
-
-        'inventory.movement.supplier_return':
-            'Supplier return',
+        'inventory.nav': 'Inventory',
+        'inventory.navDescription': 'Stock & warehouses',
+        'inventory.eyebrow': 'Inventory control',
+        'inventory.title': 'Know what you have. Know where it is.',
+        'inventory.subtitle': 'Warehouses are the physical layer behind your catalog. Stock balances, transfers, adjustments, invoices, and purchasing build on this foundation.',
+
+        'inventory.activeWarehouses': 'Active warehouses',
+        'inventory.archivedWarehouses': 'Archived warehouses',
+        'inventory.trackedProducts': 'Tracked products',
+        'inventory.lowStock': 'Low stock',
+        'inventory.outOfStock': 'Out of stock',
+        'inventory.inventoryValue': 'Stock cost value',
+
+        'inventory.locations': 'Warehouse directory',
+        'inventory.locationsHelp': 'Manage the physical locations where inventory is stored.',
+        'inventory.newWarehouse': 'New warehouse',
+        'inventory.editWarehouse': 'Edit warehouse',
+        'inventory.addWarehouse': 'Add warehouse',
+        'inventory.warehouseName': 'Warehouse name',
+        'inventory.defaultWarehouse': 'Default warehouse',
+        'inventory.defaultBadge': 'Default',
+        'inventory.defaultHandledAutomatically': 'Default is managed after creation',
+        'inventory.firstWarehouseDefaultHelp': 'The first warehouse becomes default automatically. For later warehouses, use the star action on an existing location to make it default.',
+        'inventory.currentDefaultHelp': 'This is the current default warehouse. Make another active warehouse default before this one can be archived.',
+        'inventory.makeDefault': 'Make default',
+        'inventory.defaultChanged': 'Default warehouse changed.',
+
+        'inventory.stockedProducts': '{count} stocked products',
+        'inventory.stockedProductsLabel': 'Stocked products',
+        'inventory.stockHistory': 'Stock movements',
+
+        'inventory.noWarehouses': 'No active warehouses yet.',
+        'inventory.noWarehousesHelp': 'Create your first warehouse. AccoNova will make the first location default automatically.',
+        'inventory.noArchivedWarehouses': 'No archived warehouses.',
+        'inventory.active': 'Active',
+        'inventory.archived': 'Archived',
+        'inventory.status': 'Status',
+
+        'inventory.recentMovements': 'Recent stock movements',
+        'inventory.recentMovementsHelp': 'Every stock change leaves an audit trail here.',
+        'inventory.noMovements': 'No stock movements yet.',
+        'inventory.noMovementsHelp': 'Opening stock, adjustments, transfers, purchases, and sales will appear here as Inventory becomes active.',
+
+        'inventory.warehouseCreated': 'Warehouse created.',
+        'inventory.warehouseUpdated': 'Warehouse updated.',
+        'inventory.warehouseArchived': 'Warehouse archived.',
+        'inventory.warehouseRestored': 'Warehouse restored.',
+        'inventory.warehouseDeleted': 'Warehouse deleted permanently.',
+
+        'inventory.archiveWarehouseTitle': 'Archive this warehouse?',
+        'inventory.archiveWarehouseDescription': '“{name}” will stop accepting new inventory activity. AccoNova blocks the archive if it is the default warehouse or still contains stock.',
+        'inventory.restoreWarehouseTitle': 'Restore this warehouse?',
+        'inventory.restoreWarehouseDescription': '“{name}” will become available for inventory activity again.',
+        'inventory.deleteWarehouseTitle': 'Delete this warehouse permanently?',
+        'inventory.deleteWarehouseDescription': '“{name}” will be removed permanently. This is allowed only after archive and only when the warehouse has no stock or stock-movement history.',
+
+        'inventory.archiveWarehouse': 'Archive warehouse',
+        'inventory.restoreWarehouse': 'Restore warehouse',
+        'inventory.permanentDeleteWarehouse': 'Delete permanently',
+        'inventory.editWarehouseAction': 'Edit warehouse',
+        'inventory.code': 'Code',
+        'inventory.saveWarehouse': 'Save warehouse',
+
+        'inventory.loading': 'Loading inventory…',
+        'inventory.loadFailed': 'AccoNova could not load Inventory.',
+        'inventory.saveFailed': 'AccoNova could not save this warehouse.',
+        'inventory.actionFailed': 'AccoNova could not complete this warehouse action.',
+        'inventory.readOnly': 'Your role can view Inventory but cannot change warehouse settings.',
+        'inventory.warehouseContext': 'Warehouse context',
+        'inventory.closeWarehouse': 'Close warehouse',
+
+        'inventory.historyProtected': 'Historical inventory protects this warehouse',
+        'inventory.historyProtectedHelp': 'It may remain archived, but permanent deletion is unavailable while stock or stock-movement history exists.',
+
+        'inventory.productsInWarehouse': 'Products in this warehouse',
+        'inventory.productsInWarehouseCount': '{count} physical products',
+        'inventory.searchProducts': 'Search product or SKU…',
+        'inventory.noWarehouseProducts': 'No matching physical products.',
+        'inventory.loadProductsFailed': 'AccoNova could not load warehouse products.',
+        'inventory.tracked': 'Tracked',
+        'inventory.notTracked': 'Not tracked',
+
+        'inventory.productInventory': 'Product inventory',
+        'inventory.closeProductInventory': 'Close product inventory',
+        'inventory.onHand': 'On hand',
+        'inventory.reserved': 'Reserved',
+        'inventory.available': 'Available',
+
+        'inventory.trackingSettings': 'Inventory tracking',
+        'inventory.trackingSettingsHelp': 'Enable this for physical stock. Services never use warehouse quantities.',
+        'inventory.lowStockThreshold': 'Low-stock threshold',
+        'inventory.saveSettings': 'Save settings',
+        'inventory.settingsSaved': 'Inventory settings saved.',
+
+        'inventory.stockActions': 'Stock actions',
+        'inventory.openingStock': 'Opening stock',
+        'inventory.adjustStock': 'Adjust stock',
+        'inventory.transferStock': 'Transfer',
+        'inventory.warehouse': 'Warehouse',
+        'inventory.sourceWarehouse': 'Source warehouse',
+        'inventory.destinationWarehouse': 'Destination warehouse',
+        'inventory.quantity': 'Quantity',
+        'inventory.adjustmentQuantity': 'Adjustment (+ / -)',
+        'inventory.note': 'Note',
+        'inventory.applyStockAction': 'Apply',
+        'inventory.openingRecorded': 'Opening stock recorded.',
+        'inventory.stockAdjusted': 'Stock adjusted.',
+        'inventory.stockTransferred': 'Stock transferred.',
+        'inventory.stockActionFailed': 'AccoNova could not complete this stock operation.',
+
+        'inventory.warehouseBalances': 'Warehouse balances',
+        'inventory.noProductBalances': 'No warehouse balances yet.',
+
+        'inventory.movement.opening': 'Opening stock',
+        'inventory.movement.adjustment': 'Adjustment',
+        'inventory.movement.transfer_out': 'Transfer out',
+        'inventory.movement.transfer_in': 'Transfer in',
+        'inventory.movement.sale': 'Sale',
+        'inventory.movement.purchase': 'Purchase',
+        'inventory.movement.customer_return': 'Customer return',
+        'inventory.movement.supplier_return': 'Supplier return',
     },
 
     ar: {
-        'inventory.nav':
-            'المخزون',
-
-        'inventory.navDescription':
-            'المخزون والمستودعات',
-
-        'inventory.eyebrow':
-            'إدارة المخزون',
-
-        'inventory.title':
-            'اعرف ماذا تملك. واعرف أين يوجد.',
-
-        'inventory.subtitle':
-            'المستودعات هي الطبقة الفعلية خلف الكتالوج. أرصدة المخزون والتحويلات والتعديلات والفواتير والمشتريات تُبنى فوق هذا الأساس.',
-
-        'inventory.activeWarehouses':
-            'المستودعات النشطة',
-
-        'inventory.archivedWarehouses':
-            'المستودعات المؤرشفة',
-
-        'inventory.trackedProducts':
-            'المنتجات المتتبعة',
-
-        'inventory.lowStock':
-            'مخزون منخفض',
-
-        'inventory.outOfStock':
-            'نفد المخزون',
-
-        'inventory.inventoryValue':
-            'قيمة تكلفة المخزون',
-
-        'inventory.locations':
-            'دليل المستودعات',
-
-        'inventory.locationsHelp':
-            'أدر المواقع الفعلية التي يتم تخزين المخزون فيها.',
-
-        'inventory.newWarehouse':
-            'مستودع جديد',
-
-        'inventory.editWarehouse':
-            'تعديل المستودع',
-
-        'inventory.addWarehouse':
-            'إضافة مستودع',
-
-        'inventory.warehouseName':
-            'اسم المستودع',
-
-        'inventory.defaultWarehouse':
-            'المستودع الافتراضي',
-
-        'inventory.defaultBadge':
-            'افتراضي',
-
-        'inventory.defaultHandledAutomatically':
-            'يتم تحديد الافتراضي بعد الإنشاء',
-
-        'inventory.firstWarehouseDefaultHelp':
-            'أول مستودع يصبح افتراضيًا تلقائيًا. بعد ذلك استخدم زر النجمة على مستودع موجود لجعله الافتراضي.',
-
-        'inventory.currentDefaultHelp':
-            'هذا هو المستودع الافتراضي الحالي. عيّن مستودعًا نشطًا آخر كافتراضي قبل أن تتمكن من أرشفة هذا المستودع.',
-
-        'inventory.makeDefault':
-            'تعيين كافتراضي',
-
-        'inventory.defaultChanged':
-            'تم تغيير المستودع الافتراضي.',
-
-        'inventory.stockedProducts':
-            '{count} منتجات تحتوي مخزونًا',
-
-        'inventory.stockedProductsLabel':
-            'منتجات تحتوي مخزونًا',
-
-        'inventory.stockHistory':
-            'حركات المخزون',
-
-        'inventory.noWarehouses':
-            'لا توجد مستودعات نشطة بعد.',
-
-        'inventory.noWarehousesHelp':
-            'أنشئ أول مستودع. سيجعله AccoNova المستودع الافتراضي تلقائيًا.',
-
-        'inventory.noArchivedWarehouses':
-            'لا توجد مستودعات مؤرشفة.',
-
-        'inventory.active':
-            'نشط',
-
-        'inventory.archived':
-            'مؤرشف',
-
-        'inventory.status':
-            'الحالة',
-
-        'inventory.recentMovements':
-            'أحدث حركات المخزون',
-
-        'inventory.recentMovementsHelp':
-            'كل تغيير في المخزون يترك سجلًا واضحًا هنا.',
-
-        'inventory.noMovements':
-            'لا توجد حركات مخزون بعد.',
-
-        'inventory.noMovementsHelp':
-            'المخزون الافتتاحي والتعديلات والتحويلات والمشتريات والمبيعات ستظهر هنا عند بدء استخدام المخزون.',
-
-        'inventory.warehouseCreated':
-            'تم إنشاء المستودع.',
-
-        'inventory.warehouseUpdated':
-            'تم تحديث المستودع.',
-
-        'inventory.warehouseArchived':
-            'تمت أرشفة المستودع.',
-
-        'inventory.warehouseRestored':
-            'تمت استعادة المستودع.',
-
-        'inventory.warehouseDeleted':
-            'تم حذف المستودع نهائيًا.',
-
-        'inventory.archiveWarehouseTitle':
-            'أرشفة هذا المستودع؟',
-
-        'inventory.archiveWarehouseDescription':
-            'سيتوقف “{name}” عن استقبال نشاط مخزون جديد. سيمنع AccoNova الأرشفة إذا كان المستودع الافتراضي أو ما زال يحتوي على مخزون.',
-
-        'inventory.restoreWarehouseTitle':
-            'استعادة هذا المستودع؟',
-
-        'inventory.restoreWarehouseDescription':
-            'سيصبح “{name}” متاحًا لنشاط المخزون مرة أخرى.',
-
-        'inventory.deleteWarehouseTitle':
-            'حذف هذا المستودع نهائيًا؟',
-
-        'inventory.deleteWarehouseDescription':
-            'سيتم حذف “{name}” نهائيًا. لا يسمح بذلك إلا بعد الأرشفة وإذا لم يكن للمستودع مخزون أو سجل حركات مخزون.',
-
-        'inventory.archiveWarehouse':
-            'أرشفة المستودع',
-
-        'inventory.restoreWarehouse':
-            'استعادة المستودع',
-
-        'inventory.permanentDeleteWarehouse':
-            'حذف نهائي',
-
-        'inventory.editWarehouseAction':
-            'تعديل المستودع',
-
-        'inventory.code':
-            'الرمز',
-
-        'inventory.saveWarehouse':
-            'حفظ المستودع',
-
-        'inventory.loading':
-            'جارٍ تحميل المخزون…',
-
-        'inventory.loadFailed':
-            'تعذر على AccoNova تحميل المخزون.',
-
-        'inventory.saveFailed':
-            'تعذر على AccoNova حفظ هذا المستودع.',
-
-        'inventory.actionFailed':
-            'تعذر على AccoNova تنفيذ إجراء المستودع.',
-
-        'inventory.readOnly':
-            'يمكن لدورك مشاهدة المخزون ولكن لا يمكنه تغيير إعدادات المستودعات.',
-
-        'inventory.warehouseContext':
-            'بيانات المستودع',
-
-        'inventory.closeWarehouse':
-            'إغلاق المستودع',
-
-        'inventory.historyProtected':
-            'تاريخ المخزون يحمي هذا المستودع',
-
-        'inventory.historyProtectedHelp':
-            'يمكن إبقاؤه مؤرشفًا، لكن الحذف النهائي غير متاح طالما يوجد مخزون أو سجل لحركات المخزون.',
-
-        'inventory.movement.opening':
-            'مخزون افتتاحي',
-
-        'inventory.movement.adjustment':
-            'تعديل',
-
-        'inventory.movement.transfer_out':
-            'تحويل صادر',
-
-        'inventory.movement.transfer_in':
-            'تحويل وارد',
-
-        'inventory.movement.sale':
-            'بيع',
-
-        'inventory.movement.purchase':
-            'شراء',
-
-        'inventory.movement.customer_return':
-            'مرتجع عميل',
-
-        'inventory.movement.supplier_return':
-            'مرتجع مورد',
+        'inventory.nav': 'المخزون',
+        'inventory.navDescription': 'المخزون والمستودعات',
+        'inventory.eyebrow': 'إدارة المخزون',
+        'inventory.title': 'اعرف ماذا تملك. واعرف أين يوجد.',
+        'inventory.subtitle': 'المستودعات هي الطبقة الفعلية خلف الكتالوج. أرصدة المخزون والتحويلات والتعديلات والفواتير والمشتريات تُبنى فوق هذا الأساس.',
+
+        'inventory.activeWarehouses': 'المستودعات النشطة',
+        'inventory.archivedWarehouses': 'المستودعات المؤرشفة',
+        'inventory.trackedProducts': 'المنتجات المتتبعة',
+        'inventory.lowStock': 'مخزون منخفض',
+        'inventory.outOfStock': 'نفد المخزون',
+        'inventory.inventoryValue': 'قيمة تكلفة المخزون',
+
+        'inventory.locations': 'دليل المستودعات',
+        'inventory.locationsHelp': 'أدر المواقع الفعلية التي يتم تخزين المخزون فيها.',
+        'inventory.newWarehouse': 'مستودع جديد',
+        'inventory.editWarehouse': 'تعديل المستودع',
+        'inventory.addWarehouse': 'إضافة مستودع',
+        'inventory.warehouseName': 'اسم المستودع',
+        'inventory.defaultWarehouse': 'المستودع الافتراضي',
+        'inventory.defaultBadge': 'افتراضي',
+        'inventory.defaultHandledAutomatically': 'يتم تحديد الافتراضي بعد الإنشاء',
+        'inventory.firstWarehouseDefaultHelp': 'أول مستودع يصبح افتراضيًا تلقائيًا. بعد ذلك استخدم زر النجمة على مستودع موجود لجعله الافتراضي.',
+        'inventory.currentDefaultHelp': 'هذا هو المستودع الافتراضي الحالي. عيّن مستودعًا نشطًا آخر كافتراضي قبل أن تتمكن من أرشفة هذا المستودع.',
+        'inventory.makeDefault': 'تعيين كافتراضي',
+        'inventory.defaultChanged': 'تم تغيير المستودع الافتراضي.',
+
+        'inventory.stockedProducts': '{count} منتجات تحتوي مخزونًا',
+        'inventory.stockedProductsLabel': 'منتجات تحتوي مخزونًا',
+        'inventory.stockHistory': 'حركات المخزون',
+
+        'inventory.noWarehouses': 'لا توجد مستودعات نشطة بعد.',
+        'inventory.noWarehousesHelp': 'أنشئ أول مستودع. سيجعله AccoNova المستودع الافتراضي تلقائيًا.',
+        'inventory.noArchivedWarehouses': 'لا توجد مستودعات مؤرشفة.',
+        'inventory.active': 'نشط',
+        'inventory.archived': 'مؤرشف',
+        'inventory.status': 'الحالة',
+
+        'inventory.recentMovements': 'أحدث حركات المخزون',
+        'inventory.recentMovementsHelp': 'كل تغيير في المخزون يترك سجلًا واضحًا هنا.',
+        'inventory.noMovements': 'لا توجد حركات مخزون بعد.',
+        'inventory.noMovementsHelp': 'المخزون الافتتاحي والتعديلات والتحويلات والمشتريات والمبيعات ستظهر هنا عند بدء استخدام المخزون.',
+
+        'inventory.warehouseCreated': 'تم إنشاء المستودع.',
+        'inventory.warehouseUpdated': 'تم تحديث المستودع.',
+        'inventory.warehouseArchived': 'تمت أرشفة المستودع.',
+        'inventory.warehouseRestored': 'تمت استعادة المستودع.',
+        'inventory.warehouseDeleted': 'تم حذف المستودع نهائيًا.',
+
+        'inventory.archiveWarehouseTitle': 'أرشفة هذا المستودع؟',
+        'inventory.archiveWarehouseDescription': 'سيتوقف “{name}” عن استقبال نشاط مخزون جديد. سيمنع AccoNova الأرشفة إذا كان المستودع الافتراضي أو ما زال يحتوي على مخزون.',
+        'inventory.restoreWarehouseTitle': 'استعادة هذا المستودع؟',
+        'inventory.restoreWarehouseDescription': 'سيصبح “{name}” متاحًا لنشاط المخزون مرة أخرى.',
+        'inventory.deleteWarehouseTitle': 'حذف هذا المستودع نهائيًا؟',
+        'inventory.deleteWarehouseDescription': 'سيتم حذف “{name}” نهائيًا. لا يسمح بذلك إلا بعد الأرشفة وإذا لم يكن للمستودع مخزون أو سجل حركات مخزون.',
+
+        'inventory.archiveWarehouse': 'أرشفة المستودع',
+        'inventory.restoreWarehouse': 'استعادة المستودع',
+        'inventory.permanentDeleteWarehouse': 'حذف نهائي',
+        'inventory.editWarehouseAction': 'تعديل المستودع',
+        'inventory.code': 'الرمز',
+        'inventory.saveWarehouse': 'حفظ المستودع',
+
+        'inventory.loading': 'جارٍ تحميل المخزون…',
+        'inventory.loadFailed': 'تعذر على AccoNova تحميل المخزون.',
+        'inventory.saveFailed': 'تعذر على AccoNova حفظ هذا المستودع.',
+        'inventory.actionFailed': 'تعذر على AccoNova تنفيذ إجراء المستودع.',
+        'inventory.readOnly': 'يمكن لدورك مشاهدة المخزون ولكن لا يمكنه تغيير إعدادات المستودعات.',
+        'inventory.warehouseContext': 'بيانات المستودع',
+        'inventory.closeWarehouse': 'إغلاق المستودع',
+
+        'inventory.historyProtected': 'تاريخ المخزون يحمي هذا المستودع',
+        'inventory.historyProtectedHelp': 'يمكن إبقاؤه مؤرشفًا، لكن الحذف النهائي غير متاح طالما يوجد مخزون أو سجل لحركات المخزون.',
+
+        'inventory.productsInWarehouse': 'المنتجات في هذا المستودع',
+        'inventory.productsInWarehouseCount': '{count} منتجات مادية',
+        'inventory.searchProducts': 'ابحث باسم المنتج أو رمز الصنف…',
+        'inventory.noWarehouseProducts': 'لا توجد منتجات مطابقة.',
+        'inventory.loadProductsFailed': 'تعذر على AccoNova تحميل منتجات المستودع.',
+        'inventory.tracked': 'متتبع',
+        'inventory.notTracked': 'غير متتبع',
+
+        'inventory.productInventory': 'مخزون المنتج',
+        'inventory.closeProductInventory': 'إغلاق مخزون المنتج',
+        'inventory.onHand': 'الموجود فعليًا',
+        'inventory.reserved': 'المحجوز',
+        'inventory.available': 'المتاح',
+
+        'inventory.trackingSettings': 'تتبع المخزون',
+        'inventory.trackingSettingsHelp': 'فعّل هذا للمنتجات المادية. الخدمات لا تستخدم كميات المستودعات.',
+        'inventory.lowStockThreshold': 'حد تنبيه المخزون المنخفض',
+        'inventory.saveSettings': 'حفظ الإعدادات',
+        'inventory.settingsSaved': 'تم حفظ إعدادات المخزون.',
+
+        'inventory.stockActions': 'عمليات المخزون',
+        'inventory.openingStock': 'مخزون افتتاحي',
+        'inventory.adjustStock': 'تعديل المخزون',
+        'inventory.transferStock': 'تحويل',
+        'inventory.warehouse': 'المستودع',
+        'inventory.sourceWarehouse': 'المستودع المصدر',
+        'inventory.destinationWarehouse': 'المستودع الوجهة',
+        'inventory.quantity': 'الكمية',
+        'inventory.adjustmentQuantity': 'التعديل (+ / -)',
+        'inventory.note': 'ملاحظة',
+        'inventory.applyStockAction': 'تنفيذ',
+        'inventory.openingRecorded': 'تم تسجيل المخزون الافتتاحي.',
+        'inventory.stockAdjusted': 'تم تعديل المخزون.',
+        'inventory.stockTransferred': 'تم تحويل المخزون.',
+        'inventory.stockActionFailed': 'تعذر على AccoNova تنفيذ عملية المخزون.',
+
+        'inventory.warehouseBalances': 'أرصدة المستودعات',
+        'inventory.noProductBalances': 'لا توجد أرصدة مستودعات بعد.',
+
+        'inventory.movement.opening': 'مخزون افتتاحي',
+        'inventory.movement.adjustment': 'تعديل',
+        'inventory.movement.transfer_out': 'تحويل صادر',
+        'inventory.movement.transfer_in': 'تحويل وارد',
+        'inventory.movement.sale': 'بيع',
+        'inventory.movement.purchase': 'شراء',
+        'inventory.movement.customer_return': 'مرتجع عميل',
+        'inventory.movement.supplier_return': 'مرتجع مورد',
     },
 } as const;

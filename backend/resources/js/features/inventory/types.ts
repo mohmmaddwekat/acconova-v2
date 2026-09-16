@@ -98,3 +98,153 @@ export type InventoryOverview = {
 export type WarehousePayload = {
     name: string;
 };
+
+export type InventoryWarehouseOption = {
+    id: number;
+
+    code: string;
+
+    name: string;
+
+    is_default: boolean;
+};
+
+export type InventoryProductBalance = {
+    warehouse: {
+        id: number;
+
+        code: string;
+
+        name: string;
+
+        is_default: boolean;
+
+        deleted_at:
+            | string
+            | null;
+    };
+
+    on_hand: string;
+
+    reserved: string;
+
+    available: string;
+};
+
+export type InventoryProductDetail = {
+    id: number;
+
+    name: string;
+
+    sku:
+        | string
+        | null;
+
+    unit: string;
+
+    cost_price:
+        | string
+        | null;
+
+    track_inventory: boolean;
+
+    low_stock_threshold:
+        | string
+        | null;
+
+    on_hand: string;
+
+    reserved: string;
+
+    available: string;
+
+    balances: InventoryProductBalance[];
+
+    warehouses: InventoryWarehouseOption[];
+
+    recent_movements: StockMovement[];
+};
+
+export type WarehouseInventoryProduct = {
+    id: number;
+
+    name: string;
+
+    sku:
+        | string
+        | null;
+
+    unit: string;
+
+    track_inventory: boolean;
+
+    low_stock_threshold:
+        | string
+        | null;
+
+    on_hand: string;
+
+    reserved: string;
+
+    available: string;
+};
+
+export type WarehouseInventoryProducts = {
+    warehouse: {
+        id: number;
+
+        code: string;
+
+        name: string;
+
+        is_default: boolean;
+
+        deleted_at:
+            | string
+            | null;
+    };
+
+    products: WarehouseInventoryProduct[];
+
+    total: number;
+};
+
+export type InventorySettingsPayload = {
+    track_inventory: boolean;
+
+    low_stock_threshold:
+        | string
+        | null;
+};
+
+export type OpeningStockPayload = {
+    warehouse_id: number;
+
+    quantity: string;
+
+    note:
+        | string
+        | null;
+};
+
+export type StockAdjustmentPayload = {
+    warehouse_id: number;
+
+    quantity: string;
+
+    note:
+        | string
+        | null;
+};
+
+export type StockTransferPayload = {
+    source_warehouse_id: number;
+
+    destination_warehouse_id: number;
+
+    quantity: string;
+
+    note:
+        | string
+        | null;
+};
