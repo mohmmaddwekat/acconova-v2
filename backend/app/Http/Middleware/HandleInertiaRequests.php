@@ -87,9 +87,9 @@ class HandleInertiaRequests extends Middleware
                 ->get()
                 ->map(
                     /**
-                 * Convert one authorized Organization into the lightweight
-                 * browser workspace contract.
-                 */
+                     * Convert one authorized Organization into the lightweight
+                     * browser workspace contract.
+                     */
                     function (
                         Organization $organization,
                     ): array {
