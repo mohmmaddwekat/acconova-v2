@@ -21,7 +21,7 @@ class ProductPolicy
     }
 
     /**
-     * Allow workspace members to view only current-tenant catalog items.
+     * Allow workspace members to view current-tenant catalog items.
      */
     public function view(
         User $user,
@@ -47,7 +47,7 @@ class ProductPolicy
     }
 
     /**
-     * Allow operational and accounting roles to update catalog items.
+     * Allow operational and accounting roles to update active catalog items.
      */
     public function update(
         User $user,
@@ -64,7 +64,7 @@ class ProductPolicy
     }
 
     /**
-     * Restrict archival to roles that control the business catalog.
+     * Restrict archival to roles that manage the business catalog lifecycle.
      */
     public function delete(
         User $user,
@@ -80,7 +80,7 @@ class ProductPolicy
     }
 
     /**
-     * Apply the same authority to restoring an archived catalog item.
+     * Apply the archival authority to restoration.
      */
     public function restore(
         User $user,
@@ -93,13 +93,23 @@ class ProductPolicy
     }
 
     /**
-     * Permanent deletion is intentionally unavailable.
+     * Allow permanent deletion only to Owner/Admin and only after archival.
+     *
+     * Database foreign keys remain the final authority for whether historical
+     * dependencies make deletion unsafe.
      */
     public function forceDelete(
         User $user,
         Product $product,
     ): bool {
-        return false;
+        return $product->trashed()
+            && $this->belongsToCurrentOrganization(
+                $product,
+            )
+            && $this->hasAnyRole([
+                OrganizationRole::Owner,
+                OrganizationRole::Admin,
+            ]);
     }
 
     /**
@@ -113,8 +123,8 @@ class ProductPolicy
         $role =
             $this->currentRole();
 
-        return $role !== null &&
-            in_array(
+        return $role !== null
+            && in_array(
                 $role,
                 $roles,
                 true,
@@ -130,23 +140,27 @@ class ProductPolicy
             return app(
                 TenantContext::class,
             )->role();
-        } catch (LogicException) {
+        } catch (
+            LogicException
+        ) {
             return null;
         }
     }
 
     /**
-     * Verify the Product belongs to the resolved organization.
+     * Verify that the Product belongs to the active organization.
      */
     private function belongsToCurrentOrganization(
         Product $product,
     ): bool {
         try {
-            return $product->organization_id ===
-                app(
+            return $product->organization_id
+                === app(
                     TenantContext::class,
                 )->id();
-        } catch (LogicException) {
+        } catch (
+            LogicException
+        ) {
             return false;
         }
     }

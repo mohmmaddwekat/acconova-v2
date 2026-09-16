@@ -18,6 +18,10 @@ return [
 
     'password_reuse' => 'Your new password must be different from your current password.',
 
+    'permanent_delete_requires_archive' => 'Archive this record before deleting it permanently.',
+
+    'permanent_delete_blocked' => 'This record cannot be deleted permanently because protected business records still reference it. Archive it instead.',
+
     'return' => 'Return to your workspace',
 
     'import_invalid' => 'Review the values in this spreadsheet row.',

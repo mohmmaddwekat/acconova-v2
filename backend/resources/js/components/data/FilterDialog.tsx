@@ -12,6 +12,9 @@ import {
     useState,
     type ReactNode,
 } from 'react';
+import {
+    createPortal,
+} from 'react-dom';
 
 import {
     useDialog,
@@ -54,9 +57,10 @@ type FilterDialogProps = {
 /**
  * Render AccoNova's scalable filtering workspace.
  *
- * Desktop uses category navigation beside one focused filter panel. Phones use
- * a compact category picker above the same focused content, preventing future
- * filter dimensions from turning the dialog into a long wall of controls.
+ * Phones use a full-viewport filtering workspace with horizontally scrollable
+ * category navigation. Tablets use a compact category selector and desktop
+ * uses persistent side navigation. Filter values continue applying
+ * immediately, so no Apply action is required.
  */
 export function FilterDialog({
     open,
@@ -88,8 +92,8 @@ export function FilterDialog({
         );
 
     const [
-        mobileSectionMenuOpen,
-        setMobileSectionMenuOpen,
+        tabletSectionMenuOpen,
+        setTabletSectionMenuOpen,
     ] =
         useState(
             false,
@@ -130,7 +134,7 @@ export function FilterDialog({
                       ),
         );
 
-        setMobileSectionMenuOpen(
+        setTabletSectionMenuOpen(
             false,
         );
     }, [
@@ -149,7 +153,9 @@ export function FilterDialog({
 
     if (
         ! open ||
-        ! currentSection
+        ! currentSection ||
+        typeof document ===
+            'undefined'
     ) {
         return null;
     }
@@ -158,7 +164,7 @@ export function FilterDialog({
         currentSection.icon;
 
     /**
-     * Change the focused filtering category without changing filter values.
+     * Change the focused filter category without mutating filter values.
      */
     function chooseSection(
         id: string,
@@ -167,13 +173,13 @@ export function FilterDialog({
             id,
         );
 
-        setMobileSectionMenuOpen(
+        setTabletSectionMenuOpen(
             false,
         );
     }
 
-    return (
-        <div className="fixed inset-0 z-[135] flex items-end justify-center sm:items-center sm:p-4">
+    const surface = (
+        <div className="fixed inset-0 z-[220] flex items-stretch justify-center sm:items-center sm:p-4">
             <button
                 type="button"
                 aria-label={t(
@@ -182,7 +188,7 @@ export function FilterDialog({
                 onClick={
                     onClose
                 }
-                className="absolute inset-0 bg-[var(--ac-text)]/22 backdrop-blur-[4px]"
+                className="absolute inset-0 hidden bg-[var(--ac-text)]/22 backdrop-blur-[4px] sm:block"
             />
 
             <section
@@ -194,11 +200,11 @@ export function FilterDialog({
                 aria-labelledby={
                     titleId
                 }
-                className="relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] border border-white/70 bg-white shadow-[0_28px_90px_rgba(23,35,30,0.18)] motion-safe:animate-[fadeIn_180ms_ease-out] sm:w-[min(880px,calc(100vw-2rem))] sm:rounded-[30px]"
+                className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[92dvh] sm:w-[min(880px,calc(100vw-2rem))] sm:rounded-[30px] sm:border sm:border-white/70 sm:shadow-[0_28px_90px_rgba(23,35,30,0.18)]"
             >
-                <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--ac-line)] bg-white px-4 py-4 sm:px-5">
+                <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--ac-line)] bg-white px-4 py-3.5 sm:px-5 sm:py-4">
                     <div className="flex min-w-0 items-center gap-3">
-                        <div className="relative flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
+                        <div className="relative flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)] sm:size-11 sm:rounded-[15px]">
                             <SlidersHorizontal
                                 size={
                                     17
@@ -216,7 +222,7 @@ export function FilterDialog({
                         </div>
 
                         <div className="min-w-0">
-                            <p className="truncate text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)]">
+                            <p className="truncate text-[8px] font-semibold uppercase tracking-[0.16em] text-[var(--ac-text-muted)] sm:text-[9px]">
                                 {
                                     eyebrow
                                 }
@@ -226,7 +232,7 @@ export function FilterDialog({
                                 id={
                                     titleId
                                 }
-                                className="mt-0.5 truncate text-lg font-semibold tracking-[-0.035em] text-[var(--ac-text)] sm:text-xl"
+                                className="mt-0.5 truncate text-[17px] font-semibold tracking-[-0.035em] text-[var(--ac-text)] sm:text-xl"
                             >
                                 {
                                     title
@@ -280,15 +286,100 @@ export function FilterDialog({
                     </div>
                 </header>
 
-                {/* Mobile category picker */}
-                <div className="relative border-b border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3 md:hidden">
+                {/*
+                 * Phone navigation.
+                 *
+                 * Horizontal category tabs keep the viewport shallow and scale
+                 * naturally when additional filter dimensions are introduced.
+                 */}
+                <nav
+                    aria-label={t(
+                        'ui.filters',
+                    )}
+                    className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface-soft)] sm:hidden"
+                >
+                    <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        {sections.map(
+                            (
+                                section,
+                            ) => {
+                                const Icon =
+                                    section.icon;
+
+                                const selected =
+                                    section.id ===
+                                    currentSection.id;
+
+                                return (
+                                    <button
+                                        key={
+                                            section.id
+                                        }
+                                        type="button"
+                                        aria-pressed={
+                                            selected
+                                        }
+                                        onClick={() =>
+                                            chooseSection(
+                                                section.id,
+                                            )
+                                        }
+                                        className={[
+                                            'relative flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-[13px] border px-3 text-start transition duration-200',
+                                            selected
+                                                ? 'border-[var(--ac-accent)]/45 bg-white text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]'
+                                                : 'border-transparent bg-white/60 text-[var(--ac-text-soft)]',
+                                        ].join(
+                                            ' ',
+                                        )}
+                                    >
+                                        <span
+                                            className={[
+                                                'flex size-7 shrink-0 items-center justify-center rounded-[9px] transition',
+                                                selected
+                                                    ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
+                                                    : 'bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]',
+                                            ].join(
+                                                ' ',
+                                            )}
+                                        >
+                                            <Icon
+                                                size={
+                                                    13
+                                                }
+                                            />
+                                        </span>
+
+                                        <span className="max-w-32 truncate text-[11px] font-semibold">
+                                            {
+                                                section.title
+                                            }
+                                        </span>
+
+                                        {section.active && (
+                                            <span className="size-1.5 shrink-0 rounded-full bg-[var(--ac-accent)]" />
+                                        )}
+                                    </button>
+                                );
+                            },
+                        )}
+                    </div>
+                </nav>
+
+                {/*
+                 * Tablet category picker.
+                 *
+                 * Between 640px and the desktop breakpoint a single selector
+                 * protects horizontal space while keeping the modal compact.
+                 */}
+                <div className="relative hidden border-b border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3 sm:block md:hidden">
                     <button
                         type="button"
                         aria-expanded={
-                            mobileSectionMenuOpen
+                            tabletSectionMenuOpen
                         }
                         onClick={() =>
-                            setMobileSectionMenuOpen(
+                            setTabletSectionMenuOpen(
                                 (
                                     current,
                                 ) =>
@@ -325,7 +416,7 @@ export function FilterDialog({
                             }
                             className={[
                                 'shrink-0 text-[var(--ac-text-muted)] transition-transform duration-200',
-                                mobileSectionMenuOpen
+                                tabletSectionMenuOpen
                                     ? 'rotate-180'
                                     : '',
                             ].join(
@@ -334,7 +425,7 @@ export function FilterDialog({
                         />
                     </button>
 
-                    {mobileSectionMenuOpen && (
+                    {tabletSectionMenuOpen && (
                         <div className="absolute inset-x-3 top-[calc(100%-0.25rem)] z-20 max-h-[46dvh] overflow-y-auto rounded-[17px] border border-[var(--ac-line)] bg-white p-1.5 shadow-[var(--ac-shadow-panel)]">
                             {sections.map(
                                 (
@@ -401,7 +492,6 @@ export function FilterDialog({
                 </div>
 
                 <div className="grid min-h-0 flex-1 md:grid-cols-[230px_minmax(0,1fr)]">
-                    {/* Desktop category navigator */}
                     <nav
                         aria-label={t(
                             'ui.filters',
@@ -486,9 +576,9 @@ export function FilterDialog({
                         </div>
                     </nav>
 
-                    <div className="min-h-0 overflow-y-auto p-3 sm:p-5">
+                    <div className="min-h-0 overflow-y-auto overscroll-contain bg-white px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
                         <div className="mx-auto max-w-[600px]">
-                            <div className="hidden items-center gap-3 border-b border-[var(--ac-line)] pb-4 md:flex">
+                            <div className="flex items-center gap-3 border-b border-[var(--ac-line)] pb-4">
                                 <div className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
                                     <CurrentIcon
                                         size={
@@ -498,13 +588,13 @@ export function FilterDialog({
                                 </div>
 
                                 <div className="min-w-0">
-                                    <h3 className="text-base font-semibold tracking-[-0.025em] text-[var(--ac-text)]">
+                                    <h3 className="text-sm font-semibold tracking-[-0.025em] text-[var(--ac-text)] sm:text-base">
                                         {
                                             currentSection.title
                                         }
                                     </h3>
 
-                                    <p className="mt-0.5 truncate text-[11px] text-[var(--ac-text-muted)]">
+                                    <p className="mt-0.5 truncate text-[10px] text-[var(--ac-text-muted)] sm:text-[11px]">
                                         {
                                             currentSection.summary
                                         }
@@ -512,7 +602,7 @@ export function FilterDialog({
                                 </div>
                             </div>
 
-                            <div className="mt-1 md:mt-5">
+                            <div className="mt-4 sm:mt-5">
                                 {
                                     currentSection.content
                                 }
@@ -522,6 +612,11 @@ export function FilterDialog({
                 </div>
             </section>
         </div>
+    );
+
+    return createPortal(
+        surface,
+        document.body,
     );
 }
 
@@ -538,8 +633,8 @@ type FilterChoiceProps = {
 /**
  * Render one calm filter value inside the currently focused category.
  *
- * Only the selected option receives accent treatment so larger option lists
- * remain easy to scan instead of becoming a grid of competing cards.
+ * Only the selected option receives accent treatment so large option sets stay
+ * easy to scan on phones, tablets, and desktop.
  */
 export function FilterChoice({
     active,

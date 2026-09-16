@@ -3,6 +3,7 @@
 use App\Http\Controllers\PartyBulkActionController;
 use App\Http\Controllers\PartyController;
 use App\Http\Controllers\PartyDataTransferController;
+use App\Http\Controllers\PartyPermanentDeletionController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
@@ -106,6 +107,10 @@ Route::middleware([
         'party',
     );
 
+    /*
+     * Normal DELETE archives the Party. Permanent deletion is intentionally a
+     * separate explicit operation.
+     */
     Route::delete(
         'parties/{party}',
         [
@@ -122,6 +127,13 @@ Route::middleware([
             PartyController::class,
             'restore',
         ],
+    )->whereNumber(
+        'party',
+    );
+
+    Route::delete(
+        'parties/{party}/permanent',
+        PartyPermanentDeletionController::class,
     )->whereNumber(
         'party',
     );

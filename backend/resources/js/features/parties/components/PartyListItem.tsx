@@ -1,3 +1,6 @@
+import type {
+    Party,
+} from '@/features/parties/types';
 import {
     t,
     useLocale,
@@ -16,10 +19,6 @@ import {
 import type {
     MouseEvent as ReactMouseEvent,
 } from 'react';
-
-import type {
-    Party,
-} from '@/features/parties/types';
 
 type PartyListItemProps = {
     party: Party;
@@ -81,7 +80,7 @@ function partyLabel(
 }
 
 /**
- * Build a concise Party location.
+ * Build a concise Party location for Index presentation.
  */
 function partyLocation(
     party: Party,
@@ -99,10 +98,10 @@ function partyLocation(
 }
 
 /**
- * Render one selectable Party relationship card or operating row.
+ * Render one selectable Party operating row.
  *
- * Double-clicking non-interactive row space opens the Party Show surface while
- * every explicit action remains isolated from that gesture.
+ * Selection presentation comes from the shared Index design system, keeping
+ * Party and Product lists visually consistent.
  */
 export function PartyListItem({
     party,
@@ -133,10 +132,8 @@ export function PartyListItem({
         );
 
     /**
-     * Open Party context on a deliberate row double-click.
-     *
-     * Interactive descendants are excluded so checkboxes and action buttons
-     * never accidentally open the record while the user is operating them.
+     * Open Party details from a deliberate row double-click while preserving
+     * all interactive descendants.
      */
     function handleRowDoubleClick(
         event: ReactMouseEvent<HTMLElement>,
@@ -164,17 +161,15 @@ export function PartyListItem({
 
     return (
         <article
+            data-selected={
+                selected
+                    ? 'true'
+                    : 'false'
+            }
             onDoubleClick={
                 handleRowDoubleClick
             }
-            className={[
-                'ac-index-row group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border bg-white p-4 shadow-[var(--ac-shadow-soft)] transition duration-300 sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[auto_minmax(220px,1.3fr)_minmax(180px,1fr)_minmax(160px,0.8fr)_auto] lg:items-center lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:p-5 lg:shadow-none xl:px-6',
-                selected
-                    ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]/30'
-                    : 'border-[var(--ac-line)] hover:border-[var(--ac-line-strong)]',
-            ].join(
-                ' ',
-            )}
+            className="ac-index-row group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[auto_minmax(220px,1.3fr)_minmax(180px,1fr)_minmax(160px,0.8fr)_auto] lg:items-center lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:p-5 lg:shadow-none xl:px-6"
         >
             {selectable && (
                 <label className="flex items-center">
@@ -186,7 +181,8 @@ export function PartyListItem({
                         aria-label={t(
                             'action.select',
                             {
-                                name: label,
+                                name:
+                                    label,
                             },
                         )}
                         onChange={(
@@ -325,7 +321,8 @@ export function PartyListItem({
                     aria-label={t(
                         'action.view',
                         {
-                            name: label,
+                            name:
+                                label,
                         },
                     )}
                     onClick={() =>
@@ -355,7 +352,8 @@ export function PartyListItem({
                             aria-label={t(
                                 'action.edit',
                                 {
-                                    name: label,
+                                    name:
+                                        label,
                                 },
                             )}
                             onClick={() =>
@@ -386,7 +384,8 @@ export function PartyListItem({
                             aria-label={t(
                                 'action.archive',
                                 {
-                                    name: label,
+                                    name:
+                                        label,
                                 },
                             )}
                             onClick={() =>
@@ -417,7 +416,8 @@ export function PartyListItem({
                             aria-label={t(
                                 'action.restore',
                                 {
-                                    name: label,
+                                    name:
+                                        label,
                                 },
                             )}
                             onClick={() =>
@@ -425,7 +425,7 @@ export function PartyListItem({
                                     party,
                                 )
                             }
-                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent-strong)] transition duration-200 hover:-translate-y-px motion-reduce:transform-none lg:h-9 lg:flex-none"
+                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent-strong)] transition duration-200 hover:-translate-y-px hover:bg-[var(--ac-accent)]/18 motion-reduce:transform-none lg:h-9 lg:flex-none"
                         >
                             <RotateCcw
                                 size={

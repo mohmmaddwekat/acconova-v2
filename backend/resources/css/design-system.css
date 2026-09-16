@@ -23,7 +23,7 @@
     --ac-text-faint: #a8b1ad;
 
     /*
-     * AccoNova signature accent
+     * AccoNova accent
      */
     --ac-accent: #43c99a;
     --ac-accent-hover: #35b98a;
@@ -39,7 +39,7 @@
     --ac-info: #6681e8;
 
     /*
-     * Shape language
+     * Shape
      */
     --ac-radius-xs: 10px;
     --ac-radius-sm: 14px;
@@ -85,7 +85,8 @@
 }
 
 html {
-    background: var(--ac-bg);
+    background:
+        var(--ac-bg);
 }
 
 body {
@@ -105,25 +106,23 @@ body {
         ),
         var(--ac-bg);
 
-    color: var(--ac-text);
+    color:
+        var(--ac-text);
 }
 
 /*
- * Page motion
+ * Page entrance.
  *
- * Keep full operating surfaces alive without making navigation theatrical.
- * Every current and future application main surface receives the same subtle
- * entrance language automatically.
+ * Keep transforms away from the main application surface because transformed
+ * ancestors can interfere with fixed Show/Edit overlays.
  */
 @keyframes ac-page-enter {
     from {
         opacity: 0;
-        transform: translateY(8px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
@@ -131,35 +130,27 @@ main {
     animation:
         ac-page-enter
         var(--ac-motion-normal)
-        var(--ac-ease-out)
+        ease-out
         both;
 }
 
 /*
- * Index-row motion
- *
- * New pages, pagination changes, workspace changes, and filters naturally
- * mount new records. Those records should enter with a short restrained
- * stagger rather than suddenly appearing.
+ * Index row entrance.
  */
 @keyframes ac-index-row-enter {
     from {
         opacity: 0;
-        transform:
-            translateY(8px)
-            scale(0.995);
     }
 
     to {
         opacity: 1;
-        transform:
-            translateY(0)
-            scale(1);
     }
 }
 
 .ac-index-row {
-    transform-origin: center;
+    position: relative;
+    isolation: isolate;
+
     animation:
         ac-index-row-enter
         var(--ac-motion-normal)
@@ -167,74 +158,311 @@ main {
         both;
 
     transition:
-        transform var(--ac-transition-normal)
+        transform
+            var(--ac-transition-normal)
             var(--ac-ease-out),
-        border-color var(--ac-transition-normal)
+        border-color
+            var(--ac-transition-normal)
             ease,
-        background-color var(--ac-transition-normal)
+        background-color
+            var(--ac-transition-normal)
             ease,
-        box-shadow var(--ac-transition-normal)
-            ease;
+        box-shadow
+            var(--ac-transition-normal)
+            var(--ac-ease-out);
 }
 
 /*
- * Apply a tiny stagger to the first visible records only. Long lists therefore
- * never wait for a large animation queue.
+ * Selected record indicator.
+ *
+ * The indicator uses logical positioning so it automatically follows LTR/RTL.
+ * It is intentionally narrow and restrained instead of painting the entire row
+ * bright green.
  */
+.ac-index-row::before {
+    content: '';
+
+    position: absolute;
+
+    inset-block:
+        10px;
+
+    inset-inline-start:
+        6px;
+
+    width:
+        3px;
+
+    border-radius:
+        999px;
+
+    background:
+        linear-gradient(
+            180deg,
+            var(--ac-accent),
+            var(--ac-accent-strong)
+        );
+
+    box-shadow:
+        0 0 0 3px
+            rgba(67, 201, 154, 0.08);
+
+    opacity:
+        0;
+
+    transform:
+        scaleY(
+            0.35
+        );
+
+    transform-origin:
+        center;
+
+    transition:
+        opacity
+            var(--ac-transition-normal)
+            ease,
+        transform
+            var(--ac-transition-normal)
+            var(--ac-ease-out);
+}
+
+/*
+ * Professional selected state.
+ *
+ * A selected record receives only a restrained mint wash, a clearer outline,
+ * and slightly stronger elevation. It does not shift horizontally, keeping
+ * dense operating lists perfectly aligned.
+ */
+.ac-index-row[data-selected='true'] {
+    z-index:
+        1;
+
+    border-color:
+        rgba(
+            67,
+            201,
+            154,
+            0.32
+        ) !important;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(
+                67,
+                201,
+                154,
+                0.075
+            ),
+            rgba(
+                255,
+                255,
+                255,
+                0.98
+            )
+            48%,
+            rgba(
+                67,
+                201,
+                154,
+                0.025
+            )
+        ) !important;
+
+    box-shadow:
+        0 0 0 1px
+            rgba(
+                67,
+                201,
+                154,
+                0.07
+            ),
+        0 14px 34px
+            rgba(
+                23,
+                35,
+                30,
+                0.075
+            ) !important;
+
+    transform:
+        translateY(
+            -1px
+        );
+}
+
+.ac-index-row[data-selected='true']::before {
+    opacity:
+        1;
+
+    transform:
+        scaleY(
+            1
+        );
+}
+
+/*
+ * Give selected row content slightly clearer contrast without recoloring the
+ * whole operating surface.
+ */
+.ac-index-row[data-selected='true']
+    input[type='checkbox'] {
+    filter:
+        drop-shadow(
+            0
+            1px
+            3px
+            rgba(
+                20,
+                91,
+                70,
+                0.12
+            )
+        );
+}
+
+/*
+ * Keyboard users receive a distinct focus state separate from row selection.
+ */
+.ac-index-row:focus-within {
+    border-color:
+        rgba(
+            67,
+            201,
+            154,
+            0.24
+        );
+}
+
 .ac-index-row:nth-child(2) {
-    animation-delay: 25ms;
+    animation-delay:
+        20ms;
 }
 
 .ac-index-row:nth-child(3) {
-    animation-delay: 45ms;
+    animation-delay:
+        40ms;
 }
 
 .ac-index-row:nth-child(4) {
-    animation-delay: 65ms;
+    animation-delay:
+        60ms;
 }
 
 .ac-index-row:nth-child(5) {
-    animation-delay: 85ms;
+    animation-delay:
+        80ms;
 }
 
 .ac-index-row:nth-child(6) {
-    animation-delay: 105ms;
+    animation-delay:
+        100ms;
 }
 
 @media (hover: hover) and (pointer: fine) {
-    .ac-index-row:hover {
-        transform: translateY(-1px);
+    .ac-index-row:not(
+        [data-selected='true']
+    ):hover {
+        border-color:
+            var(
+                --ac-line-strong
+            );
+
+        background-color:
+            rgba(
+                255,
+                255,
+                255,
+                0.96
+            );
+
+        transform:
+            translateY(
+                -1px
+            );
+    }
+
+    .ac-index-row[data-selected='true']:hover {
+        transform:
+            translateY(
+                -2px
+            );
+
+        box-shadow:
+            0 0 0 1px
+                rgba(
+                    67,
+                    201,
+                    154,
+                    0.09
+                ),
+            0 18px 42px
+                rgba(
+                    23,
+                    35,
+                    30,
+                    0.09
+                ) !important;
     }
 }
 
 /*
- * Drawer / Show motion
+ * Drawers remain viewport-safe without imposing a global width.
  *
- * AccoNova drawers use logical CSS positioning (`end-0`). Their animation
- * therefore follows document direction as well: from the right in LTR and
- * from the left in RTL.
+ * Individual feature drawers own their desktop max-width.
+ */
+aside[role='dialog'] {
+    box-sizing:
+        border-box;
+
+    max-height:
+        100dvh;
+
+    overscroll-behavior:
+        contain;
+}
+
+/*
+ * Drawer entrance follows logical direction.
  */
 @keyframes ac-drawer-enter-ltr {
     from {
-        opacity: 0.72;
-        transform: translateX(28px);
+        opacity: 0.76;
+
+        transform:
+            translateX(
+                28px
+            );
     }
 
     to {
         opacity: 1;
-        transform: translateX(0);
+
+        transform:
+            translateX(
+                0
+            );
     }
 }
 
 @keyframes ac-drawer-enter-rtl {
     from {
-        opacity: 0.72;
-        transform: translateX(-28px);
+        opacity: 0.76;
+
+        transform:
+            translateX(
+                -28px
+            );
     }
 
     to {
         opacity: 1;
-        transform: translateX(0);
+
+        transform:
+            translateX(
+                0
+            );
     }
 }
 
@@ -257,17 +485,25 @@ html[dir='rtl']
 }
 
 /*
- * Reveal drawer content in layers after the surface itself starts moving.
+ * Drawer content entrance.
  */
 @keyframes ac-drawer-content-enter {
     from {
         opacity: 0;
-        transform: translateY(7px);
+
+        transform:
+            translateY(
+                6px
+            );
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
+
+        transform:
+            translateY(
+                0
+            );
     }
 }
 
@@ -275,7 +511,7 @@ aside[role='dialog']
     > header {
     animation:
         ac-drawer-content-enter
-        250ms
+        240ms
         var(--ac-ease-out)
         45ms
         both;
@@ -285,9 +521,19 @@ aside[role='dialog']
     > div {
     animation:
         ac-drawer-content-enter
-        280ms
+        270ms
         var(--ac-ease-out)
-        85ms
+        75ms
+        both;
+}
+
+aside[role='dialog']
+    > form {
+    animation:
+        ac-drawer-content-enter
+        270ms
+        var(--ac-ease-out)
+        75ms
         both;
 }
 
@@ -295,67 +541,104 @@ aside[role='dialog']
     > footer {
     animation:
         ac-drawer-content-enter
-        280ms
+        270ms
         var(--ac-ease-out)
-        125ms
+        105ms
         both;
 }
 
 /*
- * Stagger the major blocks contained inside Show drawers. This creates a
- * subtle visual hierarchy while the user is reading the record.
+ * Phones use the entire viewport while desktop feature widths remain intact.
  */
-aside[role='dialog']
-    > div
-    > * {
-    animation:
-        ac-drawer-content-enter
-        260ms
-        var(--ac-ease-out)
-        both;
-}
+@media (max-width: 639px) {
+    aside[role='dialog'] {
+        width:
+            100vw !important;
 
-aside[role='dialog']
-    > div
-    > *:nth-child(1) {
-    animation-delay: 100ms;
-}
+        max-width:
+            100vw !important;
 
-aside[role='dialog']
-    > div
-    > *:nth-child(2) {
-    animation-delay: 125ms;
-}
+        min-width:
+            0;
 
-aside[role='dialog']
-    > div
-    > *:nth-child(3) {
-    animation-delay: 150ms;
-}
+        height:
+            100dvh;
 
-aside[role='dialog']
-    > div
-    > *:nth-child(4) {
-    animation-delay: 175ms;
-}
+        max-height:
+            100dvh;
 
-aside[role='dialog']
-    > div
-    > *:nth-child(5) {
-    animation-delay: 200ms;
-}
-
-aside[role='dialog']
-    > div
-    > *:nth-child(n + 6) {
-    animation-delay: 215ms;
+        border-inline:
+            0;
+    }
 }
 
 /*
- * Accessibility
- *
- * Motion is enhancement only. Users asking the operating system for reduced
- * motion receive immediate surfaces with no sliding, scaling, or stagger.
+ * Short screens retain accessible operating actions.
+ */
+@media (max-height: 620px) {
+    aside[role='dialog']
+        > header {
+        padding-top:
+            0.75rem;
+
+        padding-bottom:
+            0.75rem;
+    }
+
+    aside[role='dialog']
+        > footer {
+        padding-top:
+            0.75rem;
+
+        padding-bottom:
+            max(
+                0.75rem,
+                env(
+                    safe-area-inset-bottom
+                )
+            );
+    }
+}
+
+/*
+ * Mobile safe-area support.
+ */
+@supports (
+    padding:
+        max(
+            0px,
+            env(
+                safe-area-inset-top
+            )
+        )
+) {
+    @media (max-width: 639px) {
+        aside[role='dialog']
+            > header {
+            padding-top:
+                max(
+                    1rem,
+                    env(
+                        safe-area-inset-top
+                    )
+                );
+        }
+
+        aside[role='dialog']
+            > footer {
+            padding-bottom:
+                max(
+                    1rem,
+                    env(
+                        safe-area-inset-bottom
+                    )
+                );
+        }
+    }
+}
+
+/*
+ * Reduced motion.
  */
 @media (
     prefers-reduced-motion:
@@ -369,12 +652,23 @@ aside[role='dialog']
     aside[role='dialog']
         > div,
     aside[role='dialog']
-        > footer,
+        > form,
     aside[role='dialog']
-        > div
-        > * {
-        animation: none !important;
-        transform: none !important;
+        > footer {
+        animation:
+            none !important;
+    }
+
+    .ac-index-row,
+    .ac-index-row[data-selected='true'],
+    .ac-index-row[data-selected='true']:hover {
+        transform:
+            none !important;
+    }
+
+    .ac-index-row::before {
+        transition:
+            none;
     }
 
     .ac-index-row {

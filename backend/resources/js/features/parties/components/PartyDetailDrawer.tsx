@@ -1,8 +1,28 @@
-import { getLocale } from '@/lib/locale';
-import { useDialog } from '@/components/feedback/useDialog';
-import { useLocale } from '@/lib/i18n';
-import { useToast } from '@/components/feedback/ToastProvider';
-import { t } from '@/lib/i18n';
+import {
+    PermanentDeleteControl,
+} from '@/components/data/PermanentDeleteControl';
+import {
+    useDialog,
+} from '@/components/feedback/useDialog';
+import {
+    useToast,
+} from '@/components/feedback/ToastProvider';
+import {
+    updatePartyNotes,
+} from '@/features/parties/api';
+import type {
+    Party,
+} from '@/features/parties/types';
+import {
+    ApiError,
+} from '@/lib/http';
+import {
+    t,
+    useLocale,
+} from '@/lib/i18n';
+import {
+    getLocale,
+} from '@/lib/locale';
 import {
     Archive,
     Building2,
@@ -22,14 +42,9 @@ import {
     useEffect,
     useState,
 } from 'react';
-
 import {
-    updatePartyNotes,
-} from '@/features/parties/api';
-import type {
-    Party,
-} from '@/features/parties/types';
-import { ApiError } from '@/lib/http';
+    createPortal,
+} from 'react-dom';
 
 type PartyDetailDrawerProps = {
     open: boolean;
@@ -73,18 +88,22 @@ function partyLabel(
     ) {
         return (
             party.company_name ??
-            t('ui.unnamed_company')
+            t(
+                'ui.unnamed_company',
+            )
         );
     }
 
     return (
         party.name ??
-        t('ui.unnamed_person')
+        t(
+            'ui.unnamed_person',
+        )
     );
 }
 
 /**
- * Format an API timestamp for human-facing Party context.
+ * Format an API timestamp using the active application locale.
  */
 function formatDate(
     value: string,
@@ -92,9 +111,14 @@ function formatDate(
     return new Intl.DateTimeFormat(
         getLocale(),
         {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
+            day:
+                'numeric',
+
+            month:
+                'short',
+
+            year:
+                'numeric',
         },
     ).format(
         new Date(
@@ -104,7 +128,25 @@ function formatDate(
 }
 
 /**
- * Render the responsive Party detail workspace.
+ * Translate Party business roles.
+ */
+function roleLabel(
+    role:
+        Party['roles'][number],
+): string {
+    return t(
+        role ===
+            'customer'
+            ? 'role.customer'
+            : 'role.supplier',
+    );
+}
+
+/**
+ * Render the Party detail workspace directly against the browser viewport.
+ *
+ * Portal rendering guarantees the Show drawer is never clipped by AppShell,
+ * ContextBar, Index motion, or responsive content containers.
  */
 export function PartyDetailDrawer({
     open,
@@ -118,30 +160,60 @@ export function PartyDetailDrawer({
     onRestore,
 }: PartyDetailDrawerProps) {
     useLocale();
-    const { showToast } = useToast();
-    const [notes, setNotes] =
-        useState('');
+
+    const {
+        showToast,
+    } =
+        useToast();
+
+    const [
+        notes,
+        setNotes,
+    ] =
+        useState(
+            '',
+        );
 
     const [
         notesBusy,
         setNotesBusy,
-    ] = useState(false);
+    ] =
+        useState(
+            false,
+        );
 
     const [
         notesMessage,
         setNotesMessage,
     ] =
-        useState<string | null>(
+        useState<
+            string | null
+        >(
             null,
         );
 
-    const dialogRef = useDialog(open, onClose, notesBusy);
-    /** Keep the current editor visible until its mutation has finished. */
-    function closeDialog(): void { if (!notesBusy) onClose(); }
+    const dialogRef =
+        useDialog(
+            open,
+            onClose,
+            notesBusy,
+        );
+
+    /**
+     * Keep the Party Show surface open while notes are being persisted.
+     */
+    function closeDialog(): void {
+        if (
+            ! notesBusy
+        ) {
+            onClose();
+        }
+    }
 
     useEffect(() => {
         setNotes(
-            party?.notes ?? '',
+            party?.notes ??
+                '',
         );
 
         setNotesMessage(
@@ -151,22 +223,18 @@ export function PartyDetailDrawer({
         party,
     ]);
 
-
-
-    /*
-     * Stop rendering before any Party-specific behavior runs when no Party is
-     * currently selected. After this guard we copy the Party reference into a
-     * non-null constant so TypeScript can safely use it inside async handlers.
-     */
     if (
         ! open ||
-        ! party
+        ! party ||
+        typeof document ===
+            'undefined'
     ) {
         return null;
     }
 
     const resolvedParty:
-        Party = party;
+        Party =
+            party;
 
     const archived =
         resolvedParty.deleted_at !==
@@ -185,11 +253,16 @@ export function PartyDetailDrawer({
         resolvedParty.postal_code,
         resolvedParty.country_code,
     ]
-        .filter(Boolean)
-        .join(', ');
+        .filter(
+            Boolean,
+        )
+        .join(
+            ', ',
+        );
 
     /**
-     * Persist internal Party notes without leaving the context surface.
+     * Persist workspace-only Party notes while remaining inside the Show
+     * surface.
      */
     async function handleSaveNotes(): Promise<void> {
         if (
@@ -200,8 +273,13 @@ export function PartyDetailDrawer({
             return;
         }
 
-        setNotesBusy(true);
-        setNotesMessage(null);
+        setNotesBusy(
+            true,
+        );
+
+        setNotesMessage(
+            null,
+        );
 
         try {
             const updated =
@@ -219,52 +297,84 @@ export function PartyDetailDrawer({
                 updated,
             );
 
-            showToast(t('feedback.notes'));
-        } catch (exception) {
+            showToast(
+                t(
+                    'feedback.notes',
+                ),
+            );
+        } catch (
+            exception
+        ) {
             setNotesMessage(
                 exception instanceof
                 ApiError
                     ? exception.message
-                    : t('ui.acconova_could_not_save_these_notes'),
+                    : t(
+                          'ui.acconova_could_not_save_these_notes',
+                      ),
             );
         } finally {
-            setNotesBusy(false);
+            setNotesBusy(
+                false,
+            );
         }
     }
 
-    return (
-        <div className="fixed inset-0 z-[120]">
+    const surface = (
+        <div className="fixed inset-0 z-[220]">
             <button
                 type="button"
-                aria-label={t('ui.close_party_details')}
-                onClick={closeDialog}
+                aria-label={t(
+                    'ui.close_party_details',
+                )}
+                onClick={
+                    closeDialog
+                }
                 className="absolute inset-0 bg-[var(--ac-text)]/20 backdrop-blur-[3px]"
             />
 
-            <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('ui.relationship_context')} className="absolute inset-y-0 end-0 z-10 flex w-full flex-col border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[600px]">
-                <header className="border-b border-[var(--ac-line)] px-4 py-5 sm:px-6 sm:py-6">
+            <aside
+                ref={
+                    dialogRef
+                }
+                role="dialog"
+                aria-modal="true"
+                aria-label={t(
+                    'ui.relationship_context',
+                )}
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[600px]"
+            >
+                <header className="shrink-0 border-b border-[var(--ac-line)] bg-white px-4 py-5 sm:px-6 sm:py-6">
                     <div className="flex items-start justify-between gap-5">
                         <div className="flex min-w-0 items-start gap-3.5">
                             <div className="flex size-12 shrink-0 items-center justify-center rounded-[17px] bg-[var(--ac-surface-strong)]">
                                 {resolvedParty.type ===
                                 'company' ? (
                                     <Building2
-                                        size={20}
+                                        size={
+                                            20
+                                        }
                                     />
                                 ) : (
                                     <UserRound
-                                        size={20}
+                                        size={
+                                            20
+                                        }
                                     />
                                 )}
                             </div>
 
                             <div className="min-w-0">
                                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-accent-strong)]">
-                                    {t('ui.relationship_context')}
+                                    {t(
+                                        'ui.relationship_context',
+                                    )}
                                 </p>
 
                                 <h2 className="mt-1.5 break-words text-2xl font-semibold tracking-[-0.045em] sm:text-3xl">
-                                    {label}
+                                    {
+                                        label
+                                    }
                                 </h2>
 
                                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -273,17 +383,23 @@ export function PartyDetailDrawer({
                                             role,
                                         ) => (
                                             <span
-                                                key={t(role === 'customer' ? 'role.customer' : 'role.supplier')}
+                                                key={
+                                                    role
+                                                }
                                                 className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-accent-strong)]"
                                             >
-                                                {t(role === 'customer' ? 'role.customer' : 'role.supplier')}
+                                                {roleLabel(
+                                                    role,
+                                                )}
                                             </span>
                                         ),
                                     )}
 
                                     {archived && (
                                         <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-danger)]">
-                                            {t('ui.archived')}
+                                            {t(
+                                                'ui.archived',
+                                            )}
                                         </span>
                                     )}
                                 </div>
@@ -292,27 +408,44 @@ export function PartyDetailDrawer({
 
                         <button
                             type="button"
-                            onClick={closeDialog}
-                            className="flex size-10 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-line)] text-[var(--ac-text-muted)]"
+                            aria-label={t(
+                                'ui.close_party_details',
+                            )}
+                            onClick={
+                                closeDialog
+                            }
+                            className="flex size-10 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-bg-soft)] hover:text-[var(--ac-text)]"
                         >
-                            <X size={18} />
+                            <X
+                                size={
+                                    18
+                                }
+                            />
                         </button>
                     </div>
                 </header>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 sm:py-6">
                     <section>
                         <SectionHeading>
-                            {t('ui.contact')}
+                            {t(
+                                'ui.contact',
+                            )}
                         </SectionHeading>
 
                         <div className="grid gap-2 sm:grid-cols-2">
                             <ContactAction
-                                icon={Mail}
-                                label={t('ui.email')}
+                                icon={
+                                    Mail
+                                }
+                                label={t(
+                                    'ui.email',
+                                )}
                                 value={
                                     resolvedParty.email ??
-                                    t('ui.not_provided')
+                                    t(
+                                        'ui.not_provided',
+                                    )
                                 }
                                 href={
                                     resolvedParty.email
@@ -322,11 +455,17 @@ export function PartyDetailDrawer({
                             />
 
                             <ContactAction
-                                icon={Phone}
-                                label={t('ui.phone')}
+                                icon={
+                                    Phone
+                                }
+                                label={t(
+                                    'ui.phone',
+                                )}
                                 value={
                                     resolvedParty.phone ??
-                                    t('ui.not_provided')
+                                    t(
+                                        'ui.not_provided',
+                                    )
                                 }
                                 href={
                                     resolvedParty.phone
@@ -339,24 +478,32 @@ export function PartyDetailDrawer({
 
                     <section className="mt-8">
                         <SectionHeading>
-                            {t('ui.internal_notes')}
+                            {t(
+                                'ui.internal_notes',
+                            )}
                         </SectionHeading>
 
                         <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
                             <div className="flex items-start gap-3">
                                 <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-white text-[var(--ac-text-muted)] shadow-[var(--ac-shadow-soft)]">
                                     <NotebookPen
-                                        size={16}
+                                        size={
+                                            16
+                                        }
                                     />
                                 </div>
 
                                 <div className="min-w-0 flex-1">
                                     <p className="text-xs font-semibold">
-                                        {t('ui.workspace_note')}
+                                        {t(
+                                            'ui.workspace_note',
+                                        )}
                                     </p>
 
                                     <p className="mt-1 text-[10px] leading-4 text-[var(--ac-text-muted)]">
-                                        {t('ui.internal_only_this_note_is_not_customer_facing')}
+                                        {t(
+                                            'ui.internal_only_this_note_is_not_customer_facing',
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -372,7 +519,9 @@ export function PartyDetailDrawer({
                                 maxLength={
                                     5000
                                 }
-                                rows={5}
+                                rows={
+                                    5
+                                }
                                 onChange={(
                                     event,
                                 ) =>
@@ -382,14 +531,18 @@ export function PartyDetailDrawer({
                                             .value,
                                     )
                                 }
-                                placeholder={t('ui.add_useful_context_preferences_follow_up_information_or_internal_reminders')}
+                                placeholder={t(
+                                    'ui.add_useful_context_preferences_follow_up_information_or_internal_reminders',
+                                )}
                                 className="mt-4 w-full resize-y rounded-[15px] border border-[var(--ac-line)] bg-white px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)] disabled:bg-[var(--ac-bg-soft)] disabled:text-[var(--ac-text-muted)]"
                             />
 
                             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <p className="text-[10px] text-[var(--ac-text-muted)]">
                                     {archived
-                                        ? t('ui.restore_this_relationship_before_changing_notes')
+                                        ? t(
+                                              'ui.restore_this_relationship_before_changing_notes',
+                                          )
                                         : `${notes.length} / 5000`}
                                 </p>
 
@@ -406,19 +559,30 @@ export function PartyDetailDrawer({
                                             className="flex h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-text)] px-4 text-xs font-semibold text-white disabled:opacity-50"
                                         >
                                             <Save
-                                                size={14}
+                                                size={
+                                                    14
+                                                }
                                             />
 
                                             {notesBusy
-                                                ? t('ui.saving')
-                                                : t('ui.save_notes')}
+                                                ? t(
+                                                      'ui.saving',
+                                                  )
+                                                : t(
+                                                      'ui.save_notes',
+                                                  )}
                                         </button>
                                     )}
                             </div>
 
                             {notesMessage && (
-                                <p className="mt-3 text-xs text-[var(--ac-text-soft)]">
-                                    {notesMessage}
+                                <p
+                                    role="alert"
+                                    className="mt-3 text-xs text-[var(--ac-danger)]"
+                                >
+                                    {
+                                        notesMessage
+                                    }
                                 </p>
                             )}
                         </div>
@@ -426,43 +590,47 @@ export function PartyDetailDrawer({
 
                     <section className="mt-8">
                         <SectionHeading>
-                            {t('ui.business_identity')}
+                            {t(
+                                'ui.business_identity',
+                            )}
                         </SectionHeading>
 
                         <div className="overflow-hidden rounded-[20px] border border-[var(--ac-line)]">
                             <DetailRow
-                                label={t('ui.entity_type')}
+                                label={t(
+                                    'ui.entity_type',
+                                )}
                                 value={
                                     resolvedParty.type ===
                                     'company'
-                                        ? t('ui.company')
-                                        : t('ui.person')
+                                        ? t(
+                                              'ui.company',
+                                          )
+                                        : t(
+                                              'ui.person',
+                                          )
                                 }
                             />
 
                             <DetailRow
-                                label={t('ui.tax_number')}
+                                label={t(
+                                    'ui.tax_number',
+                                )}
                                 value={
                                     resolvedParty.tax_number ??
-                                    t('ui.not_provided')
+                                    t(
+                                        'ui.not_provided',
+                                    )
                                 }
                             />
 
                             <DetailRow
-                                label={t('ui.relationship')}
+                                label={t(
+                                    'ui.relationship',
+                                )}
                                 value={resolvedParty.roles
                                     .map(
-                                        (
-                                            role,
-                                        ) =>
-                                            role
-                                                .charAt(
-                                                    0,
-                                                )
-                                                .toUpperCase() +
-                                            role.slice(
-                                                1,
-                                            ),
+                                        roleLabel,
                                     )
                                     .join(
                                         ' · ',
@@ -473,25 +641,33 @@ export function PartyDetailDrawer({
 
                     <section className="mt-8">
                         <SectionHeading>
-                            {t('ui.location')}
+                            {t(
+                                'ui.location',
+                            )}
                         </SectionHeading>
 
                         <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
                             <div className="flex items-start gap-3">
                                 <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-white text-[var(--ac-text-muted)]">
                                     <MapPin
-                                        size={16}
+                                        size={
+                                            16
+                                        }
                                     />
                                 </div>
 
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-xs font-semibold">
-                                        {t('ui.business_address')}
+                                        {t(
+                                            'ui.business_address',
+                                        )}
                                     </p>
 
-                                    <p className="mt-1.5 text-sm leading-6 text-[var(--ac-text-soft)]">
+                                    <p className="mt-1.5 break-words text-sm leading-6 text-[var(--ac-text-soft)]">
                                         {location ||
-                                            t('ui.no_address_has_been_added_yet')}
+                                            t(
+                                                'ui.no_address_has_been_added_yet',
+                                            )}
                                     </p>
                                 </div>
                             </div>
@@ -500,7 +676,9 @@ export function PartyDetailDrawer({
 
                     <section className="mt-8">
                         <SectionHeading>
-                            {t('ui.record_activity')}
+                            {t(
+                                'ui.record_activity',
+                            )}
                         </SectionHeading>
 
                         <div className="grid gap-2 sm:grid-cols-2">
@@ -508,7 +686,9 @@ export function PartyDetailDrawer({
                                 icon={
                                     CalendarDays
                                 }
-                                label={t('ui.created')}
+                                label={t(
+                                    'ui.created',
+                                )}
                                 value={formatDate(
                                     resolvedParty.created_at,
                                 )}
@@ -518,7 +698,9 @@ export function PartyDetailDrawer({
                                 icon={
                                     ShieldCheck
                                 }
-                                label={t('ui.last_updated')}
+                                label={t(
+                                    'ui.last_updated',
+                                )}
                                 value={formatDate(
                                     resolvedParty.updated_at,
                                 )}
@@ -527,8 +709,8 @@ export function PartyDetailDrawer({
                     </section>
                 </div>
 
-                <footer className="border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 sm:px-6">
-                    <div className="grid gap-2 sm:flex sm:justify-end">
+                <footer className="shrink-0 border-t border-[var(--ac-line)] bg-white p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
+                    <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
                         {! archived &&
                             canEdit && (
                                 <button
@@ -538,13 +720,17 @@ export function PartyDetailDrawer({
                                             resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-5 text-sm font-semibold"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-5 text-sm font-semibold transition hover:border-[var(--ac-line-strong)]"
                                 >
                                     <Edit3
-                                        size={15}
+                                        size={
+                                            15
+                                        }
                                     />
 
-                                    {t('ui.edit')}
+                                    {t(
+                                        'ui.edit',
+                                    )}
                                 </button>
                             )}
 
@@ -557,13 +743,17 @@ export function PartyDetailDrawer({
                                             resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white transition hover:-translate-y-px motion-reduce:transform-none"
                                 >
                                     <Archive
-                                        size={15}
+                                        size={
+                                            15
+                                        }
                                     />
 
-                                    {t('ui.archive')}
+                                    {t(
+                                        'ui.archive',
+                                    )}
                                 </button>
                             )}
 
@@ -576,19 +766,43 @@ export function PartyDetailDrawer({
                                             resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-accent-strong)] px-5 text-sm font-semibold text-white"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-accent-strong)] px-5 text-sm font-semibold text-white transition hover:-translate-y-px motion-reduce:transform-none"
                                 >
                                     <RotateCcw
-                                        size={15}
+                                        size={
+                                            15
+                                        }
                                     />
 
-                                    {t('ui.restore')}
+                                    {t(
+                                        'ui.restore',
+                                    )}
                                 </button>
                             )}
+
+                        {archived && (
+                            <PermanentDeleteControl
+                                resource="parties"
+                                recordId={
+                                    resolvedParty.id
+                                }
+                                recordName={
+                                    label
+                                }
+                                onDeleted={
+                                    onClose
+                                }
+                            />
+                        )}
                     </div>
                 </footer>
             </aside>
         </div>
+    );
+
+    return createPortal(
+        surface,
+        document.body,
     );
 }
 
@@ -597,21 +811,23 @@ type SectionHeadingProps = {
 };
 
 /**
- * Render one Party context section heading.
+ * Render one Party Show section heading.
  */
 function SectionHeading({
     children,
 }: SectionHeadingProps) {
-    useLocale();
     return (
         <p className="mb-3 text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-text-muted)]">
-            {children}
+            {
+                children
+            }
         </p>
     );
 }
 
 type ContactActionProps = {
-    icon: typeof Mail;
+    icon:
+        typeof Mail;
 
     label: string;
 
@@ -629,39 +845,54 @@ function ContactAction({
     value,
     href,
 }: ContactActionProps) {
-    useLocale();
     const content = (
         <>
             <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]">
-                <Icon size={15} />
+                <Icon
+                    size={
+                        15
+                    }
+                />
             </div>
 
             <div className="min-w-0">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--ac-text-muted)]">
-                    {label}
+                    {
+                        label
+                    }
                 </p>
 
                 <p className="mt-1 truncate text-xs font-semibold">
-                    {value}
+                    {
+                        value
+                    }
                 </p>
             </div>
         </>
     );
 
-    if (! href) {
+    if (
+        ! href
+    ) {
         return (
             <div className="flex min-w-0 items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-white p-3">
-                {content}
+                {
+                    content
+                }
             </div>
         );
     }
 
     return (
         <a
-            href={href}
-            className="flex min-w-0 items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-soft)]"
+            href={
+                href
+            }
+            className="flex min-w-0 items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-soft)] motion-reduce:transform-none"
         >
-            {content}
+            {
+                content
+            }
         </a>
     );
 }
@@ -673,28 +904,32 @@ type DetailRowProps = {
 };
 
 /**
- * Render one Party business-identity value.
+ * Render one Party identity value.
  */
 function DetailRow({
     label,
     value,
 }: DetailRowProps) {
-    useLocale();
     return (
         <div className="flex items-start justify-between gap-5 border-b border-[var(--ac-line)] px-4 py-3.5 last:border-b-0">
             <span className="text-xs text-[var(--ac-text-muted)]">
-                {label}
+                {
+                    label
+                }
             </span>
 
-            <span className="max-w-[60%] text-end text-xs font-semibold">
-                {value}
+            <span className="max-w-[60%] break-words text-end text-xs font-semibold">
+                {
+                    value
+                }
             </span>
         </div>
     );
 }
 
 type LifecycleCardProps = {
-    icon: typeof CalendarDays;
+    icon:
+        typeof CalendarDays;
 
     label: string;
 
@@ -709,20 +944,25 @@ function LifecycleCard({
     label,
     value,
 }: LifecycleCardProps) {
-    useLocale();
     return (
         <div className="rounded-[17px] border border-[var(--ac-line)] bg-white p-4">
             <Icon
-                size={15}
+                size={
+                    15
+                }
                 className="text-[var(--ac-text-muted)]"
             />
 
             <p className="mt-3 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--ac-text-muted)]">
-                {label}
+                {
+                    label
+                }
             </p>
 
             <p className="mt-1 text-sm font-semibold">
-                {value}
+                {
+                    value
+                }
             </p>
         </div>
     );

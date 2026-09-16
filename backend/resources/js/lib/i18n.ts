@@ -1,18 +1,88 @@
-import { useSyncExternalStore } from 'react';
-import en from './locales/en';
+import {
+    useSyncExternalStore,
+} from 'react';
+
 import ar from './locales/ar';
-import { getLocale, subscribeLocale } from './locale';
+import dataLifecycle from './locales/dataLifecycle';
+import en from './locales/en';
+import {
+    getLocale,
+    subscribeLocale,
+} from './locale';
 
-export type TranslationKey = keyof typeof en;
-const dictionaries = { en, ar };
+const dictionaries = {
+    en: {
+        ...en,
+        ...dataLifecycle.en,
+    },
 
-/** Resolve trusted copy and interpolate data as text, never HTML. */
-export function t(key: TranslationKey, values: Record<string, string | number> = {}): string {
-    const template = dictionaries[getLocale()][key] ?? en[key];
-    return template.replace(/\{(\w+)\}/g, (match, name: string) => String(values[name] ?? match));
+    ar: {
+        ...ar,
+        ...dataLifecycle.ar,
+    },
+} as const;
+
+export type TranslationKey =
+    keyof typeof dictionaries.en;
+
+/**
+ * Resolve trusted translated copy and interpolate text values without
+ * rendering HTML.
+ */
+export function t(
+    key: TranslationKey,
+    values:
+        Record<
+            string,
+            string | number
+        > = {},
+): string {
+    const selected =
+        dictionaries[
+            getLocale()
+        ] as Record<
+            TranslationKey,
+            string
+        >;
+
+    const fallback =
+        dictionaries.en as Record<
+            TranslationKey,
+            string
+        >;
+
+    const template =
+        selected[
+            key
+        ] ??
+        fallback[
+            key
+        ];
+
+    return template.replace(
+        /\{(\w+)\}/g,
+        (
+            match,
+            name: string,
+        ) =>
+            String(
+                values[
+                    name
+                ] ??
+                    match,
+            ),
+    );
 }
 
-/** Subscribe a component to locale changes while retaining its form and dialog state. */
+/**
+ * Subscribe translated components to locale changes without remounting their
+ * form or dialog state.
+ */
 export function useLocale() {
-    return useSyncExternalStore(subscribeLocale, getLocale, () => 'en' as const);
+    return useSyncExternalStore(
+        subscribeLocale,
+        getLocale,
+        () =>
+            'en' as const,
+    );
 }

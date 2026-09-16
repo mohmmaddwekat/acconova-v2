@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProductBulkActionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductDataTransferController;
+use App\Http\Controllers\ProductPermanentDeletionController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
@@ -96,6 +97,10 @@ Route::middleware([
         'product',
     );
 
+    /*
+     * DELETE /products/{id} means archive. Permanent deletion has an explicit
+     * route so accidental client behavior can never confuse the two actions.
+     */
     Route::delete(
         'products/{product}',
         [
@@ -112,6 +117,13 @@ Route::middleware([
             ProductController::class,
             'restore',
         ],
+    )->whereNumber(
+        'product',
+    );
+
+    Route::delete(
+        'products/{product}/permanent',
+        ProductPermanentDeletionController::class,
     )->whereNumber(
         'product',
     );

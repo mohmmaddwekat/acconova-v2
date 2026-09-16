@@ -1,10 +1,13 @@
-import {
-    getLocale,
-} from '@/lib/locale';
+import type {
+    Product,
+} from '@/features/products/types';
 import {
     t,
     useLocale,
 } from '@/lib/i18n';
+import {
+    getLocale,
+} from '@/lib/locale';
 import {
     Archive,
     ArrowUpRight,
@@ -16,10 +19,6 @@ import {
 import type {
     MouseEvent as ReactMouseEvent,
 } from 'react';
-
-import type {
-    Product,
-} from '@/features/products/types';
 
 type ProductListItemProps = {
     product: Product;
@@ -54,15 +53,15 @@ type ProductListItemProps = {
 };
 
 /**
- * Render one responsive Product or Service catalog row.
+ * Render one responsive Product or Service operating row.
  *
- * The whole non-interactive row supports double-click detail opening while
- * buttons, links, checkboxes, and form controls retain their own behavior.
+ * Selection presentation is owned by the shared `.ac-index-row` design-system
+ * state so every current and future Index uses the same visual language.
  */
 export function ProductListItem({
     product,
-    selected,
-    selectable,
+    selected = false,
+    selectable = false,
     onSelectionChange,
     canEdit,
     canArchive,
@@ -78,10 +77,8 @@ export function ProductListItem({
         null;
 
     /**
-     * Open Product context when the user double-clicks the row itself.
-     *
-     * Interactive descendants are intentionally ignored so double-clicking an
-     * action or checkbox can never trigger an unrelated Show surface.
+     * Open Product details from a deliberate double-click while leaving all
+     * interactive descendants responsible for their own pointer actions.
      */
     function handleRowDoubleClick(
         event: ReactMouseEvent<HTMLElement>,
@@ -109,10 +106,15 @@ export function ProductListItem({
 
     return (
         <article
+            data-selected={
+                selected
+                    ? 'true'
+                    : 'false'
+            }
             onDoubleClick={
                 handleRowDoubleClick
             }
-            className="ac-index-row group mx-3 my-3 grid gap-4 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] transition hover:border-[var(--ac-line-strong)] sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[minmax(240px,1.4fr)_minmax(120px,.6fr)_minmax(140px,.7fr)_minmax(120px,.6fr)_auto] lg:items-center lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none"
+            className="ac-index-row group mx-3 my-3 grid gap-4 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[minmax(240px,1.4fr)_minmax(120px,.6fr)_minmax(140px,.7fr)_minmax(120px,.6fr)_auto] lg:items-center lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none"
         >
             <div className="flex min-w-0 items-center gap-2">
                 {selectable && (
@@ -133,10 +135,11 @@ export function ProductListItem({
                         aria-label={t(
                             'action.select',
                             {
-                                name: product.name,
+                                name:
+                                    product.name,
                             },
                         )}
-                        className="size-5 shrink-0 accent-emerald-700"
+                        className="size-5 shrink-0 cursor-pointer accent-[var(--ac-accent-strong)]"
                     />
                 )}
 
@@ -147,7 +150,7 @@ export function ProductListItem({
                             product,
                         )
                     }
-                    className="flex min-w-0 items-start gap-3 text-start lg:items-center"
+                    className="flex min-w-0 flex-1 items-start gap-3 text-start lg:items-center"
                 >
                     <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-surface-strong)] text-[var(--ac-text-soft)] transition duration-200 group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]">
                         {product.type ===
@@ -202,7 +205,10 @@ export function ProductListItem({
                     )}
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p
+                    dir="ltr"
+                    className="mt-1 font-semibold"
+                >
                     {product.sku ??
                         t(
                             'ui.no_sku',
@@ -255,6 +261,13 @@ export function ProductListItem({
             <div className="flex gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0">
                 <button
                     type="button"
+                    aria-label={t(
+                        'action.view',
+                        {
+                            name:
+                                product.name,
+                        },
+                    )}
                     onClick={() =>
                         onView(
                             product,
@@ -279,6 +292,13 @@ export function ProductListItem({
                     canEdit && (
                         <button
                             type="button"
+                            aria-label={t(
+                                'action.edit',
+                                {
+                                    name:
+                                        product.name,
+                                },
+                            )}
                             onClick={() =>
                                 onEdit(
                                     product,
@@ -304,6 +324,13 @@ export function ProductListItem({
                     canArchive && (
                         <button
                             type="button"
+                            aria-label={t(
+                                'action.archive',
+                                {
+                                    name:
+                                        product.name,
+                                },
+                            )}
                             onClick={() =>
                                 onArchive(
                                     product,
@@ -329,6 +356,13 @@ export function ProductListItem({
                     canArchive && (
                         <button
                             type="button"
+                            aria-label={t(
+                                'action.restore',
+                                {
+                                    name:
+                                        product.name,
+                                },
+                            )}
                             onClick={() =>
                                 onRestore(
                                     product,
