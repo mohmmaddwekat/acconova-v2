@@ -22,6 +22,12 @@ return [
 
     'permanent_delete_blocked' => 'This record cannot be deleted permanently because protected business records still reference it. Archive it instead.',
 
+    'warehouse_default_archive_blocked' => 'Choose another default warehouse before archiving this warehouse.',
+
+    'warehouse_stock_archive_blocked' => 'Move or adjust this warehouse stock to zero before archiving it.',
+
+    'product_stock_archive_blocked' => 'Move or adjust this product inventory to zero before archiving it.',
+
     'return' => 'Return to your workspace',
 
     'import_invalid' => 'Review the values in this spreadsheet row.',

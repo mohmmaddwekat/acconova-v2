@@ -5,6 +5,7 @@ import {
 import ar from './locales/ar';
 import dataLifecycle from './locales/dataLifecycle';
 import en from './locales/en';
+import inventory from './locales/inventory';
 import {
     getLocale,
     subscribeLocale,
@@ -14,11 +15,13 @@ const dictionaries = {
     en: {
         ...en,
         ...dataLifecycle.en,
+        ...inventory.en,
     },
 
     ar: {
         ...ar,
         ...dataLifecycle.ar,
+        ...inventory.ar,
     },
 } as const;
 
@@ -26,8 +29,11 @@ export type TranslationKey =
     keyof typeof dictionaries.en;
 
 /**
- * Resolve trusted translated copy and interpolate text values without
- * rendering HTML.
+ * Resolve trusted translated copy and interpolate plain-text values.
+ *
+ * Missing runtime translations fall back to the key itself instead of
+ * crashing the React application. TypeScript remains responsible for catching
+ * invalid keys during development.
  */
 export function t(
     key: TranslationKey,
@@ -40,24 +46,33 @@ export function t(
     const selected =
         dictionaries[
             getLocale()
-        ] as Record<
-            TranslationKey,
-            string
+        ] as Partial<
+            Record<
+                TranslationKey,
+                string
+            >
         >;
 
     const fallback =
-        dictionaries.en as Record<
-            TranslationKey,
-            string
+        dictionaries.en as Partial<
+            Record<
+                TranslationKey,
+                string
+            >
         >;
 
     const template =
         selected[
             key
-        ] ??
+        ]
+        ??
         fallback[
             key
-        ];
+        ]
+        ??
+        String(
+            key,
+        );
 
     return template.replace(
         /\{(\w+)\}/g,
@@ -68,15 +83,16 @@ export function t(
             String(
                 values[
                     name
-                ] ??
-                    match,
+                ]
+                ??
+                match,
             ),
     );
 }
 
 /**
  * Subscribe translated components to locale changes without remounting their
- * form or dialog state.
+ * current form, drawer, or dialog state.
  */
 export function useLocale() {
     return useSyncExternalStore(

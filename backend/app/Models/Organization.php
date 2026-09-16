@@ -72,4 +72,14 @@ class Organization extends Model
             Product::class,
         );
     }
+
+    /**
+     * Return the organization's physical inventory locations.
+     */
+    public function warehouses(): HasMany
+    {
+        return $this->hasMany(
+            Warehouse::class,
+        );
+    }
 }

@@ -742,7 +742,7 @@ function PartiesWorkspace() {
 
                             <p className="mt-1 text-xl font-semibold tracking-[-0.04em]">
                                 {total}{' '}
-                                relationships
+                                {t('ui.relationship')}
                             </p>
 
                             <p className="mt-1 truncate text-[11px] text-[var(--ac-text-muted)]">

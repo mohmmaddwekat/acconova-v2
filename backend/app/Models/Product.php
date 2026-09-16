@@ -8,6 +8,7 @@ use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
@@ -27,6 +28,8 @@ class Product extends Model
         'unit_price',
         'cost_price',
         'tax_rate',
+        'track_inventory',
+        'low_stock_threshold',
     ];
 
     /**
@@ -47,7 +50,31 @@ class Product extends Model
             'cost_price' => 'decimal:4',
 
             'tax_rate' => 'decimal:2',
+
+            'track_inventory' => 'boolean',
+
+            'low_stock_threshold' => 'decimal:4',
         ];
+    }
+
+    /**
+     * Return warehouse balances belonging to this Product.
+     */
+    public function inventoryBalances(): HasMany
+    {
+        return $this->hasMany(
+            InventoryBalance::class,
+        );
+    }
+
+    /**
+     * Return the immutable stock activity associated with this Product.
+     */
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(
+            StockMovement::class,
+        );
     }
 
     /**
@@ -69,5 +96,16 @@ class Product extends Model
     public function isUsableForNewBusiness(): bool
     {
         return ! $this->trashed();
+    }
+
+    /**
+     * Determine whether this record represents a physical Product whose
+     * inventory is actively tracked.
+     */
+    public function tracksInventory(): bool
+    {
+        return $this->type ===
+            ProductType::Product
+            && $this->track_inventory;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Exceptions\SafeValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,9 +13,8 @@ class SafeErrorResponse
     /**
      * Sanitize rendered failures after Laravel reports the original exception.
      *
-     * Only explicitly allowlisted domain validation messages may survive.
-     * Unknown custom messages are replaced with safe translated copy so SQL,
-     * stack traces, class names, and implementation details never reach users.
+     * Stable AccoNova business-error codes are translated safely while unknown
+     * exception text, SQL errors, classes, and stack traces never reach users.
      */
     public static function render(
         Response $response,
@@ -65,10 +65,6 @@ class SafeErrorResponse
                     ->validator
                     ->failed();
 
-            /*
-             * These messages originate from our own translated domain catalog,
-             * not from arbitrary exception text.
-             */
             $safeCustomMessages = [
                 'password' => [
                     __(
@@ -80,6 +76,34 @@ class SafeErrorResponse
             foreach (
                 $exception->errors() as $field => $messages
             ) {
+                if (
+                    $exception instanceof SafeValidationException
+                ) {
+                    $safeCodes =
+                        $exception
+                            ->safeErrorCodes[$field] ?? [];
+
+                    if (
+                        $safeCodes !==
+                        []
+                    ) {
+                        $safeCode =
+                            $safeCodes[0];
+
+                        $payload['errors'][$field] = [
+                            __(
+                                'feedback.'
+                                    .$safeCode,
+                            ),
+                        ];
+
+                        $payload['error_codes'][$field] =
+                            $safeCodes;
+
+                        continue;
+                    }
+                }
+
                 $rules =
                     array_map(
                         strtolower(...),
@@ -143,10 +167,6 @@ class SafeErrorResponse
                     ),
                 ];
 
-                /*
-                 * Stable error codes allow the React application to translate
-                 * or specialize feedback without trusting raw server messages.
-                 */
                 $payload['error_codes'][$field] =
                     $rules !== []
                     ? $rules
@@ -159,7 +179,8 @@ class SafeErrorResponse
         if (
             $request->is(
                 'api/*',
-            ) ||
+            )
+            ||
             $request->expectsJson()
         ) {
             $safe =

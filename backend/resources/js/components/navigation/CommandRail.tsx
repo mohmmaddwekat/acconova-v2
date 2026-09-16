@@ -1,5 +1,7 @@
-import { useLocale } from '@/lib/i18n';
-import { t } from '@/lib/i18n';
+import {
+    t,
+    useLocale,
+} from '@/lib/i18n';
 import {
     Link,
     usePage,
@@ -12,6 +14,7 @@ import {
     PanelLeftOpen,
     ReceiptText,
     Sparkles,
+    Warehouse,
     X,
     type LucideIcon,
 } from 'lucide-react';
@@ -27,8 +30,6 @@ type NavigationItem = {
 
     disabled?: boolean;
 };
-
-
 
 type CommandRailProps = {
     expanded: boolean;
@@ -47,8 +48,8 @@ type CommandRailProps = {
 /**
  * Determine whether a navigation destination matches the current Inertia URL.
  *
- * The Command destination matches only /app itself while feature destinations
- * remain active for any nested feature route.
+ * The dashboard matches only /app itself while feature destinations remain
+ * active for their nested application routes.
  */
 function destinationIsActive(
     currentUrl: string,
@@ -58,7 +59,10 @@ function destinationIsActive(
         return false;
     }
 
-    if (href === '/app') {
+    if (
+        href ===
+        '/app'
+    ) {
         return currentUrl ===
             '/app';
     }
@@ -71,9 +75,8 @@ function destinationIsActive(
 /**
  * Render AccoNova's adaptive primary command navigation.
  *
- * Desktop devices receive a rail that smoothly expands into a full navigation
- * surface. Phones preserve the same start-side navigation language through a
- * slide-in drawer rather than falling back to generic bottom navigation.
+ * Desktop uses the collapsible command rail while mobile receives the same
+ * destinations inside a full-height start-side drawer.
  */
 export function CommandRail({
     expanded,
@@ -81,51 +84,99 @@ export function CommandRail({
     onExpandedChange,
     onMobileOpenChange,
 }: CommandRailProps) {
-    const navigationItems: NavigationItem[] = [
-    {
-        label: t('ui.command'),
-
-        description:
-            t('ui.business_pulse'),
-
-        href: '/app',
-
-        icon: Gauge,
-    },
-    {
-        label: t('ui.parties'),
-
-        description:
-            t('ui.relationships'),
-
-        href: '/app/parties',
-
-        icon: ContactRound,
-    },
-    {
-        label: t('ui.products'),
-
-        description:
-            t('ui.catalog'),
-
-        href: '/app/products',
-
-        icon: Boxes,
-    },
-    {
-        label: t('ui.invoices'),
-
-        description:
-            t('ui.revenue'),
-
-        icon: ReceiptText,
-
-        disabled: true,
-    },
-];
     useLocale();
+
     const page =
         usePage();
+
+    const navigationItems:
+        NavigationItem[] = [
+        {
+            label:
+                t(
+                    'ui.command',
+                ),
+
+            description:
+                t(
+                    'ui.business_pulse',
+                ),
+
+            href:
+                '/app',
+
+            icon:
+                Gauge,
+        },
+        {
+            label:
+                t(
+                    'ui.parties',
+                ),
+
+            description:
+                t(
+                    'ui.relationships',
+                ),
+
+            href:
+                '/app/parties',
+
+            icon:
+                ContactRound,
+        },
+        {
+            label:
+                t(
+                    'ui.products',
+                ),
+
+            description:
+                t(
+                    'ui.catalog',
+                ),
+
+            href:
+                '/app/products',
+
+            icon:
+                Boxes,
+        },
+        {
+            label:
+                t(
+                    'inventory.nav',
+                ),
+
+            description:
+                t(
+                    'inventory.navDescription',
+                ),
+
+            href:
+                '/app/inventory',
+
+            icon:
+                Warehouse,
+        },
+        {
+            label:
+                t(
+                    'ui.invoices',
+                ),
+
+            description:
+                t(
+                    'ui.revenue',
+                ),
+
+            icon:
+                ReceiptText,
+
+            disabled:
+                true,
+        },
+    ];
 
     return (
         <>
@@ -135,7 +186,9 @@ export function CommandRail({
                     expanded
                         ? 'w-[248px]'
                         : 'w-[84px]',
-                ].join(' ')}
+                ].join(
+                    ' ',
+                )}
             >
                 <div
                     className={[
@@ -143,11 +196,15 @@ export function CommandRail({
                         expanded
                             ? 'justify-start px-4'
                             : 'justify-center px-2',
-                    ].join(' ')}
+                    ].join(
+                        ' ',
+                    )}
                 >
                     <Link
                         href="/app"
-                        aria-label={t('ui.acconova_home')}
+                        aria-label={t(
+                            'ui.acconova_home',
+                        )}
                         className="group flex min-w-0 items-center gap-3"
                     >
                         <div className="relative flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-text)] text-[11px] font-bold tracking-[-0.02em] text-white shadow-[var(--ac-shadow-soft)] transition duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[var(--ac-shadow-panel)]">
@@ -162,20 +219,24 @@ export function CommandRail({
                                 expanded
                                     ? 'max-w-[150px] opacity-100'
                                     : 'max-w-0 opacity-0',
-                            ].join(' ')}
+                            ].join(
+                                ' ',
+                            )}
                         >
                             <p className="whitespace-nowrap text-sm font-semibold tracking-[-0.03em] text-[var(--ac-text)]">
                                 AccoNova
                             </p>
 
                             <p className="mt-0.5 whitespace-nowrap text-[8px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-text-muted)]">
-                                {t('ui.operating_system')}
+                                {t(
+                                    'ui.operating_system',
+                                )}
                             </p>
                         </div>
                     </Link>
                 </div>
 
-                <nav className="flex flex-1 flex-col gap-1.5 overflow-hidden px-2 py-5">
+                <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-5">
                     {navigationItems.map(
                         (
                             item,
@@ -204,16 +265,22 @@ export function CommandRail({
                         <div className="mb-2 rounded-[16px] bg-[var(--ac-accent-soft)] px-3 py-3">
                             <div className="flex items-center gap-2 text-[var(--ac-accent-strong)]">
                                 <Sparkles
-                                    size={14}
+                                    size={
+                                        14
+                                    }
                                 />
 
                                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">
-                                    {t('ui.signal_ready')}
+                                    {t(
+                                        'ui.signal_ready',
+                                    )}
                                 </span>
                             </div>
 
                             <p className="mt-2 text-[11px] leading-4 text-[var(--ac-text-soft)]">
-                                {t('ui.acconova_is_watching_the_operating_picture')}
+                                {t(
+                                    'ui.acconova_is_watching_the_operating_picture',
+                                )}
                             </p>
                         </div>
                     )}
@@ -222,8 +289,12 @@ export function CommandRail({
                         type="button"
                         aria-label={
                             expanded
-                                ? t('ui.collapse_navigation')
-                                : t('ui.expand_navigation')
+                                ? t(
+                                      'ui.collapse_navigation',
+                                  )
+                                : t(
+                                      'ui.expand_navigation',
+                                  )
                         }
                         onClick={() =>
                             onExpandedChange(
@@ -235,21 +306,29 @@ export function CommandRail({
                             expanded
                                 ? 'justify-start gap-3 px-3'
                                 : 'justify-center px-2',
-                        ].join(' ')}
+                        ].join(
+                            ' ',
+                        )}
                     >
                         {expanded ? (
                             <PanelLeftClose
-                                size={17}
+                                size={
+                                    17
+                                }
                             />
                         ) : (
                             <PanelLeftOpen
-                                size={17}
+                                size={
+                                    17
+                                }
                             />
                         )}
 
                         {expanded && (
                             <span className="text-xs font-semibold">
-                                {t('ui.collapse')}
+                                {t(
+                                    'ui.collapse',
+                                )}
                             </span>
                         )}
                     </button>
@@ -270,7 +349,9 @@ export function CommandRail({
                     mobileOpen
                         ? 'pointer-events-auto opacity-100'
                         : 'pointer-events-none opacity-0',
-                ].join(' ')}
+                ].join(
+                    ' ',
+                )}
             />
 
             <aside
@@ -279,7 +360,9 @@ export function CommandRail({
                     mobileOpen
                         ? 'translate-x-0'
                         : '-translate-x-full rtl:translate-x-full',
-                ].join(' ')}
+                ].join(
+                    ' ',
+                )}
                 style={{
                     paddingTop:
                         'env(safe-area-inset-top)',
@@ -310,14 +393,18 @@ export function CommandRail({
                             </p>
 
                             <p className="text-[8px] font-semibold uppercase tracking-[0.17em] text-[var(--ac-text-muted)]">
-                                {t('ui.business_operating_system')}
+                                {t(
+                                    'ui.business_operating_system',
+                                )}
                             </p>
                         </div>
                     </Link>
 
                     <button
                         type="button"
-                        aria-label={t('ui.close_navigation')}
+                        aria-label={t(
+                            'ui.close_navigation',
+                        )}
                         onClick={() =>
                             onMobileOpenChange(
                                 false,
@@ -326,7 +413,9 @@ export function CommandRail({
                         className="flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-soft)]"
                     >
                         <X
-                            size={18}
+                            size={
+                                18
+                            }
                         />
                     </button>
                 </div>
@@ -360,16 +449,22 @@ export function CommandRail({
                 <div className="m-3 rounded-[18px] bg-[var(--ac-accent-soft)] p-4">
                     <div className="flex items-center gap-2 text-[var(--ac-accent-strong)]">
                         <Sparkles
-                            size={15}
+                            size={
+                                15
+                            }
                         />
 
                         <span className="text-[10px] font-semibold uppercase tracking-[0.16em]">
-                            {t('ui.business_signal')}
+                            {t(
+                                'ui.business_signal',
+                            )}
                         </span>
                     </div>
 
                     <p className="mt-2 text-xs leading-5 text-[var(--ac-text-soft)]">
-                        {t('ui.keep_the_business_moving_from_one_operating_surface')}
+                        {t(
+                            'ui.keep_the_business_moving_from_one_operating_surface',
+                        )}
                     </p>
                 </div>
             </aside>
@@ -387,9 +482,6 @@ type DesktopNavigationItemProps = {
 
 /**
  * Render one desktop command-rail destination.
- *
- * Disabled future modules retain their visual position without becoming
- * clickable before the feature is ready.
  */
 function DesktopNavigationItem({
     item,
@@ -397,6 +489,7 @@ function DesktopNavigationItem({
     expanded,
 }: DesktopNavigationItemProps) {
     useLocale();
+
     const Icon =
         item.icon;
 
@@ -408,10 +501,14 @@ function DesktopNavigationItem({
                     active
                         ? 'bg-white text-[var(--ac-text)] shadow-[var(--ac-shadow-soft)]'
                         : 'text-[var(--ac-text-muted)]',
-                ].join(' ')}
+                ].join(
+                    ' ',
+                )}
             >
                 <Icon
-                    size={17}
+                    size={
+                        17
+                    }
                 />
             </div>
 
@@ -421,14 +518,20 @@ function DesktopNavigationItem({
                     expanded
                         ? 'max-w-[150px] opacity-100'
                         : 'max-w-0 opacity-0',
-                ].join(' ')}
+                ].join(
+                    ' ',
+                )}
             >
                 <p className="whitespace-nowrap text-xs font-semibold">
-                    {item.label}
+                    {
+                        item.label
+                    }
                 </p>
 
                 <p className="mt-0.5 whitespace-nowrap text-[10px] text-[var(--ac-text-muted)]">
-                    {item.description}
+                    {
+                        item.description
+                    }
                 </p>
             </div>
         </>
@@ -450,9 +553,13 @@ function DesktopNavigationItem({
                     expanded
                         ? 'gap-3 px-2'
                         : 'justify-center px-1',
-                ].join(' ')}
+                ].join(
+                    ' ',
+                )}
             >
-                {content}
+                {
+                    content
+                }
             </div>
         );
     }
@@ -476,13 +583,17 @@ function DesktopNavigationItem({
                 active
                     ? 'bg-[var(--ac-surface-strong)] text-[var(--ac-text)]'
                     : 'text-[var(--ac-text-soft)] hover:bg-[var(--ac-bg-soft)]',
-            ].join(' ')}
+            ].join(
+                ' ',
+            )}
         >
             {active && (
                 <span className="absolute -start-2 h-6 w-[3px] rounded-e-full bg-[var(--ac-accent)]" />
             )}
 
-            {content}
+            {
+                content
+            }
         </Link>
     );
 }
@@ -504,6 +615,7 @@ function MobileNavigationItem({
     onNavigate,
 }: MobileNavigationItemProps) {
     useLocale();
+
     const Icon =
         item.icon;
 
@@ -515,13 +627,17 @@ function MobileNavigationItem({
             <div className="flex items-center gap-3 rounded-[16px] px-3 py-3 opacity-35">
                 <div className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)]">
                     <Icon
-                        size={17}
+                        size={
+                            17
+                        }
                     />
                 </div>
 
                 <div>
                     <p className="text-sm font-semibold">
-                        {item.label}
+                        {
+                            item.label
+                        }
                     </p>
 
                     <p className="mt-0.5 text-[11px] text-[var(--ac-text-muted)]">
@@ -547,7 +663,9 @@ function MobileNavigationItem({
                 active
                     ? 'bg-[var(--ac-surface-strong)]'
                     : 'hover:bg-[var(--ac-bg-soft)]',
-            ].join(' ')}
+            ].join(
+                ' ',
+            )}
         >
             <div
                 className={[
@@ -555,20 +673,28 @@ function MobileNavigationItem({
                     active
                         ? 'bg-white shadow-[var(--ac-shadow-soft)]'
                         : 'bg-[var(--ac-bg-soft)]',
-                ].join(' ')}
+                ].join(
+                    ' ',
+                )}
             >
                 <Icon
-                    size={17}
+                    size={
+                        17
+                    }
                 />
             </div>
 
             <div>
                 <p className="text-sm font-semibold">
-                    {item.label}
+                    {
+                        item.label
+                    }
                 </p>
 
                 <p className="mt-0.5 text-[11px] text-[var(--ac-text-muted)]">
-                    {item.description}
+                    {
+                        item.description
+                    }
                 </p>
             </div>
         </Link>

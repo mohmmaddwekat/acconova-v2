@@ -147,6 +147,15 @@ Route::middleware([
     )->name(
         'app.products',
     );
+
+    Route::get(
+        '/app/inventory',
+        fn () => Inertia::render(
+            'Inventory/Index',
+        ),
+    )->name(
+        'app.inventory',
+    );
 });
 
 /*
@@ -167,4 +176,7 @@ Route::prefix('api')->group(function (): void {
 
     require __DIR__
         .'/api/products.php';
+
+    require __DIR__
+        .'/api/inventory.php';
 });

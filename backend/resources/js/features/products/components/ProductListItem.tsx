@@ -57,6 +57,9 @@ type ProductListItemProps = {
 
 /**
  * Render one responsive Product or Service operating row.
+ *
+ * Directional identifiers such as SKU values preserve their LTR character
+ * order without changing the surrounding RTL column alignment.
  */
 export function ProductListItem({
     product,
@@ -77,8 +80,8 @@ export function ProductListItem({
         null;
 
     /**
-     * Open Product details from a deliberate double-click without intercepting
-     * interactive controls.
+     * Open Product details from a deliberate double-click without
+     * intercepting interactive controls.
      */
     function handleRowDoubleClick(
         event: ReactMouseEvent<HTMLElement>,
@@ -207,21 +210,20 @@ export function ProductListItem({
                 </button>
             </div>
 
-            <div className="text-xs">
+            <div className="min-w-0 text-xs">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
                     {t(
                         'ui.sku',
                     )}
                 </p>
 
-                <p
-                    dir="ltr"
-                    className="mt-1 font-semibold"
-                >
-                    {product.sku ??
-                        t(
-                            'ui.no_sku',
-                        )}
+                <p className="mt-1 truncate font-semibold">
+                    <bdi dir="ltr">
+                        {product.sku ??
+                            t(
+                                'ui.no_sku',
+                            )}
+                    </bdi>
                 </p>
             </div>
 

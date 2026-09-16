@@ -216,7 +216,7 @@ export default {
     "ui.company": "شركة",
     "ui.person": "شخص",
     "ui.tax_number": "الرقم الضريبي",
-    "ui.relationship": "العلاقة",
+    "ui.relationship": "علاقة",
     "ui.no_address_has_been_added_yet": "لم يُضف عنوان بعد.",
     "ui.created": "تاريخ الإنشاء",
     "ui.last_updated": "آخر تحديث",
