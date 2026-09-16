@@ -1,6 +1,7 @@
 import {
     Menu,
 } from 'lucide-react';
+import { NotificationBell } from '@/components/navigation/NotificationBell';
 
 import {
     AccountMenu,
@@ -57,6 +58,7 @@ export function ContextBar({
 
                 <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                     <LanguageSwitcher />
+                    <NotificationBell />
 
                     <AccountMenu />
                 </div>

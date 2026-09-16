@@ -2,6 +2,7 @@ import {
     t,
     useLocale,
 } from '@/lib/i18n';
+import type { AppPageProps } from '@/types/app';
 import {
     Link,
     usePage,
@@ -14,6 +15,9 @@ import {
     PanelLeftOpen,
     ReceiptText,
     Sparkles,
+    Settings,
+    Users,
+    ShieldCheck,
     Warehouse,
     X,
     type LucideIcon,
@@ -87,7 +91,7 @@ export function CommandRail({
     useLocale();
 
     const page =
-        usePage();
+        usePage<AppPageProps>();
 
     const navigationItems:
         NavigationItem[] = [
@@ -178,6 +182,17 @@ export function CommandRail({
         },
     ];
 
+    navigationItems.push({ label: t('staff.title'), description: t('staff.subtitle'), href: '/app/staff', icon: Users });
+    if (page.props.workspace.activeOrganization?.role === 'owner') { navigationItems.push({ label: t('staff.roles'), description: t('staff.access'), href: '/app/roles', icon: ShieldCheck }); }
+    navigationItems.push({ label: t('settings.title'), description: t('settings.subtitle'), href: '/app/settings', icon: Settings });
+    navigationItems.splice(4, 0,
+        ...((page.props.workspace.activeOrganization?.permissions ? page.props.workspace.activeOrganization.permissions.includes('payments.view') : ['owner', 'admin', 'manager', 'accountant'].includes(page.props.workspace.activeOrganization?.role ?? '')) ? [{
+            label: t('payments.title'), description: t('payments.navHelp'), href: '/app/payments', icon: ReceiptText,
+        }] : []),
+    );
+
+    const customPermissions = page.props.workspace.activeOrganization?.permissions;
+    if (customPermissions) { const modules: Record<string,string> = { '/app/products':'products.view','/app/parties':'parties.view','/app/inventory':'inventory.view' }; for (let i=navigationItems.length-1;i>=0;i--) { const permission=modules[navigationItems[i].href ?? '']; if (permission && !customPermissions.includes(permission)) navigationItems.splice(i,1); } }
     return (
         <>
             <aside

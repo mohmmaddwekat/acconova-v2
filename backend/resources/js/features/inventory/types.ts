@@ -33,7 +33,9 @@ export type StockMovementType =
     | 'sale'
     | 'purchase'
     | 'customer_return'
-    | 'supplier_return';
+    | 'supplier_return'
+    | 'production_in'
+    | 'production_out';
 
 export type StockMovement = {
     id: number;

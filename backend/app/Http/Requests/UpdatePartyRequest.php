@@ -52,7 +52,7 @@ class UpdatePartyRequest extends FormRequest
             && $candidateType !== $this->resolvedParty->type;
 
         $nameRules = match ($candidateType) {
-            PartyType::Person => $switchingType
+            PartyType::Person, PartyType::Other => $switchingType
                 ? ['required', 'string', 'max:255']
                 : ['sometimes', 'required', 'string', 'max:255'],
 
@@ -73,7 +73,7 @@ class UpdatePartyRequest extends FormRequest
                 ? ['required', 'string', 'max:255']
                 : ['sometimes', 'required', 'string', 'max:255'],
 
-            PartyType::Person => [
+            PartyType::Person, PartyType::Other => [
                 'prohibited',
             ],
 
@@ -177,7 +177,7 @@ class UpdatePartyRequest extends FormRequest
                 'sometimes',
                 'array',
                 'min:1',
-                'max:2',
+                'max:3',
             ],
 
             'roles.*' => [

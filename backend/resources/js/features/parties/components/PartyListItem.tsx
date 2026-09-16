@@ -257,7 +257,7 @@ export function PartyListItem({
                                         role ===
                                             'customer'
                                             ? 'role.customer'
-                                            : 'role.supplier',
+                                            : role === 'contact' ? 'role.contact' : 'role.supplier',
                                     )}
                                 </span>
                             ),

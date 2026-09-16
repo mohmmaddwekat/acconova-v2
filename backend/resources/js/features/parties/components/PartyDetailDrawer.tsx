@@ -138,7 +138,7 @@ function roleLabel(
         role ===
             'customer'
             ? 'role.customer'
-            : 'role.supplier',
+            : role === 'contact' ? 'role.contact' : 'role.supplier',
     );
 }
 
@@ -607,7 +607,7 @@ export function PartyDetailDrawer({
                                               'ui.company',
                                           )
                                         : t(
-                                              'ui.person',
+                                              party.type === 'other' ? 'ui.other_party' : 'ui.person',
                                           )
                                 }
                             />

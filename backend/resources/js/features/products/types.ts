@@ -1,5 +1,6 @@
 export type ProductType =
     | 'product'
+    | 'raw_material'
     | 'service';
 
 export type Product = {
@@ -27,6 +28,14 @@ export type Product = {
 
     tax_rate: string;
 
+    inventory_eligible: boolean;
+
+    track_inventory: boolean;
+
+    low_stock_threshold:
+        | string
+        | null;
+
     usable_for_new_business: boolean;
 
     deleted_at:
@@ -40,7 +49,6 @@ export type Product = {
 
 export type ProductIndexResponse = {
     data: Product[];
-
     meta: {
         current_page: number;
 

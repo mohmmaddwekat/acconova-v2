@@ -1,6 +1,13 @@
 <?php
 
 use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\PaymentPlanController;
+use App\Http\Controllers\StaffController;
+use App\Http\Controllers\WorkspaceNotificationController;
+use App\Http\Controllers\WorkspaceRoleController;
+use App\Http\Controllers\WorkspaceSettingsController;
+use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -112,6 +119,12 @@ Route::middleware([
     'auth',
     'verified',
 ])->group(function (): void {
+    Route::get('/app/staff', fn () => Inertia::render('Staff'))->name('app.staff');
+    Route::get('/app/departments', fn () => Inertia::render('Departments'))->name('app.departments');
+    Route::get('/app/roles', fn () => Inertia::render('Roles'))->name('app.roles');
+    Route::get('/app/settings', fn () => Inertia::render('Settings'))->name('app.settings');
+    Route::get('/app/payments', fn () => Inertia::render('Payments'))->name('app.payments');
+    Route::get('/app/notifications', fn () => Inertia::render('Notifications'))->name('app.notifications');
     Route::get(
         '/onboarding/workspace',
         fn () => Inertia::render(
@@ -162,6 +175,34 @@ Route::middleware([
  * Session-authenticated JSON APIs retain Laravel's web middleware stack.
  */
 Route::prefix('api')->group(function (): void {
+    Route::middleware(['auth', 'verified', ResolveOrganization::class])->group(function (): void {
+        Route::get('departments', [DepartmentController::class, 'index']);
+        Route::post('departments', [DepartmentController::class, 'store']);
+        Route::patch('departments/{department}', [DepartmentController::class, 'update'])->whereNumber('department');
+        Route::get('staff', [StaffController::class, 'index']);
+        Route::post('staff', [StaffController::class, 'store']);
+        Route::patch('staff/{staff}', [StaffController::class, 'update'])->whereNumber('staff');
+        Route::get('staff/{staff}/ledger', [StaffController::class, 'ledger'])->whereNumber('staff');
+        Route::post('staff/{staff}/entries', [StaffController::class, 'record'])->whereNumber('staff');
+        Route::get('workspace-roles', [WorkspaceRoleController::class, 'index']);
+        Route::patch('workspace-roles/{workspaceRole}', [WorkspaceRoleController::class, 'store'])->whereNumber('workspaceRole');
+        Route::post('workspace-roles', [WorkspaceRoleController::class, 'store']);
+        Route::post('workspace-roles/assign', [WorkspaceRoleController::class, 'assign']);
+        Route::get('workspace-settings', [WorkspaceSettingsController::class, 'show']);
+        Route::patch('workspace-settings', [WorkspaceSettingsController::class, 'update']);
+        Route::get('notifications', [WorkspaceNotificationController::class, 'index']);
+        Route::get('notifications/count', [WorkspaceNotificationController::class, 'count']);
+        Route::post('notifications/read-all', [WorkspaceNotificationController::class, 'readAll']);
+        Route::patch('notifications/{notification}/read', [WorkspaceNotificationController::class, 'read'])->whereNumber('notification');
+    });
+    Route::middleware(['auth', 'verified', ResolveOrganization::class])->group(function (): void {
+        Route::get('payment-plans', [PaymentPlanController::class, 'index']);
+        Route::post('payment-plans', [PaymentPlanController::class, 'store']);
+        Route::get('payment-plans/reminders', [PaymentPlanController::class, 'reminders']);
+        Route::get('payment-records', [PaymentPlanController::class, 'history']);
+        Route::patch('payment-plans/{plan}', [PaymentPlanController::class, 'toggle'])->whereNumber('plan');
+        Route::post('payment-plans/{plan}/record', [PaymentPlanController::class, 'record'])->whereNumber('plan');
+    });
     require __DIR__
         .'/api/auth.php';
 

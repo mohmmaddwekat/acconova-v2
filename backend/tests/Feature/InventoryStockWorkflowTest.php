@@ -47,7 +47,11 @@ class InventoryStockWorkflowTest extends TestCase
                 'Main Warehouse',
             );
 
-        Event::fake();
+        Event::fake([
+            InventoryTrackingChanged::class,
+            OpeningStockRecorded::class,
+            StockMovementRecorded::class,
+        ]);
 
         $this->patchJson(
             "/api/inventory/products/{$productId}/settings",
@@ -231,7 +235,10 @@ class InventoryStockWorkflowTest extends TestCase
             ],
         )->assertOk();
 
-        Event::fake();
+        Event::fake([
+            StockTransferred::class,
+            StockMovementRecorded::class,
+        ]);
 
         $this->postJson(
             "/api/inventory/products/{$productId}/transfer",

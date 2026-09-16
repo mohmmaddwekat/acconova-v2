@@ -35,7 +35,7 @@ class UpdateParty
              * the previous type so stale person/company names never coexist.
              */
             if (array_key_exists('type', $data)) {
-                if ($data['type'] === PartyType::Person->value) {
+                if (in_array($data['type'], [PartyType::Person->value, PartyType::Other->value], true)) {
                     $data['company_name'] = null;
                 } elseif ($data['type'] === PartyType::Company->value) {
                     $data['name'] = null;

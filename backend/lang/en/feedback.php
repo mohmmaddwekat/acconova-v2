@@ -25,6 +25,9 @@ return [
     'warehouse_stock_archive_blocked' => 'Move or adjust this warehouse stock to zero before archiving it.',
     'product_stock_archive_blocked' => 'Move or adjust this product inventory to zero before archiving it.',
 
+    'product_to_service_stock_blocked' => 'This item has physical or reserved stock. Its type cannot be changed while stock exists.',
+    'product_to_service_history_blocked' => 'This item has stock-movement history. Preserve its type and create a separate catalog item.',
+
     'inventory_tracking_products_only' => 'Inventory tracking is available only for physical Products.',
     'inventory_tracking_disable_stock_blocked' => 'Move or adjust all Product stock to zero before turning inventory tracking off.',
     'inventory_not_tracked' => 'Enable inventory tracking for this Product before changing stock.',

@@ -58,7 +58,7 @@ class Product extends Model
     }
 
     /**
-     * Return warehouse balances belonging to this Product.
+     * Return warehouse balances belonging to this catalog item.
      */
     public function inventoryBalances(): HasMany
     {
@@ -68,7 +68,7 @@ class Product extends Model
     }
 
     /**
-     * Return the immutable stock activity associated with this Product.
+     * Return immutable stock activity associated with this catalog item.
      */
     public function stockMovements(): HasMany
     {
@@ -78,8 +78,7 @@ class Product extends Model
     }
 
     /**
-     * Restrict a catalog query to Products and Services available for new
-     * business documents.
+     * Restrict a catalog query to items available for new business documents.
      */
     public function scopeUsableForNewBusiness(
         Builder $query,
@@ -90,8 +89,8 @@ class Product extends Model
     }
 
     /**
-     * Determine whether this catalog item may be selected on a new quote or
-     * invoice.
+     * Determine whether this catalog item may be selected on a new business
+     * document.
      */
     public function isUsableForNewBusiness(): bool
     {
@@ -99,13 +98,23 @@ class Product extends Model
     }
 
     /**
-     * Determine whether this record represents a physical Product whose
-     * inventory is actively tracked.
+     * Determine whether this catalog item is physically eligible for warehouse
+     * inventory.
+     *
+     * Services have commercial quantities on quotes/invoices but never have
+     * warehouse quantities.
+     */
+    public function isInventoryEligible(): bool
+    {
+        return in_array($this->type, [ProductType::Product, ProductType::RawMaterial], true);
+    }
+
+    /**
+     * Determine whether physical inventory is actively tracked.
      */
     public function tracksInventory(): bool
     {
-        return $this->type ===
-            ProductType::Product
+        return $this->isInventoryEligible()
             && $this->track_inventory;
     }
 }

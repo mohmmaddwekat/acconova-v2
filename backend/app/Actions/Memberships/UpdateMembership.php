@@ -31,6 +31,7 @@ class UpdateMembership
 
             $previousRole = $record->role;
 
+            $record->workspace_role_id = null;
             $record->update($data);
             $record->refresh();
 

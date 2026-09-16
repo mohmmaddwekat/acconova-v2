@@ -19,9 +19,68 @@ use App\Support\InventoryQuantity;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class InventoryStockService
 {
+    /**
+     * Consume actual raw-material quantities and receive finished goods atomically.
+     * All products are locked in ID order before the warehouse, matching stock workflows.
+     *
+     * @param  list<array{product_id: int, quantity: string}>  $materials
+     */
+    public function recordProduction(Product $product, int $warehouseId, string $quantity, array $materials, ?string $note, int $actorId): StockMovement
+    {
+        return DB::transaction(function () use ($product, $warehouseId, $quantity, $materials, $note, $actorId): StockMovement {
+            $ids = array_merge([$product->id], array_column($materials, 'product_id'));
+            $products = Product::query()->whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $output = $products->get($product->id);
+            abort_unless($output && $output->type === ProductType::Product, 404);
+            $warehouse = Warehouse::query()->lockForUpdate()->findOrFail($warehouseId);
+            $consumptions = [];
+
+            foreach ($materials as $material) {
+                $raw = $products->get($material['product_id']);
+                abort_unless($raw && $raw->type === ProductType::RawMaterial, 404);
+                if (! $raw->tracksInventory() || ! $output->tracksInventory()) {
+                    throw SafeValidationException::forField('inventory', 'inventory_not_tracked');
+                }
+                $balance = $this->lockBalance($raw->id, $warehouse->id);
+                $units = InventoryQuantity::toUnits($material['quantity']);
+                $onHand = InventoryQuantity::toUnits($balance->on_hand);
+                $reserved = InventoryQuantity::toUnits($balance->reserved);
+                if ($units <= 0 || $onHand - $reserved < $units) {
+                    throw SafeValidationException::forField('inventory', 'inventory_insufficient_stock');
+                }
+                $consumptions[] = [$raw, $balance, $units, $onHand, $reserved];
+            }
+
+            $balance = $this->lockBalance($output->id, $warehouse->id);
+            $units = InventoryQuantity::toUnits($quantity);
+            $previous = InventoryQuantity::toUnits($balance->on_hand);
+            $reserved = InventoryQuantity::toUnits($balance->reserved);
+            $next = $previous + $units;
+            if ($units <= 0 || $next > 999999999999999999) {
+                throw ValidationException::withMessages(['quantity' => [__('validation.max.numeric', ['attribute' => 'quantity', 'max' => '99999999999999.9999'])]]);
+            }
+            $balance->on_hand = InventoryQuantity::fromUnits($next);
+            $balance->save();
+            $movement = $this->createMovement($output, $warehouse, StockMovementType::ProductionIn, InventoryQuantity::fromUnits($units), $balance->on_hand, $note, $actorId);
+            $movement->update(['reference_type' => 'production', 'reference_id' => $movement->id]);
+
+            foreach ($consumptions as [$raw, $rawBalance, $consumed, $onHand, $rawReserved]) {
+                $rawBalance->on_hand = InventoryQuantity::fromUnits($onHand - $consumed);
+                $rawBalance->save();
+                $consumption = $this->createMovement($raw, $warehouse, StockMovementType::ProductionOut, InventoryQuantity::fromUnits(-$consumed), $rawBalance->on_hand, $note, $actorId);
+                $consumption->update(['reference_type' => 'production', 'reference_id' => $movement->id]);
+                $this->dispatchBalanceChanged($raw, $warehouse, $consumption, InventoryQuantity::fromUnits($onHand - $rawReserved), InventoryQuantity::fromUnits($onHand - $consumed - $rawReserved), $actorId);
+            }
+            $this->dispatchBalanceChanged($output, $warehouse, $movement, InventoryQuantity::fromUnits($previous - $reserved), InventoryQuantity::fromUnits($next - $reserved), $actorId);
+
+            return $movement;
+        }, 3);
+    }
+
     /**
      * Enable or disable inventory tracking for one physical Product.
      *
@@ -51,8 +110,7 @@ class InventoryStockService
 
                 if (
                     $enabled
-                    && $locked->type !==
-                    ProductType::Product
+                    && ! $locked->isInventoryEligible()
                 ) {
                     throw SafeValidationException::forField(
                         'inventory',

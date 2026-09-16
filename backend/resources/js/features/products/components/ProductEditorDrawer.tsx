@@ -16,18 +16,24 @@ import {
 import {
     t,
     useLocale,
+    type TranslationKey,
 } from '@/lib/i18n';
 import {
+    Boxes,
+    Calculator,
     Hash,
     Package,
     Save,
+    TriangleAlert,
     Wrench,
     X,
+    type LucideIcon,
 } from 'lucide-react';
 import {
     useEffect,
     useState,
     type FormEvent,
+    type ReactNode,
 } from 'react';
 import {
     createPortal,
@@ -63,8 +69,132 @@ type ProductForm = {
     taxRate: string;
 };
 
+type UnitPreset = {
+    value: string;
+
+    label: TranslationKey;
+};
+
+const PRODUCT_UNITS:
+    UnitPreset[] = [
+        {
+            value:
+                'unit',
+
+            label:
+                'catalog.unit.unit',
+        },
+
+        {
+            value:
+                'piece',
+
+            label:
+                'catalog.unit.piece',
+        },
+
+        {
+            value:
+                'box',
+
+            label:
+                'catalog.unit.box',
+        },
+
+        {
+            value:
+                'kg',
+
+            label:
+                'catalog.unit.kg',
+        },
+
+        {
+            value:
+                'liter',
+
+            label:
+                'catalog.unit.liter',
+        },
+
+        {
+            value:
+                'meter',
+
+            label:
+                'catalog.unit.meter',
+        },
+    ];
+
+const SERVICE_UNITS:
+    UnitPreset[] = [
+        {
+            value:
+                'hour',
+
+            label:
+                'catalog.unit.hour',
+        },
+
+        {
+            value:
+                'visit',
+
+            label:
+                'catalog.unit.visit',
+        },
+
+        {
+            value:
+                'trip',
+
+            label:
+                'catalog.unit.trip',
+        },
+
+        {
+            value:
+                'km',
+
+            label:
+                'catalog.unit.km',
+        },
+
+        {
+            value:
+                'person',
+
+            label:
+                'catalog.unit.person',
+        },
+
+        {
+            value:
+                'day',
+
+            label:
+                'catalog.unit.day',
+        },
+
+        {
+            value:
+                'project',
+
+            label:
+                'catalog.unit.project',
+        },
+
+        {
+            value:
+                'job',
+
+            label:
+                'catalog.unit.job',
+        },
+    ];
+
 /**
- * Return the clean default Product editor state.
+ * Return the clean default catalog editor state.
  */
 function emptyForm(): ProductForm {
     return {
@@ -92,9 +222,7 @@ function emptyForm(): ProductForm {
 }
 
 /**
- * Convert an API Product into editable business fields.
- *
- * SKU is intentionally excluded because AccoNova owns system identifiers.
+ * Convert one API catalog item into editable fields.
  */
 function formFromProduct(
     product: Product,
@@ -126,11 +254,39 @@ function formFromProduct(
 }
 
 /**
- * Render the shared Product create/edit workspace directly against the
- * browser viewport.
+ * Resolve the most useful API error without exposing internal information.
+ */
+function errorMessage(
+    exception: unknown,
+): string {
+    if (
+        exception instanceof
+        ApiError
+    ) {
+        const firstFieldMessage =
+            Object.values(
+                exception.errors,
+            )
+                .flat()
+                .find(
+                    Boolean,
+                );
+
+        return firstFieldMessage
+            ?? exception.message;
+    }
+
+    return t(
+        'ui.acconova_could_not_save_this_catalog_item',
+    );
+}
+
+/**
+ * Render the shared Product/Service create and edit surface.
  *
- * Both Add and Edit use this component. Portal rendering guarantees that the
- * application shell can never clip or offset the editor.
+ * Product quantity represents physical stock when Inventory is enabled.
+ * Service quantity represents only commercial billing units and never creates
+ * warehouse state.
  */
 export function ProductEditorDrawer({
     open,
@@ -184,17 +340,6 @@ export function ProductEditorDrawer({
             busy,
         );
 
-    /**
-     * Keep the editor visible while a mutation is being committed.
-     */
-    function closeDialog(): void {
-        if (
-            ! busy
-        ) {
-            onClose();
-        }
-    }
-
     useEffect(() => {
         if (
             ! open
@@ -223,10 +368,83 @@ export function ProductEditorDrawer({
     ]);
 
     /**
-     * Persist the current catalog item.
-     *
-     * New Products receive their SKU from the workspace sequence. Existing
-     * Products retain their stable generated identifier.
+     * Close only while no catalog mutation is running.
+     */
+    function closeDialog(): void {
+        if (
+            ! busy
+        ) {
+            onClose();
+        }
+    }
+
+    /**
+     * Switch between physical Product and Service semantics.
+     */
+    function chooseType(
+        type: ProductType,
+    ): void {
+        setForm(
+            (
+                current,
+            ) => ({
+                ...current,
+
+                type,
+
+                /*
+                 * A fresh type switch receives a sensible starting unit only
+                 * when the previous generic default is still untouched.
+                 */
+                unit:
+                    current.unit ===
+                        'unit'
+                    && type ===
+                        'service'
+                        ? 'hour'
+                        : current.unit,
+            }),
+        );
+
+        setErrors(
+            (
+                current,
+            ) => {
+                const next = {
+                    ...current,
+                };
+
+                delete next.type;
+
+                return next;
+            },
+        );
+
+        setError(
+            null,
+        );
+    }
+
+    /**
+     * Apply one canonical unit while still allowing arbitrary custom units.
+     */
+    function chooseUnit(
+        value: string,
+    ): void {
+        setForm(
+            (
+                current,
+            ) => ({
+                ...current,
+
+                unit:
+                    value,
+            }),
+        );
+    }
+
+    /**
+     * Persist one Product or Service.
      */
     async function handleSubmit(
         event:
@@ -270,7 +488,12 @@ export function ProductEditorDrawer({
 
             unit:
                 form.unit.trim()
-                    || 'unit',
+                    || (
+                        form.type ===
+                            'service'
+                            ? 'hour'
+                            : 'unit'
+                    ),
 
             unit_price:
                 form.unitPrice,
@@ -312,12 +535,9 @@ export function ProductEditorDrawer({
             }
 
             setError(
-                exception instanceof
-                ApiError
-                    ? exception.message
-                    : t(
-                          'ui.acconova_could_not_save_this_catalog_item',
-                      ),
+                errorMessage(
+                    exception,
+                ),
             );
         } finally {
             setBusy(
@@ -327,12 +547,26 @@ export function ProductEditorDrawer({
     }
 
     if (
-        ! open ||
-        typeof document ===
+        ! open
+        || typeof document ===
             'undefined'
     ) {
         return null;
     }
+
+    const service =
+        form.type ===
+        'service';
+
+    const units =
+        service
+            ? SERVICE_UNITS
+            : PRODUCT_UNITS;
+
+    const convertingProductToService =
+        product?.type ===
+            'product'
+        && service;
 
     const surface = (
         <div className="fixed inset-0 z-[220]">
@@ -356,7 +590,7 @@ export function ProductEditorDrawer({
                 aria-label={t(
                     'ui.catalog_context',
                 )}
-                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[620px]"
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[660px]"
             >
                 <header className="shrink-0 border-b border-[var(--ac-line)] bg-white px-5 py-5 sm:px-6">
                     <div className="flex items-start justify-between gap-4">
@@ -386,7 +620,7 @@ export function ProductEditorDrawer({
                             onClick={
                                 closeDialog
                             }
-                            className="flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)]"
+                            className="flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]"
                         >
                             <X
                                 size={
@@ -408,11 +642,10 @@ export function ProductEditorDrawer({
                     className="flex min-h-0 flex-1 flex-col"
                 >
                     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                             <TypeButton
                                 active={
-                                    form.type ===
-                                    'product'
+                                    form.type === 'product'
                                 }
                                 icon={
                                     Package
@@ -424,23 +657,15 @@ export function ProductEditorDrawer({
                                     'ui.a_physical_or_sellable_item',
                                 )}
                                 onClick={() =>
-                                    setForm(
-                                        (
-                                            current,
-                                        ) => ({
-                                            ...current,
-
-                                            type:
-                                                'product',
-                                        }),
+                                    chooseType(
+                                        'product',
                                     )
                                 }
                             />
 
                             <TypeButton
                                 active={
-                                    form.type ===
-                                    'service'
+                                    service
                                 }
                                 icon={
                                     Wrench
@@ -452,19 +677,51 @@ export function ProductEditorDrawer({
                                     'ui.time_work_or_expertise',
                                 )}
                                 onClick={() =>
-                                    setForm(
-                                        (
-                                            current,
-                                        ) => ({
-                                            ...current,
-
-                                            type:
-                                                'service',
-                                        }),
+                                    chooseType(
+                                        'service',
                                     )
                                 }
                             />
+                            <TypeButton active={form.type === 'raw_material'} icon={Boxes}
+                                title={t('production.rawMaterial')} description={t('production.rawMaterialHelp')}
+                                onClick={() => chooseType('raw_material')} />
                         </div>
+
+                        {errors
+                            .type?.[0] && (
+                            <p
+                                role="alert"
+                                className="mt-2 text-xs text-[var(--ac-danger)]"
+                            >
+                                {
+                                    errors
+                                        .type[0]
+                                }
+                            </p>
+                        )}
+
+                        <CatalogSemanticsCard
+                            service={
+                                service
+                            }
+                        />
+
+                        {convertingProductToService && (
+                            <div className="mt-3 flex gap-3 rounded-[16px] border border-amber-200 bg-amber-50 p-4 text-amber-900">
+                                <TriangleAlert
+                                    size={
+                                        17
+                                    }
+                                    className="mt-0.5 shrink-0"
+                                />
+
+                                <p className="text-xs leading-5">
+                                    {t(
+                                        'catalog.productToServiceWarning',
+                                    )}
+                                </p>
+                            </div>
+                        )}
 
                         <div className="mt-6 grid gap-5">
                             <Field
@@ -537,29 +794,25 @@ export function ProductEditorDrawer({
                                                 </span>
                                             </div>
 
-                                            <p
+                                            <bdi
                                                 dir="ltr"
-                                                className="mt-2 text-sm font-semibold"
+                                                className="mt-2 block text-sm font-semibold"
                                             >
                                                 {product
-                                                    ?.sku ??
-                                                    t(
+                                                    ?.sku
+                                                    ?? t(
                                                         'lifecycle.assignedAfterSave',
                                                     )}
-                                            </p>
-
-                                            <p className="mt-1.5 text-[10px] leading-4 text-[var(--ac-text-muted)]">
-                                                {t(
-                                                    'lifecycle.skuSequenceHelp',
-                                                )}
-                                            </p>
+                                            </bdi>
                                         </div>
                                     </div>
                                 </div>
 
                                 <Field
                                     label={t(
-                                        'ui.unit',
+                                        service
+                                            ? 'catalog.billingUnit'
+                                            : 'catalog.stockSalesUnit',
                                     )}
                                     error={
                                         errors
@@ -572,14 +825,6 @@ export function ProductEditorDrawer({
                                         required
                                         value={
                                             form.unit
-                                        }
-                                        aria-invalid={Boolean(
-                                            errors.unit,
-                                        )}
-                                        aria-describedby={
-                                            errors.unit
-                                                ? 'product-unit-error'
-                                                : undefined
                                         }
                                         onChange={(
                                             event,
@@ -597,18 +842,58 @@ export function ProductEditorDrawer({
                                                 }),
                                             )
                                         }
-                                        placeholder={t(
-                                            'ui.unit_hour_day',
-                                        )}
                                         className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] px-3.5 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                     />
                                 </Field>
                             </div>
 
+                            <div>
+                                <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
+                                    {t(
+                                        'catalog.unitSuggestions',
+                                    )}
+                                </p>
+
+                                <div className="flex flex-wrap gap-2">
+                                    {units.map(
+                                        (
+                                            unit,
+                                        ) => (
+                                            <button
+                                                key={
+                                                    unit.value
+                                                }
+                                                type="button"
+                                                onClick={() =>
+                                                    chooseUnit(
+                                                        unit.value,
+                                                    )
+                                                }
+                                                className={[
+                                                    'rounded-full border px-3 py-1.5 text-[10px] font-semibold transition',
+                                                    form.unit ===
+                                                    unit.value
+                                                        ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
+                                                        : 'border-[var(--ac-line)] bg-white text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
+                                                ].join(
+                                                    ' ',
+                                                )}
+                                            >
+                                                {t(
+                                                    unit.label,
+                                                )}
+                                            </button>
+                                        ),
+                                    )}
+                                </div>
+                            </div>
+
                             <div className="grid gap-5 sm:grid-cols-3">
                                 <Field
                                     label={t(
-                                        'ui.selling_price',
+                                        service
+                                            ? 'catalog.servicePrice'
+                                            : 'catalog.productPrice',
                                     )}
                                     error={
                                         errors
@@ -625,14 +910,6 @@ export function ProductEditorDrawer({
                                         step="0.0001"
                                         value={
                                             form.unitPrice
-                                        }
-                                        aria-invalid={Boolean(
-                                            errors.unit_price,
-                                        )}
-                                        aria-describedby={
-                                            errors.unit_price
-                                                ? 'product-unit-price-error'
-                                                : undefined
                                         }
                                         onChange={(
                                             event,
@@ -672,14 +949,6 @@ export function ProductEditorDrawer({
                                         step="0.0001"
                                         value={
                                             form.costPrice
-                                        }
-                                        aria-invalid={Boolean(
-                                            errors.cost_price,
-                                        )}
-                                        aria-describedby={
-                                            errors.cost_price
-                                                ? 'product-cost-price-error'
-                                                : undefined
                                         }
                                         onChange={(
                                             event,
@@ -722,14 +991,6 @@ export function ProductEditorDrawer({
                                         value={
                                             form.taxRate
                                         }
-                                        aria-invalid={Boolean(
-                                            errors.tax_rate,
-                                        )}
-                                        aria-describedby={
-                                            errors.tax_rate
-                                                ? 'product-tax-rate-error'
-                                                : undefined
-                                        }
                                         onChange={(
                                             event,
                                         ) =>
@@ -749,6 +1010,25 @@ export function ProductEditorDrawer({
                                         className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] px-3.5 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                     />
                                 </Field>
+                            </div>
+
+                            <div className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
+                                <div className="flex gap-3">
+                                    <Calculator
+                                        size={
+                                            16
+                                        }
+                                        className="mt-0.5 shrink-0 text-[var(--ac-accent-strong)]"
+                                    />
+
+                                    <p className="text-xs leading-5 text-[var(--ac-text-soft)]">
+                                        {t(
+                                            service
+                                                ? 'catalog.quantityExampleService'
+                                                : 'catalog.quantityExampleProduct',
+                                        )}
+                                    </p>
+                                </div>
                             </div>
 
                             <Field
@@ -771,14 +1051,6 @@ export function ProductEditorDrawer({
                                     }
                                     value={
                                         form.description
-                                    }
-                                    aria-invalid={Boolean(
-                                        errors.description,
-                                    )}
-                                    aria-describedby={
-                                        errors.description
-                                            ? 'product-description-error'
-                                            : undefined
                                     }
                                     onChange={(
                                         event,
@@ -822,7 +1094,7 @@ export function ProductEditorDrawer({
                             onClick={
                                 closeDialog
                             }
-                            className="h-11 rounded-[14px] border border-[var(--ac-line)] bg-white text-sm font-semibold transition hover:border-[var(--ac-line-strong)] disabled:opacity-50"
+                            className="h-11 rounded-[14px] border border-[var(--ac-line)] bg-white text-sm font-semibold disabled:opacity-50"
                         >
                             {t(
                                 'ui.cancel',
@@ -834,7 +1106,7 @@ export function ProductEditorDrawer({
                             disabled={
                                 busy
                             }
-                            className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] text-sm font-semibold text-white transition hover:-translate-y-px disabled:translate-y-0 disabled:opacity-50 motion-reduce:transform-none"
+                            className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] text-sm font-semibold text-white disabled:opacity-50"
                         >
                             <Save
                                 size={
@@ -862,10 +1134,78 @@ export function ProductEditorDrawer({
     );
 }
 
+type CatalogSemanticsCardProps = {
+    service: boolean;
+};
+
+/**
+ * Explain whether quantity belongs to physical Inventory or commercial
+ * billing.
+ */
+function CatalogSemanticsCard({
+    service,
+}: CatalogSemanticsCardProps) {
+    const Icon:
+        LucideIcon =
+        service
+            ? Calculator
+            : Boxes;
+
+    return (
+        <div
+            className={[
+                'mt-3 rounded-[18px] border p-4',
+                service
+                    ? 'border-sky-200 bg-sky-50'
+                    : 'border-[var(--ac-accent)]/20 bg-[var(--ac-accent-soft)]',
+            ].join(
+                ' ',
+            )}
+        >
+            <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-white shadow-sm">
+                    <Icon
+                        size={
+                            15
+                        }
+                    />
+                </div>
+
+                <div>
+                    <p className="text-xs font-semibold">
+                        {t(
+                            service
+                                ? 'catalog.serviceRuleTitle'
+                                : 'catalog.productRuleTitle',
+                        )}
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-[var(--ac-text-soft)]">
+                        {t(
+                            service
+                                ? 'catalog.serviceRuleHelp'
+                                : 'catalog.productRuleHelp',
+                        )}
+                    </p>
+
+                    {service && (
+                        <p className="mt-2 text-[10px] font-semibold leading-4 text-sky-800">
+                            {t(
+                                'catalog.serviceNoWarehouse',
+                            )}
+                        </p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 type TypeButtonProps = {
     active: boolean;
 
-    icon: typeof Package;
+    icon:
+        typeof Package;
 
     title: string;
 
@@ -884,8 +1224,6 @@ function TypeButton({
     description,
     onClick,
 }: TypeButtonProps) {
-    useLocale();
-
     return (
         <button
             type="button"
@@ -933,12 +1271,11 @@ type FieldProps = {
 
     optional?: boolean;
 
-    children:
-        React.ReactNode;
+    children: ReactNode;
 };
 
 /**
- * Render a Product field with explicit requirement state.
+ * Render one catalog field with explicit requirement state.
  */
 function Field({
     error,
@@ -948,8 +1285,6 @@ function Field({
     optional = false,
     children,
 }: FieldProps) {
-    useLocale();
-
     return (
         <label className="block">
             <div className="mb-2 flex items-center justify-between gap-3">

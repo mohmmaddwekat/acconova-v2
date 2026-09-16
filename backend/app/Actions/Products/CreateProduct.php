@@ -17,11 +17,11 @@ class CreateProduct
     ) {}
 
     /**
-     * Create one Product atomically inside the active organization.
+     * Create one Product or Service atomically inside the active organization.
      *
-     * Normal UI creation receives an automatically generated SKU. Explicit
-     * legacy SKUs remain supported for imports and advance the sequence when
-     * they follow the standard SKU-NNN format.
+     * Every new catalog item starts without inventory tracking. Physical stock
+     * is activated explicitly through Inventory after the catalog item exists.
+     * Services can therefore never accidentally acquire warehouse state.
      *
      * @param  array<string, mixed>  $data
      */
@@ -60,6 +60,16 @@ class CreateProduct
                             $requestedSku,
                         );
                 }
+
+                /*
+                 * Inventory state is intentionally not accepted from normal
+                 * catalog creation. Products opt in later; Services never do.
+                 */
+                $data['track_inventory'] =
+                    false;
+
+                $data['low_stock_threshold'] =
+                    null;
 
                 $product =
                     Product::create(

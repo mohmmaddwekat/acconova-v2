@@ -81,6 +81,7 @@ class ProductController extends Controller
             $updateProduct->execute(
                 $request->product(),
                 $request->validated(),
+                $request->user()?->id,
             );
 
         return (

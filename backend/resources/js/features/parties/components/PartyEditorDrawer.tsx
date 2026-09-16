@@ -193,8 +193,8 @@ function payloadFromForm(
     };
 
     if (
-        form.type ===
-        'person'
+        form.type !==
+        'company'
     ) {
         payload.name =
             form.displayName.trim();
@@ -315,6 +315,7 @@ export function PartyEditorDrawer({
                 ...current,
 
                 type,
+                roles: type === 'other' ? ['contact'] : current.roles,
             }),
         );
     }
@@ -538,7 +539,7 @@ export function PartyEditorDrawer({
                             )}
                         </SectionTitle>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <IdentityTypeButton
                                 active={
                                     form.type ===
@@ -574,6 +575,8 @@ export function PartyEditorDrawer({
                                     )
                                 }
                             />
+                            <IdentityTypeButton active={form.type === 'other'} icon={Building2}
+                                label={t('ui.other_party')} onClick={() => changeType('other')} />
                         </div>
 
                         <label className="mt-5 block">
@@ -585,7 +588,7 @@ export function PartyEditorDrawer({
                                               'ui.full_name',
                                           )
                                         : t(
-                                              'ui.company_name',
+                                              form.type === 'other' ? 'ui.party_name' : 'ui.company_name',
                                           )
                                 }
                                 required
@@ -657,6 +660,7 @@ export function PartyEditorDrawer({
                                 [
                                     'customer',
                                     'supplier',
+                                    'contact',
                                 ] as PartyRole[]
                             ).map(
                                 (
@@ -672,7 +676,7 @@ export function PartyEditorDrawer({
                                             role ===
                                                 'customer'
                                                 ? 'role.customer'
-                                                : 'role.supplier',
+                                                : role === 'contact' ? 'role.contact' : 'role.supplier',
                                         );
 
                                     return (

@@ -154,7 +154,7 @@ export function PartyFilterPopover({
               ? t(
                     'ui.suppliers',
                 )
-              : t(
+              : value.role === 'contact' ? t('role.contact') : t(
                     'ui.everyone',
                 );
 
@@ -169,7 +169,7 @@ export function PartyFilterPopover({
               ? t(
                     'ui.companies',
                 )
-              : t(
+              : value.type === 'other' ? t('ui.other_party') : t(
                     'ui.all_types',
                 );
 
@@ -300,6 +300,7 @@ export function PartyFilterPopover({
                                 'ui.suppliers',
                             )}
                         </FilterChoice>
+                        <FilterChoice icon={Building2} active={value.role === 'contact'} onClick={() => change({ role: 'contact' })}>{t('role.contact')}</FilterChoice>
                     </div>
                 ),
             },
@@ -375,6 +376,9 @@ export function PartyFilterPopover({
                             {t(
                                 'ui.companies',
                             )}
+                        </FilterChoice>
+                        <FilterChoice icon={Building2} active={value.type === 'other'} onClick={() => change({ type: 'other' })}>
+                            {t('ui.other_party')}
                         </FilterChoice>
                     </div>
                 ),

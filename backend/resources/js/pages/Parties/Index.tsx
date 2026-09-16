@@ -108,15 +108,9 @@ function PartiesWorkspace() {
     const activeRole =
         activeOrganization?.role;
 
-    const allowEdit =
-        canEditParties(
-            activeRole,
-        );
+    const allowEdit = activeOrganization?.permissions ? activeOrganization.permissions.includes('parties.manage') : canEditParties(activeRole);
 
-    const allowArchive =
-        canArchiveParties(
-            activeRole,
-        );
+    const allowArchive = activeOrganization?.permissions ? activeOrganization.permissions.includes('parties.archive') : canArchiveParties(activeRole);
 
     const [
         response,

@@ -11,6 +11,11 @@ class Organization extends Model
 {
     use SoftDeletes;
 
+    protected function casts(): array
+    {
+        return ['preferences' => 'array'];
+    }
+
     protected $fillable = [
         'name',
     ];

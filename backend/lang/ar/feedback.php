@@ -25,6 +25,9 @@ return [
     'warehouse_stock_archive_blocked' => 'انقل أو عدّل مخزون هذا المستودع إلى صفر قبل أرشفته.',
     'product_stock_archive_blocked' => 'انقل أو عدّل مخزون هذا المنتج إلى صفر قبل أرشفته.',
 
+    'product_to_service_stock_blocked' => 'لهذا الصنف مخزون فعلي أو محجوز. لا يمكن تغيير نوعه مع وجود رصيد.',
+    'product_to_service_history_blocked' => 'لهذا الصنف سجل حركات مخزون. احتفظ بنوعه وأنشئ صنفًا مستقلًا بالنوع المطلوب.',
+
     'inventory_tracking_products_only' => 'تتبع المخزون متاح للمنتجات المادية فقط.',
     'inventory_tracking_disable_stock_blocked' => 'انقل أو عدّل جميع كميات المنتج إلى صفر قبل إيقاف تتبع المخزون.',
     'inventory_not_tracked' => 'فعّل تتبع المخزون لهذا المنتج قبل تغيير الكمية.',

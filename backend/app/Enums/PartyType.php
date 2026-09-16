@@ -6,4 +6,5 @@ enum PartyType: string
 {
     case Person = 'person';
     case Company = 'company';
+    case Other = 'other';
 }

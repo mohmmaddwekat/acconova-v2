@@ -3,7 +3,9 @@
 use App\Http\Controllers\ProductBulkActionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductDataTransferController;
+use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductPermanentDeletionController;
+use App\Http\Controllers\ServiceOperationController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +19,13 @@ Route::middleware([
     'verified',
     ResolveOrganization::class,
 ])->group(function (): void {
+    Route::get('products/{product}/production', [ProductionController::class, 'index'])->whereNumber('product')->name('production.index');
+    Route::post('products/{product}/production', [ProductionController::class, 'store'])->whereNumber('product')->name('production.store');
+    Route::get('products/{product}/service-operations', [ServiceOperationController::class, 'index'])
+        ->whereNumber('product')->name('service-operations.index');
+    Route::post('products/{product}/service-operations', [ServiceOperationController::class, 'store'])
+        ->whereNumber('product')->name('service-operations.store');
+
     Route::get(
         'products/import-template',
         [

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Organization;
+use App\Services\WorkspacePermissions;
 use App\Tenancy\OrganizationAccess;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -97,6 +98,8 @@ class HandleInertiaRequests extends Middleware
                             'id' => $organization->id,
 
                             'name' => $organization->name,
+                            'currency' => $organization->preferences['currency'] ?? 'ILS',
+                            'permissions' => WorkspacePermissions::custom((int) auth()->id(), $organization->id)?->permissions,
 
                             'role' => (string) $organization
                                 ->pivot

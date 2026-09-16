@@ -194,7 +194,7 @@ export function ProductListItem({
                                     product.type ===
                                         'service'
                                         ? 'ui.service'
-                                        : 'ui.product',
+                                        : product.type === 'raw_material' ? 'production.rawMaterial' : 'ui.product',
                                 )}
                             </span>
 

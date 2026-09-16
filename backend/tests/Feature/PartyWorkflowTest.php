@@ -12,6 +12,25 @@ class PartyWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_general_party_can_be_created_filtered_and_reclassified(): void
+    {
+        $user = User::factory()->create();
+        $organization = Organization::create(['name' => 'General Parties']);
+        $organization->users()->attach($user->id, ['role' => 'owner']);
+        $this->actingAs($user)->withSession([OrganizationAccess::SESSION_KEY => $organization->id]);
+
+        $payload = ['type' => 'other', 'name' => 'General transport', 'roles' => ['supplier']];
+        $this->postJson('/api/parties', [...$payload, 'name' => ''])->assertUnprocessable();
+        $id = $this->postJson('/api/parties', $payload)->assertCreated()
+            ->assertJsonPath('data.type', 'other')->assertJsonPath('data.name', 'General transport')->json('data.id');
+        $this->getJson('/api/parties?type=other')->assertOk()->assertJsonCount(1, 'data');
+        $this->patchJson('/api/parties/'.$id, ['type' => 'company', 'company_name' => 'Transport Co'])
+            ->assertOk()->assertJsonPath('data.name', null);
+        $this->patchJson('/api/parties/'.$id, ['type' => 'other'])->assertUnprocessable();
+        $this->patchJson('/api/parties/'.$id, ['type' => 'other', 'name' => 'Public transport'])
+            ->assertOk()->assertJsonPath('data.company_name', null)->assertJsonPath('data.name', 'Public transport');
+    }
+
     /**
      * Verify the Party ledger supports creation, search, entity filtering,
      * relationship filtering, archive visibility, and restoration.

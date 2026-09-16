@@ -8,7 +8,10 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class ProductResource extends JsonResource
 {
     /**
-     * Transform a Product into the stable public catalog API contract.
+     * Transform one catalog item into the stable public Product API contract.
+     *
+     * Inventory eligibility is explicit so frontend surfaces never have to
+     * infer whether a Service belongs in warehouse workflows.
      *
      * @return array<string, mixed>
      */
@@ -33,6 +36,14 @@ class ProductResource extends JsonResource
             'cost_price' => $this->cost_price,
 
             'tax_rate' => $this->tax_rate,
+
+            'inventory_eligible' => $this->isInventoryEligible(),
+
+            'track_inventory' => $this->tracksInventory(),
+
+            'low_stock_threshold' => $this->isInventoryEligible()
+                ? $this->low_stock_threshold
+                : null,
 
             'usable_for_new_business' => $this->isUsableForNewBusiness(),
 

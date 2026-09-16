@@ -13,6 +13,8 @@ export type AuthUser = {
 };
 
 export type WorkspaceOrganization = {
+    currency?: string;
+    permissions?: string[] | null;
     id: number;
     name: string;
     role: OrganizationRole;

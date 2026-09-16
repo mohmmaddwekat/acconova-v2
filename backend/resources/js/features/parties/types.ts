@@ -1,10 +1,12 @@
 export type PartyType =
     | 'person'
-    | 'company';
+    | 'company'
+    | 'other';
 
 export type PartyRole =
     | 'customer'
-    | 'supplier';
+    | 'supplier'
+    | 'contact';
 
 export type Party = {
     id: number;

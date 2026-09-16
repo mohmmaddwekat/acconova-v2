@@ -19,9 +19,9 @@ class ShowInventoryProductRequest extends FormRequest
     {
         $this->resolvedProduct =
             Product::query()
-                ->where(
+                ->whereIn(
                     'type',
-                    ProductType::Product->value,
+                    [ProductType::Product->value, ProductType::RawMaterial->value],
                 )
                 ->find(
                     $this->route(

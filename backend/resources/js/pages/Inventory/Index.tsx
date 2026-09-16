@@ -110,15 +110,7 @@ function InventoryWorkspace() {
             .activeOrganization
             ?.role;
 
-    const canManage =
-        role ===
-            'owner'
-        ||
-        role ===
-            'admin'
-        ||
-        role ===
-            'manager';
+    const canManage = workspace.activeOrganization?.permissions ? workspace.activeOrganization.permissions.includes('inventory.manage') : ['owner','admin','manager'].includes(role ?? '');
 
     const canPermanentlyDelete =
         role ===

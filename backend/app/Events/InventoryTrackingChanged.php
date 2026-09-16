@@ -17,6 +17,6 @@ class InventoryTrackingChanged implements ShouldDispatchAfterCommit
         public int $productId,
         public bool $enabled,
         public ?string $lowStockThreshold,
-        public int $actorId,
+        public ?int $actorId,
     ) {}
 }

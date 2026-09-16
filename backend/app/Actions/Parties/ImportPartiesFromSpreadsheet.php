@@ -453,7 +453,7 @@ class ImportPartiesFromSpreadsheet
                 'nullable',
                 'string',
                 'max:255',
-                'required_if:type,person',
+                'required_if:type,person,other',
                 'prohibited_if:type,company',
             ],
 
@@ -462,7 +462,7 @@ class ImportPartiesFromSpreadsheet
                 'string',
                 'max:255',
                 'required_if:type,company',
-                'prohibited_if:type,person',
+                'prohibited_if:type,person,other',
             ],
 
             'email' => [
@@ -523,7 +523,7 @@ class ImportPartiesFromSpreadsheet
                 'required',
                 'array',
                 'min:1',
-                'max:2',
+                'max:3',
             ],
 
             'roles.*' => [

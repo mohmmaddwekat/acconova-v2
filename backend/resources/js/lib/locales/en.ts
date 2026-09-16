@@ -212,6 +212,8 @@ export default {
     "ui.save_notes": "Save notes",
     "ui.entity_type": "Entity type",
     "ui.company": "Company",
+    "ui.other_party": "General / other",
+    "ui.party_name": "Party name",
     "ui.person": "Person",
     "ui.tax_number": "Tax number",
     "ui.relationship": "Relationship",

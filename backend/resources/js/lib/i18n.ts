@@ -3,6 +3,10 @@ import {
 } from 'react';
 
 import ar from './locales/ar';
+import catalog from './locales/catalog';
+import payments from './locales/payments';
+import settings from './locales/settings';
+import notifications from './locales/notifications';
 import dataLifecycle from './locales/dataLifecycle';
 import en from './locales/en';
 import inventory from './locales/inventory';
@@ -16,12 +20,20 @@ const dictionaries = {
         ...en,
         ...dataLifecycle.en,
         ...inventory.en,
+        ...catalog.en,
+        ...payments.en,
+        ...notifications.en,
+        ...settings.en,
     },
 
     ar: {
         ...ar,
         ...dataLifecycle.ar,
         ...inventory.ar,
+        ...catalog.ar,
+        ...payments.ar,
+        ...notifications.ar,
+        ...settings.ar,
     },
 } as const;
 

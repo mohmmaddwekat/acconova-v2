@@ -146,7 +146,7 @@ export function ProductFilterPopover({
               ? t(
                     'ui.services',
                 )
-              : t(
+              : value.type === 'raw_material' ? t('production.rawMaterial') : t(
                     'ui.everything',
                 );
 
@@ -283,6 +283,9 @@ export function ProductFilterPopover({
                             {t(
                                 'ui.services',
                             )}
+                        </FilterChoice>
+                        <FilterChoice icon={Package} active={value.type === 'raw_material'} onClick={() => change({ type: 'raw_material' })}>
+                            {t('production.rawMaterial')}
                         </FilterChoice>
                     </div>
                 ),

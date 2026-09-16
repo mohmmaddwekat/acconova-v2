@@ -214,6 +214,8 @@ export default {
     "ui.save_notes": "حفظ الملاحظات",
     "ui.entity_type": "نوع الكيان",
     "ui.company": "شركة",
+    "ui.other_party": "جهة عامة / أخرى",
+    "ui.party_name": "اسم الجهة",
     "ui.person": "شخص",
     "ui.tax_number": "الرقم الضريبي",
     "ui.relationship": "علاقة",

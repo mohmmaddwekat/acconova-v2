@@ -28,9 +28,9 @@ class WarehouseInventoryController extends Controller
 
         $query =
             Product::query()
-                ->where(
+                ->whereIn(
                     'type',
-                    ProductType::Product->value,
+                    [ProductType::Product->value, ProductType::RawMaterial->value],
                 );
 
         if ($search) {

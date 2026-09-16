@@ -1,6 +1,8 @@
 import {
     PermanentDeleteControl,
 } from '@/components/data/PermanentDeleteControl';
+import { ServiceOperationsPanel } from '@/features/products/components/ServiceOperationsPanel';
+import { ProductionPanel } from '@/features/products/components/ProductionPanel';
 import {
     useDialog,
 } from '@/components/feedback/useDialog';
@@ -183,7 +185,7 @@ export function ProductDetailDrawer({
                     <div className="grid gap-3 sm:grid-cols-2">
                         <Metric
                             label={t(
-                                'ui.selling_price',
+                                resolvedProduct.type === 'service' ? 'catalog.servicePrice' : 'ui.selling_price',
                             )}
                             value={Number(
                                 resolvedProduct.unit_price,
@@ -247,7 +249,7 @@ export function ProductDetailDrawer({
                                               'ui.service',
                                           )
                                         : t(
-                                              'ui.product',
+                                              resolvedProduct.type === 'raw_material' ? 'production.rawMaterial' : 'ui.product',
                                           )
                                 }
                             />
@@ -295,6 +297,9 @@ export function ProductDetailDrawer({
                                 )}
                         </div>
                     </section>
+
+                    <ServiceOperationsPanel key={resolvedProduct.id} product={resolvedProduct} canEdit={canEdit} />
+                    {resolvedProduct.type === 'product' && <ProductionPanel key={`production-${resolvedProduct.id}`} product={resolvedProduct} />}
 
                     {archived && (
                         <div className="mt-7 rounded-[18px] border border-[var(--ac-danger)]/15 bg-[var(--ac-danger)]/5 p-4">

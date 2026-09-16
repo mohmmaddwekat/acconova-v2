@@ -34,8 +34,8 @@ class InventoryOverviewController extends Controller
             )->id();
 
         /*
-         * Available stock is deliberately calculated from persisted warehouse
-         * balances rather than a duplicated Product.quantity column.
+         * Available stock is deliberately calculated from warehouse balances
+         * instead of duplicating quantity onto the Product record.
          */
         $availableStockSql =
             '(SELECT COALESCE(SUM(inventory_balances.on_hand - inventory_balances.reserved), 0)
@@ -45,9 +45,9 @@ class InventoryOverviewController extends Controller
 
         $trackedProducts =
             Product::query()
-                ->where(
+                ->whereIn(
                     'type',
-                    ProductType::Product->value,
+                    [ProductType::Product->value, ProductType::RawMaterial->value],
                 )
                 ->where(
                     'track_inventory',
@@ -84,6 +84,10 @@ class InventoryOverviewController extends Controller
                 )
                 ->count();
 
+        /*
+         * Inventory value explicitly excludes Services even if malformed
+         * legacy data were ever to contain track_inventory=true.
+         */
         $inventoryValue =
             DB::table(
                 'inventory_balances as balances',
@@ -105,6 +109,10 @@ class InventoryOverviewController extends Controller
                 ->whereNull(
                     'products.deleted_at',
                 )
+                ->whereIn(
+                    'products.type',
+                    [ProductType::Product->value, ProductType::RawMaterial->value],
+                )
                 ->where(
                     'products.track_inventory',
                     true,
@@ -118,8 +126,15 @@ class InventoryOverviewController extends Controller
 
         $recentMovements =
             StockMovement::query()
+                ->whereHas(
+                    'product',
+                    fn ($query) => $query->whereIn(
+                        'type',
+                        [ProductType::Product->value, ProductType::RawMaterial->value],
+                    ),
+                )
                 ->with([
-                    'product:id,name,sku',
+                    'product:id,name,sku,type',
                     'warehouse:id,code,name',
                 ])
                 ->latest()

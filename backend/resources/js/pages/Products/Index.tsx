@@ -94,15 +94,9 @@ function ProductsWorkspace() {
     const role =
         activeOrganization?.role;
 
-    const allowEdit =
-        canEditProducts(
-            role,
-        );
+    const allowEdit = activeOrganization?.permissions ? activeOrganization.permissions.includes('products.manage') : canEditProducts(role);
 
-    const allowArchive =
-        canArchiveProducts(
-            role,
-        );
+    const allowArchive = activeOrganization?.permissions ? activeOrganization.permissions.includes('products.archive') : canArchiveProducts(role);
 
     const [
         response,
