@@ -28,7 +28,7 @@ class StorePaymentPlanRequest extends FormRequest
             'amount' => ['required', 'numeric', 'gt:0', 'regex:/^\d{1,10}(?:\.\d{1,4})?$/'],
             'currency' => ['required', 'regex:/^[A-Z]{3}$/'],
             'interval_count' => ['sometimes', 'required', 'integer', 'between:1,365'],
-            'frequency' => ['required', Rule::in(['once', 'weekly', 'monthly', 'yearly'])],
+            'frequency' => ['required', Rule::in(['once', 'daily', 'weekly', 'monthly', 'yearly'])],
             'next_due_on' => ['required', 'date_format:Y-m-d'],
             'reminder_days' => ['required', 'integer', 'between:0,30'],
             'counterparty' => ['nullable', 'string', 'max:255'],

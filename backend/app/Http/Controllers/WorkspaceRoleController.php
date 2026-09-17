@@ -38,9 +38,17 @@ class WorkspaceRoleController extends Controller
             $data['base_role'] = 'employee';
             if (in_array('inventory.view', $data['permissions'], true) || in_array('inventory.manage', $data['permissions'], true)) {
                 $data['permissions'][] = 'products.view';
-            } if (in_array('products.manage', $data['permissions'], true)) {
+            } if (array_intersect($data['permissions'], ['products.manage', 'products.service'])) {
                 $data['permissions'][] = 'parties.view';
             } foreach ($data['permissions'] as $permission) {
+                if ($permission === 'staff.team_view') {
+                    continue;
+                }
+                if ($permission === 'staff.team_pay') {
+                    $data['permissions'][] = 'staff.team_view';
+
+                    continue;
+                }
                 $data['permissions'][] = explode('.', $permission)[0].'.view';
             } $data['permissions'] = array_values(array_unique($data['permissions']));
         }
@@ -55,12 +63,22 @@ class WorkspaceRoleController extends Controller
         return response()->json(['data' => WorkspaceRole::create($data)], 201);
     }
 
+    public function preview(Request $request): JsonResponse
+    {
+        $this->authorizeOwner();
+        $data = $request->validate(['email' => ['required', 'email']]);
+        $user = User::where('email', strtolower(trim($data['email'])))->firstOrFail();
+
+        return response()->json(['id' => $user->id, 'name' => $user->name, 'email' => $user->email]);
+    }
+
     public function assign(Request $request): JsonResponse
     {
         $this->authorizeOwner();
-        $data = $request->validate(['email' => ['required', 'email'], 'workspace_role_id' => ['required', 'integer']]);
+        $data = $request->validate(['confirmed_user_id' => ['sometimes', 'integer'], 'email' => ['required', 'email'], 'workspace_role_id' => ['required', 'integer']]);
         $role = WorkspaceRole::findOrFail($data['workspace_role_id']);
-        $user = User::where('email', $data['email'])->firstOrFail();
+        $user = User::where('email', strtolower(trim($data['email'])))->firstOrFail();
+        abort_if(isset($data['confirmed_user_id']) && (int) $data['confirmed_user_id'] !== $user->id, 409);
         DB::transaction(function () use ($user, $role): void {
             $membership = Membership::where('user_id', $user->id)->lockForUpdate()->first();
             abort_if($membership && $membership->role->value === 'owner', 403);

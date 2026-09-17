@@ -14,9 +14,9 @@ class DepartmentController extends Controller
 {
     public function index(): JsonResponse
     {
-        abort_unless(StaffController::allowed('staff.view'), 403);
+        abort_unless(StaffController::allowed('staff.view') || StaffController::allowed('staff.team_view'), 403);
 
-        return response()->json(['departments' => Department::orderBy('name')->get(), 'staff' => StaffMember::orderBy('name')->get(['id', 'name', 'department_id', 'active']), 'can_manage' => StaffController::allowed('staff.manage')]);
+        return response()->json(['departments' => Department::when(! StaffController::allowed('staff.view'), fn ($query) => $query->whereIn('id', StaffController::managedDepartmentIds()))->orderBy('name')->get(), 'staff' => StaffMember::when(! StaffController::allowed('staff.view'), fn ($query) => $query->whereIn('department_id', StaffController::managedDepartmentIds()))->orderBy('name')->get(['id', 'name', 'department_id', 'active']), 'can_manage' => StaffController::allowed('staff.manage')]);
     }
 
     public function store(Request $request): JsonResponse

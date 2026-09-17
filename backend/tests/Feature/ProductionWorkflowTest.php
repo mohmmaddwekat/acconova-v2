@@ -8,9 +8,11 @@ use App\Models\Organization;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Support\ProductionConsumption;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class ProductionWorkflowTest extends TestCase
@@ -96,6 +98,28 @@ class ProductionWorkflowTest extends TestCase
         $this->patchJson('/api/products/'.$rawId, [...$payload, 'type' => 'service'])->assertUnprocessable();
         $this->patchJson('/api/products/'.$rawId, [...$payload, 'type' => 'product'])->assertUnprocessable();
         $this->getJson('/api/warehouses/'.$warehouse->id.'/inventory-products')->assertOk();
+    }
+
+    public function test_material_rates_compute_totals_and_reject_insufficient_stock(): void
+    {
+        [$product,$raw,$other,$warehouse] = $this->workspace();
+        $payload = ['warehouse_id' => $warehouse->id, 'quantity' => '4', 'materials' => [['product_id' => $raw->id, 'rate' => '0.5', 'quantity' => '999'], ['product_id' => $other->id, 'rate' => '0.25']]];
+        $this->postJson($this->endpoint($product), $payload)->assertCreated();
+        $this->assertDatabaseHas('inventory_balances', ['product_id' => $raw->id, 'on_hand' => '8.0000']);
+        $this->assertDatabaseHas('inventory_balances', ['product_id' => $other->id, 'on_hand' => '4.0000']);
+        $payload['materials'][0]['rate'] = '3';
+        $this->postJson($this->endpoint($product), $payload)->assertUnprocessable();
+        $this->assertDatabaseCount('stock_movements', 3);
+        $payload['materials'][0]['rate'] = '0';
+        $this->postJson($this->endpoint($product), $payload)->assertUnprocessable();
+    }
+
+    public function test_consumption_precision_rounding_and_overflow(): void
+    {
+        $this->assertSame('0.0001', ProductionConsumption::calculate('0.0001', '0.0001'));
+        $this->assertSame('0.0200', ProductionConsumption::calculate('0.1', '0.2'));
+        $this->expectException(ValidationException::class);
+        ProductionConsumption::calculate('99999999999999', '99999999999999');
     }
 
     private function endpoint(Product $product): string

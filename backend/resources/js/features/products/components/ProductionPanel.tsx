@@ -10,13 +10,15 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 type Batch = { id: number; quantity: string; warehouse: string; created_at: string; note: string | null; materials: { id: number; name: string; quantity: string; unit: string }[] };
 type History = { data: Batch[]; meta: { last_page: number } };
-type MaterialLine = { product: Product; quantity: string };
+type MaterialLine = { product: Product; rate: string };
 const inputClass = 'mt-1 w-full rounded-xl border border-[var(--ac-line)] bg-white px-3 py-2 text-sm';
 const buttonClass = 'rounded-xl border border-[var(--ac-line)] px-3 py-2 text-xs disabled:opacity-50';
 
 /** Record actual material consumption for one finished product and review batch history. */
 export function ProductionPanel({ product }: { product: Product }) {
-    useLocale();
+    const locale = useLocale();
+    const c = locale === 'ar' ? {choose:'?????? ?????? ?????',rate:'??????? ??? ???? ?????',total:'??????? ???? ??????',help:'?????? ???????? ???????? ?? ???? ???????. ????? ??????? ??? ????? ??????? ???.'} : {choose:'Choose raw materials',rate:'Consumption per output unit',total:'Required for this batch',help:'Totals follow the output quantity. Stock is deducted only on confirmation.'};
+    const [pickerOpen, setPickerOpen] = useState(false);
     const { workspace } = usePage<AppPageProps>().props;
     const role = workspace.activeOrganization?.role;
     const canProduce = (workspace.activeOrganization?.permissions ? workspace.activeOrganization.permissions.includes('inventory.manage') : ['owner', 'admin', 'manager'].includes(role ?? '')) && !product.deleted_at;
@@ -69,8 +71,8 @@ export function ProductionPanel({ product }: { product: Product }) {
         if (saving || !lines.length) { return; }
         setSaving(true); setError(''); setSaved(false);
         try {
-            await apiRequest(endpoint, { method: 'POST', body: JSON.stringify({ warehouse_id: Number(warehouseId), quantity, note: note || null, materials: lines.map((line) => ({ product_id: line.product.id, quantity: line.quantity })) }) });
-            setSaved(true); setLines([]); setQuantity('1'); setNote(''); setPage(1); setRevision((value) => value + 1);
+            await apiRequest(endpoint, { method: 'POST', body: JSON.stringify({ warehouse_id: Number(warehouseId), quantity, note: note || null, materials: lines.map((line) => ({ product_id: line.product.id, rate: line.rate })) }) });
+            setSaved(true); setQuantity('1'); setNote(''); setPage(1); setRevision((value) => value + 1);
         } catch (failure) {
             setError(failure instanceof ApiError ? [failure.message, ...Object.values(failure.errors).flat()].join(' ') : t('catalog.operations.failed'));
         } finally { setSaving(false); }
@@ -86,11 +88,15 @@ export function ProductionPanel({ product }: { product: Product }) {
                 <p className="text-xs leading-5">{t('production.setup')}</p>
                 <label className="block text-xs">{t('production.warehouse')}<select required value={warehouseId} className={inputClass} onChange={(event) => setWarehouseId(event.target.value)}><option value="">{t('production.chooseWarehouse')}</option>{warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}</select></label>
                 <label className="block text-xs">{t('production.output')} ({product.unit})<input required type="number" min="0.0001" max="99999999999999" step="0.0001" dir="ltr" className={inputClass} value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label>
-                <label className="block text-xs">{t('production.search')}<input type="search" maxLength={255} value={search} className={inputClass} onChange={(event) => { setSearch(event.target.value); setOptions([]); }} /></label>
-                <div className="max-h-36 overflow-y-auto rounded-xl border border-[var(--ac-line)] bg-white">
-                    {searching ? <p className="p-3 text-xs">{t('catalog.operations.loading')}</p> : materialError ? <div role="alert" className="p-3 text-xs">{materialError}<button type="button" className={buttonClass} onClick={() => setRevision((value) => value + 1)}>{t('catalog.operations.retry')}</button></div> : options.length ? options.map((raw) => <button type="button" key={raw.id} disabled={!raw.track_inventory || lines.some((line) => line.product.id === raw.id) || lines.length >= 50} className="block w-full px-3 py-2 text-start text-xs disabled:opacity-40" onClick={() => setLines((current) => [...current, { product: raw, quantity: '1' }])}>{raw.name} ({raw.unit}) {!raw.track_inventory && `— ${t('production.untracked')}`}</button>) : <p className="p-3 text-xs">{t('production.noMaterials')}</p>}
+                <div className="rounded-2xl border border-[var(--ac-line)] bg-white p-4">
+                    <button type="button" aria-expanded={pickerOpen} onClick={() => setPickerOpen(!pickerOpen)} className="flex w-full items-center justify-between text-start font-semibold"><span>{c.choose}</span><span className="rounded-full bg-[var(--ac-accent-soft)] px-3 py-1">{lines.length} ? {pickerOpen ? '?' : '+'}</span></button>
+                    {pickerOpen && <div className="mt-4 space-y-3">                <label className="block text-xs">{t('production.search')}<input type="search" maxLength={255} value={search} className={inputClass} onChange={(event) => { setSearch(event.target.value); setOptions([]); }} /></label>
+                <div className="max-h-60 overflow-y-auto rounded-xl border border-[var(--ac-line)] bg-white">
+                    {searching ? <p className="p-3 text-xs">{t('catalog.operations.loading')}</p> : materialError ? <div role="alert" className="p-3 text-xs">{materialError}<button type="button" className={buttonClass} onClick={() => setRevision((value) => value + 1)}>{t('catalog.operations.retry')}</button></div> : options.length ? options.map((raw) => <button type="button" key={raw.id} disabled={!raw.track_inventory || lines.some((line) => line.product.id === raw.id) || lines.length >= 50} className="block w-full rounded-xl border border-[var(--ac-line)] px-4 py-3 text-start text-sm hover:bg-[var(--ac-accent-soft)] disabled:opacity-40" onClick={() => setLines((current) => [...current, { product: raw, rate: '1' }])}>{raw.name} ({raw.unit}) {!raw.track_inventory && `— ${t('production.untracked')}`}</button>) : <p className="p-3 text-xs">{t('production.noMaterials')}</p>}
                 </div>
-                {lines.map((line) => <div key={line.product.id} className="flex items-end gap-2"><label className="min-w-0 flex-1 text-xs">{line.product.name} — {t('production.consumed')} ({line.product.unit})<input required type="number" dir="ltr" min="0.0001" max="99999999999999" step="0.0001" className={inputClass} value={line.quantity} onChange={(event) => setLines((current) => current.map((entry) => entry.product.id === line.product.id ? { ...entry, quantity: event.target.value } : entry))} /></label><button type="button" className={buttonClass} aria-label={`${t('production.remove')} ${line.product.name}`} onClick={() => setLines((current) => current.filter((entry) => entry.product.id !== line.product.id))}>{t('production.remove')}</button></div>)}
+</div>}
+                </div><p className="text-xs leading-6 text-[var(--ac-text-soft)]">{c.help}</p>
+                {lines.map((line) => <div key={line.product.id} className="rounded-2xl border border-[var(--ac-line)] bg-white p-4 shadow-sm"><div className="mb-4 flex items-center justify-between gap-3"><strong className="text-sm">{line.product.name}</strong><button type="button" className={buttonClass} aria-label={t('production.remove') + ' ' + line.product.name} onClick={() => setLines(current => current.filter(entry => entry.product.id !== line.product.id))}>{t('production.remove')}</button></div><label className="block text-xs">{c.rate} ({line.product.unit} / {product.unit})<input required type="number" dir="ltr" min="0.0001" max="99999999999999" step="0.0001" className={inputClass} value={line.rate} onChange={event => setLines(current => current.map(entry => entry.product.id === line.product.id ? {...entry,rate:event.target.value} : entry))}/></label><div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[var(--ac-accent-soft)] p-3"><span className="text-xs">{c.total}<small className="mt-1 block"><bdi>{quantity} ? {line.rate}</bdi></small></span><output className="text-lg font-semibold"><bdi>{consumptionTotal(quantity,line.rate)}</bdi> <small>{line.product.unit}</small></output></div></div>)}
                 <label className="block text-xs">{t('catalog.operations.notes')}<textarea maxLength={1000} className={inputClass} value={note} onChange={(event) => setNote(event.target.value)} /></label>
                 <button disabled={!lines.length || !warehouseId || saving} className="w-full rounded-xl bg-[var(--ac-accent-strong)] px-4 py-3 text-sm text-white disabled:opacity-50">{t(saving ? 'catalog.operations.saving' : 'production.record')}</button>
             </fieldset>
@@ -101,4 +107,16 @@ export function ProductionPanel({ product }: { product: Product }) {
         {loading ? <p className="mt-3 text-xs">{t('catalog.operations.loading')}</p> : !loadError && (history?.data.length ? <ul className="mt-3 space-y-3">{history.data.map((batch) => <li key={batch.id} className="rounded-xl border border-[var(--ac-line)] p-3 text-sm"><strong>#{batch.id} · {batch.quantity} {product.unit}</strong><p className="mt-1 text-xs">{batch.warehouse} · <time dateTime={batch.created_at}>{new Date(batch.created_at).toLocaleString()}</time></p><ul className="mt-2 text-xs">{batch.materials.map((material) => <li key={material.id}>{material.name}: <bdi>{material.quantity}</bdi> {material.unit}</li>)}</ul>{batch.note && <p className="mt-2 whitespace-pre-wrap break-words text-xs">{batch.note}</p>}</li>)}</ul> : <p className="mt-3 text-xs">{t('production.empty')}</p>)}
         {history && history.meta.last_page > 1 && <div className="mt-3 flex justify-between"><button type="button" className={buttonClass} disabled={loading || page <= 1} onClick={() => setPage((value) => value - 1)}>{t('catalog.operations.previous')}</button><span>{page} / {history.meta.last_page}</span><button type="button" className={buttonClass} disabled={loading || page >= history.meta.last_page} onClick={() => setPage((value) => value + 1)}>{t('catalog.operations.next')}</button></div>}
     </section>;
+}
+
+function consumptionTotal(output: string, rate: string): string {
+ const scaled = (value: string): bigint | null => {
+  if (!/^\d{1,14}(?:\.\d{1,4})?$/.test(value)) { return null; }
+  const [whole, fraction = ''] = value.split('.');
+  return BigInt(whole) * 10000n + BigInt(fraction.padEnd(4, '0'));
+ };
+ const a=scaled(output), b=scaled(rate);
+ if(a===null || b===null || a<=0n || b<=0n){return '?';}
+ const total=(a*b+9999n)/10000n;
+ return String(total/10000n)+'.'+String(total%10000n).padStart(4,'0');
 }

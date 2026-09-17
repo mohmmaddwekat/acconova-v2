@@ -22,6 +22,11 @@ class EmailVerificationController extends Controller
             $request->fulfill();
         }
 
+        $invitation = $request->session()->get('staff_invitation_return');
+        if (is_string($invitation) && preg_match('#^/join-staff/[A-Za-z0-9]{64}$#', $invitation)) {
+            return redirect()->to($invitation);
+        }
+
         return redirect()->to(
             $this->destination(
                 $request->user(),

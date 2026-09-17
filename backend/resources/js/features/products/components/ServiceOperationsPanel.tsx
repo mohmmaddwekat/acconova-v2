@@ -1,3 +1,5 @@
+import { usePage } from '@inertiajs/react';
+import type { AppPageProps } from '@/types/app';
 import { fetchParties } from '@/features/parties/api';
 import type { Party } from '@/features/parties/types';
 import type { Product } from '@/features/products/types';
@@ -41,7 +43,8 @@ function previewSubtotal(quantity: string, price: string): string | null {
 /** Record customer-specific service work and read its immutable history. */
 export function ServiceOperationsPanel({ product, canEdit }: { product: Product; canEdit: boolean }) {
     useLocale();
-    const canRecord = canEdit && product.type === 'service' && !product.deleted_at;
+    const permissions=usePage<AppPageProps>().props.workspace.activeOrganization?.permissions;
+    const canRecord = (permissions ? permissions.some(p=>['products.manage','products.service'].includes(p)) : canEdit) && product.type === 'service' && !product.deleted_at;
     const [page, setPage] = useState(1);
     const [revision, setRevision] = useState(0);
     const [history, setHistory] = useState<OperationsResponse | null>(null);

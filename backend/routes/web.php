@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\PaymentPlanController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\WorkspaceNotificationController;
 use App\Http\Controllers\WorkspaceRoleController;
 use App\Http\Controllers\WorkspaceSettingsController;
@@ -11,6 +12,9 @@ use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+Route::get('/join-staff/{token}', [StaffInvitationController::class, 'show'])->middleware('throttle:30,1')->name('staff.invitation');
+Route::post('/api/staff-invitations/{token}/accept', [StaffInvitationController::class, 'accept'])->middleware(['auth', 'verified', 'throttle:10,1']);
 
 Route::get(
     '/',
@@ -179,6 +183,8 @@ Route::prefix('api')->group(function (): void {
         Route::get('departments', [DepartmentController::class, 'index']);
         Route::post('departments', [DepartmentController::class, 'store']);
         Route::patch('departments/{department}', [DepartmentController::class, 'update'])->whereNumber('department');
+        Route::post('staff/{staff}/invitation', [StaffInvitationController::class, 'store'])->whereNumber('staff')->middleware('throttle:10,1');
+        Route::post('staff/{staff}/accrue', [StaffController::class, 'accrue'])->whereNumber('staff');
         Route::get('staff', [StaffController::class, 'index']);
         Route::post('staff', [StaffController::class, 'store']);
         Route::patch('staff/{staff}', [StaffController::class, 'update'])->whereNumber('staff');
@@ -187,6 +193,7 @@ Route::prefix('api')->group(function (): void {
         Route::get('workspace-roles', [WorkspaceRoleController::class, 'index']);
         Route::patch('workspace-roles/{workspaceRole}', [WorkspaceRoleController::class, 'store'])->whereNumber('workspaceRole');
         Route::post('workspace-roles', [WorkspaceRoleController::class, 'store']);
+        Route::post('workspace-roles/preview', [WorkspaceRoleController::class, 'preview']);
         Route::post('workspace-roles/assign', [WorkspaceRoleController::class, 'assign']);
         Route::get('workspace-settings', [WorkspaceSettingsController::class, 'show']);
         Route::patch('workspace-settings', [WorkspaceSettingsController::class, 'update']);

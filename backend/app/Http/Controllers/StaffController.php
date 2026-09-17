@@ -9,6 +9,7 @@ use App\Models\StaffMember;
 use App\Models\WorkspaceRole;
 use App\Support\InventoryQuantity as Decimal;
 use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,15 +33,32 @@ class StaffController extends Controller
     {
         $query = StaffMember::query();
         if (! self::allowed('staff.view')) {
-            $query->where('user_id', $request->user()->id);
+            $query->where(function ($query) use ($request): void {
+                $query->where('user_id', $request->user()->id);
+                if (self::allowed('staff.team_view')) {
+                    $query->orWhereIn('department_id', self::managedDepartmentIds());
+                }
+            });
         }
         $query->withSum(['entries as balance' => fn ($query) => $query->where('kind', '!=', 'terms')], 'amount');
 
-        return response()->json(['data' => $query->orderBy('name')->paginate(30), 'can_view' => self::allowed('staff.view'), 'can_manage' => self::allowed('staff.manage'), 'can_pay' => self::allowed('staff.pay'),
+        return response()->json(['data' => $query->orderBy('name')->paginate(30), 'can_invite' => app(TenantContext::class)->role()->value === 'owner', 'can_view' => self::allowed('staff.view') || self::allowed('staff.team_view'), 'can_manage' => self::allowed('staff.manage'), 'can_pay' => self::allowed('staff.pay'),
             'currency' => app(TenantContext::class)->organization()->preferences['currency'] ?? 'ILS',
+            'roles' => app(TenantContext::class)->role()->value === 'owner' ? WorkspaceRole::orderBy('name')->get(['id', 'name']) : [],
             'departments' => Department::orderBy('name')->get(['id', 'name', 'manager_id']),
             'accounts' => self::allowed('staff.manage') ? Membership::with('user:id,name,email')->get()->map(fn (Membership $member): array => ['id' => $member->user_id, 'name' => $member->user->name, 'email' => $member->user->email]) : [],
         ]);
+    }
+
+    /** @return list<int> */
+    public static function managedDepartmentIds(): array
+    {
+        return Department::whereIn('manager_id', StaffMember::where('user_id', auth()->id())->where('active', true)->select('id'))->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    private static function canPay(StaffMember $member): bool
+    {
+        return self::allowed('staff.pay') || (self::allowed('staff.team_pay') && in_array((int) $member->department_id, self::managedDepartmentIds(), true));
     }
 
     private function rules(): array
@@ -87,20 +105,68 @@ class StaffController extends Controller
     public function ledger(Request $request, string $staff): JsonResponse
     {
         $member = StaffMember::findOrFail($staff);
-        abort_unless(self::allowed('staff.view') || $member->user_id === $request->user()->id, 403);
+        abort_unless(self::allowed('staff.view') || (self::allowed('staff.team_view') && in_array((int) $member->department_id, self::managedDepartmentIds(), true)) || $member->user_id === $request->user()->id, 403);
         $entries = StaffEntry::where('staff_member_id', $member->id);
         $totals = (clone $entries)->selectRaw('kind, SUM(amount) as amount')->groupBy('kind')->pluck('amount', 'kind');
 
-        return response()->json(['member' => $member, 'totals' => $totals, 'balance' => (string) (clone $entries)->sum('amount'), 'entries' => $entries->latest('occurred_on')->latest('id')->paginate(30)]);
+        return response()->json(['can_pay' => self::canPay($member), 'member' => $member, 'totals' => $totals, 'balance' => (string) (clone $entries)->sum('amount'), 'entries' => $entries->latest('occurred_on')->latest('id')->paginate(30)]);
+    }
+
+    /** Approve missing complete months; payments never determine whether wages accrue. */
+    public function accrue(Request $request, string $staff): JsonResponse
+    {
+        abort_unless(self::allowed('staff.pay') || self::allowed('staff.team_pay'), 403);
+        $data = $request->validate(['through' => ['required', 'date_format:Y-m']]);
+        $through = CarbonImmutable::createFromFormat('!Y-m', $data['through']);
+        abort_unless($through->lt(today()->startOfMonth()), 422);
+        $count = DB::transaction(function () use ($request, $staff, $through): int {
+            $member = StaffMember::lockForUpdate()->findOrFail($staff);
+            abort_unless(self::canPay($member), 403);
+            abort_unless($member->basis === 'month' && $member->active, 409);
+            $history = StaffEntry::where('staff_member_id', $member->id)->where('kind', 'terms')->orderBy('occurred_on')->orderBy('id')->get();
+            $initial = $history->first()?->terms['before'] ?? $member->toArray();
+            $started = CarbonImmutable::parse($initial['started_on']);
+            $start = $started->day === 1 ? $started->startOfMonth() : $started->startOfMonth()->addMonth();
+            abort_if($start->diffInMonths($through, false) > 600, 422);
+            $existing = StaffEntry::where('staff_member_id', $member->id)->whereIn('kind', ['work', 'monthly_allowance'])->get(['kind', 'occurred_on'])->mapWithKeys(fn (StaffEntry $entry): array => [$entry->kind.':'.substr((string) $entry->occurred_on, 0, 7) => true])->all();
+            $count = 0;
+            for ($month = $start; $month->lte($through); $month = $month->addMonth()) {
+                $terms = $initial;
+                foreach ($history as $change) {
+                    if (substr((string) $change->occurred_on, 0, 10) <= $month->toDateString()) {
+                        $terms = $change->terms['after'];
+                    }
+                }
+                if (($terms['basis'] ?? null) !== 'month' || ! ($terms['active'] ?? true)) {
+                    continue;
+                }
+                foreach (['work' => 'rate', 'monthly_allowance' => 'monthly_allowance'] as $kind => $field) {
+                    if (isset($existing[$kind.':'.$month->format('Y-m')])) {
+                        continue;
+                    }
+                    $amount = Decimal::toUnits($terms[$field] ?? '0');
+                    if ($amount <= 0) {
+                        continue;
+                    }
+                    StaffEntry::create(['staff_member_id' => $member->id, 'created_by' => $request->user()->id, 'request_id' => (string) Str::uuid(), 'kind' => $kind, 'occurred_on' => $month->toDateString(), 'quantity' => $kind === 'work' ? '1' : null, 'rate' => $kind === 'work' ? $terms['rate'] : null, 'amount' => Decimal::fromUnits($amount), 'notes' => 'Monthly accrual '.$month->format('Y-m'), 'terms' => ['basis' => 'month', 'currency' => $member->currency, 'accrual' => true]]);
+                    $count++;
+                }
+            }
+
+            return $count;
+        });
+
+        return response()->json(['created' => $count]);
     }
 
     public function record(Request $request, string $staff): JsonResponse
     {
-        abort_unless(self::allowed('staff.pay'), 403);
+        abort_unless(self::allowed('staff.pay') || self::allowed('staff.team_pay'), 403);
         $data = $request->validate(['request_id' => ['required', 'uuid'], 'kind' => ['required', Rule::in(['work', 'bonus', 'allowance', 'monthly_allowance', 'deduction', 'payment'])], 'occurred_on' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'quantity' => ['required_if:kind,work', 'nullable', 'numeric', 'gt:0', 'max:9999', 'regex:/^\d+(\.\d{1,4})?$/'], 'amount' => ['required_unless:kind,work,monthly_allowance', 'nullable', 'numeric', 'gt:0', 'max:999999999', 'regex:/^\d+(\.\d{1,4})?$/'], 'notes' => ['required', 'string', 'max:2000']]);
         $entry = DB::transaction(function () use ($request, $staff, $data): StaffEntry {
             $member = StaffMember::lockForUpdate()->findOrFail($staff);
+            abort_unless(self::canPay($member), 403);
             abort_if(! $member->active && in_array($data['kind'], ['work', 'monthly_allowance'], true), 409);
             abort_if(StaffEntry::where('request_id', $data['request_id'])->exists(), 409);
             if ($data['kind'] === 'monthly_allowance' || ($data['kind'] === 'work' && $member->basis === 'month')) {

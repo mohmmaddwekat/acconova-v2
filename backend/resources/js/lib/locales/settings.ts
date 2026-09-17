@@ -1,5 +1,6 @@
 export default {
     en: {
+        'payments.daily': 'Daily', 'settings.days': 'days',
         'settings.team': 'Team & access',
         'staff.title': 'Employees', 'staff.subtitle': 'Work, earnings & payments', 'staff.roles': 'Roles & permissions', 'staff.access': 'Team access',
         'settings.title': 'Settings', 'settings.subtitle': 'Your workspace, your preferences.',
@@ -18,6 +19,7 @@ export default {
         'settings.identity': 'Workspace', 'settings.email': 'Account email',
     },
     ar: {
+        'payments.daily': 'يومي', 'settings.days': 'أيام',
         'settings.team': 'الفريق والصلاحيات',
         'staff.title': 'الموظفون', 'staff.subtitle': 'العمل والمستحقات والدفعات', 'staff.roles': 'الأدوار والصلاحيات', 'staff.access': 'صلاحيات فريق العمل',
         'settings.title': 'الإعدادات', 'settings.subtitle': 'مساحة عملك، بالطريقة التي تناسبك.',

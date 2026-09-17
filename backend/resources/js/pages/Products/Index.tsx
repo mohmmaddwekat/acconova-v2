@@ -94,7 +94,8 @@ function ProductsWorkspace() {
     const role =
         activeOrganization?.role;
 
-    const allowEdit = activeOrganization?.permissions ? activeOrganization.permissions.includes('products.manage') : canEditProducts(role);
+    const allowCreate = activeOrganization?.permissions ? activeOrganization.permissions.some(p=>['products.manage','products.create'].includes(p)) : canEditProducts(role);
+    const allowEdit = activeOrganization?.permissions ? activeOrganization.permissions.some(p=>['products.manage','products.update'].includes(p)) : canEditProducts(role);
 
     const allowArchive = activeOrganization?.permissions ? activeOrganization.permissions.includes('products.archive') : canArchiveProducts(role);
 
@@ -493,8 +494,8 @@ function ProductsWorkspace() {
                                 }}
                             />
 
-                            <ProductDataActions filters={productFilters} canImport={allowEdit} onImport={() => setImportOpen(true)} />
-                            {allowEdit && (
+                            <ProductDataActions filters={productFilters} canImport={allowEdit && allowCreate} onImport={() => setImportOpen(true)} />
+                            {allowCreate && (
                                 <button
                                     type="button"
                                     onClick={

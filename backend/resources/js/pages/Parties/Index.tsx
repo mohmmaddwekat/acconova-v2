@@ -108,7 +108,8 @@ function PartiesWorkspace() {
     const activeRole =
         activeOrganization?.role;
 
-    const allowEdit = activeOrganization?.permissions ? activeOrganization.permissions.includes('parties.manage') : canEditParties(activeRole);
+    const allowCreate = activeOrganization?.permissions ? activeOrganization.permissions.some(p=>['parties.manage','parties.create'].includes(p)) : canEditParties(activeRole);
+    const allowEdit = activeOrganization?.permissions ? activeOrganization.permissions.some(p=>['parties.manage','parties.update'].includes(p)) : canEditParties(activeRole);
 
     const allowArchive = activeOrganization?.permissions ? activeOrganization.permissions.includes('parties.archive') : canArchiveParties(activeRole);
 
@@ -805,9 +806,7 @@ function PartiesWorkspace() {
                                         filters={
                                             partyFilters
                                         }
-                                        canImport={
-                                            allowEdit
-                                        }
+                                        canImport={allowEdit && allowCreate}
                                         onImport={() =>
                                             setImportOpen(
                                                 true,
@@ -816,7 +815,7 @@ function PartiesWorkspace() {
                                     />
                                 </div>
 
-                                {allowEdit && (
+                                {allowCreate && (
                                     <button
                                         type="button"
                                         onClick={

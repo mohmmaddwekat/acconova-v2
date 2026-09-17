@@ -71,6 +71,8 @@ class PaymentPlanController extends Controller
             $due = CarbonImmutable::parse($data['due_on']);
             if ($item->frequency === 'once') {
                 $item->active = false;
+            } elseif ($item->frequency === 'daily') {
+                $item->next_due_on = $due->addDays($item->interval_count);
             } elseif ($item->frequency === 'weekly') {
                 $item->next_due_on = $due->addWeeks($item->interval_count);
             } else {

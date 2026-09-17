@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class WorkspacePermissions
 {
-    public const KEYS = ['products.view', 'products.manage', 'products.archive', 'parties.view', 'parties.manage', 'parties.archive', 'inventory.view', 'inventory.manage', 'payments.view', 'payments.manage', 'staff.view', 'staff.manage', 'staff.pay'];
+    public const KEYS = ['products.create', 'products.update', 'products.service', 'parties.create', 'parties.update', 'payments.create', 'payments.update', 'payments.record', 'staff.team_view', 'staff.team_pay', 'products.view', 'products.manage', 'products.archive', 'parties.view', 'parties.manage', 'parties.archive', 'inventory.view', 'inventory.manage', 'payments.view', 'payments.manage', 'staff.view', 'staff.manage', 'staff.pay'];
 
     public static function custom(int $userId, int $organizationId): ?WorkspaceRole
     {
@@ -53,6 +53,16 @@ class WorkspacePermissions
             'view','viewAny' => $module.'.view','create','update' => $module.'.manage','delete','restore' => $module === 'inventory' ? 'inventory.manage' : $module.'.archive','manageInventory' => 'inventory.manage',default => null
         };
 
-        return $permission !== null && in_array($permission, $role->permissions, true);
+        $specific = match ($ability) {
+            'create' => $module.'.create', 'update' => $module.'.update', default => null
+        };
+        if ($class === Product::class && $ability === 'update' && request()->is('api/products/*/service-operations')) {
+            $specific = 'products.service';
+        }
+        if ($class === PaymentPlan::class && $ability === 'update' && request()->is('api/payment-plans/*/record')) {
+            $specific = 'payments.record';
+        }
+
+        return ($permission !== null && in_array($permission, $role->permissions, true)) || ($specific !== null && in_array($specific, $role->permissions, true));
     }
 }

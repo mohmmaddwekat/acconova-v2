@@ -8,6 +8,7 @@ use App\Http\Resources\ProductionResource;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Services\InventoryStockService;
+use App\Support\ProductionConsumption;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -35,6 +36,7 @@ class ProductionController extends Controller
     public function store(RecordProductionRequest $request, InventoryStockService $inventory, string $product): JsonResponse
     {
         $data = $request->validated();
+        $data['materials'] = array_map(fn (array $line): array => ['product_id' => $line['product_id'], 'quantity' => isset($line['rate']) ? ProductionConsumption::calculate((string) $data['quantity'], (string) $line['rate']) : $line['quantity']], $data['materials']);
         $movement = $inventory->recordProduction(Product::findOrFail($product), (int) $data['warehouse_id'], (string) $data['quantity'], $data['materials'], $data['note'] ?? null, $request->user()->id);
         $movement->load('warehouse');
         $movement->setRelation('materials', StockMovement::query()->where('reference_type', 'production')
