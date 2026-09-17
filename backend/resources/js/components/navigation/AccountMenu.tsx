@@ -1,10 +1,12 @@
 import {
+    Link,
     router,
     usePage,
 } from '@inertiajs/react';
 import {
     ChevronDown,
     LogOut,
+    MessageCircleMore,
     UserRound,
 } from 'lucide-react';
 import {
@@ -60,17 +62,20 @@ function userInitials(
 }
 
 /**
- * Render account identity and session controls.
- *
- * Locale selection intentionally lives outside this menu so the account menu
- * remains focused on identity and authentication actions.
+ * Render account identity, profile shortcuts, Team Space and logout.
  */
 export function AccountMenu() {
-    useLocale();
+    const locale =
+        useLocale();
+
+    const ar =
+        locale ===
+        'ar';
 
     const {
         showToast,
-    } = useToast();
+    } =
+        useToast();
 
     const {
         auth,
@@ -101,75 +106,85 @@ export function AccountMenu() {
             null,
         );
 
-    useEffect(() => {
-        if (! open) {
-            return;
-        }
-
-        /**
-         * Close the account surface when pointer interaction leaves it.
-         */
-        function handlePointerDown(
-            event: MouseEvent,
-        ): void {
+    useEffect(
+        () => {
             if (
-                containerRef.current &&
-                ! containerRef.current.contains(
-                    event.target as Node,
-                )
+                ! open
             ) {
-                setOpen(
-                    false,
-                );
+                return;
             }
-        }
 
-        /**
-         * Keep keyboard dismissal consistent with the rest of the shell.
-         */
-        function handleKeyDown(
-            event: KeyboardEvent,
-        ): void {
-            if (
-                event.key ===
-                'Escape'
-            ) {
-                setOpen(
-                    false,
-                );
+            /**
+             * Close the menu when pointer interaction leaves the surface.
+             */
+            function handlePointerDown(
+                event:
+                    MouseEvent,
+            ): void {
+                if (
+                    containerRef.current
+                    && ! containerRef.current.contains(
+                        event.target as
+                            Node,
+                    )
+                ) {
+                    setOpen(
+                        false,
+                    );
+                }
             }
-        }
 
-        document.addEventListener(
-            'mousedown',
-            handlePointerDown,
-        );
+            /**
+             * Close the menu from the Escape key.
+             */
+            function handleKeyDown(
+                event:
+                    KeyboardEvent,
+            ): void {
+                if (
+                    event.key ===
+                    'Escape'
+                ) {
+                    setOpen(
+                        false,
+                    );
+                }
+            }
 
-        window.addEventListener(
-            'keydown',
-            handleKeyDown,
-        );
-
-        return () => {
-            document.removeEventListener(
+            document.addEventListener(
                 'mousedown',
                 handlePointerDown,
             );
 
-            window.removeEventListener(
+            window.addEventListener(
                 'keydown',
                 handleKeyDown,
             );
-        };
-    }, [
-        open,
-    ]);
+
+            return () => {
+                document.removeEventListener(
+                    'mousedown',
+                    handlePointerDown,
+                );
+
+                window.removeEventListener(
+                    'keydown',
+                    handleKeyDown,
+                );
+            };
+        },
+        [
+            open,
+        ],
+    );
 
     /**
-     * End the authenticated session and safely return to sign in.
+     * End the authenticated session and return to login.
      */
     async function handleLogout(): Promise<void> {
-        if (busy) {
+        if (
+            busy
+        ) {
             return;
         }
 
@@ -208,7 +223,9 @@ export function AccountMenu() {
         }
     }
 
-    if (! user) {
+    if (
+        ! user
+    ) {
         return null;
     }
 
@@ -237,10 +254,10 @@ export function AccountMenu() {
                     )
                 }
                 className={[
-                    'group flex h-10 min-w-10 items-center justify-center gap-2 rounded-[14px] border bg-white px-1.5 shadow-[var(--ac-shadow-soft)] transition duration-200 hover:-translate-y-px active:translate-y-0 motion-reduce:transform-none sm:px-2',
+                    'group flex h-10 min-w-10 items-center justify-center gap-2 rounded-[14px] border bg-white px-1.5 shadow-[var(--ac-shadow-soft)] transition duration-200 hover:-translate-y-px sm:px-2',
                     open
                         ? 'border-[var(--ac-accent)] ring-4 ring-[var(--ac-accent-soft)]'
-                        : 'border-[var(--ac-line)] hover:border-[var(--ac-line-strong)]',
+                        : 'border-[var(--ac-line)]',
                 ].join(
                     ' ',
                 )}
@@ -253,7 +270,7 @@ export function AccountMenu() {
                     <span className="absolute -end-0.5 -top-0.5 size-2 rounded-full border-2 border-white bg-[var(--ac-accent)]" />
                 </span>
 
-                <span className="hidden max-w-32 truncate pe-0.5 text-xs font-semibold text-[var(--ac-text)] xl:block">
+                <span className="hidden max-w-32 truncate pe-0.5 text-xs font-semibold xl:block">
                     {
                         user.name
                     }
@@ -264,7 +281,7 @@ export function AccountMenu() {
                         13
                     }
                     className={[
-                        'hidden text-[var(--ac-text-muted)] transition-transform duration-200 sm:block',
+                        'hidden text-[var(--ac-text-muted)] transition sm:block',
                         open
                             ? 'rotate-180'
                             : '',
@@ -277,7 +294,7 @@ export function AccountMenu() {
             {open && (
                 <div
                     role="menu"
-                    className="absolute end-0 top-[calc(100%+0.65rem)] z-[90] w-[min(19rem,calc(100vw-1.5rem))] overflow-hidden rounded-[22px] border border-[var(--ac-line)] bg-white p-2 shadow-[var(--ac-shadow-panel)] motion-safe:animate-[fadeIn_160ms_ease-out]"
+                    className="absolute end-0 top-[calc(100%+0.65rem)] z-[90] w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-[22px] border border-[var(--ac-line)] bg-white p-2 shadow-[var(--ac-shadow-panel)]"
                 >
                     <div className="rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3.5">
                         <div className="flex items-center gap-3">
@@ -290,7 +307,7 @@ export function AccountMenu() {
                             </div>
 
                             <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold tracking-[-0.02em] text-[var(--ac-text)]">
+                                <p className="truncate text-sm font-semibold">
                                     {
                                         user.name
                                     }
@@ -305,6 +322,54 @@ export function AccountMenu() {
                         </div>
                     </div>
 
+                    <div className="mt-2 space-y-1">
+                        <Link
+                            href="/app/profile"
+                            role="menuitem"
+                            onClick={() =>
+                                setOpen(
+                                    false,
+                                )
+                            }
+                            className="flex min-h-11 items-center gap-3 rounded-[15px] px-3 py-2.5 text-sm font-semibold transition hover:bg-[var(--ac-accent-soft)]"
+                        >
+                            <span className="flex size-8 items-center justify-center rounded-[11px] bg-[var(--ac-bg-soft)]">
+                                <UserRound
+                                    size={
+                                        15
+                                    }
+                                />
+                            </span>
+
+                            {ar
+                                ? 'الملف الشخصي'
+                                : 'Profile'}
+                        </Link>
+
+                        <Link
+                            href="/app/team-space"
+                            role="menuitem"
+                            onClick={() =>
+                                setOpen(
+                                    false,
+                                )
+                            }
+                            className="flex min-h-11 items-center gap-3 rounded-[15px] px-3 py-2.5 text-sm font-semibold transition hover:bg-[var(--ac-accent-soft)]"
+                        >
+                            <span className="flex size-8 items-center justify-center rounded-[11px] bg-[var(--ac-bg-soft)]">
+                                <MessageCircleMore
+                                    size={
+                                        15
+                                    }
+                                />
+                            </span>
+
+                            {ar
+                                ? 'مساحة الفريق'
+                                : 'Team Space'}
+                        </Link>
+                    </div>
+
                     <div className="my-2 h-px bg-[var(--ac-line)]" />
 
                     <button
@@ -316,9 +381,9 @@ export function AccountMenu() {
                         onClick={() =>
                             void handleLogout()
                         }
-                        className="group flex min-h-11 w-full items-center gap-3 rounded-[15px] px-3 py-2.5 text-start text-sm font-semibold text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)] disabled:opacity-50"
+                        className="group flex min-h-11 w-full items-center gap-3 rounded-[15px] px-3 py-2.5 text-start text-sm font-semibold text-[var(--ac-text-soft)] transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
                     >
-                        <span className="flex size-8 items-center justify-center rounded-[11px] bg-[var(--ac-bg-soft)] transition group-hover:bg-white">
+                        <span className="flex size-8 items-center justify-center rounded-[11px] bg-[var(--ac-bg-soft)]">
                             <LogOut
                                 size={
                                     15
@@ -326,15 +391,13 @@ export function AccountMenu() {
                             />
                         </span>
 
-                        <span>
-                            {busy
-                                ? t(
-                                      'ui.signing_out',
-                                  )
-                                : t(
-                                      'ui.sign_out',
-                                  )}
-                        </span>
+                        {busy
+                            ? t(
+                                  'ui.signing_out',
+                              )
+                            : t(
+                                  'ui.sign_out',
+                              )}
                     </button>
                 </div>
             )}

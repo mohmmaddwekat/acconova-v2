@@ -12,6 +12,21 @@ use Illuminate\Support\Facades\DB;
 
 class NotificationCenter
 {
+    public function message(object $conversation, int $messageId, int $senderId, string $senderName): void
+    {
+        $recipients = DB::table('workspace_conversation_members as cm')->join('memberships as m', 'm.user_id', '=', 'cm.user_id')
+            ->where('m.organization_id', $conversation->organization_id)->where('cm.conversation_id', $conversation->id)
+            ->where('cm.user_id', '!=', $senderId)->pluck('cm.user_id');
+        foreach ($recipients as $recipientId) {
+            DB::table('workspace_notifications')->insertOrIgnore([
+                'organization_id' => $conversation->organization_id, 'user_id' => $recipientId,
+                'event_key' => 'message:'.$conversation->id.':'.$messageId, 'kind' => 'message', 'category' => 'messages',
+                'data' => json_encode(['name' => $senderName, 'detail' => $conversation->kind === 'group' ? $conversation->name : null], JSON_THROW_ON_ERROR),
+                'url' => route('app.team-space', ['conversation' => $conversation->id]), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+    }
+
     /** @param array<string, mixed> $data */
     public function publish(int $organizationId, string $key, string $kind, string $category, array $data, string $url, bool $finance = false): void
     {

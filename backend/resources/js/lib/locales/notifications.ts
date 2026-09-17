@@ -1,5 +1,7 @@
 export default {
     ar: {
+        'notifications.messages': 'الرسائل',
+        'notifications.kind.message': 'رسالة جديدة',
         'role.contact': 'جهة تعامل',
         'notifications.title': 'التنبيهات',
         'notifications.subtitle': 'المواعيد المهمة ونشاط العمل',
@@ -24,6 +26,8 @@ export default {
         'notifications.kind.payment_recorded': 'تم تسجيل دفع أو قبض',
     },
     en: {
+        'notifications.messages': 'Messages',
+        'notifications.kind.message': 'New message',
         'role.contact': 'General contact',
         'notifications.title': 'Notifications',
         'notifications.subtitle': 'Important dates and business activity',

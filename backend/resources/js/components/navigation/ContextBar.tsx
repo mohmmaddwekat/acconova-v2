@@ -1,7 +1,6 @@
 import {
     Menu,
 } from 'lucide-react';
-import { NotificationBell } from '@/components/navigation/NotificationBell';
 
 import {
     AccountMenu,
@@ -9,6 +8,12 @@ import {
 import {
     LanguageSwitcher,
 } from '@/components/navigation/LanguageSwitcher';
+import {
+    MessageBell,
+} from '@/components/navigation/MessageBell';
+import {
+    NotificationBell,
+} from '@/components/navigation/NotificationBell';
 import {
     WorkspaceSwitcher,
 } from '@/components/navigation/WorkspaceSwitcher';
@@ -22,10 +27,11 @@ type ContextBarProps = {
 };
 
 /**
- * Render global workspace, language, and account controls.
+ * Render global workspace, language, messages, notifications and account
+ * controls.
  *
- * Language remains independent from account actions because locale is an
- * application-view preference rather than account-management functionality.
+ * Messaging lives globally in the Context Bar rather than being coupled to the
+ * employee-management page because Team Space is an Organization-wide surface.
  */
 export function ContextBar({
     onOpenNavigation,
@@ -58,7 +64,10 @@ export function ContextBar({
 
                 <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                     <LanguageSwitcher />
+
                     <NotificationBell />
+
+                    <MessageBell />
 
                     <AccountMenu />
                 </div>

@@ -21,14 +21,14 @@ class WorkspaceNotificationController extends Controller
         $query = WorkspaceNotification::query()->where('user_id', $request->user()->id);
         $custom = WorkspacePermissions::custom($request->user()->id, app(TenantContext::class)->id());
         if ($custom) {
-            $categories = [];
+            $categories = ['messages'];
             foreach (['inventory.view' => 'stock', 'payments.view' => 'payments', 'products.view' => 'activity'] as $permission => $category) {
                 if (in_array($permission, $custom->permissions, true)) {
                     $categories[] = $category;
                 }
             } $query->whereIn('category', $categories);
         } elseif (app(TenantContext::class)->role() === OrganizationRole::Employee) {
-            $query->where('category', 'stock');
+            $query->whereIn('category', ['stock', 'messages']);
         }
 
         return $query;
@@ -37,7 +37,7 @@ class WorkspaceNotificationController extends Controller
     public function index(Request $request, NotificationCenter $center): AnonymousResourceCollection
     {
         $data = $request->validate(['page' => ['sometimes', 'integer', 'min:1'], 'unread' => ['sometimes', 'boolean'],
-            'category' => ['nullable', Rule::in(['stock', 'payments', 'activity'])]]);
+            'category' => ['nullable', Rule::in(['stock', 'payments', 'activity', 'messages'])]]);
         $center->syncDue(app(TenantContext::class)->id());
 
         return WorkspaceNotificationResource::collection($this->query($request)

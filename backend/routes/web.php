@@ -3,9 +3,13 @@
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\PaymentPlanController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StaffCorrectionController;
 use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\StaffWorkforceController;
+use App\Http\Controllers\WorkspaceConversationController;
+use App\Http\Controllers\WorkspaceMessageMemberController;
 use App\Http\Controllers\WorkspaceNotificationController;
 use App\Http\Controllers\WorkspaceRoleController;
 use App\Http\Controllers\WorkspaceSettingsController;
@@ -336,17 +340,24 @@ Route::prefix(
             'staff',
         );
 
-        Route::delete('staff/{staff}', [\App\Http\Controllers\StaffCorrectionController::class, 'destroy'])->whereNumber('staff');
-        Route::match(['PATCH','DELETE'], 'staff/{staff}/entries/{entry}', [\App\Http\Controllers\StaffCorrectionController::class, 'entry'])->whereNumber(['staff','entry']);
-        Route::match(['PATCH','DELETE'], 'staff/{staff}/attendance/{attendance}', [\App\Http\Controllers\StaffCorrectionController::class, 'attendance'])->whereNumber(['staff','attendance']);
-        Route::match(['PATCH','DELETE'], 'staff/{staff}/adjustments/{adjustment}/correct', [\App\Http\Controllers\StaffCorrectionController::class, 'adjustment'])->whereNumber(['staff','adjustment']);
-        Route::get('team-space', [\App\Http\Controllers\WorkspaceConversationController::class, 'index']);
-        Route::get('team-space/people', [\App\Http\Controllers\WorkspaceConversationController::class, 'people']);
-        Route::post('team-space', [\App\Http\Controllers\WorkspaceConversationController::class, 'store'])->middleware('throttle:10,1');
-        Route::get('team-space/{conversation}/messages', [\App\Http\Controllers\WorkspaceConversationController::class, 'messages'])->whereNumber('conversation');
-        Route::post('team-space/{conversation}/messages', [\App\Http\Controllers\WorkspaceConversationController::class, 'send'])->whereNumber('conversation')->middleware('throttle:60,1');
-        Route::patch('team-space/{conversation}/members', [\App\Http\Controllers\WorkspaceConversationController::class, 'members'])->whereNumber('conversation');
-        Route::match(['PATCH','DELETE'],'team-space/{conversation}/messages/{message}', [\App\Http\Controllers\WorkspaceConversationController::class, 'updateMessage'])->whereNumber(['conversation','message']);
+        Route::delete('staff/{staff}', [StaffCorrectionController::class, 'destroy'])->whereNumber('staff');
+        Route::match(['PATCH', 'DELETE'], 'staff/{staff}/entries/{entry}', [StaffCorrectionController::class, 'entry'])->whereNumber(['staff', 'entry']);
+        Route::match(['PATCH', 'DELETE'], 'staff/{staff}/attendance/{attendance}', [StaffCorrectionController::class, 'attendance'])->whereNumber(['staff', 'attendance']);
+        Route::match(['PATCH', 'DELETE'], 'staff/{staff}/adjustments/{adjustment}/correct', [StaffCorrectionController::class, 'adjustment'])->whereNumber(['staff', 'adjustment']);
+        Route::get('team-space', [WorkspaceConversationController::class, 'index']);
+        Route::get('team-space/people', [WorkspaceConversationController::class, 'people']);
+        Route::get('team-space/{conversation}/settings', [\App\Http\Controllers\WorkspaceConversationSettingsController::class, 'show'])->whereNumber('conversation');
+        Route::post('team-space/{conversation}/settings', [\App\Http\Controllers\WorkspaceConversationSettingsController::class, 'update'])->whereNumber('conversation')->middleware('throttle:30,1');
+        Route::get('team-space/{conversation}/library', [\App\Http\Controllers\WorkspaceConversationSettingsController::class, 'library'])->whereNumber('conversation');
+        Route::get('team-space/{conversation}/avatar', [\App\Http\Controllers\WorkspaceConversationSettingsController::class, 'avatar'])->whereNumber('conversation')->name('team-space.avatar');
+        Route::get('team-space/{conversation}/people/{member}', [WorkspaceMessageMemberController::class, 'show'])->whereNumber(['conversation', 'member']);
+        Route::get('team-space/{conversation}/people/{member}/avatar', [WorkspaceMessageMemberController::class, 'avatar'])->whereNumber(['conversation', 'member'])->name('team-space.member-avatar');
+        Route::put('team-space/{conversation}/people/{member}/restriction', [WorkspaceMessageMemberController::class, 'update'])->whereNumber(['conversation', 'member'])->middleware('throttle:30,1');
+        Route::post('team-space', [WorkspaceConversationController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('team-space/{conversation}/messages', [WorkspaceConversationController::class, 'messages'])->whereNumber('conversation');
+        Route::post('team-space/{conversation}/messages', [WorkspaceConversationController::class, 'send'])->whereNumber('conversation')->middleware('throttle:60,1');
+        Route::patch('team-space/{conversation}/members', [WorkspaceConversationController::class, 'members'])->whereNumber('conversation');
+        Route::match(['PATCH', 'DELETE'], 'team-space/{conversation}/messages/{message}', [WorkspaceConversationController::class, 'updateMessage'])->whereNumber(['conversation', 'message']);
         Route::get(
             'staff',
             [
@@ -568,13 +579,13 @@ Route::prefix(
         .'/api/inventory.php';
 });
 
-Route::middleware(['auth','throttle:30,1'])->prefix('api/profile')->group(function(): void {
-    Route::get('/', [\App\Http\Controllers\ProfileController::class,'show']);
-    Route::patch('/', [\App\Http\Controllers\ProfileController::class,'update']);
-    Route::get('/avatar', [\App\Http\Controllers\ProfileController::class,'avatar'])->name('profile.avatar');
-    Route::post('/avatar', [\App\Http\Controllers\ProfileController::class,'uploadAvatar']);
-    Route::patch('/password', [\App\Http\Controllers\ProfileController::class,'password'])->middleware('throttle:6,1');
-    Route::delete('/sessions', [\App\Http\Controllers\ProfileController::class,'sessions'])->middleware('throttle:6,1');
-    Route::post('/email', [\App\Http\Controllers\ProfileController::class,'email'])->middleware('throttle:6,1');
-    Route::get('/email/confirm', [\App\Http\Controllers\ProfileController::class,'confirmEmail'])->middleware('signed')->name('profile.email.confirm');
+Route::middleware(['auth', 'throttle:30,1'])->prefix('api/profile')->group(function (): void {
+    Route::get('/', [ProfileController::class, 'show']);
+    Route::patch('/', [ProfileController::class, 'update']);
+    Route::get('/avatar', [ProfileController::class, 'avatar'])->name('profile.avatar');
+    Route::post('/avatar', [ProfileController::class, 'uploadAvatar']);
+    Route::patch('/password', [ProfileController::class, 'password'])->middleware('throttle:6,1');
+    Route::delete('/sessions', [ProfileController::class, 'sessions'])->middleware('throttle:6,1');
+    Route::post('/email', [ProfileController::class, 'email'])->middleware('throttle:6,1');
+    Route::get('/email/confirm', [ProfileController::class, 'confirmEmail'])->middleware('signed')->name('profile.email.confirm');
 });
