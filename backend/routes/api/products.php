@@ -4,6 +4,7 @@ use App\Http\Controllers\ProductBulkActionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductDataTransferController;
 use App\Http\Controllers\ProductionController;
+use App\Http\Controllers\ProductionRecipeController;
 use App\Http\Controllers\ProductPermanentDeletionController;
 use App\Http\Controllers\ServiceOperationController;
 use App\Http\Middleware\ResolveOrganization;
@@ -19,12 +20,89 @@ Route::middleware([
     'verified',
     ResolveOrganization::class,
 ])->group(function (): void {
-    Route::get('products/{product}/production', [ProductionController::class, 'index'])->whereNumber('product')->name('production.index');
-    Route::post('products/{product}/production', [ProductionController::class, 'store'])->whereNumber('product')->name('production.store');
-    Route::get('products/{product}/service-operations', [ServiceOperationController::class, 'index'])
-        ->whereNumber('product')->name('service-operations.index');
-    Route::post('products/{product}/service-operations', [ServiceOperationController::class, 'store'])
-        ->whereNumber('product')->name('service-operations.store');
+    Route::get(
+        'products/{product}/production-recipe',
+        [
+            ProductionRecipeController::class,
+            'show',
+        ],
+    )
+        ->whereNumber(
+            'product',
+        )
+        ->name(
+            'production-recipe.show',
+        );
+
+    Route::post(
+        'products/{product}/production-recipe',
+        [
+            ProductionRecipeController::class,
+            'store',
+        ],
+    )
+        ->whereNumber(
+            'product',
+        )
+        ->name(
+            'production-recipe.store',
+        );
+
+    Route::get(
+        'products/{product}/production',
+        [
+            ProductionController::class,
+            'index',
+        ],
+    )
+        ->whereNumber(
+            'product',
+        )
+        ->name(
+            'production.index',
+        );
+
+    Route::post(
+        'products/{product}/production',
+        [
+            ProductionController::class,
+            'store',
+        ],
+    )
+        ->whereNumber(
+            'product',
+        )
+        ->name(
+            'production.store',
+        );
+
+    Route::get(
+        'products/{product}/service-operations',
+        [
+            ServiceOperationController::class,
+            'index',
+        ],
+    )
+        ->whereNumber(
+            'product',
+        )
+        ->name(
+            'service-operations.index',
+        );
+
+    Route::post(
+        'products/{product}/service-operations',
+        [
+            ServiceOperationController::class,
+            'store',
+        ],
+    )
+        ->whereNumber(
+            'product',
+        )
+        ->name(
+            'service-operations.store',
+        );
 
     Route::get(
         'products/import-template',
@@ -108,7 +186,7 @@ Route::middleware([
 
     /*
      * DELETE /products/{id} means archive. Permanent deletion has an explicit
-     * route so accidental client behavior can never confuse the two actions.
+     * route so accidental clients cannot confuse lifecycle operations.
      */
     Route::delete(
         'products/{product}',

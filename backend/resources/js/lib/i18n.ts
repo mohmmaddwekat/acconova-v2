@@ -4,12 +4,13 @@ import {
 
 import ar from './locales/ar';
 import catalog from './locales/catalog';
-import payments from './locales/payments';
-import settings from './locales/settings';
-import notifications from './locales/notifications';
 import dataLifecycle from './locales/dataLifecycle';
 import en from './locales/en';
 import inventory from './locales/inventory';
+import notifications from './locales/notifications';
+import payments from './locales/payments';
+import production from './locales/production';
+import settings from './locales/settings';
 import {
     getLocale,
     subscribeLocale,
@@ -24,6 +25,7 @@ const dictionaries = {
         ...payments.en,
         ...notifications.en,
         ...settings.en,
+        ...production.en,
     },
 
     ar: {
@@ -34,6 +36,7 @@ const dictionaries = {
         ...payments.ar,
         ...notifications.ar,
         ...settings.ar,
+        ...production.ar,
     },
 } as const;
 

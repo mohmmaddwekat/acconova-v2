@@ -7,13 +7,13 @@ use App\Models\Product;
 use Illuminate\Foundation\Http\FormRequest;
 use LogicException;
 
-class RecordProductionRequest extends FormRequest
+class SaveProductionRecipeRequest extends FormRequest
 {
     private ?Product $resolvedProduct =
         null;
 
     /**
-     * Authorize production of one physical finished Product.
+     * Allow inventory managers to version recipes for physical finished goods.
      */
     public function authorize(): bool
     {
@@ -42,52 +42,58 @@ class RecordProductionRequest extends FormRequest
     }
 
     /**
-     * Validate a production operation driven by a saved recipe version.
+     * Validate a complete production recipe replacement.
+     *
+     * Saving always creates a new immutable version rather than patching the
+     * currently active recipe.
      *
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
-            'warehouse_id' => [
+            'notes' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+
+            'components' => [
+                'required',
+                'array',
+                'min:1',
+                'max:50',
+            ],
+
+            'components.*.name' => [
+                'required',
+                'string',
+                'max:120',
+            ],
+
+            'components.*.options' => [
+                'required',
+                'array',
+                'min:1',
+                'max:10',
+            ],
+
+            'components.*.options.*.raw_material_id' => [
                 'required',
                 'integer',
                 'min:1',
             ],
 
-            'quantity' => [
+            'components.*.options.*.quantity_per_unit' => [
                 'required',
                 'numeric',
                 'gt:0',
                 'regex:/^\d{1,14}(?:\.\d{1,4})?$/',
             ],
 
-            'recipe_id' => [
-                'required',
-                'integer',
-                'min:1',
-            ],
-
-            /*
-             * Key = component ID, value = explicitly selected recipe option.
-             * Components omitted here automatically use their saved default.
-             */
-            'selections' => [
+            'components.*.options.*.is_default' => [
                 'sometimes',
-                'array',
-                'max:50',
-            ],
-
-            'selections.*' => [
-                'required',
-                'integer',
-                'min:1',
-            ],
-
-            'note' => [
-                'nullable',
-                'string',
-                'max:1000',
+                'boolean',
             ],
         ];
     }

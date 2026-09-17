@@ -6,6 +6,7 @@ use App\Enums\StockMovementType;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StockMovement extends Model
 {
@@ -21,11 +22,14 @@ class StockMovement extends Model
         'transfer_group_uuid',
         'reference_type',
         'reference_id',
+        'production_run_output_id',
+        'production_run_material_id',
+        'reversal_of_movement_id',
         'note',
     ];
 
     /**
-     * Cast inventory movement values into stable domain representations.
+     * Cast Inventory movement values.
      *
      * @return array<string, string>
      */
@@ -33,16 +37,13 @@ class StockMovement extends Model
     {
         return [
             'type' => StockMovementType::class,
-
             'quantity' => 'decimal:4',
-
             'balance_after' => 'decimal:4',
         ];
     }
 
     /**
-     * Return the warehouse affected by this movement, including archived
-     * warehouses so historical stock activity always remains readable.
+     * Return the affected warehouse including archived history.
      */
     public function warehouse(): BelongsTo
     {
@@ -54,8 +55,7 @@ class StockMovement extends Model
     }
 
     /**
-     * Return the Product affected by this movement, including archived
-     * Products for historical reporting.
+     * Return the affected Product including archived history.
      */
     public function product(): BelongsTo
     {
@@ -67,13 +67,57 @@ class StockMovement extends Model
     }
 
     /**
-     * Return the team member who caused this movement when still available.
+     * Return the user who caused this movement.
      */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(
             User::class,
             'created_by',
+        );
+    }
+
+    /**
+     * Return the Production output that caused this movement.
+     */
+    public function productionRunOutput(): BelongsTo
+    {
+        return $this->belongsTo(
+            ProductionRunOutput::class,
+            'production_run_output_id',
+        );
+    }
+
+    /**
+     * Return the exact actual-consumption line for ProductionOut movements.
+     */
+    public function productionRunMaterial(): BelongsTo
+    {
+        return $this->belongsTo(
+            ProductionRunMaterial::class,
+            'production_run_material_id',
+        );
+    }
+
+    /**
+     * Return the original movement compensated by this row.
+     */
+    public function reversalOf(): BelongsTo
+    {
+        return $this->belongsTo(
+            self::class,
+            'reversal_of_movement_id',
+        );
+    }
+
+    /**
+     * Return compensating movement rows.
+     */
+    public function reversals(): HasMany
+    {
+        return $this->hasMany(
+            self::class,
+            'reversal_of_movement_id',
         );
     }
 }

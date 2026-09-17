@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\InventoryOverviewController;
 use App\Http\Controllers\ProductInventoryController;
+use App\Http\Controllers\ProductionRunController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\WarehouseInventoryController;
 use App\Http\Middleware\ResolveOrganization;
@@ -21,6 +22,92 @@ Route::middleware([
         'inventory/overview',
         InventoryOverviewController::class,
     );
+
+    Route::get(
+        'production-runs',
+        [
+            ProductionRunController::class,
+            'index',
+        ],
+    );
+
+    Route::post(
+        'production-runs',
+        [
+            ProductionRunController::class,
+            'store',
+        ],
+    );
+
+    Route::get(
+        'production-runs/{run}',
+        [
+            ProductionRunController::class,
+            'show',
+        ],
+    )->whereNumber(
+        'run',
+    );
+
+    Route::patch(
+        'production-runs/{run}',
+        [
+            ProductionRunController::class,
+            'update',
+        ],
+    )->whereNumber(
+        'run',
+    );
+
+    Route::get(
+        'production-runs/{run}/preview',
+        [
+            ProductionRunController::class,
+            'preview',
+        ],
+    )->whereNumber(
+        'run',
+    );
+
+    Route::delete(
+        'production-runs/{run}',
+        [
+            ProductionRunController::class,
+            'destroy',
+        ],
+    )->whereNumber(
+        'run',
+    );
+
+    Route::post(
+        'production-runs/{run}/post',
+        [
+            ProductionRunController::class,
+            'post',
+        ],
+    )->whereNumber(
+        'run',
+    );
+
+    Route::post(
+        'production-runs/{run}/reverse',
+        [
+            ProductionRunController::class,
+            'reverse',
+        ],
+    )->whereNumber(
+        'run',
+    );
+
+    Route::post(
+        'production-runs/{run}/outputs/{output}/reverse',
+        [
+            ProductionRunController::class,
+            'reverseOutput',
+        ],
+    )
+        ->whereNumber('run')
+        ->whereNumber('output');
 
     Route::get(
         'inventory/products/{product}',
