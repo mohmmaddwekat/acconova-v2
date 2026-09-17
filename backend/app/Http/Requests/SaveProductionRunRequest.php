@@ -2,35 +2,27 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\OrganizationRole;
-use App\Tenancy\TenantContext;
+use App\Support\ProductionRunAccess;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SaveProductionRunRequest extends FormRequest
 {
     /**
-     * Restrict production mutation to operational management roles.
+     * Allow Production Draft mutation only to workspace members that can
+     * manage physical Inventory.
      */
     public function authorize(): bool
     {
-        return in_array(
-            app(
-                TenantContext::class,
-            )->role(),
-            [
-                OrganizationRole::Owner,
-                OrganizationRole::Admin,
-                OrganizationRole::Manager,
-            ],
-            true,
+        return ProductionRunAccess::canManage(
+            $this->user(),
         );
     }
 
     /**
-     * Validate one complete Production Draft.
+     * Validate one Production Draft.
      *
-     * Recipe data is planning information. materials.*.actual_quantity is the
-     * authoritative physical consumption that will affect Inventory.
+     * Recipe is optional and provides suggestions only. Actual material rows
+     * remain the authoritative physical consumption values.
      *
      * @return array<string, mixed>
      */
@@ -83,8 +75,13 @@ class SaveProductionRunRequest extends FormRequest
                 'regex:/^\d{1,14}(?:\.\d{1,4})?$/',
             ],
 
+            /*
+             * Recipe is optional. A factory can record Actual Consumption even
+             * when no standard BOM/Recipe exists for the finished Product.
+             */
             'outputs.*.recipe_id' => [
-                'required',
+                'sometimes',
+                'nullable',
                 'integer',
                 'min:1',
             ],
@@ -136,7 +133,7 @@ class SaveProductionRunRequest extends FormRequest
     }
 
     /**
-     * Normalize optional notes before validation.
+     * Normalize optional text and Recipe fields before validation.
      */
     protected function prepareForValidation(): void
     {
@@ -163,9 +160,30 @@ class SaveProductionRunRequest extends FormRequest
                             return $output;
                         }
 
+                        if (
+                            array_key_exists(
+                                'recipe_id',
+                                $output,
+                            )
+                            && (
+                                $output['recipe_id'] ===
+                                    ''
+                                || $output['recipe_id'] ===
+                                    null
+                            )
+                        ) {
+                            $output['recipe_id'] =
+                                null;
+                        }
+
+                        $output['selections'] =
+                            $output['selections']
+                            ?? [];
+
                         $output['materials'] =
                             collect(
-                                $output['materials'] ?? [],
+                                $output['materials']
+                                ?? [],
                             )
                                 ->map(
                                     function (
@@ -188,9 +206,10 @@ class SaveProductionRunRequest extends FormRequest
                                             );
 
                                         $material['note'] =
-                                            $materialNote === ''
-                                            ? null
-                                            : $materialNote;
+                                            $materialNote ===
+                                                ''
+                                                ? null
+                                                : $materialNote;
 
                                         return $material;
                                     },
@@ -204,8 +223,8 @@ class SaveProductionRunRequest extends FormRequest
 
         $this->merge([
             'note' => $note === ''
-                ? null
-                : $note,
+                    ? null
+                    : $note,
 
             'outputs' => $outputs,
         ]);

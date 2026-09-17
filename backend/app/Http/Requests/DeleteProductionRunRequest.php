@@ -2,27 +2,18 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\OrganizationRole;
-use App\Tenancy\TenantContext;
+use App\Support\ProductionRunAccess;
 use Illuminate\Foundation\Http\FormRequest;
 
 class DeleteProductionRunRequest extends FormRequest
 {
     /**
-     * Restrict Draft deletion to operational management roles.
+     * Restrict Production Draft deletion to Inventory management members.
      */
     public function authorize(): bool
     {
-        return in_array(
-            app(
-                TenantContext::class,
-            )->role(),
-            [
-                OrganizationRole::Owner,
-                OrganizationRole::Admin,
-                OrganizationRole::Manager,
-            ],
-            true,
+        return ProductionRunAccess::canManage(
+            $this->user(),
         );
     }
 

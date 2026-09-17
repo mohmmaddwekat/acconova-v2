@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductionRunOutput extends Model
 {
@@ -16,7 +17,7 @@ class ProductionRunOutput extends Model
     ];
 
     /**
-     * Cast production quantities and historical snapshots.
+     * Cast production quantities and immutable suggestion snapshots.
      *
      * @return array<string, string>
      */
@@ -24,19 +25,16 @@ class ProductionRunOutput extends Model
     {
         return [
             'line_number' => 'integer',
-
             'quantity' => 'decimal:4',
-
             'selections' => 'array',
-
             'material_sources' => 'array',
-
             'recipe_snapshot' => 'array',
+            'reversed_at' => 'datetime',
         ];
     }
 
     /**
-     * Return the parent production run.
+     * Return the parent Production Run.
      */
     public function run(): BelongsTo
     {
@@ -59,7 +57,7 @@ class ProductionRunOutput extends Model
     }
 
     /**
-     * Return the output warehouse, including archived historical warehouses.
+     * Return the warehouse where finished stock was received.
      */
     public function warehouse(): BelongsTo
     {
@@ -71,7 +69,9 @@ class ProductionRunOutput extends Model
     }
 
     /**
-     * Return the immutable recipe version selected by this output.
+     * Return the optional Recipe used to suggest material consumption.
+     *
+     * The Recipe is not authoritative for Inventory quantities.
      */
     public function recipe(): BelongsTo
     {
@@ -82,7 +82,22 @@ class ProductionRunOutput extends Model
     }
 
     /**
-     * Return the positive Inventory movement produced during Posting.
+     * Return the actual Raw Material rows entered for this Product output.
+     */
+    public function materials(): HasMany
+    {
+        return $this
+            ->hasMany(
+                ProductionRunMaterial::class,
+                'production_run_output_id',
+            )
+            ->orderBy(
+                'line_number',
+            );
+    }
+
+    /**
+     * Return the positive ProductionIn movement created at Posting time.
      */
     public function postedMovement(): BelongsTo
     {
@@ -90,5 +105,25 @@ class ProductionRunOutput extends Model
             StockMovement::class,
             'posted_movement_id',
         );
+    }
+
+    /**
+     * Return the user who reversed this individual output.
+     */
+    public function reversedBy(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'reversed_by',
+        );
+    }
+
+    /**
+     * Determine whether this Product output has already been reversed.
+     */
+    public function isReversed(): bool
+    {
+        return $this->reversed_at !==
+            null;
     }
 }

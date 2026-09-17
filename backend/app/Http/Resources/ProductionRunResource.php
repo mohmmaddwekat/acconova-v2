@@ -48,10 +48,10 @@ class ProductionRunResource extends JsonResource
             'reversal_reason' => $this->reversal_reason,
 
             'is_mutable' => $this->status ===
-                ProductionRunStatus::Draft,
+                    ProductionRunStatus::Draft,
 
             'can_post' => $this->status ===
-                ProductionRunStatus::Draft,
+                    ProductionRunStatus::Draft,
 
             'can_reverse' => in_array(
                 $this->status,
@@ -79,9 +79,11 @@ class ProductionRunResource extends JsonResource
                             'selections' => $output->selections
                                 ?? [],
 
-                            'recipe_snapshot' => $output->recipe_snapshot,
+                            'recipe_snapshot' => $output
+                                ->recipe_snapshot,
 
-                            'posted_movement_id' => $output->posted_movement_id,
+                            'posted_movement_id' => $output
+                                ->posted_movement_id,
 
                             'reversed_at' => $output
                                 ->reversed_at
@@ -116,7 +118,7 @@ class ProductionRunResource extends JsonResource
                                 'unit' => $output
                                     ->product
                                     ->unit,
-                            ],
+                                ],
 
                             'warehouse' => [
                                 'id' => $output
@@ -130,17 +132,19 @@ class ProductionRunResource extends JsonResource
                                 'code' => $output
                                     ->warehouse
                                     ->code,
-                            ],
+                                ],
 
-                            'recipe' => [
-                                'id' => $output
-                                    ->recipe
-                                    ->id,
+                            'recipe' => $output->recipe
+                                    ? [
+                                        'id' => $output
+                                            ->recipe
+                                            ->id,
 
-                                'version' => $output
-                                    ->recipe
-                                    ->version,
-                            ],
+                                        'version' => $output
+                                            ->recipe
+                                            ->version,
+                                    ]
+                                    : null,
 
                             'materials' => $output
                                 ->materials
@@ -148,7 +152,8 @@ class ProductionRunResource extends JsonResource
                                     fn (
                                         ProductionRunMaterial $material,
                                     ): array => [
-                                        'id' => $material->id,
+                                        'id' => $material
+                                            ->id,
 
                                         'actual_quantity' => $material
                                             ->actual_quantity,

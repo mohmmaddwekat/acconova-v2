@@ -740,6 +740,15 @@ class ProductionRunStockService
 
             $balance->save();
 
+            /*
+             * Reversal movements are explicit Production lifecycle entries.
+             * They are never disguised as manual Inventory adjustments.
+             */
+            $reversalType =
+                $delta > 0
+                ? StockMovementType::ProductionReversalIn
+                : StockMovementType::ProductionReversalOut;
+
             $reversal =
                 StockMovement::create([
                     'warehouse_id' => $warehouse->id,
@@ -748,7 +757,7 @@ class ProductionRunStockService
 
                     'created_by' => $actorId,
 
-                    'type' => StockMovementType::Adjustment,
+                    'type' => $reversalType,
 
                     'quantity' => InventoryQuantity::fromUnits(
                         $delta,
@@ -785,7 +794,7 @@ class ProductionRunStockService
     }
 
     /**
-     * Ensure historical movements exactly match posted actual-consumption rows.
+     * Ensure historical movements exactly match Posted Actual Consumption.
      *
      * @param  Collection<int, ProductionRunOutput>  $outputs
      * @param  Collection<int, StockMovement>  $movements
@@ -811,7 +820,8 @@ class ProductionRunStockService
                 $expected['material:'
                     .$material->id] =
                     -InventoryQuantity::toUnits(
-                        $material->actual_quantity,
+                        $material
+                            ->actual_quantity,
                     );
             }
         }
@@ -847,7 +857,11 @@ class ProductionRunStockService
                         ->production_run_material_id;
             }
 
-            if (isset($actual[$key])) {
+            if (
+                isset(
+                    $actual[$key],
+                )
+            ) {
                 throw SafeValidationException::forField(
                     'run',
                     'production_run_movements_missing',
@@ -860,8 +874,13 @@ class ProductionRunStockService
                 );
         }
 
-        ksort($expected);
-        ksort($actual);
+        ksort(
+            $expected,
+        );
+
+        ksort(
+            $actual,
+        );
 
         if ($expected !== $actual) {
             throw SafeValidationException::forField(
@@ -957,7 +976,7 @@ class ProductionRunStockService
     }
 
     /**
-     * Dispatch the standard Inventory balance event.
+     * Dispatch the standard Inventory balance-change event.
      */
     private function dispatchMovement(
         Product $product,
@@ -968,7 +987,8 @@ class ProductionRunStockService
         int $actorId,
     ): void {
         StockMovementRecorded::dispatch(
-            (int) $product->organization_id,
+            (int) $product
+                ->organization_id,
             $product->id,
             $warehouse->id,
             $movement->id,

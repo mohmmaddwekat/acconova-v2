@@ -5,6 +5,7 @@ use App\Http\Controllers\ProductInventoryController;
 use App\Http\Controllers\ProductionRunController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\WarehouseInventoryController;
+use App\Http\Middleware\EnsureInventoryPermission;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
@@ -23,91 +24,111 @@ Route::middleware([
         InventoryOverviewController::class,
     );
 
-    Route::get(
-        'production-runs',
-        [
-            ProductionRunController::class,
-            'index',
-        ],
-    );
+    /*
+     * Production history and previews require Inventory read access.
+     */
+    Route::middleware(
+        EnsureInventoryPermission::class
+            .':view',
+    )->group(function (): void {
+        Route::get(
+            'production-runs',
+            [
+                ProductionRunController::class,
+                'index',
+            ],
+        );
 
-    Route::post(
-        'production-runs',
-        [
-            ProductionRunController::class,
-            'store',
-        ],
-    );
+        Route::get(
+            'production-runs/{run}',
+            [
+                ProductionRunController::class,
+                'show',
+            ],
+        )->whereNumber(
+            'run',
+        );
 
-    Route::get(
-        'production-runs/{run}',
-        [
-            ProductionRunController::class,
-            'show',
-        ],
-    )->whereNumber(
-        'run',
-    );
+        Route::get(
+            'production-runs/{run}/preview',
+            [
+                ProductionRunController::class,
+                'preview',
+            ],
+        )->whereNumber(
+            'run',
+        );
+    });
 
-    Route::patch(
-        'production-runs/{run}',
-        [
-            ProductionRunController::class,
-            'update',
-        ],
-    )->whereNumber(
-        'run',
-    );
+    /*
+     * Every Production mutation moves or may later move physical Inventory.
+     */
+    Route::middleware(
+        EnsureInventoryPermission::class
+            .':manage',
+    )->group(function (): void {
+        Route::post(
+            'production-runs',
+            [
+                ProductionRunController::class,
+                'store',
+            ],
+        );
 
-    Route::get(
-        'production-runs/{run}/preview',
-        [
-            ProductionRunController::class,
-            'preview',
-        ],
-    )->whereNumber(
-        'run',
-    );
+        Route::patch(
+            'production-runs/{run}',
+            [
+                ProductionRunController::class,
+                'update',
+            ],
+        )->whereNumber(
+            'run',
+        );
 
-    Route::delete(
-        'production-runs/{run}',
-        [
-            ProductionRunController::class,
-            'destroy',
-        ],
-    )->whereNumber(
-        'run',
-    );
+        Route::delete(
+            'production-runs/{run}',
+            [
+                ProductionRunController::class,
+                'destroy',
+            ],
+        )->whereNumber(
+            'run',
+        );
 
-    Route::post(
-        'production-runs/{run}/post',
-        [
-            ProductionRunController::class,
-            'post',
-        ],
-    )->whereNumber(
-        'run',
-    );
+        Route::post(
+            'production-runs/{run}/post',
+            [
+                ProductionRunController::class,
+                'post',
+            ],
+        )->whereNumber(
+            'run',
+        );
 
-    Route::post(
-        'production-runs/{run}/reverse',
-        [
-            ProductionRunController::class,
-            'reverse',
-        ],
-    )->whereNumber(
-        'run',
-    );
+        Route::post(
+            'production-runs/{run}/reverse',
+            [
+                ProductionRunController::class,
+                'reverse',
+            ],
+        )->whereNumber(
+            'run',
+        );
 
-    Route::post(
-        'production-runs/{run}/outputs/{output}/reverse',
-        [
-            ProductionRunController::class,
-            'reverseOutput',
-        ],
-    )
-        ->whereNumber('run')
-        ->whereNumber('output');
+        Route::post(
+            'production-runs/{run}/outputs/{output}/reverse',
+            [
+                ProductionRunController::class,
+                'reverseOutput',
+            ],
+        )
+            ->whereNumber(
+                'run',
+            )
+            ->whereNumber(
+                'output',
+            );
+    });
 
     Route::get(
         'inventory/products/{product}',

@@ -18,13 +18,14 @@ use App\Models\ProductionRunMaterial;
 use App\Models\ProductionRunOutput;
 use App\Models\Warehouse;
 use App\Support\InventoryQuantity;
+use App\Support\ProductionSuggestion;
 use Illuminate\Support\Facades\DB;
 
 class ProductionRunService
 {
     public function __construct(
         private readonly ProductionRunNumberGenerator $numbers,
-        private readonly ProductionRecipeService $recipes,
+        private readonly ProductionSuggestion $suggestions,
         private readonly ProductionRunStockService $stock,
     ) {}
 
@@ -159,8 +160,7 @@ class ProductionRunService
     }
 
     /**
-     * Preview actual Inventory consumption and compare it with Recipe
-     * suggestions without changing one stock balance.
+     * Preview actual Inventory consumption and optional Recipe suggestions.
      *
      * @return array<string, mixed>
      */
@@ -186,10 +186,9 @@ class ProductionRunService
     }
 
     /**
-     * Post actual consumption to Inventory atomically.
+     * Post authoritative actual consumption to Inventory atomically.
      *
-     * Recipe suggestions are deliberately ignored here. Only quantities stored
-     * in production_run_materials are allowed to move physical stock.
+     * Recipe suggestions never determine the stock quantities moved here.
      */
     public function post(
         ProductionRun $run,
@@ -234,30 +233,47 @@ class ProductionRunService
                     $movement =
                         $movements[$output->id];
 
-                    ProductionRecipeUsage::create([
-                        'production_movement_id' => $movement->id,
+                    if (
+                        $output
+                            ->production_recipe_id !==
+                            null
+                            && $output
+                                ->recipe_snapshot !==
+                                null
+                    ) {
+                        ProductionRecipeUsage::create([
+                            'production_movement_id' => $movement->id,
 
-                        'production_recipe_id' => $output
-                            ->production_recipe_id,
+                            'production_recipe_id' => $output
+                                ->production_recipe_id,
 
-                        'snapshot' => $output
-                            ->recipe_snapshot,
-                    ]);
+                            'snapshot' => $output
+                                ->recipe_snapshot,
+                        ]);
+                    }
 
                     $output->forceFill([
                         'posted_movement_id' => $movement->id,
                     ])->save();
 
                     ProductionRecorded::dispatch(
-                        (int) $locked->organization_id,
+                        (int) $locked
+                            ->organization_id,
                         $output->product_id,
                         $movement->id,
-                        $output->production_recipe_id,
-                        (int) (
+                        $output
+                            ->production_recipe_id
+                            !== null
+                            ? (int) $output
+                                ->production_recipe_id
+                            : null,
+                        isset(
                             $output
+                                ->recipe_snapshot['recipe_version'],
+                        )
+                            ? (int) $output
                                 ->recipe_snapshot['recipe_version']
-                            ?? 0
-                        ),
+                            : null,
                         $actorId,
                     );
                 }
@@ -274,7 +290,8 @@ class ProductionRunService
                 ])->save();
 
                 ProductionRunPosted::dispatch(
-                    (int) $locked->organization_id,
+                    (int) $locked
+                        ->organization_id,
                     $locked->id,
                     $locked->run_number,
                     $locked->outputs->count(),
@@ -290,7 +307,7 @@ class ProductionRunService
     }
 
     /**
-     * Reverse all remaining active outputs atomically.
+     * Reverse every still-active output atomically.
      */
     public function reverseRun(
         ProductionRun $run,
@@ -374,7 +391,8 @@ class ProductionRunService
                 ])->save();
 
                 ProductionRunReversed::dispatch(
-                    (int) $locked->organization_id,
+                    (int) $locked
+                        ->organization_id,
                     $locked->id,
                     $locked->run_number,
                     $reason,
@@ -390,10 +408,7 @@ class ProductionRunService
     }
 
     /**
-     * Reverse one finished Product independently.
-     *
-     * This handles the important case where only one Product in a multi-output
-     * production day was entered incorrectly.
+     * Reverse one incorrect finished Product independently.
      */
     public function reverseOutput(
         ProductionRun $run,
@@ -478,7 +493,8 @@ class ProductionRunService
                         ->count();
 
                 $fullyReversed =
-                    $remaining === 0;
+                    $remaining ===
+                    0;
 
                 $locked->forceFill([
                     'status' => $fullyReversed
@@ -503,7 +519,8 @@ class ProductionRunService
 
                 if ($fullyReversed) {
                     ProductionRunReversed::dispatch(
-                        (int) $locked->organization_id,
+                        (int) $locked
+                            ->organization_id,
                         $locked->id,
                         $locked->run_number,
                         $reason,
@@ -520,7 +537,7 @@ class ProductionRunService
     }
 
     /**
-     * Replace Draft outputs and their authoritative actual material lines.
+     * Replace Draft outputs and their authoritative actual material rows.
      *
      * @param  list<array<string, mixed>>  $outputs
      */
@@ -575,25 +592,6 @@ class ProductionRunService
                         (int) $outputData['warehouse_id'],
                     );
 
-            $recipe =
-                ProductionRecipe::query()
-                    ->with(
-                        'components.options.rawMaterial',
-                    )
-                    ->findOrFail(
-                        (int) $outputData['recipe_id'],
-                    );
-
-            if (
-                $recipe->product_id !==
-                $product->id
-            ) {
-                throw SafeValidationException::forField(
-                    'outputs',
-                    'production_run_recipe_invalid',
-                );
-            }
-
             $quantityUnits =
                 InventoryQuantity::toUnits(
                     (string) $outputData['quantity'],
@@ -606,19 +604,55 @@ class ProductionRunService
                 );
             }
 
+            $recipeId =
+                isset(
+                    $outputData['recipe_id'],
+                )
+                ? (int) $outputData['recipe_id']
+                : null;
+
+            $recipe =
+                $recipeId !==
+                null
+                ? ProductionRecipe::query()
+                    ->findOrFail(
+                        $recipeId,
+                    )
+                : null;
+
+            if (
+                $recipe !== null
+                && (int) $recipe->product_id !==
+                (int) $product->id
+            ) {
+                throw SafeValidationException::forField(
+                    'outputs',
+                    'production_run_recipe_invalid',
+                );
+            }
+
+            $selections =
+                $outputData['selections']
+                ?? [];
+
+            $quantity =
+                InventoryQuantity::fromUnits(
+                    $quantityUnits,
+                );
+
             /*
-             * Recipe is evaluated here only to produce the suggestion snapshot.
-             * That snapshot never controls Posting after the Draft is saved.
+             * Recipe calculation only creates the suggestion snapshot. An
+             * inactive historical Recipe is acceptable because it has zero
+             * authority over Inventory.
              */
-            $suggestion =
-                $this->recipes
-                    ->resolveForProduction(
+            $snapshot =
+                $this
+                    ->suggestions
+                    ->snapshot(
                         $product,
                         $recipe,
-                        InventoryQuantity::fromUnits(
-                            $quantityUnits,
-                        ),
-                        $outputData['selections'] ?? [],
+                        $quantity,
+                        $selections,
                     );
 
             $output =
@@ -632,22 +666,17 @@ class ProductionRunService
 
                     'warehouse_id' => $warehouse->id,
 
-                    'production_recipe_id' => $recipe->id,
+                    'production_recipe_id' => $recipe?->id,
 
-                    'quantity' => InventoryQuantity::fromUnits(
-                        $quantityUnits,
-                    ),
+                    'quantity' => $quantity,
 
-                    'selections' => $outputData['selections'] ?? [],
+                    'selections' => $recipe
+                        ? $selections
+                        : [],
 
-                    /*
-                     * Kept empty for compatibility with Drafts created by the
-                     * earlier Production Run shape. Actual Material rows now
-                     * hold the real source warehouses.
-                     */
                     'material_sources' => [],
 
-                    'recipe_snapshot' => $suggestion['snapshot'],
+                    'recipe_snapshot' => $snapshot,
                 ]);
 
             $seenPairs = [];
@@ -729,7 +758,8 @@ class ProductionRunService
                         $actualUnits,
                     ),
 
-                    'note' => $materialData['note'] ?? null,
+                    'note' => $materialData['note']
+                        ?? null,
                 ]);
             }
         }
@@ -753,7 +783,8 @@ class ProductionRunService
         ])->save();
 
         ProductionRunOutputReversed::dispatch(
-            (int) $run->organization_id,
+            (int) $run
+                ->organization_id,
             $run->id,
             $output->id,
             $output->product_id,
@@ -763,7 +794,7 @@ class ProductionRunService
     }
 
     /**
-     * Build aggregate actual-consumption Preview plus Recipe deviations.
+     * Build aggregate Actual Consumption Preview plus optional Recipe variance.
      *
      * @return array<string, mixed>
      */
@@ -784,12 +815,15 @@ class ProductionRunService
             ) {
                 $actualUnits =
                     InventoryQuantity::toUnits(
-                        $material->actual_quantity,
+                        $material
+                            ->actual_quantity,
                     );
 
-                $actualByRaw[$material->raw_material_id] =
+                $actualByRaw[$material
+                    ->raw_material_id] =
                     (
-                        $actualByRaw[$material->raw_material_id]
+                        $actualByRaw[$material
+                            ->raw_material_id]
                         ?? 0
                     )
                     + $actualUnits;
@@ -797,7 +831,8 @@ class ProductionRunService
                 $key =
                     $material->warehouse_id
                     .':'
-                    .$material->raw_material_id;
+                    .$material
+                        ->raw_material_id;
 
                 if (
                     ! isset(
@@ -818,8 +853,11 @@ class ProductionRunService
             $suggestedByRaw = [];
 
             foreach (
-                $output
-                    ->recipe_snapshot['components'] ?? [] as $component
+                (
+                    $output
+                        ->recipe_snapshot['components']
+                    ?? []
+                ) as $component
             ) {
                 $rawId =
                     (int) $component['raw_material_id'];
@@ -856,10 +894,12 @@ class ProductionRunService
                 $rawIds as $rawId
             ) {
                 $actual =
-                    $actualByRaw[$rawId] ?? 0;
+                    $actualByRaw[$rawId]
+                    ?? 0;
 
                 $suggested =
-                    $suggestedByRaw[$rawId] ?? 0;
+                    $suggestedByRaw[$rawId]
+                    ?? 0;
 
                 $deviation =
                     $actual
@@ -876,7 +916,8 @@ class ProductionRunService
                 $snapshotComponent =
                     collect(
                         $output
-                            ->recipe_snapshot['components'] ?? [],
+                            ->recipe_snapshot['components']
+                            ?? [],
                     )->firstWhere(
                         'raw_material_id',
                         $rawId,
@@ -934,19 +975,29 @@ class ProductionRunService
                 'id' => $output->id,
 
                 'product' => [
-                    'id' => $output->product->id,
+                    'id' => $output
+                        ->product
+                        ->id,
 
-                    'name' => $output->product->name,
+                    'name' => $output
+                        ->product
+                        ->name,
 
-                    'unit' => $output->product->unit,
+                    'unit' => $output
+                        ->product
+                        ->unit,
                 ],
 
                 'quantity' => $output->quantity,
 
                 'warehouse' => [
-                    'id' => $output->warehouse->id,
+                    'id' => $output
+                        ->warehouse
+                        ->id,
 
-                    'name' => $output->warehouse->name,
+                    'name' => $output
+                        ->warehouse
+                        ->name,
                 ],
 
                 'recipe_version' => $output
@@ -997,7 +1048,8 @@ class ProductionRunService
                         InventoryBalance $balance,
                     ): string => $balance->warehouse_id
                         .':'
-                        .$balance->product_id,
+                        .$balance
+                            ->product_id,
                 );
 
         $allSufficient =
@@ -1047,7 +1099,8 @@ class ProductionRunService
                 );
 
             $sufficient =
-                $shortage === 0;
+                $shortage ===
+                0;
 
             if (! $sufficient) {
                 $allSufficient =
@@ -1056,21 +1109,35 @@ class ProductionRunService
 
             $materials[] = [
                 'raw_material' => [
-                    'id' => $material->rawMaterial->id,
+                    'id' => $material
+                        ->rawMaterial
+                        ->id,
 
-                    'name' => $material->rawMaterial->name,
+                    'name' => $material
+                        ->rawMaterial
+                        ->name,
 
-                    'sku' => $material->rawMaterial->sku,
+                    'sku' => $material
+                        ->rawMaterial
+                        ->sku,
 
-                    'unit' => $material->rawMaterial->unit,
+                    'unit' => $material
+                        ->rawMaterial
+                        ->unit,
                 ],
 
                 'warehouse' => [
-                    'id' => $material->warehouse->id,
+                    'id' => $material
+                        ->warehouse
+                        ->id,
 
-                    'name' => $material->warehouse->name,
+                    'name' => $material
+                        ->warehouse
+                        ->name,
 
-                    'code' => $material->warehouse->code,
+                    'code' => $material
+                        ->warehouse
+                        ->code,
                 ],
 
                 'actual_required' => InventoryQuantity::fromUnits(
@@ -1106,7 +1173,9 @@ class ProductionRunService
 
             'all_sufficient' => $allSufficient,
 
-            'output_count' => $run->outputs->count(),
+            'output_count' => $run
+                ->outputs
+                ->count(),
 
             'outputs' => $outputs,
 

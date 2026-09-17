@@ -48,6 +48,10 @@ Route::middleware([
             'production-recipe.store',
         );
 
+    /*
+     * Product pages may display immutable historical production entries, but
+     * new physical production is recorded only through Production Runs.
+     */
     Route::get(
         'products/{product}/production',
         [
@@ -60,20 +64,6 @@ Route::middleware([
         )
         ->name(
             'production.index',
-        );
-
-    Route::post(
-        'products/{product}/production',
-        [
-            ProductionController::class,
-            'store',
-        ],
-    )
-        ->whereNumber(
-            'product',
-        )
-        ->name(
-            'production.store',
         );
 
     Route::get(
