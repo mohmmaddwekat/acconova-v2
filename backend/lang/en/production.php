@@ -10,4 +10,5 @@ return [
     'recipe_duplicate_option' => 'The same Raw Material cannot appear twice in one component.',
     'recipe_outdated' => 'The production recipe changed. Reload the Product before recording production.',
     'recipe_invalid_option' => 'The selected Raw Material alternative does not belong to this recipe component.',
+    'recipe_incompatible_unit' => 'The selected usage unit is not compatible with the Raw Material stock unit.',
 ];

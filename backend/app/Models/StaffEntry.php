@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class StaffEntry extends Model
 {
     use BelongsToOrganization;
+    use \Illuminate\Database\Eloquent\SoftDeletes;
 
     protected $guarded = ['id', 'organization_id'];
 

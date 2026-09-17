@@ -39,6 +39,9 @@ class ProductResource extends JsonResource
 
             'inventory_eligible' => $this->isInventoryEligible(),
 
+            'stock_on_hand' => $this->whenHas('stock_on_hand', fn () => $this->tracksInventory() ? (string) ($this->stock_on_hand ?? '0') : null),
+            'stock_reserved' => $this->whenHas('stock_reserved', fn () => $this->tracksInventory() ? (string) ($this->stock_reserved ?? '0') : null),
+
             'track_inventory' => $this->tracksInventory(),
 
             'low_stock_threshold' => $this->isInventoryEligible()

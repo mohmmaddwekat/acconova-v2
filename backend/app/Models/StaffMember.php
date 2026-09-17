@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class StaffMember extends Model
 {
     use BelongsToOrganization;
+    use \Illuminate\Database\Eloquent\SoftDeletes;
 
     public function entries(): HasMany
     {

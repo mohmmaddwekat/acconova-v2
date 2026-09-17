@@ -1,10 +1,4 @@
 import {
-    fetchWarehouses,
-} from '@/features/inventory/api';
-import type {
-    Warehouse,
-} from '@/features/inventory/types';
-import {
     fetchProducts,
 } from '@/features/products/api';
 import type {
@@ -15,6 +9,12 @@ import {
     apiRequest,
 } from '@/lib/http';
 import {
+    calculateBatchUsageRate,
+    compatibleMeasurementUnits,
+    convertMeasurementQuantity,
+    normalizeMeasurementQuantity,
+} from '@/lib/measurement-units';
+import {
     t,
     useLocale,
 } from '@/lib/i18n';
@@ -22,18 +22,22 @@ import type {
     AppPageProps,
 } from '@/types/app';
 import {
+    Link,
     usePage,
 } from '@inertiajs/react';
 import {
+    ArrowUpRight,
     Beaker,
+    Calculator,
     Check,
-    FlaskConical,
+    Factory,
     History,
     Pencil,
     Plus,
     Save,
     Search,
     Trash2,
+    X,
 } from 'lucide-react';
 import {
     useEffect,
@@ -44,125 +48,77 @@ import {
 
 type RecipeRawMaterial = {
     id: number;
-
     name: string;
-
-    sku:
-        | string
-        | null;
-
+    sku: string | null;
     unit: string;
-
     track_inventory: boolean;
 };
 
 type RecipeOption = {
     id: number;
-
     quantity_per_unit: string;
-
+    usage_unit?: string | null;
+    usage_quantity_per_unit?: string | null;
     is_default: boolean;
-
     raw_material: RecipeRawMaterial;
 };
 
 type RecipeComponent = {
     id: number;
-
     name: string;
-
     position: number;
-
     options: RecipeOption[];
 };
 
 type Recipe = {
     id: number;
-
     version: number;
-
     is_active: boolean;
-
-    notes:
-        | string
-        | null;
-
+    notes: string | null;
     created_at: string;
-
     components: RecipeComponent[];
+};
+
+type RecipeVersion = {
+    id: number;
+    version: number;
+    is_active: boolean;
+    notes: string | null;
+    created_at: string;
 };
 
 type RecipeResponse = {
     data: {
-        active:
-            | Recipe
-            | null;
-
-        versions: {
-            id: number;
-
-            version: number;
-
-            is_active: boolean;
-
-            notes:
-                | string
-                | null;
-
-            created_at: string;
-        }[];
+        active: Recipe | null;
+        versions: RecipeVersion[];
     };
 };
 
-type Batch = {
+type SelectableRawMaterial = {
     id: number;
-
-    quantity: string;
-
-    warehouse: string;
-
-    created_at: string;
-
-    note:
-        | string
-        | null;
-
-    recipe_version:
-        | number
-        | null;
-
-    materials: {
-        id: number;
-
-        name: string;
-
-        quantity: string;
-
-        unit: string;
-    }[];
+    name: string;
+    sku: string | null;
+    unit: string;
+    track_inventory: boolean;
 };
 
-type HistoryResponse = {
-    data: Batch[];
-
-    meta: {
-        last_page: number;
-    };
-};
+type EntryMode =
+    | 'batch'
+    | 'per_unit';
 
 type EditableOption = {
-    rawMaterial: Product;
-
-    quantityPerUnit: string;
-
+    rawMaterial: SelectableRawMaterial;
     isDefault: boolean;
+    usageUnit: string;
+    entryMode: EntryMode;
+    perUnitQuantity: string;
+    batchMaterialQuantity: string;
+    batchOutputQuantity: string;
 };
 
 type EditableComponent = {
     localId: string;
-
     name: string;
-
     options: EditableOption[];
 };
 
@@ -170,18 +126,78 @@ const inputClass =
     'mt-1 w-full rounded-xl border border-[var(--ac-line)] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[var(--ac-accent)]';
 
 const buttonClass =
-    'inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--ac-line)] bg-white px-3 py-2 text-xs font-semibold transition hover:bg-[var(--ac-accent-soft)] disabled:opacity-40';
+    'inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--ac-line)] bg-white px-3 py-2 text-xs font-semibold transition hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-40';
 
 /**
- * Render versioned production recipes, automatic material calculations, and
- * immutable production history for one finished Product.
+ * Create a stable client-only Recipe component ID.
+ */
+function createLocalId(): string {
+    if (
+        typeof crypto !==
+            'undefined'
+        && typeof crypto.randomUUID ===
+            'function'
+    ) {
+        return crypto.randomUUID();
+    }
+
+    return `${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}`;
+}
+
+/**
+ * Convert a Product search result into the smaller Recipe material shape.
+ */
+function toRawMaterial(
+    product: Product,
+): SelectableRawMaterial {
+    return {
+        id:
+            product.id,
+        name:
+            product.name,
+        sku:
+            product.sku,
+        unit:
+            product.unit,
+        track_inventory:
+            product.track_inventory,
+    };
+}
+
+/**
+ * Return the human-entered per-unit rate for one editable option.
+ */
+function optionUsageRate(
+    option: EditableOption,
+): string {
+    return option.entryMode ===
+        'batch'
+        ? calculateBatchUsageRate(
+              option.batchMaterialQuantity,
+              option.batchOutputQuantity,
+          )
+        : normalizeMeasurementQuantity(
+              option.perUnitQuantity,
+              8,
+          );
+}
+
+/**
+ * Render Recipe configuration only.
+ *
+ * Actual physical material consumption belongs to the central Production Run
+ * workflow. Recipe quantities are normalized into the Raw Material stock unit
+ * by the backend while users may work in compatible units such as g or kg.
  */
 export function ProductionPanel({
     product,
 }: {
     product: Product;
 }) {
-    useLocale();
+    const locale =
+        useLocale();
 
     const {
         workspace,
@@ -193,57 +209,35 @@ export function ProductionPanel({
             .activeOrganization
             ?.role;
 
-    const canProduce =
+    const permissions =
+        workspace
+            .activeOrganization
+            ?.permissions;
+
+    const canManageRecipe =
         (
-            workspace
-                .activeOrganization
-                ?.permissions
-                ? workspace
-                    .activeOrganization
-                    .permissions
-                    .includes(
-                        'inventory.manage',
-                    )
+            permissions
+                ? permissions.includes(
+                      'inventory.manage',
+                  )
                 : [
-                    'owner',
-                    'admin',
-                    'manager',
-                ].includes(
-                    role ??
-                    '',
-                )
+                      'owner',
+                      'admin',
+                      'manager',
+                  ].includes(
+                      role ?? '',
+                  )
         )
         && ! product.deleted_at;
 
     const endpoint =
-        `/api/products/${product.id}/production`;
-
-    const recipeEndpoint =
         `/api/products/${product.id}/production-recipe`;
-
-    const [
-        warehouses,
-        setWarehouses,
-    ] =
-        useState<Warehouse[]>(
-            [],
-        );
-
-    const [
-        warehouseId,
-        setWarehouseId,
-    ] =
-        useState(
-            '',
-        );
 
     const [
         recipe,
         setRecipe,
     ] =
-        useState<
-            Recipe | null
-        >(
+        useState<Recipe | null>(
             null,
         );
 
@@ -252,111 +246,8 @@ export function ProductionPanel({
         setVersions,
     ] =
         useState<
-            RecipeResponse[
-                'data'
-            ][
-                'versions'
-            ]
-        >(
-            [],
-        );
-
-    const [
-        quantity,
-        setQuantity,
-    ] =
-        useState(
-            '1',
-        );
-
-    const [
-        selections,
-        setSelections,
-    ] =
-        useState<
-            Record<
-                number,
-                number
-            >
-        >({});
-
-    const [
-        note,
-        setNote,
-    ] =
-        useState(
-            '',
-        );
-
-    const [
-        editingRecipe,
-        setEditingRecipe,
-    ] =
-        useState(
-            false,
-        );
-
-    const [
-        editableComponents,
-        setEditableComponents,
-    ] =
-        useState<
-            EditableComponent[]
-        >(
-            [],
-        );
-
-    const [
-        recipeNotes,
-        setRecipeNotes,
-    ] =
-        useState(
-            '',
-        );
-
-    const [
-        materialSearch,
-        setMaterialSearch,
-    ] =
-        useState(
-            '',
-        );
-
-    const [
-        materialOptions,
-        setMaterialOptions,
-    ] =
-        useState<Product[]>(
-            [],
-        );
-
-    const [
-        targetComponentId,
-        setTargetComponentId,
-    ] =
-        useState<
-            string | null
-        >(
-            null,
-        );
-
-    const [
-        page,
-        setPage,
-    ] =
-        useState(
-            1,
-        );
-
-    const [
-        history,
-        setHistory,
-    ] =
-        useState<
-            HistoryResponse | null
-        >(
-            null,
-        );
+            RecipeVersion[]
+        >([]);
 
     const [
         loading,
@@ -364,30 +255,6 @@ export function ProductionPanel({
     ] =
         useState(
             true,
-        );
-
-    const [
-        searching,
-        setSearching,
-    ] =
-        useState(
-            false,
-        );
-
-    const [
-        saving,
-        setSaving,
-    ] =
-        useState(
-            false,
-        );
-
-    const [
-        savingRecipe,
-        setSavingRecipe,
-    ] =
-        useState(
-            false,
         );
 
     const [
@@ -407,6 +274,22 @@ export function ProductionPanel({
         );
 
     const [
+        editing,
+        setEditing,
+    ] =
+        useState(
+            false,
+        );
+
+    const [
+        saving,
+        setSaving,
+    ] =
+        useState(
+            false,
+        );
+
+    const [
         revision,
         setRevision,
     ] =
@@ -414,369 +297,370 @@ export function ProductionPanel({
             0,
         );
 
+    const [
+        editableComponents,
+        setEditableComponents,
+    ] =
+        useState<
+            EditableComponent[]
+        >([]);
+
+    const [
+        recipeNotes,
+        setRecipeNotes,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        targetComponentId,
+        setTargetComponentId,
+    ] =
+        useState<
+            string | null
+        >(
+            null,
+        );
+
+    const [
+        materialSearch,
+        setMaterialSearch,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        materialOptions,
+        setMaterialOptions,
+    ] =
+        useState<
+            Product[]
+        >([]);
+
+    const [
+        searching,
+        setSearching,
+    ] =
+        useState(
+            false,
+        );
+
+    const copy =
+        locale ===
+        'ar'
+            ? {
+                  productionCenter:
+                      'فتح مركز الإنتاج',
+                  productionHelp:
+                      'الإنتاج الفعلي والمواد المستهلكة والترحيل تتم من مركز الإنتاج.',
+                  recipeHelp:
+                      'الوصفة معيار متوقع فقط. تستطيع إدخال المادة بالجرام أو الكيلو، بينما AccoNova يحفظها تلقائيًا بوحدة المخزون.',
+                  batch:
+                      'حسب دفعة',
+                  perUnit:
+                      'لكل وحدة',
+                  materialQuantity:
+                      'كمية المادة',
+                  produces:
+                      'تعطي تقريبًا',
+                  usageUnit:
+                      'وحدة الاستخدام',
+                  calculated:
+                      'الاستهلاك المحسوب لكل وحدة',
+                  stockEquivalent:
+                      'المكافئ بوحدة المخزون',
+                  enterBatch:
+                      'أدخل كمية المادة وعدد الوحدات الناتجة ليتم الحساب تلقائيًا.',
+                  cancel:
+                      'إلغاء',
+                  incomplete:
+                      'أكمل اسم المكوّن واختر مادة خام وأدخل كمية صحيحة. في وضع حسب دفعة يجب إدخال كمية المادة وعدد الوحدات الناتجة.',
+                  versions:
+                      'إصدارات الوصفة',
+                  active:
+                      'نشطة',
+                  stockUnit:
+                      'وحدة المخزون',
+                  usageExample:
+                      'مثال: 150 g تنتج 350 قطعة، فيحسب النظام الاستهلاك بالجرام ثم يحوله تلقائيًا إلى kg للمخزون.',
+              }
+            : {
+                  productionCenter:
+                      'Open Production Center',
+                  productionHelp:
+                      'Actual production, consumed materials and Posting are handled in the Production Center.',
+                  recipeHelp:
+                      'The Recipe is an expected standard only. Enter material in g or kg and AccoNova normalizes it into the stock unit automatically.',
+                  batch:
+                      'From a batch',
+                  perUnit:
+                      'Per unit',
+                  materialQuantity:
+                      'Material quantity',
+                  produces:
+                      'Produces approximately',
+                  usageUnit:
+                      'Usage unit',
+                  calculated:
+                      'Calculated usage per unit',
+                  stockEquivalent:
+                      'Stock-unit equivalent',
+                  enterBatch:
+                      'Enter the material quantity and produced units to calculate automatically.',
+                  cancel:
+                      'Cancel',
+                  incomplete:
+                      'Complete each component, select a Raw Material, and enter a valid quantity. Batch mode requires material quantity and produced units.',
+                  versions:
+                      'Recipe versions',
+                  active:
+                      'Active',
+                  stockUnit:
+                      'Stock unit',
+                  usageExample:
+                      'Example: 150 g produces 350 pieces. AccoNova calculates the gram rate and automatically normalizes it into kg for stock.',
+              };
+
     /**
-     * Initialize default material option selections from the active recipe.
+     * Load active Recipe and immutable Recipe versions.
      */
-    function applyRecipeSelections(
-        activeRecipe:
-            Recipe | null,
-    ): void {
-        if (
-            ! activeRecipe
-        ) {
-            setSelections(
-                {},
+    useEffect(
+        () => {
+            let active =
+                true;
+
+            setLoading(
+                true,
             );
 
-            return;
-        }
+            setError(
+                '',
+            );
 
-        const next:
-            Record<
-                number,
-                number
-            > = {};
+            apiRequest<RecipeResponse>(
+                endpoint,
+            )
+                .then(
+                    (
+                        response,
+                    ) => {
+                        if (
+                            ! active
+                        ) {
+                            return;
+                        }
 
-        activeRecipe
-            .components
-            .forEach(
-                (
-                    component,
-                ) => {
-                    const option =
-                        component
-                            .options
-                            .find(
+                        setRecipe(
+                            response
+                                .data
+                                .active,
+                        );
+
+                        setVersions(
+                            response
+                                .data
+                                .versions,
+                        );
+                    },
+                )
+                .catch(
+                    (
+                        failure:
+                            unknown,
+                    ) => {
+                        if (
+                            active
+                        ) {
+                            setError(
+                                failure instanceof
+                                    ApiError
+                                    ? failure.message
+                                    : t(
+                                          'catalog.operations.failed',
+                                      ),
+                            );
+                        }
+                    },
+                )
+                .finally(
+                    () => {
+                        if (
+                            active
+                        ) {
+                            setLoading(
+                                false,
+                            );
+                        }
+                    },
+                );
+
+            return () => {
+                active =
+                    false;
+            };
+        },
+        [
+            endpoint,
+            revision,
+        ],
+    );
+
+    /**
+     * Search active Raw Materials while one component is selecting an option.
+     */
+    useEffect(
+        () => {
+            if (
+                ! editing
+                || targetComponentId ===
+                    null
+            ) {
+                return;
+            }
+
+            let active =
+                true;
+
+            const timer =
+                window.setTimeout(
+                    () => {
+                        setSearching(
+                            true,
+                        );
+
+                        fetchProducts({
+                            type:
+                                'raw_material',
+                            status:
+                                'active',
+                            search:
+                                materialSearch,
+                            perPage:
+                                25,
+                        })
+                            .then(
                                 (
-                                    candidate,
-                                ) =>
-                                    candidate
-                                        .is_default,
+                                    response,
+                                ) => {
+                                    if (
+                                        active
+                                    ) {
+                                        setMaterialOptions(
+                                            response.data,
+                                        );
+                                    }
+                                },
                             )
-                        ??
-                        component
-                            .options[
-                                0
-                            ];
+                            .catch(
+                                (
+                                    failure:
+                                        unknown,
+                                ) => {
+                                    if (
+                                        active
+                                    ) {
+                                        setError(
+                                            failure instanceof
+                                                ApiError
+                                                ? failure.message
+                                                : t(
+                                                      'catalog.operations.failed',
+                                                  ),
+                                        );
+                                    }
+                                },
+                            )
+                            .finally(
+                                () => {
+                                    if (
+                                        active
+                                    ) {
+                                        setSearching(
+                                            false,
+                                        );
+                                    }
+                                },
+                            );
+                    },
+                    250,
+                );
 
-                    if (option) {
-                        next[
-                            component.id
-                        ] =
-                            option.id;
-                    }
-                },
-            );
+            return () => {
+                active =
+                    false;
 
-        setSelections(
-            next,
-        );
-    }
+                window.clearTimeout(
+                    timer,
+                );
+            };
+        },
+        [
+            editing,
+            materialSearch,
+            targetComponentId,
+        ],
+    );
 
-    useEffect(() => {
-        let active =
-            true;
-
-        setLoading(
-            true,
-        );
-
+    /**
+     * Begin editing by cloning the immutable active Recipe.
+     */
+    function beginEditing(): void {
         setError(
             '',
         );
 
-        Promise.all([
-            apiRequest<HistoryResponse>(
-                `${endpoint}?page=${page}`,
-            ),
-
-            apiRequest<RecipeResponse>(
-                recipeEndpoint,
-            ),
-
-            fetchWarehouses(),
-        ])
-            .then(
-                ([
-                    historyResponse,
-                    recipeResponse,
-                    locations,
-                ]) => {
-                    if (
-                        ! active
-                    ) {
-                        return;
-                    }
-
-                    setHistory(
-                        historyResponse,
-                    );
-
-                    setRecipe(
-                        recipeResponse
-                            .data
-                            .active,
-                    );
-
-                    setVersions(
-                        recipeResponse
-                            .data
-                            .versions,
-                    );
-
-                    applyRecipeSelections(
-                        recipeResponse
-                            .data
-                            .active,
-                    );
-
-                    setWarehouses(
-                        locations,
-                    );
-
-                    setWarehouseId(
-                        (
-                            current,
-                        ) =>
-                            current
-                            || String(
-                                locations.find(
-                                    (
-                                        item,
-                                    ) =>
-                                        item.is_default,
-                                )?.id
-                                ??
-                                locations[
-                                    0
-                                ]?.id
-                                ??
-                                '',
-                            ),
-                    );
-                },
-            )
-            .catch(
-                (
-                    failure:
-                        unknown,
-                ) => {
-                    if (
-                        active
-                    ) {
-                        setError(
-                            failure instanceof
-                                ApiError
-                                ? failure.message
-                                : t(
-                                    'catalog.operations.failed',
-                                ),
-                        );
-                    }
-                },
-            )
-            .finally(
-                () => {
-                    if (
-                        active
-                    ) {
-                        setLoading(
-                            false,
-                        );
-                    }
-                },
-            );
-
-        return () => {
-            active =
-                false;
-        };
-    }, [
-        endpoint,
-        page,
-        recipeEndpoint,
-        revision,
-    ]);
-
-    useEffect(() => {
-        if (
-            ! editingRecipe
-            || targetComponentId ===
-                null
-        ) {
-            return;
-        }
-
-        let active =
-            true;
-
-        setSearching(
-            true,
+        setSaved(
+            false,
         );
 
-        const timer =
-            window.setTimeout(
-                () => {
-                    fetchProducts({
-                        type:
-                            'raw_material',
-
-                        status:
-                            'active',
-
-                        search:
-                            materialSearch,
-
-                        perPage:
-                            25,
-                    })
-                        .then(
-                            (
-                                response,
-                            ) => {
-                                if (
-                                    active
-                                ) {
-                                    setMaterialOptions(
-                                        response.data,
-                                    );
-                                }
-                            },
-                        )
-                        .catch(
-                            (
-                                failure:
-                                    unknown,
-                            ) => {
-                                if (
-                                    active
-                                ) {
-                                    setError(
-                                        failure instanceof
-                                            ApiError
-                                            ? failure.message
-                                            : t(
-                                                'catalog.operations.failed',
-                                            ),
-                                    );
-                                }
-                            },
-                        )
-                        .finally(
-                            () => {
-                                if (
-                                    active
-                                ) {
-                                    setSearching(
-                                        false,
-                                    );
-                                }
-                            },
-                        );
-                },
-                250,
-            );
-
-        return () => {
-            active =
-                false;
-
-            window.clearTimeout(
-                timer,
-            );
-        };
-    }, [
-        editingRecipe,
-        materialSearch,
-        targetComponentId,
-    ]);
-
-    /**
-     * Begin recipe editing by cloning the current active version into local
-     * draft state. Saving later creates another immutable server version.
-     */
-    function beginRecipeEditing(): void {
         setEditableComponents(
             recipe
-                ? recipe
-                    .components
-                    .map(
-                        (
-                            component,
-                        ) => ({
-                            localId:
-                                crypto.randomUUID(),
-
-                            name:
-                                component.name,
-
-                            options:
-                                component
-                                    .options
-                                    .map(
-                                        (
-                                            option,
-                                        ) => ({
-                                            rawMaterial: {
-                                                ...option.raw_material,
-
-                                                type:
-                                                    'raw_material',
-
-                                                description:
-                                                    null,
-
-                                                unit_price:
-                                                    '0.0000',
-
-                                                cost_price:
-                                                    null,
-
-                                                tax_rate:
-                                                    '0.00',
-
-                                                inventory_eligible:
-                                                    true,
-
-                                                low_stock_threshold:
-                                                    null,
-
-                                                usable_for_new_business:
-                                                    true,
-
-                                                deleted_at:
-                                                    null,
-
-                                                created_at:
-                                                    '',
-
-                                                updated_at:
-                                                    '',
-                                            },
-
-                                            quantityPerUnit:
-                                                option
-                                                    .quantity_per_unit,
-
-                                            isDefault:
-                                                option
-                                                    .is_default,
-                                        }),
-                                    ),
-                        }),
-                    )
+                ? recipe.components.map(
+                      (
+                          component,
+                      ) => ({
+                          localId:
+                              createLocalId(),
+                          name:
+                              component.name,
+                          options:
+                              component.options.map(
+                                  (
+                                      option,
+                                  ) => ({
+                                      rawMaterial: {
+                                          ...option.raw_material,
+                                      },
+                                      isDefault:
+                                          option.is_default,
+                                      usageUnit:
+                                          option.usage_unit
+                                          ?? option.raw_material.unit,
+                                      entryMode:
+                                          'per_unit',
+                                      perUnitQuantity:
+                                          option.usage_quantity_per_unit
+                                          ?? option.quantity_per_unit,
+                                      batchMaterialQuantity:
+                                          '',
+                                      batchOutputQuantity:
+                                          '',
+                                  }),
+                              ),
+                      }),
+                  )
                 : [
-                    {
-                        localId:
-                            crypto.randomUUID(),
-
-                        name:
-                            '',
-
-                        options:
-                            [],
-                    },
-                ],
+                      {
+                          localId:
+                              createLocalId(),
+                          name:
+                              '',
+                          options:
+                              [],
+                      },
+                  ],
         );
 
         setRecipeNotes(
@@ -784,8 +668,149 @@ export function ProductionPanel({
             ?? '',
         );
 
-        setEditingRecipe(
+        setTargetComponentId(
+            null,
+        );
+
+        setEditing(
             true,
+        );
+    }
+
+    /**
+     * Cancel local Recipe editing.
+     */
+    function cancelEditing(): void {
+        setEditing(
+            false,
+        );
+
+        setTargetComponentId(
+            null,
+        );
+
+        setMaterialSearch(
+            '',
+        );
+
+        setMaterialOptions(
+            [],
+        );
+
+        setError(
+            '',
+        );
+    }
+
+    /**
+     * Add one logical Recipe component.
+     */
+    function addComponent(): void {
+        setEditableComponents(
+            (
+                current,
+            ) => [
+                ...current,
+                {
+                    localId:
+                        createLocalId(),
+                    name:
+                        '',
+                    options:
+                        [],
+                },
+            ],
+        );
+    }
+
+    /**
+     * Remove one local Recipe component.
+     */
+    function removeComponent(
+        localId: string,
+    ): void {
+        setEditableComponents(
+            (
+                current,
+            ) =>
+                current.filter(
+                    (
+                        component,
+                    ) =>
+                        component.localId !==
+                        localId,
+                ),
+        );
+
+        if (
+            targetComponentId ===
+            localId
+        ) {
+            setTargetComponentId(
+                null,
+            );
+        }
+    }
+
+    /**
+     * Add one Raw Material option to a Recipe component.
+     */
+    function addMaterial(
+        localId: string,
+        material: Product,
+    ): void {
+        const raw =
+            toRawMaterial(
+                material,
+            );
+
+        setEditableComponents(
+            (
+                current,
+            ) =>
+                current.map(
+                    (
+                        component,
+                    ) => {
+                        if (
+                            component.localId !==
+                                localId
+                            || component.options.some(
+                                (
+                                    option,
+                                ) =>
+                                    option.rawMaterial.id ===
+                                    raw.id,
+                            )
+                        ) {
+                            return component;
+                        }
+
+                        return {
+                            ...component,
+                            options: [
+                                ...component.options,
+                                {
+                                    rawMaterial:
+                                        raw,
+                                    isDefault:
+                                        component.options.length ===
+                                        0,
+                                    usageUnit:
+                                        raw.unit,
+                                    entryMode:
+                                        'batch',
+                                    perUnitQuantity:
+                                        '',
+                                    batchMaterialQuantity:
+                                        '',
+                                    batchOutputQuantity:
+                                        '',
+                                },
+                            ],
+                        };
+                    },
+                ),
         );
 
         setTargetComponentId(
@@ -802,65 +827,11 @@ export function ProductionPanel({
     }
 
     /**
-     * Add one empty logical recipe component.
+     * Remove one Raw Material option.
      */
-    function addComponent(): void {
-        setEditableComponents(
-            (
-                current,
-            ) => [
-                ...current,
-
-                {
-                    localId:
-                        crypto.randomUUID(),
-
-                    name:
-                        '',
-
-                    options:
-                        [],
-                },
-            ],
-        );
-    }
-
-    /**
-     * Remove one local recipe component before version activation.
-     */
-    function removeComponent(
+    function removeMaterial(
         localId: string,
-    ): void {
-        setEditableComponents(
-            (
-                current,
-            ) =>
-                current.filter(
-                    (
-                        component,
-                    ) =>
-                        component
-                            .localId !==
-                        localId,
-                ),
-        );
-
-        if (
-            targetComponentId ===
-            localId
-        ) {
-            setTargetComponentId(
-                null,
-            );
-        }
-    }
-
-    /**
-     * Add one Raw Material alternative to a recipe component.
-     */
-    function addMaterialOption(
-        localId: string,
-        rawMaterial: Product,
+        materialId: number,
     ): void {
         setEditableComponents(
             (
@@ -871,43 +842,45 @@ export function ProductionPanel({
                         component,
                     ) => {
                         if (
-                            component
-                                .localId !==
+                            component.localId !==
                             localId
-                            || component
-                                .options
-                                .some(
-                                    (
-                                        option,
-                                    ) =>
-                                        option
-                                            .rawMaterial
-                                            .id ===
-                                        rawMaterial.id,
-                                )
                         ) {
                             return component;
                         }
 
+                        const options =
+                            component.options.filter(
+                                (
+                                    option,
+                                ) =>
+                                    option.rawMaterial.id !==
+                                    materialId,
+                            );
+
+                        if (
+                            options.length >
+                                0
+                            && ! options.some(
+                                (
+                                    option,
+                                ) =>
+                                    option.isDefault,
+                            )
+                        ) {
+                            options[
+                                0
+                            ] = {
+                                ...options[
+                                    0
+                                ],
+                                isDefault:
+                                    true,
+                            };
+                        }
+
                         return {
                             ...component,
-
-                            options: [
-                                ...component.options,
-
-                                {
-                                    rawMaterial,
-
-                                    quantityPerUnit:
-                                        '1',
-
-                                    isDefault:
-                                        component
-                                            .options
-                                            .length ===
-                                        0,
-                                },
-                            ],
+                            options,
                         };
                     },
                 ),
@@ -915,11 +888,11 @@ export function ProductionPanel({
     }
 
     /**
-     * Make one material alternative the sole default for its component.
+     * Set the default Raw Material alternative for one component.
      */
     function makeDefault(
         localId: string,
-        rawMaterialId: number,
+        materialId: number,
     ): void {
         setEditableComponents(
             (
@@ -929,36 +902,203 @@ export function ProductionPanel({
                     (
                         component,
                     ) =>
-                        component
-                            .localId !==
+                        component.localId !==
                         localId
                             ? component
                             : {
-                                ...component,
-
-                                options:
-                                    component
-                                        .options
-                                        .map(
-                                            (
-                                                option,
-                                            ) => ({
-                                                ...option,
-
-                                                isDefault:
-                                                    option
-                                                        .rawMaterial
-                                                        .id ===
-                                                    rawMaterialId,
-                                            }),
-                                        ),
-                            },
+                                  ...component,
+                                  options:
+                                      component.options.map(
+                                          (
+                                              option,
+                                          ) => ({
+                                              ...option,
+                                              isDefault:
+                                                  option.rawMaterial.id ===
+                                                  materialId,
+                                          }),
+                                      ),
+                              },
                 ),
         );
     }
 
     /**
-     * Save the entire formula as a new immutable recipe version.
+     * Change between batch-based and direct per-unit entry.
+     */
+    function changeEntryMode(
+        localId: string,
+        materialId: number,
+        entryMode: EntryMode,
+    ): void {
+        setEditableComponents(
+            (
+                current,
+            ) =>
+                current.map(
+                    (
+                        component,
+                    ) =>
+                        component.localId !==
+                        localId
+                            ? component
+                            : {
+                                  ...component,
+                                  options:
+                                      component.options.map(
+                                          (
+                                              option,
+                                          ) =>
+                                              option.rawMaterial.id ===
+                                              materialId
+                                                  ? {
+                                                        ...option,
+                                                        entryMode,
+                                                    }
+                                                  : option,
+                                      ),
+                              },
+                ),
+        );
+    }
+
+    /**
+     * Change the human usage unit without changing the represented physical
+     * quantity already entered by the user.
+     */
+    function changeUsageUnit(
+        localId: string,
+        materialId: number,
+        nextUnit: string,
+    ): void {
+        setEditableComponents(
+            (
+                current,
+            ) =>
+                current.map(
+                    (
+                        component,
+                    ) =>
+                        component.localId !==
+                        localId
+                            ? component
+                            : {
+                                  ...component,
+                                  options:
+                                      component.options.map(
+                                          (
+                                              option,
+                                          ) => {
+                                              if (
+                                                  option.rawMaterial.id !==
+                                                  materialId
+                                              ) {
+                                                  return option;
+                                              }
+
+                                              const perUnitQuantity =
+                                                  option.perUnitQuantity
+                                                      ? convertMeasurementQuantity(
+                                                            option.perUnitQuantity,
+                                                            option.usageUnit,
+                                                            nextUnit,
+                                                            8,
+                                                        )
+                                                      : '';
+
+                                              const batchMaterialQuantity =
+                                                  option.batchMaterialQuantity
+                                                      ? convertMeasurementQuantity(
+                                                            option.batchMaterialQuantity,
+                                                            option.usageUnit,
+                                                            nextUnit,
+                                                            8,
+                                                        )
+                                                      : '';
+
+                                              return {
+                                                  ...option,
+                                                  usageUnit:
+                                                      nextUnit,
+                                                  perUnitQuantity,
+                                                  batchMaterialQuantity,
+                                              };
+                                          },
+                                      ),
+                              },
+                ),
+        );
+    }
+
+    /**
+     * Update one editable option field.
+     */
+    function updateOption(
+        localId: string,
+        materialId: number,
+        values: Partial<EditableOption>,
+    ): void {
+        setEditableComponents(
+            (
+                current,
+            ) =>
+                current.map(
+                    (
+                        component,
+                    ) =>
+                        component.localId !==
+                        localId
+                            ? component
+                            : {
+                                  ...component,
+                                  options:
+                                      component.options.map(
+                                          (
+                                              option,
+                                          ) =>
+                                              option.rawMaterial.id ===
+                                              materialId
+                                                  ? {
+                                                        ...option,
+                                                        ...values,
+                                                    }
+                                                  : option,
+                                      ),
+                              },
+                ),
+        );
+    }
+
+    const valid =
+        useMemo(
+            () =>
+                editableComponents.length >
+                    0
+                && editableComponents.every(
+                    (
+                        component,
+                    ) =>
+                        component.name.trim() !==
+                            ''
+                        && component.options.length >
+                            0
+                        && component.options.every(
+                            (
+                                option,
+                            ) =>
+                                optionUsageRate(
+                                    option,
+                                ) !==
+                                '',
+                        ),
+                ),
+            [
+                editableComponents,
+            ],
+        );
+
+    /**
+     * Save the entire formula as a new immutable Recipe version.
      */
     async function saveRecipe(
         event:
@@ -967,124 +1107,8 @@ export function ProductionPanel({
         event.preventDefault();
 
         if (
-            savingRecipe
-        ) {
-            return;
-        }
-
-        setSavingRecipe(
-            true,
-        );
-
-        setError(
-            '',
-        );
-
-        try {
-            await apiRequest(
-                recipeEndpoint,
-                {
-                    method:
-                        'POST',
-
-                    body:
-                        JSON.stringify({
-                            notes:
-                                recipeNotes.trim()
-                                || null,
-
-                            components:
-                                editableComponents.map(
-                                    (
-                                        component,
-                                    ) => ({
-                                        name:
-                                            component
-                                                .name
-                                                .trim(),
-
-                                        options:
-                                            component
-                                                .options
-                                                .map(
-                                                    (
-                                                        option,
-                                                    ) => ({
-                                                        raw_material_id:
-                                                            option
-                                                                .rawMaterial
-                                                                .id,
-
-                                                        quantity_per_unit:
-                                                            option
-                                                                .quantityPerUnit,
-
-                                                        is_default:
-                                                            option
-                                                                .isDefault,
-                                                    }),
-                                                ),
-                                    }),
-                                ),
-                        }),
-                },
-            );
-
-            setEditingRecipe(
-                false,
-            );
-
-            setTargetComponentId(
-                null,
-            );
-
-            setRevision(
-                (
-                    value,
-                ) =>
-                    value
-                    + 1,
-            );
-        } catch (
-            failure
-        ) {
-            setError(
-                failure instanceof
-                    ApiError
-                    ? [
-                        failure.message,
-
-                        ...Object
-                            .values(
-                                failure.errors,
-                            )
-                            .flat(),
-                    ].join(
-                        ' ',
-                    )
-                    : t(
-                        'catalog.operations.failed',
-                    ),
-            );
-        } finally {
-            setSavingRecipe(
-                false,
-            );
-        }
-    }
-
-    /**
-     * Record one batch using the active immutable recipe version.
-     */
-    async function submitProduction(
-        event:
-            FormEvent<HTMLFormElement>,
-    ): Promise<void> {
-        event.preventDefault();
-
-        if (
             saving
-            || ! recipe
+            || ! valid
         ) {
             return;
         }
@@ -1093,12 +1117,12 @@ export function ProductionPanel({
             true,
         );
 
-        setSaved(
-            false,
-        );
-
         setError(
             '',
+        );
+
+        setSaved(
+            false,
         );
 
         try {
@@ -1107,49 +1131,58 @@ export function ProductionPanel({
                 {
                     method:
                         'POST',
-
                     body:
                         JSON.stringify({
-                            warehouse_id:
-                                Number(
-                                    warehouseId,
-                                ),
-
-                            quantity,
-
-                            recipe_id:
-                                recipe.id,
-
-                            selections,
-
-                            note:
-                                note.trim()
+                            notes:
+                                recipeNotes.trim()
                                 || null,
+                            components:
+                                editableComponents.map(
+                                    (
+                                        component,
+                                    ) => ({
+                                        name:
+                                            component.name.trim(),
+                                        options:
+                                            component.options.map(
+                                                (
+                                                    option,
+                                                ) => ({
+                                                    raw_material_id:
+                                                        option.rawMaterial.id,
+                                                    quantity_per_unit:
+                                                        optionUsageRate(
+                                                            option,
+                                                        ),
+                                                    usage_unit:
+                                                        option.usageUnit,
+                                                    is_default:
+                                                        option.isDefault,
+                                                }),
+                                            ),
+                                    }),
+                                ),
                         }),
                 },
+            );
+
+            setEditing(
+                false,
             );
 
             setSaved(
                 true,
             );
 
-            setQuantity(
-                '1',
-            );
-
-            setNote(
-                '',
-            );
-
-            setPage(
-                1,
+            setTargetComponentId(
+                null,
             );
 
             setRevision(
                 (
-                    value,
+                    current,
                 ) =>
-                    value
+                    current
                     + 1,
             );
         } catch (
@@ -1159,19 +1192,16 @@ export function ProductionPanel({
                 failure instanceof
                     ApiError
                     ? [
-                        failure.message,
-
-                        ...Object
-                            .values(
-                                failure.errors,
-                            )
-                            .flat(),
-                    ].join(
-                        ' ',
-                    )
+                          failure.message,
+                          ...Object.values(
+                              failure.errors,
+                          ).flat(),
+                      ].join(
+                          ' ',
+                      )
                     : t(
-                        'catalog.operations.failed',
-                    ),
+                          'catalog.operations.failed',
+                      ),
             );
         } finally {
             setSaving(
@@ -1180,112 +1210,117 @@ export function ProductionPanel({
         }
     }
 
-    const calculatedRequirements =
-        useMemo(
-            () =>
-                recipe
-                    ? recipe
-                        .components
-                        .map(
-                            (
-                                component,
-                            ) => {
-                                const selectedId =
-                                    selections[
-                                        component.id
-                                    ];
-
-                                const option =
-                                    component
-                                        .options
-                                        .find(
-                                            (
-                                                candidate,
-                                            ) =>
-                                                candidate.id ===
-                                                selectedId,
-                                        )
-                                    ??
-                                    component
-                                        .options[
-                                            0
-                                        ];
-
-                                return {
-                                    component,
-
-                                    option,
-
-                                    required:
-                                        option
-                                            ? consumptionTotal(
-                                                quantity,
-                                                option
-                                                    .quantity_per_unit,
-                                            )
-                                            : '—',
-                                };
-                            },
-                        )
-                    : [],
-            [
-                quantity,
-                recipe,
-                selections,
-            ],
-        );
-
     return (
         <section className="mt-7 border-t border-[var(--ac-line)] pt-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex gap-3">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
+                            <Factory size={18} />
+                        </div>
+
+                        <div>
+                            <p className="text-sm font-semibold">
+                                {copy.productionCenter}
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5 text-[var(--ac-text-muted)]">
+                                {copy.productionHelp}
+                            </p>
+                        </div>
+                    </div>
+
+                    {! product.deleted_at && (
+                        <Link
+                            href="/app/inventory/production"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-text)] px-4 text-xs font-semibold text-white"
+                        >
+                            <Factory size={14} />
+                            {copy.productionCenter}
+                            <ArrowUpRight size={14} />
+                        </Link>
+                    )}
+                </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h3 className="font-semibold">
-                        {t(
-                            'production.recipe.title',
-                        )}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                        <Beaker
+                            size={17}
+                            className="text-[var(--ac-accent-strong)]"
+                        />
+
+                        <h3 className="font-semibold">
+                            {t(
+                                'production.recipe.title',
+                            )}
+                        </h3>
+                    </div>
 
                     <p className="mt-2 max-w-2xl text-xs leading-6 text-[var(--ac-text-soft)]">
-                        {t(
-                            'production.recipe.help',
-                        )}
+                        {copy.recipeHelp}
                     </p>
                 </div>
 
-                {canProduce && (
-                    <button
-                        type="button"
-                        className={
-                            buttonClass
-                        }
-                        onClick={
-                            beginRecipeEditing
-                        }
-                    >
-                        <Pencil
-                            size={
-                                14
+                {canManageRecipe
+                    && ! editing && (
+                        <button
+                            type="button"
+                            className={
+                                buttonClass
                             }
-                        />
+                            onClick={
+                                beginEditing
+                            }
+                        >
+                            <Pencil size={14} />
 
-                        {t(
-                            recipe
-                                ? 'production.recipe.edit'
-                                : 'production.recipe.create',
-                        )}
-                    </button>
-                )}
+                            {t(
+                                recipe
+                                    ? 'production.recipe.edit'
+                                    : 'production.recipe.create',
+                            )}
+                        </button>
+                    )}
             </div>
 
-            <p className="mt-3 rounded-xl bg-[var(--ac-accent-soft)] p-3 text-xs leading-5">
-                {t(
-                    'production.precision.help',
-                )}
-            </p>
+            <div className="mt-3 rounded-xl bg-[var(--ac-accent-soft)] p-3">
+                <div className="flex gap-2">
+                    <Calculator
+                        size={15}
+                        className="mt-0.5 shrink-0 text-[var(--ac-accent-strong)]"
+                    />
 
-            {recipe ? (
+                    <p className="text-xs leading-5 text-[var(--ac-text-soft)]">
+                        {copy.usageExample}
+                    </p>
+                </div>
+            </div>
+
+            {error && (
+                <div className="mt-4 rounded-xl border border-[var(--ac-danger)]/20 bg-[var(--ac-danger)]/5 p-3 text-xs text-[var(--ac-danger)]">
+                    {error}
+                </div>
+            )}
+
+            {saved && (
+                <div className="mt-4 flex items-center gap-2 rounded-xl bg-[var(--ac-accent-soft)] p-3 text-xs font-semibold text-[var(--ac-accent-strong)]">
+                    <Check size={14} />
+
+                    {t(
+                        'production.recipe.saved',
+                    )}
+                </div>
+            )}
+
+            {loading ? (
+                <div className="mt-4 rounded-2xl border border-[var(--ac-line)] p-5 text-xs text-[var(--ac-text-muted)]">
+                    …
+                </div>
+            ) : recipe ? (
                 <div className="mt-4 rounded-2xl border border-[var(--ac-line)] bg-white p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center justify-between gap-3">
                         <strong className="text-sm">
                             {t(
                                 'production.recipe.version',
@@ -1296,14 +1331,7 @@ export function ProductionPanel({
                             )}
                         </strong>
 
-                        <span className="rounded-full bg-[var(--ac-accent-soft)] px-3 py-1 text-[10px] font-semibold">
-                            <Check
-                                size={
-                                    12
-                                }
-                                className="me-1 inline"
-                            />
-
+                        <span className="rounded-full bg-[var(--ac-accent-soft)] px-3 py-1 text-[10px] font-semibold text-[var(--ac-accent-strong)]">
                             {t(
                                 'production.recipe.default',
                             )}
@@ -1327,62 +1355,81 @@ export function ProductionPanel({
                                         }
                                     </strong>
 
-                                    <div className="mt-2 space-y-1">
+                                    <div className="mt-2 space-y-2">
                                         {component.options.map(
                                             (
                                                 option,
-                                            ) => (
-                                                <div
-                                                    key={
-                                                        option.id
-                                                    }
-                                                    className="flex flex-wrap items-center justify-between gap-2 text-xs"
-                                                >
-                                                    <span>
-                                                        {
-                                                            option
-                                                                .raw_material
-                                                                .name
-                                                        }
+                                            ) => {
+                                                const usageUnit =
+                                                    option.usage_unit
+                                                    ?? option.raw_material.unit;
 
-                                                        {! option
-                                                            .is_default && (
-                                                            <span className="ms-2 text-[var(--ac-text-muted)]">
-                                                                {t(
-                                                                    'production.recipe.alternative',
-                                                                )}
+                                                const usageRate =
+                                                    option.usage_quantity_per_unit
+                                                    ?? option.quantity_per_unit;
+
+                                                const differentUnit =
+                                                    usageUnit.toLowerCase()
+                                                    !== option.raw_material.unit.toLowerCase();
+
+                                                return (
+                                                    <div
+                                                        key={
+                                                            option.id
+                                                        }
+                                                        className="rounded-lg bg-white px-3 py-2"
+                                                    >
+                                                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                                            <span className="font-medium">
+                                                                {
+                                                                    option.raw_material.name
+                                                                }
                                                             </span>
-                                                        )}
-                                                    </span>
 
-                                                    <bdi dir="ltr">
-                                                        {
-                                                            option.quantity_per_unit
-                                                        }{' '}
-                                                        {
-                                                            option
-                                                                .raw_material
-                                                                .unit
-                                                        }{' '}
-                                                        /{' '}
-                                                        {
-                                                            product.unit
-                                                        }
-                                                    </bdi>
-                                                </div>
-                                            ),
+                                                            <bdi
+                                                                dir="ltr"
+                                                                className="font-semibold"
+                                                            >
+                                                                {
+                                                                    usageRate
+                                                                }{' '}
+                                                                {
+                                                                    usageUnit
+                                                                }{' '}
+                                                                /{' '}
+                                                                {
+                                                                    product.unit
+                                                                }
+                                                            </bdi>
+                                                        </div>
+
+                                                        {differentUnit && (
+                                                            <p
+                                                                dir="ltr"
+                                                                className="mt-1 text-start text-[10px] text-[var(--ac-text-muted)]"
+                                                            >
+                                                                {copy.stockEquivalent}:{' '}
+                                                                {
+                                                                    option.quantity_per_unit
+                                                                }{' '}
+                                                                {
+                                                                    option.raw_material.unit
+                                                                }{' '}
+                                                                /{' '}
+                                                                {
+                                                                    product.unit
+                                                                }
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            },
                                         )}
                                     </div>
                                 </div>
                             ),
                         )}
                     </div>
-
-                    <p className="mt-4 text-[10px] leading-5 text-[var(--ac-text-muted)]">
-                        {t(
-                            'production.recipe.history',
-                        )}
-                    </p>
                 </div>
             ) : (
                 <div className="mt-4 rounded-2xl border border-dashed border-[var(--ac-line)] p-5">
@@ -1392,7 +1439,7 @@ export function ProductionPanel({
                         )}
                     </strong>
 
-                    <p className="mt-2 text-xs leading-5 text-[var(--ac-text-muted)]">
+                    <p className="mt-2 text-xs text-[var(--ac-text-muted)]">
                         {t(
                             'production.recipe.noneHelp',
                         )}
@@ -1400,7 +1447,44 @@ export function ProductionPanel({
                 </div>
             )}
 
-            {editingRecipe && (
+            {versions.length > 0
+                && ! editing && (
+                    <div className="mt-4 rounded-2xl border border-[var(--ac-line)] bg-white p-4">
+                        <div className="flex items-center gap-2">
+                            <History size={15} />
+
+                            <p className="text-xs font-semibold">
+                                {copy.versions}
+                            </p>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {versions.map(
+                                (
+                                    version,
+                                ) => (
+                                    <span
+                                        key={
+                                            version.id
+                                        }
+                                        className="rounded-full bg-[var(--ac-bg-soft)] px-3 py-1.5 text-[10px] font-semibold"
+                                    >
+                                        v
+                                        {
+                                            version.version
+                                        }
+
+                                        {version.is_active
+                                            ? ` · ${copy.active}`
+                                            : ''}
+                                    </span>
+                                ),
+                            )}
+                        </div>
+                    </div>
+                )}
+
+            {editing && (
                 <form
                     onSubmit={(
                         event,
@@ -1411,7 +1495,7 @@ export function ProductionPanel({
                     }
                     className="mt-4 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4"
                 >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                         <strong className="text-sm">
                             {t(
                                 recipe
@@ -1420,25 +1504,36 @@ export function ProductionPanel({
                             )}
                         </strong>
 
-                        <button
-                            type="button"
-                            className={
-                                buttonClass
-                            }
-                            onClick={
-                                addComponent
-                            }
-                        >
-                            <Plus
-                                size={
-                                    14
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                className={
+                                    buttonClass
                                 }
-                            />
+                                onClick={
+                                    addComponent
+                                }
+                            >
+                                <Plus size={14} />
 
-                            {t(
-                                'production.recipe.addComponent',
-                            )}
-                        </button>
+                                {t(
+                                    'production.recipe.addComponent',
+                                )}
+                            </button>
+
+                            <button
+                                type="button"
+                                className={
+                                    buttonClass
+                                }
+                                onClick={
+                                    cancelEditing
+                                }
+                            >
+                                <X size={14} />
+                                {copy.cancel}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="mt-4 space-y-4">
@@ -1452,23 +1547,17 @@ export function ProductionPanel({
                                     }
                                     className="rounded-2xl border border-[var(--ac-line)] bg-white p-4"
                                 >
-                                    <div className="flex items-start gap-3">
-                                        <label className="min-w-0 flex-1 text-xs">
+                                    <div className="flex gap-3">
+                                        <label className="min-w-0 flex-1 text-xs font-semibold">
                                             {t(
                                                 'production.recipe.componentName',
                                             )}
 
                                             <input
                                                 required
-                                                maxLength={
-                                                    120
-                                                }
                                                 value={
                                                     component.name
                                                 }
-                                                placeholder={t(
-                                                    'production.recipe.componentExample',
-                                                )}
                                                 className={
                                                     inputClass
                                                 }
@@ -1486,11 +1575,10 @@ export function ProductionPanel({
                                                                     entry.localId ===
                                                                     component.localId
                                                                         ? {
-                                                                            ...entry,
-
-                                                                            name:
-                                                                                event.target.value,
-                                                                        }
+                                                                              ...entry,
+                                                                              name:
+                                                                                  event.target.value,
+                                                                          }
                                                                         : entry,
                                                             ),
                                                     )
@@ -1500,243 +1588,437 @@ export function ProductionPanel({
 
                                         <button
                                             type="button"
-                                            className={
-                                                buttonClass
-                                            }
+                                            className="mt-5 flex size-10 items-center justify-center rounded-xl border border-[var(--ac-line)] text-red-600"
                                             onClick={() =>
                                                 removeComponent(
                                                     component.localId,
                                                 )
                                             }
                                         >
-                                            <Trash2
-                                                size={
-                                                    13
-                                                }
-                                            />
+                                            <Trash2 size={14} />
                                         </button>
                                     </div>
 
-                                    <p className="mt-4 text-xs font-semibold">
-                                        {t(
-                                            'production.recipe.materialOptions',
-                                        )}
-                                    </p>
+                                    <div className="mt-4 flex items-center justify-between gap-3">
+                                        <p className="text-xs font-semibold">
+                                            {t(
+                                                'production.recipe.materialOptions',
+                                            )}
+                                        </p>
 
-                                    <div className="mt-2 space-y-2">
+                                        <button
+                                            type="button"
+                                            className={
+                                                buttonClass
+                                            }
+                                            onClick={() => {
+                                                setTargetComponentId(
+                                                    component.localId,
+                                                );
+
+                                                setMaterialSearch(
+                                                    '',
+                                                );
+                                            }}
+                                        >
+                                            <Plus size={14} />
+
+                                            {t(
+                                                'production.recipe.addAlternative',
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    <div className="mt-3 space-y-3">
                                         {component.options.map(
                                             (
                                                 option,
-                                            ) => (
-                                                <div
-                                                    key={
-                                                        option
-                                                            .rawMaterial
-                                                            .id
-                                                    }
-                                                    className="rounded-xl border border-[var(--ac-line)] p-3"
-                                                >
-                                                    <div className="flex flex-wrap items-center justify-between gap-3">
-                                                        <strong className="text-xs">
-                                                            {
-                                                                option
-                                                                    .rawMaterial
-                                                                    .name
-                                                            }
-                                                        </strong>
+                                            ) => {
+                                                const rate =
+                                                    optionUsageRate(
+                                                        option,
+                                                    );
 
-                                                        <div className="flex gap-2">
+                                                const stockRate =
+                                                    rate
+                                                        ? convertMeasurementQuantity(
+                                                              rate,
+                                                              option.usageUnit,
+                                                              option.rawMaterial.unit,
+                                                              8,
+                                                          )
+                                                        : '';
+
+                                                const choices =
+                                                    compatibleMeasurementUnits(
+                                                        option.rawMaterial.unit,
+                                                    );
+
+                                                return (
+                                                    <div
+                                                        key={
+                                                            option.rawMaterial.id
+                                                        }
+                                                        className="rounded-2xl border border-[var(--ac-line)] p-3"
+                                                    >
+                                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                                            <div>
+                                                                <strong className="text-xs">
+                                                                    {
+                                                                        option.rawMaterial.name
+                                                                    }
+                                                                </strong>
+
+                                                                <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                                                    {copy.stockUnit}:{' '}
+                                                                    {
+                                                                        option.rawMaterial.unit
+                                                                    }
+                                                                </p>
+                                                            </div>
+
+                                                            <div className="flex flex-wrap gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    className={[
+                                                                        buttonClass,
+                                                                        option.isDefault
+                                                                            ? 'bg-[var(--ac-accent-soft)]'
+                                                                            : '',
+                                                                    ].join(
+                                                                        ' ',
+                                                                    )}
+                                                                    onClick={() =>
+                                                                        makeDefault(
+                                                                            component.localId,
+                                                                            option.rawMaterial.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Check size={13} />
+
+                                                                    {option.isDefault
+                                                                        ? t(
+                                                                              'production.recipe.default',
+                                                                          )
+                                                                        : t(
+                                                                              'production.recipe.makeDefault',
+                                                                          )}
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    className={
+                                                                        buttonClass
+                                                                    }
+                                                                    onClick={() =>
+                                                                        removeMaterial(
+                                                                            component.localId,
+                                                                            option.rawMaterial.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Trash2 size={13} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-[var(--ac-bg-soft)] p-1">
                                                             <button
                                                                 type="button"
                                                                 className={[
-                                                                    buttonClass,
-                                                                    option.isDefault
-                                                                        ? 'bg-[var(--ac-accent-soft)]'
-                                                                        : '',
+                                                                    'rounded-lg px-3 py-2 text-xs font-semibold',
+                                                                    option.entryMode ===
+                                                                    'batch'
+                                                                        ? 'bg-white shadow-sm'
+                                                                        : 'text-[var(--ac-text-muted)]',
                                                                 ].join(
                                                                     ' ',
                                                                 )}
                                                                 onClick={() =>
-                                                                    makeDefault(
+                                                                    changeEntryMode(
                                                                         component.localId,
-                                                                        option
-                                                                            .rawMaterial
-                                                                            .id,
+                                                                        option.rawMaterial.id,
+                                                                        'batch',
                                                                     )
                                                                 }
                                                             >
-                                                                {option.isDefault
-                                                                    ? t(
-                                                                        'production.recipe.default',
-                                                                    )
-                                                                    : t(
-                                                                        'production.recipe.makeDefault',
-                                                                    )}
+                                                                <Calculator
+                                                                    size={13}
+                                                                    className="me-1 inline"
+                                                                />
+                                                                {copy.batch}
                                                             </button>
 
                                                             <button
                                                                 type="button"
-                                                                className={
-                                                                    buttonClass
-                                                                }
+                                                                className={[
+                                                                    'rounded-lg px-3 py-2 text-xs font-semibold',
+                                                                    option.entryMode ===
+                                                                    'per_unit'
+                                                                        ? 'bg-white shadow-sm'
+                                                                        : 'text-[var(--ac-text-muted)]',
+                                                                ].join(
+                                                                    ' ',
+                                                                )}
                                                                 onClick={() =>
-                                                                    setEditableComponents(
-                                                                        (
-                                                                            current,
-                                                                        ) =>
-                                                                            current.map(
-                                                                                (
-                                                                                    entry,
-                                                                                ) =>
-                                                                                    entry.localId ===
-                                                                                    component.localId
-                                                                                        ? {
-                                                                                            ...entry,
-
-                                                                                            options:
-                                                                                                entry.options.filter(
-                                                                                                    (
-                                                                                                        candidate,
-                                                                                                    ) =>
-                                                                                                        candidate
-                                                                                                            .rawMaterial
-                                                                                                            .id !==
-                                                                                                        option
-                                                                                                            .rawMaterial
-                                                                                                            .id,
-                                                                                                ),
-                                                                                        }
-                                                                                        : entry,
-                                                                            ),
+                                                                    changeEntryMode(
+                                                                        component.localId,
+                                                                        option.rawMaterial.id,
+                                                                        'per_unit',
                                                                     )
                                                                 }
                                                             >
-                                                                {t(
-                                                                    'production.recipe.remove',
-                                                                )}
+                                                                {copy.perUnit}
                                                             </button>
                                                         </div>
-                                                    </div>
 
-                                                    <label className="mt-3 block text-xs">
-                                                        {t(
-                                                            'production.recipe.quantityPerUnit',
-                                                        )}{' '}
-                                                        ({
-                                                            option
-                                                                .rawMaterial
-                                                                .unit
-                                                        }{' '}
-                                                        /{' '}
-                                                        {
-                                                            product.unit
-                                                        })
+                                                        <label className="mt-4 block text-xs font-semibold">
+                                                            {copy.usageUnit}
 
-                                                        <input
-                                                            required
-                                                            type="number"
-                                                            min="0.0001"
-                                                            max="99999999999999"
-                                                            step="0.0001"
-                                                            dir="ltr"
-                                                            value={
-                                                                option.quantityPerUnit
-                                                            }
-                                                            className={
-                                                                inputClass
-                                                            }
-                                                            onChange={(
-                                                                event,
-                                                            ) =>
-                                                                setEditableComponents(
+                                                            <select
+                                                                value={
+                                                                    option.usageUnit
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    changeUsageUnit(
+                                                                        component.localId,
+                                                                        option.rawMaterial.id,
+                                                                        event.target.value,
+                                                                    )
+                                                                }
+                                                                className={
+                                                                    inputClass
+                                                                }
+                                                            >
+                                                                {choices.map(
                                                                     (
-                                                                        current,
-                                                                    ) =>
-                                                                        current.map(
-                                                                            (
-                                                                                entry,
-                                                                            ) =>
-                                                                                entry.localId ===
-                                                                                component.localId
-                                                                                    ? {
-                                                                                        ...entry,
+                                                                        choice,
+                                                                    ) => (
+                                                                        <option
+                                                                            key={
+                                                                                choice.value
+                                                                            }
+                                                                            value={
+                                                                                choice.value
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                choice.label
+                                                                            }
+                                                                        </option>
+                                                                    ),
+                                                                )}
+                                                            </select>
+                                                        </label>
 
-                                                                                        options:
-                                                                                            entry.options.map(
-                                                                                                (
-                                                                                                    candidate,
-                                                                                                ) =>
-                                                                                                    candidate
-                                                                                                        .rawMaterial
-                                                                                                        .id ===
-                                                                                                    option
-                                                                                                        .rawMaterial
-                                                                                                        .id
-                                                                                                        ? {
-                                                                                                            ...candidate,
+                                                        {option.entryMode ===
+                                                        'batch' ? (
+                                                            <div className="mt-4">
+                                                                <div className="grid gap-3 sm:grid-cols-2">
+                                                                    <label className="text-xs font-semibold">
+                                                                        {copy.materialQuantity}
 
-                                                                                                            quantityPerUnit:
-                                                                                                                event.target.value,
-                                                                                                        }
-                                                                                                        : candidate,
-                                                                                            ),
+                                                                        <div className="relative">
+                                                                            <input
+                                                                                inputMode="decimal"
+                                                                                value={
+                                                                                    option.batchMaterialQuantity
+                                                                                }
+                                                                                placeholder="150"
+                                                                                className={`${inputClass} pe-16`}
+                                                                                onChange={(
+                                                                                    event,
+                                                                                ) =>
+                                                                                    updateOption(
+                                                                                        component.localId,
+                                                                                        option.rawMaterial.id,
+                                                                                        {
+                                                                                            batchMaterialQuantity:
+                                                                                                event.target.value,
+                                                                                        },
+                                                                                    )
+                                                                                }
+                                                                            />
+
+                                                                            <span className="absolute end-3 top-1/2 mt-0.5 -translate-y-1/2 text-[10px] text-[var(--ac-text-muted)]">
+                                                                                {
+                                                                                    option.usageUnit
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+                                                                    </label>
+
+                                                                    <label className="text-xs font-semibold">
+                                                                        {copy.produces}
+
+                                                                        <div className="relative">
+                                                                            <input
+                                                                                inputMode="decimal"
+                                                                                value={
+                                                                                    option.batchOutputQuantity
+                                                                                }
+                                                                                placeholder="350"
+                                                                                className={`${inputClass} pe-16`}
+                                                                                onChange={(
+                                                                                    event,
+                                                                                ) =>
+                                                                                    updateOption(
+                                                                                        component.localId,
+                                                                                        option.rawMaterial.id,
+                                                                                        {
+                                                                                            batchOutputQuantity:
+                                                                                                event.target.value,
+                                                                                        },
+                                                                                    )
+                                                                                }
+                                                                            />
+
+                                                                            <span className="absolute end-3 top-1/2 mt-0.5 -translate-y-1/2 text-[10px] text-[var(--ac-text-muted)]">
+                                                                                {
+                                                                                    product.unit
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+                                                                    </label>
+                                                                </div>
+
+                                                                <div className="mt-3 rounded-xl bg-[var(--ac-accent-soft)] p-3">
+                                                                    {rate ? (
+                                                                        <>
+                                                                            <p className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
+                                                                                {copy.calculated}
+                                                                            </p>
+
+                                                                            <p
+                                                                                dir="ltr"
+                                                                                className="mt-1 text-start text-sm font-semibold text-[var(--ac-accent-strong)]"
+                                                                            >
+                                                                                {
+                                                                                    rate
+                                                                                }{' '}
+                                                                                {
+                                                                                    option.usageUnit
+                                                                                }{' '}
+                                                                                /{' '}
+                                                                                {
+                                                                                    product.unit
+                                                                                }
+                                                                            </p>
+
+                                                                            {stockRate && (
+                                                                                <p
+                                                                                    dir="ltr"
+                                                                                    className="mt-1 text-start text-[11px] text-[var(--ac-text-soft)]"
+                                                                                >
+                                                                                    {copy.stockEquivalent}:{' '}
+                                                                                    {
+                                                                                        stockRate
+                                                                                    }{' '}
+                                                                                    {
+                                                                                        option.rawMaterial.unit
+                                                                                    }{' '}
+                                                                                    /{' '}
+                                                                                    {
+                                                                                        product.unit
                                                                                     }
-                                                                                    : entry,
-                                                                        ),
-                                                                )
-                                                            }
-                                                        />
-                                                    </label>
-                                                </div>
-                                            ),
+                                                                                </p>
+                                                                            )}
+                                                                        </>
+                                                                    ) : (
+                                                                        <p className="text-xs text-[var(--ac-text-muted)]">
+                                                                            {copy.enterBatch}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="mt-4">
+                                                                <label className="text-xs font-semibold">
+                                                                    {copy.calculated}
+
+                                                                    <div className="relative">
+                                                                        <input
+                                                                            inputMode="decimal"
+                                                                            value={
+                                                                                option.perUnitQuantity
+                                                                            }
+                                                                            placeholder="0.42857143"
+                                                                            className={`${inputClass} pe-24`}
+                                                                            onChange={(
+                                                                                event,
+                                                                            ) =>
+                                                                                updateOption(
+                                                                                    component.localId,
+                                                                                    option.rawMaterial.id,
+                                                                                    {
+                                                                                        perUnitQuantity:
+                                                                                            event.target.value,
+                                                                                    },
+                                                                                )
+                                                                            }
+                                                                        />
+
+                                                                        <span className="absolute end-3 top-1/2 mt-0.5 -translate-y-1/2 text-[10px] text-[var(--ac-text-muted)]">
+                                                                            {
+                                                                                option.usageUnit
+                                                                            }{' '}
+                                                                            /{' '}
+                                                                            {
+                                                                                product.unit
+                                                                            }
+                                                                        </span>
+                                                                    </div>
+                                                                </label>
+
+                                                                {stockRate && (
+                                                                    <p
+                                                                        dir="ltr"
+                                                                        className="mt-2 text-start text-[10px] text-[var(--ac-text-muted)]"
+                                                                    >
+                                                                        {copy.stockEquivalent}:{' '}
+                                                                        {
+                                                                            stockRate
+                                                                        }{' '}
+                                                                        {
+                                                                            option.rawMaterial.unit
+                                                                        }{' '}
+                                                                        /{' '}
+                                                                        {
+                                                                            product.unit
+                                                                        }
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            },
+                                        )}
+
+                                        {component.options.length ===
+                                            0 && (
+                                            <div className="rounded-xl border border-dashed border-[var(--ac-line)] p-4 text-xs text-[var(--ac-text-muted)]">
+                                                {t(
+                                                    'production.recipe.noMaterials',
+                                                )}
+                                            </div>
                                         )}
                                     </div>
 
-                                    <button
-                                        type="button"
-                                        className={`${buttonClass} mt-3`}
-                                        onClick={() => {
-                                            setTargetComponentId(
-                                                component.localId,
-                                            );
-
-                                            setMaterialSearch(
-                                                '',
-                                            );
-                                        }}
-                                    >
-                                        <Plus
-                                            size={
-                                                13
-                                            }
-                                        />
-
-                                        {t(
-                                            'production.recipe.addAlternative',
-                                        )}
-                                    </button>
-
                                     {targetComponentId ===
                                         component.localId && (
-                                        <div className="mt-3 rounded-xl border border-[var(--ac-line)] p-3">
-                                            <label className="relative block text-xs">
-                                                {t(
-                                                    'production.recipe.searchMaterial',
-                                                )}
-
-                                                <Search
-                                                    size={
-                                                        13
-                                                    }
-                                                    className="absolute bottom-3 start-3"
-                                                />
+                                        <div className="mt-3 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] p-3">
+                                            <div className="flex items-center gap-2">
+                                                <Search size={14} />
 
                                                 <input
-                                                    type="search"
+                                                    autoFocus
                                                     value={
                                                         materialSearch
                                                     }
-                                                    className={`${inputClass} ps-8`}
                                                     onChange={(
                                                         event,
                                                     ) =>
@@ -1744,65 +2026,58 @@ export function ProductionPanel({
                                                             event.target.value,
                                                         )
                                                     }
+                                                    className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none"
                                                 />
-                                            </label>
 
-                                            <div className="mt-2 max-h-52 overflow-y-auto">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setTargetComponentId(
+                                                            null,
+                                                        )
+                                                    }
+                                                >
+                                                    <X size={13} />
+                                                </button>
+                                            </div>
+
+                                            <div className="mt-3 max-h-52 space-y-1 overflow-y-auto">
                                                 {searching ? (
                                                     <p className="p-3 text-xs">
-                                                        {t(
-                                                            'catalog.operations.loading',
-                                                        )}
+                                                        …
                                                     </p>
-                                                ) : materialOptions.length ? (
+                                                ) : (
                                                     materialOptions.map(
                                                         (
-                                                            raw,
+                                                            material,
                                                         ) => (
                                                             <button
-                                                                key={
-                                                                    raw.id
-                                                                }
                                                                 type="button"
-                                                                disabled={
-                                                                    component.options.some(
-                                                                        (
-                                                                            existing,
-                                                                        ) =>
-                                                                            existing
-                                                                                .rawMaterial
-                                                                                .id ===
-                                                                            raw.id,
-                                                                    )
+                                                                key={
+                                                                    material.id
                                                                 }
-                                                                className="flex w-full items-center justify-between gap-3 border-b border-[var(--ac-line)] px-2 py-3 text-start text-xs disabled:opacity-35"
+                                                                className="flex w-full items-center justify-between rounded-lg bg-white px-3 py-2 text-start text-xs"
                                                                 onClick={() =>
-                                                                    addMaterialOption(
+                                                                    addMaterial(
                                                                         component.localId,
-                                                                        raw,
+                                                                        material,
                                                                     )
                                                                 }
                                                             >
                                                                 <span>
                                                                     {
-                                                                        raw.name
+                                                                        material.name
                                                                     }
                                                                 </span>
 
-                                                                <span>
+                                                                <span className="text-[var(--ac-text-muted)]">
                                                                     {
-                                                                        raw.unit
+                                                                        material.unit
                                                                     }
                                                                 </span>
                                                             </button>
                                                         ),
                                                     )
-                                                ) : (
-                                                    <p className="p-3 text-xs">
-                                                        {t(
-                                                            'production.recipe.noMaterials',
-                                                        )}
-                                                    </p>
                                                 )}
                                             </div>
                                         </div>
@@ -1812,20 +2087,15 @@ export function ProductionPanel({
                         )}
                     </div>
 
-                    <label className="mt-4 block text-xs">
+                    <label className="mt-4 block text-xs font-semibold">
                         {t(
                             'production.recipe.notes',
                         )}
 
                         <textarea
-                            maxLength={
-                                2000
-                            }
+                            rows={3}
                             value={
                                 recipeNotes
-                            }
-                            className={
-                                inputClass
                             }
                             onChange={(
                                 event,
@@ -1834,8 +2104,15 @@ export function ProductionPanel({
                                     event.target.value,
                                 )
                             }
+                            className={`${inputClass} resize-none`}
                         />
                     </label>
+
+                    {! valid && (
+                        <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] text-amber-700">
+                            {copy.incomplete}
+                        </p>
+                    )}
 
                     <div className="mt-4 flex justify-end gap-2">
                         <button
@@ -1843,714 +2120,34 @@ export function ProductionPanel({
                             className={
                                 buttonClass
                             }
-                            onClick={() =>
-                                setEditingRecipe(
-                                    false,
-                                )
+                            onClick={
+                                cancelEditing
                             }
                         >
-                            {t(
-                                'common.cancel',
-                            )}
+                            {copy.cancel}
                         </button>
 
                         <button
+                            type="submit"
                             disabled={
-                                savingRecipe
-                                || ! editableComponents.length
-                                || editableComponents.some(
-                                    (
-                                        component,
-                                    ) =>
-                                        ! component
-                                            .name
-                                            .trim()
-                                        || ! component
-                                            .options
-                                            .length,
-                                )
+                                saving
+                                || ! valid
                             }
                             className="inline-flex items-center gap-2 rounded-xl bg-[var(--ac-text)] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40"
                         >
-                            <Save
-                                size={
-                                    14
-                                }
-                            />
+                            <Save size={14} />
 
-                            {t(
-                                savingRecipe
-                                    ? 'production.recipe.saving'
-                                    : 'production.recipe.save',
-                            )}
+                            {saving
+                                ? t(
+                                      'production.recipe.saving',
+                                  )
+                                : t(
+                                      'production.recipe.save',
+                                  )}
                         </button>
                     </div>
                 </form>
             )}
-
-            {canProduce && (
-                <form
-                    onSubmit={(
-                        event,
-                    ) =>
-                        void submitProduction(
-                            event,
-                        )
-                    }
-                    className="mt-5 rounded-2xl bg-[var(--ac-surface-soft)] p-4"
-                >
-                    <div className="flex items-center gap-2">
-                        <FlaskConical
-                            size={
-                                16
-                            }
-                        />
-
-                        <h4 className="text-sm font-semibold">
-                            {t(
-                                'production.batch.title',
-                            )}
-                        </h4>
-                    </div>
-
-                    <p className="mt-2 text-xs leading-5 text-[var(--ac-text-muted)]">
-                        {t(
-                            'production.batch.help',
-                        )}
-                    </p>
-
-                    {! recipe ? (
-                        <p className="mt-4 rounded-xl border border-dashed border-[var(--ac-line)] p-4 text-xs">
-                            {t(
-                                'production.batch.recipeRequired',
-                            )}
-                        </p>
-                    ) : (
-                        <fieldset
-                            disabled={
-                                saving
-                                || loading
-                            }
-                            className="mt-4 space-y-4"
-                        >
-                            <label className="block text-xs">
-                                {t(
-                                    'production.batch.warehouse',
-                                )}
-
-                                <select
-                                    required
-                                    value={
-                                        warehouseId
-                                    }
-                                    className={
-                                        inputClass
-                                    }
-                                    onChange={(
-                                        event,
-                                    ) =>
-                                        setWarehouseId(
-                                            event.target.value,
-                                        )
-                                    }
-                                >
-                                    <option value="">
-                                        {t(
-                                            'production.batch.chooseWarehouse',
-                                        )}
-                                    </option>
-
-                                    {warehouses.map(
-                                        (
-                                            warehouse,
-                                        ) => (
-                                            <option
-                                                key={
-                                                    warehouse.id
-                                                }
-                                                value={
-                                                    warehouse.id
-                                                }
-                                            >
-                                                {
-                                                    warehouse.name
-                                                }
-                                            </option>
-                                        ),
-                                    )}
-                                </select>
-                            </label>
-
-                            <label className="block text-xs">
-                                {t(
-                                    'production.batch.output',
-                                )}{' '}
-                                ({
-                                    product.unit
-                                })
-
-                                <input
-                                    required
-                                    type="number"
-                                    min="0.0001"
-                                    max="99999999999999"
-                                    step="0.0001"
-                                    dir="ltr"
-                                    value={
-                                        quantity
-                                    }
-                                    className={
-                                        inputClass
-                                    }
-                                    onChange={(
-                                        event,
-                                    ) =>
-                                        setQuantity(
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </label>
-
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <Beaker
-                                        size={
-                                            14
-                                        }
-                                    />
-
-                                    <strong className="text-xs">
-                                        {t(
-                                            'production.batch.requirements',
-                                        )}
-                                    </strong>
-                                </div>
-
-                                <div className="mt-2 space-y-2">
-                                    {calculatedRequirements.map(
-                                        ({
-                                            component,
-                                            option,
-                                            required,
-                                        }) => (
-                                            <div
-                                                key={
-                                                    component.id
-                                                }
-                                                className="rounded-xl border border-[var(--ac-line)] bg-white p-3"
-                                            >
-                                                <p className="text-xs font-semibold">
-                                                    {
-                                                        component.name
-                                                    }
-                                                </p>
-
-                                                {component.options.length >
-                                                    1 && (
-                                                    <label className="mt-2 block text-[10px]">
-                                                        {t(
-                                                            'production.batch.useAlternative',
-                                                        )}
-
-                                                        <select
-                                                            value={
-                                                                selections[
-                                                                    component.id
-                                                                ]
-                                                                ?? ''
-                                                            }
-                                                            className={
-                                                                inputClass
-                                                            }
-                                                            onChange={(
-                                                                event,
-                                                            ) =>
-                                                                setSelections(
-                                                                    (
-                                                                        current,
-                                                                    ) => ({
-                                                                        ...current,
-
-                                                                        [
-                                                                            component.id
-                                                                        ]:
-                                                                            Number(
-                                                                                event.target.value,
-                                                                            ),
-                                                                    }),
-                                                                )
-                                                            }
-                                                        >
-                                                            {component.options.map(
-                                                                (
-                                                                    candidate,
-                                                                ) => (
-                                                                    <option
-                                                                        key={
-                                                                            candidate.id
-                                                                        }
-                                                                        value={
-                                                                            candidate.id
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            candidate
-                                                                                .raw_material
-                                                                                .name
-                                                                        }
-                                                                        {' — '}
-                                                                        {
-                                                                            candidate.quantity_per_unit
-                                                                        }{' '}
-                                                                        {
-                                                                            candidate
-                                                                                .raw_material
-                                                                                .unit
-                                                                        }
-                                                                    </option>
-                                                                ),
-                                                            )}
-                                                        </select>
-                                                    </label>
-                                                )}
-
-                                                {option && (
-                                                    <div className="mt-3 flex items-end justify-between gap-3 rounded-xl bg-[var(--ac-accent-soft)] p-3">
-                                                        <div>
-                                                            <p className="text-xs">
-                                                                {
-                                                                    option
-                                                                        .raw_material
-                                                                        .name
-                                                                }
-                                                            </p>
-
-                                                            <p className="mt-1 text-[9px] text-[var(--ac-text-muted)]">
-                                                                <bdi dir="ltr">
-                                                                    {
-                                                                        option.quantity_per_unit
-                                                                    }
-                                                                </bdi>{' '}
-                                                                {
-                                                                    option
-                                                                        .raw_material
-                                                                        .unit
-                                                                }{' '}
-                                                                {t(
-                                                                    'production.batch.perUnit',
-                                                                )}
-                                                            </p>
-                                                        </div>
-
-                                                        <div className="text-end">
-                                                            <p className="text-[9px] text-[var(--ac-text-muted)]">
-                                                                {t(
-                                                                    'production.batch.required',
-                                                                )}
-                                                            </p>
-
-                                                            <strong className="mt-1 block text-lg">
-                                                                <bdi dir="ltr">
-                                                                    {
-                                                                        required
-                                                                    }
-                                                                </bdi>{' '}
-                                                                <small>
-                                                                    {
-                                                                        option
-                                                                            .raw_material
-                                                                            .unit
-                                                                    }
-                                                                </small>
-                                                            </strong>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ),
-                                    )}
-                                </div>
-                            </div>
-
-                            <label className="block text-xs">
-                                {t(
-                                    'catalog.operations.notes',
-                                )}
-
-                                <textarea
-                                    maxLength={
-                                        1000
-                                    }
-                                    value={
-                                        note
-                                    }
-                                    className={
-                                        inputClass
-                                    }
-                                    onChange={(
-                                        event,
-                                    ) =>
-                                        setNote(
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </label>
-
-                            <button
-                                disabled={
-                                    ! warehouseId
-                                    || saving
-                                }
-                                className="w-full rounded-xl bg-[var(--ac-accent-strong)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
-                            >
-                                {t(
-                                    saving
-                                        ? 'production.batch.saving'
-                                        : 'production.batch.confirm',
-                                )}
-                            </button>
-                        </fieldset>
-                    )}
-
-                    {saved && (
-                        <p
-                            role="status"
-                            className="mt-3 text-xs"
-                        >
-                            {t(
-                                'production.batch.saved',
-                            )}
-                        </p>
-                    )}
-                </form>
-            )}
-
-            {error && (
-                <div
-                    role="alert"
-                    className="mt-4 rounded-xl bg-red-50 p-3 text-xs text-red-800"
-                >
-                    {
-                        error
-                    }
-
-                    <button
-                        type="button"
-                        className={`${buttonClass} ms-2`}
-                        onClick={() =>
-                            setRevision(
-                                (
-                                    value,
-                                ) =>
-                                    value
-                                    + 1,
-                            )
-                        }
-                    >
-                        {t(
-                            'catalog.operations.retry',
-                        )}
-                    </button>
-                </div>
-            )}
-
-            <div className="mt-6 flex items-center gap-2">
-                <History
-                    size={
-                        15
-                    }
-                />
-
-                <h4 className="text-sm font-semibold">
-                    {t(
-                        'production.history.title',
-                    )}
-                </h4>
-            </div>
-
-            {loading ? (
-                <p className="mt-3 text-xs">
-                    {t(
-                        'catalog.operations.loading',
-                    )}
-                </p>
-            ) : history?.data.length ? (
-                <ul className="mt-3 space-y-3">
-                    {history.data.map(
-                        (
-                            batch,
-                        ) => (
-                            <li
-                                key={
-                                    batch.id
-                                }
-                                className="rounded-xl border border-[var(--ac-line)] p-3 text-sm"
-                            >
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <strong>
-                                        #
-                                        {
-                                            batch.id
-                                        }
-                                        {' · '}
-                                        <bdi dir="ltr">
-                                            {
-                                                batch.quantity
-                                            }
-                                        </bdi>{' '}
-                                        {
-                                            product.unit
-                                        }
-                                    </strong>
-
-                                    {batch.recipe_version !==
-                                        null && (
-                                        <span className="rounded-full bg-[var(--ac-accent-soft)] px-2 py-1 text-[9px] font-semibold">
-                                            {t(
-                                                'production.history.recipeVersion',
-                                                {
-                                                    version:
-                                                        batch.recipe_version,
-                                                },
-                                            )}
-                                        </span>
-                                    )}
-                                </div>
-
-                                <p className="mt-1 text-xs">
-                                    {
-                                        batch.warehouse
-                                    }
-                                    {' · '}
-
-                                    <time
-                                        dateTime={
-                                            batch.created_at
-                                        }
-                                    >
-                                        {new Date(
-                                            batch.created_at,
-                                        ).toLocaleString()}
-                                    </time>
-                                </p>
-
-                                <ul className="mt-2 space-y-1 text-xs">
-                                    {batch.materials.map(
-                                        (
-                                            material,
-                                        ) => (
-                                            <li
-                                                key={
-                                                    material.id
-                                                }
-                                            >
-                                                {
-                                                    material.name
-                                                }
-                                                :{' '}
-
-                                                <bdi dir="ltr">
-                                                    {
-                                                        material.quantity
-                                                    }
-                                                </bdi>{' '}
-
-                                                {
-                                                    material.unit
-                                                }
-                                            </li>
-                                        ),
-                                    )}
-                                </ul>
-
-                                {batch.note && (
-                                    <p className="mt-2 whitespace-pre-wrap break-words text-xs">
-                                        {
-                                            batch.note
-                                        }
-                                    </p>
-                                )}
-                            </li>
-                        ),
-                    )}
-                </ul>
-            ) : (
-                <p className="mt-3 text-xs">
-                    {t(
-                        'production.history.empty',
-                    )}
-                </p>
-            )}
-
-            {history &&
-                history.meta.last_page >
-                    1 && (
-                <div className="mt-3 flex items-center justify-between">
-                    <button
-                        type="button"
-                        className={
-                            buttonClass
-                        }
-                        disabled={
-                            loading
-                            || page <=
-                                1
-                        }
-                        onClick={() =>
-                            setPage(
-                                (
-                                    value,
-                                ) =>
-                                    value
-                                    - 1,
-                            )
-                        }
-                    >
-                        {t(
-                            'catalog.operations.previous',
-                        )}
-                    </button>
-
-                    <span className="text-xs">
-                        {
-                            page
-                        }{' '}
-                        /{' '}
-                        {
-                            history.meta.last_page
-                        }
-                    </span>
-
-                    <button
-                        type="button"
-                        className={
-                            buttonClass
-                        }
-                        disabled={
-                            loading
-                            || page >=
-                                history
-                                    .meta
-                                    .last_page
-                        }
-                        onClick={() =>
-                            setPage(
-                                (
-                                    value,
-                                ) =>
-                                    value
-                                    + 1,
-                            )
-                        }
-                    >
-                        {t(
-                            'catalog.operations.next',
-                        )}
-                    </button>
-                </div>
-            )}
-
-            {versions.length >
-                1 && (
-                <p className="mt-4 text-[10px] text-[var(--ac-text-muted)]">
-                    {t(
-                        'production.recipe.history',
-                    )}{' '}
-                    ({versions.length})
-                </p>
-            )}
         </section>
     );
-}
-
-/**
- * Calculate one frontend production requirement with the same four-decimal
- * half-up policy as ProductionConsumption on the server.
- */
-function consumptionTotal(
-    output: string,
-    rate: string,
-): string {
-    const left =
-        scaledQuantity(
-            output,
-        );
-
-    const right =
-        scaledQuantity(
-            rate,
-        );
-
-    if (
-        left === null
-        || right === null
-        || left <= 0n
-        || right <= 0n
-    ) {
-        return '—';
-    }
-
-    const product =
-        left
-        * right;
-
-    const quotient =
-        product
-        / 10000n;
-
-    const remainder =
-        product
-        % 10000n;
-
-    const rounded =
-        quotient
-        + (
-            remainder >=
-                5000n
-                ? 1n
-                : 0n
-        );
-
-    return `${rounded / 10000n}.${String(
-        rounded % 10000n,
-    ).padStart(
-        4,
-        '0',
-    )}`;
-}
-
-/**
- * Convert a positive decimal quantity into four-decimal fixed-point units.
- */
-function scaledQuantity(
-    value: string,
-): bigint | null {
-    if (
-        ! /^\d{1,14}(?:\.\d{1,4})?$/.test(
-            value,
-        )
-    ) {
-        return null;
-    }
-
-    const [
-        whole,
-        fraction = '',
-    ] =
-        value.split(
-            '.',
-        );
-
-    return BigInt(
-        whole,
-    )
-        * 10000n
-        + BigInt(
-            fraction.padEnd(
-                4,
-                '0',
-            ),
-        );
 }

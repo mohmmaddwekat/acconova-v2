@@ -126,7 +126,7 @@ export function ProductListItem({
             onDoubleClick={
                 handleRowDoubleClick
             }
-            className="ac-index-row group mx-3 my-3 grid gap-4 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[minmax(240px,1.4fr)_minmax(120px,.6fr)_minmax(140px,.7fr)_minmax(120px,.6fr)_auto] lg:items-center lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none"
+            className="ac-index-row group mx-3 my-3 grid gap-4 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[minmax(240px,1.4fr)_minmax(120px,.6fr)_minmax(140px,.7fr)_minmax(120px,.6fr)_minmax(120px,.6fr)_auto] lg:items-center lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none"
         >
             <div className="flex min-w-0 items-center gap-2">
                 {selectable && (
@@ -269,6 +269,7 @@ export function ProductListItem({
                 </p>
             </div>
 
+            {product.track_inventory && <div className="rounded-xl bg-[var(--ac-accent-soft)] px-3 py-2 text-xs"><span>{getLocale() === 'ar' ? 'رصيد جميع المستودعات' : 'All warehouses on hand'}</span><strong className="mt-1 block"><bdi>{product.stock_on_hand ?? '0'}</bdi> {product.unit}</strong>{Number(product.stock_reserved ?? 0) > 0 && <small>{getLocale() === 'ar' ? 'محجوز: ' : 'Reserved: '}{product.stock_reserved} {product.unit}</small>}</div>}
             <div className="flex flex-wrap gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0">
                 <button
                     type="button"

@@ -7,11 +7,11 @@ use Illuminate\Validation\ValidationException;
 class ProductionConsumption
 {
     /**
-     * Multiply two decimal(18,4) quantities using fixed-point arithmetic.
+     * Multiply output quantity by a high-precision Recipe rate.
      *
-     * The exact product carries eight decimal places. Inventory stores four,
-     * so the result is rounded half-up instead of always rounding upward.
-     * Waste must remain an explicit production rule, never hidden rounding.
+     * Finished output uses four decimal places while Recipe rates use eight.
+     * The final material requirement is rounded half-up back into Inventory's
+     * four-decimal physical stock precision.
      */
     public static function calculate(
         string $output,
@@ -23,7 +23,7 @@ class ProductionConsumption
             );
 
         $right =
-            (string) InventoryQuantity::toUnits(
+            RecipeQuantity::toScaled(
                 $rate,
             );
 
@@ -39,7 +39,9 @@ class ProductionConsumption
         ) {
             throw ValidationException::withMessages([
                 'materials' => [
-                    __('production.quantity_positive'),
+                    __(
+                        'production.quantity_positive',
+                    ),
                 ],
             ]);
         }
@@ -51,13 +53,14 @@ class ProductionConsumption
             );
 
         /*
-         * Both operands are scaled by 10,000. Dividing by 10,000 returns the
-         * final scaled stock units. The remainder decides half-up rounding.
+         * Output is scaled by 10,000 and Recipe rate by 100,000,000.
+         * Dividing by the Recipe scale returns final stock units still scaled
+         * by 10,000 for Inventory.
          */
         $product =
             str_pad(
                 $product,
-                5,
+                9,
                 '0',
                 STR_PAD_LEFT,
             );
@@ -67,7 +70,7 @@ class ProductionConsumption
                 substr(
                     $product,
                     0,
-                    -4,
+                    -RecipeQuantity::DECIMALS,
                 ),
                 '0',
             );
@@ -80,12 +83,12 @@ class ProductionConsumption
         $remainder =
             (int) substr(
                 $product,
-                -4,
+                -RecipeQuantity::DECIMALS,
             );
 
         if (
             $remainder >=
-            5000
+            50000000
         ) {
             $quotient =
                 self::incrementUnsignedInteger(
@@ -100,7 +103,9 @@ class ProductionConsumption
         ) {
             throw ValidationException::withMessages([
                 'materials' => [
-                    __('production.quantity_too_large'),
+                    __(
+                        'production.quantity_too_large',
+                    ),
                 ],
             ]);
         }
@@ -115,7 +120,9 @@ class ProductionConsumption
         ) {
             throw ValidationException::withMessages([
                 'materials' => [
-                    __('production.quantity_positive'),
+                    __(
+                        'production.quantity_positive',
+                    ),
                 ],
             ]);
         }
@@ -148,8 +155,7 @@ class ProductionConsumption
             $i =
                 strlen(
                     $left,
-                )
-                - 1;
+                ) - 1;
             $i >= 0;
             $i--
         ) {
@@ -157,8 +163,7 @@ class ProductionConsumption
                 $j =
                     strlen(
                         $right,
-                    )
-                    - 1;
+                    ) - 1;
                 $j >= 0;
                 $j--
             ) {
@@ -174,8 +179,7 @@ class ProductionConsumption
             $i =
                 count(
                     $digits,
-                )
-                - 1;
+                ) - 1;
             $i > 0;
             $i--
         ) {
@@ -218,14 +222,12 @@ class ProductionConsumption
             $index =
                 count(
                     $digits,
-                )
-                - 1;
+                ) - 1;
             $index >= 0;
             $index--
         ) {
             if (
-                $digits[$index] !==
-                '9'
+                $digits[$index] !== '9'
             ) {
                 $digits[$index] =
                     (string) (
@@ -239,8 +241,7 @@ class ProductionConsumption
                 );
             }
 
-            $digits[$index] =
-                '0';
+            $digits[$index] = '0';
         }
 
         return '1'

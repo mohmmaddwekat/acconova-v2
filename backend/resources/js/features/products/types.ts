@@ -4,6 +4,8 @@ export type ProductType =
     | 'service';
 
 export type Product = {
+    stock_on_hand?: string | null;
+    stock_reserved?: string | null;
     id: number;
 
     type: ProductType;

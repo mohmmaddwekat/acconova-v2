@@ -40,13 +40,24 @@ class StaffController extends Controller
                 }
             });
         }
+        $filters = $request->validate(['include_accounts' => ['sometimes', 'boolean'], 'search' => ['nullable', 'string', 'max:100'], 'department_id' => ['nullable', 'integer'], 'basis' => ['nullable', Rule::in(['hour', 'day', 'month', 'piece'])], 'active' => ['nullable', Rule::in(['0', '1'])]]);
+        if (! empty($filters['search'])) {
+            $query->where(function ($q) use ($filters): void {
+                $q->where('name', 'like', '%'.$filters['search'].'%')->orWhere('job_title', 'like', '%'.$filters['search'].'%')->orWhere('phone', 'like', '%'.$filters['search'].'%');
+            });
+        }
+        foreach (['department_id', 'basis', 'active'] as $filter) {
+            if (isset($filters[$filter]) && $filters[$filter] !== '') {
+                $query->where($filter, $filters[$filter]);
+            }
+        }
         $query->withSum(['entries as balance' => fn ($query) => $query->where('kind', '!=', 'terms')], 'amount');
 
         return response()->json(['data' => $query->orderBy('name')->paginate(30), 'can_invite' => app(TenantContext::class)->role()->value === 'owner', 'can_view' => self::allowed('staff.view') || self::allowed('staff.team_view'), 'can_manage' => self::allowed('staff.manage'), 'can_pay' => self::allowed('staff.pay'),
             'currency' => app(TenantContext::class)->organization()->preferences['currency'] ?? 'ILS',
             'roles' => app(TenantContext::class)->role()->value === 'owner' ? WorkspaceRole::orderBy('name')->get(['id', 'name']) : [],
             'departments' => Department::orderBy('name')->get(['id', 'name', 'manager_id']),
-            'accounts' => self::allowed('staff.manage') ? Membership::with('user:id,name,email')->get()->map(fn (Membership $member): array => ['id' => $member->user_id, 'name' => $member->user->name, 'email' => $member->user->email]) : [],
+            'accounts' => self::allowed('staff.manage') && $request->boolean('include_accounts') ? Membership::with('user:id,name,email')->get()->map(fn (Membership $member): array => ['id' => $member->user_id, 'name' => $member->user->name, 'email' => $member->user->email]) : [],
         ]);
     }
 
@@ -56,7 +67,7 @@ class StaffController extends Controller
         return Department::whereIn('manager_id', StaffMember::where('user_id', auth()->id())->where('active', true)->select('id'))->pluck('id')->map(fn ($id): int => (int) $id)->all();
     }
 
-    private static function canPay(StaffMember $member): bool
+    public static function canPay(StaffMember $member): bool
     {
         return self::allowed('staff.pay') || (self::allowed('staff.team_pay') && in_array((int) $member->department_id, self::managedDepartmentIds(), true));
     }
@@ -109,7 +120,7 @@ class StaffController extends Controller
         $entries = StaffEntry::where('staff_member_id', $member->id);
         $totals = (clone $entries)->selectRaw('kind, SUM(amount) as amount')->groupBy('kind')->pluck('amount', 'kind');
 
-        return response()->json(['can_pay' => self::canPay($member), 'member' => $member, 'totals' => $totals, 'balance' => (string) (clone $entries)->sum('amount'), 'entries' => $entries->latest('occurred_on')->latest('id')->paginate(30)]);
+        return response()->json(['can_pay' => self::canPay($member), 'member' => $member, 'totals' => $totals, 'balance' => (string) (clone $entries)->sum('amount'), 'corrections' => DB::table('staff_corrections')->where('staff_member_id', $member->id)->latest('id')->limit(20)->get(['entity','action','reason','created_at']), 'entries' => $entries->latest('occurred_on')->latest('id')->paginate(30)]);
     }
 
     /** Approve missing complete months; payments never determine whether wages accrue. */
@@ -162,7 +173,7 @@ class StaffController extends Controller
     public function record(Request $request, string $staff): JsonResponse
     {
         abort_unless(self::allowed('staff.pay') || self::allowed('staff.team_pay'), 403);
-        $data = $request->validate(['request_id' => ['required', 'uuid'], 'kind' => ['required', Rule::in(['work', 'bonus', 'allowance', 'monthly_allowance', 'deduction', 'payment'])], 'occurred_on' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+        $data = $request->validate(['request_id' => ['required', 'uuid'], 'kind' => ['required', Rule::in(['work', 'bonus', 'allowance', 'monthly_allowance', 'deduction', 'payment', 'advance'])], 'occurred_on' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'quantity' => ['required_if:kind,work', 'nullable', 'numeric', 'gt:0', 'max:9999', 'regex:/^\d+(\.\d{1,4})?$/'], 'amount' => ['required_unless:kind,work,monthly_allowance', 'nullable', 'numeric', 'gt:0', 'max:999999999', 'regex:/^\d+(\.\d{1,4})?$/'], 'notes' => ['required', 'string', 'max:2000']]);
         $entry = DB::transaction(function () use ($request, $staff, $data): StaffEntry {
             $member = StaffMember::lockForUpdate()->findOrFail($staff);
@@ -176,9 +187,12 @@ class StaffController extends Controller
                     abort_unless(Decimal::toUnits($data['quantity']) === 10000, 422);
                 }
             }
+            if ($data['kind'] === 'work' && $member->basis !== 'month') {
+                abort_if(DB::table('staff_attendances')->where('staff_member_id', $member->id)->whereDate('occurred_on', $data['occurred_on'])->exists(), 409);
+            }
             $amount = $data['kind'] === 'work' ? intdiv(Decimal::toUnits($data['quantity']) * Decimal::toUnits($member->rate) + 5000, 10000) : ($data['kind'] === 'monthly_allowance' ? Decimal::toUnits($member->monthly_allowance) : Decimal::toUnits($data['amount']));
             abort_if($amount <= 0, 422);
-            if (in_array($data['kind'], ['deduction', 'payment'], true)) {
+            if (in_array($data['kind'], ['deduction', 'payment', 'advance'], true)) {
                 $amount = -$amount;
             }
 

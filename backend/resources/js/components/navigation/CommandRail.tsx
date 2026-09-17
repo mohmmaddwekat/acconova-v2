@@ -2,7 +2,9 @@ import {
     t,
     useLocale,
 } from '@/lib/i18n';
-import type { AppPageProps } from '@/types/app';
+import type {
+    AppPageProps,
+} from '@/types/app';
 import {
     Link,
     usePage,
@@ -10,14 +12,15 @@ import {
 import {
     Boxes,
     ContactRound,
+    Factory,
     Gauge,
     PanelLeftClose,
     PanelLeftOpen,
     ReceiptText,
-    Sparkles,
     Settings,
-    Users,
     ShieldCheck,
+    Sparkles,
+    Users,
     Warehouse,
     X,
     type LucideIcon,
@@ -52,8 +55,8 @@ type CommandRailProps = {
 /**
  * Determine whether a navigation destination matches the current Inertia URL.
  *
- * The dashboard matches only /app itself while feature destinations remain
- * active for their nested application routes.
+ * Inventory itself remains exact so its nested Production surface receives the
+ * active state independently.
  */
 function destinationIsActive(
     currentUrl: string,
@@ -71,6 +74,14 @@ function destinationIsActive(
             '/app';
     }
 
+    if (
+        href ===
+        '/app/inventory'
+    ) {
+        return currentUrl ===
+            '/app/inventory';
+    }
+
     return currentUrl.startsWith(
         href,
     );
@@ -78,9 +89,6 @@ function destinationIsActive(
 
 /**
  * Render AccoNova's adaptive primary command navigation.
- *
- * Desktop uses the collapsible command rail while mobile receives the same
- * destinations inside a full-height start-side drawer.
  */
 export function CommandRail({
     expanded,
@@ -88,10 +96,20 @@ export function CommandRail({
     onExpandedChange,
     onMobileOpenChange,
 }: CommandRailProps) {
-    useLocale();
+    const locale =
+        useLocale();
 
     const page =
         usePage<AppPageProps>();
+
+    const activeOrganization =
+        page.props
+            .workspace
+            .activeOrganization;
+
+    const customPermissions =
+        activeOrganization
+            ?.permissions;
 
     const navigationItems:
         NavigationItem[] = [
@@ -112,6 +130,7 @@ export function CommandRail({
             icon:
                 Gauge,
         },
+
         {
             label:
                 t(
@@ -129,6 +148,7 @@ export function CommandRail({
             icon:
                 ContactRound,
         },
+
         {
             label:
                 t(
@@ -146,6 +166,7 @@ export function CommandRail({
             icon:
                 Boxes,
         },
+
         {
             label:
                 t(
@@ -163,36 +184,188 @@ export function CommandRail({
             icon:
                 Warehouse,
         },
+
         {
             label:
+                locale ===
+                'ar'
+                    ? 'الإنتاج'
+                    : 'Production',
+
+            description:
+                locale ===
+                'ar'
+                    ? 'الإنتاج والاستهلاك الفعلي'
+                    : 'Production & actual usage',
+
+            href:
+                '/app/inventory/production',
+
+            icon:
+                Factory,
+        },
+    ];
+
+    const canViewPayments =
+        customPermissions
+            ? customPermissions.includes(
+                  'payments.view',
+              )
+            : [
+                  'owner',
+                  'admin',
+                  'manager',
+                  'accountant',
+              ].includes(
+                  activeOrganization
+                      ?.role
+                  ?? '',
+              );
+
+    if (canViewPayments) {
+        navigationItems.push({
+            label:
                 t(
-                    'ui.invoices',
+                    'payments.title',
                 ),
 
             description:
                 t(
-                    'ui.revenue',
+                    'payments.navHelp',
                 ),
+
+            href:
+                '/app/payments',
 
             icon:
                 ReceiptText,
+        });
+    }
 
-            disabled:
-                true,
-        },
-    ];
+    navigationItems.push({
+        label:
+            t(
+                'ui.invoices',
+            ),
 
-    navigationItems.push({ label: t('staff.title'), description: t('staff.subtitle'), href: '/app/staff', icon: Users });
-    if (page.props.workspace.activeOrganization?.role === 'owner') { navigationItems.push({ label: t('staff.roles'), description: t('staff.access'), href: '/app/roles', icon: ShieldCheck }); }
-    navigationItems.push({ label: t('settings.title'), description: t('settings.subtitle'), href: '/app/settings', icon: Settings });
-    navigationItems.splice(4, 0,
-        ...((page.props.workspace.activeOrganization?.permissions ? page.props.workspace.activeOrganization.permissions.includes('payments.view') : ['owner', 'admin', 'manager', 'accountant'].includes(page.props.workspace.activeOrganization?.role ?? '')) ? [{
-            label: t('payments.title'), description: t('payments.navHelp'), href: '/app/payments', icon: ReceiptText,
-        }] : []),
-    );
+        description:
+            t(
+                'ui.revenue',
+            ),
 
-    const customPermissions = page.props.workspace.activeOrganization?.permissions;
-    if (customPermissions) { const modules: Record<string,string> = { '/app/products':'products.view','/app/parties':'parties.view','/app/inventory':'inventory.view' }; for (let i=navigationItems.length-1;i>=0;i--) { const permission=modules[navigationItems[i].href ?? '']; if (permission && !customPermissions.includes(permission)) navigationItems.splice(i,1); } }
+        icon:
+            ReceiptText,
+
+        disabled:
+            true,
+    });
+
+    navigationItems.push({
+        label:
+            t(
+                'staff.title',
+            ),
+
+        description:
+            t(
+                'staff.subtitle',
+            ),
+
+        href:
+            '/app/staff',
+
+        icon:
+            Users,
+    });
+
+    if (
+        activeOrganization
+            ?.role ===
+        'owner'
+    ) {
+        navigationItems.push({
+            label:
+                t(
+                    'staff.roles',
+                ),
+
+            description:
+                t(
+                    'staff.access',
+                ),
+
+            href:
+                '/app/roles',
+
+            icon:
+                ShieldCheck,
+        });
+    }
+
+    navigationItems.push({
+        label:
+            t(
+                'settings.title',
+            ),
+
+        description:
+            t(
+                'settings.subtitle',
+            ),
+
+        href:
+            '/app/settings',
+
+        icon:
+            Settings,
+    });
+
+    /*
+     * Custom workspace roles receive only destinations their explicit
+     * permissions allow. Production follows Inventory visibility.
+     */
+    const permissionByDestination:
+        Record<
+            string,
+            string
+        > = {
+        '/app/products':
+            'products.view',
+
+        '/app/parties':
+            'parties.view',
+
+        '/app/inventory':
+            'inventory.view',
+
+        '/app/inventory/production':
+            'inventory.view',
+    };
+
+    const visibleItems =
+        customPermissions
+            ? navigationItems.filter(
+                  (
+                      item,
+                  ) => {
+                      if (! item.href) {
+                          return true;
+                      }
+
+                      const permission =
+                          permissionByDestination[
+                              item.href
+                          ];
+
+                      return ! permission
+                          ||
+                          customPermissions.includes(
+                              permission,
+                          );
+                  },
+              )
+            : navigationItems;
+
     return (
         <>
             <aside
@@ -252,7 +425,7 @@ export function CommandRail({
                 </div>
 
                 <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-5">
-                    {navigationItems.map(
+                    {visibleItems.map(
                         (
                             item,
                         ) => (
@@ -436,7 +609,7 @@ export function CommandRail({
                 </div>
 
                 <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-5">
-                    {navigationItems.map(
+                    {visibleItems.map(
                         (
                             item,
                         ) => (
@@ -503,8 +676,6 @@ function DesktopNavigationItem({
     active,
     expanded,
 }: DesktopNavigationItemProps) {
-    useLocale();
-
     const Icon =
         item.icon;
 
@@ -553,7 +724,8 @@ function DesktopNavigationItem({
     );
 
     if (
-        item.disabled ||
+        item.disabled
+        ||
         ! item.href
     ) {
         return (
@@ -629,13 +801,12 @@ function MobileNavigationItem({
     active,
     onNavigate,
 }: MobileNavigationItemProps) {
-    useLocale();
-
     const Icon =
         item.icon;
 
     if (
-        item.disabled ||
+        item.disabled
+        ||
         ! item.href
     ) {
         return (

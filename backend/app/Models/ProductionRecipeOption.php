@@ -16,14 +16,14 @@ class ProductionRecipeOption extends Model
     ];
 
     /**
-     * Cast exact material consumption and default selection.
+     * Cast high-precision Recipe consumption and default selection.
      *
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
-            'quantity_per_unit' => 'decimal:4',
+            'quantity_per_unit' => 'decimal:8',
 
             'is_default' => 'boolean',
         ];

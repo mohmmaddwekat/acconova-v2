@@ -7,6 +7,7 @@ use App\Http\Requests\SaveProductionRecipeRequest;
 use App\Models\Product;
 use App\Models\ProductionRecipe;
 use App\Services\ProductionRecipeService;
+use App\Support\MeasurementUnits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Gate;
 class ProductionRecipeController extends Controller
 {
     /**
-     * Return the active recipe and version history for one finished Product.
+     * Return the active Recipe and version history for one finished Product.
      */
     public function show(
         Request $request,
@@ -73,10 +74,10 @@ class ProductionRecipeController extends Controller
         return response()->json([
             'data' => [
                 'active' => $active
-                    ? $this->serializeRecipe(
-                        $active,
-                    )
-                    : null,
+                        ? $this->serializeRecipe(
+                            $active,
+                        )
+                        : null,
 
                 'versions' => $versions,
             ],
@@ -84,7 +85,7 @@ class ProductionRecipeController extends Controller
     }
 
     /**
-     * Create a new active immutable recipe version.
+     * Create a new active immutable Recipe version.
      */
     public function store(
         SaveProductionRecipeRequest $request,
@@ -96,8 +97,13 @@ class ProductionRecipeController extends Controller
         $recipe =
             $recipes->activate(
                 $request->product(),
-                $data['components'],
-                $data['notes'] ?? null,
+                $data[
+                    'components'
+                ],
+                $data[
+                    'notes'
+                ]
+                    ?? null,
                 $request->user()->id,
             );
 
@@ -109,7 +115,11 @@ class ProductionRecipeController extends Controller
     }
 
     /**
-     * Build the recipe API representation used by the production editor.
+     * Build the Recipe API representation used by the editor.
+     *
+     * Canonical quantity_per_unit always uses the Raw Material's stock unit.
+     * usage_quantity_per_unit is the same physical rate translated back into
+     * the user's preferred working unit.
      *
      * @return array<string, mixed>
      */
@@ -148,39 +158,58 @@ class ProductionRecipeController extends Controller
                         'options' => $component
                             ->options
                             ->map(
-                                fn (
+                                function (
                                     $option,
-                                ): array => [
-                                    'id' => $option->id,
+                                ): array {
+                                    $raw =
+                                        $option
+                                            ->rawMaterial;
 
-                                    'quantity_per_unit' => $option
-                                        ->quantity_per_unit,
+                                    $usageUnit =
+                                        $option
+                                            ->usage_unit
+                                        ?: $raw
+                                            ->unit;
 
-                                    'is_default' => $option
-                                        ->is_default,
+                                    $usageRate =
+                                        MeasurementUnits::convertRecipeRate(
+                                            $option
+                                                ->quantity_per_unit,
+                                            (string) $raw
+                                                ->unit,
+                                            (string) $usageUnit,
+                                        );
 
-                                    'raw_material' => [
-                                        'id' => $option
-                                            ->rawMaterial
-                                            ->id,
+                                    return [
+                                        'id' => $option->id,
 
-                                        'name' => $option
-                                            ->rawMaterial
-                                            ->name,
+                                        'quantity_per_unit' => $option
+                                            ->quantity_per_unit,
 
-                                        'sku' => $option
-                                            ->rawMaterial
-                                            ->sku,
+                                        'usage_unit' => $usageUnit,
 
-                                        'unit' => $option
-                                            ->rawMaterial
-                                            ->unit,
+                                        'usage_quantity_per_unit' => $usageRate,
 
-                                        'track_inventory' => $option
-                                            ->rawMaterial
-                                            ->tracksInventory(),
-                                    ],
-                                ],
+                                        'is_default' => $option
+                                            ->is_default,
+
+                                        'raw_material' => [
+                                            'id' => $raw->id,
+
+                                            'name' => $raw
+                                                ->name,
+
+                                            'sku' => $raw
+                                                ->sku,
+
+                                            'unit' => $raw
+                                                ->unit,
+
+                                            'track_inventory' => $raw
+                                                ->tracksInventory(),
+                                        ],
+                                    ];
+                                },
                             )
                             ->values(),
                     ],

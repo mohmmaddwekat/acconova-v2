@@ -19,7 +19,7 @@ class ProductIndexQuery
         array $filters,
     ): Builder {
         $query =
-            Product::query();
+            Product::query()->withSum('inventoryBalances as stock_on_hand', 'on_hand')->withSum('inventoryBalances as stock_reserved', 'reserved');
 
         $this->applyLifecycle(
             $query,

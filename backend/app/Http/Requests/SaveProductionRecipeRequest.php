@@ -42,10 +42,10 @@ class SaveProductionRecipeRequest extends FormRequest
     }
 
     /**
-     * Validate a complete production recipe replacement.
+     * Validate a complete production Recipe replacement.
      *
-     * Saving always creates a new immutable version rather than patching the
-     * currently active recipe.
+     * quantity_per_unit is entered in usage_unit. The service converts that
+     * rate into the Raw Material's canonical stock unit before persistence.
      *
      * @return array<string, mixed>
      */
@@ -88,7 +88,13 @@ class SaveProductionRecipeRequest extends FormRequest
                 'required',
                 'numeric',
                 'gt:0',
-                'regex:/^\d{1,14}(?:\.\d{1,4})?$/',
+                'regex:/^\d{1,14}(?:\.\d{1,8})?$/',
+            ],
+
+            'components.*.options.*.usage_unit' => [
+                'nullable',
+                'string',
+                'max:32',
             ],
 
             'components.*.options.*.is_default' => [

@@ -51,6 +51,17 @@ class WorkspaceNotificationTest extends TestCase
         $this->getJson('/api/notifications/count')->assertJsonPath('count', 0);
     }
 
+    public function test_exact_stock_threshold_creates_one_alert_without_repeating_below_it(): void
+    {
+        [$owner,$organization] = $this->workspace();
+        $product = Product::factory()->create(['type' => 'raw_material', 'track_inventory' => true, 'unit' => 'kg', 'low_stock_threshold' => '10']);
+        $warehouse = Warehouse::create(['name' => 'Threshold warehouse', 'code' => 'TH']);
+        event(new StockMovementRecorded($organization->id, $product->id, $warehouse->id, 101, 'adjustment', '11', '10', '10', $owner->id));
+        $this->getJson('/api/notifications?unread=1')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.kind', 'low_stock');
+        event(new StockMovementRecorded($organization->id, $product->id, $warehouse->id, 102, 'adjustment', '10', '9', '10', $owner->id));
+        $this->getJson('/api/notifications?unread=1')->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_due_alerts_are_unique_and_resolved_after_recording_payment(): void
     {
         $this->travelTo(now()->setDate(2026, 1, 29));

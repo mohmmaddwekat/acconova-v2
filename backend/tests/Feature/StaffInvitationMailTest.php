@@ -40,7 +40,7 @@ class StaffInvitationMailTest extends TestCase
     public function test_mail_failure_preserves_a_valid_invitation_and_reports_failure(): void
     {
         $staff = $this->staff();
-        Notification::shouldReceive('route')->once()->andThrow(new \RuntimeException('Mail unavailable'));
+        Notification::shouldReceive('send')->once()->andThrow(new \RuntimeException('Mail unavailable'));
         $response = $this->postJson('/api/staff/'.$staff.'/invitation', ['email' => 'worker@example.com'])->assertCreated()->assertJsonPath('email_sent', false);
         $this->assertDatabaseHas('staff_invitations', ['email' => 'worker@example.com', 'token_hash' => hash('sha256', basename($response->json('url')))]);
     }

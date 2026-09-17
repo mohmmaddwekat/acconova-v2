@@ -57,6 +57,7 @@ class SaveProductionRunRequest extends FormRequest
             ],
 
             'outputs.*.product_id' => [
+                'distinct',
                 'required',
                 'integer',
                 'min:1',

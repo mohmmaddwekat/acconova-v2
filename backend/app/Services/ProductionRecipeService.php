@@ -9,24 +9,27 @@ use App\Models\ProductionRecipe;
 use App\Models\ProductionRecipeComponent;
 use App\Models\ProductionRecipeOption;
 use App\Support\InventoryQuantity;
+use App\Support\MeasurementUnits;
 use App\Support\ProductionConsumption;
+use App\Support\RecipeQuantity;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 class ProductionRecipeService
 {
     /**
-     * Create and activate a new immutable recipe version.
+     * Create and activate a new immutable Recipe version.
      *
-     * Every Product participating in this change is locked in global ID order
-     * so Recipe activation follows the same deadlock-safe ordering as
-     * Inventory and Production Run operations.
+     * Recipe quantities submitted by the UI are expressed in each option's
+     * usage_unit and normalized into the Raw Material's stock unit here.
      *
      * @param  list<array{
      *     name: string,
      *     options: list<array{
      *         raw_material_id: int,
      *         quantity_per_unit: string,
+     *         usage_unit?: string|null,
      *         is_default?: bool
      *     }>
      * }>  $components
@@ -45,12 +48,16 @@ class ProductionRecipeService
                 $actorId,
             ): ProductionRecipe {
                 $rawIds =
-                    collect($components)
+                    collect(
+                        $components,
+                    )
                         ->flatMap(
                             fn (
                                 array $component,
                             ): array => array_column(
-                                $component['options'],
+                                $component[
+                                    'options'
+                                ],
                                 'raw_material_id',
                             ),
                         )
@@ -62,8 +69,15 @@ class ProductionRecipeService
                         ->unique()
                         ->values();
 
+                /*
+                 * Collection::push() mutates the original Collection. Clone the
+                 * Raw Material IDs before adding the finished Product solely
+                 * for deterministic row locking.
+                 */
                 $allProductIds =
-                    $rawIds
+                    collect(
+                        $rawIds->all(),
+                    )
                         ->push(
                             $product->id,
                         )
@@ -77,10 +91,14 @@ class ProductionRecipeService
                             'id',
                             $allProductIds,
                         )
-                        ->orderBy('id')
+                        ->orderBy(
+                            'id',
+                        )
                         ->lockForUpdate()
                         ->get()
-                        ->keyBy('id');
+                        ->keyBy(
+                            'id',
+                        );
 
                 if (
                     $products->count() !==
@@ -126,7 +144,7 @@ class ProductionRecipeService
                     if (
                         ! $raw
                         || $raw->type !==
-                        ProductType::RawMaterial
+                            ProductType::RawMaterial
                     ) {
                         throw ValidationException::withMessages([
                             'components' => [
@@ -144,7 +162,9 @@ class ProductionRecipeService
                             'product_id',
                             $lockedProduct->id,
                         )
-                        ->orderByDesc('version')
+                        ->orderByDesc(
+                            'version',
+                        )
                         ->lockForUpdate()
                         ->first();
 
@@ -186,7 +206,9 @@ class ProductionRecipeService
                             'production_recipe_id' => $recipe->id,
 
                             'name' => trim(
-                                $componentData['name'],
+                                $componentData[
+                                    'name'
+                                ],
                             ),
 
                             'position' => $componentPosition
@@ -195,19 +217,26 @@ class ProductionRecipeService
 
                     $defaultCount =
                         collect(
-                            $componentData['options'],
+                            $componentData[
+                                'options'
+                            ],
                         )
                             ->filter(
                                 fn (
                                     array $option,
                                 ): bool => (bool) (
-                                    $option['is_default']
+                                    $option[
+                                        'is_default'
+                                    ]
                                     ?? false
                                 ),
                             )
                             ->count();
 
-                    if ($defaultCount > 1) {
+                    if (
+                        $defaultCount >
+                        1
+                    ) {
                         throw ValidationException::withMessages([
                             'components' => [
                                 __(
@@ -217,17 +246,24 @@ class ProductionRecipeService
                         ]);
                     }
 
-                    $seenRawMaterials = [];
+                    $seenRawMaterials =
+                        [];
 
                     foreach (
-                        $componentData['options'] as $optionPosition => $optionData
+                        $componentData[
+                            'options'
+                        ] as $optionPosition => $optionData
                     ) {
                         $rawMaterialId =
-                            (int) $optionData['raw_material_id'];
+                            (int) $optionData[
+                                'raw_material_id'
+                            ];
 
                         if (
                             isset(
-                                $seenRawMaterials[$rawMaterialId],
+                                $seenRawMaterials[
+                                    $rawMaterialId
+                                ],
                             )
                         ) {
                             throw ValidationException::withMessages([
@@ -239,15 +275,77 @@ class ProductionRecipeService
                             ]);
                         }
 
-                        $seenRawMaterials[$rawMaterialId] =
+                        $seenRawMaterials[
+                            $rawMaterialId
+                        ] =
                             true;
 
-                        $quantityUnits =
-                            InventoryQuantity::toUnits(
-                                (string) $optionData['quantity_per_unit'],
+                        /** @var Product $rawMaterial */
+                        $rawMaterial =
+                            $products->get(
+                                $rawMaterialId,
                             );
 
-                        if ($quantityUnits <= 0) {
+                        $usageUnit =
+                            trim(
+                                (string) (
+                                    $optionData[
+                                        'usage_unit'
+                                    ]
+                                    ?? $rawMaterial
+                                        ->unit
+                                ),
+                            );
+
+                        try {
+                            $usageUnit =
+                                MeasurementUnits::normalizeUnit(
+                                    $usageUnit,
+                                );
+
+                            if (
+                                ! MeasurementUnits::areCompatible(
+                                    $usageUnit,
+                                    (string) $rawMaterial
+                                        ->unit,
+                                )
+                            ) {
+                                throw new InvalidArgumentException(
+                                    'Incompatible Recipe usage unit.',
+                                );
+                            }
+
+                            /*
+                             * The request rate is expressed in the human usage
+                             * unit. Persist the canonical equivalent in the Raw
+                             * Material's stock unit.
+                             */
+                            $canonicalRate =
+                                MeasurementUnits::convertRecipeRate(
+                                    (string) $optionData[
+                                        'quantity_per_unit'
+                                    ],
+                                    $usageUnit,
+                                    (string) $rawMaterial
+                                        ->unit,
+                                );
+                        } catch (
+                            InvalidArgumentException
+                        ) {
+                            throw ValidationException::withMessages([
+                                'components' => [
+                                    __(
+                                        'production.recipe_incompatible_unit',
+                                    ),
+                                ],
+                            ]);
+                        }
+
+                        if (
+                            ! RecipeQuantity::isPositive(
+                                $canonicalRate,
+                            )
+                        ) {
                             throw ValidationException::withMessages([
                                 'components' => [
                                     __(
@@ -262,19 +360,25 @@ class ProductionRecipeService
 
                             'raw_material_id' => $rawMaterialId,
 
-                            'quantity_per_unit' => InventoryQuantity::fromUnits(
-                                $quantityUnits,
-                            ),
+                            'usage_unit' => $usageUnit,
+
+                            'quantity_per_unit' => $canonicalRate,
 
                             'is_default' => count(
-                                $componentData['options'],
+                                $componentData[
+                                    'options'
+                                ],
                             ) === 1
                                 || (
-                                    $defaultCount === 0
-                                    && $optionPosition === 0
+                                    $defaultCount ===
+                                        0
+                                    && $optionPosition ===
+                                        0
                                 )
                                 || (bool) (
-                                    $optionData['is_default']
+                                    $optionData[
+                                        'is_default'
+                                    ]
                                     ?? false
                                 ),
 
@@ -285,7 +389,8 @@ class ProductionRecipeService
                 }
 
                 ProductionRecipeActivated::dispatch(
-                    (int) $lockedProduct->organization_id,
+                    (int) $lockedProduct
+                        ->organization_id,
                     $lockedProduct->id,
                     $recipe->id,
                     $recipe->version,
@@ -301,12 +406,15 @@ class ProductionRecipeService
     }
 
     /**
-     * Resolve a recipe into exact Raw Material consumption.
+     * Resolve a Recipe into suggested Raw Material consumption.
+     *
+     * The Recipe is only a planning suggestion. Actual Production Run material
+     * rows remain authoritative for physical Inventory consumption.
      *
      * @param  array<int|string, int|string>  $selections
      * @return array{
-     *     materials: list<array{product_id:int,quantity:string}>,
-     *     snapshot: array<string,mixed>
+     *     materials:list<array{product_id:int,quantity:string}>,
+     *     snapshot:array<string,mixed>
      * }
      */
     public function resolveForProduction(
@@ -333,40 +441,51 @@ class ProductionRecipeService
             'components.options.rawMaterial',
         );
 
-        $materialUnits = [];
+        $materialUnits =
+            [];
 
-        $snapshotComponents = [];
+        $snapshotComponents =
+            [];
 
         foreach (
             $recipe->components as $component
         ) {
             $selectedOptionId =
                 isset(
-                    $selections[(string) $component->id],
+                    $selections[
+                        (string) $component->id
+                    ],
                 )
-                ? (int) $selections[(string) $component->id]
-                : (
-                    isset(
-                        $selections[$component->id],
-                    )
-                    ? (int) $selections[$component->id]
-                    : null
-                );
+                    ? (int) $selections[
+                        (string) $component->id
+                    ]
+                    : (
+                        isset(
+                            $selections[
+                                $component->id
+                            ],
+                        )
+                            ? (int) $selections[
+                                $component->id
+                            ]
+                            : null
+                    );
 
             $option =
-                $selectedOptionId !== null
-                ? $component
-                    ->options
-                    ->firstWhere(
-                        'id',
-                        $selectedOptionId,
-                    )
-                : $component
-                    ->options
-                    ->firstWhere(
-                        'is_default',
-                        true,
-                    );
+                $selectedOptionId !==
+                null
+                    ? $component
+                        ->options
+                        ->firstWhere(
+                            'id',
+                            $selectedOptionId,
+                        )
+                    : $component
+                        ->options
+                        ->firstWhere(
+                            'is_default',
+                            true,
+                        );
 
             if (! $option) {
                 throw ValidationException::withMessages([
@@ -384,7 +503,7 @@ class ProductionRecipeService
             if (
                 ! $rawMaterial
                 || $rawMaterial->type !==
-                ProductType::RawMaterial
+                    ProductType::RawMaterial
             ) {
                 throw ValidationException::withMessages([
                     'selections' => [
@@ -406,12 +525,28 @@ class ProductionRecipeService
                     $required,
                 );
 
-            $materialUnits[$rawMaterial->id] =
+            $materialUnits[
+                $rawMaterial->id
+            ] =
                 (
-                    $materialUnits[$rawMaterial->id]
+                    $materialUnits[
+                        $rawMaterial->id
+                    ]
                     ?? 0
                 )
                 + $requiredUnits;
+
+            $usageUnit =
+                $option->usage_unit
+                ?: $rawMaterial->unit;
+
+            $usageRate =
+                MeasurementUnits::convertRecipeRate(
+                    $option->quantity_per_unit,
+                    (string) $rawMaterial
+                        ->unit,
+                    (string) $usageUnit,
+                );
 
             $snapshotComponents[] = [
                 'component_id' => $component->id,
@@ -428,11 +563,17 @@ class ProductionRecipeService
 
                 'unit' => $rawMaterial->unit,
 
-                'quantity_per_unit' => $option->quantity_per_unit,
+                'usage_unit' => $usageUnit,
+
+                'usage_quantity_per_unit' => $usageRate,
+
+                'quantity_per_unit' => $option
+                    ->quantity_per_unit,
 
                 'required_quantity' => $required,
 
-                'is_substitute' => ! $option->is_default,
+                'is_substitute' => ! $option
+                    ->is_default,
             ];
         }
 
