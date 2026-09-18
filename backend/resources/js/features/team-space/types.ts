@@ -10,6 +10,7 @@ export type ConversationFilter =
     | 'archived';
 
 export type Conversation = {
+    avatar_url: string | null;
     id: number;
     organization_id: number;
     created_by: number;
@@ -33,6 +34,7 @@ export type Conversation = {
 };
 
 export type TeamPerson = {
+    is_admin?: boolean;
     id: number;
     name: string;
     email?: string;
@@ -63,6 +65,8 @@ export type MessageReaction = {
 };
 
 export type TeamMessage = {
+    pinned_at: string | null;
+    read_by: string[];
     id: number;
     conversation_id: number;
     user_id: number;

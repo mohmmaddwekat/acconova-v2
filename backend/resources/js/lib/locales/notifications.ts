@@ -2,6 +2,7 @@ export default {
     ar: {
         'notifications.messages': 'الرسائل',
         'notifications.kind.message': 'رسالة جديدة',
+        'notifications.kind.conversation_report': 'بلاغ جديد في المجموعة',
         'role.contact': 'جهة تعامل',
         'notifications.title': 'التنبيهات',
         'notifications.subtitle': 'المواعيد المهمة ونشاط العمل',
@@ -28,6 +29,7 @@ export default {
     en: {
         'notifications.messages': 'Messages',
         'notifications.kind.message': 'New message',
+        'notifications.kind.conversation_report': 'New group report',
         'role.contact': 'General contact',
         'notifications.title': 'Notifications',
         'notifications.subtitle': 'Important dates and business activity',

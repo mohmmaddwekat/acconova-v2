@@ -1,3 +1,4 @@
+import { ConversationDetails, chatThemes, type ConversationSettings } from '@/features/team-space/ConversationDetails';
 import { MemberActions, MessagingDialog } from '@/features/team-space/MemberActions';
 import { deviceEnabled, deviceKey, deviceSupported } from '@/lib/deviceNotifications';
 import {
@@ -26,6 +27,7 @@ import {
 } from '@/layouts/AppShell';
 import {
     ApiError,
+    apiRequest,
 } from '@/lib/http';
 import {
     useLocale,
@@ -56,6 +58,7 @@ import {
     MoreHorizontal,
     Paperclip,
     Pencil,
+    Pin,
     Plus,
     RotateCcw,
     Search,
@@ -75,18 +78,19 @@ import {
     useRef,
     useState,
     type ChangeEvent,
+    type CSSProperties,
     type FormEvent,
     type ReactNode,
 } from 'react';
 
 const inputClass =
-    'w-full rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:bg-white focus:ring-4 focus:ring-[var(--ac-accent-soft)]';
+    'w-full rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:bg-[var(--ac-surface)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]';
 
 const secondaryButton =
-    'inline-flex items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-white px-3.5 py-2.5 text-xs font-semibold transition hover:-translate-y-px hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-40';
+    'inline-flex items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3.5 py-2.5 text-xs font-semibold transition hover:-translate-y-px hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-40';
 
 const primaryButton =
-    'inline-flex items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-text)] px-4 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40';
+    'inline-flex items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40';
 
 const reactions = [
     '👍',
@@ -356,7 +360,6 @@ function MessagingWorkspace({
     }
     const composerRef = useRef<HTMLTextAreaElement>(null);
     const membersSectionRef = useRef<HTMLDivElement>(null);
-    const detailsScrollRef = useRef<HTMLDivElement>(null);
     const [emojiOpen, setEmojiOpen] = useState(false);
 
     const fileInputRef =
@@ -544,7 +547,7 @@ function MessagingWorkspace({
         setDetailsOpen,
     ] =
         useState(
-            true,
+            () => window.matchMedia('(min-width: 1280px)').matches,
         );
 
     const [
@@ -553,22 +556,6 @@ function MessagingWorkspace({
     ] =
         useState(
             true,
-        );
-
-    const [
-        mediaOpen,
-        setMediaOpen,
-    ] =
-        useState(
-            true,
-        );
-
-    const [
-        audioOpen,
-        setAudioOpen,
-    ] =
-        useState(
-            false,
         );
 
     const [
@@ -1564,62 +1551,6 @@ function MessagingWorkspace({
             ],
         );
 
-    const sharedMedia =
-        useMemo(
-            () =>
-                thread?.messages
-                    .flatMap(
-                        (
-                            message,
-                        ) =>
-                            message.attachments,
-                    )
-                    .filter(
-                        (
-                            attachment,
-                        ) =>
-                            attachment.kind ===
-                                'image'
-                            || attachment.kind ===
-                                'video',
-                    )
-                    .slice(
-                        -12,
-                    )
-                    .reverse()
-                ?? [],
-            [
-                thread,
-            ],
-        );
-
-    const sharedAudio =
-        useMemo(
-            () =>
-                thread?.messages
-                    .flatMap(
-                        (
-                            message,
-                        ) =>
-                            message.attachments,
-                    )
-                    .filter(
-                        (
-                            attachment,
-                        ) =>
-                            attachment.kind ===
-                            'audio',
-                    )
-                    .slice(
-                        -8,
-                    )
-                    .reverse()
-                ?? [],
-            [
-                thread,
-            ],
-        );
-
     /**
      * Open the new-conversation modal.
      */
@@ -1643,6 +1574,11 @@ function MessagingWorkspace({
     /**
      * Start/reopen a direct conversation.
      */
+    function openDirectConversation(id: number): void {
+        setThread(null); setSelectedId(id); setFilter('all');
+        setRevision((current) => current + 1); setThreadRevision((current) => current + 1);
+    }
+
     async function startDirect(
         personId: number,
     ): Promise<void> {
@@ -1675,6 +1611,7 @@ function MessagingWorkspace({
                 'all',
             );
 
+            setThread(null);
             setSelectedId(
                 response.id,
             );
@@ -2463,6 +2400,54 @@ function MessagingWorkspace({
         }
     }
 
+    const [loadedSettings, setLoadedSettings] = useState<{ id: number; data: ConversationSettings } | null>(null);
+    const conversationSettings = loadedSettings?.id === selectedId ? loadedSettings.data : null;
+    const chatTheme = chatThemes[conversationSettings?.theme ?? 'green'] ?? chatThemes.green;
+    const conversationThemeStyle = {
+        colorScheme: conversationSettings?.theme === 'dark' ? 'dark' : 'light',
+        color: chatTheme.text,
+        '--ac-bg': chatTheme.background,
+        '--ac-bg-soft': chatTheme.soft,
+        '--ac-surface': chatTheme.surface,
+        '--ac-surface-soft': chatTheme.soft,
+        '--ac-surface-strong': chatTheme.other,
+        '--ac-text': chatTheme.text,
+        '--ac-text-soft': chatTheme.muted,
+        '--ac-text-muted': chatTheme.muted,
+        '--ac-text-faint': chatTheme.muted,
+        '--ac-line': chatTheme.line,
+        '--ac-line-strong': chatTheme.line,
+        '--ac-accent': chatTheme.accentText,
+        '--ac-accent-strong': chatTheme.accent,
+        '--ac-accent-soft': chatTheme.soft,
+        '--chat-accent-text': chatTheme.accentText,
+        '--message-own-bg': chatTheme.bubble,
+        '--message-other-bg': chatTheme.other,
+    } as CSSProperties;
+    useEffect(() => {
+        if (!selectedId) { return; }
+        const controller = new AbortController();
+        apiRequest<ConversationSettings>(`/api/team-space/${selectedId}/settings`, { signal: controller.signal })
+            .then((data) => { if (!controller.signal.aborted) { setLoadedSettings({ id: selectedId, data }); } })
+            .catch((failure) => { if (!controller.signal.aborted) { setError(errorText(failure)); } });
+        return () => controller.abort();
+    }, [selectedId, threadRevision]);
+    async function pinMessage(message: TeamMessage): Promise<void> {
+        try {
+            await apiRequest(`/api/team-space/${message.conversation_id}/settings`, { method: 'POST', body: JSON.stringify({ action: 'pin', message_id: message.id, pinned: !message.pinned_at }) });
+            setThreadRevision((current) => current + 1);
+        } catch (failure) { setError(errorText(failure)); }
+    }
+    async function sendQuickMessage(): Promise<void> {
+        if (!selectedId || busy || thread?.restriction) { return; }
+        setBusy(true);
+        try {
+            await sendConversationMessage(selectedId, conversationSettings?.quick_reaction ?? reactions[0], []);
+            setThreadRevision((current) => current + 1); setRevision((current) => current + 1); notifyMessagingChanged();
+        } catch (failure) { setError(errorText(failure)); }
+        finally { setBusy(false); }
+    }
+
     const filters:
         {
             id:
@@ -2536,7 +2521,7 @@ function MessagingWorkspace({
                     </div>
                 )}
 
-                <div className="overflow-hidden rounded-[30px] border border-[var(--ac-line)] bg-white shadow-[0_22px_80px_rgba(20,42,35,.10)]">
+                <div className="overflow-hidden rounded-[30px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[0_22px_80px_rgba(20,42,35,.10)]">
                     <div
                         className={[
                             'grid h-[calc(100dvh-5.75rem)] min-h-0 grid-rows-[minmax(0,1fr)] sm:h-[calc(100dvh-6.25rem)]',
@@ -2549,7 +2534,7 @@ function MessagingWorkspace({
                     >
                         <aside
                             className={[
-                                'min-h-0 min-w-0 overflow-y-auto border-[var(--ac-line)] bg-white lg:border-e',
+                                'min-h-0 min-w-0 overflow-y-auto border-[var(--ac-line)] bg-[var(--ac-surface)] lg:border-e',
                                 selectedId
                                     ? 'hidden lg:block'
                                     : 'block',
@@ -2621,7 +2606,7 @@ function MessagingWorkspace({
                                                 'group',
                                             )
                                         }
-                                        className="flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-3 text-xs font-semibold disabled:opacity-35"
+                                        className="flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold disabled:opacity-35"
                                     >
                                         <Users
                                             size={
@@ -2665,7 +2650,7 @@ function MessagingWorkspace({
 
                                 {activePeople.length >
                                     0 && (
-                                    <div className="mt-4 rounded-[16px] bg-white p-3 shadow-[var(--ac-shadow-soft)]">
+                                    <div className="mt-4 rounded-[16px] bg-[var(--ac-surface)] p-3 shadow-[var(--ac-shadow-soft)]">
                                         <div className="flex items-center justify-between">
                                             <strong className="text-[10px]">
                                                 {
@@ -2673,7 +2658,7 @@ function MessagingWorkspace({
                                                 }
                                             </strong>
 
-                                            <span className="rounded-full bg-[var(--ac-accent-soft)] px-2 py-1 text-[8px] font-bold text-[var(--ac-accent-strong)]">
+                                            <span className="rounded-full bg-[var(--ac-accent-soft)] px-2 py-1 text-[8px] font-bold text-[var(--chat-accent-text,var(--ac-accent-strong))]">
                                                 {
                                                     activePeople.length
                                                 }
@@ -2703,13 +2688,13 @@ function MessagingWorkspace({
                                                                     person.id,
                                                                 )
                                                             }
-                                                            className="relative flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-white bg-[var(--ac-accent-soft)] text-[9px] font-bold text-[var(--ac-accent-strong)] shadow-sm"
+                                                            className="relative flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--ac-surface)] bg-[var(--ac-accent-soft)] text-[9px] font-bold text-[var(--chat-accent-text,var(--ac-accent-strong))] shadow-sm"
                                                         >
                                                             {initials(
                                                                 person.name,
                                                             )}
 
-                                                            <span className="absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-white bg-emerald-500" />
+                                                            <span className="absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-[var(--ac-surface)] bg-[var(--ac-accent-soft)]0" />
                                                         </button>
                                                     ),
                                                 )}
@@ -2717,7 +2702,7 @@ function MessagingWorkspace({
                                     </div>
                                 )}
 
-                                <div className="mt-4 flex gap-1 overflow-x-auto rounded-[13px] bg-white/70 p-1">
+                                <div className="mt-4 flex gap-1 overflow-x-auto rounded-[13px] bg-[var(--ac-surface)]/70 p-1">
                                     {filters.map(
                                         (
                                             item,
@@ -2744,7 +2729,7 @@ function MessagingWorkspace({
                                                     'min-w-max rounded-[10px] px-2.5 py-2 text-[9px] font-semibold',
                                                     filter ===
                                                     item.id
-                                                        ? 'bg-white shadow-[var(--ac-shadow-soft)]'
+                                                        ? 'bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)]'
                                                         : 'text-[var(--ac-text-muted)]',
                                                 ].join(
                                                     ' ',
@@ -2760,7 +2745,7 @@ function MessagingWorkspace({
                             </div>
 
                             <div className="px-4 py-2">
-                                <button type="button" disabled={notificationsEnabled} onClick={() => void enableNotifications()} className="text-xs text-emerald-700 disabled:text-[var(--ac-text-muted)]">{notificationsEnabled ? (ar ? 'إشعارات الجهاز مفعّلة' : 'Device notifications enabled') : (ar ? 'تفعيل إشعارات الرسائل' : 'Enable message notifications')}</button>
+                                <button type="button" disabled={notificationsEnabled} onClick={() => void enableNotifications()} className="text-xs text-[var(--chat-accent-text,var(--ac-accent-strong))] disabled:text-[var(--ac-text-muted)]">{notificationsEnabled ? (ar ? 'إشعارات الجهاز مفعّلة' : 'Device notifications enabled') : (ar ? 'تفعيل إشعارات الرسائل' : 'Enable message notifications')}</button>
                                 {notificationHint && <p role="status" className="mt-1 text-xs">{notificationHint}</p>}
                             </div>
                             <div className="overflow-y-auto p-2">
@@ -2839,8 +2824,9 @@ function MessagingWorkspace({
                         </aside>
 
                         <section
+                            style={conversationThemeStyle}
                             className={[
-                                'min-h-0 min-w-0 bg-white',
+                                'min-h-0 min-w-0 bg-[var(--ac-surface)]',
                                 selectedId
                                     ? 'flex flex-col'
                                     : 'hidden lg:flex lg:flex-col',
@@ -2851,7 +2837,7 @@ function MessagingWorkspace({
                             {selected
                                 && thread ? (
                                 <>
-                                    <div className="shrink-0 border-b border-[var(--ac-line)] bg-white">
+                                    <div className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)]">
                                         <div className="flex items-center justify-between gap-3 px-3 py-3.5 sm:px-5">
                                             <div className="flex min-w-0 items-center gap-3">
                                                 <button
@@ -2895,7 +2881,7 @@ function MessagingWorkspace({
 
                                                         {selected.kind ===
                                                             'group' && (
-                                                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ac-accent-soft)] px-2 py-1 text-[8px] font-bold text-[var(--ac-accent-strong)]">
+                                                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ac-accent-soft)] px-2 py-1 text-[8px] font-bold text-[var(--chat-accent-text,var(--ac-accent-strong))]">
                                                                 <Lock
                                                                     size={
                                                                         8
@@ -2962,7 +2948,7 @@ function MessagingWorkspace({
                                                                 className={[
                                                                     'size-2 rounded-full',
                                                                     selected.is_online
-                                                                        ? 'bg-emerald-500'
+                                                                        ? 'bg-[var(--ac-accent-soft)]0'
                                                                         : 'bg-slate-300',
                                                                 ].join(
                                                                     ' ',
@@ -2992,7 +2978,7 @@ function MessagingWorkspace({
                                                             '',
                                                         );
                                                     }}
-                                                    className="flex size-10 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-white"
+                                                    className="flex size-10 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)]"
                                                 >
                                                     <Search
                                                         size={
@@ -3011,7 +2997,7 @@ function MessagingWorkspace({
                                                                 ! current,
                                                         )
                                                     }
-                                                    className="hidden size-10 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-white xl:flex"
+                                                    className="flex size-10 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)]"
                                                 >
                                                     <Info
                                                         size={
@@ -3031,7 +3017,7 @@ function MessagingWorkspace({
                                                                     ! current,
                                                             )
                                                         }
-                                                        className="flex size-10 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-white"
+                                                        className="flex size-10 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)]"
                                                     >
                                                         <MoreHorizontal
                                                             size={
@@ -3041,7 +3027,7 @@ function MessagingWorkspace({
                                                     </button>
 
                                                     {moreOpen && (
-                                                        <div className="absolute end-0 top-[calc(100%+8px)] z-50 w-[245px] rounded-[17px] border border-[var(--ac-line)] bg-white p-1.5 shadow-xl">
+                                                        <div className="absolute end-0 top-[calc(100%+8px)] z-50 w-[245px] rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-1.5 shadow-xl">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => {
@@ -3179,12 +3165,12 @@ function MessagingWorkspace({
                                         )}
                                     </div>
 
-                                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-6 sm:px-6">
+                                    <div className="bg-[var(--ac-bg)] min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-6 sm:px-6">
                                         <div className="mx-auto max-w-[820px]">
                                             <div className="mb-7 flex items-center gap-3">
                                                 <div className="h-px flex-1 bg-[var(--ac-line)]" />
 
-                                                <span className="rounded-full bg-white px-3 py-1.5 text-[9px] text-[var(--ac-text-muted)] shadow-sm">
+                                                <span className="rounded-full bg-[var(--ac-surface)] px-3 py-1.5 text-[9px] text-[var(--ac-text-muted)] shadow-sm">
                                                     {
                                                         copy.today
                                                     }
@@ -3199,8 +3185,10 @@ function MessagingWorkspace({
                                                         message,
                                                     ) => (
                                                         <MessageBubble
+                                                            nickname={conversationSettings?.nicknames[message.user_id] ?? undefined}
+                                                            onPin={() => void pinMessage(message)}
                                                             viewerId={userId}
-                                                            onDirect={(id) => { setThread(null); setSelectedId(id); setRevision((current) => current + 1); }}
+                                                            onDirect={openDirectConversation}
                                                             onMemberChanged={() => setThreadRevision((current) => current + 1)}
                                                             key={
                                                                 message.id
@@ -3273,7 +3261,7 @@ function MessagingWorkspace({
                                                 event,
                                             )
                                         }
-                                        className="shrink-0 border-t border-[var(--ac-line)] bg-white p-3 sm:p-4"
+                                        className="shrink-0 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 sm:p-4"
                                     >
                                         {thread.restriction && <p role="status" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{ar ? (thread.restriction.scope === 'group' ? 'تم كتمك في المجموعة بواسطة ' : 'تم منع الرسائل الخاصة بواسطة ') : 'Messaging restricted by '}{thread.restriction.by}{thread.restriction.expires_at ? ` — ${ar ? 'حتى' : 'until'} ${new Date(thread.restriction.expires_at).toLocaleString(ar ? 'ar' : 'en')}` : (ar ? ' — حتى إلغاء المنع' : ' — until removed')}</p>}
                                         <fieldset disabled={Boolean(thread.restriction)} className="min-w-0 disabled:opacity-50">
@@ -3404,7 +3392,7 @@ function MessagingWorkspace({
                                             }
                                         />
 
-                                        <div className="relative mx-auto max-w-[820px] rounded-[18px] border border-[var(--ac-line)] bg-white shadow-sm focus-within:border-emerald-400">
+                                        <div className="relative mx-auto max-w-[820px] rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-sm focus-within:border-[var(--ac-accent)]">
                                             <textarea
                                                 ref={composerRef}
                                                 value={
@@ -3432,14 +3420,15 @@ function MessagingWorkspace({
                                             />
 
                                             <div className="flex items-center gap-1 border-t border-[var(--ac-line)] px-2 py-2">
+                                                <button type="button" disabled={busy || Boolean(thread.restriction)} onClick={() => void sendQuickMessage()} aria-label={ar ? 'إرسال الرمز التعبيري' : 'Send quick emoji'} className="flex size-9 items-center justify-center rounded-xl text-xl hover:bg-[var(--ac-surface-soft)]">{conversationSettings?.quick_reaction ?? reactions[0]}</button>
                                                 <div className="relative">
-                                                    <button type="button" aria-label={ar ? 'إضافة إيموجي' : 'Insert emoji'} aria-expanded={emojiOpen} onClick={() => setEmojiOpen(!emojiOpen)} className="flex size-9 items-center justify-center rounded-xl text-emerald-700 hover:bg-emerald-50">
+                                                    <button type="button" aria-label={ar ? 'إضافة إيموجي' : 'Insert emoji'} aria-expanded={emojiOpen} onClick={() => setEmojiOpen(!emojiOpen)} className="flex size-9 items-center justify-center rounded-xl text-[var(--chat-accent-text,var(--ac-accent-strong))] hover:bg-[var(--ac-accent-soft)]">
                                                         <SmilePlus size={20} />
                                                     </button>
                                                     {emojiOpen && (
-                                                        <div className="absolute bottom-full start-0 z-40 mb-2 grid w-60 grid-cols-6 gap-1 rounded-2xl border border-[var(--ac-line)] bg-white p-3 shadow-xl" onKeyDown={(event) => { if (event.key === 'Escape') { setEmojiOpen(false); composerRef.current?.focus(); } }}>
+                                                        <div className="absolute bottom-full start-0 z-40 mb-2 grid w-60 grid-cols-6 gap-1 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 shadow-xl" onKeyDown={(event) => { if (event.key === 'Escape') { setEmojiOpen(false); composerRef.current?.focus(); } }}>
                                                             {[...reactions, '😊', '👋', '👏', '🔥', '✅', '💪', '🙏', '💯', '😍', '🤔', '🚀', '💚'].map((emoji) => (
-                                                                <button key={emoji} type="button" aria-label={emoji} className="flex size-8 items-center justify-center rounded-lg text-xl hover:bg-emerald-50" onClick={() => {
+                                                                <button key={emoji} type="button" aria-label={emoji} className="flex size-8 items-center justify-center rounded-lg text-xl hover:bg-[var(--ac-accent-soft)]" onClick={() => {
                                                                     const input = composerRef.current;
                                                                     const start = input?.selectionStart ?? messageBody.length;
                                                                     const end = input?.selectionEnd ?? start;
@@ -3456,7 +3445,7 @@ function MessagingWorkspace({
                                                     onClick={() =>
                                                         fileInputRef.current?.click()
                                                     }
-                                                    className="flex size-9 items-center justify-center rounded-[11px] hover:bg-white"
+                                                    className="flex size-9 items-center justify-center rounded-[11px] hover:bg-[var(--ac-surface)]"
                                                 >
                                                     <Plus
                                                         size={
@@ -3470,7 +3459,7 @@ function MessagingWorkspace({
                                                     onClick={() =>
                                                         fileInputRef.current?.click()
                                                     }
-                                                    className="flex size-9 items-center justify-center rounded-[11px] hover:bg-white"
+                                                    className="flex size-9 items-center justify-center rounded-[11px] hover:bg-[var(--ac-surface)]"
                                                 >
                                                     <Paperclip
                                                         size={
@@ -3484,7 +3473,7 @@ function MessagingWorkspace({
                                                     onClick={() =>
                                                         void startRecording()
                                                     }
-                                                    className="flex size-9 items-center justify-center rounded-[11px] hover:bg-white"
+                                                    className="flex size-9 items-center justify-center rounded-[11px] hover:bg-[var(--ac-surface)]"
                                                 >
                                                     <Mic
                                                         size={
@@ -3522,7 +3511,7 @@ function MessagingWorkspace({
                                 </>
                             ) : (
                                 <div className="flex h-full flex-1 flex-col items-center justify-center p-10 text-center">
-                                    <div className="flex size-20 items-center justify-center rounded-[26px] bg-white shadow-lg">
+                                    <div className="flex size-20 items-center justify-center rounded-[26px] bg-[var(--ac-surface)] shadow-lg">
                                         <MessageCircle
                                             size={
                                                 30
@@ -3548,161 +3537,15 @@ function MessagingWorkspace({
                         {detailsOpen
                             && selected
                             && thread && (
-                            <aside className="hidden min-h-0 min-w-0 overflow-hidden border-s border-[var(--ac-line)] bg-white xl:block">
-                                <div ref={detailsScrollRef} className="h-full overflow-y-auto">
-                                    <div className="relative border-b border-[var(--ac-line)] px-5 pb-6 pt-6 text-center">
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setDetailsOpen(
-                                                    false,
-                                                )
-                                            }
-                                            className="absolute end-4 top-4 flex size-9 items-center justify-center rounded-xl bg-[var(--ac-bg-soft)]"
-                                        >
-                                            <X
-                                                size={
-                                                    15
-                                                }
-                                            />
-                                        </button>
-
-                                        <ConversationAvatar
-                                            conversation={
-                                                selected
-                                            }
-                                            size="profile"
-                                        />
-
-                                        <h3 className="mt-4 text-lg font-semibold">
-                                            {
-                                                selected.display_name
-                                            }
-                                        </h3>
-
-                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
-                                            {selected.kind ===
-                                            'group'
-                                                ? copy.group
-                                                : selected.is_online
-                                                  ? copy.online
-                                                  : copy.directConversation}
-                                        </p>
-
-                                        {selected.kind ===
-                                            'group'
-                                            && groupAdmin && (
-                                            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-2 text-[9px] font-bold text-amber-700">
-                                                <Crown
-                                                    size={
-                                                        11
-                                                    }
-                                                />
-
-                                                {
-                                                    groupAdmin.name
-                                                }
-
-                                                {' · '}
-
-                                                {
-                                                    copy.admin
-                                                }
-                                            </div>
-                                        )}
-
-                                        <div className="mt-5 grid grid-cols-2 gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setSearchInsideConversation(
-                                                        true,
-                                                    )
-                                                }
-                                                className={
-                                                    secondaryButton
-                                                }
-                                            >
-                                                <Search
-                                                    size={
-                                                        14
-                                                    }
-                                                />
-
-                                                {
-                                                    copy.searchAction
-                                                }
-                                            </button>
-
-                                            {selected.kind ===
-                                                'group'
-                                                && thread.can_manage ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setMembersOpen(true);
-                                                        requestAnimationFrame(() => {
-                                                            const section = membersSectionRef.current;
-                                                            const panel = detailsScrollRef.current;
-                                                            if (section && panel) {
-                                                                panel.scrollTo({
-                                                                    top: panel.scrollTop + section.getBoundingClientRect().top - panel.getBoundingClientRect().top,
-                                                                    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
-                                                                });
-                                                                const choice = section.querySelector<HTMLInputElement>('input[type="checkbox"]:not(:checked):not(:disabled)')
-                                                                    ?? section.querySelector<HTMLInputElement>('input[type="checkbox"]:not(:disabled)');
-                                                                choice?.focus({ preventScroll: true });
-                                                            }
-                                                        });
-                                                    }}
-                                                    aria-controls="conversation-members"
-                                                    className={
-                                                        secondaryButton
-                                                    }
-                                                >
-                                                    <UserPlus
-                                                        size={
-                                                            14
-                                                        }
-                                                    />
-
-                                                    {
-                                                        copy.add
-                                                    }
-                                                </button>
-                                            ) : (
-                                                <div className="flex items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-surface-soft)] text-[10px]">
-                                                    <Lock
-                                                        size={
-                                                            12
-                                                        }
-                                                    />
-
-                                                    {
-                                                        copy.private
-                                                    }
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {selected.kind ===
-                                        'group' && (
-                                        <div className="border-b border-[var(--ac-line)] p-5">
-                                            <strong className="text-xs">
-                                                {
-                                                    copy.about
-                                                }
-                                            </strong>
-
-                                            <p className="mt-2 text-[10px] leading-5 text-[var(--ac-text-muted)]">
-                                                {selected.description
-                                                    || copy.groupPrivacy}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    <div id="conversation-members" ref={membersSectionRef}>
+                            <aside style={conversationThemeStyle} className="fixed inset-x-3 bottom-3 top-20 z-50 min-h-0 min-w-0 overflow-hidden rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-xl xl:static xl:z-auto xl:rounded-none xl:border-0 xl:border-s xl:shadow-none">
+                                <ConversationDetails key={selected.id} conversation={thread.conversation} thread={thread} settings={conversationSettings} ar={ar} userId={userId}
+                                    onClose={() => setDetailsOpen(false)} onSearch={() => { setSearchInsideConversation(true); if (window.innerWidth < 1280) { setDetailsOpen(false); } }}
+                                    onDirect={openDirectConversation}
+                                    onMessage={(personId) => void startDirect(personId)}
+                                    onChanged={() => { setThreadRevision((current) => current + 1); setRevision((current) => current + 1); notifyMessagingChanged(); }}
+                                    onLeave={() => { setSelectedId(null); setThread(null); setRevision((current) => current + 1); notifyMessagingChanged(); }}
+                                    onArchive={() => void changeArchiveState(!selected.is_archived)}
+                                    memberEditor={<div id="conversation-members" ref={membersSectionRef}>
                                     <DetailsSection
                                         title={
                                             copy.members
@@ -3747,8 +3590,7 @@ function MessagingWorkspace({
                                                     const isAdmin =
                                                         selected.kind ===
                                                             'group'
-                                                        && person.id ===
-                                                            selected.created_by;
+                                                        && (person.id === selected.created_by || thread.members.some((member) => member.id === person.id && member.is_admin));
 
                                                     return (
                                                         <label
@@ -3776,16 +3618,16 @@ function MessagingWorkspace({
                                                                 />
                                                             )}
 
-                                                            <div className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-[9px] font-bold">
+                                                            <div className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--ac-surface)] text-[9px] font-bold">
                                                                 {initials(
                                                                     person.name,
                                                                 )}
 
                                                                 <span
                                                                     className={[
-                                                                        'absolute -bottom-0.5 -end-0.5 size-2.5 rounded-full border-2 border-white',
+                                                                        'absolute -bottom-0.5 -end-0.5 size-2.5 rounded-full border-2 border-[var(--ac-surface)]',
                                                                         person.is_online
-                                                                            ? 'bg-emerald-500'
+                                                                            ? 'bg-[var(--ac-accent-soft)]0'
                                                                             : 'bg-slate-300',
                                                                     ].join(
                                                                         ' ',
@@ -3848,150 +3690,8 @@ function MessagingWorkspace({
                                         </div>
                                     </DetailsSection>
 
-                                    </div>
-                                    <DetailsSection
-                                        title={
-                                            copy.sharedMedia
-                                        }
-                                        count={
-                                            sharedMedia.length
-                                        }
-                                        open={
-                                            mediaOpen
-                                        }
-                                        onToggle={() =>
-                                            setMediaOpen(
-                                                (
-                                                    current,
-                                                ) =>
-                                                    ! current,
-                                            )
-                                        }
-                                    >
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {sharedMedia.map(
-                                                (
-                                                    attachment,
-                                                ) => (
-                                                    <a
-                                                        key={
-                                                            attachment.id
-                                                        }
-                                                        href={
-                                                            attachment.url
-                                                        }
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="aspect-square overflow-hidden rounded-[13px] bg-[var(--ac-bg-soft)]"
-                                                    >
-                                                        {attachment.kind ===
-                                                        'image' ? (
-                                                            <img
-                                                                src={
-                                                                    attachment.url
-                                                                }
-                                                                alt={
-                                                                    attachment.name
-                                                                }
-                                                                className="size-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <div className="flex size-full items-center justify-center bg-[var(--ac-text)] text-white">
-                                                                <Video
-                                                                    size={
-                                                                        18
-                                                                    }
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </a>
-                                                ),
-                                            )}
-                                        </div>
-                                    </DetailsSection>
-
-                                    <DetailsSection
-                                        title={
-                                            copy.sharedAudio
-                                        }
-                                        count={
-                                            sharedAudio.length
-                                        }
-                                        open={
-                                            audioOpen
-                                        }
-                                        onToggle={() =>
-                                            setAudioOpen(
-                                                (
-                                                    current,
-                                                ) =>
-                                                    ! current,
-                                            )
-                                        }
-                                    >
-                                        <div className="space-y-2">
-                                            {sharedAudio.map(
-                                                (
-                                                    attachment,
-                                                ) => (
-                                                    <a
-                                                        key={
-                                                            attachment.id
-                                                        }
-                                                        href={
-                                                            attachment.url
-                                                        }
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="flex items-center gap-3 rounded-[14px] bg-[var(--ac-surface-soft)] p-3"
-                                                    >
-                                                        <FileAudio
-                                                            size={
-                                                                14
-                                                            }
-                                                        />
-
-                                                        <span className="truncate text-[10px] font-semibold">
-                                                            {
-                                                                attachment.name
-                                                            }
-                                                        </span>
-                                                    </a>
-                                                ),
-                                            )}
-                                        </div>
-                                    </DetailsSection>
-
-                                    <div className="p-5">
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                void changeArchiveState(
-                                                    ! selected.is_archived,
-                                                )
-                                            }
-                                            className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-3 text-xs font-semibold"
-                                        >
-                                            {selected.is_archived ? (
-                                                <RotateCcw
-                                                    size={
-                                                        14
-                                                    }
-                                                />
-                                            ) : (
-                                                <Archive
-                                                    size={
-                                                        14
-                                                    }
-                                                />
-                                            )}
-
-                                            {selected.is_archived
-                                                ? copy.restore
-                                                : copy.archive}
-                                        </button>
-                                    </div>
-                                </div>
+                                    </div>}
+                                />
                             </aside>
                         )}
                     </div>
@@ -4008,7 +3708,7 @@ function MessagingWorkspace({
                                 event,
                             )
                         }
-                        className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl"
+                        className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[28px] bg-[var(--ac-surface)] p-6 shadow-2xl"
                     >
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-semibold">
@@ -4042,7 +3742,7 @@ function MessagingWorkspace({
                                         'direct',
                                     )
                                 }
-                                className="rounded-[12px] bg-white px-3 py-2.5 text-xs font-semibold"
+                                className="rounded-[12px] bg-[var(--ac-surface)] px-3 py-2.5 text-xs font-semibold"
                             >
                                 <UserRound
                                     size={
@@ -4142,7 +3842,7 @@ function MessagingWorkspace({
                                             )}
 
                                             {person.is_online && (
-                                                <span className="absolute -bottom-0.5 -end-0.5 size-2.5 rounded-full border-2 border-white bg-emerald-500" />
+                                                <span className="absolute -bottom-0.5 -end-0.5 size-2.5 rounded-full border-2 border-[var(--ac-surface)] bg-[var(--ac-accent-soft)]0" />
                                             )}
                                         </div>
 
@@ -4200,7 +3900,7 @@ function MessagingWorkspace({
                                 event,
                             )
                         }
-                        className="w-full max-w-lg rounded-[26px] bg-white p-6 shadow-2xl"
+                        className="w-full max-w-lg rounded-[26px] bg-[var(--ac-surface)] p-6 shadow-2xl"
                     >
                         <div className="flex items-center justify-between">
                             <h3 className="font-semibold">
@@ -4397,7 +4097,7 @@ function ConversationSection({
                                 conversation.id ===
                                 selectedId
                                     ? 'bg-[var(--ac-accent-soft)]'
-                                    : 'hover:bg-white',
+                                    : 'hover:bg-[var(--ac-surface)]',
                             ].join(
                                 ' ',
                             )}
@@ -4486,7 +4186,7 @@ function ConversationAvatar({
     return (
         <div
             className={[
-                'relative flex shrink-0 items-center justify-center rounded-full bg-[var(--ac-accent-soft)] font-bold text-[var(--ac-accent-strong)]',
+                'relative flex shrink-0 items-center justify-center rounded-full bg-[var(--ac-accent-soft)] font-bold text-[var(--chat-accent-text,var(--ac-accent-strong))]',
                 sizes[
                     size
                 ],
@@ -4494,7 +4194,7 @@ function ConversationAvatar({
                 ' ',
             )}
         >
-            {conversation.kind ===
+            {conversation.avatar_url ? <img src={conversation.avatar_url} alt={conversation.display_name} className="size-full rounded-full object-cover" /> : conversation.kind ===
             'group' ? (
                 <Users
                     size={size ===
@@ -4511,7 +4211,7 @@ function ConversationAvatar({
             {conversation.kind ===
                 'direct'
                 && conversation.is_online && (
-                <span className="absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-white bg-emerald-500" />
+                <span className="absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-[var(--ac-surface)] bg-[var(--ac-accent-soft)]0" />
             )}
         </div>
     );
@@ -4540,14 +4240,14 @@ function AvatarStack({
                             key={
                                 member.id
                             }
-                            className="relative flex size-6 items-center justify-center rounded-full border-2 border-white bg-[var(--ac-accent-soft)] text-[7px] font-bold"
+                            className="relative flex size-6 items-center justify-center rounded-full border-2 border-[var(--ac-surface)] bg-[var(--ac-accent-soft)] text-[7px] font-bold"
                         >
                             {initials(
                                 member.name,
                             )}
 
                             {member.is_online && (
-                                <span className="absolute -bottom-0.5 -end-0.5 size-2 rounded-full border border-white bg-emerald-500" />
+                                <span className="absolute -bottom-0.5 -end-0.5 size-2 rounded-full border border-[var(--ac-surface)] bg-[var(--ac-accent-soft)]0" />
                             )}
                         </div>
                     ),
@@ -4555,7 +4255,7 @@ function AvatarStack({
 
             {members.length >
                 4 && (
-                <div className="flex size-6 items-center justify-center rounded-full border-2 border-white bg-[var(--ac-text)] text-[7px] text-white">
+                <div className="flex size-6 items-center justify-center rounded-full border-2 border-[var(--ac-surface)] bg-[var(--ac-text)] text-[7px] text-white">
                     +
                     {members.length
                         - 4}
@@ -4569,6 +4269,8 @@ function AvatarStack({
  * Render one Messenger-style message with reactions and per-user actions.
  */
 function MessageBubble({
+    nickname,
+    onPin,
     viewerId,
     onDirect,
     onMemberChanged,
@@ -4586,6 +4288,8 @@ function MessageBubble({
     onUnsend,
     onReact,
 }: {
+    nickname?: string;
+    onPin: () => void;
     viewerId: number;
     onDirect: (id: number) => void;
     onMemberChanged: () => void;
@@ -4657,7 +4361,7 @@ function MessageBubble({
                             ? ar
                                 ? 'أنت'
                                 : 'You'
-                            : message.name}
+                            : nickname || message.name}
                     </strong>
 
                     <span className="text-[8px] text-[var(--ac-text-muted)]">
@@ -4668,13 +4372,14 @@ function MessageBubble({
                     </span>
                 </div>
 
+                {message.pinned_at && <span className="mb-1 flex items-center gap-1 text-[10px]"><Pin size={11} />{ar ? 'مثبتة' : 'Pinned'}</span>}
                 <div className="relative">
                     <div
                         className={[
                             'overflow-hidden rounded-[18px] border',
                             own
-                                ? 'rounded-ee-[6px] border-emerald-100 bg-[#dcf5eb]'
-                                : 'rounded-es-[6px] border-transparent bg-[#f2f4f7]',
+                                ? 'rounded-ee-[6px] border-[var(--ac-line)] bg-[var(--message-own-bg,#dcf5eb)]'
+                                : 'rounded-es-[6px] border-transparent bg-[var(--message-other-bg,#f2f4f7)]',
                         ].join(
                             ' ',
                         )}
@@ -4721,7 +4426,7 @@ function MessageBubble({
                                         }
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="m-2 mt-0 flex items-center gap-3 rounded-[14px] border border-[var(--ac-line)] bg-white p-3"
+                                        className="m-2 mt-0 flex items-center gap-3 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3"
                                     >
                                         <div className="flex size-10 items-center justify-center rounded-[12px] bg-[var(--ac-accent-soft)]">
                                             <Link2
@@ -4765,7 +4470,7 @@ function MessageBubble({
                     {! message.deleted_at && (
                         <div
                             className={[
-                                'relative z-20 mt-1 flex w-fit items-center gap-1 rounded-full bg-white p-1 text-[var(--ac-text-muted)] transition-opacity [@media(hover:hover)]:absolute [@media(hover:hover)]:top-1/2 [@media(hover:hover)]:mt-0 [@media(hover:hover)]:-translate-y-1/2 [@media(hover:hover)]:bg-transparent',
+                                'relative z-20 mt-1 flex w-fit items-center gap-1 rounded-full bg-[var(--ac-surface)] p-1 text-[var(--ac-text-muted)] transition-opacity [@media(hover:hover)]:absolute [@media(hover:hover)]:top-1/2 [@media(hover:hover)]:mt-0 [@media(hover:hover)]:-translate-y-1/2 [@media(hover:hover)]:bg-transparent',
                                 reactionOpen || menuOpen
                                     ? 'opacity-100'
                                     : '[@media(hover:hover)]:pointer-events-none [@media(hover:hover)]:opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100',
@@ -4802,7 +4507,7 @@ function MessageBubble({
                                 </button>
 
                                 {reactionOpen && (
-                                    <div className="absolute bottom-full start-0 z-30 grid w-[132px] grid-cols-3 gap-1 rounded-2xl border border-[var(--ac-line)] bg-white p-2 shadow-xl">
+                                    <div className="absolute bottom-full start-0 z-30 grid w-[132px] grid-cols-3 gap-1 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2 shadow-xl">
                                         {reactions.map(
                                             (
                                                 reaction,
@@ -4854,7 +4559,8 @@ function MessageBubble({
                                 </button>
 
                                 {menuOpen && (
-                                    <div className="absolute top-[calc(100%+6px)] z-30 min-w-[190px] rounded-[14px] border border-[var(--ac-line)] bg-white p-1.5 shadow-xl ltr:right-0 rtl:left-0">
+                                    <div className="absolute top-[calc(100%+6px)] z-30 min-w-[190px] rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-1.5 shadow-xl ltr:right-0 rtl:left-0">
+                                        <button type="button" onClick={() => { onPin(); setMenuOpen(false); }} className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-start text-[10px] font-semibold"><Pin size={12} />{message.pinned_at ? (ar ? 'إلغاء التثبيت' : 'Unpin') : (ar ? 'تثبيت الرسالة' : 'Pin message')}</button>
                                         {own
                                             && message.body && (
                                             <button
@@ -4964,7 +4670,7 @@ function MessageBubble({
                                         'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] shadow-sm',
                                         item.reacted_by_me
                                             ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
-                                            : 'border-[var(--ac-line)] bg-white',
+                                            : 'border-[var(--ac-line)] bg-[var(--ac-surface)]',
                                     ].join(
                                         ' ',
                                     )}
@@ -4983,12 +4689,13 @@ function MessageBubble({
                         )}
                     </div>
                 )}
+                {own && message.read_by.length > 0 && <span title={message.read_by.join(', ')} className="mt-1 block text-end text-[10px] text-[var(--chat-accent-text,var(--ac-accent-strong))]">{ar ? 'تمت القراءة' : 'Seen'}</span>}
             </div>
             {reactionsDialog && <MessagingDialog title={ar ? 'التفاعلات مع الرسالة' : 'Message reactions'} onClose={() => setReactionsDialog(false)}>
                 <div className="mb-4 flex flex-wrap gap-2">
-                    {['all', ...message.reactions.map((item) => item.reaction)].map((reaction) => <button key={reaction} type="button" aria-pressed={reactionFilter === reaction} onClick={() => setReactionFilter(reaction)} className={`rounded-full border px-3 py-2 text-sm ${reactionFilter === reaction ? 'border-emerald-600 bg-emerald-50' : ''}`}>{reaction === 'all' ? (ar ? 'الكل' : 'All') : reaction}</button>)}
+                    {['all', ...message.reactions.map((item) => item.reaction)].map((reaction) => <button key={reaction} type="button" aria-pressed={reactionFilter === reaction} onClick={() => setReactionFilter(reaction)} className={`rounded-full border px-3 py-2 text-sm ${reactionFilter === reaction ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]' : ''}`}>{reaction === 'all' ? (ar ? 'الكل' : 'All') : reaction}</button>)}
                 </div>
-                <div className="space-y-2">{message.reactions.filter((item) => reactionFilter === 'all' || item.reaction === reactionFilter).flatMap((item) => item.users.map((person) => <div key={`${item.reaction}-${person.id}`} className="flex items-center gap-3 rounded-xl bg-gray-50 p-3"><MemberActions conversationId={message.conversation_id} memberId={person.id} userId={viewerId} name={person.name} ar={ar} onDirect={(id) => { setReactionsDialog(false); onDirect(id); }} onChanged={onMemberChanged}>{initials(person.name)}</MemberActions><span className="flex-1 text-sm">{person.name}</span><span className="text-xl">{item.reaction}</span></div>))}</div>
+                <div className="space-y-2">{message.reactions.filter((item) => reactionFilter === 'all' || item.reaction === reactionFilter).flatMap((item) => item.users.map((person) => <div key={`${item.reaction}-${person.id}`} className="flex items-center gap-3 rounded-xl bg-[var(--ac-surface-soft)] p-3"><MemberActions conversationId={message.conversation_id} memberId={person.id} userId={viewerId} name={person.name} ar={ar} onDirect={(id) => { setReactionsDialog(false); onDirect(id); }} onChanged={onMemberChanged}>{initials(person.name)}</MemberActions><span className="flex-1 text-sm">{person.name}</span><span className="text-xl">{item.reaction}</span></div>))}</div>
                 {message.reactions.filter((item) => item.reacted_by_me).map((item) => <button key={item.reaction} type="button" onClick={() => { onReact(item.reaction); setReactionsDialog(false); }} className="mt-4 text-sm text-red-600">{ar ? 'إزالة تفاعلي' : 'Remove my reaction'} {item.reaction}</button>)}
             </MessagingDialog>}
         </article>
@@ -5046,7 +4753,7 @@ function AttachmentPreview({
     }
 
     return (
-        <div className="min-w-[245px] rounded-[15px] bg-white/70 p-3">
+        <div className="min-w-[245px] rounded-[15px] bg-[var(--ac-surface)]/70 p-3">
             <div className="mb-2 flex items-center gap-2">
                 <FileAudio
                     size={

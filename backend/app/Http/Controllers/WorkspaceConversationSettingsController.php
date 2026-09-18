@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ConversationAdmins;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
@@ -32,7 +33,7 @@ class WorkspaceConversationSettingsController extends Controller
     {
         $row = $this->conversation($request, $conversation);
         $member = DB::table('workspace_conversation_members')->where('conversation_id', $conversation)->where('user_id', $request->user()->id)->first();
-        $isAdmin = (int) $row->created_by === (int) $request->user()->id;
+        $isAdmin = app(ConversationAdmins::class)->contains($row, (int) $request->user()->id);
         $visible = $this->visibleMessages($request, $conversation);
         $muted = $member->notifications_muted && (! $member->notifications_muted_until || Carbon::parse($member->notifications_muted_until)->isFuture());
 
@@ -81,7 +82,7 @@ class WorkspaceConversationSettingsController extends Controller
         $members = DB::table('workspace_conversation_members')->where('conversation_id', $conversation);
         $mine = (clone $members)->where('user_id', $request->user()->id);
         if (in_array($action, ['name', 'avatar'], true)) {
-            abort_unless($row->kind === 'group' && (int) $row->created_by === (int) $request->user()->id, 403);
+            abort_unless(app(ConversationAdmins::class)->contains($row, (int) $request->user()->id), 403);
         }
         if ($action === 'name') {
             $values = $request->validate(['name' => ['required', 'string', 'max:120']]);
@@ -89,9 +90,15 @@ class WorkspaceConversationSettingsController extends Controller
         } elseif ($action === 'avatar') {
             $request->validate(['avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048']]);
             $path = $request->file('avatar')->store('conversation-avatars', 'local');
-            try { DB::table('workspace_conversations')->where('id', $conversation)->update(['avatar_path' => $path, 'updated_at' => now()]); }
-            catch (\Throwable $exception) { Storage::disk('local')->delete($path); throw $exception; }
-            if ($row->avatar_path) { Storage::disk('local')->delete($row->avatar_path); }
+            try {
+                DB::table('workspace_conversations')->where('id', $conversation)->update(['avatar_path' => $path, 'updated_at' => now()]);
+            } catch (\Throwable $exception) {
+                Storage::disk('local')->delete($path);
+                throw $exception;
+            }
+            if ($row->avatar_path) {
+                Storage::disk('local')->delete($row->avatar_path);
+            }
         } elseif ($action === 'theme' || $action === 'emoji') {
             $values = $request->validate(['value' => ['required', Rule::in($action === 'theme' ? ['green', 'blue', 'purple', 'rose', 'dark'] : ['👍', '❤️', '😂', '🎉', '😮', '😢'])]]);
             DB::table('workspace_conversations')->where('id', $conversation)->update([$action === 'theme' ? 'theme' : 'quick_reaction' => $values['value'], 'updated_at' => now()]);
@@ -111,18 +118,21 @@ class WorkspaceConversationSettingsController extends Controller
             abort_unless($message, 404);
             DB::table('workspace_messages')->where('id', $message->id)->update(['pinned_at' => $values['pinned'] ? now() : null]);
         } elseif ($action === 'report') {
+            abort_unless($row->kind === 'group' && ! app(ConversationAdmins::class)->contains($row, (int) $request->user()->id), 422);
             $values = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:2000']]);
             DB::transaction(function () use ($values, $row, $request): void {
                 $id = DB::table('workspace_conversation_reports')->insertGetId(['organization_id' => $row->organization_id, 'conversation_id' => $row->id, 'user_id' => $request->user()->id, 'reason' => $values['reason'], 'created_at' => now(), 'updated_at' => now()]);
-                DB::table('workspace_notifications')->insert(['organization_id' => $row->organization_id, 'user_id' => $row->created_by, 'event_key' => 'conversation-report:'.$id,
-                    'kind' => 'conversation_report', 'category' => 'messages', 'data' => json_encode(['name' => $request->user()->name, 'detail' => $row->name], JSON_THROW_ON_ERROR),
-                    'url' => route('app.team-space', ['conversation' => $row->id]), 'created_at' => now(), 'updated_at' => now()]);
+                foreach (app(ConversationAdmins::class)->query($row)->pluck('cm.user_id') as $adminId) {
+                    DB::table('workspace_notifications')->insert(['organization_id' => $row->organization_id, 'user_id' => $adminId, 'event_key' => 'conversation-report:'.$id,
+                        'kind' => 'conversation_report', 'category' => 'messages', 'data' => json_encode(['name' => $request->user()->name, 'detail' => $row->name], JSON_THROW_ON_ERROR),
+                        'url' => route('app.team-space', ['conversation' => $row->id, 'reports' => 1]), 'created_at' => now(), 'updated_at' => now()]);
+                }
             });
         } elseif ($action === 'leave') {
             abort_unless($row->kind === 'group', 422);
             DB::transaction(function () use ($conversation, $request): void {
                 $locked = DB::table('workspace_conversations')->where('id', $conversation)->lockForUpdate()->first();
-                $next = DB::table('workspace_conversation_members')->where('conversation_id', $conversation)->where('user_id', '!=', $request->user()->id)->orderBy('user_id')->value('user_id');
+                $next = DB::table('workspace_conversation_members')->where('conversation_id', $conversation)->where('user_id', '!=', $request->user()->id)->orderByDesc('is_admin')->orderBy('user_id')->value('user_id');
                 if ((int) $locked->created_by === (int) $request->user()->id && $next) {
                     DB::table('workspace_conversations')->where('id', $conversation)->update(['created_by' => $next, 'updated_at' => now()]);
                 }

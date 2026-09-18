@@ -8,6 +8,7 @@ use App\Models\PaymentRecord;
 use App\Models\Product;
 use App\Models\ServiceOperation;
 use App\Support\InventoryQuantity;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 class NotificationCenter
@@ -16,6 +17,9 @@ class NotificationCenter
     {
         $recipients = DB::table('workspace_conversation_members as cm')->join('memberships as m', 'm.user_id', '=', 'cm.user_id')
             ->where('m.organization_id', $conversation->organization_id)->where('cm.conversation_id', $conversation->id)
+            ->where(function (Builder $query): void {
+                $query->where('cm.notifications_muted', false)->orWhere('cm.notifications_muted_until', '<=', now());
+            })
             ->where('cm.user_id', '!=', $senderId)->pluck('cm.user_id');
         foreach ($recipients as $recipientId) {
             DB::table('workspace_notifications')->insertOrIgnore([

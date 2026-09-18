@@ -8,7 +8,7 @@ import { Bell, Check, CheckCheck, CalendarClock, Package, CircleCheck, ArrowUpRi
 import { useEffect, useState } from 'react';
 
 type Notice = {
-    id: number; kind: 'low_stock' | 'out_of_stock' | 'production' | 'service' | 'payment_due' | 'payment_soon' | 'payment_recorded' | 'message';
+    id: number; kind: 'low_stock' | 'out_of_stock' | 'production' | 'service' | 'payment_due' | 'payment_soon' | 'payment_recorded' | 'message' | 'conversation_report';
     category: 'stock' | 'payments' | 'activity' | 'messages'; data: { name: string; detail?: string; amount?: string };
     url: string; read_at: string | null; created_at: string;
 };

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ConversationAdmins;
 use App\Services\MessageRestrictions;
 use App\Services\NotificationCenter;
 use App\Tenancy\TenantContext;
@@ -335,6 +336,7 @@ class WorkspaceConversationController extends Controller
 
                             'created_by' => (int) $conversation
                                 ->created_by,
+                            'avatar_url' => $conversation->avatar_path ? route('team-space.avatar', ['conversation' => $conversation->id, 'version' => strtotime($conversation->updated_at)]) : null,
 
                             'kind' => $conversation
                                 ->kind,
@@ -1084,6 +1086,9 @@ class WorkspaceConversationController extends Controller
                         'message_id',
                     );
 
+        $readers = DB::table('workspace_conversation_members as cm')->join('users as u', 'u.id', '=', 'cm.user_id')
+            ->where('cm.conversation_id', $row->id)->where('cm.read_receipts', true)->get(['cm.user_id', 'cm.receipt_read_id', 'u.name']);
+
         $serialized =
             $messages
                 ->map(
@@ -1092,6 +1097,7 @@ class WorkspaceConversationController extends Controller
                     ) use (
                         $attachments,
                         $reactions,
+                        $readers,
                         $row,
                         $userId,
                     ): array {
@@ -1181,6 +1187,8 @@ class WorkspaceConversationController extends Controller
                                 ->deleted_at,
 
                             'reactions' => $reactionGroups,
+                            'pinned_at' => $message->pinned_at,
+                            'read_by' => $readers->filter(fn (object $reader): bool => (int) $reader->user_id !== (int) $message->user_id && (int) $reader->receipt_read_id >= (int) $message->id)->pluck('name')->values()->all(),
 
                             'attachments' => $deleted
                                     ? []
@@ -1256,6 +1264,8 @@ class WorkspaceConversationController extends Controller
                 ->update([
                     'last_read_id' => $latestMessageId,
                 ]);
+            DB::table('workspace_conversation_members')->where('conversation_id', $row->id)->where('user_id', $userId)
+                ->where('read_receipts', true)->update(['receipt_read_id' => $latestMessageId]);
             DB::table('workspace_notifications')->where('organization_id', $row->organization_id)->where('user_id', $userId)
                 ->where('event_key', 'like', 'message:'.$row->id.':%')->whereNull('read_at')->update(['read_at' => now(), 'updated_at' => now()]);
 
@@ -1277,6 +1287,7 @@ class WorkspaceConversationController extends Controller
 
                 'created_by' => (int) $row
                     ->created_by,
+                'avatar_url' => $row->avatar_path ? route('team-space.avatar', ['conversation' => $row->id, 'version' => strtotime($row->updated_at)]) : null,
 
                 'kind' => $row
                     ->kind,
@@ -1345,7 +1356,7 @@ class WorkspaceConversationController extends Controller
             'can_manage' => $row
                 ->kind ===
                 'group'
-                && $this->canManageGroups(),
+                && app(ConversationAdmins::class)->contains($row, (int) $request->user()->id),
         ]);
     }
 
@@ -1700,9 +1711,12 @@ class WorkspaceConversationController extends Controller
                     $row
                         ->kind ===
                         'group'
-                    && $this->canManageGroups(),
+                    && app(ConversationAdmins::class)->contains($row, (int) $request->user()->id),
                     403,
                 );
+
+                $adminIds = app(ConversationAdmins::class)->query($row)->pluck('cm.user_id')->map(fn (mixed $id): int => (int) $id)->all();
+                abort_if(array_diff($adminIds, [...array_map('intval', $data['members']), (int) $row->created_by]) !== [], 422, 'Remove the admin role before removing an administrator from the group.');
 
                 $ids =
                     array_values(
@@ -2200,7 +2214,10 @@ class WorkspaceConversationController extends Controller
                 ->get([
                     'users.id',
                     'users.name',
+                    'cm.is_admin',
                 ]);
+
+        $creatorId = (int) DB::table('workspace_conversations')->where('id', $conversationId)->where('kind', 'group')->value('created_by');
 
         $presence =
             $this->presenceMap(
@@ -2222,6 +2239,7 @@ class WorkspaceConversationController extends Controller
                     object $member,
                 ) use (
                     $presence,
+                    $creatorId,
                 ): array {
                     $state =
                         $presence[
@@ -2236,6 +2254,8 @@ class WorkspaceConversationController extends Controller
 
                         'name' => $member
                             ->name,
+
+                        'is_admin' => (bool) $member->is_admin || (int) $member->id === $creatorId,
 
                         'is_online' => (bool) (
                             $state[
