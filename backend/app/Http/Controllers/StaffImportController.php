@@ -126,7 +126,7 @@ class StaffImportController extends Controller
         }
 
         $result = match ($data['type']) {
-            'employees' => $this->importEmployees($request, $records, $data),
+            'employees' => $this->importEmployees($records, $data),
             'attendance' => $this->importAttendance($request, $records, $data),
             'payroll' => $this->importPayroll($request, $records, $data),
         };
@@ -174,7 +174,7 @@ class StaffImportController extends Controller
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function importEmployees(Request $request, array $rows, array $data): array
+    private function importEmployees(array $rows, array $data): array
     {
         $mapping = $data['mapping'];
         $this->requireMappings($mapping, ['name', 'basis', 'rate', 'started_on']);
