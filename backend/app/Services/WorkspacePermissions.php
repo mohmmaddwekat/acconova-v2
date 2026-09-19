@@ -43,10 +43,14 @@ class WorkspacePermissions
         'payments.manage',
 
         'staff.team_view',
+        'staff.team_manage',
+        'staff.team_attendance',
         'staff.team_pay',
         'staff.view',
         'staff.manage',
+        'staff.attendance',
         'staff.pay',
+        'staff.import',
 
         /*
          * Task Management permissions. Every member receives own-task access
