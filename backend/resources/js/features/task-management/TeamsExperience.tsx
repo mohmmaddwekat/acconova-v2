@@ -1,4 +1,7 @@
-import { Link } from '@inertiajs/react';
+import {
+    Link,
+    router,
+} from '@inertiajs/react';
 import {
     Activity,
     ArrowLeft,
@@ -48,6 +51,7 @@ import type {
     Task,
     TaskActivityEvent,
     TaskData,
+    TaskTeam,
 } from './types';
 
 export type TeamsView =
@@ -71,53 +75,20 @@ type UiTeam = {
     projects: Project[];
     tasks: Task[];
     workload: number;
+    department?: string | null;
+    capacity: number;
+    priority: 'low' | 'medium' | 'high';
 };
 
-const presets: Array<{
-    id: number;
-    nameAr: string;
-    nameEn: string;
-    descriptionAr: string;
-    descriptionEn: string;
+const teamVisuals: Array<{
     tone: TeamTone;
     Icon: LucideIcon;
 }> = [
-    {
-        id: 1,
-        nameAr: 'فريق الواجهة الأمامية',
-        nameEn: 'Frontend team',
-        descriptionAr: 'تطوير واجهات المستخدم وتجربة الاستخدام',
-        descriptionEn: 'Frontend and user experience development',
-        tone: 'blue',
-        Icon: Code2,
-    },
-    {
-        id: 2,
-        nameAr: 'فريق الخلفية',
-        nameEn: 'Backend team',
-        descriptionAr: 'الخدمات وقواعد البيانات والتكاملات',
-        descriptionEn: 'Services, databases and integrations',
-        tone: 'green',
-        Icon: Layers3,
-    },
-    {
-        id: 3,
-        nameAr: 'فريق التطبيقات المحمولة',
-        nameEn: 'Mobile applications team',
-        descriptionAr: 'تطوير تطبيقات الجوال عبر المنصات',
-        descriptionEn: 'Cross-platform mobile application development',
-        tone: 'green',
-        Icon: Smartphone,
-    },
-    {
-        id: 4,
-        nameAr: 'فريق ضمان الجودة',
-        nameEn: 'Quality assurance team',
-        descriptionAr: 'الاختبار وضمان الجودة',
-        descriptionEn: 'Testing and quality assurance',
-        tone: 'amber',
-        Icon: ShieldCheck,
-    },
+    { tone: 'blue', Icon: Code2 },
+    { tone: 'green', Icon: Layers3 },
+    { tone: 'green', Icon: Smartphone },
+    { tone: 'amber', Icon: ShieldCheck },
+    { tone: 'purple', Icon: UsersRound },
 ];
 
 const toneClasses: Record<TeamTone, string> = {
@@ -129,8 +100,7 @@ const toneClasses: Record<TeamTone, string> = {
 
 /**
  * Render the Teams UI family: teams list, create, team details and member
- * management. The first delivery is intentionally UI-only and derives its
- * preview data from the existing task/staff/project payload.
+ * management using the persisted teams returned by Task Management.
  */
 export function TeamsExperience({
     view,
@@ -149,7 +119,7 @@ export function TeamsExperience({
         () => buildTeams(data, tasks),
         [data, tasks],
     );
-    const selected = teams.find((team: UiTeam) => team.id === teamId) ?? teams[0];
+    const selected = teams.find((team: UiTeam) => team.id === teamId) ?? null;
 
     if (view === 'teams-create') {
         return (
@@ -161,21 +131,25 @@ export function TeamsExperience({
     }
 
     if (view === 'teams-members') {
-        return (
+        return selected ? (
             <TeamMembersSurface
                 team={selected}
                 ar={ar}
             />
+        ) : (
+            <MissingTeam ar={ar} />
         );
     }
 
     if (view === 'teams-detail') {
-        return (
+        return selected ? (
             <TeamDetailSurface
                 team={selected}
                 data={data}
                 ar={ar}
             />
+        ) : (
+            <MissingTeam ar={ar} />
         );
     }
 
@@ -190,47 +164,77 @@ export function TeamsExperience({
 }
 
 /**
- * Derive presentational teams from the real staff/projects/tasks payload.
- * Persistence and assignment rules are deliberately left for the backend
- * phase so this UI can ship without changing the accounting/domain model.
+ * Join persisted team records with the current member/project/task payload.
  */
 function buildTeams(
     data: TaskData,
     tasks: Task[],
 ): UiTeam[] {
-    const membersByTeam = presets.map(() => [] as Member[]);
-    const projectsByTeam = presets.map(() => [] as Project[]);
-
-    data.members.forEach((member: Member, index: number) => {
-        membersByTeam[index % presets.length].push(member);
-    });
-
-    data.projects.forEach((project: Project, index: number) => {
-        projectsByTeam[index % presets.length].push(project);
-    });
-
-    return presets.map((preset, index: number) => {
-        const members = membersByTeam[index];
-        const memberIds = new Set(members.map((member: Member) => member.id));
+    return (data.teams ?? []).map((team: TaskTeam, index: number) => {
+        const visual = teamVisuals[index % teamVisuals.length];
+        const members = data.members.filter(
+            (member: Member) => team.member_ids.includes(member.id),
+        );
+        const memberIds = new Set(team.member_ids);
+        const projects = data.projects.filter(
+            (project: Project) => team.project_ids.includes(project.id),
+        );
+        const projectIds = new Set(team.project_ids);
         const teamTasks = tasks.filter((task: Task) => (
             task.assignees.some((id: number) => memberIds.has(id))
+            || (task.project_id !== null && projectIds.has(task.project_id))
         ));
         const active = teamTasks.filter((task: Task) => task.status !== 'completed');
-        const capacity = Math.max(1, members.length * 4);
         const workload = Math.min(
             100,
-            Math.round(active.length / capacity * 100),
+            Math.round(active.length / Math.max(1, team.capacity) * 25),
         );
 
         return {
-            ...preset,
+            id: team.id,
+            nameAr: team.name,
+            nameEn: team.name,
+            descriptionAr: team.description ?? '',
+            descriptionEn: team.description ?? '',
+            tone: visual.tone,
+            Icon: visual.Icon,
             members,
-            leader: members[0],
-            projects: projectsByTeam[index],
+            leader: data.members.find((member: Member) => member.id === team.leader_id),
+            projects,
             tasks: teamTasks,
             workload,
+            department: team.department,
+            capacity: team.capacity,
+            priority: team.priority,
         };
     });
+}
+
+function MissingTeam({
+    ar,
+}: {
+    ar: boolean;
+}) {
+    return (
+        <Panel
+            title={ar ? 'الفريق غير موجود' : 'Team not found'}
+            icon={UsersRound}
+        >
+            <div className="py-8 text-center">
+                <p className="text-xs text-slate-400">
+                    {ar
+                        ? 'لم يتم العثور على هذا الفريق ضمن نطاق صلاحياتك.'
+                        : 'This team was not found in your permission scope.'}
+                </p>
+                <Link
+                    href={base + '/teams'}
+                    className={button + ' mt-4'}
+                >
+                    {ar ? 'العودة إلى الفرق' : 'Back to teams'}
+                </Link>
+            </div>
+        </Panel>
+    );
 }
 
 function TeamsHub({
@@ -253,9 +257,20 @@ function TeamsHub({
         ),
     );
     const [department, setDepartment] = useState(departments[0] ?? '');
-    const activeProjects = data.projects.length;
-    const averageWorkload = teams.length
-        ? Math.round(teams.reduce((sum: number, team: UiTeam) => sum + team.workload, 0) / teams.length)
+    const visibleTeams = department
+        ? teams.filter((team: UiTeam) => team.department === department)
+        : teams;
+    const visibleProjectIds = new Set(
+        visibleTeams.flatMap((team: UiTeam) => team.projects.map((project: Project) => project.id)),
+    );
+    const activeProjects = visibleProjectIds.size;
+    const averageWorkload = visibleTeams.length
+        ? Math.round(
+              visibleTeams.reduce(
+                  (sum: number, team: UiTeam) => sum + team.workload,
+                  0,
+              ) / visibleTeams.length,
+          )
         : 0;
 
     return (
@@ -291,13 +306,17 @@ function TeamsHub({
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <Stat
                     title={text('إجمالي الفرق', 'Total teams')}
-                    value={teams.length}
+                    value={visibleTeams.length}
                     icon={UsersRound}
                     hint={text('فرق داخل القسم', 'Teams in this department')}
                 />
                 <Stat
                     title={text('إجمالي أعضاء القسم', 'Department members')}
-                    value={data.members.length}
+                    value={
+                        department
+                            ? data.members.filter((member: Member) => member.department === department).length
+                            : data.members.length
+                    }
                     icon={UserRoundPlus}
                     hint={text('موظفون ضمن نطاقك', 'Members in your scope')}
                 />
@@ -322,7 +341,7 @@ function TeamsHub({
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,2.2fr)_minmax(300px,.8fr)]">
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {teams.map((team: UiTeam) => (
+                    {visibleTeams.map((team: UiTeam) => (
                         <TeamCard
                             key={team.id}
                             team={team}
@@ -356,8 +375,12 @@ function TeamsHub({
                         icon={UsersRound}
                     >
                         <TeamDistribution
-                            teams={teams}
-                            total={data.members.length}
+                            teams={visibleTeams}
+                            total={
+                                department
+                                    ? data.members.filter((member: Member) => member.department === department).length
+                                    : data.members.length
+                            }
                             ar={ar}
                         />
                     </Panel>
@@ -367,7 +390,7 @@ function TeamsHub({
                         icon={Gauge}
                     >
                         <div className="space-y-4">
-                            {teams.map((team: UiTeam) => (
+                            {visibleTeams.map((team: UiTeam) => (
                                 <div key={team.id}>
                                     <div className="mb-2 flex items-center justify-between text-[10px]">
                                         <span>{ar ? team.nameAr : team.nameEn}</span>
