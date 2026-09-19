@@ -749,8 +749,29 @@ export function TaskEditor({
                                 {canUpload ? (
                                     <>
                                         <div
-                                            className="rounded-xl border border-dashed border-blue-200 bg-blue-50/30 p-5 text-center"
-                                            onDragOver={(event) => event.preventDefault()}
+                                            className="cursor-pointer rounded-xl border border-dashed border-blue-200 bg-blue-50/30 p-5 text-center transition hover:border-blue-300 hover:bg-blue-50/60"
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => {
+                                                if (! busy) {
+                                                    fileInput.current?.click();
+                                                }
+                                            }}
+                                            onKeyDown={(event) => {
+                                                if (
+                                                    ! busy
+                                                    && (
+                                                        event.key === 'Enter'
+                                                        || event.key === ' '
+                                                    )
+                                                ) {
+                                                    event.preventDefault();
+                                                    fileInput.current?.click();
+                                                }
+                                            }}
+                                            onDragOver={(event) => {
+                                                event.preventDefault();
+                                            }}
                                             onDrop={(event) => {
                                                 event.preventDefault();
                                                 if (! busy) {
@@ -762,16 +783,12 @@ export function TaskEditor({
                                                 size={27}
                                                 className="mx-auto text-blue-400"
                                             />
-                                            <button
-                                                type="button"
-                                                className="my-2 text-[11px] font-semibold text-blue-500"
-                                                onClick={() => fileInput.current?.click()}
-                                            >
+                                            <span className="my-2 block text-[11px] font-semibold text-blue-500">
                                                 {text(
-                                                    'اسحب الملفات أو اختر من جهازك',
-                                                    'Drop files or browse',
+                                                    'اسحب الملفات هنا أو اضغط لاختيارها من جهازك',
+                                                    'Drop files here or click to browse',
                                                 )}
-                                            </button>
+                                            </span>
                                             <p className="text-[9px] text-slate-400">
                                                 20 MB · {text('10 ملفات كحد أقصى', 'Up to 10 files')}
                                             </p>
@@ -787,6 +804,20 @@ export function TaskEditor({
                                                 }}
                                             />
                                         </div>
+
+                                        {files.length > 0 && (
+                                            <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-[9px] leading-5 text-blue-600">
+                                                {record
+                                                    ? text(
+                                                        'تم تجهيز الملفات. سيتم رفعها عند حفظ تعديلات المهمة.',
+                                                        'Files are queued and will upload when you save the task.',
+                                                    )
+                                                    : text(
+                                                        'تم تجهيز الملفات. سيتم رفعها بعد إنشاء المهمة.',
+                                                        'Files are queued and will upload after the task is created.',
+                                                    )}
+                                            </p>
+                                        )}
 
                                         <div className="mt-3 space-y-2">
                                             {files.map((file: File, index: number) => (
