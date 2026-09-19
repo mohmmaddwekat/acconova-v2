@@ -2857,16 +2857,29 @@ function TeamMembersSurface({
                         title={text('سعة الفريق', 'Team capacity')}
                         icon={Gauge}
                     >
-                        <div className="mb-3 flex items-center justify-between">
-                            <div>
-                                <strong className="text-xl">{averageWorkload}%</strong>
-                                <p className="text-[9px] text-slate-400">
-                                    {text('متوسط نسبة الانشغال', 'Average utilization')}
+                        {permissions.includes('teams.view_workload') ? (
+                            <>
+                                <div className="mb-3 flex items-center justify-between">
+                                    <div>
+                                        <strong className="text-xl">{averageWorkload}%</strong>
+                                        <p className="text-[9px] text-slate-400">
+                                            {text('متوسط نسبة الانشغال', 'Average utilization')}
+                                        </p>
+                                    </div>
+                                    <Gauge size={27} className="text-blue-500" />
+                                </div>
+                                <Progress value={averageWorkload} label={false} />
+                            </>
+                        ) : (
+                            <div className="mb-3 rounded-lg bg-slate-50 p-3">
+                                <p className="text-[10px] text-slate-400">
+                                    {text(
+                                        'تحليلات عبء العمل مخفية حسب صلاحيات دورك.',
+                                        'Workload analytics are hidden by your role permissions.',
+                                    )}
                                 </p>
                             </div>
-                            <Gauge size={27} className="text-blue-500" />
-                        </div>
-                        <Progress value={averageWorkload} label={false} />
+                        )}
                         <div className="mt-3 flex justify-between text-[10px] text-slate-400">
                             <span>
                                 {team.members.length} / {team.capacity}
@@ -2886,54 +2899,70 @@ function TeamMembersSurface({
                         icon={Sparkles}
                     >
                         <div className="grid gap-2">
-                            <button
-                                type="button"
-                                className={button}
-                                disabled={team.members.length >= team.capacity}
-                                onClick={() => {
-                                    setCandidateId('');
-                                    setAddOpen(true);
-                                }}
-                            >
-                                <Plus size={14} />
-                                {text('إضافة عضو جديد', 'Add member')}
-                            </button>
-                            <button
-                                type="button"
-                                className={button}
-                                disabled={team.members.length <= 1 || ! targetTeams.length}
-                                onClick={() => {
-                                    setTransferMemberId('');
-                                    setTargetTeamId('');
-                                    setTransferOpen(true);
-                                }}
-                            >
-                                <UsersRound size={14} />
-                                {text('نقل عضو إلى فريق آخر', 'Move member')}
-                            </button>
-                            <button
-                                type="button"
-                                className={button}
-                                onClick={() => {
-                                    setLeadId(String(team.leader?.id ?? ''));
-                                    setLeadOpen(true);
-                                }}
-                            >
-                                <Crown size={14} />
-                                {text('تعيين قائد للفريق', 'Assign team lead')}
-                            </button>
-                            <button
-                                type="button"
-                                className="tm-button border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600"
-                                disabled={team.members.filter((member: Member) => member.id !== team.leader?.id).length === 0}
-                                onClick={() => {
-                                    setRemoveId('');
-                                    setRemoveOpen(true);
-                                }}
-                            >
-                                <X size={14} />
-                                {text('إزالة عضو من الفريق', 'Remove member')}
-                            </button>
+                            {can('teams.members.manage') && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className={button}
+                                        disabled={team.members.length >= team.capacity}
+                                        onClick={() => {
+                                            setCandidateId('');
+                                            setAddOpen(true);
+                                        }}
+                                    >
+                                        <Plus size={14} />
+                                        {text('إضافة عضو جديد', 'Add member')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={button}
+                                        disabled={team.members.length <= 1 || ! targetTeams.length}
+                                        onClick={() => {
+                                            setTransferMemberId('');
+                                            setTargetTeamId('');
+                                            setTransferOpen(true);
+                                        }}
+                                    >
+                                        <UsersRound size={14} />
+                                        {text('نقل عضو إلى فريق آخر', 'Move member')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="tm-button border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600"
+                                        disabled={team.members.filter((member: Member) => member.id !== team.leader?.id).length === 0}
+                                        onClick={() => {
+                                            setRemoveId('');
+                                            setRemoveOpen(true);
+                                        }}
+                                    >
+                                        <X size={14} />
+                                        {text('إزالة عضو من الفريق', 'Remove member')}
+                                    </button>
+                                </>
+                            )}
+
+                            {can('teams.lead.manage') && (
+                                <button
+                                    type="button"
+                                    className={button}
+                                    onClick={() => {
+                                        setLeadId(String(team.leader?.id ?? ''));
+                                        setLeadOpen(true);
+                                    }}
+                                >
+                                    <Crown size={14} />
+                                    {text('تعيين قائد للفريق', 'Assign team lead')}
+                                </button>
+                            )}
+
+                            {! can('teams.members.manage') && ! can('teams.lead.manage') && (
+                                <p className="rounded-lg bg-slate-50 p-3 text-[10px] leading-5 text-slate-400">
+                                    {text(
+                                        'هذه الصفحة للعرض فقط حسب صلاحيات دورك.',
+                                        'This page is read-only under your current role permissions.',
+                                    )}
+                                </p>
+                            )}
                         </div>
                     </Panel>
 
