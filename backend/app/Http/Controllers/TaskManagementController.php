@@ -2808,7 +2808,10 @@ class TaskManagementController extends Controller
          * migration is present.
          */
         if (
-            TaskAccess::canViewTeam()
+            TaskAccess::allowed(
+                'teams.view',
+                $request->user(),
+            )
             && Schema::hasTable(
                 'task_teams',
             )
