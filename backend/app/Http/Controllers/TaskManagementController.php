@@ -1983,7 +1983,6 @@ class TaskManagementController extends Controller
                 'target_team_id' => [
                     'required',
                     'integer',
-                    'different:team',
 
                     Rule::exists(
                         'task_teams',
