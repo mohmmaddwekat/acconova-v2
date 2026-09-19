@@ -2563,29 +2563,41 @@ function RoleWorkspace() {
 
                                                         {group.key ===
                                                             'staff' && (
-                                                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                                                            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                                                                 <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
                                                                     <strong className="block text-[var(--ac-text)]">
-                                                                        {
-                                                                            copy.departmentScope
-                                                                        }
+                                                                        {ar ? 'النظرة العامة والدليل' : 'Overview & directory'}
                                                                     </strong>
-
                                                                     {ar
-                                                                        ? 'للشخص الذي يدير قسمًا محددًا في هيكل الفريق.'
-                                                                        : 'For members who manage a department.'}
+                                                                        ? 'staff.team_view يعرض موظفي القسم فقط، وstaff.view يعرض كل موظفي الشركة.'
+                                                                        : 'staff.team_view is department-scoped; staff.view covers the full company.'}
                                                                 </div>
 
                                                                 <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
                                                                     <strong className="block text-[var(--ac-text)]">
-                                                                        {
-                                                                            copy.allCompany
-                                                                        }
+                                                                        {ar ? 'صفحة الحضور' : 'Attendance page'}
                                                                     </strong>
-
                                                                     {ar
-                                                                        ? 'صلاحيات على جميع موظفي مساحة العمل.'
-                                                                        : 'Authority across all workspace employees.'}
+                                                                        ? 'تحتاج staff.team_attendance للقسم أو staff.attendance لكل الشركة.'
+                                                                        : 'Requires staff.team_attendance for a department or staff.attendance company-wide.'}
+                                                                </div>
+
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {ar ? 'الرواتب والمستحقات' : 'Payroll & balances'}
+                                                                    </strong>
+                                                                    {ar
+                                                                        ? 'الأرقام المالية تظهر فقط مع staff.team_pay أو staff.pay.'
+                                                                        : 'Financial employee totals require staff.team_pay or staff.pay.'}
+                                                                </div>
+
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {ar ? 'إدارة الملفات' : 'Profile management'}
+                                                                    </strong>
+                                                                    {ar
+                                                                        ? 'التعديل والإضافة يحتاجان staff.team_manage أو staff.manage حسب النطاق.'
+                                                                        : 'Creating and editing profiles requires staff.team_manage or staff.manage for the relevant scope.'}
                                                                 </div>
                                                             </div>
                                                         )}

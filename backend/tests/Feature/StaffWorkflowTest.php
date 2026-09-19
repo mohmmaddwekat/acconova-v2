@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\OrganizationRole;
+use App\Models\Department;
 use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
@@ -111,4 +112,77 @@ class StaffWorkflowTest extends TestCase
         $this->postJson('/api/payment-plans', ['title' => 'Salary', 'direction' => 'outgoing', 'amount' => '100', 'currency' => 'AED', 'frequency' => 'monthly', 'interval_count' => 1, 'next_due_on' => '2026-01-01', 'reminder_days' => 3])->assertCreated();
         $this->patchJson('/api/workspace-settings', ['currency' => 'BADCODE', 'reminder_days' => 3])->assertUnprocessable();
     }
+
+    public function test_staff_overview_returns_scoped_people_attendance_and_payroll_metrics(): void
+    {
+        $this->workspace();
+
+        $department = Department::create([
+            'name' => 'Sales',
+        ]);
+
+        $active =
+            $this->employee([
+                'name' => 'Active Worker',
+                'basis' => 'month',
+                'rate' => '1200',
+                'monthly_allowance' => '100',
+                'department_id' => $department->id,
+            ]);
+
+        $this->employee([
+            'name' => 'Inactive Worker',
+            'department_id' => $department->id,
+            'active' => false,
+        ]);
+
+        $this
+            ->postJson(
+                '/api/staff/'.$active.'/attendance',
+                [
+                    'occurred_on' => today()->toDateString(),
+                    'status' => 'present',
+                    'quantity' => '1',
+                    'overtime_hours' => '2',
+                    'overtime_rate' => '10',
+                    'notes' => 'Overview test',
+                ],
+            )
+            ->assertCreated();
+
+        $this
+            ->getJson(
+                '/api/staff-overview',
+            )
+            ->assertOk()
+            ->assertJsonPath(
+                'totals.employees',
+                2,
+            )
+            ->assertJsonPath(
+                'totals.active',
+                1,
+            )
+            ->assertJsonPath(
+                'totals.inactive',
+                1,
+            )
+            ->assertJsonPath(
+                'attendance.present_today',
+                1,
+            )
+            ->assertJsonPath(
+                'attendance.month_overtime_hours',
+                2,
+            )
+            ->assertJsonPath(
+                'permissions.can_pay',
+                true,
+            )
+            ->assertJsonPath(
+                'payroll.0.monthly_commitment',
+                1300,
+            );
+    }
+
 }

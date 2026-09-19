@@ -174,10 +174,58 @@ Route::middleware([
     Route::get(
         '/app/staff',
         fn () => Inertia::render(
-            'Staff',
+            'StaffHub',
+            [
+                'staffView' => 'overview',
+            ],
         ),
     )->name(
         'app.staff',
+    );
+
+    Route::get(
+        '/app/staff/directory',
+        fn () => Inertia::render(
+            'Staff',
+        ),
+    )->name(
+        'app.staff.directory',
+    );
+
+    Route::get(
+        '/app/staff/attendance',
+        fn () => Inertia::render(
+            'StaffHub',
+            [
+                'staffView' => 'attendance',
+            ],
+        ),
+    )->name(
+        'app.staff.attendance',
+    );
+
+    Route::get(
+        '/app/staff/payroll',
+        fn () => Inertia::render(
+            'StaffHub',
+            [
+                'staffView' => 'payroll',
+            ],
+        ),
+    )->name(
+        'app.staff.payroll',
+    );
+
+    Route::get(
+        '/app/staff/insights',
+        fn () => Inertia::render(
+            'StaffHub',
+            [
+                'staffView' => 'insights',
+            ],
+        ),
+    )->name(
+        'app.staff.insights',
     );
 
     Route::get(
@@ -368,6 +416,14 @@ Route::prefix(
             [
                 StaffController::class,
                 'index',
+            ],
+        );
+
+        Route::get(
+            'staff-overview',
+            [
+                StaffController::class,
+                'overview',
             ],
         );
 

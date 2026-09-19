@@ -457,6 +457,550 @@ class StaffController extends Controller
     }
 
     /**
+     * Return the organization-scoped people overview used by the dedicated
+     * employee dashboard, attendance, payroll and insights pages.
+     */
+    public function overview(
+        Request $request,
+    ): JsonResponse {
+        $query =
+            StaffMember::query();
+
+        if (
+            ! self::allowed(
+                'staff.view',
+            )
+        ) {
+            $query->where(
+                function (
+                    $query,
+                ) use (
+                    $request,
+                ): void {
+                    $query->where(
+                        'user_id',
+                        $request
+                            ->user()
+                            ->id,
+                    );
+
+                    if (
+                        self::hasTeamScope()
+                    ) {
+                        $query->orWhereIn(
+                            'department_id',
+                            self::managedDepartmentIds(),
+                        );
+                    }
+                },
+            );
+        }
+
+        $members =
+            $query
+                ->withSum(
+                    [
+                        'entries as balance' => fn ($query) => $query->where(
+                            'kind',
+                            '!=',
+                            'terms',
+                        ),
+                    ],
+                    'amount',
+                )
+                ->orderBy(
+                    'name',
+                )
+                ->get();
+
+        $memberIds =
+            $members
+                ->pluck(
+                    'id',
+                );
+
+        $departments =
+            Department::query()
+                ->orderBy(
+                    'name',
+                )
+                ->get([
+                    'id',
+                    'name',
+                    'manager_id',
+                ]);
+
+        $departmentNames =
+            $departments
+                ->pluck(
+                    'name',
+                    'id',
+                );
+
+        $active =
+            $members->where(
+                'active',
+                true,
+            );
+
+        $canAttendance =
+            self::allowed(
+                'staff.attendance',
+            )
+            || self::allowed(
+                'staff.team_attendance',
+            );
+
+        $canPay =
+            self::allowed(
+                'staff.pay',
+            )
+            || self::allowed(
+                'staff.team_pay',
+            );
+
+        $attendanceToday =
+            collect();
+
+        $monthAttendance =
+            collect();
+
+        if (
+            $canAttendance
+            && $memberIds->isNotEmpty()
+        ) {
+            $attendanceToday =
+                DB::table(
+                    'staff_attendances',
+                )
+                    ->whereIn(
+                        'staff_member_id',
+                        $memberIds,
+                    )
+                    ->whereDate(
+                        'occurred_on',
+                        today(),
+                    )
+                    ->get();
+
+            $monthAttendance =
+                DB::table(
+                    'staff_attendances',
+                )
+                    ->whereIn(
+                        'staff_member_id',
+                        $memberIds,
+                    )
+                    ->whereBetween(
+                        'occurred_on',
+                        [
+                            today()
+                                ->startOfMonth()
+                                ->toDateString(),
+
+                            today()
+                                ->endOfMonth()
+                                ->toDateString(),
+                        ],
+                    )
+                    ->get();
+        }
+
+        $todayByMember =
+            $attendanceToday
+                ->keyBy(
+                    'staff_member_id',
+                );
+
+        $attendanceRows =
+            $active
+                ->map(
+                    function (
+                        StaffMember $member,
+                    ) use (
+                        $todayByMember,
+                        $departmentNames,
+                    ): array {
+                        $row =
+                            $todayByMember->get(
+                                $member->id,
+                            );
+
+                        return [
+                            'id' => (int) $member->id,
+
+                            'name' => $member->name,
+
+                            'job_title' => $member->job_title,
+
+                            'department' => $member->department_id !== null
+                                ? $departmentNames->get(
+                                    $member->department_id,
+                                )
+                                : null,
+
+                            'status' => $row?->status,
+
+                            'quantity' => $row?->quantity !== null
+                                ? (string) $row->quantity
+                                : null,
+
+                            'overtime_hours' => $row?->overtime_hours !== null
+                                ? (string) $row->overtime_hours
+                                : '0',
+                        ];
+                    },
+                )
+                ->values();
+
+        $monthPresent =
+            $monthAttendance
+                ->where(
+                    'status',
+                    'present',
+                )
+                ->count();
+
+        $monthAbsent =
+            $monthAttendance
+                ->where(
+                    'status',
+                    'absent',
+                )
+                ->count();
+
+        $monthOvertime =
+            $monthAttendance
+                ->sum(
+                    fn (
+                        object $row,
+                    ): float => (float) $row->overtime_hours,
+                );
+
+        $byDepartment =
+            $members
+                ->groupBy(
+                    fn (
+                        StaffMember $member,
+                    ): string => (string) (
+                        $member->department_id
+                        ?? 0
+                    ),
+                )
+                ->map(
+                    function (
+                        $group,
+                        string $departmentId,
+                    ) use (
+                        $departmentNames,
+                    ): array {
+                        $id =
+                            (int) $departmentId;
+
+                        return [
+                            'id' => $id > 0
+                                ? $id
+                                : null,
+
+                            'name' => $id > 0
+                                ? (
+                                    $departmentNames->get(
+                                        $id,
+                                    )
+                                    ?? '—'
+                                )
+                                : '—',
+
+                            'total' => $group->count(),
+
+                            'active' => $group
+                                ->where(
+                                    'active',
+                                    true,
+                                )
+                                ->count(),
+                        ];
+                    },
+                )
+                ->sortByDesc(
+                    'total',
+                )
+                ->values();
+
+        $byBasis =
+            $members
+                ->groupBy(
+                    'basis',
+                )
+                ->map(
+                    fn (
+                        $group,
+                        string $basis,
+                    ): array => [
+                        'basis' => $basis,
+
+                        'total' => $group->count(),
+                    ],
+                )
+                ->values();
+
+        $tenureMonths =
+            $members
+                ->map(
+                    fn (
+                        StaffMember $member,
+                    ): int => CarbonImmutable::parse(
+                        $member->started_on,
+                    )->diffInMonths(
+                        today(),
+                    ),
+                );
+
+        $recentHires =
+            $members
+                ->sortByDesc(
+                    'started_on',
+                )
+                ->take(
+                    6,
+                )
+                ->map(
+                    fn (
+                        StaffMember $member,
+                    ): array => [
+                        'id' => (int) $member->id,
+
+                        'name' => $member->name,
+
+                        'job_title' => $member->job_title,
+
+                        'department' => $member->department_id !== null
+                            ? $departmentNames->get(
+                                $member->department_id,
+                            )
+                            : null,
+
+                        'started_on' => (string) $member->started_on,
+
+                        'active' => (bool) $member->active,
+
+                        'linked_account' => $member->user_id !== null,
+                    ],
+                )
+                ->values();
+
+        $payroll =
+            collect();
+
+        if ($canPay) {
+            $payroll =
+                $members
+                    ->groupBy(
+                        'currency',
+                    )
+                    ->map(
+                        function (
+                            $group,
+                            string $currency,
+                        ): array {
+                            $monthly =
+                                $group->where(
+                                    'active',
+                                    true,
+                                );
+
+                            $monthlyBase =
+                                $monthly
+                                    ->where(
+                                        'basis',
+                                        'month',
+                                    )
+                                    ->sum(
+                                        fn (
+                                            StaffMember $member,
+                                        ): float => (float) $member->rate,
+                                    );
+
+                            $allowances =
+                                $monthly->sum(
+                                    fn (
+                                        StaffMember $member,
+                                    ): float => (float) $member->monthly_allowance,
+                                );
+
+                            $balance =
+                                $group->sum(
+                                    fn (
+                                        StaffMember $member,
+                                    ): float => (float) (
+                                        $member->balance
+                                        ?? 0
+                                    ),
+                                );
+
+                            return [
+                                'currency' => $currency,
+
+                                'monthly_base' => round(
+                                    $monthlyBase,
+                                    4,
+                                ),
+
+                                'monthly_allowances' => round(
+                                    $allowances,
+                                    4,
+                                ),
+
+                                'monthly_commitment' => round(
+                                    $monthlyBase
+                                    + $allowances,
+                                    4,
+                                ),
+
+                                'balance' => round(
+                                    $balance,
+                                    4,
+                                ),
+
+                                'positive_balance' => round(
+                                    $group->sum(
+                                        fn (
+                                            StaffMember $member,
+                                        ): float => max(
+                                            0,
+                                            (float) (
+                                                $member->balance
+                                                ?? 0
+                                            ),
+                                        ),
+                                    ),
+                                    4,
+                                ),
+
+                                'negative_balance' => round(
+                                    $group->sum(
+                                        fn (
+                                            StaffMember $member,
+                                        ): float => min(
+                                            0,
+                                            (float) (
+                                                $member->balance
+                                                ?? 0
+                                            ),
+                                        ),
+                                    ),
+                                    4,
+                                ),
+                            ];
+                        },
+                    )
+                    ->values();
+        }
+
+        return response()->json([
+            'permissions' => [
+                'can_view' => self::allowed(
+                    'staff.view',
+                )
+                    || self::hasTeamScope(),
+
+                'can_manage' => self::allowed(
+                    'staff.manage',
+                )
+                    || self::allowed(
+                        'staff.team_manage',
+                    ),
+
+                'can_attendance' => $canAttendance,
+
+                'can_pay' => $canPay,
+            ],
+
+            'totals' => [
+                'employees' => $members->count(),
+
+                'active' => $active->count(),
+
+                'inactive' => $members
+                    ->where(
+                        'active',
+                        false,
+                    )
+                    ->count(),
+
+                'linked_accounts' => $members
+                    ->whereNotNull(
+                        'user_id',
+                    )
+                    ->count(),
+
+                'without_department' => $members
+                    ->whereNull(
+                        'department_id',
+                    )
+                    ->count(),
+
+                'departments' => $byDepartment
+                    ->whereNotNull(
+                        'id',
+                    )
+                    ->count(),
+
+                'average_tenure_months' => $tenureMonths->isNotEmpty()
+                    ? (int) round(
+                        $tenureMonths->average(),
+                    )
+                    : 0,
+            ],
+
+            'departments' => $byDepartment,
+
+            'pay_basis' => $byBasis,
+
+            'recent_hires' => $recentHires,
+
+            'attendance' => [
+                'date' => today()->toDateString(),
+
+                'present_today' => $attendanceToday
+                    ->where(
+                        'status',
+                        'present',
+                    )
+                    ->count(),
+
+                'absent_today' => $attendanceToday
+                    ->where(
+                        'status',
+                        'absent',
+                    )
+                    ->count(),
+
+                'missing_today' => max(
+                    0,
+                    $active->count()
+                    - $attendanceToday->count(),
+                ),
+
+                'month_present_records' => $monthPresent,
+
+                'month_absent_records' => $monthAbsent,
+
+                'month_overtime_hours' => round(
+                    $monthOvertime,
+                    4,
+                ),
+
+                'rows' => $canAttendance
+                    ? $attendanceRows
+                    : [],
+            ],
+
+            'payroll' => $payroll,
+        ]);
+    }
+
+    /**
      * Validate the Staff profile fields accepted by create/update.
      */
     private function rules(): array
