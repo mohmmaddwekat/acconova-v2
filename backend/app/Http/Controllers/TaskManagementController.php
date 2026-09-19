@@ -4192,12 +4192,21 @@ class TaskManagementController extends Controller
                 Rule::exists(
                     'task_projects',
                     'id',
-                )->where(
-                    'organization_id',
-                    app(
-                        TenantContext::class,
-                    )->id(),
-                ),
+                )
+                    ->where(
+                        'organization_id',
+                        app(
+                            TenantContext::class,
+                        )->id(),
+                    )
+                    ->whereNull(
+                        'deleted_at',
+                    )
+                    ->where(
+                        'status',
+                        '!=',
+                        'archived',
+                    ),
             ],
 
             'department_id' => [
