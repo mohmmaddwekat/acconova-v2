@@ -1512,15 +1512,26 @@ function TeamDetailSurface({
     team,
     data,
     ar,
+    permissions,
     onChanged,
 }: {
     team: UiTeam;
     data: TaskData;
     ar: boolean;
+    permissions: string[];
     onChanged: () => void;
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const can = (permission: string): boolean => canManageTeam(team, permissions, permission);
     const Icon = team.Icon;
+    const allTeams = buildTeams(data, data.tasks);
+    const descendants = new Set(collectDescendantIds(allTeams, team.id));
+    const immediateChildren = allTeams.filter((item: UiTeam) => item.parentTeamId === team.id);
+    const parentOptions = allTeams.filter((item: UiTeam) => (
+        item.id !== team.id
+        && item.departmentId === team.departmentId
+        && ! descendants.has(item.id)
+    ));
     const completed = team.tasks.filter((task: Task) => task.status === 'completed').length;
     const [editOpen, setEditOpen] = useState(false);
     const [projectsOpen, setProjectsOpen] = useState(false);
@@ -1536,6 +1547,9 @@ function TeamDetailSurface({
     const [editCapacity, setEditCapacity] = useState(String(team.capacity));
     const [editPriority, setEditPriority] = useState(team.priority);
     const [editLeader, setEditLeader] = useState(String(team.leader?.id ?? ''));
+    const [editParent, setEditParent] = useState(
+        team.parentTeamId !== null ? String(team.parentTeamId) : '',
+    );
     const [projectIds, setProjectIds] = useState<number[]>(
         team.projects.map((project: Project) => project.id),
     );
