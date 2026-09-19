@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -1293,6 +1294,14 @@ class TaskManagementController extends Controller
             403,
         );
 
+        abort_unless(
+            Schema::hasTable('task_teams')
+            && Schema::hasTable('task_team_members')
+            && Schema::hasTable('task_team_projects'),
+            503,
+            'Task teams are not initialized yet. Run the database migrations and try again.',
+        );
+
         $tenant =
             app(
                 TenantContext::class,
@@ -2044,56 +2053,74 @@ class TaskManagementController extends Controller
                 )
                 ->values();
 
-        $teamQuery =
-            TaskTeam::query()
-                ->with([
-                    'department:id,name',
-                    'leader:id,name,job_title',
-                    'members:id,name,job_title,department_id,user_id',
-                    'projects:id,name,description,accent',
-                ])
-                ->orderBy(
-                    'name',
-                );
+        $teams = collect();
 
-        $role =
-            app(
-                TenantContext::class,
-            )
-                ->role()
-                ->value;
-
+        /*
+         * A freshly pulled application can briefly run before migrations have
+         * been applied. Never let the optional Teams surface take down the
+         * entire Task Management dashboard in that state.
+         */
         if (
-            ! in_array(
-                $role,
-                [
-                    'owner',
-                    'admin',
-                ],
-                true,
+            TaskAccess::canViewTeam()
+            && Schema::hasTable(
+                'task_teams',
+            )
+            && Schema::hasTable(
+                'task_team_members',
+            )
+            && Schema::hasTable(
+                'task_team_projects',
             )
         ) {
-            $managedDepartments =
-                StaffController::managedDepartmentIds();
+            $teamQuery =
+                TaskTeam::query()
+                    ->with([
+                        'department:id,name',
+                        'leader:id,name,job_title',
+                        'members:id,name,job_title,department_id,user_id',
+                        'projects:id,name,description,accent',
+                    ])
+                    ->orderBy(
+                        'name',
+                    );
+
+            $role =
+                app(
+                    TenantContext::class,
+                )
+                    ->role()
+                    ->value;
 
             if (
-                $managedDepartments ===
-                []
+                ! in_array(
+                    $role,
+                    [
+                        'owner',
+                        'admin',
+                    ],
+                    true,
+                )
             ) {
-                $teamQuery->whereRaw(
-                    '1 = 0',
-                );
-            } else {
-                $teamQuery->whereIn(
-                    'department_id',
-                    $managedDepartments,
-                );
-            }
-        }
+                $managedDepartments =
+                    StaffController::managedDepartmentIds();
 
-        $teams =
-            TaskAccess::canViewTeam()
-                ? $teamQuery
+                if (
+                    $managedDepartments ===
+                    []
+                ) {
+                    $teamQuery->whereRaw(
+                        '1 = 0',
+                    );
+                } else {
+                    $teamQuery->whereIn(
+                        'department_id',
+                        $managedDepartments,
+                    );
+                }
+            }
+
+            $teams =
+                $teamQuery
                     ->get()
                     ->map(
                         fn (
@@ -2102,8 +2129,8 @@ class TaskManagementController extends Controller
                             $team,
                         ),
                     )
-                    ->values()
-                : collect();
+                    ->values();
+        }
 
         $events =
             $visibleTaskIds->isEmpty()
