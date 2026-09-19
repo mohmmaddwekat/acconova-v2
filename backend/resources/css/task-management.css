@@ -19,6 +19,14 @@
 .tm-table td { padding: 11px 10px; border-bottom: 1px solid #f0f4fb; }
 .tm-table tr:last-child td { border-bottom: 0; }
 .tm-table tbody tr:hover { background: #f9fbff; }
+.tm-team-members-table { table-layout: fixed; min-width: 720px; }
+.tm-team-members-table th,
+.tm-team-members-table td { vertical-align: middle; }
+.tm-team-members-table td { height: 60px; }
+.tm-team-members-table td:first-child,
+.tm-team-members-table th:first-child { padding-inline-start: 16px; }
+.tm-team-members-table td:last-child,
+.tm-team-members-table th:last-child { padding-inline-end: 16px; }
 .tm-field { display: flex; flex-direction: column; gap: 8px; font-size: 11px; font-weight: 600; }
 .tm-board-column { border-radius: 12px; padding: 10px; min-width: 0; }
 .tm-board-card { border: 1px solid #e5ecf7; border-radius: 9px; background: white; padding: 13px; box-shadow: 0 2px 5px #254d8705; }
