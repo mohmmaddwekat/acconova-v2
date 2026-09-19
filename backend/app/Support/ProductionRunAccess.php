@@ -11,10 +11,10 @@ use LogicException;
 final class ProductionRunAccess
 {
     /**
-     * Determine whether the authenticated workspace member may view Production.
+     * Determine whether a member may view Production Runs.
      *
-     * Built-in workspace roles retain their normal read access. Custom roles
-     * must explicitly receive Inventory view or management permission.
+     * Legacy Inventory permissions remain accepted so existing roles do not
+     * suddenly lose Production access after introducing dedicated permissions.
      */
     public static function canView(
         ?User $user,
@@ -58,28 +58,29 @@ final class ProductionRunAccess
             );
 
         if ($customRole) {
-            return in_array(
-                'inventory.view',
-                $customRole->permissions,
-                true,
-            )
-                || in_array(
-                    'inventory.manage',
+            return count(
+                array_intersect(
                     $customRole->permissions,
-                    true,
-                );
+                    [
+                        'production.view',
+                        'production.manage',
+
+                        /*
+                         * Backward compatibility for custom roles created
+                         * before Production received dedicated permissions.
+                         */
+                        'inventory.view',
+                        'inventory.manage',
+                    ],
+                ),
+            ) > 0;
         }
 
         return true;
     }
 
     /**
-     * Determine whether the authenticated workspace member may mutate
-     * Production and therefore move physical Inventory.
-     *
-     * Owner/Admin always retain authority. Built-in Manager retains the
-     * existing Inventory-management behavior. Custom roles must explicitly
-     * receive inventory.manage.
+     * Determine whether a member may create, Post, edit or reverse Production.
      */
     public static function canManage(
         ?User $user,
@@ -124,10 +125,15 @@ final class ProductionRunAccess
 
         if ($customRole) {
             return in_array(
-                'inventory.manage',
+                'production.manage',
                 $customRole->permissions,
                 true,
-            );
+            )
+                || in_array(
+                    'inventory.manage',
+                    $customRole->permissions,
+                    true,
+                );
         }
 
         return $role ===

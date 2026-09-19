@@ -1,0 +1,3287 @@
+﻿
+============================================================
+FILE: resources\js\features\task-management\TaskDrawer.tsx
+============================================================
+import { Link } from '@inertiajs/react';
+import { Activity, CalendarDays, Check, Clock3, Download, Edit3, FileText, Flag, FolderKanban, ListTodo, LockKeyhole, MessageSquare, Paperclip, Send, Trash2, UploadCloud, UsersRound, X } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { apiRequest } from '@/lib/http';
+import { api, base, Assignees, Badge, button, dateLabel, Empty, errorText, input, Modal, Panel, primary, PriorityBadge, Progress, StatusBadge, statusMeta } from './ui';
+import type { Task, TaskData, TaskDetail, TaskStatus } from './types';
+
+export function TaskDrawer({ taskId, data, ar, onClose, onChanged }: { taskId: number; data: TaskData; ar: boolean; onClose: () => void; onChanged: () => void }) {
+    const [detail, setDetail] = useState<TaskDetail | null>(null);
+    const [tab, setTab] = useState<'details' | 'checklist' | 'comments' | 'attachments' | 'activity'>('details');
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [revision, setRevision] = useState(0);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [comment, setComment] = useState('');
+    const fileInput = useRef<HTMLInputElement>(null);
+    const can = (permission: string) => data.permissions.includes(permission);
+    const text = (arabic: string, english: string) => ar ? arabic : english;
+    useEffect(() => {
+        const controller = new AbortController();
+        apiRequest<TaskDetail>(`${api}/tasks/${taskId}`, { signal: controller.signal }).then(setDetail).catch((failure) => { if (!controller.signal.aborted) { setError(errorText(failure)); } });
+        return () => controller.abort();
+    }, [taskId, revision]);
+    async function mutate(path: string, method: string, body?: string | FormData) {
+        if (busy) { return false; } setBusy(true); setError('');
+        try { await apiRequest(`${api}/tasks/${taskId}${path}`, { method, body }); setRevision((value) => value + 1); onChanged(); return true; }
+        catch (failure) { setError(errorText(failure)); return false; } finally { setBusy(false); }
+    }
+    async function patch(payload: Partial<Task>) { if (detail) { await mutate('', 'PATCH', JSON.stringify({ ...payload, revision: detail.task.revision })); } }
+    async function addComment(event: FormEvent) { event.preventDefault(); if (await mutate('/comments', 'POST', JSON.stringify({ body: comment }))) { setComment(''); } }
+    const task = detail?.task;
+    const tabs: [typeof tab, string, string, number | undefined][] = [['details', 'Ø§Ù„ØªÙØ§ØµÙŠÙ„', 'Details', undefined], ['checklist', 'Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ù‡Ø§Ù…', 'Checklist', task?.checklist.length], ['comments', 'Ø§Ù„ØªØ¹Ù„ÙŠÙ‚Ø§Øª', 'Comments', detail?.comments.length], ['attachments', 'Ø§Ù„Ù…Ø±ÙÙ‚Ø§Øª', 'Attachments', detail?.attachments.length], ['activity', 'Ø³Ø¬Ù„ Ø§Ù„Ù†Ø´Ø§Ø·', 'Activity', detail?.events.length]];
+    const actions: Record<string, [string, string]> = { created: ['Ø£Ù†Ø´Ø£ Ø§Ù„Ù…Ù‡Ù…Ø©', 'Created the task'], updated: ['Ø¹Ø¯Ù‘Ù„ Ø§Ù„Ù…Ù‡Ù…Ø©', 'Updated the task'], status_changed: ['ØºÙŠÙ‘Ø± Ø­Ø§Ù„Ø© Ø§Ù„Ù…Ù‡Ù…Ø©', 'Changed the status'], commented: ['Ø£Ø¶Ø§Ù ØªØ¹Ù„ÙŠÙ‚Ù‹Ø§', 'Added a comment'], attachment_added: ['Ø£Ø±ÙÙ‚ Ù…Ù„ÙÙ‹Ø§', 'Attached a file'] };
+    const checklist = task && <div className="space-y-3">{task.checklist.length ? task.checklist.map((item, index) => <label key={index} className="flex items-start gap-2 rounded-lg border border-slate-100 p-3 text-xs"><input type="checkbox" className="mt-0.5 accent-blue-500" checked={item.done} disabled={!can('tasks.update') || busy} onChange={(event) => void patch({ checklist: task.checklist.map((entry, position) => position === index ? { ...entry, done: event.target.checked } : entry), ...(task.status === 'completed' && !event.target.checked ? { status: 'in_progress' as TaskStatus } : {}) })} /><span className={item.done ? 'text-slate-400 line-through' : ''}>{item.title}</span></label>) : <Empty ar={ar} text={text('Ù„Ù… ØªÙØ¶Ù Ù…Ù‡Ø§Ù… ÙØ±Ø¹ÙŠØ© Ø¨Ø¹Ø¯.', 'No subtasks yet.')} />}{can('tasks.update') && <Link className={`${button} w-full`} href={`${base}/${task.id}/edit`}><ListTodo size={13} />{text('ØªØ¹Ø¯ÙŠÙ„ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ù‡Ø§Ù…', 'Edit checklist')}</Link>}</div>;
+    const attachmentList = detail && <div className="grid gap-2 sm:grid-cols-2">{detail.attachments.map((file) => <a key={file.id} href={file.url} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3 hover:bg-blue-50"><FileText size={23} className="shrink-0 text-blue-500" /><div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold">{file.name}</p><p className="mt-1 text-[9px] text-slate-400">{(file.size / 1048576).toFixed(2)} MB</p></div><Download size={14} className="text-slate-400" /></a>)}</div>;
+    return <Modal open drawer title={text('ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ù…Ù‡Ù…Ø©', 'Task details')} onClose={() => { if (!busy) { onClose(); } }}><header className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4"><div className="flex flex-wrap gap-2">{can('tasks.update') && <Link href={`${base}/${taskId}/edit`} className={primary}><Edit3 size={13} />{text('ØªØ¹Ø¯ÙŠÙ„', 'Edit')}</Link>}{task && can('tasks.update') && task.status !== 'completed' && <button className={`${button} !border-emerald-100 !bg-emerald-50 !text-emerald-600`} disabled={busy} onClick={() => void patch({ status: 'completed' })}><Check size={13} />{text('Ø¥ØªÙ…Ø§Ù… Ø§Ù„Ù…Ù‡Ù…Ø©', 'Complete')}</button>}{can('tasks.delete') && <button className={`${button} !text-red-500`} disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 size={13} />{text('Ø­Ø°Ù', 'Delete')}</button>}</div><button type="button" disabled={busy} aria-label={text('Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„ØªÙØ§ØµÙŠÙ„', 'Close details')} className="rounded-lg p-2 text-slate-400 hover:bg-slate-50" onClick={onClose}><X size={19} /></button></header>
+        {error && <div role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-xs leading-6 text-red-600">{error}<button className={`${button} ms-2`} onClick={() => { setError(''); setRevision((value) => value + 1); }}>{text('ØªØ­Ø¯ÙŠØ«', 'Refresh')}</button></div>}
+        {confirmDelete && <div role="alert" className="mb-5 rounded-xl border border-red-100 bg-red-50 p-4"><p className="mb-3 text-xs leading-6 text-red-600">{text('Ø­Ø°Ù Ù‡Ø°Ù‡ Ø§Ù„Ù…Ù‡Ù…Ø© Ø³ÙŠØ­Ø°Ù ØªØ¹Ù„ÙŠÙ‚Ø§ØªÙ‡Ø§ ÙˆÙ…Ø±ÙÙ‚Ø§ØªÙ‡Ø§ Ø£ÙŠØ¶Ù‹Ø§. Ù‡Ù„ ØªØ±ÙŠØ¯ Ø§Ù„Ù…ØªØ§Ø¨Ø¹Ø©ØŸ', 'Deleting this task also removes its comments and attachments. Continue?')}</p><div className="flex gap-2"><button disabled={busy} className={`${button} !bg-red-500 !text-white`} onClick={async () => { if (await mutate('', 'DELETE')) { onClose(); } }}>{text('ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø­Ø°Ù', 'Confirm deletion')}</button><button disabled={busy} className={button} onClick={() => setConfirmDelete(false)}>{text('Ø¥Ù„ØºØ§Ø¡', 'Cancel')}</button></div></div>}
+        {!detail || !task ? <p role="status" className="p-10 text-center text-xs text-slate-400">{text('Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„ØªÙØ§ØµÙŠÙ„â€¦', 'Loading detailsâ€¦')}</p> : <><div className="mb-6 flex items-start justify-between gap-5"><div><p className="mb-2 text-[10px] text-slate-400">#TSK-{task.id}</p><h1 className="text-lg font-bold leading-8">{task.title}</h1><p className="mt-2 text-xs leading-6 text-slate-400">{data.projects.find((project) => project.id === task.project_id)?.name ?? text('Ø¨Ø¯ÙˆÙ† Ù…Ø´Ø±ÙˆØ¹', 'No project')}</p></div><div className="flex size-20 shrink-0 items-center justify-center rounded-full" style={{ background: `conic-gradient(#1670ff ${task.progress}%, #edf3ff 0)` }}><div className="flex size-[66px] flex-col items-center justify-center rounded-full bg-white"><strong className="text-lg">{task.progress}%</strong><span className="text-[8px] text-slate-400">{text('Ù†Ø³Ø¨Ø© Ø§Ù„Ø¥Ù†Ø¬Ø§Ø²', 'Progress')}</span></div></div></div><div className="mb-5 grid grid-cols-2 gap-3 rounded-xl border border-slate-100 p-4 sm:grid-cols-4"><DetailCell label={text('Ø§Ù„Ø£ÙˆÙ„ÙˆÙŠØ©', 'Priority')}><PriorityBadge priority={task.priority} ar={ar} /></DetailCell><DetailCell label={text('Ø§Ù„Ø­Ø§Ù„Ø©', 'Status')}>{can('tasks.update') ? <select aria-label={text('Ø­Ø§Ù„Ø© Ø§Ù„Ù…Ù‡Ù…Ø©', 'Task status')} disabled={busy} className={`${input} !min-h-6 !p-1 !text-[10px]`} value={task.status} onChange={(event) => void patch({ status: event.target.value as TaskStatus })}>{Object.entries(statusMeta).map(([key, value]) => <option key={key} value={key}>{value[ar ? 'ar' : 'en']}</option>)}</select> : <StatusBadge status={task.status} ar={ar} />}</DetailCell><DetailCell label={text('ØªØ§Ø±ÙŠØ® Ø§Ù„Ø§Ø³ØªØ­Ù‚Ø§Ù‚', 'Due date')}>{dateLabel(task.due_on, ar)}</DetailCell><DetailCell label={text('Ø§Ù„Ù…Ø´Ø±ÙˆØ¹', 'Project')}>{data.projects.find((project) => project.id === task.project_id)?.name ?? 'â€”'}</DetailCell><DetailCell label={text('Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙˆÙ†', 'Assignees')}><Assignees task={task} members={data.members} /></DetailCell><DetailCell label={text('ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡', 'Created')}>{dateLabel(task.created_at, ar)}</DetailCell><DetailCell label={text('Ø§Ù„ÙˆÙ‚Øª Ø§Ù„Ù…Ø®Ø·Ø·', 'Estimated time')}>{task.estimated_hours} {text('Ø³Ø§Ø¹Ø©', 'hours')}</DetailCell><DetailCell label={text('Ø§Ù„ÙˆØµÙˆÙ„', 'Access')}><LockKeyhole size={12} />{task.visibility === 'participants' ? text('Ø®Ø§Øµ Ø¨Ø§Ù„Ù…Ø´Ø§Ø±ÙƒÙŠÙ†', 'Participants') : text('Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„', 'Workspace')}</DetailCell></div><nav className="mb-5 flex overflow-x-auto border-b border-slate-100" aria-label={text('Ø£Ù‚Ø³Ø§Ù… Ø§Ù„Ù…Ù‡Ù…Ø©', 'Task sections')}>{tabs.map(([key, arabic, english, count]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)} className={`min-w-max border-b-2 px-3 py-3 text-[11px] ${tab === key ? 'border-blue-500 font-semibold text-blue-600' : 'border-transparent text-slate-400'}`}>{ar ? arabic : english}{count !== undefined && ` (${count})`}</button>)}</nav>
+        {tab === 'details' && <><div className="grid gap-4 sm:grid-cols-2"><div><h2 className="mb-3 flex items-center gap-2 text-xs font-bold"><FileText size={15} className="text-blue-500" />{text('Ø§Ù„ÙˆØµÙ', 'Description')}</h2><p className="whitespace-pre-wrap text-xs leading-7 text-slate-500">{task.description || text('Ù„Ø§ ÙŠÙˆØ¬Ø¯ ÙˆØµÙ Ù„Ù‡Ø°Ù‡ Ø§Ù„Ù…Ù‡Ù…Ø©.', 'No description provided.')}</p><h3 className="mb-3 mt-6 text-xs font-bold">{text('Ø§Ù„ÙˆØ³ÙˆÙ…', 'Tags')}</h3><div className="flex flex-wrap gap-2">{task.tags.map((tag) => <Badge key={tag} color="purple">{tag}</Badge>)}{!task.tags.length && <span className="text-xs text-slate-400">â€”</span>}</div></div><div><h2 className="mb-3 text-xs font-bold">{text('Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„ÙØ±Ø¹ÙŠØ©', 'Subtasks')}</h2>{checklist}</div></div><div className="mt-6"><h2 className="mb-3 flex items-center gap-2 text-xs font-bold"><Paperclip size={14} />{text('Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ù…Ø±ÙÙ‚Ø©', 'Attachments')} ({detail.attachments.length})</h2>{attachmentList}{!detail.attachments.length && <p className="text-xs text-slate-400">{text('Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø±ÙÙ‚Ø§Øª.', 'No attachments.')}</p>}</div></>}
+        {tab === 'checklist' && checklist}
+        {tab === 'comments' && <div><div className="mb-5 space-y-4">{detail.comments.length ? detail.comments.map((item) => <article key={item.id} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4"><header className="flex justify-between gap-3 text-[11px]"><strong>{item.name}</strong><span className="text-[9px] text-slate-400">{dateLabel(item.created_at, ar)}</span></header><p className="mt-3 whitespace-pre-wrap text-xs leading-6 text-slate-500">{item.body}</p></article>) : <Empty ar={ar} text={text('Ø§Ø¨Ø¯Ø£ Ø§Ù„Ù†Ù‚Ø§Ø´ Ø­ÙˆÙ„ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ù‡Ù…Ø©.', 'Start the discussion about this task.')} />}</div>{can('tasks.comment') && <form onSubmit={addComment}><label className="tm-field">{text('ØªØ¹Ù„ÙŠÙ‚ Ø¬Ø¯ÙŠØ¯', 'New comment')}<textarea className={input} rows={3} required maxLength={5000} value={comment} onChange={(event) => setComment(event.target.value)} /></label><button className={`${primary} mt-3`} disabled={busy || !comment.trim()}><Send size={13} />{text('Ø¥Ø¶Ø§ÙØ© ØªØ¹Ù„ÙŠÙ‚', 'Add comment')}</button></form>}</div>}
+        {tab === 'attachments' && <div>{attachmentList}{!detail.attachments.length && <Empty ar={ar} text={text('Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø±ÙÙ‚Ø§Øª Ù„Ù‡Ø°Ù‡ Ø§Ù„Ù…Ù‡Ù…Ø©.', 'No attachments for this task.')} />}{can('tasks.update') && <div className="mt-5 rounded-xl border border-dashed border-blue-200 p-6 text-center"><UploadCloud size={27} className="mx-auto mb-3 text-blue-400" /><button className={primary} disabled={busy} onClick={() => fileInput.current?.click()}>{text('Ø±ÙØ¹ Ù…Ø±ÙÙ‚', 'Upload attachment')}</button><p className="mt-3 text-[10px] text-slate-400">{text('Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ Ù„Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù 20 MB', 'Maximum file size: 20 MB')}</p><input ref={fileInput} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt,.csv,.zip" className="hidden" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) { return; } if (file.size > 20 * 1024 * 1024) { setError(text('Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù Ø£ÙƒØ¨Ø± Ù…Ù† 20 MB.', 'File exceeds 20 MB.')); return; } const body = new FormData(); body.append('file', file); if (await mutate('/attachments', 'POST', body)) { if (fileInput.current) { fileInput.current.value = ''; } } }} /></div>}</div>}
+        {tab === 'activity' && <div className="space-y-4">{detail.events.map((event) => <div key={event.id} className="flex items-start gap-3 rounded-lg border border-slate-100 p-4"><Activity size={17} className="text-blue-400" /><div className="min-w-0 flex-1"><strong className="text-xs">{event.name}</strong><p className="mt-2 text-[11px] text-slate-500">{actions[event.action]?.[ar ? 0 : 1] ?? event.action}</p></div><span className="text-[9px] text-slate-400">{dateLabel(event.created_at, ar)}</span></div>)}</div>}
+        </>}
+    </Modal>;
+}
+
+function DetailCell({ label, children }: { label: string; children: React.ReactNode }) { return <div><p className="mb-2 text-[9px] text-slate-400">{label}</p><div className="flex flex-wrap items-center gap-1 text-[10px] font-medium">{children}</div></div>; }
+
+============================================================
+FILE: resources\js\features\task-management\TaskEditor.tsx
+============================================================
+import { Link, router, usePage } from '@inertiajs/react';
+import { CalendarDays, Check, Clock3, Eye, Flag, ListTodo, Paperclip, Plus, Save, ShieldCheck, Tag, UploadCloud, UsersRound, X } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { apiRequest } from '@/lib/http';
+import { api, base, Avatar, Badge, button, dateLabel, Empty, errorText, input, Panel, primary, PriorityBadge, Progress, Stat, statusMeta, StatusBadge } from './ui';
+import type { Task, TaskData, TaskDetail, TaskPayload, TaskStatus } from './types';
+
+export function TaskEditor({ data, taskId, ar, userId }: { data: TaskData; taskId: number | null; ar: boolean; userId: number }) {
+    const page = usePage();
+    const initial = data.tasks.find((task) => task.id === taskId);
+    const requestedStatus = new URLSearchParams(page.url.split('?')[1] ?? '').get('status');
+    const initialStatus = requestedStatus && requestedStatus in statusMeta ? requestedStatus as TaskStatus : 'idea';
+    const [record, setRecord] = useState<Task | null>(initial ?? null);
+    const [draft, setDraft] = useState<TaskPayload>(() => initial ? { ...initial } : { title: '', description: '', project_id: null, status: initialStatus, priority: 'medium', visibility: 'workspace', assignees: [userId], checklist: [], tags: [], progress: 0, starts_on: null, due_on: null, estimated_hours: 0 });
+    const [attachments, setAttachments] = useState<TaskDetail['attachments']>([]);
+    const [files, setFiles] = useState<File[]>([]);
+    const [newItem, setNewItem] = useState('');
+    const [tags, setTags] = useState(initial?.tags.join(', ') ?? '');
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [loading, setLoading] = useState(taskId !== null);
+    const [retry, setRetry] = useState(0);
+    const fileInput = useRef<HTMLInputElement>(null);
+    const canAssign = data.permissions.includes('tasks.assign');
+    const canUpload = data.permissions.includes('tasks.update');
+    const text = (arabic: string, english: string) => ar ? arabic : english;
+    useEffect(() => {
+        if (!taskId) { return; }
+        const controller = new AbortController();
+        setLoading(true); setError('');
+        apiRequest<TaskDetail>(`${api}/tasks/${taskId}`, { signal: controller.signal }).then((detail) => { setRecord(detail.task); setDraft(detail.task); setTags(detail.task.tags.join(', ')); setAttachments(detail.attachments); }).catch((failure) => { if (!controller.signal.aborted) { setError(errorText(failure)); } }).finally(() => { if (!controller.signal.aborted) { setLoading(false); } });
+        return () => controller.abort();
+    }, [taskId, retry]);
+    function field<K extends keyof TaskPayload>(key: K, value: TaskPayload[K]) { setDraft((current) => ({ ...current, [key]: value })); }
+    function chooseFiles(selected: File[]) {
+        if (selected.some((file) => file.size > 20 * 1024 * 1024)) { setError(text('Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ Ù„ÙƒÙ„ Ù…Ø±ÙÙ‚ 20 MB.', 'Each attachment must be 20 MB or less.')); return; }
+        setFiles((current) => [...current, ...selected].slice(0, 10));
+    }
+    async function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault(); if (busy) { return; } setBusy(true); setError('');
+        const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+        const payload = { ...draft, status: submitter?.value === 'draft' ? 'idea' : draft.status, tags: Array.from(new Set(tags.split(/[,ØŒ]/).map((tag) => tag.trim()).filter(Boolean))), ...(record ? { revision: record.revision } : {}) };
+        try {
+            const result = await apiRequest<{ task: Task }>(record ? `${api}/tasks/${record.id}` : `${api}/tasks`, { method: record ? 'PATCH' : 'POST', body: JSON.stringify(payload) });
+            setRecord(result.task); setDraft(result.task);
+            const remaining = [...files];
+            for (const file of files) {
+                const body = new FormData(); body.append('file', file);
+                try { await apiRequest(`${api}/tasks/${result.task.id}/attachments`, { method: 'POST', body }); remaining.shift(); setFiles([...remaining]); }
+                catch (failure) { setError(`${text('ØªÙ… Ø­ÙØ¸ Ø§Ù„Ù…Ù‡Ù…Ø©ØŒ Ù„ÙƒÙ† ØªØ¹Ø°Ø± Ø±ÙØ¹ Ø£Ø­Ø¯ Ø§Ù„Ù…Ø±ÙÙ‚Ø§Øª. Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ù…ØªØ¨Ù‚ÙŠØ© Ø¬Ø§Ù‡Ø²Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©.', 'Task saved, but an attachment failed. Remaining files can be retried.')} ${errorText(failure)}`); return; }
+            }
+            router.visit(`${base}/${result.task.id}`);
+        } catch (failure) { setError(errorText(failure)); } finally { setBusy(false); }
+    }
+    const progress = draft.status === 'completed' ? 100 : draft.checklist.length ? Math.round(draft.checklist.filter((item) => item.done).length / draft.checklist.length * 100) : draft.progress;
+    if (loading) { return <div role="status" className="tm-panel p-12 text-center text-sm text-slate-400">{text('Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ù‡Ù…Ø©â€¦', 'Loading taskâ€¦')}</div>; }
+    if (taskId && !record) { return <div role="alert" className="tm-panel text-sm text-red-500">{error}<button className={`${button} ms-3`} onClick={() => setRetry((value) => value + 1)}>{text('Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©', 'Retry')}</button></div>; }
+    return <form onSubmit={submit}><div className="mb-4 grid gap-3 sm:grid-cols-3"><Stat title={text('Ø§Ù„Ù…Ù‡Ø§Ù… Ù‚ÙŠØ¯ Ø§Ù„ØªÙ†ÙÙŠØ°', 'Tasks in progress')} value={data.tasks.filter((task) => task.status === 'in_progress').length} icon={ListTodo} /><Stat title={text('Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù…ÙƒØªÙ…Ù„Ø©', 'Completed tasks')} value={data.tasks.filter((task) => task.status === 'completed').length} icon={Check} color="green" /><Stat title={text('Ø£Ø¹Ø¶Ø§Ø¡ Ø§Ù„ÙØ±ÙŠÙ‚', 'Team members')} value={data.members.length} icon={UsersRound} color="purple" /></div><fieldset disabled={busy} className="min-w-0"><div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_280px]"><div className="min-w-0 space-y-4"><Panel title={text('Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø£Ø³Ø§Ø³ÙŠØ©', 'Basic information')} icon={ListTodo}><div className="grid gap-4 md:grid-cols-2"><label className="tm-field">{text('Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ù…Ù‡Ù…Ø©', 'Task title')}<input autoFocus className={input} required maxLength={255} placeholder={text('Ù…Ø«Ø§Ù„: ØªØµÙ…ÙŠÙ… Ø§Ù„ÙˆØ§Ø¬Ù‡Ø© Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© Ù„Ù„Ù…Ø´Ø±ÙˆØ¹', 'e.g. Design the project homepage')} value={draft.title} onChange={(event) => field('title', event.target.value)} /></label><label className="tm-field md:row-span-2">{text('ÙˆØµÙ Ø§Ù„Ù…Ù‡Ù…Ø©', 'Task description')}<textarea className={`${input} min-h-32`} maxLength={20000} rows={5} placeholder={text('Ø§ÙƒØªØ¨ ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ù…Ù‡Ù…Ø© ÙˆØ§Ù„Ù†ØªØ§Ø¦Ø¬ Ø§Ù„Ù…ØªÙˆÙ‚Ø¹Ø©â€¦', 'Describe the work and expected outcomeâ€¦')} value={draft.description ?? ''} onChange={(event) => field('description', event.target.value)} /><span className="text-end text-[9px] font-normal text-slate-400">{draft.description?.length ?? 0} / 20000</span></label><div className="grid grid-cols-2 gap-3"><label className="tm-field">{text('Ø§Ù„Ù…Ø´Ø±ÙˆØ¹', 'Project')}<select className={input} value={draft.project_id ?? ''} onChange={(event) => field('project_id', event.target.value ? Number(event.target.value) : null)}><option value="">{text('Ø¨Ø¯ÙˆÙ† Ù…Ø´Ø±ÙˆØ¹', 'No project')}</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label className="tm-field">{text('Ø§Ù„Ø­Ø§Ù„Ø©', 'Status')}<select className={input} value={draft.status} onChange={(event) => field('status', event.target.value as Task['status'])}>{Object.entries(statusMeta).map(([status, meta]) => <option key={status} value={status}>{meta[ar ? 'ar' : 'en']}</option>)}</select></label><label className="tm-field">{text('Ø§Ù„Ø£ÙˆÙ„ÙˆÙŠØ©', 'Priority')}<select className={input} value={draft.priority} onChange={(event) => field('priority', event.target.value as Task['priority'])}><option value="high">{text('Ø¹Ø§Ù„ÙŠØ©', 'High')}</option><option value="medium">{text('Ù…ØªÙˆØ³Ø·Ø©', 'Medium')}</option><option value="low">{text('Ù…Ù†Ø®ÙØ¶Ø©', 'Low')}</option></select></label><label className="tm-field">{text('Ù†Ø³Ø¨Ø© Ø§Ù„Ø¥Ù†Ø¬Ø§Ø²', 'Progress')}<input className={input} type="number" min={0} max={100} disabled={draft.checklist.length > 0 || draft.status === 'completed'} value={progress} onChange={(event) => field('progress', Number(event.target.value))} /></label></div></div></Panel>
+        <div className="grid gap-4 lg:grid-cols-2"><Panel title={text('Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙŠØ© ÙˆØ§Ù„Ø¬Ø¯ÙˆÙ„ Ø§Ù„Ø²Ù…Ù†ÙŠ', 'Ownership & timeline')} icon={CalendarDays}><div className="mb-4"><p className="mb-2 text-[11px] font-semibold">{text('Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙˆÙ† Ø¹Ù† Ø§Ù„Ù…Ù‡Ù…Ø©', 'Task assignees')}</p><div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-100 p-2">{data.members.map((member) => <label key={member.id} className="flex items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-blue-50"><input type="checkbox" className="accent-blue-500" disabled={!canAssign && member.id !== userId || !canAssign && !!record} checked={draft.assignees.includes(member.id)} onChange={(event) => field('assignees', event.target.checked ? [...draft.assignees, member.id] : draft.assignees.filter((id) => id !== member.id))} /><Avatar member={member} /><span className="flex-1">{member.name}</span><span className="text-[9px] text-slate-400">{member.department}</span></label>)}</div>{!canAssign && <p className="mt-2 text-[10px] text-slate-400">{text('Ø¥Ø³Ù†Ø§Ø¯ Ø§Ù„Ù…Ù‡Ù…Ø© Ù„Ø£Ø¹Ø¶Ø§Ø¡ Ø¢Ø®Ø±ÙŠÙ† ÙŠØ­ØªØ§Ø¬ ØµÙ„Ø§Ø­ÙŠØ© Ø§Ù„Ø¥Ø³Ù†Ø§Ø¯.', 'Assigning other members requires assignment permission.')}</p>}</div><div className="grid gap-3 sm:grid-cols-2"><label className="tm-field">{text('ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¨Ø¯Ø¡', 'Start date')}<input className={input} type="date" value={draft.starts_on ?? ''} onChange={(event) => field('starts_on', event.target.value || null)} /></label><label className="tm-field">{text('ØªØ§Ø±ÙŠØ® Ø§Ù„Ø§Ø³ØªØ­Ù‚Ø§Ù‚', 'Due date')}<input className={input} type="date" min={draft.starts_on ?? undefined} value={draft.due_on ?? ''} onChange={(event) => field('due_on', event.target.value || null)} /></label><label className="tm-field sm:col-span-2">{text('Ø§Ù„ÙˆÙ‚Øª Ø§Ù„Ù…Ø®Ø·Ø· Ø¨Ø§Ù„Ø³Ø§Ø¹Ø§Øª', 'Estimated hours')}<input className={input} type="number" min={0} max={10000} step="0.25" value={draft.estimated_hours} onChange={(event) => field('estimated_hours', Number(event.target.value))} /></label></div></Panel><Panel title={text('Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª ÙˆØ³ÙŠØ± Ø§Ù„Ø¹Ù…Ù„', 'Access & workflow')} icon={ShieldCheck}><p className="mb-4 text-[11px] leading-6 text-slate-400">{text('Ø­Ø¯Ø¯ Ù…Ù† ÙŠÙ…ÙƒÙ†Ù‡ Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ø§Ù„Ù…Ù‡Ù…Ø©ØŒ Ø¶Ù…Ù† ØµÙ„Ø§Ø­ÙŠØ§Øª Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.', 'Choose who can access this task within their workspace permissions.')}</p><div className="space-y-3">{([['workspace', 'Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„', 'Workspace', 'ÙŠØ±Ø§Ù‡Ø§ Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙˆÙ† Ø§Ù„Ù…Ø®ÙˆÙ‘Ù„ÙˆÙ† Ø¨Ø¹Ø±Ø¶ Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…Ù‡Ø§Ù….', 'Visible to members with permission to view all tasks.'], ['participants', 'Ø§Ù„Ù…Ø´Ø§Ø±ÙƒÙˆÙ† ÙÙ‚Ø·', 'Participants only', 'ÙŠØ±Ø§Ù‡Ø§ Ø§Ù„Ù…Ù†Ø´Ø¦ ÙˆØ§Ù„Ù…Ø³Ù†Ø¯ Ø¥Ù„ÙŠÙ‡Ù…ØŒ Ø¥Ø¶Ø§ÙØ© Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø§Ù„Ùƒ ÙˆÙ…Ø¯ÙŠØ± Ø§Ù„Ù†Ø¸Ø§Ù….', 'Visible to the creator, assignees, owner and administrator.']] as const).map(([value, arabic, english, hintAr, hintEn]) => <label key={value} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${draft.visibility === value ? 'border-blue-200 bg-blue-50/50' : 'border-slate-100'}`}><input type="radio" className="mt-1 accent-blue-500" name="visibility" value={value} checked={draft.visibility === value} onChange={() => field('visibility', value)} /><span><strong className="text-xs">{ar ? arabic : english}</strong><span className="mt-2 block text-[10px] leading-5 text-slate-400">{ar ? hintAr : hintEn}</span></span></label>)}</div><div className="mt-5 rounded-lg bg-emerald-50 p-3 text-[10px] leading-6 text-emerald-700">{text('ØªÙØ­ÙØ¸ Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª ÙÙŠ Ø³Ø¬Ù„ Ù†Ø´Ø§Ø· Ø§Ù„Ù…Ù‡Ù…Ø©ØŒ ÙˆÙŠØ®Ø¶Ø¹ Ø§Ù„ØªØ¹Ø¯ÙŠÙ„ ÙˆØ§Ù„ØªØ¹Ù„ÙŠÙ‚ Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù….', 'Changes are recorded in the task history. Editing and commenting follow user permissions.')}</div></Panel></div>
+        <div className="grid gap-4 lg:grid-cols-3"><Panel title={text('Ø§Ù„ÙˆØ³ÙˆÙ… ÙˆØ§Ù„ØªØµÙ†ÙŠÙØ§Øª', 'Tags & labels')} icon={Tag}><label className="tm-field">{text('ÙˆØ³ÙˆÙ… Ù…ÙØµÙˆÙ„Ø© Ø¨ÙÙˆØ§ØµÙ„', 'Comma-separated tags')}<input className={input} value={tags} maxLength={600} onChange={(event) => setTags(event.target.value)} placeholder={text('ØªØµÙ…ÙŠÙ…ØŒ ÙˆØ§Ø¬Ù‡Ø©ØŒ Ø¹Ø§Ø¬Ù„', 'Design, interface, urgent')} /></label><div className="mt-4 flex flex-wrap gap-2">{Array.from(new Set(tags.split(/[,ØŒ]/).map((tag) => tag.trim()).filter(Boolean))).map((tag) => <Badge color="purple" key={tag}>{tag}</Badge>)}</div><p className="mt-4 text-[10px] leading-6 text-slate-400">{text('Ø­ØªÙ‰ 15 ÙˆØ³Ù…Ù‹Ø§ØŒ ÙˆØ¨Ø­Ø¯ Ø£Ù‚ØµÙ‰ 40 Ø­Ø±ÙÙ‹Ø§ Ù„ÙƒÙ„ ÙˆØ³Ù….', 'Up to 15 tags, with a maximum of 40 characters each.')}</p></Panel><Panel title={text('Ø§Ù„Ù…Ø±ÙÙ‚Ø§Øª ÙˆØ§Ù„Ø±ÙˆØ§Ø¨Ø·', 'Attachments')} icon={Paperclip}>{canUpload ? <><div className="rounded-xl border border-dashed border-blue-200 bg-blue-50/30 p-5 text-center" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!busy) { chooseFiles(Array.from(event.dataTransfer.files)); } }}><UploadCloud size={27} className="mx-auto text-blue-400" /><button type="button" className="my-2 text-[11px] font-semibold text-blue-500" onClick={() => fileInput.current?.click()}>{text('Ø§Ø³Ø­Ø¨ Ø§Ù„Ù…Ù„ÙØ§Øª Ø£Ùˆ Ø§Ø®ØªØ± Ù…Ù† Ø¬Ù‡Ø§Ø²Ùƒ', 'Drop files or browse')}</button><p className="text-[9px] text-slate-400">20 MB Â· {text('10 Ù…Ù„ÙØ§Øª ÙƒØ­Ø¯ Ø£Ù‚ØµÙ‰', 'Up to 10 files')}</p><input ref={fileInput} type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt,.csv,.zip" className="hidden" onChange={(event) => { chooseFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }} /></div><div className="mt-3 space-y-2">{files.map((file, index) => <div key={`${file.name}-${index}`} className="flex items-center gap-2 rounded border border-slate-100 p-2 text-[10px]"><Paperclip size={12} /><span className="min-w-0 flex-1 truncate">{file.name}</span><button type="button" aria-label={text('Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ù…Ø±ÙÙ‚', 'Remove attachment')} onClick={() => setFiles(files.filter((_, position) => position !== index))}><X size={12} /></button></div>)}</div></> : <p className="text-xs leading-6 text-slate-400">{text('Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ù…Ø±ÙÙ‚Ø§Øª ØªØ­ØªØ§Ø¬ ØµÙ„Ø§Ø­ÙŠØ© ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù…Ù‡Ø§Ù….', 'Adding attachments requires task editing permission.')}</p>}{attachments.map((attachment) => <a key={attachment.id} href={attachment.url} className="mt-2 flex items-center gap-2 rounded border border-slate-100 p-2 text-[10px] text-blue-500"><Paperclip size={12} />{attachment.name}</a>)}</Panel><Panel title={text('Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„ÙØ±Ø¹ÙŠØ©', 'Subtask checklist')} icon={ListTodo}><div className="space-y-2">{draft.checklist.map((item, index) => <div key={index} className="flex items-center gap-2"><input className="accent-blue-500" type="checkbox" aria-label={item.title} checked={item.done} onChange={(event) => field('checklist', draft.checklist.map((entry, position) => position === index ? { ...entry, done: event.target.checked } : entry))} /><input className={`${input} !min-h-7 !p-1.5`} aria-label={text('Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ù…Ù‡Ù…Ø© Ø§Ù„ÙØ±Ø¹ÙŠØ©', 'Subtask title')} value={item.title} required maxLength={255} onChange={(event) => field('checklist', draft.checklist.map((entry, position) => position === index ? { ...entry, title: event.target.value } : entry))} /><button type="button" aria-label={text('Ø­Ø°Ù Ø§Ù„Ù…Ù‡Ù…Ø© Ø§Ù„ÙØ±Ø¹ÙŠØ©', 'Remove subtask')} onClick={() => field('checklist', draft.checklist.filter((_, position) => position !== index))}><X size={12} className="text-slate-400" /></button></div>)}</div><div className="mt-3 flex gap-2"><input className={input} value={newItem} maxLength={255} placeholder={text('Ù…Ù‡Ù…Ø© ÙØ±Ø¹ÙŠØ© Ø¬Ø¯ÙŠØ¯Ø©', 'New subtask')} aria-label={text('Ù…Ù‡Ù…Ø© ÙØ±Ø¹ÙŠØ© Ø¬Ø¯ÙŠØ¯Ø©', 'New subtask')} onChange={(event) => setNewItem(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); if (newItem.trim() && draft.checklist.length < 100) { field('checklist', [...draft.checklist, { title: newItem.trim(), done: false }]); setNewItem(''); } } }} /><button type="button" className={button} aria-label={text('Ø¥Ø¶Ø§ÙØ© Ù…Ù‡Ù…Ø© ÙØ±Ø¹ÙŠØ©', 'Add subtask')} disabled={!newItem.trim() || draft.checklist.length >= 100} onClick={() => { field('checklist', [...draft.checklist, { title: newItem.trim(), done: false }]); setNewItem(''); }}><Plus size={14} /></button></div><p className="mt-4 text-[10px] leading-6 text-slate-400">{text('Ø¹Ù†Ø¯ Ø¥Ø¶Ø§ÙØ© Ù…Ù‡Ø§Ù… ÙØ±Ø¹ÙŠØ©ØŒ ØªÙØ­Ø³Ø¨ Ù†Ø³Ø¨Ø© Ø§Ù„Ø¥Ù†Ø¬Ø§Ø² ØªÙ„Ù‚Ø§Ø¦ÙŠÙ‹Ø§.', 'Progress is calculated automatically when subtasks are added.')}</p></Panel></div></div>
+        <aside className="space-y-4 xl:sticky xl:top-5"><Panel title={text('Ù…Ø¹Ø§ÙŠÙ†Ø© Ø§Ù„Ù…Ù‡Ù…Ø©', 'Task preview')} icon={Eye}><div className="mb-3 flex items-center justify-between"><span className="text-[10px] text-slate-400">{record ? `TSK-${record.id}` : text('Ù…Ù‡Ù…Ø© Ø¬Ø¯ÙŠØ¯Ø©', 'New task')}</span><PriorityBadge priority={draft.priority} ar={ar} /></div><h2 className="mb-2 text-sm font-bold leading-7">{draft.title || text('Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ù…Ù‡Ù…Ø©', 'Task title')}</h2><p className="mb-4 text-[11px] text-blue-500">{data.projects.find((project) => project.id === draft.project_id)?.name ?? text('Ø¨Ø¯ÙˆÙ† Ù…Ø´Ø±ÙˆØ¹', 'No project')}</p><p className="mb-5 line-clamp-5 whitespace-pre-wrap text-[11px] leading-6 text-slate-400">{draft.description || text('Ø³ÙŠØ¸Ù‡Ø± ÙˆØµÙ Ø§Ù„Ù…Ù‡Ù…Ø© Ù‡Ù†Ø§â€¦', 'Your task description appears hereâ€¦')}</p><div className="mb-5 flex flex-wrap gap-1">{draft.assignees.map((id) => <Avatar key={id} member={data.members.find((member) => member.id === id)} />)}</div><dl className="space-y-4 text-[11px]"><div className="flex justify-between"><dt className="text-slate-400">{text('ØªØ§Ø±ÙŠØ® Ø§Ù„Ø§Ø³ØªØ­Ù‚Ø§Ù‚', 'Due date')}</dt><dd>{dateLabel(draft.due_on, ar)}</dd></div><div className="flex justify-between"><dt className="text-slate-400">{text('Ø§Ù„Ø­Ø§Ù„Ø©', 'Status')}</dt><dd><StatusBadge status={draft.status} ar={ar} /></dd></div><div className="flex justify-between"><dt className="text-slate-400">{text('Ø§Ù„ÙˆÙ‚Øª Ø§Ù„Ù…Ø®Ø·Ø·', 'Estimated time')}</dt><dd>{draft.estimated_hours} {text('Ø³Ø§Ø¹Ø©', 'hours')}</dd></div></dl><div className="mt-5"><Progress value={progress} /></div></Panel><Panel title={text('Ù…Ù„Ø®Øµ Ø§Ù„Ù…Ù‡Ù…Ø©', 'Task summary')} icon={Check}><div className="space-y-3 text-[11px] text-slate-500"><p>{draft.assignees.length} {text('Ø£Ø¹Ø¶Ø§Ø¡ Ù…Ø³Ø¤ÙˆÙ„ÙˆÙ†', 'assigned members')}</p><p>{draft.checklist.length} {text('Ù…Ù‡Ø§Ù… ÙØ±Ø¹ÙŠØ©', 'subtasks')}</p><p>{files.length + attachments.length} {text('Ù…Ø±ÙÙ‚Ø§Øª', 'attachments')}</p><p>{draft.visibility === 'participants' ? text('ÙˆØµÙˆÙ„ Ø®Ø§Øµ Ù„Ù„Ù…Ø´Ø§Ø±ÙƒÙŠÙ†', 'Private participant access') : text('ÙˆØµÙˆÙ„ Ø­Ø³Ø¨ ØµÙ„Ø§Ø­ÙŠØ§Øª Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„', 'Access follows workspace permissions')}</p></div></Panel></aside></div></fieldset>
+        {error && <div role="alert" className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 text-xs leading-6 text-red-600">{error}</div>}
+        <footer className="tm-panel sticky bottom-3 z-10 mt-4 flex flex-wrap items-center justify-between gap-3 !p-3 shadow-lg"><Link className={button} href={`${base}/tasks`}>{text('Ø¥Ù„ØºØ§Ø¡', 'Cancel')}</Link><div className="flex gap-2"><button type="submit" value="draft" className={button} disabled={busy}><Save size={14} />{text('Ø­ÙØ¸ ÙƒÙÙƒØ±Ø©', 'Save as idea')}</button><button type="submit" className={primary} disabled={busy}><Check size={15} />{busy ? text('Ø¬Ø§Ø±Ù Ø§Ù„Ø­ÙØ¸â€¦', 'Savingâ€¦') : record ? text('Ø­ÙØ¸ Ø§Ù„ØªØ¹Ø¯ÙŠÙ„Ø§Øª', 'Save changes') : text('Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…Ù‡Ù…Ø©', 'Create task')}</button></div></footer>
+    </form>;
+}
+
+============================================================
+FILE: resources\js\features\task-management\ui.tsx
+============================================================
+import { ApiError } from '@/lib/http';
+import { CalendarDays, Check, CheckCircle2, Circle, Clock3, Flag, ListTodo, type LucideIcon } from 'lucide-react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import type { Member, Priority, Task, TaskStatus } from './types';
+
+export const base = '/app/task-management';
+export const api = '/api/task-management';
+export const button = 'tm-button';
+export const primary = 'tm-button tm-primary';
+export const input = 'tm-input';
+export const statusMeta: Record<TaskStatus, { ar: string; en: string; color: string; icon: LucideIcon }> = {
+    idea: { ar: 'Ø£ÙÙƒØ§Ø±', en: 'Ideas', color: 'slate', icon: Circle },
+    in_progress: { ar: 'Ù‚ÙŠØ¯ Ø§Ù„ØªÙ†ÙÙŠØ°', en: 'In progress', color: 'blue', icon: Clock3 },
+    review: { ar: 'Ù„Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©', en: 'In review', color: 'amber', icon: Clock3 },
+    completed: { ar: 'Ù…ÙƒØªÙ…Ù„Ø©', en: 'Completed', color: 'green', icon: CheckCircle2 },
+};
+export const priorityMeta: Record<Priority, { ar: string; en: string; color: string }> = {
+    high: { ar: 'Ø¹Ø§Ù„ÙŠØ©', en: 'High', color: 'red' }, medium: { ar: 'Ù…ØªÙˆØ³Ø·Ø©', en: 'Medium', color: 'amber' }, low: { ar: 'Ù…Ù†Ø®ÙØ¶Ø©', en: 'Low', color: 'green' },
+};
+export function errorText(error: unknown): string { return error instanceof ApiError ? [error.message, ...Object.values(error.errors).flat()].join(' ') : error instanceof Error ? error.message : 'Request failed'; }
+export function today(): string { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
+export function overdue(task: Task): boolean { return !!task.due_on && task.due_on < today() && task.status !== 'completed'; }
+export function dateLabel(value: string | null, ar: boolean): string {
+    if (!value) { return 'â€”'; }
+    const date = new Date(value.length === 10 ? `${value}T12:00:00` : value.includes('T') ? value : `${value.replace(' ', 'T')}Z`);
+    return Number.isNaN(date.getTime()) ? 'â€”' : date.toLocaleDateString(ar ? 'ar' : 'en', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+export function Panel({ title, icon: Icon, action, children, className = '' }: { title: string; icon?: LucideIcon; action?: ReactNode; children: ReactNode; className?: string }) {
+    return <section className={`tm-panel ${className}`}><header className="mb-4 flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-sm font-bold">{Icon && <Icon size={17} className="text-blue-500" />}{title}</h2>{action}</header>{children}</section>;
+}
+export function Stat({ title, value, hint, icon: Icon, color = 'blue' }: { title: string; value: string | number; hint?: string; icon: LucideIcon; color?: string }) {
+    return <div className="tm-panel flex items-start justify-between gap-3"><div><p className="text-[11px] text-slate-500">{title}</p><p className="mt-1 text-2xl font-bold tracking-tight">{value}</p>{hint && <p className="mt-1 text-[10px] text-slate-400">{hint}</p>}</div><span className={`tm-icon tm-${color}`}><Icon size={21} /></span></div>;
+}
+export function Badge({ children, color = 'blue' }: { children: ReactNode; color?: string }) { return <span className={`tm-badge tm-${color}`}>{children}</span>; }
+export function StatusBadge({ status, ar }: { status: TaskStatus; ar: boolean }) { return <Badge color={statusMeta[status].color}>{statusMeta[status][ar ? 'ar' : 'en']}</Badge>; }
+export function PriorityBadge({ priority, ar }: { priority: Priority; ar: boolean }) { return <Badge color={priorityMeta[priority].color}><Flag size={10} />{priorityMeta[priority][ar ? 'ar' : 'en']}</Badge>; }
+export function Avatar({ member, size = 'normal' }: { member?: Pick<Member, 'id' | 'name'>; size?: 'normal' | 'large' }) {
+    const colors = ['#e0e7ff', '#ccfbf1', '#fef3c7', '#fce7f3', '#ede9fe'];
+    return <span title={member?.name ?? 'â€”'} className={`inline-flex shrink-0 items-center justify-center rounded-full border-2 border-white font-bold text-slate-600 ${size === 'large' ? 'size-11 text-sm' : 'size-7 text-[9px]'}`} style={{ background: colors[(member?.id ?? 0) % colors.length] }}>{member?.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('') ?? '?'}</span>;
+}
+export function Assignees({ task, members }: { task: Task; members: Member[] }) { return <span className="flex items-center -space-x-1.5 rtl:space-x-reverse">{task.assignees.slice(0, 3).map((id) => <Avatar key={id} member={members.find((member) => member.id === id)} />)}{task.assignees.length > 3 && <span className="text-[10px] text-slate-400">+{task.assignees.length - 3}</span>}</span>; }
+export function Progress({ value, label = true }: { value: number; label?: boolean }) { return <div className="flex items-center gap-2"><div className="h-1.5 min-w-10 flex-1 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${value === 100 ? 'bg-emerald-400' : 'bg-blue-500'}`} style={{ width: `${value}%` }} /></div>{label && <span className="text-[10px] tabular-nums">{value}%</span>}</div>; }
+export function Empty({ ar, text }: { ar: boolean; text?: string }) { return <div className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 p-6 text-center"><ListTodo size={29} className="text-blue-300" /><p className="text-xs leading-6 text-slate-500">{text ?? (ar ? 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ù‡Ø§Ù… ØªØ·Ø§Ø¨Ù‚ Ø§Ù„ÙÙ„Ø§ØªØ± Ø§Ù„Ø­Ø§Ù„ÙŠØ©.' : 'No tasks match the current filters.')}</p></div>; }
+export function Modal({ open, onClose, title, children, drawer = false }: { open: boolean; onClose: () => void; title: string; children: ReactNode; drawer?: boolean }) {
+    const ref = useRef<HTMLDialogElement>(null);
+    useEffect(() => { if (open) { ref.current?.showModal(); } else { ref.current?.close(); } }, [open]);
+    return <dialog ref={ref} className={drawer ? 'tm-dialog tm-drawer task-module' : 'tm-dialog task-module'} onCancel={(event) => { event.preventDefault(); onClose(); }} onClose={onClose} aria-label={title}>{children}</dialog>;
+}
+export function DueDate({ task, ar }: { task: Task; ar: boolean }) { return <span className={`inline-flex items-center gap-1 text-[10px] ${overdue(task) ? 'text-red-500' : 'text-slate-400'}`}><CalendarDays size={12} />{dateLabel(task.due_on, ar)}</span>; }
+export function CheckMark({ value }: { value: boolean }) { return <span className={`inline-flex size-4 items-center justify-center rounded-full ${value ? 'bg-emerald-100 text-emerald-500' : 'bg-slate-100 text-slate-300'}`}><Check size={10} /></span>; }
+
+============================================================
+FILE: resources\js\pages\Roles.tsx
+============================================================
+import { taskPermissionLabels } from '@/features/task-management/types';
+import {
+    ConfirmDialog,
+} from '@/components/feedback/ConfirmDialog';
+import {
+    AppShell,
+} from '@/layouts/AppShell';
+import {
+    ApiError,
+    apiRequest,
+} from '@/lib/http';
+import {
+    useLocale,
+} from '@/lib/i18n';
+import type {
+    AppPageProps,
+} from '@/types/app';
+import {
+    Head,
+    Link,
+    usePage,
+} from '@inertiajs/react';
+import {
+    BadgeDollarSign,
+    Boxes,
+    BriefcaseBusiness,
+    Check,
+    ContactRound,
+    Crown,
+    Factory,
+    KeyRound,
+    Package,
+    Pencil,
+    Search,
+    ShieldCheck,
+    Sparkles,
+    UserCog,
+    Users,
+    Wallet,
+    X,
+} from 'lucide-react';
+import {
+    useEffect,
+    useMemo,
+    useState,
+    type FormEvent,
+} from 'react';
+
+type Role = {
+    id: number;
+    name: string;
+    base_role: string;
+    permissions: string[];
+    is_custom: boolean;
+};
+
+type Member = {
+    id: number;
+    user_id: number;
+    role: string;
+    workspace_role_id: number | null;
+
+    user: {
+        name: string;
+        email: string;
+    };
+};
+
+type RolePreset = {
+    name_ar: string;
+    name_en: string;
+    description_ar: string;
+    description_en: string;
+    category: string;
+    permissions: string[];
+};
+
+type RolesResponse = {
+    roles: Role[];
+    members: Member[];
+    presets: Record<string, RolePreset>;
+    permission_keys: string[];
+};
+
+type PermissionGroup = {
+    key: string;
+    titleAr: string;
+    titleEn: string;
+    descriptionAr: string;
+    descriptionEn: string;
+    icon: typeof Package;
+    permissions: string[];
+};
+
+const fieldClass =
+    'w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:bg-white focus:ring-4 focus:ring-[var(--ac-accent-soft)]';
+
+const secondaryButton =
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-white px-4 text-sm font-semibold transition hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-40';
+
+const primaryButton =
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-strong)] px-5 text-sm font-semibold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40';
+
+const groups: PermissionGroup[] = [
+    { key: 'tasks', titleAr: 'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ù‡Ø§Ù… ÙˆØ§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹', titleEn: 'Tasks & Projects', descriptionAr: 'Ø¸Ù‡ÙˆØ± Ø§Ù„ØµÙØ­Ø§Øª ÙˆÙ†Ø·Ø§Ù‚ Ø§Ù„Ù…Ù‡Ø§Ù… ÙˆØ§Ù„Ø¥Ø³Ù†Ø§Ø¯ ÙˆØ§Ù„ØªØ¹Ø¯ÙŠÙ„ ÙˆØ¥Ø¯Ø§Ø±Ø© Ø§Ù„ÙØ±ÙŠÙ‚.', descriptionEn: 'Page access, task scope, assignment, editing and team workload.', icon: Package, permissions: Object.keys(taskPermissionLabels) },
+    {
+        key:
+            'products',
+
+        titleAr:
+            'Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø®Ø¯Ù…Ø§Øª',
+
+        titleEn:
+            'Products & Services',
+
+        descriptionAr:
+            'Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø®Ø¯Ù…Ø§Øª ÙˆØ§Ù„Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© Ø¨Ù‡Ø§.',
+
+        descriptionEn:
+            'Products, services, and related operations.',
+
+        icon:
+            Package,
+
+        permissions: [
+            'products.view',
+            'products.create',
+            'products.update',
+            'products.service',
+            'products.archive',
+        ],
+    },
+
+    {
+        key:
+            'parties',
+
+        titleAr:
+            'Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ ÙˆØ§Ù„Ù…ÙˆØ±Ø¯ÙˆÙ†',
+
+        titleEn:
+            'Customers & Suppliers',
+
+        descriptionAr:
+            'Ø¥Ø¯Ø§Ø±Ø© ÙˆØ¹Ø±Ø¶ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ ÙˆØ§Ù„Ù…ÙˆØ±Ø¯ÙŠÙ† ÙˆØ§Ù„Ø¹Ù„Ø§Ù‚Ø§Øª Ø§Ù„ØªØ¬Ø§Ø±ÙŠØ©.',
+
+        descriptionEn:
+            'Customers, suppliers, and business relationships.',
+
+        icon:
+            ContactRound,
+
+        permissions: [
+            'parties.view',
+            'parties.create',
+            'parties.update',
+            'parties.archive',
+        ],
+    },
+
+    {
+        key:
+            'inventory',
+
+        titleAr:
+            'Ø§Ù„Ù…Ø®Ø²ÙˆÙ† ÙˆØ§Ù„Ù…Ø³ØªÙˆØ¯Ø¹Ø§Øª',
+
+        titleEn:
+            'Inventory & Warehouses',
+
+        descriptionAr:
+            'Ø¹Ø±Ø¶ Ø§Ù„Ø£Ø±ØµØ¯Ø© ÙˆØ¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø®Ø²ÙˆÙ† ÙˆØ§Ù„Ù…Ø³ØªÙˆØ¯Ø¹Ø§Øª.',
+
+        descriptionEn:
+            'Stock visibility and warehouse management.',
+
+        icon:
+            Boxes,
+
+        permissions: [
+            'inventory.view',
+            'inventory.manage',
+        ],
+    },
+
+    {
+        key:
+            'production',
+
+        titleAr:
+            'Ø§Ù„Ø¥Ù†ØªØ§Ø¬',
+
+        titleEn:
+            'Production',
+
+        descriptionAr:
+            'Ø¹Ø±Ø¶ ÙˆØªØ´ØºÙŠÙ„ ÙˆØªØ¹Ø¯ÙŠÙ„ Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ø¥Ù†ØªØ§Ø¬.',
+
+        descriptionEn:
+            'View and manage production operations.',
+
+        icon:
+            Factory,
+
+        permissions: [
+            'production.view',
+            'production.manage',
+        ],
+    },
+
+    {
+        key:
+            'payments',
+
+        titleAr:
+            'Ø§Ù„Ù…ØµØ§Ø±ÙŠÙ ÙˆØ§Ù„Ù…Ø¯ÙÙˆØ¹Ø§Øª',
+
+        titleEn:
+            'Expenses & Payments',
+
+        descriptionAr:
+            'Ø§Ù„Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ù…Ø§Ù„ÙŠØ© ÙˆØ§Ù„Ù…Ø¯ÙÙˆØ¹Ø§Øª ÙˆØ§Ù„Ù…ØµØ§Ø±ÙŠÙ.',
+
+        descriptionEn:
+            'Financial operations, expenses, and payments.',
+
+        icon:
+            Wallet,
+
+        permissions: [
+            'payments.view',
+            'payments.create',
+            'payments.update',
+            'payments.record',
+        ],
+    },
+
+    {
+        key:
+            'staff',
+
+        titleAr:
+            'Ø§Ù„Ù…ÙˆØ¸ÙÙˆÙ† ÙˆØ§Ù„Ù…ÙˆØ§Ø±Ø¯ Ø§Ù„Ø¨Ø´Ø±ÙŠØ©',
+
+        titleEn:
+            'Employees & HR',
+
+        descriptionAr:
+            'ØµÙ„Ø§Ø­ÙŠØ§Øª Ø¯Ù‚ÙŠÙ‚Ø© Ø¹Ù„Ù‰ Ø§Ù„Ù‚Ø³Ù… ÙÙ‚Ø· Ø£Ùˆ Ø¹Ù„Ù‰ ÙƒÙ„ Ù…ÙˆØ¸ÙÙŠ Ø§Ù„Ø´Ø±ÙƒØ©.',
+
+        descriptionEn:
+            'Department-scoped or company-wide employee permissions.',
+
+        icon:
+            Users,
+
+        permissions: [
+            'staff.team_view',
+            'staff.team_manage',
+            'staff.team_attendance',
+            'staff.team_pay',
+
+            'staff.view',
+            'staff.manage',
+            'staff.attendance',
+            'staff.pay',
+        ],
+    },
+];
+
+/**
+ * Return a localized label for one permission key.
+ */
+function permissionLabel(
+    permission: string,
+    ar: boolean,
+): string {
+    if (taskPermissionLabels[permission]) { return taskPermissionLabels[permission][ar ? 0 : 1]; }
+    const labels: Record<
+        string,
+        [string, string]
+    > = {
+        'products.view': [
+            'Ø¹Ø±Ø¶ Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª',
+            'View products',
+        ],
+
+        'products.create': [
+            'Ø¥Ø¶Ø§ÙØ© Ù…Ù†ØªØ¬',
+            'Create products',
+        ],
+
+        'products.update': [
+            'ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª',
+            'Edit products',
+        ],
+
+        'products.service': [
+            'ØªØ³Ø¬ÙŠÙ„ Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ø®Ø¯Ù…Ø©',
+            'Record service operations',
+        ],
+
+        'products.archive': [
+            'Ø£Ø±Ø´ÙØ© ÙˆØ§Ø³ØªØ¹Ø§Ø¯Ø©',
+            'Archive & restore',
+        ],
+
+        'parties.view': [
+            'Ø¹Ø±Ø¶ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ ÙˆØ§Ù„Ù…ÙˆØ±Ø¯ÙŠÙ†',
+            'View customers & suppliers',
+        ],
+
+        'parties.create': [
+            'Ø¥Ø¶Ø§ÙØ© Ø¹Ù…ÙŠÙ„ Ø£Ùˆ Ù…ÙˆØ±Ø¯',
+            'Create customer or supplier',
+        ],
+
+        'parties.update': [
+            'ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ ÙˆØ§Ù„Ù…ÙˆØ±Ø¯ÙŠÙ†',
+            'Edit customers & suppliers',
+        ],
+
+        'parties.archive': [
+            'Ø£Ø±Ø´ÙØ© ÙˆØ§Ø³ØªØ¹Ø§Ø¯Ø©',
+            'Archive & restore',
+        ],
+
+        'inventory.view': [
+            'Ø¹Ø±Ø¶ Ø§Ù„Ù…Ø®Ø²ÙˆÙ†',
+            'View inventory',
+        ],
+
+        'inventory.manage': [
+            'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø®Ø²ÙˆÙ† ÙˆØ§Ù„Ù…Ø³ØªÙˆØ¯Ø¹Ø§Øª',
+            'Manage inventory',
+        ],
+
+        'production.view': [
+            'Ø¹Ø±Ø¶ Ø§Ù„Ø¥Ù†ØªØ§Ø¬',
+            'View production',
+        ],
+
+        'production.manage': [
+            'ØªØ´ØºÙŠÙ„ ÙˆØ¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø¥Ù†ØªØ§Ø¬',
+            'Manage production',
+        ],
+
+        'payments.view': [
+            'Ø¹Ø±Ø¶ Ø§Ù„Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ù…Ø§Ù„ÙŠØ©',
+            'View financial operations',
+        ],
+
+        'payments.create': [
+            'Ø¥Ø¶Ø§ÙØ© Ø¹Ù…Ù„ÙŠØ© Ù…Ø§Ù„ÙŠØ©',
+            'Create financial operation',
+        ],
+
+        'payments.update': [
+            'ØªØ¹Ø¯ÙŠÙ„ Ø¹Ù…Ù„ÙŠØ© Ù…Ø§Ù„ÙŠØ©',
+            'Edit financial operation',
+        ],
+
+        'payments.record': [
+            'ØªØ³Ø¬ÙŠÙ„ Ø¯ÙØ¹Ø© Ø£Ùˆ Ù‚Ø¨Ø¶',
+            'Record payment',
+        ],
+
+        'staff.team_view': [
+            'Ø¹Ø±Ø¶ Ù…ÙˆØ¸ÙÙŠ Ù‚Ø³Ù…ÙŠ ÙÙ‚Ø·',
+            'View my department',
+        ],
+
+        'staff.team_manage': [
+            'Ø¥Ø¯Ø§Ø±Ø© Ù…ÙˆØ¸ÙÙŠ Ù‚Ø³Ù…ÙŠ ÙÙ‚Ø·',
+            'Manage my department',
+        ],
+
+        'staff.team_attendance': [
+            'Ø­Ø¶ÙˆØ± Ù‚Ø³Ù…ÙŠ ÙÙ‚Ø·',
+            'Department attendance',
+        ],
+
+        'staff.team_pay': [
+            'Ù…Ø³ØªØ­Ù‚Ø§Øª Ù‚Ø³Ù…ÙŠ ÙÙ‚Ø·',
+            'Department payroll',
+        ],
+
+        'staff.view': [
+            'Ø¹Ø±Ø¶ Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…ÙˆØ¸ÙÙŠÙ†',
+            'View all employees',
+        ],
+
+        'staff.manage': [
+            'Ø¥Ø¯Ø§Ø±Ø© Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…ÙˆØ¸ÙÙŠÙ†',
+            'Manage all employees',
+        ],
+
+        'staff.attendance': [
+            'Ø­Ø¶ÙˆØ± ÙƒÙ„ Ø§Ù„Ø´Ø±ÙƒØ©',
+            'Company attendance',
+        ],
+
+        'staff.pay': [
+            'Ù…Ø³ØªØ­Ù‚Ø§Øª ÙƒÙ„ Ø§Ù„Ø´Ø±ÙƒØ©',
+            'Company payroll',
+        ],
+    };
+
+    const label =
+        labels[permission];
+
+    if (! label) {
+        return permission;
+    }
+
+    return ar
+        ? label[0]
+        : label[1];
+}
+
+/**
+ * Normalize client-side permission dependencies so the preview matches what
+ * the server will persist.
+ */
+function normalizePermissions(
+    input: string[],
+): string[] {
+    const permissions =
+        new Set(input);
+
+    input.forEach((permission) => {
+        if (permission.startsWith('tasks.') && ! ['tasks.dashboard', 'tasks.projects.view', 'tasks.team'].includes(permission)) { permissions.add('tasks.view'); }
+        if (permission === 'tasks.projects.manage') { permissions.add('tasks.projects.view'); }
+    });
+
+    for (
+        const permission of
+        Array.from(
+            permissions,
+        )
+    ) {
+        const module =
+            permission
+                .split('.')[0];
+
+        if (
+            [
+                'products',
+                'parties',
+                'payments',
+            ].includes(
+                module,
+            )
+            && ! permission.endsWith(
+                '.view',
+            )
+        ) {
+            permissions.add(
+                `${module}.view`,
+            );
+        }
+
+        if (
+            permission ===
+            'products.service'
+        ) {
+            permissions.add(
+                'parties.view',
+            );
+        }
+
+        if (
+            permission ===
+            'inventory.manage'
+        ) {
+            permissions.add(
+                'inventory.view',
+            );
+
+            permissions.add(
+                'products.view',
+            );
+        }
+
+        if (
+            permission ===
+            'production.view'
+        ) {
+            permissions.add(
+                'inventory.view',
+            );
+
+            permissions.add(
+                'products.view',
+            );
+        }
+
+        if (
+            permission ===
+            'production.manage'
+        ) {
+            permissions.add(
+                'production.view',
+            );
+
+            permissions.add(
+                'inventory.view',
+            );
+
+            permissions.add(
+                'products.view',
+            );
+        }
+
+        if (
+            [
+                'staff.manage',
+                'staff.attendance',
+                'staff.pay',
+            ].includes(
+                permission,
+            )
+        ) {
+            permissions.add(
+                'staff.view',
+            );
+        }
+
+        if (
+            [
+                'staff.team_manage',
+                'staff.team_attendance',
+                'staff.team_pay',
+            ].includes(
+                permission,
+            )
+        ) {
+            permissions.add(
+                'staff.team_view',
+            );
+        }
+    }
+
+    return Array.from(
+        permissions,
+    );
+}
+
+/**
+ * Render the active workspace roles page with a clean remount when switching
+ * organizations.
+ */
+export default function RolesPage() {
+    const {
+        workspace,
+    } =
+        usePage<AppPageProps>().props;
+
+    return (
+        <RoleWorkspace
+            key={
+                workspace
+                    .activeOrganization
+                    ?.id
+            }
+        />
+    );
+}
+
+/**
+ * Render custom roles, employee promotion, and protected Owner information.
+ */
+function RoleWorkspace() {
+    const locale =
+        useLocale();
+
+    const ar =
+        locale ===
+        'ar';
+
+    const {
+        workspace,
+    } =
+        usePage<AppPageProps>().props;
+
+    const organization =
+        workspace
+            .activeOrganization;
+
+    const allowed =
+        organization?.role ===
+        'owner';
+
+    const [
+        data,
+        setData,
+    ] =
+        useState<RolesResponse | null>(
+            null,
+        );
+
+    const [
+        revision,
+        setRevision,
+    ] =
+        useState(
+            0,
+        );
+
+    const [
+        error,
+        setError,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        success,
+        setSuccess,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        busy,
+        setBusy,
+    ] =
+        useState(
+            false,
+        );
+
+    const [
+        editing,
+        setEditing,
+    ] =
+        useState<Role | null>(
+            null,
+        );
+
+    const [
+        selectedPreset,
+        setSelectedPreset,
+    ] =
+        useState<string | null>(
+            null,
+        );
+
+    const [
+        name,
+        setName,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        permissions,
+        setPermissions,
+    ] =
+        useState<string[]>(
+            [],
+        );
+
+    const [
+        presetSearch,
+        setPresetSearch,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        selectedMemberId,
+        setSelectedMemberId,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        selectedRoleId,
+        setSelectedRoleId,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        ownerPassword,
+        setOwnerPassword,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        promotionConfirmOpen,
+        setPromotionConfirmOpen,
+    ] =
+        useState(
+            false,
+        );
+
+    const [
+        revoking,
+        setRevoking,
+    ] =
+        useState<Member | null>(
+            null,
+        );
+
+    const copy =
+        ar
+            ? {
+                  title:
+                      'Ø§Ù„Ø£Ø¯ÙˆØ§Ø± ÙˆØ§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª',
+
+                  subtitle:
+                      'Ø£Ù†Ø´Ø¦ Ø£Ø¯ÙˆØ§Ø±Ù‹Ø§ Ø¯Ù‚ÙŠÙ‚Ø©ØŒ Ø«Ù… Ø±Ù‚Ù‘ÙŠ Ø§Ù„Ù…ÙˆØ¸ÙÙŠÙ† Ø¨Ø£Ù…Ø§Ù† Ø¯ÙˆÙ† Ø§Ù„Ù…Ø³Ø§Ø³ Ø¨Ù…Ù„ÙƒÙŠØ© Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.',
+
+                  departments:
+                      'Ø§Ù„Ø£Ù‚Ø³Ø§Ù… ÙˆÙ‡ÙŠÙƒÙ„ Ø§Ù„ÙØ±ÙŠÙ‚',
+
+                  ownerTitle:
+                      'Ù…Ø§Ù„Ùƒ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„',
+
+                  ownerDescription:
+                      'Ø§Ù„Ù€ Owner Ù…Ù†ÙØµÙ„ Ø¹Ù† Ø£Ø¯ÙˆØ§Ø± Ø§Ù„Ù…ÙˆØ¸ÙÙŠÙ† ÙˆÙŠÙ…ØªÙ„Ùƒ ÙˆØµÙˆÙ„Ù‹Ø§ ÙƒØ§Ù…Ù„Ù‹Ø§ Ø¯Ø§Ø¦Ù…Ù‹Ø§.',
+
+                  fullAccess:
+                      'ÙˆØµÙˆÙ„ ÙƒØ§Ù…Ù„',
+
+                  cannotAssignOwner:
+                      'Ù„Ø§ ÙŠÙ…ÙƒÙ† ØªØ±Ù‚ÙŠØ© Ø£ÙŠ Ù…ÙˆØ¸Ù Ø¥Ù„Ù‰ Owner Ù…Ù† Ù†Ø¸Ø§Ù… Ø§Ù„Ø£Ø¯ÙˆØ§Ø±.',
+
+                  promotionTitle:
+                      'ØªØ±Ù‚ÙŠØ© / ØªØºÙŠÙŠØ± Ø¯ÙˆØ± Ø§Ù„Ù…ÙˆØ¸Ù',
+
+                  promotionDescription:
+                      'Ø§Ø®ØªØ± Ø§Ù„Ù…ÙˆØ¸Ù ÙˆØ§Ù„Ø¯ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯ØŒ Ø±Ø§Ø¬Ø¹ Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§ØªØŒ Ø«Ù… Ø£Ø¯Ø®Ù„ ÙƒÙ„Ù…Ø© Ù…Ø±ÙˆØ± Ø§Ù„Ù…Ø§Ù„Ùƒ Ù„Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„ØªØºÙŠÙŠØ±.',
+
+                  employee:
+                      'Ø§Ù„Ù…ÙˆØ¸Ù',
+
+                  chooseEmployee:
+                      'Ø§Ø®ØªØ± Ù…ÙˆØ¸ÙÙ‹Ø§',
+
+                  currentRole:
+                      'Ø§Ù„Ø¯ÙˆØ± Ø§Ù„Ø­Ø§Ù„ÙŠ',
+
+                  newRole:
+                      'Ø§Ù„Ø¯ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯',
+
+                  chooseRole:
+                      'Ø§Ø®ØªØ± Ø§Ù„Ø¯ÙˆØ± Ø§Ù„Ø¬Ø¯ÙŠØ¯',
+
+                  ownerPassword:
+                      'ÙƒÙ„Ù…Ø© Ù…Ø±ÙˆØ± Ø§Ù„Ù…Ø§Ù„Ùƒ',
+
+                  passwordHint:
+                      'Ù†Ø·Ù„Ø¨ ÙƒÙ„Ù…Ø© Ù…Ø±ÙˆØ±Ùƒ Ù„Ø­Ù…Ø§ÙŠØ© Ø§Ù„ØªØ±Ù‚ÙŠØ§Øª Ø§Ù„Ø­Ø³Ø§Ø³Ø©.',
+
+                  promotionPreview:
+                      'Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª Ø¨Ø¹Ø¯ Ø§Ù„ØªØ±Ù‚ÙŠØ©',
+
+                  noRoleSelected:
+                      'Ø§Ø®ØªØ± Ø¯ÙˆØ±Ù‹Ø§ Ù„Ø¹Ø±Ø¶ ØµÙ„Ø§Ø­ÙŠØ§ØªÙ‡.',
+
+                  promote:
+                      'Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„ØªØ±Ù‚ÙŠØ©',
+
+                  confirmPromotion:
+                      'ØªØ£ÙƒÙŠØ¯ ØªØ±Ù‚ÙŠØ© Ø§Ù„Ù…ÙˆØ¸Ù',
+
+                  promotionSuccess:
+                      'ØªÙ… ØªØ­Ø¯ÙŠØ« Ø¯ÙˆØ± Ø§Ù„Ù…ÙˆØ¸Ù Ø¨Ù†Ø¬Ø§Ø­.',
+
+                  presets:
+                      'Ø£Ø¯ÙˆØ§Ø± Ø¬Ø§Ù‡Ø²Ø©',
+
+                  presetsHint:
+                      'Ø§Ø¨Ø¯Ø£ Ø¨Ù‚Ø§Ù„Ø¨ ÙˆØ¸ÙŠÙØ© Ø­Ù‚ÙŠÙ‚ÙŠ Ø«Ù… Ø¹Ø¯Ù‘Ù„ Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª Ø­Ø³Ø¨ Ø´Ø±ÙƒØªÙƒ.',
+
+                  searchPreset:
+                      'Ø§Ø¨Ø­Ø« Ø¹Ù† Ù…Ø¯ÙŠØ± Ù…Ø§Ù„ÙŠØŒ Ø±Ø¦ÙŠØ³ Ù‚Ø³Ù…ØŒ Ù…Ø¯ÙŠØ± Ø¥Ù†ØªØ§Ø¬â€¦',
+
+                  roleBuilder:
+                      'ØªØµÙ…ÙŠÙ… Ø§Ù„Ø¯ÙˆØ±',
+
+                  createRole:
+                      'Ø¯ÙˆØ± Ù…Ø®ØµØµ Ø¬Ø¯ÙŠØ¯',
+
+                  editRole:
+                      'ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø¯ÙˆØ±',
+
+                  roleName:
+                      'Ø§Ø³Ù… Ø§Ù„Ø¯ÙˆØ±',
+
+                  permissionMatrix:
+                      'Ù…ØµÙÙˆÙØ© Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª',
+
+                  permissionMatrixHint:
+                      'ÙƒÙ„ Ø®ÙŠØ§Ø± Ù‡Ù†Ø§ ØµÙ„Ø§Ø­ÙŠØ© Ø­Ù‚ÙŠÙ‚ÙŠØ© ÙŠØªÙ… Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù†Ù‡Ø§ Ù…Ù† Ø§Ù„Ø³ÙŠØ±ÙØ±.',
+
+                  selected:
+                      'ØµÙ„Ø§Ø­ÙŠØ© Ù…Ø­Ø¯Ø¯Ø©',
+
+                  selectAll:
+                      'ØªØ­Ø¯ÙŠØ¯ Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹Ø©',
+
+                  clear:
+                      'Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹Ø©',
+
+                  save:
+                      'Ø­ÙØ¸ Ø§Ù„Ø¯ÙˆØ±',
+
+                  cancel:
+                      'Ø¥Ù„ØºØ§Ø¡',
+
+                  roleLibrary:
+                      'Ø§Ù„Ø£Ø¯ÙˆØ§Ø± Ø§Ù„Ù…Ø®ØµØµØ©',
+
+                  noRoles:
+                      'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø£Ø¯ÙˆØ§Ø± Ù…Ø®ØµØµØ© Ø¨Ø¹Ø¯.',
+
+                  members:
+                      'Ø£Ø¹Ø¶Ø§Ø¡ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„',
+
+                  owner:
+                      'Owner',
+
+                  revoke:
+                      'Ø¥Ù„ØºØ§Ø¡ Ø§Ù„ÙˆØµÙˆÙ„',
+
+                  revokeHelp:
+                      'Ø³ÙŠØªÙ… Ø¥Ø²Ø§Ù„Ø© Ù‡Ø°Ø§ Ø§Ù„Ø¹Ø¶Ùˆ Ù…Ù† Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.',
+
+                  permissions:
+                      'ØµÙ„Ø§Ø­ÙŠØ§Øª',
+
+                  departmentScope:
+                      'Ø§Ù„Ù‚Ø³Ù… Ø§Ù„Ù…ÙØ¯Ø§Ø± ÙÙ‚Ø·',
+
+                  allCompany:
+                      'ÙƒÙ„ Ø§Ù„Ø´Ø±ÙƒØ©',
+
+                  totalTemplates:
+                      'Ù‚ÙˆØ§Ù„Ø¨ Ø¬Ø§Ù‡Ø²Ø©',
+
+                  customRoles:
+                      'Ø£Ø¯ÙˆØ§Ø± Ù…Ø®ØµØµØ©',
+
+                  assignedMembers:
+                      'Ø£Ø¹Ø¶Ø§Ø¡ Ø¨Ø£Ø¯ÙˆØ§Ø± Ù…Ø®ØµØµØ©',
+
+                  realPermissions:
+                      'ØµÙ„Ø§Ø­ÙŠØ§Øª ÙØ¹Ù„ÙŠØ©',
+
+                  startCustom:
+                      'Ø¯ÙˆØ± ÙØ§Ø±Øº',
+
+                  failed:
+                      'Ø­Ø¯Ø« Ø®Ø·Ø£. ÙŠØ±Ø¬Ù‰ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.',
+
+                  ownerOnly:
+                      'Ù‡Ø°Ù‡ Ø§Ù„ØµÙØ­Ø© Ù…ØªØ§Ø­Ø© Ù„Ù…Ø§Ù„Ùƒ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„ ÙÙ‚Ø·.',
+              }
+            : {
+                  title:
+                      'Roles & Permissions',
+
+                  subtitle:
+                      'Create precise roles and safely promote employees without changing workspace ownership.',
+
+                  departments:
+                      'Departments & team structure',
+
+                  ownerTitle:
+                      'Workspace Owner',
+
+                  ownerDescription:
+                      'Owner is separate from employee roles and always retains full access.',
+
+                  fullAccess:
+                      'Full access',
+
+                  cannotAssignOwner:
+                      'Employees cannot be promoted to Owner through the role system.',
+
+                  promotionTitle:
+                      'Promote / Change employee role',
+
+                  promotionDescription:
+                      'Choose an employee and a new role, review permissions, then enter the Owner password.',
+
+                  employee:
+                      'Employee',
+
+                  chooseEmployee:
+                      'Choose employee',
+
+                  currentRole:
+                      'Current role',
+
+                  newRole:
+                      'New role',
+
+                  chooseRole:
+                      'Choose new role',
+
+                  ownerPassword:
+                      'Owner password',
+
+                  passwordHint:
+                      'Your password is required to protect sensitive role promotions.',
+
+                  promotionPreview:
+                      'Permissions after promotion',
+
+                  noRoleSelected:
+                      'Choose a role to preview its permissions.',
+
+                  promote:
+                      'Confirm promotion',
+
+                  confirmPromotion:
+                      'Confirm employee promotion',
+
+                  promotionSuccess:
+                      'Employee role updated successfully.',
+
+                  presets:
+                      'Role templates',
+
+                  presetsHint:
+                      'Start with a practical business role and customize it.',
+
+                  searchPreset:
+                      'Search Finance Manager, Department Headâ€¦',
+
+                  roleBuilder:
+                      'Role designer',
+
+                  createRole:
+                      'New custom role',
+
+                  editRole:
+                      'Edit role',
+
+                  roleName:
+                      'Role name',
+
+                  permissionMatrix:
+                      'Permission matrix',
+
+                  permissionMatrixHint:
+                      'Every option below is enforced by the server.',
+
+                  selected:
+                      'permissions selected',
+
+                  selectAll:
+                      'Select group',
+
+                  clear:
+                      'Clear group',
+
+                  save:
+                      'Save role',
+
+                  cancel:
+                      'Cancel',
+
+                  roleLibrary:
+                      'Custom roles',
+
+                  noRoles:
+                      'No custom roles yet.',
+
+                  members:
+                      'Workspace members',
+
+                  owner:
+                      'Owner',
+
+                  revoke:
+                      'Revoke access',
+
+                  revokeHelp:
+                      'This member will be removed from the workspace.',
+
+                  permissions:
+                      'permissions',
+
+                  departmentScope:
+                      'Managed department only',
+
+                  allCompany:
+                      'Entire company',
+
+                  totalTemplates:
+                      'Role templates',
+
+                  customRoles:
+                      'Custom roles',
+
+                  assignedMembers:
+                      'Members with custom roles',
+
+                  realPermissions:
+                      'Real permissions',
+
+                  startCustom:
+                      'Blank role',
+
+                  failed:
+                      'Something went wrong. Please try again.',
+
+                  ownerOnly:
+                      'Only the workspace Owner can manage roles.',
+              };
+
+    /**
+     * Load all role-management metadata.
+     */
+    useEffect(
+        () => {
+            if (! allowed) {
+                return;
+            }
+
+            const controller =
+                new AbortController();
+
+            apiRequest<RolesResponse>(
+                '/api/workspace-roles',
+                {
+                    signal:
+                        controller.signal,
+                },
+            )
+                .then(
+                    setData,
+                )
+                .catch(
+                    failure => {
+                        if (
+                            controller
+                                .signal
+                                .aborted
+                        ) {
+                            return;
+                        }
+
+                        setError(
+                            failure instanceof
+                                ApiError
+                                ? failure.message
+                                : copy.failed,
+                        );
+                    },
+                );
+
+            return () =>
+                controller.abort();
+        },
+        [
+            allowed,
+            revision,
+            copy.failed,
+        ],
+    );
+
+    const presets =
+        useMemo(
+            () =>
+                Object.entries(
+                    data?.presets
+                    ?? {},
+                ).filter(
+                    ([
+                        ,
+                        preset,
+                    ]) => {
+                        const query =
+                            presetSearch
+                                .trim()
+                                .toLowerCase();
+
+                        if (! query) {
+                            return true;
+                        }
+
+                        return [
+                            preset.name_ar,
+                            preset.name_en,
+                            preset.description_ar,
+                            preset.description_en,
+                        ]
+                            .join(' ')
+                            .toLowerCase()
+                            .includes(
+                                query,
+                            );
+                    },
+                ),
+            [
+                data,
+                presetSearch,
+            ],
+        );
+
+    const ownerMember =
+        data?.members.find(
+            member =>
+                member.role ===
+                'owner',
+        )
+        ?? null;
+
+    const assignableMembers =
+        data?.members.filter(
+            member =>
+                member.role !==
+                'owner',
+        )
+        ?? [];
+
+    const selectedMember =
+        assignableMembers.find(
+            member =>
+                member.id ===
+                Number(
+                    selectedMemberId,
+                ),
+        )
+        ?? null;
+
+    const selectedRole =
+        data?.roles.find(
+            role =>
+                role.id ===
+                Number(
+                    selectedRoleId,
+                ),
+        )
+        ?? null;
+
+    const currentSelectedRole =
+        selectedMember
+            ? data?.roles.find(
+                  role =>
+                      role.id ===
+                      selectedMember
+                          .workspace_role_id,
+              )
+              ?? null
+            : null;
+
+    const assignedCustomCount =
+        data?.members.filter(
+            member =>
+                member.workspace_role_id
+                !== null,
+        ).length
+        ?? 0;
+
+    const canPromote =
+        Boolean(
+            selectedMember
+            && selectedRole
+            && ownerPassword.trim(),
+        );
+
+    /**
+     * Return a readable role label for one member.
+     */
+    function memberRoleLabel(
+        member:
+            Member | null,
+    ): string {
+        if (! member) {
+            return 'â€”';
+        }
+
+        if (
+            member.role ===
+            'owner'
+        ) {
+            return copy.owner;
+        }
+
+        const customRole =
+            data?.roles.find(
+                role =>
+                    role.id ===
+                    member.workspace_role_id,
+            );
+
+        if (customRole) {
+            return customRole.name;
+        }
+
+        const builtin:
+            Record<
+                string,
+                string
+            > = ar
+                ? {
+                      admin:
+                          'Ù…Ø¯ÙŠØ± Ù†Ø¸Ø§Ù…',
+
+                      manager:
+                          'Ù…Ø¯ÙŠØ±',
+
+                      accountant:
+                          'Ù…Ø­Ø§Ø³Ø¨',
+
+                      employee:
+                          'Ù…ÙˆØ¸Ù',
+                  }
+                : {
+                      admin:
+                          'Admin',
+
+                      manager:
+                          'Manager',
+
+                      accountant:
+                          'Accountant',
+
+                      employee:
+                          'Employee',
+                  };
+
+        return builtin[
+            member.role
+        ]
+        ?? member.role;
+    }
+
+    /**
+     * Reset custom role designer.
+     */
+    function resetDesigner(): void {
+        setEditing(
+            null,
+        );
+
+        setSelectedPreset(
+            null,
+        );
+
+        setName(
+            '',
+        );
+
+        setPermissions(
+            [],
+        );
+    }
+
+    /**
+     * Apply a business role preset to the custom role designer.
+     */
+    function applyPreset(
+        key: string,
+        preset: RolePreset,
+    ): void {
+        setEditing(
+            null,
+        );
+
+        setSelectedPreset(
+            key,
+        );
+
+        setName(
+            ar
+                ? preset.name_ar
+                : preset.name_en,
+        );
+
+        setPermissions(
+            normalizePermissions(
+                preset.permissions,
+            ),
+        );
+
+        window.scrollTo({
+            top:
+                document.body.scrollHeight > 500
+                    ? 400
+                    : 0,
+
+            behavior:
+                'smooth',
+        });
+    }
+
+    /**
+     * Load one persisted custom role into the designer.
+     */
+    function editRole(
+        role: Role,
+    ): void {
+        setEditing(
+            role,
+        );
+
+        setSelectedPreset(
+            null,
+        );
+
+        setName(
+            role.name,
+        );
+
+        setPermissions(
+            normalizePermissions(
+                role.permissions,
+            ),
+        );
+    }
+
+    /**
+     * Toggle one permission while preserving dependent permissions.
+     */
+    function togglePermission(
+        permission: string,
+    ): void {
+        setPermissions(
+            current => {
+                if (
+                    current.includes(
+                        permission,
+                    )
+                ) {
+                    let next =
+                        current.filter(
+                            item =>
+                                item !==
+                                permission,
+                        );
+
+                    if (
+                        permission ===
+                        'staff.team_view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    ! [
+                                        'staff.team_manage',
+                                        'staff.team_attendance',
+                                        'staff.team_pay',
+                                    ].includes(
+                                        item,
+                                    ),
+                            );
+                    }
+
+                    if (
+                        permission ===
+                        'staff.view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    ! [
+                                        'staff.manage',
+                                        'staff.attendance',
+                                        'staff.pay',
+                                    ].includes(
+                                        item,
+                                    ),
+                            );
+                    }
+
+                    if (
+                        permission.endsWith(
+                            '.view',
+                        )
+                        && ! permission.startsWith(
+                            'staff.',
+                        )
+                    ) {
+                        const module =
+                            permission
+                                .split('.')[0];
+
+                        next =
+                            next.filter(
+                                item =>
+                                    ! item.startsWith(
+                                        `${module}.`,
+                                    ),
+                            );
+                    }
+
+                    return normalizePermissions(
+                        next,
+                    );
+                }
+
+                return normalizePermissions([
+                    ...current,
+                    permission,
+                ]);
+            },
+        );
+    }
+
+    /**
+     * Toggle all permissions belonging to one module.
+     */
+    function toggleGroup(
+        group:
+            PermissionGroup,
+    ): void {
+        const allSelected =
+            group.permissions.every(
+                permission =>
+                    permissions.includes(
+                        permission,
+                    ),
+            );
+
+        if (allSelected) {
+            setPermissions(
+                current =>
+                    current.filter(
+                        permission =>
+                            ! group.permissions.includes(
+                                permission,
+                            ),
+                    ),
+            );
+
+            return;
+        }
+
+        setPermissions(
+            current =>
+                normalizePermissions([
+                    ...current,
+                    ...group.permissions,
+                ]),
+        );
+    }
+
+    /**
+     * Persist one custom role.
+     */
+    async function saveRole(
+        event:
+            FormEvent<HTMLFormElement>,
+    ): Promise<void> {
+        event.preventDefault();
+
+        if (busy) {
+            return;
+        }
+
+        setBusy(
+            true,
+        );
+
+        setError(
+            '',
+        );
+
+        setSuccess(
+            '',
+        );
+
+        try {
+            await apiRequest(
+                editing
+                    ? `/api/workspace-roles/${editing.id}`
+                    : '/api/workspace-roles',
+                {
+                    method:
+                        editing
+                            ? 'PATCH'
+                            : 'POST',
+
+                    body:
+                        JSON.stringify({
+                            name:
+                                name.trim(),
+
+                            base_role:
+                                'employee',
+
+                            is_custom:
+                                true,
+
+                            preset_key:
+                                selectedPreset,
+
+                            permissions:
+                                normalizePermissions(
+                                    permissions,
+                                ),
+                        }),
+                },
+            );
+
+            resetDesigner();
+
+            setRevision(
+                value =>
+                    value
+                    + 1,
+            );
+
+            setSuccess(
+                ar
+                    ? 'ØªÙ… Ø­ÙØ¸ Ø§Ù„Ø¯ÙˆØ± Ø¨Ù†Ø¬Ø§Ø­.'
+                    : 'Role saved successfully.',
+            );
+        } catch (failure) {
+            setError(
+                failure instanceof
+                    ApiError
+                    ? [
+                          failure.message,
+                          ...Object.values(
+                              failure.errors,
+                          ).flat(),
+                      ]
+                          .filter(
+                              Boolean,
+                          )
+                          .join(' ')
+                    : copy.failed,
+            );
+        } finally {
+            setBusy(
+                false,
+            );
+        }
+    }
+
+    /**
+     * Promote or change one employee role after verifying the current Owner
+     * password on the server.
+     */
+    async function promoteMember(): Promise<void> {
+        if (
+            ! selectedMember
+            || ! selectedRole
+            || ! ownerPassword
+            || busy
+        ) {
+            return;
+        }
+
+        setBusy(
+            true,
+        );
+
+        setError(
+            '',
+        );
+
+        setSuccess(
+            '',
+        );
+
+        try {
+            await apiRequest(
+                '/api/workspace-roles/assign',
+                {
+                    method:
+                        'POST',
+
+                    body:
+                        JSON.stringify({
+                            email:
+                                selectedMember
+                                    .user
+                                    .email,
+
+                            confirmed_user_id:
+                                selectedMember
+                                    .user_id,
+
+                            workspace_role_id:
+                                selectedRole
+                                    .id,
+
+                            current_password:
+                                ownerPassword,
+                        }),
+                },
+            );
+
+            setPromotionConfirmOpen(
+                false,
+            );
+
+            setOwnerPassword(
+                '',
+            );
+
+            setSelectedMemberId(
+                '',
+            );
+
+            setSelectedRoleId(
+                '',
+            );
+
+            setRevision(
+                value =>
+                    value
+                    + 1,
+            );
+
+            setSuccess(
+                copy.promotionSuccess,
+            );
+        } catch (failure) {
+            setPromotionConfirmOpen(
+                false,
+            );
+
+            setError(
+                failure instanceof
+                    ApiError
+                    ? [
+                          failure.message,
+                          ...Object.values(
+                              failure.errors,
+                          ).flat(),
+                      ]
+                          .filter(
+                              Boolean,
+                          )
+                          .join(' ')
+                    : copy.failed,
+            );
+        } finally {
+            setBusy(
+                false,
+            );
+        }
+    }
+
+    /**
+     * Remove one normal member from the active workspace.
+     */
+    async function revokeMember(): Promise<void> {
+        if (
+            ! revoking
+            || busy
+            || ! organization?.id
+        ) {
+            return;
+        }
+
+        setBusy(
+            true,
+        );
+
+        setError(
+            '',
+        );
+
+        try {
+            await apiRequest(
+                `/api/organizations/${organization.id}/memberships/${revoking.id}`,
+                {
+                    method:
+                        'DELETE',
+                },
+            );
+
+            setRevoking(
+                null,
+            );
+
+            setRevision(
+                value =>
+                    value
+                    + 1,
+            );
+        } catch (failure) {
+            setError(
+                failure instanceof
+                    ApiError
+                    ? failure.message
+                    : copy.failed,
+            );
+        } finally {
+            setBusy(
+                false,
+            );
+        }
+    }
+
+    return (
+        <AppShell>
+            <Head
+                title={
+                    copy.title
+                }
+            />
+
+            <main className="mx-auto w-full max-w-[1680px] space-y-5 px-3 py-5 sm:px-5 lg:px-8">
+                <header className="relative overflow-hidden rounded-[28px] border border-[var(--ac-line)] bg-white p-6 shadow-[var(--ac-shadow-soft)] sm:p-8">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(93,205,168,.18),transparent_28%),radial-gradient(circle_at_92%_15%,rgba(42,132,105,.10),transparent_30%)]" />
+
+                    <div className="relative flex flex-wrap items-center justify-between gap-5">
+                        <div className="flex items-start gap-4">
+                            <span className="flex size-14 items-center justify-center rounded-[18px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
+                                <ShieldCheck
+                                    size={
+                                        25
+                                    }
+                                />
+                            </span>
+
+                            <div>
+                                <h1 className="text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">
+                                    {
+                                        copy.title
+                                    }
+                                </h1>
+
+                                <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--ac-text-muted)]">
+                                    {
+                                        copy.subtitle
+                                    }
+                                </p>
+                            </div>
+                        </div>
+
+                        <Link
+                            href="/app/departments"
+                            className={
+                                secondaryButton
+                            }
+                        >
+                            <Users
+                                size={
+                                    15
+                                }
+                            />
+
+                            {
+                                copy.departments
+                            }
+                        </Link>
+                    </div>
+                </header>
+
+                {! allowed ? (
+                    <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+                        {
+                            copy.ownerOnly
+                        }
+                    </div>
+                ) : (
+                    <>
+                        {error && (
+                            <div className="flex items-center justify-between gap-4 rounded-[16px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                                <span>
+                                    {
+                                        error
+                                    }
+                                </span>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setError(
+                                            '',
+                                        )
+                                    }
+                                >
+                                    <X
+                                        size={
+                                            15
+                                        }
+                                    />
+                                </button>
+                            </div>
+                        )}
+
+                        {success && (
+                            <div className="flex items-center gap-2 rounded-[16px] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                                <Check
+                                    size={
+                                        15
+                                    }
+                                />
+
+                                {
+                                    success
+                                }
+                            </div>
+                        )}
+
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <SummaryCard
+                                icon={
+                                    Sparkles
+                                }
+                                label={
+                                    copy.totalTemplates
+                                }
+                                value={String(
+                                    Object.keys(
+                                        data?.presets
+                                        ?? {},
+                                    ).length,
+                                )}
+                            />
+
+                            <SummaryCard
+                                icon={
+                                    ShieldCheck
+                                }
+                                label={
+                                    copy.customRoles
+                                }
+                                value={String(
+                                    data?.roles.length
+                                    ?? 0,
+                                )}
+                            />
+
+                            <SummaryCard
+                                icon={
+                                    UserCog
+                                }
+                                label={
+                                    copy.assignedMembers
+                                }
+                                value={String(
+                                    assignedCustomCount,
+                                )}
+                            />
+
+                            <SummaryCard
+                                icon={
+                                    Crown
+                                }
+                                label={
+                                    copy.realPermissions
+                                }
+                                value={String(
+                                    data?.permission_keys
+                                        .length
+                                    ?? 0,
+                                )}
+                            />
+                        </div>
+
+                        <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+                            <section className="rounded-[24px] border border-amber-200 bg-white p-5 shadow-[var(--ac-shadow-soft)]">
+                                <div className="flex items-center gap-3">
+                                    <span className="flex size-12 items-center justify-center rounded-[15px] bg-amber-50 text-amber-700">
+                                        <Crown
+                                            size={
+                                                20
+                                            }
+                                        />
+                                    </span>
+
+                                    <div>
+                                        <h2 className="font-semibold">
+                                            {
+                                                copy.ownerTitle
+                                            }
+                                        </h2>
+
+                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                            {
+                                                copy.ownerDescription
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-5 flex items-center gap-3 rounded-[17px] bg-[var(--ac-surface-soft)] p-4">
+                                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white text-base font-bold">
+                                        {ownerMember
+                                            ?.user
+                                            .name
+                                            .charAt(
+                                                0,
+                                            )
+                                            .toUpperCase()
+                                            ?? 'O'}
+                                    </span>
+
+                                    <div className="min-w-0">
+                                        <strong className="block truncate text-sm">
+                                            {ownerMember
+                                                ?.user
+                                                .name
+                                            ?? 'â€”'}
+                                        </strong>
+
+                                        <p className="mt-1 truncate text-[10px] text-[var(--ac-text-muted)]">
+                                            {ownerMember
+                                                ?.user
+                                                .email
+                                            ?? 'â€”'}
+                                        </p>
+
+                                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[9px] font-bold text-amber-700">
+                                            <Crown
+                                                size={
+                                                    10
+                                                }
+                                            />
+
+                                            {
+                                                copy.fullAccess
+                                            }
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 rounded-[15px] border border-amber-100 bg-amber-50/50 p-4 text-[10px] leading-5 text-amber-800">
+                                    {
+                                        copy.cannotAssignOwner
+                                    }
+                                </div>
+                            </section>
+
+                            <section className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)] sm:p-6">
+                                <div className="flex items-start gap-3">
+                                    <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
+                                        <UserCog
+                                            size={
+                                                19
+                                            }
+                                        />
+                                    </span>
+
+                                    <div>
+                                        <h2 className="text-lg font-semibold">
+                                            {
+                                                copy.promotionTitle
+                                            }
+                                        </h2>
+
+                                        <p className="mt-1 text-xs leading-5 text-[var(--ac-text-muted)]">
+                                            {
+                                                copy.promotionDescription
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                                    <label className="text-xs font-semibold">
+                                        {
+                                            copy.employee
+                                        }
+
+                                        <select
+                                            value={
+                                                selectedMemberId
+                                            }
+                                            onChange={event => {
+                                                setSelectedMemberId(
+                                                    event
+                                                        .target
+                                                        .value,
+                                                );
+
+                                                setSelectedRoleId(
+                                                    '',
+                                                );
+                                            }}
+                                            className={`${fieldClass} mt-2`}
+                                        >
+                                            <option value="">
+                                                {
+                                                    copy.chooseEmployee
+                                                }
+                                            </option>
+
+                                            {assignableMembers.map(
+                                                member => (
+                                                    <option
+                                                        key={
+                                                            member.id
+                                                        }
+                                                        value={
+                                                            member.id
+                                                        }
+                                                    >
+                                                        {
+                                                            member.user.name
+                                                        }
+                                                        {' â€” '}
+                                                        {
+                                                            member.user.email
+                                                        }
+                                                    </option>
+                                                ),
+                                            )}
+                                        </select>
+                                    </label>
+
+                                    <div>
+                                        <p className="text-xs font-semibold">
+                                            {
+                                                copy.currentRole
+                                            }
+                                        </p>
+
+                                        <div className="mt-2 flex min-h-[46px] items-center rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 text-sm font-semibold">
+                                            {
+                                                memberRoleLabel(
+                                                    selectedMember,
+                                                )
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <label className="text-xs font-semibold">
+                                        {
+                                            copy.newRole
+                                        }
+
+                                        <select
+                                            value={
+                                                selectedRoleId
+                                            }
+                                            onChange={event =>
+                                                setSelectedRoleId(
+                                                    event
+                                                        .target
+                                                        .value,
+                                                )
+                                            }
+                                            disabled={
+                                                ! selectedMember
+                                            }
+                                            className={`${fieldClass} mt-2`}
+                                        >
+                                            <option value="">
+                                                {
+                                                    copy.chooseRole
+                                                }
+                                            </option>
+
+                                            {data?.roles.map(
+                                                role => (
+                                                    <option
+                                                        key={
+                                                            role.id
+                                                        }
+                                                        value={
+                                                            role.id
+                                                        }
+                                                    >
+                                                        {
+                                                            role.name
+                                                        }
+                                                    </option>
+                                                ),
+                                            )}
+                                        </select>
+                                    </label>
+
+                                    <label className="text-xs font-semibold">
+                                        {
+                                            copy.ownerPassword
+                                        }
+
+                                        <div className="relative mt-2">
+                                            <KeyRound
+                                                size={
+                                                    15
+                                                }
+                                                className="absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
+                                            />
+
+                                            <input
+                                                type="password"
+                                                autoComplete="current-password"
+                                                value={
+                                                    ownerPassword
+                                                }
+                                                onChange={event =>
+                                                    setOwnerPassword(
+                                                        event
+                                                            .target
+                                                            .value,
+                                                    )
+                                                }
+                                                className={`${fieldClass} ps-10`}
+                                            />
+                                        </div>
+
+                                        <span className="mt-1.5 block text-[9px] font-normal text-[var(--ac-text-muted)]">
+                                            {
+                                                copy.passwordHint
+                                            }
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div className="mt-5 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-xs font-semibold">
+                                                {
+                                                    copy.promotionPreview
+                                                }
+                                            </p>
+
+                                            {selectedMember && (
+                                                <p className="mt-1 text-[9px] text-[var(--ac-text-muted)]">
+                                                    {
+                                                        selectedMember.user.name
+                                                    }
+                                                    {' Â· '}
+                                                    {
+                                                        memberRoleLabel(
+                                                            selectedMember,
+                                                        )
+                                                    }
+                                                    {' â†’ '}
+                                                    {
+                                                        selectedRole?.name
+                                                        ?? 'â€”'
+                                                    }
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {selectedRole && (
+                                            <span className="rounded-full bg-white px-3 py-1.5 text-[9px] font-bold text-[var(--ac-accent-strong)]">
+                                                {
+                                                    selectedRole.permissions
+                                                        .length
+                                                }
+                                                {' '}
+                                                {
+                                                    copy.permissions
+                                                }
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {selectedRole ? (
+                                        <div className="mt-4 flex flex-wrap gap-2">
+                                            {selectedRole.permissions.map(
+                                                permission => (
+                                                    <span
+                                                        key={
+                                                            permission
+                                                        }
+                                                        className="rounded-[10px] border border-[var(--ac-line)] bg-white px-2.5 py-1.5 text-[9px] font-medium"
+                                                    >
+                                                        {
+                                                            permissionLabel(
+                                                                permission,
+                                                                ar,
+                                                            )
+                                                        }
+                                                    </span>
+                                                ),
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="mt-4 text-xs text-[var(--ac-text-muted)]">
+                                            {
+                                                copy.noRoleSelected
+                                            }
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="mt-5 flex justify-end">
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            ! canPromote
+                                            || busy
+                                            || (
+                                                currentSelectedRole?.id
+                                                === selectedRole?.id
+                                            )
+                                        }
+                                        onClick={() =>
+                                            setPromotionConfirmOpen(
+                                                true,
+                                            )
+                                        }
+                                        className={
+                                            primaryButton
+                                        }
+                                    >
+                                        <ShieldCheck
+                                            size={
+                                                15
+                                            }
+                                        />
+
+                                        {
+                                            copy.promote
+                                        }
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+
+                        <section className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)]">
+                            <div className="flex flex-wrap items-end justify-between gap-4">
+                                <div>
+                                    <h2 className="text-lg font-semibold">
+                                        {
+                                            copy.presets
+                                        }
+                                    </h2>
+
+                                    <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
+                                        {
+                                            copy.presetsHint
+                                        }
+                                    </p>
+                                </div>
+
+                                <div className="relative w-full max-w-sm">
+                                    <Search
+                                        size={
+                                            15
+                                        }
+                                        className="absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
+                                    />
+
+                                    <input
+                                        value={
+                                            presetSearch
+                                        }
+                                        onChange={event =>
+                                            setPresetSearch(
+                                                event
+                                                    .target
+                                                    .value,
+                                            )
+                                        }
+                                        placeholder={
+                                            copy.searchPreset
+                                        }
+                                        className={`${fieldClass} ps-10`}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                {presets.map(
+                                    ([
+                                        key,
+                                        preset,
+                                    ]) => (
+                                        <button
+                                            type="button"
+                                            key={
+                                                key
+                                            }
+                                            onClick={() =>
+                                                applyPreset(
+                                                    key,
+                                                    preset,
+                                                )
+                                            }
+                                            className={[
+                                                'group rounded-[18px] border p-4 text-start transition',
+                                                selectedPreset ===
+                                                key
+                                                    ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
+                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] hover:-translate-y-0.5 hover:bg-white hover:shadow-md',
+                                            ].join(
+                                                ' ',
+                                            )}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <RoleCategoryIcon
+                                                    category={
+                                                        preset.category
+                                                    }
+                                                />
+
+                                                <span className="rounded-full bg-white px-2 py-1 text-[8px] font-bold text-[var(--ac-text-muted)]">
+                                                    {
+                                                        preset.permissions.length
+                                                    }
+                                                    {' '}
+                                                    {
+                                                        copy.permissions
+                                                    }
+                                                </span>
+                                            </div>
+
+                                            <strong className="mt-4 block text-sm">
+                                                {ar
+                                                    ? preset.name_ar
+                                                    : preset.name_en}
+                                            </strong>
+
+                                            <p className="mt-2 line-clamp-3 text-[10px] leading-5 text-[var(--ac-text-muted)]">
+                                                {ar
+                                                    ? preset.description_ar
+                                                    : preset.description_en}
+                                            </p>
+                                        </button>
+                                    ),
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={
+                                        resetDesigner
+                                    }
+                                    className="flex min-h-[150px] flex-col items-center justify-center rounded-[18px] border border-dashed border-[var(--ac-line)] bg-white p-4 text-center transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)]"
+                                >
+                                    <div className="flex size-11 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)]">
+                                        <UserCog
+                                            size={
+                                                18
+                                            }
+                                        />
+                                    </div>
+
+                                    <strong className="mt-3 text-xs">
+                                        {
+                                            copy.startCustom
+                                        }
+                                    </strong>
+                                </button>
+                            </div>
+                        </section>
+
+                        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                            <form
+                                onSubmit={event =>
+                                    void saveRole(
+                                        event,
+                                    )
+                                }
+                                className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)] sm:p-6"
+                            >
+                                <fieldset
+                                    disabled={
+                                        busy
+                                    }
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ac-text-muted)]">
+                                                {
+                                                    copy.roleBuilder
+                                                }
+                                            </p>
+
+                                            <h2 className="mt-1 text-lg font-semibold">
+                                                {editing
+                                                    ? copy.editRole
+                                                    : copy.createRole}
+                                            </h2>
+                                        </div>
+
+                                        <span className="rounded-full bg-[var(--ac-accent-soft)] px-3 py-2 text-[10px] font-semibold text-[var(--ac-accent-strong)]">
+                                            {
+                                                permissions.length
+                                            }
+                                            {' '}
+                                            {
+                                                copy.selected
+                                            }
+                                        </span>
+                                    </div>
+
+                                    <label className="mt-5 block text-xs font-semibold">
+                                        {
+                                            copy.roleName
+                                        }
+
+                                        <input
+                                            required
+                                            maxLength={
+                                                100
+                                            }
+                                            value={
+                                                name
+                                            }
+                                            onChange={event =>
+                                                setName(
+                                                    event
+                                                        .target
+                                                        .value,
+                                                )
+                                            }
+                                            className={`${fieldClass} mt-2`}
+                                        />
+                                    </label>
+
+                                    <div className="mt-7">
+                                        <h3 className="font-semibold">
+                                            {
+                                                copy.permissionMatrix
+                                            }
+                                        </h3>
+
+                                        <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
+                                            {
+                                                copy.permissionMatrixHint
+                                            }
+                                        </p>
+                                    </div>
+
+                                    <div className="mt-4 space-y-3">
+                                        {groups.map(
+                                            group => {
+                                                const Icon =
+                                                    group.icon;
+
+                                                const allSelected =
+                                                    group.permissions.every(
+                                                        permission =>
+                                                            permissions.includes(
+                                                                permission,
+                                                            ),
+                                                    );
+
+                                                return (
+                                                    <section
+                                                        key={
+                                                            group.key
+                                                        }
+                                                        className="rounded-[19px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4"
+                                                    >
+                                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                                            <div className="flex items-start gap-3">
+                                                                <span className="flex size-10 items-center justify-center rounded-[13px] bg-white text-[var(--ac-accent-strong)]">
+                                                                    <Icon
+                                                                        size={
+                                                                            17
+                                                                        }
+                                                                    />
+                                                                </span>
+
+                                                                <div>
+                                                                    <h4 className="text-sm font-semibold">
+                                                                        {ar
+                                                                            ? group.titleAr
+                                                                            : group.titleEn}
+                                                                    </h4>
+
+                                                                    <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                                                        {ar
+                                                                            ? group.descriptionAr
+                                                                            : group.descriptionEn}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    toggleGroup(
+                                                                        group,
+                                                                    )
+                                                                }
+                                                                className="rounded-[11px] border border-[var(--ac-line)] bg-white px-3 py-2 text-[9px] font-semibold"
+                                                            >
+                                                                {allSelected
+                                                                    ? copy.clear
+                                                                    : copy.selectAll}
+                                                            </button>
+                                                        </div>
+
+                                                        {group.key ===
+                                                            'staff' && (
+                                                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {
+                                                                            copy.departmentScope
+                                                                        }
+                                                                    </strong>
+
+                                                                    {ar
+                                                                        ? 'Ù„Ù„Ø´Ø®Øµ Ø§Ù„Ø°ÙŠ ÙŠØ¯ÙŠØ± Ù‚Ø³Ù…Ù‹Ø§ Ù…Ø­Ø¯Ø¯Ù‹Ø§ ÙÙŠ Ù‡ÙŠÙƒÙ„ Ø§Ù„ÙØ±ÙŠÙ‚.'
+                                                                        : 'For members who manage a department.'}
+                                                                </div>
+
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {
+                                                                            copy.allCompany
+                                                                        }
+                                                                    </strong>
+
+                                                                    {ar
+                                                                        ? 'ØµÙ„Ø§Ø­ÙŠØ§Øª Ø¹Ù„Ù‰ Ø¬Ù…ÙŠØ¹ Ù…ÙˆØ¸ÙÙŠ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„.'
+                                                                        : 'Authority across all workspace employees.'}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                                            {group.permissions.map(
+                                                                permission => {
+                                                                    const checked =
+                                                                        permissions.includes(
+                                                                            permission,
+                                                                        );
+
+                                                                    const departmentScoped =
+                                                                        permission.startsWith(
+                                                                            'staff.team_',
+                                                                        );
+
+                                                                    return (
+                                                                        <button
+                                                                            type="button"
+                                                                            key={
+                                                                                permission
+                                                                            }
+                                                                            aria-pressed={
+                                                                                checked
+                                                                            }
+                                                                            onClick={() =>
+                                                                                togglePermission(
+                                                                                    permission,
+                                                                                )
+                                                                            }
+                                                                            className={[
+                                                                                'flex min-h-12 items-center gap-3 rounded-[13px] border px-3 py-2.5 text-start text-[10px] transition',
+                                                                                checked
+                                                                                    ? 'border-[var(--ac-accent)] bg-white font-semibold text-[var(--ac-accent-strong)] shadow-sm'
+                                                                                    : 'border-[var(--ac-line)] bg-white/60 text-[var(--ac-text-soft)] hover:bg-white',
+                                                                            ].join(
+                                                                                ' ',
+                                                                            )}
+                                                                        >
+                                                                            <span
+                                                                                className={[
+                                                                                    'flex size-5 shrink-0 items-center justify-center rounded-[6px] border',
+                                                                                    checked
+                                                                                        ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-strong)] text-white'
+                                                                                        : 'border-[var(--ac-line)]',
+                                                                                ].join(
+                                                                                    ' ',
+                                                                                )}
+                                                                            >
+                                                                                {checked && (
+                                                                                    <Check
+                                                                                        size={
+                                                                                            12
+                                                                                        }
+                                                                                    />
+                                                                                )}
+                                                                            </span>
+
+                                                                            <span className="min-w-0 flex-1">
+                                                                                {
+                                                                                    permissionLabel(
+                                                                                        permission,
+                                                                                        ar,
+                                                                                    )
+                                                                                }
+
+                                                                                {departmentScoped && (
+                                                                                    <small className="mt-0.5 block text-[8px] font-normal text-[var(--ac-text-muted)]">
+                                                                                        {
+                                                                                            copy.departmentScope
+                                                                                        }
+                                                                                    </small>
+                                                                                )}
+                                                                            </span>
+                                                                        </button>
+                                                                    );
+                                                                },
+                                                            )}
+                                                        </div>
+                                                    </section>
+                                                );
+                                            },
+                                        )}
+                                    </div>
+
+                                    <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[var(--ac-line)] pt-5">
+                                        {editing && (
+                                            <button
+                                                type="button"
+                                                onClick={
+                                                    resetDesigner
+                                                }
+                                                className={
+                                                    secondaryButton
+                                                }
+                                            >
+                                                {
+                                                    copy.cancel
+                                                }
+                                            </button>
+                                        )}
+
+                                        <button
+                                            type="submit"
+                                            disabled={
+                                                ! name.trim()
+                                            }
+                                            className={
+                                                primaryButton
+                                            }
+                                        >
+                                            <Check
+                                                size={
+                                                    14
+                                                }
+                                            />
+
+                                            {
+                                                copy.save
+                                            }
+                                        </button>
+                                    </div>
+                                </fieldset>
+                            </form>
+
+                            <aside className="space-y-5">
+                                <section className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)]">
+                                    <h2 className="font-semibold">
+                                        {
+                                            copy.roleLibrary
+                                        }
+                                    </h2>
+
+                                    <div className="mt-4 space-y-2">
+                                        {data?.roles.length ? (
+                                            data.roles.map(
+                                                role => (
+                                                    <button
+                                                        type="button"
+                                                        key={
+                                                            role.id
+                                                        }
+                                                        onClick={() =>
+                                                            editRole(
+                                                                role,
+                                                            )
+                                                        }
+                                                        className={[
+                                                            'w-full rounded-[16px] border p-4 text-start transition',
+                                                            editing?.id ===
+                                                            role.id
+                                                                ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
+                                                                : 'border-[var(--ac-line)] hover:bg-[var(--ac-surface-soft)]',
+                                                        ].join(
+                                                            ' ',
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <strong className="truncate text-xs">
+                                                                {
+                                                                    role.name
+                                                                }
+                                                            </strong>
+
+                                                            <Pencil
+                                                                size={
+                                                                    13
+                                                                }
+                                                            />
+                                                        </div>
+
+                                                        <div className="mt-2 text-[9px] text-[var(--ac-text-muted)]">
+                                                            {
+                                                                role.permissions.length
+                                                            }
+                                                            {' '}
+                                                            {
+                                                                copy.permissions
+                                                            }
+                                                        </div>
+                                                    </button>
+                                                ),
+                                            )
+                                        ) : (
+                                            <p className="rounded-[14px] bg-[var(--ac-surface-soft)] p-4 text-xs text-[var(--ac-text-muted)]">
+                                                {
+                                                    copy.noRoles
+                                                }
+                                            </p>
+                                        )}
+                                    </div>
+                                </section>
+                            </aside>
+                        </div>
+
+                        <section className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)] sm:p-6">
+                            <div className="flex items-center gap-3">
+                                <span className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)]">
+                                    <Users
+                                        size={
+                                            17
+                                        }
+                                    />
+                                </span>
+
+                                <h2 className="font-semibold">
+                                    {
+                                        copy.members
+                                    }
+                                </h2>
+                            </div>
+
+                            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                {data?.members.map(
+                                    member => {
+                                        const role =
+                                            data.roles.find(
+                                                candidate =>
+                                                    candidate.id ===
+                                                    member.workspace_role_id,
+                                            );
+
+                                        return (
+                                            <article
+                                                key={
+                                                    member.id
+                                                }
+                                                className="flex items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4"
+                                            >
+                                                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold">
+                                                    {member.user.name
+                                                        .charAt(
+                                                            0,
+                                                        )
+                                                        .toUpperCase()}
+                                                </span>
+
+                                                <div className="min-w-0 flex-1">
+                                                    <strong className="block truncate text-xs">
+                                                        {
+                                                            member.user.name
+                                                        }
+                                                    </strong>
+
+                                                    <p className="mt-1 truncate text-[9px] text-[var(--ac-text-muted)]">
+                                                        {
+                                                            member.user.email
+                                                        }
+                                                    </p>
+                                                </div>
+
+                                                <div className="text-end">
+                                                    <span
+                                                        className={[
+                                                            'block rounded-full px-2.5 py-1 text-[9px] font-semibold',
+                                                            member.role ===
+                                                            'owner'
+                                                                ? 'bg-amber-50 text-amber-700'
+                                                                : 'bg-white',
+                                                        ].join(
+                                                            ' ',
+                                                        )}
+                                                    >
+                                                        {member.role ===
+                                                        'owner'
+                                                            ? copy.owner
+                                                            : role?.name
+                                                              ?? memberRoleLabel(
+                                                                  member,
+                                                              )}
+                                                    </span>
+
+                                                    {member.role !==
+                                                        'owner' && (
+                                                        <button
+                                                            type="button"
+                                                            disabled={
+                                                                busy
+                                                            }
+                                                            onClick={() =>
+                                                                setRevoking(
+                                                                    member,
+                                                                )
+                                                            }
+                                                            className="mt-2 text-[9px] font-semibold text-red-600"
+                                                        >
+                                                            {
+                                                                copy.revoke
+                                                            }
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </article>
+                                        );
+                                    },
+                                )}
+                            </div>
+                        </section>
+                    </>
+                )}
+            </main>
+
+            <ConfirmDialog
+                open={
+                    promotionConfirmOpen
+                }
+                title={
+                    copy.confirmPromotion
+                }
+                description={
+                    selectedMember
+                    && selectedRole
+                        ? `${selectedMember.user.name}: ${memberRoleLabel(selectedMember)} â†’ ${selectedRole.name}`
+                        : ''
+                }
+                confirmLabel={
+                    copy.promote
+                }
+                tone="default"
+                busy={
+                    busy
+                }
+                onCancel={() =>
+                    setPromotionConfirmOpen(
+                        false,
+                    )
+                }
+                onConfirm={() =>
+                    void promoteMember()
+                }
+            />
+
+            <ConfirmDialog
+                open={
+                    Boolean(
+                        revoking,
+                    )
+                }
+                title={
+                    copy.revoke
+                }
+                description={`${revoking?.user.name ?? ''} â€” ${copy.revokeHelp}`}
+                confirmLabel={
+                    copy.revoke
+                }
+                tone="danger"
+                busy={
+                    busy
+                }
+                onCancel={() =>
+                    setRevoking(
+                        null,
+                    )
+                }
+                onConfirm={() =>
+                    void revokeMember()
+                }
+            />
+        </AppShell>
+    );
+}
+
+/**
+ * Render one compact summary card.
+ */
+function SummaryCard({
+    icon:
+        Icon,
+    label,
+    value,
+}: {
+    icon:
+        typeof ShieldCheck;
+    label: string;
+    value: string;
+}) {
+    return (
+        <div className="rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)]">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <p className="text-[9px] font-semibold text-[var(--ac-text-muted)]">
+                        {
+                            label
+                        }
+                    </p>
+
+                    <strong className="mt-2 block text-2xl tracking-[-0.04em]">
+                        {
+                            value
+                        }
+                    </strong>
+                </div>
+
+                <span className="flex size-11 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
+                    <Icon
+                        size={
+                            18
+                        }
+                    />
+                </span>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Render an icon representing one role-template business category.
+ */
+function RoleCategoryIcon({
+    category,
+}: {
+    category: string;
+}) {
+    const Icon =
+        category ===
+        'finance'
+            ? BadgeDollarSign
+            : category ===
+                'inventory'
+              ? Boxes
+              : category ===
+                  'production'
+                ? Factory
+                : category ===
+                    'sales'
+                  ? ContactRound
+                  : category ===
+                      'management'
+                    ? BriefcaseBusiness
+                    : Users;
+
+    return (
+        <span className="flex size-10 items-center justify-center rounded-[13px] bg-white text-[var(--ac-accent-strong)] shadow-sm">
+            <Icon
+                size={
+                    17
+                }
+            />
+        </span>
+    );
+}
+
+============================================================
+FILE: resources\js\pages\TaskManagement.tsx
+============================================================
+import { AppShell } from '@/layouts/AppShell';
+import { apiRequest } from '@/lib/http';
+import { useLocale } from '@/lib/i18n';
+import type { AppPageProps } from '@/types/app';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { Activity, ArrowDownToLine, ArrowUpRight, BarChart3, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Filter, Flag, FolderKanban, Gauge, LayoutGrid, List, ListTodo, MessageSquare, MoreHorizontal, Paperclip, Plus, Search, ShieldCheck, UsersRound, X } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { api, base, Avatar, Assignees, Badge, button, CheckMark, dateLabel, DueDate, Empty, errorText, input, Modal, overdue, Panel, primary, PriorityBadge, priorityMeta, Progress, Stat, StatusBadge, statusMeta, today } from '@/features/task-management/ui';
+import type { Member, Task, TaskData, TaskStatus, TaskView } from '@/features/task-management/types';
+import { TaskEditor } from '@/features/task-management/TaskEditor';
+import { TaskDrawer } from '@/features/task-management/TaskDrawer';
+import '../../css/task-management.css';
+
+type Filters = { search: string; project: string; assignee: string; priority: string; status: string; department: string; due: string };
+const emptyFilters: Filters = { search: '', project: '', assignee: '', priority: '', status: '', department: '', due: '' };
+const actions: Record<string, [string, string]> = { created: ['Ø£Ù†Ø´Ø£ Ù…Ù‡Ù…Ø©', 'Created a task'], updated: ['Ø¹Ø¯Ù‘Ù„ Ù…Ù‡Ù…Ø©', 'Updated a task'], status_changed: ['ØºÙŠÙ‘Ø± Ø­Ø§Ù„Ø© Ù…Ù‡Ù…Ø©', 'Changed task status'], commented: ['Ø£Ø¶Ø§Ù ØªØ¹Ù„ÙŠÙ‚Ù‹Ø§', 'Added a comment'], attachment_added: ['Ø£Ø±ÙÙ‚ Ù…Ù„ÙÙ‹Ø§', 'Attached a file'] };
+
+export default function TaskManagement() {
+    const page = usePage<AppPageProps & { taskView: TaskView; taskId: number | null }>();
+    return <TaskWorkspace key={page.props.workspace.activeOrganization?.id ?? 'none'} view={page.props.taskView} taskId={page.props.taskId} />;
+}
+
+function TaskWorkspace({ view, taskId }: { view: TaskView; taskId: number | null }) {
+    const ar = useLocale() === 'ar';
+    const { auth, workspace } = usePage<AppPageProps>().props;
+    const text = (arabic: string, english: string) => ar ? arabic : english;
+    const [data, setData] = useState<TaskData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [revision, setRevision] = useState(0);
+    const [filters, setFilters] = useState<Filters>(emptyFilters);
+    const [selected, setSelected] = useState<number | null>(view === 'detail' ? taskId : null);
+    const [projectDialog, setProjectDialog] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [boardMode, setBoardMode] = useState<'board' | 'projects'>('board');
+    const permissions = data?.permissions ?? workspace.activeOrganization?.task_permissions ?? [];
+    const can = (permission: string) => permissions.includes(permission);
+    const refresh = () => setRevision((value) => value + 1);
+    useEffect(() => {
+        const controller = new AbortController();
+        setLoading(true); setError('');
+        apiRequest<TaskData>(api, { signal: controller.signal }).then(setData).catch((failure) => { if (!controller.signal.aborted) { setError(errorText(failure)); } }).finally(() => { if (!controller.signal.aborted) { setLoading(false); } });
+        return () => controller.abort();
+    }, [revision]);
+    useEffect(() => { setSelected(view === 'detail' ? taskId : null); }, [view, taskId]);
+    const titles: Record<TaskView, [string, string]> = { dashboard: ['Ù…Ø±Ø­Ø¨Ù‹Ø§ØŒ ' + (auth.user?.name.split(' ')[0] ?? '') + ' ðŸ‘‹', 'Welcome, ' + (auth.user?.name.split(' ')[0] ?? '')], list: ['Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ù‡Ø§Ù…', 'Task list'], projects: ['Ù„ÙˆØ­Ø© Ø§Ù„Ù…Ù‡Ø§Ù… ÙˆØ§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹', 'Projects & task board'], team: ['Ø§Ù„ÙØ±ÙŠÙ‚ ÙˆØ¹Ø¨Ø¡ Ø§Ù„Ø¹Ù…Ù„', 'Team & workload'], create: ['Ø¥Ø¶Ø§ÙØ© Ù…Ù‡Ù…Ø© Ø¬Ø¯ÙŠØ¯Ø©', 'Create a task'], edit: ['ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù…Ù‡Ù…Ø©', 'Edit task'], detail: ['Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ù‡Ø§Ù…', 'Task list'] };
+    const descriptions: Record<TaskView, [string, string]> = { dashboard: ['Ø¥Ù„ÙŠÙƒ Ù†Ø¸Ø±Ø© Ø´Ø§Ù…Ù„Ø© Ø¹Ù„Ù‰ Ù…Ù‡Ø§Ù… ÙØ±ÙŠÙ‚Ùƒ ÙˆØ£Ø¯Ø§Ø¡ Ø§Ù„Ø¹Ù…Ù„ Ø§Ù„ÙŠÙˆÙ….', 'An overview of your teamâ€™s tasks and progress.'], list: ['Ù†Ø¸Ù‘Ù… Ù…Ù‡Ø§Ù… ÙØ±ÙŠÙ‚Ùƒ ÙˆØªØ§Ø¨Ø¹ Ø§Ù„ØªÙ‚Ø¯Ù… ÙÙŠ Ù…ÙƒØ§Ù† ÙˆØ§Ø­Ø¯.', 'Organize work and track progress in one place.'], projects: ['ØªØ§Ø¨Ø¹ Ù…Ø±Ø§Ø­Ù„ Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹ØŒ ÙˆØ­Ø±Ù‘Ùƒ Ø§Ù„Ù…Ù‡Ø§Ù… Ø¨ÙŠÙ† Ø­Ø§Ù„Ø§Øª Ø§Ù„ØªÙ†ÙÙŠØ°.', 'Follow project progress and move tasks through each stage.'], team: ['Ø±Ø¤ÙŠØ© Ø´Ø§Ù…Ù„Ø© Ù„ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ø¹Ù…Ù„ ÙˆØ§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù…ØªØ£Ø®Ø±Ø© Ø¹Ù„Ù‰ Ø£Ø¹Ø¶Ø§Ø¡ Ø§Ù„ÙØ±ÙŠÙ‚.', 'Understand assignments, workload and overdue work.'], create: ['Ø£Ø¶Ù Ù…Ù‡Ù…Ø© ÙˆØ§Ø¶Ø­Ø© ÙˆØ­Ø¯Ø¯ Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙŠØ§Øª ÙˆØ§Ù„Ø£ÙˆÙ„ÙˆÙŠØ§Øª ÙˆØ§Ù„Ø¬Ø¯ÙˆÙ„ Ø§Ù„Ø²Ù…Ù†ÙŠ.', 'Define responsibilities, priorities and a timeline.'], edit: ['Ø­Ø¯Ù‘Ø« ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ù…Ù‡Ù…Ø© ÙˆØ§Ø­ÙØ¸ Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª Ù„ÙØ±ÙŠÙ‚Ùƒ.', 'Update the task details for your team.'], detail: ['Ù†Ø¸Ù‘Ù… Ù…Ù‡Ø§Ù… ÙØ±ÙŠÙ‚Ùƒ ÙˆØªØ§Ø¨Ø¹ Ø§Ù„ØªÙ‚Ø¯Ù… ÙÙŠ Ù…ÙƒØ§Ù† ÙˆØ§Ø­Ø¯.', 'Organize work and track progress in one place.'] };
+    const tasks = data?.tasks ?? [];
+    const filtered = tasks.filter((task) => {
+        const memberIds = data?.members.filter((member) => !filters.department || member.department === filters.department).map((member) => member.id) ?? [];
+        return (!filters.search || `${task.title} ${task.description ?? ''} ${task.tags.join(' ')}`.toLocaleLowerCase().includes(filters.search.toLocaleLowerCase()))
+            && (!filters.project || task.project_id === Number(filters.project)) && (!filters.assignee || task.assignees.includes(Number(filters.assignee)))
+            && (!filters.priority || task.priority === filters.priority) && (!filters.status || (filters.status === 'overdue' ? overdue(task) : task.status === filters.status))
+            && (!filters.department || task.assignees.some((id) => memberIds.includes(id)))
+            && (!filters.due || (filters.due === 'overdue' ? overdue(task) : task.due_on === today()));
+    });
+    async function move(task: Task, status: TaskStatus) {
+        if (busy || task.status === status) { return; }
+        setBusy(true); setError('');
+        try { await apiRequest(`${api}/tasks/${task.id}`, { method: 'PATCH', body: JSON.stringify({ status, revision: task.revision }) }); refresh(); }
+        catch (failure) { setError(errorText(failure)); } finally { setBusy(false); }
+    }
+    async function createProject(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault(); if (busy) { return; } setBusy(true); setError('');
+        try { await apiRequest(`${api}/projects`, { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); setProjectDialog(false); refresh(); }
+        catch (failure) { setError(errorText(failure)); } finally { setBusy(false); }
+    }
+    const editor = view === 'create' || view === 'edit';
+    return <AppShell><Head title={titles[view][ar ? 0 : 1]} /><main className="task-module mx-auto min-h-[calc(100dvh-72px)] max-w-[1800px] bg-[#f5f8ff] px-3 py-5 sm:px-5 lg:px-7">
+        <header className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><h1 className="flex items-center gap-2 text-xl font-bold"><span className="text-blue-500">{view === 'team' ? <UsersRound size={24} /> : view === 'projects' ? <FolderKanban size={24} /> : <ListTodo size={24} />}</span>{titles[view][ar ? 0 : 1]}</h1><p className="mt-1.5 text-xs text-slate-400">{descriptions[view][ar ? 0 : 1]}</p></div><div className="flex flex-wrap gap-2">{view === 'projects' && <><button className={boardMode === 'board' ? primary : button} onClick={() => setBoardMode('board')}><LayoutGrid size={14} />{text('Ù„ÙˆØ­Ø© Ø§Ù„Ù…Ù‡Ø§Ù…', 'Task board')}</button><button className={boardMode === 'projects' ? primary : button} onClick={() => setBoardMode('projects')}><FolderKanban size={14} />{text('Ø¹Ø±Ø¶ Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹', 'Projects')}</button>{can('tasks.projects.manage') && <button className={button} onClick={() => { setError(''); setProjectDialog(true); }}><Plus size={14} />{text('Ù…Ø´Ø±ÙˆØ¹ Ø¬Ø¯ÙŠØ¯', 'New project')}</button>}</>}{!editor && can('tasks.create') && <Link className={primary} href={`${base}/create`}><Plus size={16} />{text('Ø¥Ø¶Ø§ÙØ© Ù…Ù‡Ù…Ø©', 'Add task')}</Link>}</div></header>
+        <nav aria-label={text('Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ù‡Ø§Ù…', 'Task management')} className="mb-5 flex gap-2 overflow-x-auto">{[['dashboard', 'tasks.dashboard', '', 'Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©', 'Overview', Gauge], ['list', 'tasks.view', '/tasks', 'Ø§Ù„Ù…Ù‡Ø§Ù…', 'Tasks', ListTodo], ['projects', 'tasks.projects.view', '/projects', 'Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹', 'Projects', FolderKanban], ['team', 'tasks.team', '/team', 'Ø§Ù„ÙØ±ÙŠÙ‚ ÙˆØ¹Ø¨Ø¡ Ø§Ù„Ø¹Ù…Ù„', 'Team & workload', UsersRound]].map(([key, permission, path, arabic, english, Icon]) => can(permission as string) ? <Link key={key as string} href={`${base}${path}`} className={`${view === key || (view === 'detail' && key === 'list') ? primary : button} shrink-0`}><span>{ar ? arabic as string : english as string}</span></Link> : null)}</nav>
+        {error && !projectDialog && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-xs text-red-600">{error}<button className={button} onClick={refresh}>{text('Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©', 'Retry')}</button></div>}
+        {loading && !data ? <div role="status" className="tm-panel p-16 text-center text-sm text-slate-400">{text('Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ù…Ù‡Ø§Ù…â€¦', 'Loading tasksâ€¦')}</div> : data && <>
+            {editor ? <TaskEditor key={`${view}-${taskId}`} data={data} taskId={view === 'edit' ? taskId : null} ar={ar} userId={auth.user?.id ?? 0} /> : <>
+                {view !== 'projects' && <Summary tasks={view === 'team' ? filtered : tasks} members={data.members} ar={ar} team={view === 'team'} />}
+                <FiltersBar data={data} filters={filters} onChange={setFilters} ar={ar} />
+                {view === 'dashboard' && <Dashboard data={data} tasks={filtered} ar={ar} onOpen={can('tasks.view') ? setSelected : undefined} />}
+                {(view === 'list' || view === 'detail') && <TaskTable tasks={filtered} data={data} ar={ar} onOpen={setSelected} status={filters.status} onStatus={(status) => setFilters({ ...filters, status })} />}
+                {view === 'projects' && (boardMode === 'board' ? <Board tasks={filtered} data={data} ar={ar} onOpen={can('tasks.view') ? setSelected : undefined} onMove={move} busy={busy} /> : <ProjectCards data={data} tasks={filtered} ar={ar} onSelect={(project) => { setFilters({ ...emptyFilters, project: String(project) }); setBoardMode('board'); }} />)}
+                {view === 'team' && <TeamWorkload data={data} tasks={filtered} ar={ar} />}
+            </>}
+            {selected !== null && <TaskDrawer key={selected} taskId={selected} data={data} ar={ar} onClose={() => setSelected(null)} onChanged={refresh} />}
+        </>}
+        <Modal open={projectDialog} onClose={() => { if (!busy) { setProjectDialog(false); } }} title={text('Ù…Ø´Ø±ÙˆØ¹ Ø¬Ø¯ÙŠØ¯', 'New project')}><form onSubmit={createProject}><div className="mb-5 flex justify-between"><h2 className="font-bold">{text('Ø¥Ø¶Ø§ÙØ© Ù…Ø´Ø±ÙˆØ¹ Ø¬Ø¯ÙŠØ¯', 'Create a project')}</h2><button type="button" disabled={busy} aria-label={text('Ø¥ØºÙ„Ø§Ù‚', 'Close')} onClick={() => setProjectDialog(false)}><X size={18} /></button></div><label className="tm-field mb-4">{text('Ø§Ø³Ù… Ø§Ù„Ù…Ø´Ø±ÙˆØ¹', 'Project name')}<input className={input} autoFocus required maxLength={255} name="name" /></label><label className="tm-field mb-4">{text('ÙˆØµÙ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹', 'Description')}<textarea className={input} name="description" maxLength={5000} rows={3} /></label><label className="tm-field mb-5">{text('Ù„ÙˆÙ† Ø§Ù„Ù…Ø´Ø±ÙˆØ¹', 'Project color')}<select className={input} name="color"><option value="blue">{text('Ø£Ø²Ø±Ù‚', 'Blue')}</option><option value="green">{text('Ø£Ø®Ø¶Ø±', 'Green')}</option><option value="purple">{text('Ø¨Ù†ÙØ³Ø¬ÙŠ', 'Purple')}</option><option value="orange">{text('Ø¨Ø±ØªÙ‚Ø§Ù„ÙŠ', 'Orange')}</option></select></label>{error && <p role="alert" className="mb-4 text-xs text-red-600">{error}</p>}<button disabled={busy} className={`${primary} w-full`}>{text('Ø­ÙØ¸ Ø§Ù„Ù…Ø´Ø±ÙˆØ¹', 'Save project')}</button></form></Modal>
+    </main></AppShell>;
+}
+
+function Summary({ tasks, members, ar, team }: { tasks: Task[]; members: Member[]; ar: boolean; team?: boolean }) {
+    const completed = tasks.filter((task) => task.status === 'completed').length;
+    const active = tasks.filter((task) => task.status !== 'completed');
+    const assigned = new Set(active.flatMap((task) => task.assignees)).size;
+    return <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Stat title={ar ? 'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù…Ù‡Ø§Ù…' : 'Total tasks'} value={tasks.length} icon={ListTodo} hint={ar ? 'Ø¶Ù…Ù† Ù†Ø·Ø§Ù‚ ØµÙ„Ø§Ø­ÙŠØ§ØªÙƒ' : 'Within your access scope'} /><Stat title={ar ? 'Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù…ØªØ£Ø®Ø±Ø©' : 'Overdue tasks'} value={tasks.filter(overdue).length} icon={Clock3} color="red" hint={ar ? 'ØªØ¬Ø§ÙˆØ²Øª ØªØ§Ø±ÙŠØ® Ø§Ù„Ø§Ø³ØªØ­Ù‚Ø§Ù‚' : 'Past the due date'} /><Stat title={ar ? 'Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù…ÙƒØªÙ…Ù„Ø©' : 'Completed tasks'} value={completed} icon={CheckCircle2} color="green" hint={ar ? 'ØªÙ… Ø¥Ù†Ø¬Ø§Ø²Ù‡Ø§ Ø¨Ù†Ø¬Ø§Ø­' : 'Successfully completed'} /><Stat title={ar ? 'Ù†Ø³Ø¨Ø© Ø§Ù„Ø¥Ù†Ø¬Ø§Ø²' : 'Completion rate'} value={`${tasks.length ? Math.round(completed / tasks.length * 100) : 0}%`} icon={Gauge} hint={ar ? 'Ù…Ù† Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ø¸Ø§Ù‡Ø±Ø©' : 'Of visible tasks'} /><Stat title={team ? (ar ? 'Ø£Ø¹Ø¶Ø§Ø¡ Ù„Ø¯ÙŠÙ‡Ù… Ù…Ù‡Ø§Ù… Ù†Ø´Ø·Ø©' : 'Members with active work') : (ar ? 'Ø§Ù„Ù…Ù‡Ø§Ù… Ù‚ÙŠØ¯ Ø§Ù„ØªÙ†ÙÙŠØ°' : 'Tasks in progress')} value={team ? `${assigned} / ${members.length}` : tasks.filter((task) => task.status === 'in_progress').length} icon={team ? UsersRound : Activity} color="purple" hint={team ? (ar ? 'Ø§Ù„ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ø­Ø§Ù„ÙŠ Ù„Ù„Ø¹Ù…Ù„' : 'Current work distribution') : (ar ? 'ÙŠØ¬Ø±ÙŠ Ø§Ù„Ø¹Ù…Ù„ Ø¹Ù„ÙŠÙ‡Ø§ Ø§Ù„Ø¢Ù†' : 'Currently being worked on')} /></div>;
+}
+
+function FiltersBar({ data, filters, onChange, ar }: { data: TaskData; filters: Filters; onChange: (value: Filters) => void; ar: boolean }) {
+    const change = (key: keyof Filters, value: string) => onChange({ ...filters, [key]: value });
+    return <div className="tm-panel mb-4 flex flex-wrap items-center gap-2 !p-3"><Filter size={16} className="text-blue-500" /><label className="relative min-w-44 flex-[2]"><Search size={14} className="absolute start-3 top-3 text-slate-400" /><input className={`${input} !ps-9`} aria-label={ar ? 'Ø§Ù„Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ù…Ù‡Ø§Ù…' : 'Search tasks'} placeholder={ar ? 'Ø§Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ù…Ù‡Ø§Ù…â€¦' : 'Search tasksâ€¦'} value={filters.search} onChange={(e) => change('search', e.target.value)} /></label><select className={`${input} min-w-28 flex-1 !w-auto`} aria-label={ar ? 'Ø§Ù„Ù…Ø´Ø±ÙˆØ¹' : 'Project'} value={filters.project} onChange={(e) => change('project', e.target.value)}><option value="">{ar ? 'Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹' : 'All projects'}</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><select className={`${input} min-w-28 flex-1 !w-auto`} aria-label={ar ? 'Ø§Ù„Ù…ÙˆØ¸Ù' : 'Assignee'} value={filters.assignee} onChange={(e) => change('assignee', e.target.value)}><option value="">{ar ? 'Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…ÙˆØ¸ÙÙŠÙ†' : 'All members'}</option>{data.members.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select><select className={`${input} min-w-24 flex-1 !w-auto`} aria-label={ar ? 'Ø§Ù„Ø£ÙˆÙ„ÙˆÙŠØ©' : 'Priority'} value={filters.priority} onChange={(e) => change('priority', e.target.value)}><option value="">{ar ? 'Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø£ÙˆÙ„ÙˆÙŠØ§Øª' : 'All priorities'}</option>{Object.entries(priorityMeta).map(([key, meta]) => <option key={key} value={key}>{meta[ar ? 'ar' : 'en']}</option>)}</select><select className={`${input} min-w-24 flex-1 !w-auto`} aria-label={ar ? 'Ø§Ù„Ù‚Ø³Ù…' : 'Department'} value={filters.department} onChange={(e) => change('department', e.target.value)}><option value="">{ar ? 'Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø£Ù‚Ø³Ø§Ù…' : 'All departments'}</option>{Array.from(new Set(data.members.map((member) => member.department).filter(Boolean))).map((department) => <option key={department} value={department!}>{department}</option>)}</select><select className={`${input} min-w-24 flex-1 !w-auto`} aria-label={ar ? 'Ø§Ù„Ø§Ø³ØªØ­Ù‚Ø§Ù‚' : 'Due date'} value={filters.due} onChange={(e) => change('due', e.target.value)}><option value="">{ar ? 'ÙƒÙ„ Ø§Ù„ØªÙˆØ§Ø±ÙŠØ®' : 'All dates'}</option><option value="today">{ar ? 'ØªØ³ØªØ­Ù‚ Ø§Ù„ÙŠÙˆÙ…' : 'Due today'}</option><option value="overdue">{ar ? 'Ù…ØªØ£Ø®Ø±Ø©' : 'Overdue'}</option></select><button className={button} onClick={() => onChange(emptyFilters)}>{ar ? 'Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø·' : 'Reset'}</button></div>;
+}
+
+function TaskTable({ tasks, data, ar, onOpen, status, onStatus }: { tasks: Task[]; data: TaskData; ar: boolean; onOpen: (id: number) => void; status: string; onStatus: (status: string) => void }) {
+    const [page, setPage] = useState(1);
+    const [sort, setSort] = useState('due');
+    const [selected, setSelected] = useState<number[]>([]);
+    const sorted = [...tasks].sort((a, b) => sort === 'title' ? a.title.localeCompare(b.title) : sort === 'recent' ? b.id - a.id : (a.due_on ?? '9999').localeCompare(b.due_on ?? '9999'));
+    const pages = Math.max(1, Math.ceil(sorted.length / 12));
+    const current = Math.min(page, pages);
+    const visible = sorted.slice((current - 1) * 12, current * 12);
+    const allSelected = visible.length > 0 && visible.every((task) => selected.includes(task.id));
+    function exportTasks() {
+        const rows = [[ar ? 'Ø§Ù„Ù…Ù‡Ù…Ø©' : 'Task', ar ? 'Ø§Ù„Ø­Ø§Ù„Ø©' : 'Status', ar ? 'Ø§Ù„Ø£ÙˆÙ„ÙˆÙŠØ©' : 'Priority', ar ? 'Ø§Ù„Ø§Ø³ØªØ­Ù‚Ø§Ù‚' : 'Due'], ...tasks.filter((task) => !selected.length || selected.includes(task.id)).map((task) => [task.title, statusMeta[task.status][ar ? 'ar' : 'en'], priorityMeta[task.priority][ar ? 'ar' : 'en'], task.due_on ?? ''])];
+        const csv = '\uFEFF' + rows.map((row) => row.map((value) => `"${(/^[=+@\-\t\r]/.test(value) ? "'" : '') + value.replaceAll('"', '""')}"`).join(',')).join('\r\n');
+        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = 'tasks.csv'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    return <section className="tm-panel"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2">{[['', ar ? 'Ø§Ù„ÙƒÙ„' : 'All'], ...Object.entries(statusMeta).map(([key, value]) => [key, value[ar ? 'ar' : 'en']]), ['overdue', ar ? 'Ù…ØªØ£Ø®Ø±Ø©' : 'Overdue']].map(([key, label]) => <button className={status === key ? `${button} !border-blue-200 !bg-blue-50 !text-blue-600` : button} key={key} onClick={() => { onStatus(key); setPage(1); }} aria-pressed={status === key}>{label}<span className="rounded bg-slate-50 px-1.5 text-[10px]">{data.tasks.filter((task) => !key || (key === 'overdue' ? overdue(task) : task.status === key)).length}</span></button>)}</div><div className="flex gap-2"><select aria-label={ar ? 'ØªØ±ØªÙŠØ¨ Ø§Ù„Ù…Ù‡Ø§Ù…' : 'Sort tasks'} className={`${input} !w-auto`} value={sort} onChange={(e) => setSort(e.target.value)}><option value="due">{ar ? 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø§Ø³ØªØ­Ù‚Ø§Ù‚' : 'Due date'}</option><option value="recent">{ar ? 'Ø§Ù„Ø£Ø­Ø¯Ø«' : 'Newest'}</option><option value="title">{ar ? 'Ø§Ù„Ø¹Ù†ÙˆØ§Ù†' : 'Title'}</option></select><button className={button} disabled={!tasks.length} onClick={exportTasks}><ArrowDownToLine size={14} />{ar ? 'ØªØµØ¯ÙŠØ±' : 'Export'}{selected.length > 0 && ` (${selected.filter((id) => tasks.some((task) => task.id === id)).length})`}</button></div></div>{visible.length ? <div className="overflow-x-auto"><table className="tm-table"><thead><tr><th><input aria-label={ar ? 'ØªØ­Ø¯ÙŠØ¯ Ù…Ù‡Ø§Ù… Ø§Ù„ØµÙØ­Ø©' : 'Select page'} type="checkbox" className="accent-blue-500" checked={allSelected} onChange={(e) => setSelected(e.target.checked ? Array.from(new Set([...selected, ...visible.map((task) => task.id)])) : selected.filter((id) => !visible.some((task) => task.id === id)))} /></th>{[ar ? 'Ø§Ù„Ù…Ù‡Ù…Ø©' : 'Task', ar ? 'Ø§Ù„Ø­Ø§Ù„Ø©' : 'Status', ar ? 'Ø§Ù„Ø£ÙˆÙ„ÙˆÙŠØ©' : 'Priority', ar ? 'Ø§Ù„Ù…Ø´Ø±ÙˆØ¹' : 'Project', ar ? 'Ø§Ù„Ù…Ø³Ù†Ø¯ Ø¥Ù„ÙŠÙ‡' : 'Assigned to', ar ? 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø§Ø³ØªØ­Ù‚Ø§Ù‚' : 'Due date', ar ? 'Ø§Ù„ØªÙ‚Ø¯Ù…' : 'Progress', ar ? 'Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª' : 'Actions'].map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{visible.map((task) => <tr key={task.id}><td><input aria-label={`${ar ? 'ØªØ­Ø¯ÙŠØ¯' : 'Select'} ${task.title}`} className="accent-blue-500" type="checkbox" checked={selected.includes(task.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, task.id] : selected.filter((id) => id !== task.id))} /></td><td><button onClick={() => onOpen(task.id)} className="block max-w-72 text-start"><span className="flex items-center gap-2 font-semibold hover:text-blue-600"><ListTodo size={15} className="shrink-0 text-blue-500" />{task.title}</span><span className="mt-1 block truncate text-[9px] text-slate-400">{task.description || `TSK-${task.id}`}</span></button></td><td><StatusBadge status={task.status} ar={ar} /></td><td><PriorityBadge priority={task.priority} ar={ar} /></td><td><Badge>{data.projects.find((project) => project.id === task.project_id)?.name ?? 'â€”'}</Badge></td><td><div className="flex items-center gap-2"><Assignees task={task} members={data.members} /><span className="text-[10px]">{data.members.find((member) => member.id === task.assignees[0])?.name ?? (ar ? 'ØºÙŠØ± Ù…Ø³Ù†Ø¯Ø©' : 'Unassigned')}</span></div></td><td><DueDate task={task} ar={ar} /></td><td className="min-w-24"><Progress value={task.progress} /></td><td><button className="rounded border border-slate-100 p-1 text-slate-400 hover:text-blue-500" aria-label={ar ? 'ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ù…Ù‡Ù…Ø©' : 'Task details'} onClick={() => onOpen(task.id)}><MoreHorizontal size={17} /></button></td></tr>)}</tbody></table></div> : <Empty ar={ar} />}<div className="mt-4 flex items-center justify-between gap-3 text-[10px] text-slate-400"><span>{ar ? 'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù†ØªØ§Ø¦Ø¬:' : 'Total results:'} {tasks.length}</span><div className="flex items-center gap-2"><button className={button} disabled={current === 1} onClick={() => setPage(current - 1)} aria-label={ar ? 'Ø§Ù„Ø³Ø§Ø¨Ù‚' : 'Previous'}><ChevronRight size={12} /></button><span>{current} / {pages}</span><button className={button} disabled={current === pages} onClick={() => setPage(current + 1)} aria-label={ar ? 'Ø§Ù„ØªØ§Ù„ÙŠ' : 'Next'}><ChevronLeft size={12} /></button></div></div></section>;
+}
+
+function Board({ tasks, data, ar, onOpen, onMove, busy }: { tasks: Task[]; data: TaskData; ar: boolean; onOpen?: (id: number) => void; onMove: (task: Task, status: TaskStatus) => void; busy: boolean }) {
+    const [dragged, setDragged] = useState<number | null>(null);
+    const canEdit = data.permissions.includes('tasks.update');
+    return <><div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{Object.entries(statusMeta).map(([status, meta]) => <div key={status} className={`flex items-center gap-3 rounded-xl border border-white px-4 py-3 tm-${meta.color}`}><meta.icon size={23} /><div><strong className="text-xs">{meta[ar ? 'ar' : 'en']}</strong><p className="mt-1 text-[10px] opacity-70">{tasks.filter((task) => task.status === status).length} {ar ? 'Ù…Ù‡Ù…Ø© ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø±Ø­Ù„Ø©' : 'tasks in this stage'}</p></div></div>)}</div><div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4">{(Object.entries(statusMeta) as [TaskStatus, typeof statusMeta.idea][]).map(([status, meta]) => <section key={status} className={`tm-board-column tm-${meta.color}`} onDragOver={(event) => { if (canEdit && !busy) { event.preventDefault(); } }} onDrop={(event) => { event.preventDefault(); const task = tasks.find((item) => item.id === dragged); setDragged(null); if (task && canEdit && !busy) { onMove(task, status); } }}><header className="mb-4 flex items-center justify-between px-1"><h2 className="flex items-center gap-2 text-sm font-bold"><meta.icon size={18} />{meta[ar ? 'ar' : 'en']}</h2><span className="rounded-full bg-white/60 px-2 py-1 text-xs">{tasks.filter((task) => task.status === status).length}</span></header><div className="space-y-3">{tasks.filter((task) => task.status === status).map((task) => <article key={task.id} draggable={canEdit && !busy} onDragStart={() => setDragged(task.id)} onDragEnd={() => setDragged(null)} className={`tm-board-card text-[#1c2c50] ${dragged === task.id ? 'opacity-40' : ''}`}><button className="mb-3 w-full text-start text-xs font-semibold leading-6 disabled:cursor-default" disabled={!onOpen} onClick={() => onOpen?.(task.id)}>{task.title}</button><div className="mb-3 flex items-center justify-between gap-2"><PriorityBadge priority={task.priority} ar={ar} /><Assignees task={task} members={data.members} /></div><Progress value={task.progress} /><div className="my-3 flex items-center justify-between gap-2"><DueDate task={task} ar={ar} /><span className="flex items-center gap-2 text-[10px] text-slate-400"><span className="inline-flex items-center gap-1"><MessageSquare size={11} />{task.comments_count ?? 0}</span><span className="inline-flex items-center gap-1"><Paperclip size={11} />{task.attachments_count ?? 0}</span></span></div><div className="flex flex-wrap gap-1">{task.project_id && <Badge>{data.projects.find((project) => project.id === task.project_id)?.name}</Badge>}{task.tags.slice(0, 2).map((tag) => <Badge color="purple" key={tag}>{tag}</Badge>)}</div>{canEdit && <select className={`${input} mt-3 !min-h-7 !py-1.5 !text-[10px]`} disabled={busy} aria-label={`${ar ? 'Ù†Ù‚Ù„ Ø§Ù„Ù…Ù‡Ù…Ø©' : 'Move task'} ${task.title}`} value={task.status} onChange={(e) => onMove(task, e.target.value as TaskStatus)}>{Object.entries(statusMeta).map(([key, value]) => <option key={key} value={key}>{value[ar ? 'ar' : 'en']}</option>)}</select>}</article>)}{!tasks.some((task) => task.status === status) && <div className="rounded-lg border border-dashed border-current/15 p-6 text-center text-[11px] opacity-70">{ar ? 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ù‡Ø§Ù… ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø±Ø­Ù„Ø©' : 'No tasks in this stage'}</div>}</div>{data.permissions.includes('tasks.create') && <Link className="mt-3 flex items-center justify-center gap-1 rounded-lg p-2 text-[11px] hover:bg-white/50" href={`${base}/create?status=${status}`}><Plus size={13} />{ar ? 'Ø¥Ø¶Ø§ÙØ© Ù…Ù‡Ù…Ø© Ø¬Ø¯ÙŠØ¯Ø©' : 'Add a new task'}</Link>}</section>)}</div></>;
+}
+
+function ProjectCards({ data, tasks, ar, onSelect }: { data: TaskData; tasks: Task[]; ar: boolean; onSelect: (id: number) => void }) {
+    return data.projects.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{data.projects.map((project) => { const items = tasks.filter((task) => task.project_id === project.id); const completed = items.filter((task) => task.status === 'completed').length; return <Panel key={project.id} title={project.name} icon={FolderKanban} action={<Badge color={project.color}>{items.length} {ar ? 'Ù…Ù‡Ù…Ø©' : 'tasks'}</Badge>}><p className="mb-6 min-h-10 text-xs leading-6 text-slate-400">{project.description || (ar ? 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ ÙˆØµÙ Ù„Ù„Ù…Ø´Ø±ÙˆØ¹.' : 'No project description.')}</p><Progress value={items.length ? Math.round(completed / items.length * 100) : 0} /><div className="my-4 flex justify-between text-[11px] text-slate-400"><span>{completed} {ar ? 'Ù…ÙƒØªÙ…Ù„Ø©' : 'completed'}</span><span>{items.filter(overdue).length} {ar ? 'Ù…ØªØ£Ø®Ø±Ø©' : 'overdue'}</span></div><button className={`${button} w-full`} onClick={() => onSelect(project.id)}>{ar ? 'ÙØªØ­ Ù„ÙˆØ­Ø© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹' : 'Open project board'}<ArrowUpRight size={13} /></button></Panel>; })}</div> : <Empty ar={ar} text={ar ? 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø´Ø§Ø±ÙŠØ¹ Ø¨Ø¹Ø¯. Ø£Ø¶Ù Ù…Ø´Ø±ÙˆØ¹Ùƒ Ø§Ù„Ø£ÙˆÙ„ Ù…Ù† Ø§Ù„Ø²Ø± Ø£Ø¹Ù„Ø§Ù‡.' : 'No projects yet. Create your first project above.'} />;
+}
+
+function Distribution({ tasks, ar, byPriority = false }: { tasks: Task[]; ar: boolean; byPriority?: boolean }) {
+    const colors = byPriority ? ['#fa5872', '#ffba38', '#28c58b'] : ['#98a8c1', '#3290ff', '#ffbd43', '#2dc78e'];
+    const rows = Object.entries(byPriority ? priorityMeta : statusMeta).map(([key, meta], index) => ({ label: meta[ar ? 'ar' : 'en'], count: tasks.filter((task) => (byPriority ? task.priority : task.status) === key).length, color: colors[index] }));
+    let offset = 0;
+    const segments = rows.map((row) => { const start = offset; offset += tasks.length ? row.count / tasks.length * 100 : 0; return `${row.color} ${start}% ${offset}%`; }).join(',');
+    return <div className="flex flex-wrap items-center justify-around gap-5"><div className="flex size-36 shrink-0 items-center justify-center rounded-full" style={{ background: tasks.length ? `conic-gradient(${segments})` : '#edf2fa' }}><div className="flex size-24 flex-col items-center justify-center rounded-full bg-white"><strong className="text-2xl">{tasks.length}</strong><span className="mt-1 text-[9px] text-slate-400">{ar ? 'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù…Ù‡Ø§Ù…' : 'Total tasks'}</span></div></div><div className="space-y-4">{rows.map((row) => <p key={row.label} className="flex items-center gap-3 text-[11px]"><span className="size-2 rounded-full" style={{ background: row.color }} /><span className="min-w-14 text-slate-500">{row.label}</span><strong>{row.count}</strong><span className="text-[9px] text-slate-400">({tasks.length ? Math.round(row.count / tasks.length * 100) : 0}%)</span></p>)}</div></div>;
+}
+
+function Dashboard({ data, tasks, ar, onOpen }: { data: TaskData; tasks: Task[]; ar: boolean; onOpen?: (id: number) => void }) {
+    const visibleIds = new Set(tasks.map((task) => task.id));
+    const events = data.events.filter((event) => visibleIds.has(event.task_id!));
+    const heat = Array.from({ length: 70 }, (_, index) => { const date = new Date(); date.setDate(date.getDate() - 69 + index); const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; return { key, count: events.filter((event) => event.created_at.slice(0, 10) === key).length }; });
+    const current = [...tasks].filter((task) => task.status !== 'completed').sort((a, b) => (a.due_on ?? '9999').localeCompare(b.due_on ?? '9999')).slice(0, 6);
+    return <div className="grid gap-4 xl:grid-cols-3"><Panel title={ar ? 'Ù†Ø´Ø§Ø· Ø§Ù„ÙØ±ÙŠÙ‚' : 'Team activity'} icon={Activity}><p className="mb-5 text-[10px] text-slate-400">{ar ? 'Ø¢Ø®Ø± 100 ØªØ­Ø¯ÙŠØ« Ù…ØªØ§Ø­ Ø®Ù„Ø§Ù„ 10 Ø£Ø³Ø§Ø¨ÙŠØ¹' : 'Up to 100 recent updates over 10 weeks'}</p><div className="grid grid-flow-col grid-rows-7 gap-1.5">{heat.map((day) => <div key={day.key} title={`${day.key}: ${day.count}`} className="aspect-square rounded-[3px]" style={{ background: day.count === 0 ? '#edf3fc' : day.count < 3 ? '#a8d7ff' : day.count < 6 ? '#58b1ff' : '#1670ff' }} />)}</div><div className="mt-4 flex justify-between text-[9px] text-slate-400"><span>{ar ? 'Ù‚Ø¨Ù„ 10 Ø£Ø³Ø§Ø¨ÙŠØ¹' : '10 weeks ago'}</span><span>{ar ? 'Ø§Ù„ÙŠÙˆÙ…' : 'Today'}</span></div></Panel><Panel title={ar ? 'ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ù…Ù‡Ø§Ù… Ø­Ø³Ø¨ Ø§Ù„Ø­Ø§Ù„Ø©' : 'Tasks by status'} icon={BarChart3}><div className="space-y-5">{Object.entries(statusMeta).map(([key, meta]) => { const count = tasks.filter((task) => task.status === key).length; return <div key={key}><div className="mb-2 flex justify-between text-[11px]"><span>{meta[ar ? 'ar' : 'en']}</span><span className="text-slate-400">{count}</span></div><div className="h-3 overflow-hidden rounded bg-slate-100"><div className={`h-full ${key === 'completed' ? 'bg-emerald-400' : key === 'review' ? 'bg-amber-400' : key === 'idea' ? 'bg-slate-300' : 'bg-blue-400'}`} style={{ width: `${tasks.length ? count / tasks.length * 100 : 0}%` }} /></div></div>; })}</div></Panel><Panel title={ar ? 'ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ù…Ù‡Ø§Ù… Ø­Ø³Ø¨ Ø§Ù„Ø£ÙˆÙ„ÙˆÙŠØ©' : 'Tasks by priority'} icon={Flag}><Distribution tasks={tasks} ar={ar} byPriority /></Panel><Panel title={ar ? 'Ø£Ø¹Ø¨Ø§Ø¡ Ø§Ù„Ø¹Ù…Ù„ Ù„Ù„ÙØ±ÙŠÙ‚' : 'Team workload'} icon={UsersRound}><div className="space-y-4">{data.members.slice(0, 6).map((member) => { const items = tasks.filter((task) => task.assignees.includes(member.id)); return <div key={member.id} className="flex items-center gap-2"><Avatar member={member} /><span className="min-w-0 flex-1 truncate text-[11px]">{member.name}</span><span className="text-[10px] text-slate-400">{items.filter((task) => task.status !== 'completed').length} {ar ? 'Ù†Ø´Ø·Ø©' : 'active'}</span><span className="text-[10px] text-red-400">{items.filter(overdue).length}</span></div>; })}</div></Panel><Panel title={ar ? 'Ù…ÙˆØ§Ø¹ÙŠØ¯ Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù‚Ø§Ø¯Ù…Ø©' : 'Upcoming tasks'} icon={CalendarDays}>{current.length ? <div className="space-y-2">{current.map((task) => <button disabled={!onOpen} onClick={() => onOpen?.(task.id)} key={task.id} className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-3 text-start hover:bg-blue-50 disabled:cursor-default"><span className="min-w-0 flex-1 truncate text-[11px]">{task.title}</span><PriorityBadge priority={task.priority} ar={ar} /><DueDate task={task} ar={ar} /></button>)}</div> : <Empty ar={ar} text={ar ? 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ù‡Ø§Ù… Ù‚Ø§Ø¯Ù…Ø© Ø­Ø§Ù„ÙŠÙ‹Ø§.' : 'No upcoming tasks.'} />}</Panel><Panel title={ar ? 'Ø£Ø­Ø¯Ø« Ø§Ù„Ø£Ù†Ø´Ø·Ø©' : 'Recent activity'} icon={Activity}>{events.length ? <div className="space-y-4">{events.slice(0, 6).map((event) => <div key={event.id} className="flex items-start gap-3"><span className="mt-1 size-2 rounded-full bg-emerald-400" /><div className="min-w-0 flex-1"><p className="text-[11px] font-semibold">{event.name}</p><p className="mt-1 truncate text-[10px] text-slate-400">{actions[event.action]?.[ar ? 0 : 1] ?? event.action} Â· {tasks.find((task) => task.id === event.task_id)?.title}</p></div><span className="text-[9px] text-slate-400">{dateLabel(event.created_at, ar)}</span></div>)}</div> : <Empty ar={ar} text={ar ? 'Ø³ÙŠØ¸Ù‡Ø± Ù†Ø´Ø§Ø· Ø§Ù„ÙØ±ÙŠÙ‚ Ø¹Ù†Ø¯ Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ù…Ù‡Ø§Ù… ÙˆØªØ­Ø¯ÙŠØ«Ù‡Ø§.' : 'Team activity appears as tasks are created and updated.'} />}</Panel></div>;
+}
+
+function TeamWorkload({ data, tasks, ar }: { data: TaskData; tasks: Task[]; ar: boolean }) {
+    const memberStats = data.members.map((member) => { const items = tasks.filter((task) => task.assignees.includes(member.id)); return { ...member, tasks: items.length, active: items.filter((task) => task.status !== 'completed').length, overdue: items.filter(overdue).length, completed: items.filter((task) => task.status === 'completed').length, hours: items.filter((task) => task.status !== 'completed').reduce((sum, task) => sum + task.estimated_hours / Math.max(1, task.assignees.length), 0) }; });
+    const max = Math.max(1, ...memberStats.map((member) => member.active));
+    const departments = Array.from(new Set(memberStats.map((member) => member.department ?? (ar ? 'Ø¨Ø¯ÙˆÙ† Ù‚Ø³Ù…' : 'No department')))).map((name) => { const members = memberStats.filter((member) => (member.department ?? (ar ? 'Ø¨Ø¯ÙˆÙ† Ù‚Ø³Ù…' : 'No department')) === name); return { name, members: members.length, active: members.reduce((sum, member) => sum + member.active, 0), overdue: members.reduce((sum, member) => sum + member.overdue, 0) }; });
+    return <div className="grid gap-4 xl:grid-cols-3"><Panel title={ar ? 'Ø£Ø¹Ø¶Ø§Ø¡ Ø§Ù„ÙØ±ÙŠÙ‚' : 'Team members'} icon={UsersRound}><div className="flex flex-wrap justify-around gap-4 py-3">{memberStats.slice(0, 6).map((member) => <div key={member.id} className="w-16 text-center"><Avatar member={member} size="large" /><p className="mt-2 truncate text-[10px] font-semibold">{member.name}</p><p className="mt-1 text-[9px] text-slate-400">{member.active} {ar ? 'Ù…Ù‡Ø§Ù… Ù†Ø´Ø·Ø©' : 'active tasks'}</p></div>)}</div><p className="mt-5 rounded-lg bg-blue-50 p-3 text-[10px] leading-5 text-blue-600">{ar ? 'Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø£Ø±Ù‚Ø§Ù… Ù…Ø¨Ù†ÙŠØ© Ø¹Ù„Ù‰ Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„ØªÙŠ ØªØ³Ù…Ø­ ØµÙ„Ø§Ø­ÙŠØ§ØªÙƒ Ø¨Ø¹Ø±Ø¶Ù‡Ø§.' : 'All metrics reflect the tasks visible within your permission scope.'}</p></Panel><Panel title={ar ? 'Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù†Ø´Ø·Ø© Ø­Ø³Ø¨ Ø§Ù„Ù‚Ø³Ù…' : 'Active assignments by department'} icon={BarChart3}><div className="space-y-5">{departments.map((department) => <div key={department.name}><div className="mb-2 flex justify-between text-[11px]"><span>{department.name}</span><span>{department.active}</span></div><div className="h-2 rounded bg-slate-100"><div className="h-2 rounded bg-blue-400" style={{ width: `${department.active / Math.max(1, ...departments.map((item) => item.active)) * 100}%` }} /></div></div>)}</div></Panel><Panel title={ar ? 'ØªÙˆØ²ÙŠØ¹ Ù…Ù‡Ø§Ù… Ø§Ù„ÙØ±ÙŠÙ‚' : 'Team task distribution'} icon={Gauge}><Distribution tasks={tasks} ar={ar} /></Panel><Panel title={ar ? 'Ø£Ø¹Ø¶Ø§Ø¡ Ø§Ù„ÙØ±ÙŠÙ‚ ÙˆØ¹Ø¨Ø¡ Ø§Ù„Ø¹Ù…Ù„' : 'Members & workload'} icon={UsersRound} className="xl:col-span-2"><div className="overflow-x-auto"><table className="tm-table"><thead><tr>{[ar ? 'Ø§Ù„Ù…ÙˆØ¸Ù' : 'Member', ar ? 'Ø§Ù„Ù‚Ø³Ù…' : 'Department', ar ? 'Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù†Ø´Ø·Ø©' : 'Active', ar ? 'Ø§Ù„Ù…ØªØ£Ø®Ø±Ø©' : 'Overdue', ar ? 'Ø§Ù„Ù…ÙƒØªÙ…Ù„Ø©' : 'Completed', ar ? 'Ø³Ø§Ø¹Ø§Øª Ù…Ø®Ø·Ø·Ø©' : 'Planned hours', ar ? 'Ø­ØµØ© Ø§Ù„Ù…Ù‡Ø§Ù…' : 'Relative workload'].map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{memberStats.map((member) => <tr key={member.id}><td><span className="flex items-center gap-2"><Avatar member={member} />{member.name}</span></td><td>{member.department ?? 'â€”'}</td><td>{member.active}</td><td className="text-red-500">{member.overdue}</td><td className="text-emerald-500">{member.completed}</td><td>{member.hours.toFixed(1)}</td><td><div className="min-w-24"><Progress value={Math.round(member.active / max * 100)} label={false} /></div></td></tr>)}</tbody></table></div><p className="mt-3 text-[10px] leading-5 text-slate-400">{ar ? 'Ø§Ù„Ø³Ø§Ø¹Ø§Øª Ø§Ù„Ù…Ø®Ø·Ø·Ø© Ù…ÙˆØ²Ø¹Ø© Ø¨Ø§Ù„ØªØ³Ø§ÙˆÙŠ Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙŠÙ† Ø¹Ù† Ø§Ù„Ù…Ù‡Ù…Ø©Ø› Ø§Ù„Ù…Ø¤Ø´Ø± ÙŠÙ‚Ø§Ø±Ù† Ø¹Ø¯Ø¯ Ø§Ù„Ù…Ù‡Ø§Ù… Ø¨Ø£Ø¹Ù„Ù‰ Ø¹Ø¯Ø¯ Ù„Ø¯Ù‰ Ø¹Ø¶ÙˆØŒ ÙˆÙ„ÙŠØ³ Ù‚ÙŠØ§Ø³Ù‹Ø§ Ù„Ø³Ø§Ø¹Ø§Øª Ø§Ù„Ø­Ø¶ÙˆØ±.' : 'Planned hours are split across assignees. Bars compare active task counts with the busiest member, not attendance hours.'}</p></Panel><Panel title={ar ? 'Ù…Ù„Ø®Øµ Ø§Ù„Ø£Ù‚Ø³Ø§Ù…' : 'Department summary'} icon={FolderKanban}><div className="space-y-4">{departments.map((department) => <div key={department.name} className="rounded-lg border border-slate-100 p-3"><h3 className="text-xs font-semibold">{department.name}</h3><div className="mt-3 flex justify-between text-[10px] text-slate-400"><span>{department.members} {ar ? 'Ø£Ø¹Ø¶Ø§Ø¡' : 'members'}</span><span>{department.active} {ar ? 'Ø¥Ø³Ù†Ø§Ø¯ Ù†Ø´Ø·' : 'active assignments'}</span><span className="text-red-400">{department.overdue} {ar ? 'Ù…ØªØ£Ø®Ø±' : 'overdue'}</span></div></div>)}</div></Panel><Panel title={ar ? 'ØµÙ„Ø§Ø­ÙŠØ§Øª Ø§Ù„Ù‚Ø³Ù…' : 'Module permissions'} icon={ShieldCheck} className="xl:col-span-3"><div className="flex flex-wrap gap-4">{[['tasks.view', ar ? 'Ø¹Ø±Ø¶ Ø§Ù„Ù…Ù‡Ø§Ù…' : 'View tasks'], ['tasks.create', ar ? 'Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù‡Ø§Ù…' : 'Create tasks'], ['tasks.update', ar ? 'ØªØ¹Ø¯ÙŠÙ„ Ù…Ù‡Ø§Ù…' : 'Edit tasks'], ['tasks.assign', ar ? 'Ø¥Ø³Ù†Ø§Ø¯ Ù…Ù‡Ø§Ù…' : 'Assign tasks'], ['tasks.projects.manage', ar ? 'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹' : 'Manage projects'], ['tasks.view_all', ar ? 'Ø¹Ø±Ø¶ Ù…Ù‡Ø§Ù… Ù…Ø³Ø§Ø­Ø© Ø§Ù„Ø¹Ù…Ù„' : 'View workspace tasks']].map(([permission, label]) => <span key={permission} className="flex items-center gap-2 text-xs"><CheckMark value={data.permissions.includes(permission)} />{label}</span>)}</div><p className="mt-4 text-[10px] text-slate-400">{ar ? 'ØªØ¹Ø±Ø¶ Ù‡Ø°Ù‡ Ø§Ù„Ù‚Ø§Ø¦Ù…Ø© ØµÙ„Ø§Ø­ÙŠØ§Øª Ø­Ø³Ø§Ø¨Ùƒ Ø§Ù„Ø­Ø§Ù„ÙŠØŒ ÙˆÙŠÙ…ÙƒÙ† Ù„Ù„Ù…Ø§Ù„Ùƒ ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø£Ø¯ÙˆØ§Ø± Ù…Ù† ØµÙØ­Ø© Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª.' : 'These are your current permissions. The owner can manage roles on the permissions page.'}</p></Panel></div>;
+}
+

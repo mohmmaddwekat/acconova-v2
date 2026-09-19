@@ -1,0 +1,296 @@
+<?php
+
+use App\Http\Controllers\TaskManagementController;
+use App\Http\Middleware\ResolveOrganization;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+/*
+ * Task Management is registered by its own provider so the existing large
+ * routes/web.php file does not need to be replaced.
+ */
+
+Route::middleware([
+    'web',
+    'auth',
+    'verified',
+    ResolveOrganization::class,
+])->group(function (): void {
+    Route::get(
+        '/app/task-management',
+        fn () => Inertia::render(
+            'TaskManagement/Workspace',
+            [
+                'surface' => 'dashboard',
+            ],
+        ),
+    )->name(
+        'tasks.dashboard',
+    );
+
+    Route::get(
+        '/app/task-management/tasks',
+        fn () => Inertia::render(
+            'TaskManagement/Workspace',
+            [
+                'surface' => 'tasks',
+            ],
+        ),
+    )->name(
+        'tasks.index',
+    );
+
+    Route::get(
+        '/app/task-management/projects',
+        fn () => Inertia::render(
+            'TaskManagement/Workspace',
+            [
+                'surface' => 'projects',
+            ],
+        ),
+    )->name(
+        'tasks.projects',
+    );
+
+    Route::get(
+        '/app/task-management/team',
+        fn () => Inertia::render(
+            'TaskManagement/Workspace',
+            [
+                'surface' => 'team',
+            ],
+        ),
+    )->name(
+        'tasks.team',
+    );
+
+    Route::get(
+        '/app/task-management/team/active',
+        fn () => Inertia::render(
+            'TaskManagement/Workspace',
+            [
+                'surface' => 'active',
+            ],
+        ),
+    )->name(
+        'tasks.active',
+    );
+
+    Route::get(
+        '/app/task-management/departments',
+        fn () => Inertia::render(
+            'TaskManagement/Workspace',
+            [
+                'surface' => 'departments',
+            ],
+        ),
+    )->name(
+        'tasks.departments',
+    );
+
+    Route::get(
+        '/app/task-management/tasks/create',
+        fn () => Inertia::render(
+            'TaskManagement/Workspace',
+            [
+                'surface' => 'editor',
+
+                'mode' => 'create',
+            ],
+        ),
+    )->name(
+        'tasks.create',
+    );
+
+    Route::get(
+        '/app/task-management/tasks/{task}',
+        fn (
+            string $task,
+        ) => Inertia::render(
+            'TaskManagement/Workspace',
+            [
+                'surface' => 'detail',
+
+                'taskId' => (int) $task,
+            ],
+        ),
+    )
+        ->whereNumber(
+            'task',
+        )
+        ->name(
+            'tasks.show',
+        );
+
+    Route::get(
+        '/app/task-management/tasks/{task}/edit',
+        fn (
+            string $task,
+        ) => Inertia::render(
+            'TaskManagement/Workspace',
+            [
+                'surface' => 'editor',
+
+                'mode' => 'edit',
+
+                'taskId' => (int) $task,
+            ],
+        ),
+    )
+        ->whereNumber(
+            'task',
+        )
+        ->name(
+            'tasks.edit',
+        );
+
+    Route::prefix(
+        '/api/task-management',
+    )->group(function (): void {
+        Route::get(
+            'meta',
+            [
+                TaskManagementController::class,
+                'meta',
+            ],
+        );
+
+        Route::get(
+            'dashboard',
+            [
+                TaskManagementController::class,
+                'dashboard',
+            ],
+        );
+
+        Route::get(
+            'tasks',
+            [
+                TaskManagementController::class,
+                'index',
+            ],
+        );
+
+        Route::post(
+            'tasks',
+            [
+                TaskManagementController::class,
+                'store',
+            ],
+        );
+
+        Route::get(
+            'tasks/{task}',
+            [
+                TaskManagementController::class,
+                'show',
+            ],
+        )->whereNumber(
+            'task',
+        );
+
+        Route::patch(
+            'tasks/{task}',
+            [
+                TaskManagementController::class,
+                'update',
+            ],
+        )->whereNumber(
+            'task',
+        );
+
+        Route::delete(
+            'tasks/{task}',
+            [
+                TaskManagementController::class,
+                'archive',
+            ],
+        )->whereNumber(
+            'task',
+        );
+
+        Route::post(
+            'tasks/{task}/comments',
+            [
+                TaskManagementController::class,
+                'comment',
+            ],
+        )->whereNumber(
+            'task',
+        );
+
+        Route::post(
+            'tasks/{task}/subtasks',
+            [
+                TaskManagementController::class,
+                'subtask',
+            ],
+        )->whereNumber(
+            'task',
+        );
+
+        Route::patch(
+            'tasks/{task}/subtasks/{subtask}',
+            [
+                TaskManagementController::class,
+                'toggleSubtask',
+            ],
+        )->whereNumber([
+            'task',
+            'subtask',
+        ]);
+
+        Route::post(
+            'tasks/{task}/attachments',
+            [
+                TaskManagementController::class,
+                'attachment',
+            ],
+        )->whereNumber(
+            'task',
+        );
+
+        Route::get(
+            'tasks/{task}/attachments/{attachment}',
+            [
+                TaskManagementController::class,
+                'downloadAttachment',
+            ],
+        )->whereNumber([
+            'task',
+            'attachment',
+        ]);
+
+        Route::get(
+            'projects',
+            [
+                TaskManagementController::class,
+                'projects',
+            ],
+        );
+
+        Route::post(
+            'projects',
+            [
+                TaskManagementController::class,
+                'storeProject',
+            ],
+        );
+
+        Route::get(
+            'team',
+            [
+                TaskManagementController::class,
+                'team',
+            ],
+        );
+
+        Route::get(
+            'departments-summary',
+            [
+                TaskManagementController::class,
+                'departmentsSummary',
+            ],
+        );
+    });
+});

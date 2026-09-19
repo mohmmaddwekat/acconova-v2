@@ -1,0 +1,52 @@
+.profile-center {
+    color: var(--ac-text);
+    --ac-text: #172554;
+    --ac-text-muted: #7383a7;
+    --ac-surface-soft: #f8fafc;
+    --ac-line: #e6edf5;
+}
+
+.profile-center[data-theme='dark'] {
+    color-scheme: dark;
+    --ac-text: #e5edf9;
+    --ac-text-muted: #a1b3cd;
+    --ac-surface-soft: #1b293e;
+    --ac-line: #30425b;
+    --profile-surface: #142237;
+    --profile-tint: #203747;
+    --profile-accent: #5eead4;
+}
+
+@media (prefers-color-scheme: dark) {
+    .profile-center[data-theme='system'] {
+        color-scheme: dark;
+        --ac-text: #e5edf9;
+        --ac-text-muted: #a1b3cd;
+        --ac-surface-soft: #1b293e;
+        --ac-line: #30425b;
+        --profile-surface: #142237;
+        --profile-tint: #203747;
+        --profile-accent: #5eead4;
+    }
+}
+
+.profile-center .bg-white {
+    background-color: var(--profile-surface, white);
+}
+
+.profile-center :is(.bg-slate-50, .bg-teal-50) {
+    background-color: var(--profile-tint, revert-layer);
+}
+
+.profile-center :is(.text-teal-600, .text-teal-700, .text-teal-800) {
+    color: var(--profile-accent, revert-layer);
+}
+
+.profile-center button:not(:disabled), .profile-center a {
+    cursor: pointer;
+}
+
+.profile-center :is(button, a):focus-visible {
+    outline: 2px solid #0d9488;
+    outline-offset: 3px;
+}

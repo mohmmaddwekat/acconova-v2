@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\PaymentPlanController;
+use App\Http\Controllers\ProfileCenterController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StaffCorrectionController;
@@ -18,6 +19,8 @@ use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+require __DIR__.'/tasks.php';
 
 Route::get(
     '/join-staff/{token}',
@@ -582,6 +585,11 @@ Route::prefix(
 });
 
 Route::middleware(['auth', 'throttle:30,1'])->prefix('api/profile')->group(function (): void {
+    Route::get('/center', [ProfileCenterController::class, 'show']);
+    Route::put('/preferences', [ProfileCenterController::class, 'preferences']);
+    Route::post('/files', [ProfileCenterController::class, 'upload']);
+    Route::patch('/files/{file}', [ProfileCenterController::class, 'updateFile'])->whereNumber('file');
+    Route::get('/files/{file}/download', [ProfileCenterController::class, 'download'])->whereNumber('file')->name('profile.files.download');
     Route::get('/', [ProfileController::class, 'show']);
     Route::patch('/', [ProfileController::class, 'update']);
     Route::get('/avatar', [ProfileController::class, 'avatar'])->name('profile.avatar');

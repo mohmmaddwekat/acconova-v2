@@ -14,6 +14,7 @@ import {
     ContactRound,
     Factory,
     Gauge,
+    ListTodo,
     PanelLeftClose,
     PanelLeftOpen,
     ReceiptText,
@@ -111,6 +112,31 @@ export function CommandRail({
         activeOrganization
             ?.permissions;
 
+    /*
+     * Keep Task Management as one primary rail destination. Custom roles land
+     * on the first task surface they are actually allowed to open.
+     */
+    const taskManagementHref =
+        ! customPermissions
+            ? '/app/task-management'
+            : customPermissions.includes(
+                  'tasks.dashboard',
+              )
+                ? '/app/task-management'
+                : customPermissions.includes(
+                      'tasks.view',
+                  )
+                    ? '/app/task-management/tasks'
+                    : customPermissions.includes(
+                          'tasks.projects.view',
+                      )
+                        ? '/app/task-management/projects'
+                        : customPermissions.includes(
+                              'tasks.team',
+                          )
+                            ? '/app/task-management/team'
+                            : null;
+
     const navigationItems:
         NavigationItem[] = [
         {
@@ -130,6 +156,30 @@ export function CommandRail({
             icon:
                 Gauge,
         },
+
+        ...(taskManagementHref
+            ? [
+                  {
+                      label:
+                          locale ===
+                          'ar'
+                              ? 'إدارة المهام'
+                              : 'Task Management',
+
+                      description:
+                          locale ===
+                          'ar'
+                              ? 'المهام والمشاريع وعبء العمل'
+                              : 'Tasks, projects & workload',
+
+                      href:
+                          taskManagementHref,
+
+                      icon:
+                          ListTodo,
+                  },
+              ]
+            : []),
 
         {
             label:
