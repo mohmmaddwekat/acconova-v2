@@ -1748,12 +1748,20 @@ function ProjectCards({
     data,
     tasks,
     ar,
+    canManage,
+    busy,
     onSelect,
+    onEdit,
+    onDelete,
 }: {
     data: TaskData;
     tasks: Task[];
     ar: boolean;
+    canManage: boolean;
+    busy: boolean;
     onSelect: (id: number) => void;
+    onEdit: (project: Project) => void;
+    onDelete: (project: Project) => void;
 }) {
     if (! data.projects.length) {
         return (
@@ -1784,18 +1792,65 @@ function ProjectCards({
                         title={project.name}
                         icon={FolderKanban}
                         action={(
-                            <Badge color={project.color ?? 'blue'}>
-                                {items.length} {ar ? 'مهمة' : 'tasks'}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                                <Badge color={project.color ?? 'blue'}>
+                                    {items.length} {ar ? 'مهمة' : 'tasks'}
+                                </Badge>
+
+                                {canManage && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+                                            aria-label={ar ? 'تعديل المشروع' : 'Edit project'}
+                                            disabled={busy}
+                                            onClick={() => onEdit(project)}
+                                        >
+                                            <Pencil size={13} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="flex size-8 items-center justify-center rounded-lg border border-red-100 bg-white text-red-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                            aria-label={ar ? 'حذف المشروع' : 'Delete project'}
+                                            disabled={busy}
+                                            onClick={() => onDelete(project)}
+                                        >
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         )}
                     >
-                        <p className="mb-6 min-h-10 text-xs leading-6 text-slate-400">
+                        <p className="mb-4 min-h-10 text-xs leading-6 text-slate-400">
                             {project.description || (
                                 ar
                                     ? 'لا يوجد وصف للمشروع.'
                                     : 'No project description.'
                             )}
                         </p>
+
+                        {(project.starts_on || project.due_on) && (
+                            <div className="mb-4 grid grid-cols-2 gap-2 text-[10px]">
+                                <div className="rounded-lg bg-slate-50 p-2">
+                                    <span className="block text-slate-400">
+                                        {ar ? 'البدء' : 'Start'}
+                                    </span>
+                                    <strong className="mt-1 block">
+                                        {dateLabel(project.starts_on ?? null, ar)}
+                                    </strong>
+                                </div>
+                                <div className="rounded-lg bg-slate-50 p-2">
+                                    <span className="block text-slate-400">
+                                        {ar ? 'الاستحقاق' : 'Due'}
+                                    </span>
+                                    <strong className="mt-1 block">
+                                        {dateLabel(project.due_on ?? null, ar)}
+                                    </strong>
+                                </div>
+                            </div>
+                        )}
+
                         <Progress
                             value={
                                 items.length
@@ -1811,6 +1866,15 @@ function ProjectCards({
                                 {items.filter(overdue).length} {ar ? 'متأخرة' : 'overdue'}
                             </span>
                         </div>
+
+                        {canManage && items.length > 0 && (
+                            <p className="mb-3 rounded-lg bg-amber-50 p-2 text-[9px] leading-5 text-amber-700">
+                                {ar
+                                    ? 'لحذف المشروع، انقل أو أرشف المهام المرتبطة به أولًا.'
+                                    : 'Move or archive linked tasks before deleting this project.'}
+                            </p>
+                        )}
+
                         <button
                             type="button"
                             className={`${button} w-full`}
