@@ -16,6 +16,7 @@ import {
     Gauge,
     Layers3,
     Link2,
+    ListTree,
     ListTodo,
     MoreHorizontal,
     Pencil,
@@ -80,6 +81,9 @@ type UiTeam = {
     tasks: Task[];
     workload: number;
     departmentId: number;
+    parentTeamId: number | null;
+    parentTeamName?: string | null;
+    childCount: number;
     department?: string | null;
     capacity: number;
     priority: 'low' | 'medium' | 'high';
@@ -113,6 +117,7 @@ export function TeamsExperience({
     data,
     tasks,
     ar,
+    permissions,
     onChanged,
 }: {
     view: TeamsView;
@@ -120,6 +125,7 @@ export function TeamsExperience({
     data: TaskData;
     tasks: Task[];
     ar: boolean;
+    permissions: string[];
     onChanged: () => void;
 }) {
     const teams = useMemo(
@@ -132,7 +138,10 @@ export function TeamsExperience({
         return (
             <CreateTeamSurface
                 data={data}
+                teams={teams}
+                parentTeamId={teamId}
                 ar={ar}
+                permissions={permissions}
             />
         );
     }
@@ -143,6 +152,7 @@ export function TeamsExperience({
                 team={selected}
                 data={data}
                 ar={ar}
+                permissions={permissions}
                 onChanged={onChanged}
             />
         ) : (
@@ -156,6 +166,7 @@ export function TeamsExperience({
                 team={selected}
                 data={data}
                 ar={ar}
+                permissions={permissions}
                 onChanged={onChanged}
             />
         ) : (
@@ -169,6 +180,7 @@ export function TeamsExperience({
             data={data}
             tasks={tasks}
             ar={ar}
+            permissions={permissions}
         />
     );
 }
@@ -214,6 +226,9 @@ function buildTeams(
             tasks: teamTasks,
             workload,
             departmentId: team.department_id,
+            parentTeamId: team.parent_team_id,
+            parentTeamName: team.parent_team_name,
+            childCount: team.child_count,
             department: team.department,
             capacity: team.capacity,
             priority: team.priority,
