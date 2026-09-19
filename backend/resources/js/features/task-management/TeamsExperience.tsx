@@ -1821,13 +1821,94 @@ function TeamDetailSurface({
                         hint={text(completed + ' مهام مكتملة', completed + ' completed tasks')}
                     />
                     <Stat
-                        title={text('عبء العمل', 'Workload')}
-                        value={team.workload + '%'}
-                        icon={BarChart3}
+                        title={text(
+                            permissions.includes('teams.view_workload')
+                                ? 'عبء العمل'
+                                : 'الفرق الفرعية',
+                            permissions.includes('teams.view_workload')
+                                ? 'Workload'
+                                : 'Sub-teams',
+                        )}
+                        value={
+                            permissions.includes('teams.view_workload')
+                                ? team.workload + '%'
+                                : team.childCount
+                        }
+                        icon={permissions.includes('teams.view_workload') ? BarChart3 : ListTree}
                         color="red"
                     />
                 </div>
             </div>
+
+            {(team.parentTeamId !== null || immediateChildren.length > 0) && (
+                <Panel
+                    title={text('الهيكل التنظيمي', 'Team hierarchy')}
+                    icon={ListTree}
+                    action={permissions.includes('teams.subteams.create') ? (
+                        <Link
+                            href={base + '/teams/' + team.id + '/create'}
+                            className="text-[10px] font-semibold text-blue-600"
+                        >
+                            <Plus size={12} />
+                            {text('إضافة فريق فرعي', 'Add sub-team')}
+                        </Link>
+                    ) : undefined}
+                >
+                    <div className="space-y-3">
+                        {team.parentTeamId !== null && (
+                            <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                                <div>
+                                    <p className="text-[9px] text-blue-500">
+                                        {text('الفريق الأب', 'Parent team')}
+                                    </p>
+                                    <strong className="mt-1 block text-xs text-blue-800">
+                                        {team.parentTeamName ?? text('فريق أعلى', 'Parent team')}
+                                    </strong>
+                                </div>
+                                <Link
+                                    href={base + '/teams/' + team.parentTeamId}
+                                    className={button}
+                                >
+                                    {text('فتح', 'Open')}
+                                </Link>
+                            </div>
+                        )}
+
+                        {immediateChildren.map((child: UiTeam) => (
+                            <div
+                                key={child.id}
+                                className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 p-3"
+                            >
+                                <span className="flex size-9 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                                    <ListTree size={16} />
+                                </span>
+                                <div className="min-w-40 flex-1">
+                                    <strong className="text-xs">
+                                        {ar ? child.nameAr : child.nameEn}
+                                    </strong>
+                                    <p className="mt-1 text-[9px] text-slate-400">
+                                        {child.members.length} {text('أعضاء', 'members')}
+                                        {' · '}
+                                        {child.childCount} {text('فرق فرعية', 'sub-teams')}
+                                    </p>
+                                </div>
+                                <Link
+                                    href={base + '/teams/' + child.id}
+                                    className={button}
+                                >
+                                    {text('فتح الفريق', 'Open team')}
+                                </Link>
+                            </div>
+                        ))}
+
+                        {team.parentTeamId === null && ! immediateChildren.length && (
+                            <p className="text-[11px] text-slate-400">
+                                {text('هذا الفريق لا يحتوي فرقًا فرعية بعد.', 'This team does not have sub-teams yet.')}
+                            </p>
+                        )}
+                    </div>
+                </Panel>
+            )}
 
             <div className="grid gap-4 xl:grid-cols-3">
                 <Panel
