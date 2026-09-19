@@ -3866,6 +3866,32 @@ class TaskManagementController extends Controller
                 'tasks.team';
         }
 
+        foreach (
+            [
+                'teams.view',
+                'teams.create',
+                'teams.update',
+                'teams.archive',
+                'teams.members.manage',
+                'teams.lead.manage',
+                'teams.projects.manage',
+                'teams.subteams.create',
+                'teams.subteams.manage',
+                'teams.move',
+                'teams.view_workload',
+            ] as $teamPermission
+        ) {
+            if (
+                TaskAccess::allowed(
+                    $teamPermission,
+                    $request->user(),
+                )
+            ) {
+                $permissions[] =
+                    $teamPermission;
+            }
+        }
+
         if (
             TaskAccess::allowed(
                 'tasks.view_all',
