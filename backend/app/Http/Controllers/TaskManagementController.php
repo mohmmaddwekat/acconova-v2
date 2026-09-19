@@ -1310,9 +1310,10 @@ class TaskManagementController extends Controller
         abort_unless(
             Schema::hasTable('task_teams')
             && Schema::hasTable('task_team_members')
-            && Schema::hasTable('task_team_projects'),
+            && Schema::hasTable('task_team_projects')
+            && Schema::hasColumn('task_teams', 'parent_task_team_id'),
             503,
-            'Task teams are not initialized yet. Run the database migrations and try again.',
+            'Task team hierarchy is not initialized yet. Run the database migrations and try again.',
         );
 
         $tenant =
@@ -1646,7 +1647,8 @@ class TaskManagementController extends Controller
         abort_unless(
             Schema::hasTable('task_teams')
             && Schema::hasTable('task_team_members')
-            && Schema::hasTable('task_team_projects'),
+            && Schema::hasTable('task_team_projects')
+            && Schema::hasColumn('task_teams', 'parent_task_team_id'),
             503,
         );
 
@@ -2297,6 +2299,10 @@ class TaskManagementController extends Controller
         abort_unless(
             Schema::hasTable(
                 'task_teams',
+            )
+            && Schema::hasColumn(
+                'task_teams',
+                'parent_task_team_id',
             ),
             503,
         );
@@ -2720,6 +2726,12 @@ class TaskManagementController extends Controller
                     '=',
                     'staff_members.department_id',
                 )
+                ->leftJoin(
+                    'users',
+                    'users.id',
+                    '=',
+                    'staff_members.user_id',
+                )
                 ->where(
                     'staff_members.active',
                     true,
@@ -2734,6 +2746,7 @@ class TaskManagementController extends Controller
                     'staff_members.job_title',
                     'staff_members.department_id',
                     'departments.name as department',
+                    'users.email',
                 ])
                 ->map(
                     fn (
@@ -3252,6 +3265,8 @@ class TaskManagementController extends Controller
             'projects:id,name,description,accent',
         ];
 
+        $team->refresh();
+
         if (
             Schema::hasColumn(
                 'task_teams',
@@ -3262,7 +3277,7 @@ class TaskManagementController extends Controller
                 'parent:id,name';
 
             return $team
-                ->fresh(
+                ->load(
                     $relations,
                 )
                 ->loadCount(
@@ -3270,7 +3285,7 @@ class TaskManagementController extends Controller
                 );
         }
 
-        return $team->fresh(
+        return $team->load(
             $relations,
         );
     }
