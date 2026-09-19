@@ -28,6 +28,18 @@ final class TaskAccess
         'tasks.archive',
         'tasks.reports',
         'tasks.projects_manage',
+
+        'teams.view',
+        'teams.create',
+        'teams.update',
+        'teams.archive',
+        'teams.members.manage',
+        'teams.lead.manage',
+        'teams.projects.manage',
+        'teams.subteams.create',
+        'teams.subteams.manage',
+        'teams.move',
+        'teams.view_workload',
     ];
 
     /**
@@ -344,8 +356,11 @@ final class TaskAccess
     public static function canViewTeam(): bool
     {
         return self::allowed(
-            'tasks.view_all',
+            'teams.view',
         )
+            || self::allowed(
+                'tasks.view_all',
+            )
             || self::allowed(
                 'tasks.view_team',
             )
