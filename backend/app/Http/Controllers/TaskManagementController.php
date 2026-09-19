@@ -61,6 +61,9 @@ class TaskManagementController extends Controller
                 'teamId' => $teamId !== null
                     ? (int) $teamId
                     : null,
+                'taskPermissions' => $this->browserPermissions(
+                    $request,
+                ),
             ],
         );
     }
