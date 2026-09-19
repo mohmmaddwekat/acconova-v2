@@ -268,13 +268,16 @@ function TeamsHub({
     data,
     tasks,
     ar,
+    permissions,
 }: {
     teams: UiTeam[];
     data: TaskData;
     tasks: Task[];
     ar: boolean;
+    permissions: string[];
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const can = (permission: string): boolean => permissions.includes(permission);
     const departments = Array.from(
         new Set(
             data.members
@@ -283,9 +286,15 @@ function TeamsHub({
         ),
     );
     const [department, setDepartment] = useState(departments[0] ?? '');
+    const [viewMode, setViewMode] = useState<'cards' | 'tree'>('cards');
     const visibleTeams = department
         ? teams.filter((team: UiTeam) => team.department === department)
         : teams;
+    const visibleIds = new Set(visibleTeams.map((team: UiTeam) => team.id));
+    const rootTeams = visibleTeams.filter((team: UiTeam) => (
+        team.parentTeamId === null
+        || ! visibleIds.has(team.parentTeamId)
+    ));
     const visibleProjectIds = new Set(
         visibleTeams.flatMap((team: UiTeam) => team.projects.map((project: Project) => project.id)),
     );
@@ -298,11 +307,12 @@ function TeamsHub({
               ) / visibleTeams.length,
           )
         : 0;
+    const childTeams = visibleTeams.filter((team: UiTeam) => team.parentTeamId !== null).length;
 
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-52 items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <select
                         className={input + ' min-w-52 !w-auto'}
                         aria-label={text('القسم', 'Department')}
@@ -318,15 +328,46 @@ function TeamsHub({
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
+
+                    <div className="flex rounded-xl border border-slate-200 bg-white p-1">
+                        <button
+                            type="button"
+                            className={
+                                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold transition '
+                                + (viewMode === 'cards'
+                                    ? 'bg-blue-50 text-blue-600'
+                                    : 'text-slate-400 hover:text-slate-600')
+                            }
+                            onClick={() => setViewMode('cards')}
+                        >
+                            <UsersRound size={13} />
+                            {text('البطاقات', 'Cards')}
+                        </button>
+                        <button
+                            type="button"
+                            className={
+                                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold transition '
+                                + (viewMode === 'tree'
+                                    ? 'bg-blue-50 text-blue-600'
+                                    : 'text-slate-400 hover:text-slate-600')
+                            }
+                            onClick={() => setViewMode('tree')}
+                        >
+                            <ListTree size={13} />
+                            {text('الهيكل', 'Hierarchy')}
+                        </button>
+                    </div>
                 </div>
 
-                <Link
-                    href={base + '/teams/create'}
-                    className={primary}
-                >
-                    <Plus size={16} />
-                    {text('إنشاء فريق', 'Create team')}
-                </Link>
+                {can('teams.create') && (
+                    <Link
+                        href={base + '/teams/create'}
+                        className={primary}
+                    >
+                        <Plus size={16} />
+                        {text('إنشاء فريق رئيسي', 'Create top-level team')}
+                    </Link>
+                )}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -334,7 +375,10 @@ function TeamsHub({
                     title={text('إجمالي الفرق', 'Total teams')}
                     value={visibleTeams.length}
                     icon={UsersRound}
-                    hint={text('فرق داخل القسم', 'Teams in this department')}
+                    hint={text(
+                        childTeams + ' فرق فرعية',
+                        childTeams + ' sub-teams',
+                    )}
                 />
                 <Stat
                     title={text('إجمالي أعضاء القسم', 'Department members')}
@@ -357,42 +401,90 @@ function TeamsHub({
                     )}
                 />
                 <Stat
-                    title={text('متوسط عبء العمل', 'Average workload')}
-                    value={averageWorkload + '%'}
-                    icon={BarChart3}
+                    title={text(
+                        can('teams.view_workload') ? 'متوسط عبء العمل' : 'الفرق الفرعية',
+                        can('teams.view_workload') ? 'Average workload' : 'Sub-teams',
+                    )}
+                    value={can('teams.view_workload') ? averageWorkload + '%' : childTeams}
+                    icon={can('teams.view_workload') ? BarChart3 : ListTree}
                     color="red"
-                    hint={text('عبر جميع الفرق', 'Across all teams')}
+                    hint={text('عبر الفرق الظاهرة', 'Across visible teams')}
                 />
             </div>
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,2.2fr)_minmax(300px,.8fr)]">
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {visibleTeams.map((team: UiTeam) => (
-                        <TeamCard
-                            key={team.id}
-                            team={team}
-                            ar={ar}
-                        />
-                    ))}
+                <div>
+                    {viewMode === 'cards' ? (
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {visibleTeams.map((team: UiTeam) => (
+                                <TeamCard
+                                    key={team.id}
+                                    team={team}
+                                    ar={ar}
+                                    permissions={permissions}
+                                />
+                            ))}
 
-                    <Link
-                        href={base + '/teams/create'}
-                        className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-7 text-center transition hover:border-blue-300 hover:bg-blue-50/30"
-                    >
-                        <span className="mb-4 flex size-14 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-                            <UsersRound size={28} />
-                        </span>
-                        <strong className="text-sm">
-                            {text('إنشاء فريق جديد', 'Create a new team')}
-                        </strong>
-                        <span className="mt-2 text-[11px] leading-6 text-slate-400">
-                            {text('قم بإنشاء فريق جديد داخل هذا القسم', 'Create another team inside this department')}
-                        </span>
-                        <span className={button + ' mt-5'}>
-                            <Plus size={14} />
-                            {text('إنشاء فريق', 'Create team')}
-                        </span>
-                    </Link>
+                            {can('teams.create') && (
+                                <Link
+                                    href={base + '/teams/create'}
+                                    className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-7 text-center transition hover:border-blue-300 hover:bg-blue-50/30"
+                                >
+                                    <span className="mb-4 flex size-14 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                                        <UsersRound size={28} />
+                                    </span>
+                                    <strong className="text-sm">
+                                        {text('إنشاء فريق رئيسي جديد', 'Create a new top-level team')}
+                                    </strong>
+                                    <span className="mt-2 text-[11px] leading-6 text-slate-400">
+                                        {text('يمكنك بعدها إضافة فرق فرعية بداخله بلا حد ثابت.', 'You can then nest sub-teams below it without a fixed depth.')}
+                                    </span>
+                                    <span className={button + ' mt-5'}>
+                                        <Plus size={14} />
+                                        {text('إنشاء فريق', 'Create team')}
+                                    </span>
+                                </Link>
+                            )}
+                        </div>
+                    ) : (
+                        <section className="tm-panel">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-sm font-bold">
+                                        {text('الهيكل التنظيمي للفرق', 'Team hierarchy')}
+                                    </h2>
+                                    <p className="mt-1 text-[10px] text-slate-400">
+                                        {text(
+                                            'كل فريق يمكن أن يحتوي فرقًا فرعية، والفرق الفرعية يمكن أن تحتوي فرقًا أخرى.',
+                                            'Every team can contain sub-teams, with unlimited nesting.',
+                                        )}
+                                    </p>
+                                </div>
+                                <Badge color="blue">
+                                    {rootTeams.length} {text('فرق رئيسية', 'roots')}
+                                </Badge>
+                            </div>
+
+                            <div className="space-y-2">
+                                {rootTeams.map((team: UiTeam) => (
+                                    <TeamTreeNode
+                                        key={team.id}
+                                        team={team}
+                                        teams={visibleTeams}
+                                        ar={ar}
+                                        permissions={permissions}
+                                        depth={0}
+                                    />
+                                ))}
+
+                                {! rootTeams.length && (
+                                    <div className="py-10 text-center text-xs text-slate-400">
+                                        {text('لا توجد فرق ضمن هذا القسم بعد.', 'No teams exist in this department yet.')}
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    )}
                 </div>
 
                 <aside className="space-y-4">
@@ -411,34 +503,36 @@ function TeamsHub({
                         />
                     </Panel>
 
-                    <Panel
-                        title={text('عبء العمل حسب الفريق', 'Workload by team')}
-                        icon={Gauge}
-                    >
-                        <div className="space-y-4">
-                            {visibleTeams.map((team: UiTeam) => (
-                                <div key={team.id}>
-                                    <div className="mb-2 flex items-center justify-between text-[10px]">
-                                        <span>{ar ? team.nameAr : team.nameEn}</span>
-                                        <strong>{team.workload}%</strong>
+                    {can('teams.view_workload') && (
+                        <Panel
+                            title={text('عبء العمل حسب الفريق', 'Workload by team')}
+                            icon={Gauge}
+                        >
+                            <div className="space-y-4">
+                                {visibleTeams.map((team: UiTeam) => (
+                                    <div key={team.id}>
+                                        <div className="mb-2 flex items-center justify-between text-[10px]">
+                                            <span>{ar ? team.nameAr : team.nameEn}</span>
+                                            <strong>{team.workload}%</strong>
+                                        </div>
+                                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                                            <div
+                                                className={
+                                                    'h-full rounded-full '
+                                                    + (team.workload >= 80
+                                                        ? 'bg-red-400'
+                                                        : team.workload >= 65
+                                                            ? 'bg-amber-400'
+                                                            : 'bg-emerald-400')
+                                                }
+                                                style={{ width: team.workload + '%' }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                                        <div
-                                            className={
-                                                'h-full rounded-full '
-                                                + (team.workload >= 80
-                                                    ? 'bg-red-400'
-                                                    : team.workload >= 65
-                                                        ? 'bg-amber-400'
-                                                        : 'bg-emerald-400')
-                                            }
-                                            style={{ width: team.workload + '%' }}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </Panel>
+                                ))}
+                            </div>
+                        </Panel>
+                    )}
 
                     <Panel
                         title={text('أحدث الأنشطة', 'Recent activity')}
@@ -459,26 +553,31 @@ function TeamsHub({
 function TeamCard({
     team,
     ar,
+    permissions,
 }: {
     team: UiTeam;
     ar: boolean;
+    permissions: string[];
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const can = (permission: string): boolean => permissions.includes(permission);
     const Icon = team.Icon;
 
     return (
         <section className="tm-panel flex min-h-72 flex-col">
             <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                    <span className={'flex size-11 items-center justify-center rounded-xl ' + toneClasses[team.tone]}>
+                <div className="flex min-w-0 items-center gap-3">
+                    <span className={'flex size-11 shrink-0 items-center justify-center rounded-xl ' + toneClasses[team.tone]}>
                         <Icon size={22} />
                     </span>
-                    <div>
-                        <h2 className="text-sm font-bold">
+                    <div className="min-w-0">
+                        <h2 className="truncate text-sm font-bold">
                             {ar ? team.nameAr : team.nameEn}
                         </h2>
-                        <p className="mt-1 text-[10px] text-slate-400">
-                            {ar ? team.descriptionAr : team.descriptionEn}
+                        <p className="mt-1 truncate text-[10px] text-slate-400">
+                            {team.parentTeamName
+                                ? text('ضمن: ', 'Under: ') + team.parentTeamName
+                                : text('فريق رئيسي', 'Top-level team')}
                         </p>
                     </div>
                 </div>
@@ -497,10 +596,18 @@ function TeamCard({
                 </Badge>
             </div>
 
-            <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+            <p className="mb-4 min-h-8 text-[10px] leading-5 text-slate-400">
+                {ar ? team.descriptionAr : team.descriptionEn}
+            </p>
+
+            <div className="mb-4 grid grid-cols-4 gap-2 text-center">
                 <Metric value={team.members.length} label={text('أعضاء', 'Members')} />
                 <Metric value={team.projects.length} label={text('مشاريع', 'Projects')} />
-                <Metric value={team.workload + '%'} label={text('عبء العمل', 'Workload')} />
+                <Metric value={team.childCount} label={text('فرعية', 'Children')} />
+                <Metric
+                    value={can('teams.view_workload') ? team.workload + '%' : '—'}
+                    label={text('عبء العمل', 'Workload')}
+                />
             </div>
 
             <div className="mb-4">
@@ -520,19 +627,6 @@ function TeamCard({
                 </div>
             </div>
 
-            <div className="mb-5 flex min-h-8 items-center">
-                <div className="flex -space-x-2 rtl:space-x-reverse">
-                    {team.members.slice(0, 5).map((member: Member) => (
-                        <Avatar key={member.id} member={member} />
-                    ))}
-                </div>
-                {team.members.length > 5 && (
-                    <span className="ms-2 text-[10px] text-blue-500">
-                        +{team.members.length - 5}
-                    </span>
-                )}
-            </div>
-
             <div className="mt-auto grid grid-cols-2 gap-2">
                 <Link
                     href={base + '/teams/' + team.id}
@@ -540,14 +634,113 @@ function TeamCard({
                 >
                     {text('عرض الفريق', 'View team')}
                 </Link>
-                <Link
-                    href={base + '/teams/' + team.id + '/members'}
-                    className={primary}
-                >
-                    {text('إدارة الأعضاء', 'Manage members')}
-                </Link>
+                {can('teams.subteams.create') ? (
+                    <Link
+                        href={base + '/teams/' + team.id + '/create'}
+                        className={primary}
+                    >
+                        <Plus size={13} />
+                        {text('فريق فرعي', 'Sub-team')}
+                    </Link>
+                ) : (
+                    <Link
+                        href={base + '/teams/' + team.id + '/members'}
+                        className={button}
+                    >
+                        {text('الأعضاء', 'Members')}
+                    </Link>
+                )}
             </div>
         </section>
+    );
+}
+
+function TeamTreeNode({
+    team,
+    teams,
+    ar,
+    permissions,
+    depth,
+}: {
+    team: UiTeam;
+    teams: UiTeam[];
+    ar: boolean;
+    permissions: string[];
+    depth: number;
+}) {
+    const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const children = teams.filter((item: UiTeam) => item.parentTeamId === team.id);
+    const canCreateChild = permissions.includes('teams.subteams.create');
+
+    return (
+        <div>
+            <div
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-3 shadow-sm"
+                style={{ marginInlineStart: Math.min(depth, 8) * 22 }}
+            >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    {depth === 0 ? <UsersRound size={17} /> : <ListTree size={17} />}
+                </span>
+
+                <div className="min-w-40 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <strong className="text-xs">
+                            {ar ? team.nameAr : team.nameEn}
+                        </strong>
+                        <Badge color={depth === 0 ? 'blue' : 'green'}>
+                            {depth === 0
+                                ? text('رئيسي', 'Root')
+                                : text('فرعي', 'Sub-team')}
+                        </Badge>
+                    </div>
+                    <p className="mt-1 text-[9px] text-slate-400">
+                        {team.members.length} {text('أعضاء', 'members')}
+                        {' · '}
+                        {team.projects.length} {text('مشاريع', 'projects')}
+                        {' · '}
+                        {team.childCount} {text('فرق تحته', 'children')}
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {permissions.includes('teams.view_workload') && (
+                        <Badge color={team.workload >= 80 ? 'red' : 'green'}>
+                            {team.workload}% {text('عبء', 'load')}
+                        </Badge>
+                    )}
+                    <Link
+                        href={base + '/teams/' + team.id}
+                        className={button}
+                    >
+                        {text('فتح', 'Open')}
+                    </Link>
+                    {canCreateChild && (
+                        <Link
+                            href={base + '/teams/' + team.id + '/create'}
+                            className={button}
+                        >
+                            <Plus size={12} />
+                            {text('فريق فرعي', 'Sub-team')}
+                        </Link>
+                    )}
+                </div>
+            </div>
+
+            {children.length > 0 && (
+                <div className="mt-2 space-y-2">
+                    {children.map((child: UiTeam) => (
+                        <TeamTreeNode
+                            key={child.id}
+                            team={child}
+                            teams={teams}
+                            ar={ar}
+                            permissions={permissions}
+                            depth={depth + 1}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
 
