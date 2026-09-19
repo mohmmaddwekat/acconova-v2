@@ -104,6 +104,7 @@ final class WorkspaceRoleCatalog
                     'staff.view',
                     'staff.manage',
                     'staff.attendance',
+                    'staff.import',
 
                     'teams.view',
                     'teams.create',
@@ -289,6 +290,7 @@ final class WorkspaceRoleCatalog
                     'staff.view',
                     'staff.manage',
                     'staff.attendance',
+                    'staff.import',
                 ],
             ],
 
