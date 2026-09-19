@@ -1425,9 +1425,7 @@ class TaskManagementController extends Controller
         $linkedTasks =
             $item
                 ->tasks()
-                ->whereNull(
-                    'deleted_at',
-                )
+                ->operational()
                 ->count();
 
         abort_if(
