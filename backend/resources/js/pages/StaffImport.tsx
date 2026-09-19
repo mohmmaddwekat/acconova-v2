@@ -512,9 +512,7 @@ export default function StaffImportPage() {
             ],
         );
 
-    function resetPreview(
-        nextType = type,
-    ): void {
+    function resetPreview(): void {
         setPreview(
             null,
         );
@@ -535,16 +533,46 @@ export default function StaffImportPage() {
             '',
         );
 
+        setMatchBy(
+            type === 'employees'
+                ? 'phone'
+                : 'name',
+        );
+    }
+
+    function changeType(
+        nextType: ImportType,
+    ): void {
+        setType(
+            nextType,
+        );
+
+        setResult(
+            null,
+        );
+
+        setError(
+            '',
+        );
+
+        setMatchBy(
+            nextType === 'employees'
+                ? 'phone'
+                : 'name',
+        );
+
         if (
-            nextType ===
-            'employees'
+            selectedSheet
         ) {
-            setMatchBy(
-                'phone',
+            setMapping(
+                autoMapping(
+                    selectedSheet.headers,
+                    nextType,
+                ),
             );
         } else {
-            setMatchBy(
-                'name',
+            setMapping(
+                {},
             );
         }
     }
@@ -857,15 +885,11 @@ export default function StaffImportPage() {
                                             key={
                                                 card.id
                                             }
-                                            onClick={() => {
-                                                setType(
+                                            onClick={() =>
+                                                changeType(
                                                     card.id,
-                                                );
-
-                                                resetPreview(
-                                                    card.id,
-                                                );
-                                            }}
+                                                )
+                                            }
                                             className={[
                                                 'rounded-[17px] border p-4 text-start transition',
                                                 type ===
