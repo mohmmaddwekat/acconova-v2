@@ -1696,60 +1696,87 @@ function TeamDetailSurface({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                    <div className="relative">
+                    {permissions.includes('teams.archive') && (
+                        <div className="relative">
+                            <button
+                                type="button"
+                                className={button}
+                                aria-expanded={moreOpen}
+                                onClick={() => setMoreOpen((value: boolean) => ! value)}
+                            >
+                                <MoreHorizontal size={15} />
+                            </button>
+
+                            {moreOpen && (
+                                <div className="absolute end-0 top-11 z-30 w-44 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-[10px] text-red-500 hover:bg-red-50"
+                                        disabled={busy}
+                                        onClick={archiveTeam}
+                                    >
+                                        <X size={13} />
+                                        {text('أرشفة الفريق', 'Archive team')}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {permissions.includes('teams.subteams.create') && (
+                        <Link
+                            href={base + '/teams/' + team.id + '/create'}
+                            className={button}
+                        >
+                            <Plus size={15} />
+                            {text('فريق فرعي', 'Sub-team')}
+                        </Link>
+                    )}
+
+                    {can('teams.projects.manage') && (
                         <button
                             type="button"
                             className={button}
-                            aria-expanded={moreOpen}
-                            onClick={() => setMoreOpen((value: boolean) => ! value)}
+                            onClick={openProjectsPicker}
                         >
-                            <MoreHorizontal size={15} />
+                            <Link2 size={15} />
+                            {text('ربط مشروع', 'Link project')}
                         </button>
+                    )}
 
-                        {moreOpen && (
-                            <div className="absolute end-0 top-11 z-30 w-44 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
-                                <button
-                                    type="button"
-                                    className="flex w-full items-center rounded-lg px-3 py-2 text-start text-[10px] text-red-500 hover:bg-red-50"
-                                    disabled={busy}
-                                    onClick={archiveTeam}
-                                >
-                                    <X size={13} />
-                                    {text('أرشفة الفريق', 'Archive team')}
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    {(can('teams.update')
+                        || can('teams.lead.manage')
+                        || permissions.includes('teams.move')) && (
+                        <button
+                            type="button"
+                            className={button}
+                            onClick={() => {
+                                setEditName(ar ? team.nameAr : team.nameEn);
+                                setEditDescription(ar ? team.descriptionAr : team.descriptionEn);
+                                setEditCapacity(String(team.capacity));
+                                setEditPriority(team.priority);
+                                setEditLeader(String(team.leader?.id ?? ''));
+                                setEditParent(
+                                    team.parentTeamId !== null
+                                        ? String(team.parentTeamId)
+                                        : '',
+                                );
+                                setEditOpen(true);
+                            }}
+                        >
+                            <Pencil size={15} />
+                            {text('تعديل الفريق', 'Edit team')}
+                        </button>
+                    )}
 
-                    <button
-                        type="button"
-                        className={button}
-                        onClick={openProjectsPicker}
-                    >
-                        <Link2 size={15} />
-                        {text('ربط مشروع', 'Link project')}
-                    </button>
-                    <button
-                        type="button"
-                        className={button}
-                        onClick={() => {
-                            setEditName(ar ? team.nameAr : team.nameEn);
-                            setEditDescription(ar ? team.descriptionAr : team.descriptionEn);
-                            setEditCapacity(String(team.capacity));
-                            setEditPriority(team.priority);
-                            setEditLeader(String(team.leader?.id ?? ''));
-                            setEditOpen(true);
-                        }}
-                    >
-                        <Pencil size={15} />
-                        {text('تعديل الفريق', 'Edit team')}
-                    </button>
                     <Link
                         href={base + '/teams/' + team.id + '/members'}
-                        className={primary}
+                        className={can('teams.members.manage') ? primary : button}
                     >
                         <UsersRound size={15} />
-                        {text('إدارة الأعضاء', 'Manage members')}
+                        {can('teams.members.manage')
+                            ? text('إدارة الأعضاء', 'Manage members')
+                            : text('عرض الأعضاء', 'View members')}
                     </Link>
                 </div>
             </div>
