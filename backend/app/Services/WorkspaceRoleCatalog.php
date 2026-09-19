@@ -40,6 +40,9 @@ final class WorkspaceRoleCatalog
                 'permissions' => [
                     'staff.team_view',
                     'staff.team_attendance',
+
+                    'teams.view',
+                    'teams.view_workload',
                 ],
             ],
 
@@ -54,6 +57,18 @@ final class WorkspaceRoleCatalog
                     'staff.team_manage',
                     'staff.team_attendance',
                     'staff.team_pay',
+
+                    'teams.view',
+                    'teams.create',
+                    'teams.update',
+                    'teams.archive',
+                    'teams.members.manage',
+                    'teams.lead.manage',
+                    'teams.projects.manage',
+                    'teams.subteams.create',
+                    'teams.subteams.manage',
+                    'teams.move',
+                    'teams.view_workload',
                 ],
             ],
 
@@ -89,6 +104,18 @@ final class WorkspaceRoleCatalog
                     'staff.view',
                     'staff.manage',
                     'staff.attendance',
+
+                    'teams.view',
+                    'teams.create',
+                    'teams.update',
+                    'teams.archive',
+                    'teams.members.manage',
+                    'teams.lead.manage',
+                    'teams.projects.manage',
+                    'teams.subteams.create',
+                    'teams.subteams.manage',
+                    'teams.move',
+                    'teams.view_workload',
                 ],
             ],
 
@@ -166,6 +193,17 @@ final class WorkspaceRoleCatalog
                     'staff.team_view',
                     'staff.team_manage',
                     'staff.team_attendance',
+
+                    'teams.view',
+                    'teams.create',
+                    'teams.update',
+                    'teams.members.manage',
+                    'teams.lead.manage',
+                    'teams.projects.manage',
+                    'teams.subteams.create',
+                    'teams.subteams.manage',
+                    'teams.move',
+                    'teams.view_workload',
                 ],
             ],
 
@@ -227,6 +265,17 @@ final class WorkspaceRoleCatalog
                     'staff.team_view',
                     'staff.team_manage',
                     'staff.team_attendance',
+
+                    'teams.view',
+                    'teams.create',
+                    'teams.update',
+                    'teams.members.manage',
+                    'teams.lead.manage',
+                    'teams.projects.manage',
+                    'teams.subteams.create',
+                    'teams.subteams.manage',
+                    'teams.move',
+                    'teams.view_workload',
                 ],
             ],
 
@@ -295,6 +344,24 @@ final class WorkspaceRoleCatalog
             }
             if ($permission === 'tasks.projects.manage') {
                 $normalized[] = 'tasks.projects.view';
+            }
+
+            if (
+                str_starts_with(
+                    $permission,
+                    'teams.',
+                )
+                && $permission !==
+                'teams.view'
+            ) {
+                $normalized[] = 'teams.view';
+            }
+
+            if (
+                $permission ===
+                'teams.subteams.create'
+            ) {
+                $normalized[] = 'teams.create';
             }
             if (
                 str_starts_with(
