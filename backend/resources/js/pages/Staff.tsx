@@ -2,6 +2,9 @@ import {
     StaffWorkforcePanel,
 } from '@/components/StaffWorkforcePanel';
 import {
+    StaffModuleNav,
+} from '@/components/staff/StaffModuleNav';
+import {
     AppShell,
 } from '@/layouts/AppShell';
 import {
@@ -1305,6 +1308,10 @@ function StaffWorkspace() {
                         </div>
                     </div>
                 </header>
+
+                <div className="mt-4">
+                    <StaffModuleNav />
+                </div>
 
                 {error && (
                     <div
