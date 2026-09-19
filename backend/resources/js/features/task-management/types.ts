@@ -84,6 +84,20 @@ export type TaskPayload = Pick<
     revision?: number;
 };
 
+export type TaskTeam = {
+    id: number;
+    name: string;
+    description?: string | null;
+    department_id: number;
+    department?: string | null;
+    leader_id: number | null;
+    leader_name?: string | null;
+    capacity: number;
+    priority: 'low' | 'medium' | 'high';
+    member_ids: number[];
+    project_ids: number[];
+};
+
 export type TaskActivityEvent = {
     id: number;
     task_id: number | null;
@@ -118,6 +132,7 @@ export type TaskData = {
     tasks: Task[];
     members: Member[];
     projects: Project[];
+    teams: TaskTeam[];
     events: TaskActivityEvent[];
     permissions: string[];
 };

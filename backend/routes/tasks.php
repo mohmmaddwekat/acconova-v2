@@ -20,7 +20,8 @@ Route::middleware(['auth', 'verified', ResolveOrganization::class])->group(funct
     Route::prefix('api/task-management')->group(function (): void {
         Route::get('/', [TaskManagementController::class, 'index']);
         Route::post('/tasks', [TaskManagementController::class, 'store'])->middleware('throttle:30,1');
-        Route::post('/projects', [TaskManagementController::class, 'project'])->middleware('throttle:30,1');
+        Route::post('/projects', [TaskManagementController::class, 'storeProject'])->middleware('throttle:30,1');
+        Route::post('/teams', [TaskManagementController::class, 'storeTeam'])->middleware('throttle:20,1');
         Route::get('/tasks/{task}', [TaskManagementController::class, 'show'])->whereNumber('task');
         Route::patch('/tasks/{task}', [TaskManagementController::class, 'update'])->whereNumber('task')->middleware('throttle:60,1');
         Route::delete('/tasks/{task}', [TaskManagementController::class, 'destroy'])->whereNumber('task');
