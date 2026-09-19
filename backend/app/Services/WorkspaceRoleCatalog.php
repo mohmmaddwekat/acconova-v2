@@ -303,6 +303,7 @@ final class WorkspaceRoleCatalog
                     'staff.manage',
                     'staff.attendance',
                     'staff.pay',
+                    'staff.import',
                 ],
             ],
         ];
@@ -449,6 +450,17 @@ final class WorkspaceRoleCatalog
             ) {
                 $normalized[] =
                     'staff.view';
+            }
+
+            if (
+                $permission ===
+                'staff.import'
+            ) {
+                $normalized[] =
+                    'staff.view';
+
+                $normalized[] =
+                    'staff.manage';
             }
 
             if (
