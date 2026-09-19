@@ -38,6 +38,7 @@ import {
 import {
     Avatar,
     Badge,
+    Modal,
     Panel,
     Progress,
     Stat,
@@ -111,12 +112,14 @@ export function TeamsExperience({
     data,
     tasks,
     ar,
+    onChanged,
 }: {
     view: TeamsView;
     teamId: number | null;
     data: TaskData;
     tasks: Task[];
     ar: boolean;
+    onChanged: () => void;
 }) {
     const teams = useMemo(
         () => buildTeams(data, tasks),
@@ -137,7 +140,9 @@ export function TeamsExperience({
         return selected ? (
             <TeamMembersSurface
                 team={selected}
+                data={data}
                 ar={ar}
+                onChanged={onChanged}
             />
         ) : (
             <MissingTeam ar={ar} />
@@ -150,6 +155,7 @@ export function TeamsExperience({
                 team={selected}
                 data={data}
                 ar={ar}
+                onChanged={onChanged}
             />
         ) : (
             <MissingTeam ar={ar} />
@@ -1095,6 +1101,21 @@ function CreateTeamSurface({
     );
 }
 
+async function updateTeamRecord(
+    teamId: number,
+    payload: Record<string, unknown>,
+): Promise<TaskTeam> {
+    const response = await apiRequest<{ team: TaskTeam }>(
+        api + '/teams/' + teamId,
+        {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        },
+    );
+
+    return response.team;
+}
+
 function PreviewRow({
     label,
     value,
@@ -1114,17 +1135,107 @@ function TeamDetailSurface({
     team,
     data,
     ar,
+    onChanged,
 }: {
     team: UiTeam;
     data: TaskData;
     ar: boolean;
+    onChanged: () => void;
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
     const Icon = team.Icon;
     const completed = team.tasks.filter((task: Task) => task.status === 'completed').length;
+    const [editOpen, setEditOpen] = useState(false);
+    const [projectsOpen, setProjectsOpen] = useState(false);
+    const [moreOpen, setMoreOpen] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [actionError, setActionError] = useState('');
+    const [editName, setEditName] = useState(ar ? team.nameAr : team.nameEn);
+    const [editDescription, setEditDescription] = useState(
+        ar ? team.descriptionAr : team.descriptionEn,
+    );
+    const [editCapacity, setEditCapacity] = useState(String(team.capacity));
+    const [editPriority, setEditPriority] = useState(team.priority);
+    const [editLeader, setEditLeader] = useState(String(team.leader?.id ?? ''));
+    const [projectIds, setProjectIds] = useState<number[]>(
+        team.projects.map((project: Project) => project.id),
+    );
+
+    async function saveTeam(event: FormEvent<HTMLFormElement>): Promise<void> {
+        event.preventDefault();
+        setBusy(true);
+        setActionError('');
+
+        try {
+            await updateTeamRecord(team.id, {
+                name: editName.trim(),
+                description: editDescription.trim() || null,
+                capacity: Math.max(team.members.length, Number(editCapacity) || 1),
+                priority: editPriority,
+                leader_id: Number(editLeader),
+            });
+            setEditOpen(false);
+            onChanged();
+        } catch (failure) {
+            setActionError(errorText(failure));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function saveProjects(): Promise<void> {
+        setBusy(true);
+        setActionError('');
+
+        try {
+            await updateTeamRecord(team.id, {
+                project_ids: projectIds,
+            });
+            setProjectsOpen(false);
+            onChanged();
+        } catch (failure) {
+            setActionError(errorText(failure));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function archiveTeam(): Promise<void> {
+        if (! window.confirm(
+            text(
+                'هل تريد أرشفة هذا الفريق؟ ستبقى البيانات محفوظة.',
+                'Archive this team? Historical data will remain preserved.',
+            ),
+        )) {
+            return;
+        }
+
+        setBusy(true);
+        setActionError('');
+
+        try {
+            await apiRequest(
+                api + '/teams/' + team.id,
+                { method: 'DELETE' },
+            );
+            router.visit(base + '/teams');
+        } catch (failure) {
+            setActionError(errorText(failure));
+            setBusy(false);
+        }
+    }
 
     return (
         <div className="space-y-4">
+            {actionError && (
+                <div
+                    role="alert"
+                    className="rounded-xl border border-red-100 bg-red-50 p-3 text-[11px] text-red-600"
+                >
+                    {actionError}
+                </div>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <span className={'flex size-14 items-center justify-center rounded-xl ' + toneClasses[team.tone]}>
@@ -1141,14 +1252,54 @@ function TeamDetailSurface({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                    <button type="button" className={button}>
-                        <MoreHorizontal size={15} />
-                    </button>
-                    <button type="button" className={button}>
+                    <div className="relative">
+                        <button
+                            type="button"
+                            className={button}
+                            aria-expanded={moreOpen}
+                            onClick={() => setMoreOpen((value: boolean) => ! value)}
+                        >
+                            <MoreHorizontal size={15} />
+                        </button>
+
+                        {moreOpen && (
+                            <div className="absolute end-0 top-11 z-30 w-44 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
+                                <button
+                                    type="button"
+                                    className="flex w-full items-center rounded-lg px-3 py-2 text-start text-[10px] text-red-500 hover:bg-red-50"
+                                    disabled={busy}
+                                    onClick={archiveTeam}
+                                >
+                                    <X size={13} />
+                                    {text('أرشفة الفريق', 'Archive team')}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        className={button}
+                        onClick={() => {
+                            setProjectIds(team.projects.map((project: Project) => project.id));
+                            setProjectsOpen(true);
+                        }}
+                    >
                         <Link2 size={15} />
                         {text('ربط مشروع', 'Link project')}
                     </button>
-                    <button type="button" className={button}>
+                    <button
+                        type="button"
+                        className={button}
+                        onClick={() => {
+                            setEditName(ar ? team.nameAr : team.nameEn);
+                            setEditDescription(ar ? team.descriptionAr : team.descriptionEn);
+                            setEditCapacity(String(team.capacity));
+                            setEditPriority(team.priority);
+                            setEditLeader(String(team.leader?.id ?? ''));
+                            setEditOpen(true);
+                        }}
+                    >
                         <Pencil size={15} />
                         {text('تعديل الفريق', 'Edit team')}
                     </button>
@@ -1224,13 +1375,13 @@ function TeamDetailSurface({
                     )}
                 >
                     <div className="space-y-3">
-                        {team.members.map((member: Member, index: number) => (
+                        {team.members.map((member: Member) => (
                             <div key={member.id} className="flex items-center gap-3">
                                 <Avatar member={member} size="large" />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
                                         <p className="truncate text-xs font-semibold">{member.name}</p>
-                                        {index === 0 && (
+                                        {member.id === team.leader?.id && (
                                             <Badge color="blue">{text('القائد', 'Lead')}</Badge>
                                         )}
                                     </div>
@@ -1343,41 +1494,340 @@ function TeamDetailSurface({
                     />
                 </Panel>
             </div>
+
+            <Modal
+                open={editOpen}
+                onClose={() => ! busy && setEditOpen(false)}
+                title={text('تعديل الفريق', 'Edit team')}
+            >
+                <form onSubmit={saveTeam} className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <h3 className="font-bold">{text('تعديل الفريق', 'Edit team')}</h3>
+                        <button type="button" className={button} onClick={() => setEditOpen(false)}>
+                            <X size={14} />
+                        </button>
+                    </div>
+                    <label className="tm-field">
+                        {text('اسم الفريق', 'Team name')}
+                        <input
+                            className={input}
+                            required
+                            value={editName}
+                            onChange={(event) => setEditName(event.target.value)}
+                        />
+                    </label>
+                    <label className="tm-field">
+                        {text('وصف الفريق', 'Description')}
+                        <textarea
+                            className={input}
+                            rows={4}
+                            value={editDescription}
+                            onChange={(event) => setEditDescription(event.target.value)}
+                        />
+                    </label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="tm-field">
+                            {text('قائد الفريق', 'Team lead')}
+                            <select
+                                className={input}
+                                value={editLeader}
+                                onChange={(event) => setEditLeader(event.target.value)}
+                            >
+                                {team.members.map((member: Member) => (
+                                    <option key={member.id} value={member.id}>{member.name}</option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="tm-field">
+                            {text('سعة الفريق', 'Capacity')}
+                            <input
+                                className={input}
+                                type="number"
+                                min={Math.max(1, team.members.length)}
+                                max="100"
+                                value={editCapacity}
+                                onChange={(event) => setEditCapacity(event.target.value)}
+                            />
+                        </label>
+                    </div>
+                    <label className="tm-field">
+                        {text('الأولوية', 'Priority')}
+                        <select
+                            className={input}
+                            value={editPriority}
+                            onChange={(event) => setEditPriority(event.target.value as 'low' | 'medium' | 'high')}
+                        >
+                            <option value="low">{text('منخفضة', 'Low')}</option>
+                            <option value="medium">{text('متوسطة', 'Medium')}</option>
+                            <option value="high">{text('عالية', 'High')}</option>
+                        </select>
+                    </label>
+                    <div className="flex justify-end gap-2">
+                        <button type="button" className={button} disabled={busy} onClick={() => setEditOpen(false)}>
+                            {text('إلغاء', 'Cancel')}
+                        </button>
+                        <button type="submit" className={primary} disabled={busy || ! editLeader}>
+                            {busy ? text('جارٍ الحفظ…', 'Saving…') : text('حفظ التعديلات', 'Save changes')}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            <Modal
+                open={projectsOpen}
+                onClose={() => ! busy && setProjectsOpen(false)}
+                title={text('ربط المشاريع', 'Link projects')}
+            >
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <h3 className="font-bold">{text('ربط المشاريع بالفريق', 'Link projects to team')}</h3>
+                        <button type="button" className={button} onClick={() => setProjectsOpen(false)}>
+                            <X size={14} />
+                        </button>
+                    </div>
+                    <div className="max-h-80 space-y-2 overflow-y-auto">
+                        {data.projects.map((project: Project) => {
+                            const selected = projectIds.includes(project.id);
+
+                            return (
+                                <label
+                                    key={project.id}
+                                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selected}
+                                        onChange={() => setProjectIds((current: number[]) => (
+                                            current.includes(project.id)
+                                                ? current.filter((id: number) => id !== project.id)
+                                                : [...current, project.id]
+                                        ))}
+                                    />
+                                    <FolderKanban size={15} className="text-blue-500" />
+                                    <span className="text-xs font-semibold">{project.name}</span>
+                                </label>
+                            );
+                        })}
+                        {! data.projects.length && (
+                            <p className="py-6 text-center text-xs text-slate-400">
+                                {text('لا توجد مشاريع متاحة.', 'No projects are available.')}
+                            </p>
+                        )}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <button type="button" className={button} disabled={busy} onClick={() => setProjectsOpen(false)}>
+                            {text('إلغاء', 'Cancel')}
+                        </button>
+                        <button type="button" className={primary} disabled={busy} onClick={saveProjects}>
+                            {busy ? text('جارٍ الحفظ…', 'Saving…') : text('حفظ الربط', 'Save links')}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
 
 function TeamMembersSurface({
     team,
+    data,
     ar,
+    onChanged,
 }: {
     team: UiTeam;
+    data: TaskData;
     ar: boolean;
+    onChanged: () => void;
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const [activeTab, setActiveTab] = useState<'members' | 'tasks' | 'projects' | 'settings'>('members');
     const [search, setSearch] = useState('');
-    const [openMenu, setOpenMenu] = useState<number | null>(team.members[0]?.id ?? null);
+    const [roleFilter, setRoleFilter] = useState<'all' | 'lead' | 'member'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'busy'>('all');
+    const [actionMemberId, setActionMemberId] = useState<number | null>(null);
+    const [profileMemberId, setProfileMemberId] = useState<number | null>(null);
+    const [addOpen, setAddOpen] = useState(false);
+    const [leadOpen, setLeadOpen] = useState(false);
+    const [removeOpen, setRemoveOpen] = useState(false);
+    const [transferOpen, setTransferOpen] = useState(false);
+    const [candidateId, setCandidateId] = useState('');
+    const [leadId, setLeadId] = useState(String(team.leader?.id ?? ''));
+    const [removeId, setRemoveId] = useState('');
+    const [transferMemberId, setTransferMemberId] = useState('');
+    const [targetTeamId, setTargetTeamId] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [actionError, setActionError] = useState('');
+
+    const memberIds = team.members.map((member: Member) => member.id);
+    const departmentMembers = data.members.filter((member: Member) => (
+        member.department_id === team.members[0]?.department_id
+        || member.department === team.department
+    ));
+    const addCandidates = departmentMembers.filter(
+        (member: Member) => ! memberIds.includes(member.id),
+    );
+    const targetTeams = (data.teams ?? []).filter((item: TaskTeam) => (
+        item.id !== team.id
+        && item.department_id === team.members[0]?.department_id
+        && item.member_ids.length < item.capacity
+    ));
+
+    const memberWorkload = (member: Member): number => {
+        const active = team.tasks.filter((task: Task) => (
+            task.status !== 'completed'
+            && task.assignees.includes(member.id)
+        )).length;
+
+        return Math.min(100, active * 25);
+    };
+
     const filtered = team.members.filter((member: Member) => {
+        const workload = memberWorkload(member);
+        const busyMember = workload >= 80;
+        const isLead = member.id === team.leader?.id;
         const haystack = [
             member.name,
             member.email ?? '',
             member.job_title ?? '',
         ].join(' ').toLocaleLowerCase();
 
-        return haystack.includes(search.toLocaleLowerCase());
+        return (
+            haystack.includes(search.toLocaleLowerCase())
+            && (
+                roleFilter === 'all'
+                || (roleFilter === 'lead' && isLead)
+                || (roleFilter === 'member' && ! isLead)
+            )
+            && (
+                statusFilter === 'all'
+                || (statusFilter === 'busy' && busyMember)
+                || (statusFilter === 'available' && ! busyMember)
+            )
+        );
     });
+
     const averageWorkload = team.members.length
         ? Math.round(
-              team.members.reduce((sum: number, member: Member) => {
-                  const active = team.tasks.filter((task: Task) => (
-                      task.status !== 'completed'
-                      && task.assignees.includes(member.id)
-                  )).length;
-
-                  return sum + Math.min(100, active * 25);
-              }, 0) / team.members.length,
+              team.members.reduce(
+                  (sum: number, member: Member) => sum + memberWorkload(member),
+                  0,
+              ) / team.members.length,
           )
         : 0;
+
+    async function patchTeam(
+        payload: Record<string, unknown>,
+        after?: () => void,
+    ): Promise<void> {
+        setBusy(true);
+        setActionError('');
+
+        try {
+            await updateTeamRecord(team.id, payload);
+            after?.();
+            onChanged();
+        } catch (failure) {
+            setActionError(errorText(failure));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function addMember(): Promise<void> {
+        if (! candidateId) {
+            return;
+        }
+
+        await patchTeam(
+            {
+                member_ids: [...memberIds, Number(candidateId)],
+            },
+            () => {
+                setCandidateId('');
+                setAddOpen(false);
+            },
+        );
+    }
+
+    async function assignLead(id: number): Promise<void> {
+        await patchTeam(
+            { leader_id: id },
+            () => {
+                setLeadId(String(id));
+                setLeadOpen(false);
+                setActionMemberId(null);
+            },
+        );
+    }
+
+    async function removeMember(id: number): Promise<void> {
+        if (id === team.leader?.id) {
+            setActionError(
+                text(
+                    'عيّن قائدًا آخر قبل إزالة قائد الفريق الحالي.',
+                    'Assign another lead before removing the current team lead.',
+                ),
+            );
+            return;
+        }
+
+        await patchTeam(
+            {
+                member_ids: memberIds.filter((memberId: number) => memberId !== id),
+            },
+            () => {
+                setRemoveId('');
+                setRemoveOpen(false);
+                setActionMemberId(null);
+            },
+        );
+    }
+
+    async function transferMember(): Promise<void> {
+        if (! transferMemberId || ! targetTeamId) {
+            return;
+        }
+
+        setBusy(true);
+        setActionError('');
+
+        try {
+            await apiRequest(
+                api + '/teams/' + team.id + '/transfer-member',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        staff_member_id: Number(transferMemberId),
+                        target_team_id: Number(targetTeamId),
+                    }),
+                },
+            );
+            setTransferOpen(false);
+            setTransferMemberId('');
+            setTargetTeamId('');
+            setActionMemberId(null);
+            onChanged();
+        } catch (failure) {
+            setActionError(errorText(failure));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    const tabs: Array<{
+        key: 'members' | 'tasks' | 'projects' | 'settings';
+        ar: string;
+        en: string;
+    }> = [
+        { key: 'members', ar: 'الأعضاء', en: 'Members' },
+        { key: 'tasks', ar: 'المهام', en: 'Tasks' },
+        { key: 'projects', ar: 'المشاريع', en: 'Projects' },
+        { key: 'settings', ar: 'الإعدادات', en: 'Settings' },
+    ];
+
+    const profileMember = data.members.find(
+        (member: Member) => member.id === profileMemberId,
+    );
 
     return (
         <div className="space-y-4">
@@ -1395,6 +1845,15 @@ function TeamMembersSurface({
                     {text('العودة إلى الفريق', 'Back to team')}
                 </Link>
             </div>
+
+            {actionError && (
+                <div
+                    role="alert"
+                    className="rounded-xl border border-red-100 bg-red-50 p-3 text-[11px] text-red-600"
+                >
+                    {actionError}
+                </div>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <Stat
@@ -1427,161 +1886,284 @@ function TeamMembersSurface({
                 <div className="tm-panel !p-0">
                     <div className="border-b border-slate-100 px-4 pt-3">
                         <div className="flex gap-5 overflow-x-auto">
-                            {[
-                                text('الأعضاء', 'Members'),
-                                text('المهام', 'Tasks'),
-                                text('المشاريع', 'Projects'),
-                                text('الإعدادات', 'Settings'),
-                            ].map((label: string, index: number) => (
+                            {tabs.map((tab) => (
                                 <button
                                     type="button"
-                                    key={label}
+                                    key={tab.key}
+                                    onClick={() => setActiveTab(tab.key)}
                                     className={
-                                        'border-b-2 px-1 py-3 text-[11px] font-semibold '
-                                        + (index === 0
+                                        'border-b-2 px-1 py-3 text-[11px] font-semibold transition '
+                                        + (activeTab === tab.key
                                             ? 'border-blue-500 text-blue-600'
-                                            : 'border-transparent text-slate-400')
+                                            : 'border-transparent text-slate-400 hover:text-slate-600')
                                     }
                                 >
-                                    {label}
+                                    {ar ? tab.ar : tab.en}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
-                        <button type="button" className={primary}>
-                            <Plus size={14} />
-                            {text('إضافة عضو', 'Add member')}
-                        </button>
+                    {activeTab === 'members' && (
+                        <>
+                            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
+                                <button
+                                    type="button"
+                                    className={primary}
+                                    disabled={team.members.length >= team.capacity}
+                                    onClick={() => {
+                                        setCandidateId('');
+                                        setAddOpen(true);
+                                    }}
+                                >
+                                    <Plus size={14} />
+                                    {text('إضافة عضو', 'Add member')}
+                                </button>
 
-                        <label className="relative min-w-48 flex-1">
-                            <Search
-                                size={14}
-                                className="absolute start-3 top-3 text-slate-400"
-                            />
-                            <input
-                                className={input + ' !ps-9'}
-                                value={search}
-                                onChange={(event) => setSearch(event.target.value)}
-                                placeholder={text('البحث عن موظف…', 'Search member…')}
-                            />
-                        </label>
+                                <label className="relative min-w-48 flex-1">
+                                    <Search
+                                        size={14}
+                                        className="absolute start-3 top-3 text-slate-400"
+                                    />
+                                    <input
+                                        className={input + ' !ps-9'}
+                                        value={search}
+                                        onChange={(event) => setSearch(event.target.value)}
+                                        placeholder={text('البحث عن موظف…', 'Search member…')}
+                                    />
+                                </label>
 
-                        <select className={input + ' !w-auto min-w-32'}>
-                            <option>{text('جميع الأدوار', 'All roles')}</option>
-                        </select>
-                        <select className={input + ' !w-auto min-w-32'}>
-                            <option>{text('جميع الحالات', 'All statuses')}</option>
-                        </select>
-                        <button type="button" className={button}>
-                            <Settings2 size={14} />
-                            {text('تصفية', 'Filter')}
-                        </button>
-                    </div>
+                                <select
+                                    className={input + ' !w-auto min-w-32'}
+                                    value={roleFilter}
+                                    onChange={(event) => setRoleFilter(event.target.value as 'all' | 'lead' | 'member')}
+                                >
+                                    <option value="all">{text('جميع الأدوار', 'All roles')}</option>
+                                    <option value="lead">{text('قائد الفريق', 'Team lead')}</option>
+                                    <option value="member">{text('عضو', 'Member')}</option>
+                                </select>
+                                <select
+                                    className={input + ' !w-auto min-w-32'}
+                                    value={statusFilter}
+                                    onChange={(event) => setStatusFilter(event.target.value as 'all' | 'available' | 'busy')}
+                                >
+                                    <option value="all">{text('جميع الحالات', 'All statuses')}</option>
+                                    <option value="available">{text('متاح', 'Available')}</option>
+                                    <option value="busy">{text('مشغول', 'Busy')}</option>
+                                </select>
+                                <button
+                                    type="button"
+                                    className={button}
+                                    onClick={() => {
+                                        setSearch('');
+                                        setRoleFilter('all');
+                                        setStatusFilter('all');
+                                    }}
+                                >
+                                    <Settings2 size={14} />
+                                    {text('إعادة ضبط', 'Reset')}
+                                </button>
+                            </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="tm-table">
-                            <thead>
-                                <tr>
-                                    {[
-                                        text('الموظف', 'Employee'),
-                                        text('المسمى الوظيفي', 'Job title'),
-                                        text('الحالة', 'Status'),
-                                        text('نسبة الانشغال', 'Utilization'),
-                                        text('الدور داخل الفريق', 'Team role'),
-                                        text('إجراءات', 'Actions'),
-                                    ].map((label: string) => (
-                                        <th key={label}>{label}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.map((member: Member, index: number) => {
-                                    const memberTasks = team.tasks.filter((task: Task) => task.assignees.includes(member.id));
-                                    const active = memberTasks.filter((task: Task) => task.status !== 'completed').length;
-                                    const workload = Math.min(100, active * 25);
-                                    const busy = workload >= 80;
+                            <div className="overflow-x-auto">
+                                <table className="tm-table tm-team-members-table">
+                                    <colgroup>
+                                        <col style={{ width: '29%' }} />
+                                        <col style={{ width: '18%' }} />
+                                        <col style={{ width: '12%' }} />
+                                        <col style={{ width: '18%' }} />
+                                        <col style={{ width: '15%' }} />
+                                        <col style={{ width: '8%' }} />
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            {[
+                                                text('الموظف', 'Employee'),
+                                                text('المسمى الوظيفي', 'Job title'),
+                                                text('الحالة', 'Status'),
+                                                text('نسبة الانشغال', 'Utilization'),
+                                                text('الدور داخل الفريق', 'Team role'),
+                                                text('إجراءات', 'Actions'),
+                                            ].map((label: string) => (
+                                                <th key={label}>{label}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map((member: Member) => {
+                                            const workload = memberWorkload(member);
+                                            const busyMember = workload >= 80;
+                                            const isLead = member.id === team.leader?.id;
 
-                                    return (
-                                        <tr key={member.id}>
-                                            <td>
-                                                <div className="flex min-w-52 items-center gap-3">
-                                                    <Avatar member={member} />
-                                                    <div className="min-w-0">
-                                                        <p className="truncate font-semibold">{member.name}</p>
-                                                        <p className="truncate text-[9px] text-slate-400">
-                                                            {member.email ?? '—'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>{member.job_title ?? text('عضو فريق', 'Team member')}</td>
-                                            <td>
-                                                <Badge color={busy ? 'red' : 'green'}>
-                                                    {busy ? text('مشغول', 'Busy') : text('متاح', 'Available')}
-                                                </Badge>
-                                            </td>
-                                            <td className="min-w-32">
-                                                <Progress value={workload} />
-                                            </td>
-                                            <td>
-                                                {index === 0 ? (
-                                                    <Badge color="amber">
-                                                        <Crown size={10} />
-                                                        {text('قائد الفريق', 'Team lead')}
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge color="blue">
-                                                        {text('عضو', 'Member')}
-                                                    </Badge>
-                                                )}
-                                            </td>
-                                            <td className="relative">
-                                                <button
-                                                    type="button"
-                                                    className={button}
-                                                    onClick={() => setOpenMenu(
-                                                        openMenu === member.id ? null : member.id,
-                                                    )}
-                                                >
-                                                    <EllipsisVertical size={14} />
-                                                </button>
-
-                                                {openMenu === member.id && (
-                                                    <div className="absolute end-3 top-10 z-20 w-44 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
-                                                        {[
-                                                            text('عرض الملف الشخصي', 'View profile'),
-                                                            text('نقل إلى فريق آخر', 'Move to another team'),
-                                                            text('تعيين قائد للفريق', 'Make team lead'),
-                                                        ].map((label: string) => (
-                                                            <button
-                                                                key={label}
-                                                                type="button"
-                                                                className="flex w-full items-center rounded-lg px-3 py-2 text-start text-[10px] text-slate-600 hover:bg-slate-50"
-                                                            >
-                                                                {label}
-                                                            </button>
-                                                        ))}
+                                            return (
+                                                <tr key={member.id}>
+                                                    <td>
+                                                        <div className="flex min-w-0 items-center gap-3">
+                                                            <Avatar member={member} />
+                                                            <div className="min-w-0">
+                                                                <p className="truncate font-semibold">{member.name}</p>
+                                                                <p className="truncate text-[9px] text-slate-400">
+                                                                    {member.email ?? '—'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="truncate">
+                                                        {member.job_title ?? text('عضو فريق', 'Team member')}
+                                                    </td>
+                                                    <td>
+                                                        <Badge color={busyMember ? 'red' : 'green'}>
+                                                            {busyMember ? text('مشغول', 'Busy') : text('متاح', 'Available')}
+                                                        </Badge>
+                                                    </td>
+                                                    <td>
+                                                        <Progress value={workload} />
+                                                    </td>
+                                                    <td>
+                                                        {isLead ? (
+                                                            <Badge color="amber">
+                                                                <Crown size={10} />
+                                                                {text('قائد الفريق', 'Team lead')}
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge color="blue">
+                                                                {text('عضو', 'Member')}
+                                                            </Badge>
+                                                        )}
+                                                    </td>
+                                                    <td>
                                                         <button
                                                             type="button"
-                                                            className="flex w-full items-center rounded-lg px-3 py-2 text-start text-[10px] text-red-500 hover:bg-red-50"
+                                                            className={button}
+                                                            aria-label={text('إجراءات العضو', 'Member actions')}
+                                                            onClick={() => setActionMemberId(member.id)}
                                                         >
-                                                            {text('إزالة من الفريق', 'Remove from team')}
+                                                            <EllipsisVertical size={14} />
                                                         </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
 
-                    {! filtered.length && (
-                        <div className="p-8 text-center text-xs text-slate-400">
-                            {text('لا يوجد أعضاء يطابقون البحث.', 'No members match the search.')}
+                            {! filtered.length && (
+                                <div className="p-8 text-center text-xs text-slate-400">
+                                    {text('لا يوجد أعضاء يطابقون البحث.', 'No members match the search.')}
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {activeTab === 'tasks' && (
+                        <div className="p-4">
+                            <div className="space-y-2">
+                                {team.tasks.map((task: Task) => (
+                                    <div
+                                        key={task.id}
+                                        className="grid gap-3 rounded-xl border border-slate-100 p-3 sm:grid-cols-[minmax(0,1fr)_120px_160px] sm:items-center"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="truncate text-xs font-semibold">{task.title}</p>
+                                            <p className="mt-1 text-[9px] text-slate-400">
+                                                {text('تقدم المهمة', 'Task progress')} · {task.progress}%
+                                            </p>
+                                        </div>
+                                        <Badge color={task.status === 'completed' ? 'green' : 'blue'}>
+                                            {task.status === 'completed'
+                                                ? text('مكتملة', 'Completed')
+                                                : text('قيد العمل', 'In progress')}
+                                        </Badge>
+                                        <Progress value={task.progress} />
+                                    </div>
+                                ))}
+                                {! team.tasks.length && (
+                                    <div className="py-10 text-center text-xs text-slate-400">
+                                        {text('لا توجد مهام مرتبطة بهذا الفريق.', 'No tasks are linked to this team.')}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'projects' && (
+                        <div className="grid gap-3 p-4 md:grid-cols-2">
+                            {team.projects.map((project: Project) => {
+                                const projectTasks = team.tasks.filter(
+                                    (task: Task) => task.project_id === project.id,
+                                );
+                                const completedTasks = projectTasks.filter(
+                                    (task: Task) => task.status === 'completed',
+                                ).length;
+                                const progress = projectTasks.length
+                                    ? Math.round(completedTasks / projectTasks.length * 100)
+                                    : 0;
+
+                                return (
+                                    <div key={project.id} className="rounded-xl border border-slate-100 p-4">
+                                        <div className="mb-3 flex items-center gap-2">
+                                            <FolderKanban size={16} className="text-blue-500" />
+                                            <strong className="text-xs">{project.name}</strong>
+                                        </div>
+                                        <Progress value={progress} />
+                                        <p className="mt-2 text-[9px] text-slate-400">
+                                            {projectTasks.length} {text('مهام مرتبطة', 'linked tasks')}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                            {! team.projects.length && (
+                                <div className="col-span-full py-10 text-center text-xs text-slate-400">
+                                    {text('لا توجد مشاريع مرتبطة بهذا الفريق.', 'No projects are linked to this team.')}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'settings' && (
+                        <div className="grid gap-3 p-4 sm:grid-cols-2">
+                            <Metric
+                                value={team.capacity}
+                                label={text('سعة الفريق', 'Team capacity')}
+                            />
+                            <Metric
+                                value={
+                                    team.priority === 'high'
+                                        ? text('عالية', 'High')
+                                        : team.priority === 'low'
+                                            ? text('منخفضة', 'Low')
+                                            : text('متوسطة', 'Medium')
+                                }
+                                label={text('الأولوية', 'Priority')}
+                            />
+                            <div className="sm:col-span-2 rounded-xl border border-slate-100 p-4">
+                                <p className="text-[10px] text-slate-400">
+                                    {text('قائد الفريق الحالي', 'Current team lead')}
+                                </p>
+                                <div className="mt-3 flex items-center gap-3">
+                                    <Avatar member={team.leader} size="large" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-xs font-semibold">
+                                            {team.leader?.name ?? '—'}
+                                        </p>
+                                        <p className="text-[9px] text-slate-400">
+                                            {team.leader?.job_title ?? text('قائد الفريق', 'Team lead')}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className={button}
+                                        onClick={() => {
+                                            setLeadId(String(team.leader?.id ?? ''));
+                                            setLeadOpen(true);
+                                        }}
+                                    >
+                                        <Pencil size={13} />
+                                        {text('تغيير القائد', 'Change lead')}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1608,9 +2190,7 @@ function TeamMembersSurface({
                         </div>
                         <div className="mt-3 space-y-2 text-[10px]">
                             <RoleRow label={text('قائد الفريق', 'Team lead')} count={team.leader ? 1 : 0} color="#2879ff" />
-                            <RoleRow label={text('مطور برمجيات', 'Developers')} count={Math.max(0, team.members.length - 2)} color="#22b987" />
-                            <RoleRow label={text('UI/UX مصمم', 'UI/UX')} count={team.members.length > 1 ? 1 : 0} color="#ffb72b" />
-                            <RoleRow label={text('مختبر جودة', 'QA')} count={team.members.length > 2 ? 1 : 0} color="#fb5f67" />
+                            <RoleRow label={text('أعضاء الفريق', 'Team members')} count={Math.max(0, team.members.length - 1)} color="#22b987" />
                         </div>
                     </Panel>
 
@@ -1629,8 +2209,16 @@ function TeamMembersSurface({
                         </div>
                         <Progress value={averageWorkload} label={false} />
                         <div className="mt-3 flex justify-between text-[10px] text-slate-400">
-                            <span>{team.members.length * 2.6} {text('ساعة مستخدمة يوميًا', 'used hrs/day')}</span>
-                            <span>{team.members.length * 4} {text('السعة المتاحة يوميًا', 'available hrs/day')}</span>
+                            <span>
+                                {team.members.length} / {team.capacity}
+                                {' '}
+                                {text('أعضاء', 'members')}
+                            </span>
+                            <span>
+                                {Math.max(0, team.capacity - team.members.length)}
+                                {' '}
+                                {text('أماكن متاحة', 'spots available')}
+                            </span>
                         </div>
                     </Panel>
 
@@ -1639,19 +2227,51 @@ function TeamMembersSurface({
                         icon={Sparkles}
                     >
                         <div className="grid gap-2">
-                            <button type="button" className={button}>
+                            <button
+                                type="button"
+                                className={button}
+                                disabled={team.members.length >= team.capacity}
+                                onClick={() => {
+                                    setCandidateId('');
+                                    setAddOpen(true);
+                                }}
+                            >
                                 <Plus size={14} />
                                 {text('إضافة عضو جديد', 'Add member')}
                             </button>
-                            <button type="button" className={button}>
+                            <button
+                                type="button"
+                                className={button}
+                                disabled={team.members.length <= 1 || ! targetTeams.length}
+                                onClick={() => {
+                                    setTransferMemberId('');
+                                    setTargetTeamId('');
+                                    setTransferOpen(true);
+                                }}
+                            >
                                 <UsersRound size={14} />
                                 {text('نقل عضو إلى فريق آخر', 'Move member')}
                             </button>
-                            <button type="button" className={button}>
+                            <button
+                                type="button"
+                                className={button}
+                                onClick={() => {
+                                    setLeadId(String(team.leader?.id ?? ''));
+                                    setLeadOpen(true);
+                                }}
+                            >
                                 <Crown size={14} />
                                 {text('تعيين قائد للفريق', 'Assign team lead')}
                             </button>
-                            <button type="button" className="tm-button border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600">
+                            <button
+                                type="button"
+                                className="tm-button border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600"
+                                disabled={team.members.filter((member: Member) => member.id !== team.leader?.id).length === 0}
+                                onClick={() => {
+                                    setRemoveId('');
+                                    setRemoveOpen(true);
+                                }}
+                            >
                                 <X size={14} />
                                 {text('إزالة عضو من الفريق', 'Remove member')}
                             </button>
@@ -1661,12 +2281,283 @@ function TeamMembersSurface({
                     <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-[10px] leading-6 text-blue-700">
                         <strong className="mb-1 block">{text('معلومة', 'Info')}</strong>
                         {text(
-                            'يمكنك إضافة أعضاء من نفس القسم أو نقل موظفين من فرق أخرى داخل الشركة.',
-                            'You can add members from the same department or move employees from other teams.',
+                            'يمكن إضافة أعضاء من نفس القسم، ونقل غير القائد بين فرق القسم نفسه.',
+                            'You can add employees from the same department and move non-lead members between its teams.',
                         )}
                     </div>
                 </aside>
             </div>
+
+            <Modal
+                open={actionMemberId !== null}
+                onClose={() => ! busy && setActionMemberId(null)}
+                title={text('إجراءات العضو', 'Member actions')}
+            >
+                {actionMemberId !== null && (() => {
+                    const member = team.members.find((item: Member) => item.id === actionMemberId);
+
+                    if (! member) {
+                        return null;
+                    }
+
+                    return (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                                <Avatar member={member} size="large" />
+                                <div>
+                                    <p className="text-sm font-bold">{member.name}</p>
+                                    <p className="text-[10px] text-slate-400">{member.job_title ?? '—'}</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className={button + ' w-full'}
+                                onClick={() => {
+                                    setProfileMemberId(member.id);
+                                    setActionMemberId(null);
+                                }}
+                            >
+                                {text('عرض الملف الشخصي', 'View profile')}
+                            </button>
+                            <button
+                                type="button"
+                                className={button + ' w-full'}
+                                disabled={member.id === team.leader?.id || ! targetTeams.length}
+                                onClick={() => {
+                                    setTransferMemberId(String(member.id));
+                                    setTargetTeamId('');
+                                    setTransferOpen(true);
+                                    setActionMemberId(null);
+                                }}
+                            >
+                                {text('نقل إلى فريق آخر', 'Move to another team')}
+                            </button>
+                            <button
+                                type="button"
+                                className={button + ' w-full'}
+                                disabled={member.id === team.leader?.id || busy}
+                                onClick={() => assignLead(member.id)}
+                            >
+                                {text('تعيين قائد للفريق', 'Make team lead')}
+                            </button>
+                            <button
+                                type="button"
+                                className="tm-button w-full border-red-100 text-red-500 hover:bg-red-50"
+                                disabled={member.id === team.leader?.id || busy}
+                                onClick={() => removeMember(member.id)}
+                            >
+                                {text('إزالة من الفريق', 'Remove from team')}
+                            </button>
+                        </div>
+                    );
+                })()}
+            </Modal>
+
+            <Modal
+                open={profileMemberId !== null}
+                onClose={() => setProfileMemberId(null)}
+                title={text('الملف الشخصي', 'Member profile')}
+            >
+                {profileMember && (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <Avatar member={profileMember} size="large" />
+                            <div>
+                                <h3 className="font-bold">{profileMember.name}</h3>
+                                <p className="text-[10px] text-slate-400">
+                                    {profileMember.job_title ?? text('عضو فريق', 'Team member')}
+                                </p>
+                            </div>
+                        </div>
+                        <PreviewRow label={text('البريد الإلكتروني', 'Email')} value={profileMember.email ?? '—'} />
+                        <PreviewRow label={text('القسم', 'Department')} value={profileMember.department ?? '—'} />
+                        <PreviewRow
+                            label={text('نسبة الانشغال', 'Utilization')}
+                            value={memberWorkload(profileMember) + '%'}
+                        />
+                        <button type="button" className={button + ' w-full'} onClick={() => setProfileMemberId(null)}>
+                            {text('إغلاق', 'Close')}
+                        </button>
+                    </div>
+                )}
+            </Modal>
+
+            <Modal
+                open={addOpen}
+                onClose={() => ! busy && setAddOpen(false)}
+                title={text('إضافة عضو', 'Add member')}
+            >
+                <div className="space-y-4">
+                    <h3 className="font-bold">{text('إضافة عضو إلى الفريق', 'Add member to team')}</h3>
+                    {team.members.length >= team.capacity ? (
+                        <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-700">
+                            {text('وصل الفريق إلى سعته القصوى. ارفع السعة أولًا.', 'This team is at capacity. Increase capacity first.')}
+                        </p>
+                    ) : (
+                        <label className="tm-field">
+                            {text('الموظف', 'Employee')}
+                            <select
+                                className={input}
+                                value={candidateId}
+                                onChange={(event) => setCandidateId(event.target.value)}
+                            >
+                                <option value="">{text('اختر موظفًا', 'Choose an employee')}</option>
+                                {addCandidates.map((member: Member) => (
+                                    <option key={member.id} value={member.id}>
+                                        {member.name} — {member.job_title ?? text('موظف', 'Employee')}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+                    {! addCandidates.length && team.members.length < team.capacity && (
+                        <p className="text-xs text-slate-400">
+                            {text('لا يوجد موظفون متاحون من نفس القسم.', 'No available employees remain in this department.')}
+                        </p>
+                    )}
+                    <div className="flex justify-end gap-2">
+                        <button type="button" className={button} disabled={busy} onClick={() => setAddOpen(false)}>
+                            {text('إلغاء', 'Cancel')}
+                        </button>
+                        <button
+                            type="button"
+                            className={primary}
+                            disabled={busy || ! candidateId || team.members.length >= team.capacity}
+                            onClick={addMember}
+                        >
+                            {busy ? text('جارٍ الإضافة…', 'Adding…') : text('إضافة العضو', 'Add member')}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal
+                open={leadOpen}
+                onClose={() => ! busy && setLeadOpen(false)}
+                title={text('تعيين قائد', 'Assign team lead')}
+            >
+                <div className="space-y-4">
+                    <label className="tm-field">
+                        {text('قائد الفريق', 'Team lead')}
+                        <select
+                            className={input}
+                            value={leadId}
+                            onChange={(event) => setLeadId(event.target.value)}
+                        >
+                            {team.members.map((member: Member) => (
+                                <option key={member.id} value={member.id}>{member.name}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <div className="flex justify-end gap-2">
+                        <button type="button" className={button} disabled={busy} onClick={() => setLeadOpen(false)}>
+                            {text('إلغاء', 'Cancel')}
+                        </button>
+                        <button
+                            type="button"
+                            className={primary}
+                            disabled={busy || ! leadId}
+                            onClick={() => assignLead(Number(leadId))}
+                        >
+                            {text('حفظ القائد', 'Save lead')}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal
+                open={removeOpen}
+                onClose={() => ! busy && setRemoveOpen(false)}
+                title={text('إزالة عضو', 'Remove member')}
+            >
+                <div className="space-y-4">
+                    <label className="tm-field">
+                        {text('اختر العضو', 'Choose member')}
+                        <select
+                            className={input}
+                            value={removeId}
+                            onChange={(event) => setRemoveId(event.target.value)}
+                        >
+                            <option value="">{text('اختر عضوًا', 'Choose a member')}</option>
+                            {team.members
+                                .filter((member: Member) => member.id !== team.leader?.id)
+                                .map((member: Member) => (
+                                    <option key={member.id} value={member.id}>{member.name}</option>
+                                ))}
+                        </select>
+                    </label>
+                    <div className="flex justify-end gap-2">
+                        <button type="button" className={button} disabled={busy} onClick={() => setRemoveOpen(false)}>
+                            {text('إلغاء', 'Cancel')}
+                        </button>
+                        <button
+                            type="button"
+                            className="tm-button border-red-100 text-red-500 hover:bg-red-50"
+                            disabled={busy || ! removeId}
+                            onClick={() => removeMember(Number(removeId))}
+                        >
+                            {text('إزالة العضو', 'Remove member')}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal
+                open={transferOpen}
+                onClose={() => ! busy && setTransferOpen(false)}
+                title={text('نقل عضو', 'Move member')}
+            >
+                <div className="space-y-4">
+                    <label className="tm-field">
+                        {text('العضو', 'Member')}
+                        <select
+                            className={input}
+                            value={transferMemberId}
+                            onChange={(event) => setTransferMemberId(event.target.value)}
+                        >
+                            <option value="">{text('اختر عضوًا', 'Choose a member')}</option>
+                            {team.members
+                                .filter((member: Member) => member.id !== team.leader?.id)
+                                .map((member: Member) => (
+                                    <option key={member.id} value={member.id}>{member.name}</option>
+                                ))}
+                        </select>
+                    </label>
+                    <label className="tm-field">
+                        {text('الفريق الهدف', 'Target team')}
+                        <select
+                            className={input}
+                            value={targetTeamId}
+                            onChange={(event) => setTargetTeamId(event.target.value)}
+                        >
+                            <option value="">{text('اختر الفريق', 'Choose target team')}</option>
+                            {targetTeams.map((target: TaskTeam) => (
+                                <option key={target.id} value={target.id}>
+                                    {target.name} ({target.member_ids.length}/{target.capacity})
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    {! targetTeams.length && (
+                        <p className="text-xs text-slate-400">
+                            {text('لا يوجد فريق آخر متاح في نفس القسم.', 'No other available team exists in this department.')}
+                        </p>
+                    )}
+                    <div className="flex justify-end gap-2">
+                        <button type="button" className={button} disabled={busy} onClick={() => setTransferOpen(false)}>
+                            {text('إلغاء', 'Cancel')}
+                        </button>
+                        <button
+                            type="button"
+                            className={primary}
+                            disabled={busy || ! transferMemberId || ! targetTeamId}
+                            onClick={transferMember}
+                        >
+                            {text('نقل العضو', 'Move member')}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
