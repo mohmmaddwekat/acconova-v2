@@ -801,7 +801,7 @@ function TaskWorkspace({
                                     ) : (
                                         <ProjectCards
                                             data={data}
-                                            tasks={filtered}
+                                            tasks={tasks}
                                             ar={ar}
                                             canManage={can('tasks.projects.manage')}
                                             busy={busy}
