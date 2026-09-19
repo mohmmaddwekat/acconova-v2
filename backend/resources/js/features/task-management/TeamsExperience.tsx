@@ -818,12 +818,21 @@ function TeamDistribution({
 
 function CreateTeamSurface({
     data,
+    teams,
+    parentTeamId,
     ar,
+    permissions,
 }: {
     data: TaskData;
+    teams: UiTeam[];
+    parentTeamId: number | null;
     ar: boolean;
+    permissions: string[];
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const requestedParent = teams.find((team: UiTeam) => team.id === parentTeamId) ?? null;
+    const canCreateRoot = permissions.includes('teams.create');
+    const canCreateChild = permissions.includes('teams.subteams.create');
     const departments = Array.from(
         new Set(
             data.members
@@ -831,9 +840,13 @@ function CreateTeamSurface({
                 .filter((value): value is string => Boolean(value)),
         ),
     );
+    const initialDepartment = requestedParent?.department ?? departments[0] ?? '';
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [department, setDepartment] = useState(departments[0] ?? '');
+    const [department, setDepartment] = useState(initialDepartment);
+    const [parentId, setParentId] = useState(
+        requestedParent ? String(requestedParent.id) : '',
+    );
     const [leader, setLeader] = useState('');
     const [capacity, setCapacity] = useState('8');
     const [priority, setPriority] = useState('medium');
@@ -843,6 +856,13 @@ function CreateTeamSurface({
     const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
     const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
 
+    const selectedParent = teams.find(
+        (team: UiTeam) => String(team.id) === parentId,
+    ) ?? null;
+    const parentCandidates = teams.filter((team: UiTeam) => (
+        ! department
+        || team.department === department
+    ));
     const departmentMembers = data.members.filter((member: Member) => (
         ! department || member.department === department
     ));
@@ -864,6 +884,10 @@ function CreateTeamSurface({
                 .includes(memberSearchValue);
         })
         .slice(0, 8);
+
+    const allowedToCreate = selectedParent
+        ? canCreateChild
+        : canCreateRoot;
 
     function addMember(id: number): void {
         const maxMembers = Math.max(1, Number(capacity) || 1);
@@ -896,6 +920,32 @@ function CreateTeamSurface({
         ));
     }
 
+    function chooseDepartment(nextDepartment: string): void {
+        setDepartment(nextDepartment);
+        setParentId('');
+        setLeader('');
+        setSelectedMembers([]);
+        setMemberSearch('');
+    }
+
+    function chooseParent(nextParentId: string): void {
+        setParentId(nextParentId);
+        const parent = teams.find(
+            (team: UiTeam) => String(team.id) === nextParentId,
+        );
+
+        if (
+            parent
+            && parent.department
+            && parent.department !== department
+        ) {
+            setDepartment(parent.department);
+            setLeader('');
+            setSelectedMembers([]);
+            setMemberSearch('');
+        }
+    }
+
     async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
 
@@ -903,7 +953,19 @@ function CreateTeamSurface({
             return;
         }
 
-        const departmentId = departmentMembers[0]?.department_id ?? null;
+        if (! allowedToCreate) {
+            setSubmitError(
+                selectedParent
+                    ? text('لا تملك صلاحية إنشاء فرق فرعية.', 'You do not have permission to create sub-teams.')
+                    : text('لا تملك صلاحية إنشاء فريق رئيسي.', 'You do not have permission to create a top-level team.'),
+            );
+            return;
+        }
+
+        const departmentId = selectedParent?.departmentId
+            ?? departmentMembers[0]?.department_id
+            ?? teams.find((team: UiTeam) => team.department === department)?.departmentId
+            ?? null;
 
         if (! name.trim()) {
             setSubmitError(text('اكتب اسم الفريق أولًا.', 'Enter a team name first.'));
@@ -937,6 +999,7 @@ function CreateTeamSurface({
                         name: name.trim(),
                         description: description.trim() || null,
                         department_id: departmentId,
+                        parent_team_id: selectedParent?.id ?? null,
                         leader_id: Number(leader),
                         capacity: Math.max(1, Number(capacity) || 1),
                         priority,
@@ -957,6 +1020,23 @@ function CreateTeamSurface({
     return (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_330px]">
             <form onSubmit={submit} className="space-y-4">
+                {requestedParent && (
+                    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                        <div className="flex items-center gap-3">
+                            <ListTree size={18} className="text-blue-600" />
+                            <div>
+                                <strong className="text-xs text-blue-800">
+                                    {text('إنشاء فريق فرعي', 'Creating a sub-team')}
+                                </strong>
+                                <p className="mt-1 text-[10px] text-blue-600">
+                                    {text('سيتم إنشاء الفريق داخل ', 'This team will be created under ')}
+                                    {ar ? requestedParent.nameAr : requestedParent.nameEn}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <Panel
                     title={text('المعلومات الأساسية', 'Basic information')}
                     icon={ListTodo}
@@ -969,7 +1049,7 @@ function CreateTeamSurface({
                                 value={name}
                                 required
                                 onChange={(event) => setName(event.target.value)}
-                                placeholder={text('مثال: فريق تطوير الواجهة الأمامية', 'Example: Frontend development team')}
+                                placeholder={text('مثال: فريق مبيعات الشركات', 'Example: Enterprise sales team')}
                             />
                         </label>
 
@@ -979,16 +1059,11 @@ function CreateTeamSurface({
                                 <select
                                     className={input}
                                     value={department}
-                                    onChange={(event) => {
-                                        const nextDepartment = event.target.value;
-                                        setDepartment(nextDepartment);
-                                        setLeader('');
-                                        setSelectedMembers([]);
-                                        setMemberSearch('');
-                                    }}
+                                    disabled={Boolean(selectedParent)}
+                                    onChange={(event) => chooseDepartment(event.target.value)}
                                 >
                                     {! departments.length && (
-                                        <option value="">{text('قسم البرمجة', 'Engineering')}</option>
+                                        <option value="">{text('القسم الحالي', 'Current department')}</option>
                                     )}
                                     {departments.map((departmentName: string) => (
                                         <option key={departmentName} value={departmentName}>
@@ -999,31 +1074,56 @@ function CreateTeamSurface({
                             </label>
 
                             <label className="tm-field">
-                                {text('قائد الفريق', 'Team lead')}
+                                {text('الفريق الأب', 'Parent team')}
                                 <select
                                     className={input}
-                                    value={leader}
-                                    required
-                                    onChange={(event) => {
-                                        const nextLeader = event.target.value;
-                                        setLeader(nextLeader);
-
-                                        if (nextLeader) {
-                                            addMember(Number(nextLeader));
-                                        }
-                                    }}
+                                    value={parentId}
+                                    disabled={! canCreateChild || Boolean(requestedParent)}
+                                    onChange={(event) => chooseParent(event.target.value)}
                                 >
                                     <option value="">
-                                        {text('اختر قائد الفريق', 'Choose team lead')}
+                                        {text('بدون — فريق رئيسي', 'None — top-level team')}
                                     </option>
-                                    {departmentMembers.map((member: Member) => (
-                                        <option key={member.id} value={member.id}>
-                                            {member.name}
+                                    {parentCandidates.map((team: UiTeam) => (
+                                        <option key={team.id} value={team.id}>
+                                            {ar ? team.nameAr : team.nameEn}
                                         </option>
                                     ))}
                                 </select>
+                                <span className="text-[9px] font-normal text-slate-400">
+                                    {text(
+                                        'اختياري: اختر فريقًا أبًا لتحويل هذا الفريق إلى فريق فرعي.',
+                                        'Optional: choose a parent to create this as a sub-team.',
+                                    )}
+                                </span>
                             </label>
                         </div>
+
+                        <label className="tm-field">
+                            {text('قائد الفريق', 'Team lead')}
+                            <select
+                                className={input}
+                                value={leader}
+                                required
+                                onChange={(event) => {
+                                    const nextLeader = event.target.value;
+                                    setLeader(nextLeader);
+
+                                    if (nextLeader) {
+                                        addMember(Number(nextLeader));
+                                    }
+                                }}
+                            >
+                                <option value="">
+                                    {text('اختر قائد الفريق', 'Choose team lead')}
+                                </option>
+                                {departmentMembers.map((member: Member) => (
+                                    <option key={member.id} value={member.id}>
+                                        {member.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
 
                         <label className="tm-field">
                             {text('وصف الفريق', 'Team description')}
@@ -1143,14 +1243,6 @@ function CreateTeamSurface({
                             {' '}
                             {text('أعضاء محددون', 'members selected')}
                         </span>
-                        {! memberSearch.trim() && availableMembers.length > 0 && (
-                            <span>
-                                {text(
-                                    'اكتب اسم الموظف في البحث لإظهار زر الإضافة.',
-                                    'Type an employee name to show the Add button.',
-                                )}
-                            </span>
-                        )}
                     </div>
 
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -1238,14 +1330,19 @@ function CreateTeamSurface({
                     <button
                         type="submit"
                         className={primary}
-                        disabled={submitting}
+                        disabled={submitting || ! allowedToCreate}
                     >
                         <Plus size={15} />
                         {submitting
                             ? text('جارٍ إنشاء الفريق…', 'Creating team…')
-                            : text('إنشاء الفريق', 'Create team')}
+                            : selectedParent
+                                ? text('إنشاء الفريق الفرعي', 'Create sub-team')
+                                : text('إنشاء الفريق', 'Create team')}
                     </button>
-                    <Link href={base + '/teams'} className={button}>
+                    <Link
+                        href={selectedParent ? base + '/teams/' + selectedParent.id : base + '/teams'}
+                        className={button}
+                    >
                         {text('إلغاء', 'Cancel')}
                     </Link>
                 </div>
@@ -1264,11 +1361,19 @@ function CreateTeamSurface({
                             {name || text('فريق جديد', 'New team')}
                         </h3>
                         <p className="mt-1 text-[10px] text-slate-400">
-                            {department || text('قسم البرمجة', 'Engineering')}
+                            {department || text('القسم الحالي', 'Current department')}
                         </p>
                     </div>
 
                     <div className="mt-5 space-y-4 text-[11px]">
+                        <PreviewRow
+                            label={text('المستوى', 'Hierarchy')}
+                            value={
+                                selectedParent
+                                    ? text('فرعي داخل ', 'Child of ') + (ar ? selectedParent.nameAr : selectedParent.nameEn)
+                                    : text('فريق رئيسي', 'Top-level team')
+                            }
+                        />
                         <PreviewRow
                             label={text('قائد الفريق', 'Team lead')}
                             value={
@@ -1302,16 +1407,16 @@ function CreateTeamSurface({
                 </Panel>
 
                 <Panel
-                    title={text('نصائح لإنشاء فريق ناجح', 'Tips for a successful team')}
-                    icon={Sparkles}
+                    title={text('قواعد الهيكل', 'Hierarchy rules')}
+                    icon={ListTree}
                 >
                     <div className="space-y-3 text-[10px] text-slate-500">
                         {[
-                            text('اختر اسمًا واضحًا ومميزًا للفريق', 'Choose a clear team name'),
-                            text('قم بتعيين قائد فريق مناسب', 'Assign an appropriate team lead'),
-                            text('أضف أعضاء ذوي مهارات متكاملة', 'Add complementary skills'),
-                            text('حدد سعة الفريق بشكل واقعي', 'Set realistic team capacity'),
-                            text('اربط المشاريع ذات الصلة', 'Link related projects'),
+                            text('الفريق الفرعي يبقى داخل نفس قسم الفريق الأب', 'A sub-team stays in the same department as its parent'),
+                            text('يمكن إنشاء مستويات فرعية متعددة بدون حد ثابت', 'Sub-teams can be nested to multiple levels'),
+                            text('لا يمكن نقل فريق تحت أحد الفرق التابعة له', 'A team cannot move below its own descendant'),
+                            text('صلاحيات القائد تُقيّد بنطاق فريقه والفرق التابعة له', 'Leader authority is scoped to their team subtree'),
+                            text('كل تعديل حساس يخضع لصلاحية مستقلة', 'Each sensitive action has its own permission'),
                         ].map((tip: string) => (
                             <p key={tip} className="flex items-center gap-2">
                                 <CheckCircle2 size={14} className="text-emerald-500" />
