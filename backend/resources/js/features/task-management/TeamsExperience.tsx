@@ -986,7 +986,7 @@ function CreateTeamSurface({
                     icon={FolderKanban}
                 >
                     <div className="grid gap-2 md:grid-cols-2">
-                        {projectOptions.map((project: Project) => {
+                        {data.projects.map((project: Project) => {
                             const selected = selectedProjects.includes(project.id);
 
                             return (
