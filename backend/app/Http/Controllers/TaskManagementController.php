@@ -1262,6 +1262,186 @@ class TaskManagementController extends Controller
     }
 
     /**
+     * Update one task project.
+     */
+    public function updateProject(
+        Request $request,
+        string $project,
+    ): JsonResponse {
+        abort_unless(
+            TaskAccess::allowed(
+                'tasks.projects_manage',
+            )
+                || TaskAccess::allowed(
+                    'tasks.projects.manage',
+                ),
+            403,
+        );
+
+        $item =
+            TaskProject::findOrFail(
+                $project,
+            );
+
+        $data =
+            $request->validate([
+                'name' => [
+                    'sometimes',
+                    'required',
+                    'string',
+                    'max:160',
+                ],
+
+                'description' => [
+                    'sometimes',
+                    'nullable',
+                    'string',
+                    'max:3000',
+                ],
+
+                'color' => [
+                    'sometimes',
+                    'nullable',
+
+                    Rule::in([
+                        'blue',
+                        'green',
+                        'purple',
+                        'orange',
+                    ]),
+                ],
+
+                'starts_on' => [
+                    'sometimes',
+                    'nullable',
+                    'date_format:Y-m-d',
+                ],
+
+                'due_on' => [
+                    'sometimes',
+                    'nullable',
+                    'date_format:Y-m-d',
+                    'after_or_equal:starts_on',
+                ],
+            ]);
+
+        $payload = [];
+
+        if (
+            array_key_exists(
+                'name',
+                $data,
+            )
+        ) {
+            $payload['name'] =
+                trim(
+                    $data['name'],
+                );
+        }
+
+        if (
+            array_key_exists(
+                'description',
+                $data,
+            )
+        ) {
+            $payload['description'] =
+                $data['description'];
+        }
+
+        if (
+            array_key_exists(
+                'color',
+                $data,
+            )
+        ) {
+            $payload['accent'] =
+                $data['color'];
+        }
+
+        if (
+            array_key_exists(
+                'starts_on',
+                $data,
+            )
+        ) {
+            $payload['starts_on'] =
+                $data['starts_on'];
+        }
+
+        if (
+            array_key_exists(
+                'due_on',
+                $data,
+            )
+        ) {
+            $payload['due_on'] =
+                $data['due_on'];
+        }
+
+        $item->update(
+            $payload,
+        );
+
+        return response()->json([
+            'project' => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'description' => $item->description,
+                'color' => $item->accent
+                    ?: 'blue',
+                'starts_on' => $item
+                    ->starts_on
+                    ?->toDateString(),
+                'due_on' => $item
+                    ->due_on
+                    ?->toDateString(),
+            ],
+        ]);
+    }
+
+    /**
+     * Archive a project only when no active task still depends on it.
+     */
+    public function destroyProject(
+        Request $request,
+        string $project,
+    ): JsonResponse {
+        abort_unless(
+            TaskAccess::allowed(
+                'tasks.projects_manage',
+            )
+                || TaskAccess::allowed(
+                    'tasks.projects.manage',
+                ),
+            403,
+        );
+
+        $item =
+            TaskProject::findOrFail(
+                $project,
+            );
+
+        $linkedTasks =
+            $item
+                ->tasks()
+                ->operational()
+                ->count();
+
+        abort_if(
+            $linkedTasks > 0,
+            422,
+            'Move or archive the project tasks before deleting this project.',
+        );
+
+        $item->delete();
+
+        return response()->json([
+            'deleted' => true,
+        ]);
+    }
+
+    /**
      * Return workload analytics for a permitted team manager.
      */
     public function team(
@@ -2796,6 +2976,14 @@ class TaskManagementController extends Controller
 
                         'color' => $project->accent
                             ?: 'blue',
+
+                        'starts_on' => $project
+                            ->starts_on
+                            ?->toDateString(),
+
+                        'due_on' => $project
+                            ->due_on
+                            ?->toDateString(),
                     ],
                 )
                 ->values();
@@ -3994,18 +4182,29 @@ class TaskManagementController extends Controller
             ],
 
             'task_project_id' => [
-                'nullable',
+                $partial
+                    ? 'sometimes'
+                    : 'required',
                 'integer',
 
                 Rule::exists(
                     'task_projects',
                     'id',
-                )->where(
-                    'organization_id',
-                    app(
-                        TenantContext::class,
-                    )->id(),
-                ),
+                )
+                    ->where(
+                        'organization_id',
+                        app(
+                            TenantContext::class,
+                        )->id(),
+                    )
+                    ->whereNull(
+                        'deleted_at',
+                    )
+                    ->where(
+                        'status',
+                        '!=',
+                        'archived',
+                    ),
             ],
 
             'department_id' => [
@@ -4095,18 +4294,24 @@ class TaskManagementController extends Controller
             ],
 
             'starts_on' => [
-                'nullable',
+                $partial
+                    ? 'sometimes'
+                    : 'required',
                 'date_format:Y-m-d',
             ],
 
             'due_on' => [
-                'nullable',
+                $partial
+                    ? 'sometimes'
+                    : 'required',
                 'date_format:Y-m-d',
                 'after_or_equal:starts_on',
             ],
 
             'estimated_minutes' => [
-                'nullable',
+                $partial
+                    ? 'sometimes'
+                    : 'required',
                 'integer',
                 'min:1',
                 'max:525600',

@@ -26,9 +26,11 @@ import {
     MessageSquare,
     MoreHorizontal,
     Paperclip,
+    Pencil,
     Plus,
     Search,
     ShieldCheck,
+    Trash2,
     UsersRound,
     X,
     type LucideIcon,
@@ -231,6 +233,7 @@ function TaskWorkspace({
         view === 'detail' ? taskId : null,
     );
     const [projectDialog, setProjectDialog] = useState(false);
+    const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [busy, setBusy] = useState(false);
     const [boardMode, setBoardMode] = useState<'board' | 'projects'>('board');
 
@@ -516,9 +519,9 @@ function TaskWorkspace({
     }
 
     /**
-     * Create a new task project from the project modal.
+     * Create or update a project from the shared project modal.
      */
-    async function createProject(
+    async function saveProject(
         event: FormEvent<HTMLFormElement>,
     ): Promise<void> {
         event.preventDefault();
@@ -530,19 +533,77 @@ function TaskWorkspace({
         setBusy(true);
         setError('');
 
+        const body =
+            Object.fromEntries(
+                new FormData(
+                    event.currentTarget,
+                ),
+            );
+
         try {
             await apiRequest(
-                `${api}/projects`,
+                editingProject
+                    ? `${api}/projects/${editingProject.id}`
+                    : `${api}/projects`,
                 {
-                    method: 'POST',
+                    method: editingProject
+                        ? 'PATCH'
+                        : 'POST',
                     body: JSON.stringify(
-                        Object.fromEntries(
-                            new FormData(event.currentTarget),
-                        ),
+                        body,
                     ),
                 },
             );
             setProjectDialog(false);
+            setEditingProject(null);
+            refresh();
+        } catch (failure) {
+            setError(errorText(failure));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    /**
+     * Archive a project after confirming the destructive action.
+     */
+    async function deleteProject(
+        project: Project,
+    ): Promise<void> {
+        if (
+            busy
+            || ! window.confirm(
+                text(
+                    `هل تريد حذف مشروع "${project.name}"؟ لا يمكن حذف مشروع ما زالت هناك مهام مرتبطة به.`,
+                    `Delete project "${project.name}"? A project with linked tasks cannot be deleted.`,
+                ),
+            )
+        ) {
+            return;
+        }
+
+        setBusy(true);
+        setError('');
+
+        try {
+            await apiRequest(
+                `${api}/projects/${project.id}`,
+                {
+                    method: 'DELETE',
+                },
+            );
+
+            if (
+                filters.project ===
+                    String(
+                        project.id,
+                    )
+            ) {
+                setFilters(
+                    emptyFilters,
+                );
+            }
+
             refresh();
         } catch (failure) {
             setError(errorText(failure));
@@ -601,6 +662,7 @@ function TaskWorkspace({
                                         className={button}
                                         onClick={() => {
                                             setError('');
+                                            setEditingProject(null);
                                             setProjectDialog(true);
                                         }}
                                     >
@@ -739,8 +801,16 @@ function TaskWorkspace({
                                     ) : (
                                         <ProjectCards
                                             data={data}
-                                            tasks={filtered}
+                                            tasks={tasks}
                                             ar={ar}
+                                            canManage={can('tasks.projects.manage')}
+                                            busy={busy}
+                                            onEdit={(project: Project) => {
+                                                setError('');
+                                                setEditingProject(project);
+                                                setProjectDialog(true);
+                                            }}
+                                            onDelete={deleteProject}
                                             onSelect={(projectId: number) => {
                                                 setFilters({
                                                     ...emptyFilters,
@@ -793,20 +863,33 @@ function TaskWorkspace({
                     onClose={() => {
                         if (! busy) {
                             setProjectDialog(false);
+                            setEditingProject(null);
                         }
                     }}
-                    title={text('مشروع جديد', 'New project')}
+                    title={
+                        editingProject
+                            ? text('تعديل المشروع', 'Edit project')
+                            : text('مشروع جديد', 'New project')
+                    }
                 >
-                    <form onSubmit={createProject}>
+                    <form
+                        key={editingProject?.id ?? 'new-project'}
+                        onSubmit={saveProject}
+                    >
                         <div className="mb-5 flex justify-between">
                             <h2 className="font-bold">
-                                {text('إضافة مشروع جديد', 'Create a project')}
+                                {editingProject
+                                    ? text('تعديل بيانات المشروع', 'Edit project details')
+                                    : text('إضافة مشروع جديد', 'Create a project')}
                             </h2>
                             <button
                                 type="button"
                                 disabled={busy}
                                 aria-label={text('إغلاق', 'Close')}
-                                onClick={() => setProjectDialog(false)}
+                                onClick={() => {
+                                    setProjectDialog(false);
+                                    setEditingProject(null);
+                                }}
                             >
                                 <X size={18} />
                             </button>
@@ -818,8 +901,9 @@ function TaskWorkspace({
                                 className={input}
                                 autoFocus
                                 required
-                                maxLength={255}
+                                maxLength={160}
                                 name="name"
+                                defaultValue={editingProject?.name ?? ''}
                             />
                         </label>
 
@@ -828,16 +912,40 @@ function TaskWorkspace({
                             <textarea
                                 className={input}
                                 name="description"
-                                maxLength={5000}
+                                maxLength={3000}
                                 rows={3}
+                                defaultValue={editingProject?.description ?? ''}
                             />
                         </label>
+
+                        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                            <label className="tm-field">
+                                {text('تاريخ البدء', 'Start date')}
+                                <input
+                                    className={input}
+                                    type="date"
+                                    name="starts_on"
+                                    defaultValue={editingProject?.starts_on ?? ''}
+                                />
+                            </label>
+
+                            <label className="tm-field">
+                                {text('تاريخ الاستحقاق', 'Due date')}
+                                <input
+                                    className={input}
+                                    type="date"
+                                    name="due_on"
+                                    defaultValue={editingProject?.due_on ?? ''}
+                                />
+                            </label>
+                        </div>
 
                         <label className="tm-field mb-5">
                             {text('لون المشروع', 'Project color')}
                             <select
                                 className={input}
                                 name="color"
+                                defaultValue={editingProject?.color ?? 'blue'}
                             >
                                 <option value="blue">{text('أزرق', 'Blue')}</option>
                                 <option value="green">{text('أخضر', 'Green')}</option>
@@ -859,7 +967,11 @@ function TaskWorkspace({
                             disabled={busy}
                             className={`${primary} w-full`}
                         >
-                            {text('حفظ المشروع', 'Save project')}
+                            {busy
+                                ? text('جارٍ الحفظ…', 'Saving…')
+                                : editingProject
+                                    ? text('حفظ التعديلات', 'Save changes')
+                                    : text('حفظ المشروع', 'Save project')}
                         </button>
                     </form>
                 </Modal>
@@ -1636,12 +1748,20 @@ function ProjectCards({
     data,
     tasks,
     ar,
+    canManage,
+    busy,
     onSelect,
+    onEdit,
+    onDelete,
 }: {
     data: TaskData;
     tasks: Task[];
     ar: boolean;
+    canManage: boolean;
+    busy: boolean;
     onSelect: (id: number) => void;
+    onEdit: (project: Project) => void;
+    onDelete: (project: Project) => void;
 }) {
     if (! data.projects.length) {
         return (
@@ -1672,18 +1792,65 @@ function ProjectCards({
                         title={project.name}
                         icon={FolderKanban}
                         action={(
-                            <Badge color={project.color ?? 'blue'}>
-                                {items.length} {ar ? 'مهمة' : 'tasks'}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                                <Badge color={project.color ?? 'blue'}>
+                                    {items.length} {ar ? 'مهمة' : 'tasks'}
+                                </Badge>
+
+                                {canManage && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+                                            aria-label={ar ? 'تعديل المشروع' : 'Edit project'}
+                                            disabled={busy}
+                                            onClick={() => onEdit(project)}
+                                        >
+                                            <Pencil size={13} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="flex size-8 items-center justify-center rounded-lg border border-red-100 bg-white text-red-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                            aria-label={ar ? 'حذف المشروع' : 'Delete project'}
+                                            disabled={busy}
+                                            onClick={() => onDelete(project)}
+                                        >
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         )}
                     >
-                        <p className="mb-6 min-h-10 text-xs leading-6 text-slate-400">
+                        <p className="mb-4 min-h-10 text-xs leading-6 text-slate-400">
                             {project.description || (
                                 ar
                                     ? 'لا يوجد وصف للمشروع.'
                                     : 'No project description.'
                             )}
                         </p>
+
+                        {(project.starts_on || project.due_on) && (
+                            <div className="mb-4 grid grid-cols-2 gap-2 text-[10px]">
+                                <div className="rounded-lg bg-slate-50 p-2">
+                                    <span className="block text-slate-400">
+                                        {ar ? 'البدء' : 'Start'}
+                                    </span>
+                                    <strong className="mt-1 block">
+                                        {dateLabel(project.starts_on ?? null, ar)}
+                                    </strong>
+                                </div>
+                                <div className="rounded-lg bg-slate-50 p-2">
+                                    <span className="block text-slate-400">
+                                        {ar ? 'الاستحقاق' : 'Due'}
+                                    </span>
+                                    <strong className="mt-1 block">
+                                        {dateLabel(project.due_on ?? null, ar)}
+                                    </strong>
+                                </div>
+                            </div>
+                        )}
+
                         <Progress
                             value={
                                 items.length
@@ -1699,6 +1866,15 @@ function ProjectCards({
                                 {items.filter(overdue).length} {ar ? 'متأخرة' : 'overdue'}
                             </span>
                         </div>
+
+                        {canManage && items.length > 0 && (
+                            <p className="mb-3 rounded-lg bg-amber-50 p-2 text-[9px] leading-5 text-amber-700">
+                                {ar
+                                    ? 'لحذف المشروع، انقل أو أرشف المهام المرتبطة به أولًا.'
+                                    : 'Move or archive linked tasks before deleting this project.'}
+                            </p>
+                        )}
+
                         <button
                             type="button"
                             className={`${button} w-full`}

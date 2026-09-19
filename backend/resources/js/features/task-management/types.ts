@@ -41,6 +41,8 @@ export type Project = {
     name: string;
     description?: string | null;
     color?: string;
+    starts_on?: string | null;
+    due_on?: string | null;
 };
 
 export type Task = {
