@@ -1183,6 +1183,24 @@ class TaskManagementController extends Controller
                     'required',
                     'string',
                     'max:160',
+
+                    Rule::unique(
+                        'task_teams',
+                        'name',
+                    )
+                        ->where(
+                            'organization_id',
+                            $tenant->id(),
+                        )
+                        ->where(
+                            'department_id',
+                            $request->integer(
+                                'department_id',
+                            ),
+                        )
+                        ->whereNull(
+                            'deleted_at',
+                        ),
                 ],
 
                 'description' => [
