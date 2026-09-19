@@ -2174,7 +2174,11 @@ function TeamDetailSurface({
                         <button type="button" className={button} disabled={busy} onClick={() => setEditOpen(false)}>
                             {text('إلغاء', 'Cancel')}
                         </button>
-                        <button type="submit" className={primary} disabled={busy || ! editLeader}>
+                        <button
+                            type="submit"
+                            className={primary}
+                            disabled={busy || (can('teams.lead.manage') && ! editLeader)}
+                        >
                             {busy ? text('جارٍ الحفظ…', 'Saving…') : text('حفظ التعديلات', 'Save changes')}
                         </button>
                     </div>
@@ -2261,14 +2265,17 @@ function TeamMembersSurface({
     team,
     data,
     ar,
+    permissions,
     onChanged,
 }: {
     team: UiTeam;
     data: TaskData;
     ar: boolean;
+    permissions: string[];
     onChanged: () => void;
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const can = (permission: string): boolean => canManageTeam(team, permissions, permission);
     const [activeTab, setActiveTab] = useState<'members' | 'tasks' | 'projects' | 'settings'>('members');
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState<'all' | 'lead' | 'member'>('all');
