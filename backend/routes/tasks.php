@@ -32,7 +32,7 @@ Route::middleware(['auth', 'verified', ResolveOrganization::class])->group(funct
         Route::patch('/tasks/{task}', [TaskManagementController::class, 'update'])->whereNumber('task')->middleware('throttle:60,1');
         Route::delete('/tasks/{task}', [TaskManagementController::class, 'destroy'])->whereNumber('task');
         Route::post('/tasks/{task}/comments', [TaskManagementController::class, 'comment'])->whereNumber('task')->middleware('throttle:30,1');
-        Route::post('/tasks/{task}/attachments', [TaskManagementController::class, 'upload'])->whereNumber('task')->middleware('throttle:20,1');
-        Route::get('/tasks/{task}/attachments/{attachment}', [TaskManagementController::class, 'download'])->whereNumber(['task', 'attachment'])->name('tasks.attachments.download');
+        Route::post('/tasks/{task}/attachments', [TaskManagementController::class, 'attachment'])->whereNumber('task')->middleware('throttle:20,1');
+        Route::get('/tasks/{task}/attachments/{attachment}', [TaskManagementController::class, 'downloadAttachment'])->whereNumber(['task', 'attachment'])->name('tasks.attachments.download');
     });
 });
