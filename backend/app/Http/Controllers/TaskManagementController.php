@@ -2776,8 +2776,8 @@ class TaskManagementController extends Controller
 
         /*
          * A freshly pulled application can briefly run before migrations have
-         * been applied. Never let the optional Teams surface take down the
-         * entire Task Management dashboard in that state.
+         * been applied. Team hierarchy support is also optional until its
+         * migration is present.
          */
         if (
             TaskAccess::canViewTeam()
@@ -2803,37 +2803,35 @@ class TaskManagementController extends Controller
                         'name',
                     );
 
-            $role =
-                app(
-                    TenantContext::class,
-                )
-                    ->role()
-                    ->value;
-
             if (
-                ! in_array(
-                    $role,
-                    [
-                        'owner',
-                        'admin',
-                    ],
-                    true,
+                Schema::hasColumn(
+                    'task_teams',
+                    'parent_task_team_id',
                 )
             ) {
-                $managedDepartments =
-                    StaffController::managedDepartmentIds();
+                $teamQuery
+                    ->with(
+                        'parent:id,name',
+                    )
+                    ->withCount(
+                        'children',
+                    );
+            }
 
-                if (
-                    $managedDepartments ===
-                    []
-                ) {
+            $scopeIds =
+                $this->teamScopeIds(
+                    $request,
+                );
+
+            if ($scopeIds !== null) {
+                if ($scopeIds === []) {
                     $teamQuery->whereRaw(
                         '1 = 0',
                     );
                 } else {
                     $teamQuery->whereIn(
-                        'department_id',
-                        $managedDepartments,
+                        'id',
+                        $scopeIds,
                     );
                 }
             }
