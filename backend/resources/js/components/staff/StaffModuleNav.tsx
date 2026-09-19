@@ -14,6 +14,9 @@ import {
 import {
     useLocale,
 } from '@/lib/i18n';
+import type {
+    AppPageProps,
+} from '@/types/app';
 
 type Item = {
     href: string;
@@ -71,8 +74,19 @@ export function StaffModuleNav() {
 
     const {
         url,
+        props,
     } =
-        usePage();
+        usePage<AppPageProps>();
+
+    const organization =
+        props.workspace.activeOrganization;
+
+    const canImport =
+        organization?.role === 'owner'
+        || organization?.role === 'admin'
+        || organization?.permissions?.includes(
+            'staff.import',
+        );
 
     return (
         <nav
@@ -80,7 +94,13 @@ export function StaffModuleNav() {
             className="overflow-x-auto rounded-[18px] border border-[var(--ac-line)] bg-white p-1.5"
         >
             <div className="flex min-w-max items-center gap-1">
-                {items.map((item: Item) => {
+                {items
+                    .filter(
+                        (item: Item) =>
+                            item.href !== '/app/staff/import'
+                            || canImport,
+                    )
+                    .map((item: Item) => {
                     const Icon =
                         item.icon;
 
