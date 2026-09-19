@@ -3007,35 +3007,41 @@ function TeamMembersSurface({
                             >
                                 {text('عرض الملف الشخصي', 'View profile')}
                             </button>
-                            <button
-                                type="button"
-                                className={button + ' w-full'}
-                                disabled={member.id === team.leader?.id || ! targetTeams.length}
-                                onClick={() => {
-                                    setTransferMemberId(String(member.id));
-                                    setTargetTeamId('');
-                                    setTransferOpen(true);
-                                    setActionMemberId(null);
-                                }}
-                            >
-                                {text('نقل إلى فريق آخر', 'Move to another team')}
-                            </button>
-                            <button
-                                type="button"
-                                className={button + ' w-full'}
-                                disabled={member.id === team.leader?.id || busy}
-                                onClick={() => assignLead(member.id)}
-                            >
-                                {text('تعيين قائد للفريق', 'Make team lead')}
-                            </button>
-                            <button
-                                type="button"
-                                className="tm-button w-full border-red-100 text-red-500 hover:bg-red-50"
-                                disabled={member.id === team.leader?.id || busy}
-                                onClick={() => removeMember(member.id)}
-                            >
-                                {text('إزالة من الفريق', 'Remove from team')}
-                            </button>
+                            {can('teams.members.manage') && (
+                                <button
+                                    type="button"
+                                    className={button + ' w-full'}
+                                    disabled={member.id === team.leader?.id || ! targetTeams.length}
+                                    onClick={() => {
+                                        setTransferMemberId(String(member.id));
+                                        setTargetTeamId('');
+                                        setTransferOpen(true);
+                                        setActionMemberId(null);
+                                    }}
+                                >
+                                    {text('نقل إلى فريق آخر', 'Move to another team')}
+                                </button>
+                            )}
+                            {can('teams.lead.manage') && (
+                                <button
+                                    type="button"
+                                    className={button + ' w-full'}
+                                    disabled={member.id === team.leader?.id || busy}
+                                    onClick={() => assignLead(member.id)}
+                                >
+                                    {text('تعيين قائد للفريق', 'Make team lead')}
+                                </button>
+                            )}
+                            {can('teams.members.manage') && (
+                                <button
+                                    type="button"
+                                    className="tm-button w-full border-red-100 text-red-500 hover:bg-red-50"
+                                    disabled={member.id === team.leader?.id || busy}
+                                    onClick={() => removeMember(member.id)}
+                                >
+                                    {text('إزالة من الفريق', 'Remove from team')}
+                                </button>
+                            )}
                         </div>
                     );
                 })()}
@@ -3059,10 +3065,12 @@ function TeamMembersSurface({
                         </div>
                         <PreviewRow label={text('البريد الإلكتروني', 'Email')} value={profileMember.email ?? '—'} />
                         <PreviewRow label={text('القسم', 'Department')} value={profileMember.department ?? '—'} />
-                        <PreviewRow
-                            label={text('نسبة الانشغال', 'Utilization')}
-                            value={memberWorkload(profileMember) + '%'}
-                        />
+                        {permissions.includes('teams.view_workload') && (
+                            <PreviewRow
+                                label={text('نسبة الانشغال', 'Utilization')}
+                                value={memberWorkload(profileMember) + '%'}
+                            />
+                        )}
                         <button type="button" className={button + ' w-full'} onClick={() => setProfileMemberId(null)}>
                             {text('إغلاق', 'Close')}
                         </button>
