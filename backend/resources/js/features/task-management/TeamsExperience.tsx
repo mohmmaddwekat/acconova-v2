@@ -1559,14 +1559,27 @@ function TeamDetailSurface({
         setBusy(true);
         setActionError('');
 
+        const payload: Record<string, unknown> = {};
+
+        if (can('teams.update')) {
+            payload.name = editName.trim();
+            payload.description = editDescription.trim() || null;
+            payload.capacity = Math.max(team.members.length, Number(editCapacity) || 1);
+            payload.priority = editPriority;
+        }
+
+        if (can('teams.lead.manage')) {
+            payload.leader_id = Number(editLeader);
+        }
+
+        if (permissions.includes('teams.move')) {
+            payload.parent_team_id = editParent ? Number(editParent) : null;
+        }
+
         try {
-            await updateTeamRecord(team.id, {
-                name: editName.trim(),
-                description: editDescription.trim() || null,
-                capacity: Math.max(team.members.length, Number(editCapacity) || 1),
-                priority: editPriority,
-                leader_id: Number(editLeader),
-            });
+            if (Object.keys(payload).length) {
+                await updateTeamRecord(team.id, payload);
+            }
             setEditOpen(false);
             onChanged();
         } catch (failure) {
