@@ -339,13 +339,6 @@ final class WorkspaceRoleCatalog
         foreach (
             $normalized as $permission
         ) {
-            if (str_starts_with($permission, 'tasks.') && ! in_array($permission, ['tasks.dashboard', 'tasks.projects.view', 'tasks.team'], true)) {
-                $normalized[] = 'tasks.view';
-            }
-            if ($permission === 'tasks.projects.manage') {
-                $normalized[] = 'tasks.projects.view';
-            }
-
             if (
                 str_starts_with(
                     $permission,
