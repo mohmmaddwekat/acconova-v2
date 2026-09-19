@@ -79,6 +79,7 @@ type UiTeam = {
     projects: Project[];
     tasks: Task[];
     workload: number;
+    departmentId: number;
     department?: string | null;
     capacity: number;
     priority: 'low' | 'medium' | 'high';
@@ -212,6 +213,7 @@ function buildTeams(
             projects,
             tasks: teamTasks,
             workload,
+            departmentId: team.department_id,
             department: team.department,
             capacity: team.capacity,
             priority: team.priority,
@@ -465,7 +467,19 @@ function TeamCard({
                         </p>
                     </div>
                 </div>
-                <MoreHorizontal size={18} className="text-slate-400" />
+                <Badge color={
+                    team.priority === 'high'
+                        ? 'red'
+                        : team.priority === 'low'
+                            ? 'green'
+                            : 'amber'
+                }>
+                    {team.priority === 'high'
+                        ? text('عالية', 'High')
+                        : team.priority === 'low'
+                            ? text('منخفضة', 'Low')
+                            : text('متوسطة', 'Medium')}
+                </Badge>
             </div>
 
             <div className="mb-4 grid grid-cols-3 gap-2 text-center">
@@ -615,9 +629,7 @@ function CreateTeamSurface({
     const [submitError, setSubmitError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
-    const [selectedProjects, setSelectedProjects] = useState<number[]>(
-        data.projects.slice(0, 3).map((project: Project) => project.id),
-    );
+    const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
 
     const departmentMembers = data.members.filter((member: Member) => (
         ! department || member.department === department
@@ -1660,7 +1672,7 @@ function TeamMembersSurface({
 
     const memberIds = team.members.map((member: Member) => member.id);
     const departmentMembers = data.members.filter((member: Member) => (
-        member.department_id === team.members[0]?.department_id
+        member.department_id === team.departmentId
         || member.department === team.department
     ));
     const addCandidates = departmentMembers.filter(
@@ -1668,7 +1680,7 @@ function TeamMembersSurface({
     );
     const targetTeams = (data.teams ?? []).filter((item: TaskTeam) => (
         item.id !== team.id
-        && item.department_id === team.members[0]?.department_id
+        && item.department_id === team.departmentId
         && item.member_ids.length < item.capacity
     ));
 
