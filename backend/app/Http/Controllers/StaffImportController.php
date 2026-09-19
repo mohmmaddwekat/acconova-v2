@@ -79,6 +79,30 @@ class StaffImportController extends Controller
             );
         }
 
+        foreach (
+            glob(
+                $directory
+                .'/*',
+            )
+                ?: [] as $oldFile
+        ) {
+            if (
+                is_file(
+                    $oldFile,
+                )
+                && filemtime(
+                    $oldFile,
+                ) <
+                    now()
+                        ->subDay()
+                        ->getTimestamp()
+            ) {
+                @unlink(
+                    $oldFile,
+                );
+            }
+        }
+
         $request
             ->file(
                 'file',
@@ -421,13 +445,11 @@ class StaffImportController extends Controller
                 ),
             };
 
-        @unlink(
-            $path,
-        );
+        return response()->json([
+            ...$result,
 
-        return response()->json(
-            $result,
-        );
+            'token' => $data['token'],
+        ]);
     }
 
     /**
