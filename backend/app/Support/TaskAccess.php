@@ -356,11 +356,8 @@ final class TaskAccess
     public static function canViewTeam(): bool
     {
         return self::allowed(
-            'teams.view',
+            'tasks.view_all',
         )
-            || self::allowed(
-                'tasks.view_all',
-            )
             || self::allowed(
                 'tasks.view_team',
             )
