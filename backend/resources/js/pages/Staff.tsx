@@ -339,6 +339,14 @@ function StaffWorkspace() {
         );
 
     const [
+        perPage,
+        setPerPage,
+    ] =
+        useState(
+            50,
+        );
+
+    const [
         revision,
         setRevision,
     ] =
@@ -553,7 +561,7 @@ function StaffWorkspace() {
                 window.setTimeout(
                     () => {
                         apiRequest<StaffIndex>(
-                            `/api/staff?page=${page}&per_page=50&search=${encodeURIComponent(
+                            `/api/staff?page=${page}&per_page=${perPage}&search=${encodeURIComponent(
                                 search,
                             )}&department_id=${department}&basis=${basisFilter}&active=${activeFilter}&include_accounts=${isEditing ? 1 : 0}`,
                             {
@@ -610,6 +618,7 @@ function StaffWorkspace() {
         },
         [
             page,
+            perPage,
             revision,
             search,
             department,
@@ -1365,7 +1374,7 @@ function StaffWorkspace() {
 
                 {! selected && (
                     <section className="mt-6 overflow-hidden rounded-[24px] border border-[var(--ac-line)] bg-white">
-                        <div className="grid gap-3 border-b border-[var(--ac-line)] p-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid gap-3 border-b border-[var(--ac-line)] p-4 sm:grid-cols-2 xl:grid-cols-5">
                             <label className="text-xs font-semibold">
                                 {ar
                                     ? 'بحث'
@@ -1555,6 +1564,46 @@ function StaffWorkspace() {
                                         {
                                             c.inactive
                                         }
+                                    </option>
+                                </select>
+                            </label>
+
+                            <label className="text-xs font-semibold">
+                                {ar
+                                    ? 'عدد الصفوف'
+                                    : 'Rows per page'}
+
+                                <select
+                                    value={
+                                        perPage
+                                    }
+                                    onChange={(
+                                        event,
+                                    ) => {
+                                        setPerPage(
+                                            Number(
+                                                event
+                                                    .target
+                                                    .value,
+                                            ),
+                                        );
+
+                                        setPage(
+                                            1,
+                                        );
+                                    }}
+                                    className={
+                                        field
+                                    }
+                                >
+                                    <option value="20">
+                                        20
+                                    </option>
+                                    <option value="50">
+                                        50
+                                    </option>
+                                    <option value="100">
+                                        100
                                     </option>
                                 </select>
                             </label>
