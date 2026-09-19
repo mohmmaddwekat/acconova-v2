@@ -48,7 +48,6 @@ import type {
     Task,
     TaskActivityEvent,
     TaskData,
-    TaskView,
 } from './types';
 
 export type TeamsView =
@@ -165,7 +164,6 @@ export function TeamsExperience({
         return (
             <TeamMembersSurface
                 team={selected}
-                data={data}
                 ar={ar}
             />
         );
@@ -1119,11 +1117,9 @@ function TeamDetailSurface({
 
 function TeamMembersSurface({
     team,
-    data,
     ar,
 }: {
     team: UiTeam;
-    data: TaskData;
     ar: boolean;
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
