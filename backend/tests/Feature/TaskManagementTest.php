@@ -238,4 +238,163 @@ class TaskManagementTest extends TestCase
             ],
         );
     }
+
+    public function test_teams_can_be_nested_recursively_and_cycles_are_rejected(): void
+    {
+        $this->workspace();
+
+        $department = Department::create([
+            'name' => 'Sales',
+        ]);
+
+        $lead = $this->employee(
+            $department,
+            'Sales Lead',
+        );
+
+        $root =
+            $this
+                ->postJson(
+                    '/api/task-management/teams',
+                    [
+                        'name' => 'Sales',
+                        'department_id' => $department->id,
+                        'leader_id' => $lead->id,
+                        'capacity' => 10,
+                        'priority' => 'high',
+                        'member_ids' => [
+                            $lead->id,
+                        ],
+                        'project_ids' => [],
+                    ],
+                )
+                ->assertCreated()
+                ->assertJsonPath(
+                    'team.parent_team_id',
+                    null,
+                )
+                ->json(
+                    'team.id',
+                );
+
+        $child =
+            $this
+                ->postJson(
+                    '/api/task-management/teams',
+                    [
+                        'name' => 'Enterprise Sales',
+                        'department_id' => $department->id,
+                        'parent_team_id' => $root,
+                        'leader_id' => $lead->id,
+                        'capacity' => 8,
+                        'priority' => 'medium',
+                        'member_ids' => [
+                            $lead->id,
+                        ],
+                        'project_ids' => [],
+                    ],
+                )
+                ->assertCreated()
+                ->assertJsonPath(
+                    'team.parent_team_id',
+                    $root,
+                )
+                ->json(
+                    'team.id',
+                );
+
+        $grandchild =
+            $this
+                ->postJson(
+                    '/api/task-management/teams',
+                    [
+                        'name' => 'Gulf Enterprise',
+                        'department_id' => $department->id,
+                        'parent_team_id' => $child,
+                        'leader_id' => $lead->id,
+                        'capacity' => 6,
+                        'priority' => 'medium',
+                        'member_ids' => [
+                            $lead->id,
+                        ],
+                        'project_ids' => [],
+                    ],
+                )
+                ->assertCreated()
+                ->assertJsonPath(
+                    'team.parent_team_id',
+                    $child,
+                )
+                ->json(
+                    'team.id',
+                );
+
+        $this->assertDatabaseHas(
+            'task_teams',
+            [
+                'id' => $grandchild,
+                'parent_task_team_id' => $child,
+            ],
+        );
+
+        $this
+            ->patchJson(
+                '/api/task-management/teams/'.$root,
+                [
+                    'parent_team_id' => $grandchild,
+                ],
+            )
+            ->assertUnprocessable();
+
+        $this
+            ->deleteJson(
+                '/api/task-management/teams/'.$root,
+            )
+            ->assertUnprocessable();
+    }
+
+    public function test_workspace_roles_accept_granular_team_hierarchy_permissions(): void
+    {
+        $this->workspace();
+
+        $permissions = [
+            'teams.view',
+            'teams.create',
+            'teams.update',
+            'teams.archive',
+            'teams.members.manage',
+            'teams.lead.manage',
+            'teams.projects.manage',
+            'teams.subteams.create',
+            'teams.subteams.manage',
+            'teams.move',
+            'teams.view_workload',
+        ];
+
+        $response =
+            $this
+                ->postJson(
+                    '/api/workspace-roles',
+                    [
+                        'name' => 'Team hierarchy manager',
+                        'base_role' => 'employee',
+                        'is_custom' => true,
+                        'preset_key' => null,
+                        'permissions' => $permissions,
+                    ],
+                )
+                ->assertCreated();
+
+        foreach (
+            $permissions as $permission
+        ) {
+            $this->assertContains(
+                $permission,
+                $response->json(
+                    'data.permissions',
+                ),
+            );
+        }
+    }
+
 }
