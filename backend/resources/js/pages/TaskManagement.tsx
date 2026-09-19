@@ -26,9 +26,11 @@ import {
     MessageSquare,
     MoreHorizontal,
     Paperclip,
+    Pencil,
     Plus,
     Search,
     ShieldCheck,
+    Trash2,
     UsersRound,
     X,
     type LucideIcon,
@@ -231,6 +233,7 @@ function TaskWorkspace({
         view === 'detail' ? taskId : null,
     );
     const [projectDialog, setProjectDialog] = useState(false);
+    const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [busy, setBusy] = useState(false);
     const [boardMode, setBoardMode] = useState<'board' | 'projects'>('board');
 
@@ -516,9 +519,9 @@ function TaskWorkspace({
     }
 
     /**
-     * Create a new task project from the project modal.
+     * Create or update a project from the shared project modal.
      */
-    async function createProject(
+    async function saveProject(
         event: FormEvent<HTMLFormElement>,
     ): Promise<void> {
         event.preventDefault();
@@ -530,19 +533,77 @@ function TaskWorkspace({
         setBusy(true);
         setError('');
 
+        const body =
+            Object.fromEntries(
+                new FormData(
+                    event.currentTarget,
+                ),
+            );
+
         try {
             await apiRequest(
-                `${api}/projects`,
+                editingProject
+                    ? `${api}/projects/${editingProject.id}`
+                    : `${api}/projects`,
                 {
-                    method: 'POST',
+                    method: editingProject
+                        ? 'PATCH'
+                        : 'POST',
                     body: JSON.stringify(
-                        Object.fromEntries(
-                            new FormData(event.currentTarget),
-                        ),
+                        body,
                     ),
                 },
             );
             setProjectDialog(false);
+            setEditingProject(null);
+            refresh();
+        } catch (failure) {
+            setError(errorText(failure));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    /**
+     * Archive a project after confirming the destructive action.
+     */
+    async function deleteProject(
+        project: Project,
+    ): Promise<void> {
+        if (
+            busy
+            || ! window.confirm(
+                text(
+                    `هل تريد حذف مشروع "${project.name}"؟ لا يمكن حذف مشروع ما زالت هناك مهام مرتبطة به.`,
+                    `Delete project "${project.name}"? A project with linked tasks cannot be deleted.`,
+                ),
+            )
+        ) {
+            return;
+        }
+
+        setBusy(true);
+        setError('');
+
+        try {
+            await apiRequest(
+                `${api}/projects/${project.id}`,
+                {
+                    method: 'DELETE',
+                },
+            );
+
+            if (
+                filters.project ===
+                    String(
+                        project.id,
+                    )
+            ) {
+                setFilters(
+                    emptyFilters,
+                );
+            }
+
             refresh();
         } catch (failure) {
             setError(errorText(failure));
