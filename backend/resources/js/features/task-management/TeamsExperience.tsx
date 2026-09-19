@@ -2505,9 +2505,20 @@ function TeamMembersSurface({
                     color="green"
                 />
                 <Stat
-                    title={text('متوسط نسبة الانشغال', 'Average utilization')}
-                    value={averageWorkload + '%'}
-                    icon={BarChart3}
+                    title={text(
+                        permissions.includes('teams.view_workload')
+                            ? 'متوسط نسبة الانشغال'
+                            : 'الفرق الفرعية',
+                        permissions.includes('teams.view_workload')
+                            ? 'Average utilization'
+                            : 'Sub-teams',
+                    )}
+                    value={
+                        permissions.includes('teams.view_workload')
+                            ? averageWorkload + '%'
+                            : team.childCount
+                    }
+                    icon={permissions.includes('teams.view_workload') ? BarChart3 : ListTree}
                     color="red"
                 />
                 <Stat
@@ -2543,18 +2554,20 @@ function TeamMembersSurface({
                     {activeTab === 'members' && (
                         <>
                             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
-                                <button
-                                    type="button"
-                                    className={primary}
-                                    disabled={team.members.length >= team.capacity}
-                                    onClick={() => {
-                                        setCandidateId('');
-                                        setAddOpen(true);
-                                    }}
-                                >
-                                    <Plus size={14} />
-                                    {text('إضافة عضو', 'Add member')}
-                                </button>
+                                {can('teams.members.manage') && (
+                                    <button
+                                        type="button"
+                                        className={primary}
+                                        disabled={team.members.length >= team.capacity}
+                                        onClick={() => {
+                                            setCandidateId('');
+                                            setAddOpen(true);
+                                        }}
+                                    >
+                                        <Plus size={14} />
+                                        {text('إضافة عضو', 'Add member')}
+                                    </button>
+                                )}
 
                                 <label className="relative min-w-48 flex-1">
                                     <Search
@@ -2653,7 +2666,9 @@ function TeamMembersSurface({
                                                         </Badge>
                                                     </td>
                                                     <td>
-                                                        <Progress value={workload} />
+                                                        {permissions.includes('teams.view_workload')
+                                                            ? <Progress value={workload} />
+                                                            : <span className="text-[10px] text-slate-400">—</span>}
                                                     </td>
                                                     <td>
                                                         {isLead ? (
@@ -2787,17 +2802,19 @@ function TeamMembersSurface({
                                             {team.leader?.job_title ?? text('قائد الفريق', 'Team lead')}
                                         </p>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className={button}
-                                        onClick={() => {
-                                            setLeadId(String(team.leader?.id ?? ''));
-                                            setLeadOpen(true);
-                                        }}
-                                    >
-                                        <Pencil size={13} />
-                                        {text('تغيير القائد', 'Change lead')}
-                                    </button>
+                                    {can('teams.lead.manage') && (
+                                        <button
+                                            type="button"
+                                            className={button}
+                                            onClick={() => {
+                                                setLeadId(String(team.leader?.id ?? ''));
+                                                setLeadOpen(true);
+                                            }}
+                                        >
+                                            <Pencil size={13} />
+                                            {text('تغيير القائد', 'Change lead')}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
