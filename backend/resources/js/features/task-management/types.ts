@@ -3,6 +3,10 @@ export type TaskView =
     | 'list'
     | 'projects'
     | 'team'
+    | 'teams'
+    | 'teams-create'
+    | 'teams-detail'
+    | 'teams-members'
     | 'create'
     | 'edit'
     | 'detail';
