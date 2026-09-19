@@ -566,14 +566,18 @@ function TeamDistribution({
         const start = offset;
         offset += total ? team.members.length / total * 100 : 25;
 
-        return colors[index] + ' ' + start + '% ' + offset + '%';
+        return colors[index % colors.length] + ' ' + start + '% ' + offset + '%';
     }).join(',');
 
     return (
         <div className="flex flex-wrap items-center justify-around gap-5">
             <div
                 className="flex size-32 items-center justify-center rounded-full"
-                style={{ background: total ? 'conic-gradient(' + segments + ')' : '#edf2fa' }}
+                style={{
+                    background: total && teams.length
+                        ? 'conic-gradient(' + segments + ')'
+                        : '#edf2fa',
+                }}
             >
                 <div className="flex size-20 flex-col items-center justify-center rounded-full bg-white">
                     <strong className="text-2xl">{total}</strong>
@@ -591,7 +595,7 @@ function TeamDistribution({
                     >
                         <span
                             className="size-2 rounded-full"
-                            style={{ background: colors[index] }}
+                            style={{ background: colors[index % colors.length] }}
                         />
                         <span className="min-w-0 flex-1 truncate">
                             {ar ? team.nameAr : team.nameEn}
@@ -1450,7 +1454,12 @@ function TeamDetailSurface({
                         <div
                             className="flex size-40 items-center justify-center rounded-full"
                             style={{
-                                background: 'conic-gradient(#2879ff 0 38%, #fb5f67 38% 60%, #ffb72b 60% 78%, #22b987 78% 90%, #dfe7f2 90% 100%)',
+                                background:
+                                    'conic-gradient(#2879ff 0 '
+                                    + team.workload
+                                    + '%, #e8eef8 '
+                                    + team.workload
+                                    + '% 100%)',
                             }}
                         >
                             <div className="flex size-28 flex-col items-center justify-center rounded-full bg-white">
@@ -2189,7 +2198,13 @@ function TeamMembersSurface({
                             <div
                                 className="flex size-36 items-center justify-center rounded-full"
                                 style={{
-                                    background: 'conic-gradient(#2879ff 0 20%, #22b987 20% 60%, #ffb72b 60% 80%, #fb5f67 80% 100%)',
+                                    background: team.members.length
+                                        ? 'conic-gradient(#2879ff 0 '
+                                            + (100 / team.members.length)
+                                            + '%, #22b987 '
+                                            + (100 / team.members.length)
+                                            + '% 100%)'
+                                        : '#edf2fa',
                                 }}
                             >
                                 <div className="flex size-24 flex-col items-center justify-center rounded-full bg-white">
