@@ -90,6 +90,9 @@ export type TaskTeam = {
     description?: string | null;
     department_id: number;
     department?: string | null;
+    parent_team_id: number | null;
+    parent_team_name?: string | null;
+    child_count: number;
     leader_id: number | null;
     leader_name?: string | null;
     capacity: number;
