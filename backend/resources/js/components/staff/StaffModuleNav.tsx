@@ -5,6 +5,7 @@ import {
 import {
     BarChart3,
     CalendarDays,
+    FileSpreadsheet,
     LayoutDashboard,
     UsersRound,
     WalletCards,
@@ -51,6 +52,12 @@ const items: Item[] = [
         labelAr: 'تحليلات الموظفين',
         labelEn: 'People insights',
         icon: BarChart3,
+    },
+    {
+        href: '/app/staff/import',
+        labelAr: 'استيراد البيانات',
+        labelEn: 'Import data',
+        icon: FileSpreadsheet,
     },
 ];
 
