@@ -1,3 +1,4 @@
+import { apiRequest } from '@/lib/http';
 import {
     Link,
     router,
@@ -41,6 +42,7 @@ import {
     Progress,
     Stat,
     base,
+    errorText,
     button,
     input,
     primary,
@@ -603,6 +605,8 @@ function CreateTeamSurface({
     const [capacity, setCapacity] = useState('8');
     const [priority, setPriority] = useState('medium');
     const [memberSearch, setMemberSearch] = useState('');
+    const [submitError, setSubmitError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
     const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
     const [selectedProjects, setSelectedProjects] = useState<number[]>(
         data.projects.slice(0, 3).map((project: Project) => project.id),
@@ -661,8 +665,62 @@ function CreateTeamSurface({
         ));
     }
 
-    function submit(event: FormEvent<HTMLFormElement>): void {
+    async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
+
+        if (submitting) {
+            return;
+        }
+
+        const departmentId = departmentMembers[0]?.department_id ?? null;
+
+        if (! name.trim()) {
+            setSubmitError(text('اكتب اسم الفريق أولًا.', 'Enter a team name first.'));
+            return;
+        }
+
+        if (! departmentId) {
+            setSubmitError(text('اختر قسمًا صالحًا للفريق.', 'Choose a valid department.'));
+            return;
+        }
+
+        if (! leader) {
+            setSubmitError(text('اختر قائد الفريق.', 'Choose a team lead.'));
+            return;
+        }
+
+        if (! selectedMembers.length) {
+            setSubmitError(text('أضف عضوًا واحدًا على الأقل إلى الفريق.', 'Add at least one team member.'));
+            return;
+        }
+
+        setSubmitting(true);
+        setSubmitError('');
+
+        try {
+            const response = await apiRequest<{ team: TaskTeam }>(
+                api + '/teams',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: name.trim(),
+                        description: description.trim() || null,
+                        department_id: departmentId,
+                        leader_id: Number(leader),
+                        capacity: Math.max(1, Number(capacity) || 1),
+                        priority,
+                        member_ids: selectedMembers,
+                        project_ids: selectedProjects,
+                    }),
+                },
+            );
+
+            router.visit(base + '/teams/' + response.team.id);
+        } catch (failure) {
+            setSubmitError(errorText(failure));
+        } finally {
+            setSubmitting(false);
+        }
     }
 
     return (
@@ -678,6 +736,7 @@ function CreateTeamSurface({
                             <input
                                 className={input}
                                 value={name}
+                                required
                                 onChange={(event) => setName(event.target.value)}
                                 placeholder={text('مثال: فريق تطوير الواجهة الأمامية', 'Example: Frontend development team')}
                             />
@@ -713,6 +772,7 @@ function CreateTeamSurface({
                                 <select
                                     className={input}
                                     value={leader}
+                                    required
                                     onChange={(event) => {
                                         const nextLeader = event.target.value;
                                         setLeader(nextLeader);
@@ -934,10 +994,25 @@ function CreateTeamSurface({
                     </div>
                 </Panel>
 
+                {submitError && (
+                    <div
+                        role="alert"
+                        className="rounded-xl border border-red-100 bg-red-50 p-3 text-[11px] text-red-600"
+                    >
+                        {submitError}
+                    </div>
+                )}
+
                 <div className="flex flex-wrap items-center gap-2">
-                    <button type="submit" className={primary}>
+                    <button
+                        type="submit"
+                        className={primary}
+                        disabled={submitting}
+                    >
                         <Plus size={15} />
-                        {text('إنشاء الفريق', 'Create team')}
+                        {submitting
+                            ? text('جارٍ إنشاء الفريق…', 'Creating team…')
+                            : text('إنشاء الفريق', 'Create team')}
                     </button>
                     <Link href={base + '/teams'} className={button}>
                         {text('إلغاء', 'Cancel')}
