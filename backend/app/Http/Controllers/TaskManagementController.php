@@ -2018,6 +2018,13 @@ class TaskManagementController extends Controller
             'This employee is not a member of the source team.',
         );
 
+        abort_if(
+            (int) $data['target_team_id'] ===
+                (int) $source->id,
+            422,
+            'Choose a different target team.',
+        );
+
         $target =
             TaskTeam::query()
                 ->withCount(
