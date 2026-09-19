@@ -426,7 +426,7 @@ function TaskWorkspace({
         },
         {
             key: 'teams',
-            permission: 'tasks.team',
+            permission: 'teams.view',
             path: '/teams',
             ar: 'الفرق',
             en: 'Teams',
@@ -761,6 +761,7 @@ function TaskWorkspace({
                                         data={data}
                                         tasks={tasks}
                                         ar={ar}
+                                        permissions={permissions}
                                         onChanged={refresh}
                                     />
                                 )}
