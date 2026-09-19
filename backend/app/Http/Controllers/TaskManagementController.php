@@ -1941,6 +1941,140 @@ class TaskManagementController extends Controller
     }
 
     /**
+     * Move one non-lead member between teams in the same department.
+     */
+    public function transferTeamMember(
+        Request $request,
+        string $team,
+    ): JsonResponse {
+        $source =
+            TaskTeam::query()
+                ->with([
+                    'members:id',
+                ])
+                ->findOrFail(
+                    $team,
+                );
+
+        $this->authorizeTeamDepartment(
+            (int) $source->department_id,
+        );
+
+        $tenant =
+            app(
+                TenantContext::class,
+            );
+
+        $data =
+            $request->validate([
+                'staff_member_id' => [
+                    'required',
+                    'integer',
+
+                    Rule::exists(
+                        'staff_members',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    ),
+                ],
+
+                'target_team_id' => [
+                    'required',
+                    'integer',
+                    'different:team',
+
+                    Rule::exists(
+                        'task_teams',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    )->whereNull(
+                        'deleted_at',
+                    ),
+                ],
+            ]);
+
+        $staffId =
+            (int) $data['staff_member_id'];
+
+        abort_if(
+            (int) $source->leader_staff_member_id ===
+                $staffId,
+            422,
+            'Assign another team lead before moving the current lead.',
+        );
+
+        abort_unless(
+            $source
+                ->members
+                ->contains(
+                    'id',
+                    $staffId,
+                ),
+            422,
+            'This employee is not a member of the source team.',
+        );
+
+        $target =
+            TaskTeam::query()
+                ->withCount(
+                    'members',
+                )
+                ->findOrFail(
+                    (int) $data['target_team_id'],
+                );
+
+        $this->authorizeTeamDepartment(
+            (int) $target->department_id,
+        );
+
+        abort_unless(
+            (int) $target->department_id ===
+                (int) $source->department_id,
+            422,
+            'Members can only move between teams in the same department.',
+        );
+
+        abort_if(
+            $target->members_count >=
+                $target->capacity,
+            422,
+            'The target team has reached its member capacity.',
+        );
+
+        DB::transaction(
+            function () use (
+                $source,
+                $target,
+                $tenant,
+                $staffId,
+            ): void {
+                $source
+                    ->members()
+                    ->detach(
+                        $staffId,
+                    );
+
+                $target
+                    ->members()
+                    ->syncWithoutDetaching([
+                        $staffId => [
+                            'organization_id' => $tenant->id(),
+                        ],
+                    ]);
+            },
+            3,
+        );
+
+        return response()->json([
+            'transferred' => true,
+        ]);
+    }
+
+    /**
      * Archive a task team while keeping its history recoverable.
      */
     public function destroyTeam(
