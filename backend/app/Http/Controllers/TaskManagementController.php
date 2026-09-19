@@ -51,6 +51,21 @@ class TaskManagementController extends Controller
             ?? 'dashboard'
         );
 
+        if (
+            str_starts_with(
+                $view,
+                'teams',
+            )
+        ) {
+            abort_unless(
+                TaskAccess::allowed(
+                    'teams.view',
+                    $request->user(),
+                ),
+                403,
+            );
+        }
+
         return Inertia::render(
             'TaskManagement',
             [
