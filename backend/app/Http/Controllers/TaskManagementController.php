@@ -2524,6 +2524,8 @@ class TaskManagementController extends Controller
 
                         'name' => $member->name,
 
+                        'email' => $member->email,
+
                         'job_title' => $member->job_title,
 
                         'department' => $member->department,
