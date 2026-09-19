@@ -1163,6 +1163,8 @@ function TeamDetailSurface({
     const completed = team.tasks.filter((task: Task) => task.status === 'completed').length;
     const [editOpen, setEditOpen] = useState(false);
     const [projectsOpen, setProjectsOpen] = useState(false);
+    const [projectOptions, setProjectOptions] = useState<Project[]>(data.projects);
+    const [projectsLoading, setProjectsLoading] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [actionError, setActionError] = useState('');
@@ -1196,6 +1198,44 @@ function TeamDetailSurface({
             setActionError(errorText(failure));
         } finally {
             setBusy(false);
+        }
+    }
+
+    async function openProjectsPicker(): Promise<void> {
+        setProjectIds(team.projects.map((project: Project) => project.id));
+        setProjectsOpen(true);
+        setProjectsLoading(true);
+        setActionError('');
+
+        try {
+            const response = await apiRequest<{
+                projects: Array<{
+                    id: number;
+                    name: string;
+                    description?: string | null;
+                    accent?: string | null;
+                }>;
+            }>(
+                api + '/projects',
+            );
+
+            setProjectOptions(
+                response.projects.map((project) => ({
+                    id: project.id,
+                    name: project.name,
+                    description: project.description ?? null,
+                    color: project.accent ?? undefined,
+                })),
+            );
+        } catch (failure) {
+            /*
+             * Keep the already-loaded workspace projects as a fallback so a
+             * transient refresh failure does not make the picker unusable.
+             */
+            setProjectOptions(data.projects);
+            setActionError(errorText(failure));
+        } finally {
+            setProjectsLoading(false);
         }
     }
 
@@ -1296,10 +1336,7 @@ function TeamDetailSurface({
                     <button
                         type="button"
                         className={button}
-                        onClick={() => {
-                            setProjectIds(team.projects.map((project: Project) => project.id));
-                            setProjectsOpen(true);
-                        }}
+                        onClick={openProjectsPicker}
                     >
                         <Link2 size={15} />
                         {text('ربط مشروع', 'Link project')}
@@ -1629,17 +1666,38 @@ function TeamDetailSurface({
                                 </label>
                             );
                         })}
-                        {! data.projects.length && (
+                        {projectsLoading && (
                             <p className="py-6 text-center text-xs text-slate-400">
-                                {text('لا توجد مشاريع متاحة.', 'No projects are available.')}
+                                {text('جارٍ تحميل المشاريع…', 'Loading projects…')}
                             </p>
+                        )}
+                        {! projectsLoading && ! projectOptions.length && (
+                            <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center">
+                                <p className="text-xs font-semibold text-slate-600">
+                                    {text(
+                                        'لم يصل أي مشروع من قائمة المشاريع الحالية.',
+                                        'No project was returned from the current project list.',
+                                    )}
+                                </p>
+                                <p className="mt-2 text-[10px] leading-5 text-slate-400">
+                                    {text(
+                                        'إذا كنت ترى مشروعًا في صفحة المشاريع، أغلق النافذة وأعد فتحها؛ هذه النافذة تحدّث القائمة مباشرة من الخادم الآن.',
+                                        'If a project exists on the Projects page, close and reopen this picker; it now refreshes directly from the server.',
+                                    )}
+                                </p>
+                            </div>
                         )}
                     </div>
                     <div className="flex justify-end gap-2">
                         <button type="button" className={button} disabled={busy} onClick={() => setProjectsOpen(false)}>
                             {text('إلغاء', 'Cancel')}
                         </button>
-                        <button type="button" className={primary} disabled={busy} onClick={saveProjects}>
+                        <button
+                            type="button"
+                            className={primary}
+                            disabled={busy || projectsLoading || ! projectOptions.length}
+                            onClick={saveProjects}
+                        >
                             {busy ? text('جارٍ الحفظ…', 'Saving…') : text('حفظ الربط', 'Save links')}
                         </button>
                     </div>
