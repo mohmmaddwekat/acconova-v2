@@ -399,6 +399,14 @@ function StaffWorkspace() {
         );
 
     const [
+        linkedUserId,
+        setLinkedUserId,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
         busy,
         setBusy,
     ] =
@@ -489,6 +497,33 @@ function StaffWorkspace() {
             'new'
             ? edit
             : null;
+
+    useEffect(
+        () => {
+            if (
+                edit
+                && edit !==
+                    'new'
+                && edit.user_id !==
+                    null
+            ) {
+                setLinkedUserId(
+                    String(
+                        edit.user_id,
+                    ),
+                );
+
+                return;
+            }
+
+            setLinkedUserId(
+                '',
+            );
+        },
+        [
+            edit,
+        ],
+    );
 
     const selectedDepartment =
         useMemo(
@@ -3336,9 +3371,17 @@ function StaffWorkspace() {
 
                                 <select
                                     name="user_id"
-                                    defaultValue={
-                                        member?.user_id
-                                        ?? ''
+                                    value={
+                                        linkedUserId
+                                    }
+                                    onChange={(
+                                        event,
+                                    ) =>
+                                        setLinkedUserId(
+                                            event
+                                                .target
+                                                .value,
+                                        )
                                     }
                                     className={
                                         field
@@ -3349,6 +3392,23 @@ function StaffWorkspace() {
                                             ? 'بدون حساب مرتبط'
                                             : 'No linked account'}
                                     </option>
+
+                                    {linkedUserId
+                                        && ! result?.accounts.some(
+                                            (
+                                                account,
+                                            ) =>
+                                                String(
+                                                    account.id,
+                                                ) ===
+                                                linkedUserId,
+                                        ) && (
+                                        <option value={linkedUserId}>
+                                            {ar
+                                                ? 'الحساب المرتبط · جارٍ تحميل بياناته…'
+                                                : 'Linked account · loading details…'}
+                                        </option>
+                                    )}
 
                                     {result?.accounts.map(
                                         (
