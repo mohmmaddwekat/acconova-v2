@@ -2931,16 +2931,207 @@ class TaskManagementController extends Controller
     }
 
     /**
-     * Ensure the current user may manage teams in one department.
+     * Return the team ids visible to the current account.
+     *
+     * null means unrestricted company-wide access.
+     *
+     * @return list<int>|null
+     */
+    private function teamScopeIds(
+        Request $request,
+    ): ?array {
+        $tenant =
+            app(
+                TenantContext::class,
+            );
+
+        $role =
+            $tenant
+                ->role()
+                ->value;
+
+        if (
+            in_array(
+                $role,
+                [
+                    'owner',
+                    'admin',
+                ],
+                true,
+            )
+            || TaskAccess::allowed(
+                'tasks.view_all',
+                $request->user(),
+            )
+        ) {
+            return null;
+        }
+
+        $ids =
+            collect();
+
+        $managedDepartments =
+            StaffController::managedDepartmentIds();
+
+        if ($managedDepartments !== []) {
+            $ids = $ids->merge(
+                TaskTeam::query()
+                    ->whereIn(
+                        'department_id',
+                        $managedDepartments,
+                    )
+                    ->pluck(
+                        'id',
+                    ),
+            );
+        }
+
+        $staff =
+            TaskAccess::currentStaff(
+                $request->user(),
+            );
+
+        if ($staff) {
+            $memberTeams =
+                TaskTeam::query()
+                    ->whereHas(
+                        'members',
+                        fn (
+                            Builder $query,
+                        ) => $query->where(
+                            'staff_members.id',
+                            $staff->id,
+                        ),
+                    )
+                    ->pluck(
+                        'id',
+                    )
+                    ->map(
+                        fn ($id): int => (int) $id,
+                    );
+
+            $ledTeams =
+                TaskTeam::query()
+                    ->where(
+                        'leader_staff_member_id',
+                        $staff->id,
+                    )
+                    ->pluck(
+                        'id',
+                    )
+                    ->map(
+                        fn ($id): int => (int) $id,
+                    );
+
+            $ids =
+                $ids
+                    ->merge(
+                        $memberTeams,
+                    )
+                    ->merge(
+                        $ledTeams,
+                    );
+
+            if (
+                Schema::hasColumn(
+                    'task_teams',
+                    'parent_task_team_id',
+                )
+            ) {
+                foreach (
+                    $ledTeams as $ledTeamId
+                ) {
+                    $ids = $ids->merge(
+                        $this->teamDescendantIds(
+                            $ledTeamId,
+                        ),
+                    );
+                }
+            }
+        }
+
+        return $ids
+            ->map(
+                fn ($id): int => (int) $id,
+            )
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Return every descendant id below one team.
+     *
+     * @return list<int>
+     */
+    private function teamDescendantIds(
+        int $teamId,
+    ): array {
+        if (
+            ! Schema::hasColumn(
+                'task_teams',
+                'parent_task_team_id',
+            )
+        ) {
+            return [];
+        }
+
+        $descendants = [];
+        $frontier = [
+            $teamId,
+        ];
+
+        while ($frontier !== []) {
+            $children =
+                TaskTeam::query()
+                    ->whereIn(
+                        'parent_task_team_id',
+                        $frontier,
+                    )
+                    ->pluck(
+                        'id',
+                    )
+                    ->map(
+                        fn ($id): int => (int) $id,
+                    )
+                    ->all();
+
+            $children =
+                array_values(
+                    array_diff(
+                        $children,
+                        $descendants,
+                    ),
+                );
+
+            if ($children === []) {
+                break;
+            }
+
+            $descendants =
+                array_values(
+                    array_unique([
+                        ...$descendants,
+                        ...$children,
+                    ]),
+                );
+
+            $frontier =
+                $children;
+        }
+
+        return $descendants;
+    }
+
+    /**
+     * Ensure the current account may create or move a top-level team in a
+     * department. Team leaders may create descendants below teams they lead,
+     * but cannot create arbitrary top-level teams.
      */
     private function authorizeTeamDepartment(
         int $departmentId,
+        Request $request,
     ): void {
-        abort_unless(
-            TaskAccess::canViewTeam(),
-            403,
-        );
-
         $role =
             app(
                 TenantContext::class,
@@ -2957,6 +3148,10 @@ class TaskManagementController extends Controller
                 ],
                 true,
             )
+            || TaskAccess::allowed(
+                'tasks.view_all',
+                $request->user(),
+            )
         ) {
             return;
         }
@@ -2972,6 +3167,100 @@ class TaskManagementController extends Controller
     }
 
     /**
+     * Authorize one granular action and ensure the team is inside the caller's
+     * hierarchy scope. teams.subteams.manage works as an umbrella for editing
+     * descendant team content, while move/archive remain explicit permissions.
+     */
+    private function authorizeTeamAction(
+        TaskTeam $team,
+        string $permission,
+        Request $request,
+    ): void {
+        $allowed =
+            TaskAccess::allowed(
+                $permission,
+                $request->user(),
+            );
+
+        if (
+            ! $allowed
+            && $team->parent_task_team_id !== null
+            && in_array(
+                $permission,
+                [
+                    'teams.update',
+                    'teams.members.manage',
+                    'teams.lead.manage',
+                    'teams.projects.manage',
+                ],
+                true,
+            )
+        ) {
+            $allowed =
+                TaskAccess::allowed(
+                    'teams.subteams.manage',
+                    $request->user(),
+                );
+        }
+
+        abort_unless(
+            $allowed,
+            403,
+        );
+
+        $scopeIds =
+            $this->teamScopeIds(
+                $request,
+            );
+
+        abort_unless(
+            $scopeIds === null
+            || in_array(
+                (int) $team->id,
+                $scopeIds,
+                true,
+            ),
+            403,
+        );
+    }
+
+    /**
+     * Reload one team with the relations needed by the browser.
+     */
+    private function freshTeam(
+        TaskTeam $team,
+    ): TaskTeam {
+        $relations = [
+            'department:id,name',
+            'leader:id,name,job_title',
+            'members:id,name,job_title,department_id,user_id',
+            'projects:id,name,description,accent',
+        ];
+
+        if (
+            Schema::hasColumn(
+                'task_teams',
+                'parent_task_team_id',
+            )
+        ) {
+            $relations[] =
+                'parent:id,name';
+
+            return $team
+                ->fresh(
+                    $relations,
+                )
+                ->loadCount(
+                    'children',
+                );
+        }
+
+        return $team->fresh(
+            $relations,
+        );
+    }
+
+    /**
      * Serialize one persisted team for the Task Management browser surface.
      *
      * @return array<string, mixed>
@@ -2979,6 +3268,12 @@ class TaskManagementController extends Controller
     private function serializeTeam(
         TaskTeam $team,
     ): array {
+        $hierarchyReady =
+            Schema::hasColumn(
+                'task_teams',
+                'parent_task_team_id',
+            );
+
         return [
             'id' => (int) $team->id,
 
@@ -2989,6 +3284,22 @@ class TaskManagementController extends Controller
             'department_id' => (int) $team->department_id,
 
             'department' => $team->department?->name,
+
+            'parent_team_id' => $hierarchyReady
+                && $team->parent_task_team_id !== null
+                    ? (int) $team->parent_task_team_id
+                    : null,
+
+            'parent_team_name' => $hierarchyReady
+                ? $team->parent?->name
+                : null,
+
+            'child_count' => $hierarchyReady
+                ? (int) (
+                    $team->children_count
+                    ?? 0
+                )
+                : 0,
 
             'leader_id' => $team->leader_staff_member_id !== null
                 ? (int) $team->leader_staff_member_id
