@@ -22,6 +22,9 @@ Route::middleware(['auth', 'verified', ResolveOrganization::class])->group(funct
         Route::post('/tasks', [TaskManagementController::class, 'store'])->middleware('throttle:30,1');
         Route::post('/projects', [TaskManagementController::class, 'storeProject'])->middleware('throttle:30,1');
         Route::post('/teams', [TaskManagementController::class, 'storeTeam'])->middleware('throttle:20,1');
+        Route::patch('/teams/{team}', [TaskManagementController::class, 'updateTeam'])->whereNumber('team')->middleware('throttle:60,1');
+        Route::post('/teams/{team}/transfer-member', [TaskManagementController::class, 'transferTeamMember'])->whereNumber('team')->middleware('throttle:30,1');
+        Route::delete('/teams/{team}', [TaskManagementController::class, 'destroyTeam'])->whereNumber('team')->middleware('throttle:20,1');
         Route::get('/tasks/{task}', [TaskManagementController::class, 'show'])->whereNumber('task');
         Route::patch('/tasks/{task}', [TaskManagementController::class, 'update'])->whereNumber('task')->middleware('throttle:60,1');
         Route::delete('/tasks/{task}', [TaskManagementController::class, 'destroy'])->whereNumber('task');

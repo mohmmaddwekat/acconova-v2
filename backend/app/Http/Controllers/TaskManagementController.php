@@ -1599,6 +1599,518 @@ class TaskManagementController extends Controller
     }
 
     /**
+     * Update a persisted task team and its member/project assignments.
+     */
+    public function updateTeam(
+        Request $request,
+        string $team,
+    ): JsonResponse {
+        abort_unless(
+            Schema::hasTable('task_teams')
+            && Schema::hasTable('task_team_members')
+            && Schema::hasTable('task_team_projects'),
+            503,
+        );
+
+        $item =
+            TaskTeam::query()
+                ->with([
+                    'members:id',
+                    'projects:id',
+                ])
+                ->findOrFail(
+                    $team,
+                );
+
+        $this->authorizeTeamDepartment(
+            (int) $item->department_id,
+        );
+
+        $tenant =
+            app(
+                TenantContext::class,
+            );
+
+        $data =
+            $request->validate([
+                'name' => [
+                    'sometimes',
+                    'required',
+                    'string',
+                    'max:160',
+
+                    Rule::unique(
+                        'task_teams',
+                        'name',
+                    )
+                        ->ignore(
+                            $item->id,
+                        )
+                        ->where(
+                            'organization_id',
+                            $tenant->id(),
+                        )
+                        ->where(
+                            'department_id',
+                            $item->department_id,
+                        )
+                        ->whereNull(
+                            'deleted_at',
+                        ),
+                ],
+
+                'description' => [
+                    'sometimes',
+                    'nullable',
+                    'string',
+                    'max:3000',
+                ],
+
+                'leader_id' => [
+                    'sometimes',
+                    'required',
+                    'integer',
+
+                    Rule::exists(
+                        'staff_members',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    ),
+                ],
+
+                'capacity' => [
+                    'sometimes',
+                    'required',
+                    'integer',
+                    'min:1',
+                    'max:100',
+                ],
+
+                'priority' => [
+                    'sometimes',
+                    'required',
+
+                    Rule::in([
+                        'low',
+                        'medium',
+                        'high',
+                    ]),
+                ],
+
+                'member_ids' => [
+                    'sometimes',
+                    'array',
+                    'min:1',
+                    'max:100',
+                ],
+
+                'member_ids.*' => [
+                    'integer',
+                    'distinct',
+
+                    Rule::exists(
+                        'staff_members',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    ),
+                ],
+
+                'project_ids' => [
+                    'sometimes',
+                    'array',
+                    'max:100',
+                ],
+
+                'project_ids.*' => [
+                    'integer',
+                    'distinct',
+
+                    Rule::exists(
+                        'task_projects',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    ),
+                ],
+            ]);
+
+        $memberIds =
+            collect(
+                array_key_exists(
+                    'member_ids',
+                    $data,
+                )
+                    ? $data['member_ids']
+                    : $item
+                        ->members
+                        ->pluck(
+                            'id',
+                        )
+                        ->all(),
+            )
+                ->map(
+                    fn ($id): int => (int) $id,
+                )
+                ->unique()
+                ->values();
+
+        $leaderId =
+            array_key_exists(
+                'leader_id',
+                $data,
+            )
+                ? (int) $data['leader_id']
+                : (int) $item->leader_staff_member_id;
+
+        $capacity =
+            array_key_exists(
+                'capacity',
+                $data,
+            )
+                ? (int) $data['capacity']
+                : (int) $item->capacity;
+
+        abort_unless(
+            $leaderId > 0
+            && $memberIds->contains(
+                $leaderId,
+            ),
+            422,
+            'The team lead must remain a member of the team.',
+        );
+
+        abort_if(
+            $memberIds->count() >
+                $capacity,
+            422,
+            'Team capacity cannot be lower than the number of selected members.',
+        );
+
+        $validMembers =
+            StaffMember::query()
+                ->where(
+                    'active',
+                    true,
+                )
+                ->where(
+                    'department_id',
+                    $item->department_id,
+                )
+                ->whereIn(
+                    'id',
+                    $memberIds,
+                )
+                ->count();
+
+        abort_unless(
+            $validMembers ===
+                $memberIds->count(),
+            422,
+            'All team members must be active employees in the team department.',
+        );
+
+        $projectIds =
+            collect(
+                array_key_exists(
+                    'project_ids',
+                    $data,
+                )
+                    ? $data['project_ids']
+                    : $item
+                        ->projects
+                        ->pluck(
+                            'id',
+                        )
+                        ->all(),
+            )
+                ->map(
+                    fn ($id): int => (int) $id,
+                )
+                ->unique()
+                ->values();
+
+        DB::transaction(
+            function () use (
+                $item,
+                $data,
+                $tenant,
+                $leaderId,
+                $capacity,
+                $memberIds,
+                $projectIds,
+            ): void {
+                $payload = [];
+
+                foreach (
+                    [
+                        'name',
+                        'description',
+                        'priority',
+                    ] as $field
+                ) {
+                    if (
+                        array_key_exists(
+                            $field,
+                            $data,
+                        )
+                    ) {
+                        $payload[$field] =
+                            $field ===
+                                'name'
+                                ? trim(
+                                    $data[$field],
+                                )
+                                : $data[$field];
+                    }
+                }
+
+                $payload['leader_staff_member_id'] =
+                    $leaderId;
+
+                $payload['capacity'] =
+                    $capacity;
+
+                $item->update(
+                    $payload,
+                );
+
+                if (
+                    array_key_exists(
+                        'member_ids',
+                        $data,
+                    )
+                    || array_key_exists(
+                        'leader_id',
+                        $data,
+                    )
+                ) {
+                    $item
+                        ->members()
+                        ->sync(
+                            $memberIds
+                                ->mapWithKeys(
+                                    fn (int $id): array => [
+                                        $id => [
+                                            'organization_id' => $tenant->id(),
+                                        ],
+                                    ],
+                                )
+                                ->all(),
+                        );
+                }
+
+                if (
+                    array_key_exists(
+                        'project_ids',
+                        $data,
+                    )
+                ) {
+                    $item
+                        ->projects()
+                        ->sync(
+                            $projectIds
+                                ->mapWithKeys(
+                                    fn (int $id): array => [
+                                        $id => [
+                                            'organization_id' => $tenant->id(),
+                                        ],
+                                    ],
+                                )
+                                ->all(),
+                        );
+                }
+            },
+            3,
+        );
+
+        return response()->json([
+            'team' => $this->serializeTeam(
+                $item->fresh([
+                    'department:id,name',
+                    'leader:id,name,job_title',
+                    'members:id,name,job_title,department_id,user_id',
+                    'projects:id,name,description,accent',
+                ]),
+            ),
+        ]);
+    }
+
+    /**
+     * Move one non-lead member between teams in the same department.
+     */
+    public function transferTeamMember(
+        Request $request,
+        string $team,
+    ): JsonResponse {
+        $source =
+            TaskTeam::query()
+                ->with([
+                    'members:id',
+                ])
+                ->findOrFail(
+                    $team,
+                );
+
+        $this->authorizeTeamDepartment(
+            (int) $source->department_id,
+        );
+
+        $tenant =
+            app(
+                TenantContext::class,
+            );
+
+        $data =
+            $request->validate([
+                'staff_member_id' => [
+                    'required',
+                    'integer',
+
+                    Rule::exists(
+                        'staff_members',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    ),
+                ],
+
+                'target_team_id' => [
+                    'required',
+                    'integer',
+
+                    Rule::exists(
+                        'task_teams',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    )->whereNull(
+                        'deleted_at',
+                    ),
+                ],
+            ]);
+
+        $staffId =
+            (int) $data['staff_member_id'];
+
+        abort_if(
+            (int) $source->leader_staff_member_id ===
+                $staffId,
+            422,
+            'Assign another team lead before moving the current lead.',
+        );
+
+        abort_unless(
+            $source
+                ->members
+                ->contains(
+                    'id',
+                    $staffId,
+                ),
+            422,
+            'This employee is not a member of the source team.',
+        );
+
+        abort_if(
+            (int) $data['target_team_id'] ===
+                (int) $source->id,
+            422,
+            'Choose a different target team.',
+        );
+
+        $target =
+            TaskTeam::query()
+                ->withCount(
+                    'members',
+                )
+                ->findOrFail(
+                    (int) $data['target_team_id'],
+                );
+
+        $this->authorizeTeamDepartment(
+            (int) $target->department_id,
+        );
+
+        abort_unless(
+            (int) $target->department_id ===
+                (int) $source->department_id,
+            422,
+            'Members can only move between teams in the same department.',
+        );
+
+        abort_if(
+            $target->members_count >=
+                $target->capacity,
+            422,
+            'The target team has reached its member capacity.',
+        );
+
+        DB::transaction(
+            function () use (
+                $source,
+                $target,
+                $tenant,
+                $staffId,
+            ): void {
+                $source
+                    ->members()
+                    ->detach(
+                        $staffId,
+                    );
+
+                $target
+                    ->members()
+                    ->syncWithoutDetaching([
+                        $staffId => [
+                            'organization_id' => $tenant->id(),
+                        ],
+                    ]);
+            },
+            3,
+        );
+
+        return response()->json([
+            'transferred' => true,
+        ]);
+    }
+
+    /**
+     * Archive a task team while keeping its history recoverable.
+     */
+    public function destroyTeam(
+        Request $request,
+        string $team,
+    ): JsonResponse {
+        abort_unless(
+            Schema::hasTable(
+                'task_teams',
+            ),
+            503,
+        );
+
+        $item =
+            TaskTeam::findOrFail(
+                $team,
+            );
+
+        $this->authorizeTeamDepartment(
+            (int) $item->department_id,
+        );
+
+        $item->delete();
+
+        return response()->json([
+            'archived' => true,
+        ]);
+    }
+
+    /**
      * Return department summary cards and performance totals.
      */
     public function departmentsSummary(
@@ -2018,6 +2530,8 @@ class TaskManagementController extends Controller
 
                         'name' => $member->name,
 
+                        'email' => $member->email,
+
                         'job_title' => $member->job_title,
 
                         'department' => $member->department,
@@ -2214,6 +2728,47 @@ class TaskManagementController extends Controller
                 $request,
             ),
         ]);
+    }
+
+    /**
+     * Ensure the current user may manage teams in one department.
+     */
+    private function authorizeTeamDepartment(
+        int $departmentId,
+    ): void {
+        abort_unless(
+            TaskAccess::canViewTeam(),
+            403,
+        );
+
+        $role =
+            app(
+                TenantContext::class,
+            )
+                ->role()
+                ->value;
+
+        if (
+            in_array(
+                $role,
+                [
+                    'owner',
+                    'admin',
+                ],
+                true,
+            )
+        ) {
+            return;
+        }
+
+        abort_unless(
+            in_array(
+                $departmentId,
+                StaffController::managedDepartmentIds(),
+                true,
+            ),
+            403,
+        );
     }
 
     /**
