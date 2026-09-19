@@ -190,7 +190,6 @@ class StaffImportController extends Controller
         $errors = [];
 
         DB::transaction(function () use (
-            $request,
             $rows,
             $mapping,
             $currency,
@@ -229,7 +228,7 @@ class StaffImportController extends Controller
                         : null;
 
                     if ($existing && $duplicateStrategy === 'skip') {
-                        ++$skipped;
+                        $skipped += 1;
 
                         continue;
                     }
@@ -271,13 +270,13 @@ class StaffImportController extends Controller
 
                     if ($existing) {
                         $existing->update($payload);
-                        ++$updated;
+                        $updated += 1;
                     } else {
                         StaffMember::create($payload);
-                        ++$created;
+                        $created += 1;
                     }
                 } catch (Throwable $exception) {
-                    ++$skipped;
+                    $skipped += 1;
                     $this->pushError($errors, $index + 2, $exception->getMessage());
                 }
             }
@@ -344,7 +343,7 @@ class StaffImportController extends Controller
                         ->first();
 
                     if ($existing && $strategy === 'skip') {
-                        ++$skipped;
+                        $skipped += 1;
 
                         continue;
                     }
@@ -370,14 +369,14 @@ class StaffImportController extends Controller
 
                     if ($existing) {
                         DB::table('staff_attendances')->where('id', $existing->id)->update($payload);
-                        ++$updated;
+                        $updated += 1;
                     } else {
                         $payload['created_at'] = now();
                         DB::table('staff_attendances')->insert($payload);
-                        ++$created;
+                        $created += 1;
                     }
                 } catch (Throwable $exception) {
-                    ++$skipped;
+                    $skipped += 1;
                     $this->pushError($errors, $index + 2, $exception->getMessage());
                 }
             }
@@ -459,7 +458,7 @@ class StaffImportController extends Controller
                         ->exists();
 
                     if ($duplicate) {
-                        ++$skipped;
+                        $skipped += 1;
 
                         continue;
                     }
@@ -483,9 +482,9 @@ class StaffImportController extends Controller
                         ],
                     ]);
 
-                    ++$created;
+                    $created += 1;
                 } catch (Throwable $exception) {
-                    ++$skipped;
+                    $skipped += 1;
                     $this->pushError($errors, $index + 2, $exception->getMessage());
                 }
             }
