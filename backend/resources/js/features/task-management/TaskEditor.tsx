@@ -432,6 +432,7 @@ export function TaskEditor({
                                         {text('المشروع', 'Project')}
                                         <select
                                             className={input}
+                                            required
                                             value={draft.project_id ?? ''}
                                             onChange={(event) => field(
                                                 'project_id',
@@ -440,8 +441,8 @@ export function TaskEditor({
                                                     : null,
                                             )}
                                         >
-                                            <option value="">
-                                                {text('بدون مشروع', 'No project')}
+                                            <option value="" disabled>
+                                                {text('اختر مشروعًا', 'Choose a project')}
                                             </option>
                                             {data.projects.map((project) => (
                                                 <option
@@ -582,6 +583,7 @@ export function TaskEditor({
                                         <input
                                             className={input}
                                             type="date"
+                                            required
                                             value={draft.starts_on ?? ''}
                                             onChange={(event) => field(
                                                 'starts_on',
@@ -595,6 +597,7 @@ export function TaskEditor({
                                         <input
                                             className={input}
                                             type="date"
+                                            required
                                             min={draft.starts_on ?? undefined}
                                             value={draft.due_on ?? ''}
                                             onChange={(event) => field(
@@ -609,15 +612,24 @@ export function TaskEditor({
                                         <input
                                             className={input}
                                             type="number"
-                                            min={0}
+                                            required
+                                            min={0.25}
                                             max={10000}
                                             step="0.25"
-                                            value={draft.estimated_hours}
+                                            value={draft.estimated_hours || ''}
                                             onChange={(event) => field(
                                                 'estimated_hours',
-                                                Math.max(0, Number(event.target.value)),
+                                                event.target.value
+                                                    ? Math.max(0, Number(event.target.value))
+                                                    : 0,
                                             )}
                                         />
+                                        <span className="text-[9px] font-normal text-slate-400">
+                                            {text(
+                                                'مطلوب ويجب أن يكون أكبر من صفر.',
+                                                'Required and must be greater than zero.',
+                                            )}
+                                        </span>
                                     </label>
                                 </div>
                             </Panel>
