@@ -291,6 +291,13 @@ class StaffController extends Controller
                         '1',
                     ]),
                 ],
+
+                'per_page' => [
+                    'nullable',
+                    'integer',
+                    'min:20',
+                    'max:100',
+                ],
             ]);
 
         if (
@@ -367,7 +374,10 @@ class StaffController extends Controller
                     'name',
                 )
                 ->paginate(
-                    30,
+                    (int) (
+                        $filters['per_page']
+                        ?? 50
+                    ),
                 ),
 
             'can_invite' => app(
@@ -400,6 +410,10 @@ class StaffController extends Controller
                 || self::allowed(
                     'staff.team_pay',
                 ),
+
+            'can_import' => self::allowed(
+                'staff.import',
+            ),
 
             'currency' => app(
                 TenantContext::class,
