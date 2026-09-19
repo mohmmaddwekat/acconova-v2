@@ -180,6 +180,7 @@ export default function TaskManagement() {
             taskView: TaskView;
             taskId: number | null;
             teamId: number | null;
+            taskPermissions: string[];
         }
     >();
 
@@ -189,6 +190,7 @@ export default function TaskManagement() {
             view={page.props.taskView}
             taskId={page.props.taskId}
             teamId={page.props.teamId}
+            taskPermissions={page.props.taskPermissions}
         />
     );
 }
@@ -200,10 +202,12 @@ function TaskWorkspace({
     view,
     taskId,
     teamId,
+    taskPermissions,
 }: {
     view: TaskView;
     taskId: number | null;
     teamId: number | null;
+    taskPermissions: string[];
 }) {
     const ar = useLocale() === 'ar';
     const page = usePage<AppPageProps>();
@@ -237,7 +241,7 @@ function TaskWorkspace({
         ar ? arabic : english
     );
 
-    const permissions = data?.permissions ?? [];
+    const permissions = data?.permissions ?? taskPermissions;
     const canViewFullTeam = permissions.includes('tasks.view_all');
     const effectiveTeamSection: TeamSection = (
         teamSection === 'active'
