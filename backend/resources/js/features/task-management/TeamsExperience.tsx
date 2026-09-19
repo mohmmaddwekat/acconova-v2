@@ -236,6 +236,54 @@ function buildTeams(
     });
 }
 
+function canManageTeam(
+    team: UiTeam,
+    permissions: string[],
+    permission: string,
+): boolean {
+    if (permissions.includes(permission)) {
+        return true;
+    }
+
+    return (
+        team.parentTeamId !== null
+        && permissions.includes('teams.subteams.manage')
+        && [
+            'teams.update',
+            'teams.members.manage',
+            'teams.lead.manage',
+            'teams.projects.manage',
+        ].includes(permission)
+    );
+}
+
+function collectDescendantIds(
+    teams: UiTeam[],
+    teamId: number,
+): number[] {
+    const descendants: number[] = [];
+    let frontier = [teamId];
+
+    while (frontier.length) {
+        const children = teams
+            .filter((team: UiTeam) => (
+                team.parentTeamId !== null
+                && frontier.includes(team.parentTeamId)
+            ))
+            .map((team: UiTeam) => team.id)
+            .filter((id: number) => ! descendants.includes(id));
+
+        if (! children.length) {
+            break;
+        }
+
+        descendants.push(...children);
+        frontier = children;
+    }
+
+    return descendants;
+}
+
 function MissingTeam({
     ar,
 }: {
