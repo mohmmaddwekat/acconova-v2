@@ -396,4 +396,184 @@ class TaskManagementTest extends TestCase
             );
         }
     }
+
+    public function test_task_creation_requires_project_dates_and_positive_planned_time(): void
+    {
+        $this->workspace();
+
+        $this
+            ->postJson(
+                '/api/task-management/tasks',
+                [
+                    'title' => 'Incomplete task',
+                    'project_id' => null,
+                    'status' => 'idea',
+                    'priority' => 'medium',
+                    'assignees' => [],
+                    'checklist' => [],
+                    'tags' => [],
+                    'progress' => 0,
+                    'starts_on' => null,
+                    'due_on' => null,
+                    'estimated_hours' => 0,
+                    'visibility' => 'workspace',
+                ],
+            )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'task_project_id',
+                'starts_on',
+                'due_on',
+                'estimated_minutes',
+            ]);
+
+        $projectId =
+            $this
+                ->postJson(
+                    '/api/task-management/projects',
+                    [
+                        'name' => 'Required planning project',
+                        'color' => 'blue',
+                    ],
+                )
+                ->assertCreated()
+                ->json(
+                    'project.id',
+                );
+
+        $this
+            ->postJson(
+                '/api/task-management/tasks',
+                [
+                    'title' => 'Fully planned task',
+                    'project_id' => $projectId,
+                    'status' => 'idea',
+                    'priority' => 'medium',
+                    'assignees' => [],
+                    'checklist' => [],
+                    'tags' => [],
+                    'progress' => 0,
+                    'starts_on' => '2026-09-20',
+                    'due_on' => '2026-09-22',
+                    'estimated_hours' => 1.5,
+                    'visibility' => 'workspace',
+                ],
+            )
+            ->assertCreated()
+            ->assertJsonPath(
+                'task.project_id',
+                $projectId,
+            )
+            ->assertJsonPath(
+                'task.estimated_hours',
+                1.5,
+            );
+    }
+
+    public function test_owner_can_edit_and_delete_projects_with_dependency_protection(): void
+    {
+        $this->workspace();
+
+        $emptyProject =
+            $this
+                ->postJson(
+                    '/api/task-management/projects',
+                    [
+                        'name' => 'Temporary project',
+                        'description' => 'Before edit',
+                        'color' => 'blue',
+                    ],
+                )
+                ->assertCreated()
+                ->json(
+                    'project.id',
+                );
+
+        $this
+            ->patchJson(
+                '/api/task-management/projects/'.$emptyProject,
+                [
+                    'name' => 'Edited project',
+                    'description' => 'After edit',
+                    'color' => 'green',
+                    'starts_on' => '2026-09-20',
+                    'due_on' => '2026-09-30',
+                ],
+            )
+            ->assertOk()
+            ->assertJsonPath(
+                'project.name',
+                'Edited project',
+            )
+            ->assertJsonPath(
+                'project.color',
+                'green',
+            );
+
+        $this
+            ->deleteJson(
+                '/api/task-management/projects/'.$emptyProject,
+            )
+            ->assertOk()
+            ->assertJsonPath(
+                'deleted',
+                true,
+            );
+
+        $this->assertSoftDeleted(
+            'task_projects',
+            [
+                'id' => $emptyProject,
+            ],
+        );
+
+        $linkedProject =
+            $this
+                ->postJson(
+                    '/api/task-management/projects',
+                    [
+                        'name' => 'Linked project',
+                        'color' => 'purple',
+                    ],
+                )
+                ->assertCreated()
+                ->json(
+                    'project.id',
+                );
+
+        $this
+            ->postJson(
+                '/api/task-management/tasks',
+                [
+                    'title' => 'Linked task',
+                    'project_id' => $linkedProject,
+                    'status' => 'idea',
+                    'priority' => 'medium',
+                    'assignees' => [],
+                    'checklist' => [],
+                    'tags' => [],
+                    'progress' => 0,
+                    'starts_on' => '2026-09-20',
+                    'due_on' => '2026-09-21',
+                    'estimated_hours' => 2,
+                    'visibility' => 'workspace',
+                ],
+            )
+            ->assertCreated();
+
+        $this
+            ->deleteJson(
+                '/api/task-management/projects/'.$linkedProject,
+            )
+            ->assertUnprocessable();
+
+        $this->assertDatabaseHas(
+            'task_projects',
+            [
+                'id' => $linkedProject,
+                'deleted_at' => null,
+            ],
+        );
+    }
+
 }
