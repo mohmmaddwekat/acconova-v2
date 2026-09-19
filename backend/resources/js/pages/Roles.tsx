@@ -2530,6 +2530,38 @@ function RoleWorkspace() {
                                                         </div>
 
                                                         {group.key ===
+                                                            'teams' && (
+                                                            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {ar ? 'نطاق القسم' : 'Department scope'}
+                                                                    </strong>
+                                                                    {ar
+                                                                        ? 'مدير القسم يدير الفرق الموجودة داخل قسمه فقط.'
+                                                                        : 'Department managers act only on teams inside their department.'}
+                                                                </div>
+
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {ar ? 'نطاق قائد الفريق' : 'Team lead scope'}
+                                                                    </strong>
+                                                                    {ar
+                                                                        ? 'قائد الفريق يرى فريقه والفرق المتفرعة تحته ضمن الصلاحيات الممنوحة.'
+                                                                        : 'A team lead is scoped to their team and descendant teams.'}
+                                                                </div>
+
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {ar ? 'الشركة كاملة' : 'Company-wide'}
+                                                                    </strong>
+                                                                    {ar
+                                                                        ? 'المالك والإدارة العليا يمكنهم العمل على كامل شجرة الفرق.'
+                                                                        : 'Owner and company-wide authority can manage the full team tree.'}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {group.key ===
                                                             'staff' && (
                                                             <div className="mt-4 grid gap-2 sm:grid-cols-2">
                                                                 <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
