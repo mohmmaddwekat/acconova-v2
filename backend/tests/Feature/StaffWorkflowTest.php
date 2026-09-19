@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\OrganizationRole;
 use App\Models\Department;
 use App\Models\Organization;
+use App\Models\StaffMember;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
