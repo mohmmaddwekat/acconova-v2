@@ -30,6 +30,7 @@ import {
     ArrowRight,
     CalendarDays,
     CircleDollarSign,
+    FileSpreadsheet,
     History,
     MessageSquareText,
     Pencil,
@@ -60,6 +61,7 @@ type Staff = {
     name: string;
     job_title: string | null;
     phone: string | null;
+    email: string | null;
     user_id: number | null;
     basis: PayBasis;
     unit: string | null;
@@ -133,6 +135,7 @@ type StaffIndex = {
     }[];
     can_manage: boolean;
     can_pay: boolean;
+    can_import: boolean;
     can_view: boolean;
     currency: string;
     departments: {
@@ -550,7 +553,7 @@ function StaffWorkspace() {
                 window.setTimeout(
                     () => {
                         apiRequest<StaffIndex>(
-                            `/api/staff?page=${page}&search=${encodeURIComponent(
+                            `/api/staff?page=${page}&per_page=50&search=${encodeURIComponent(
                                 search,
                             )}&department_id=${department}&basis=${basisFilter}&active=${activeFilter}&include_accounts=${isEditing ? 1 : 0}`,
                             {
@@ -1282,6 +1285,25 @@ function StaffWorkspace() {
                                 }
                             </Link>
 
+                            {result?.can_import && (
+                                <Link
+                                    href="/app/staff/import"
+                                    className={
+                                        button
+                                    }
+                                >
+                                    <FileSpreadsheet
+                                        size={
+                                            15
+                                        }
+                                    />
+
+                                    {ar
+                                        ? 'استيراد Excel / CSV'
+                                        : 'Import Excel / CSV'}
+                                </Link>
+                            )}
+
                             {result?.can_manage && (
                                 <button
                                     type="button"
@@ -1561,142 +1583,204 @@ function StaffWorkspace() {
                                 …
                             </div>
                         ) : (
-                            <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-                                {result?.data.data.map(
-                                    (
-                                        employee,
-                                    ) => {
-                                        const employeeDepartment =
-                                            result.departments.find(
-                                                (
-                                                    item,
-                                                ) =>
-                                                    item.id ===
-                                                    employee.department_id,
-                                            );
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[980px] text-start text-xs">
+                                    <thead className="bg-[var(--ac-surface-soft)] text-[10px] text-[var(--ac-text-muted)]">
+                                        <tr>
+                                            <th className="px-5 py-3 text-start">
+                                                {ar ? 'الموظف' : 'Employee'}
+                                            </th>
+                                            <th className="px-5 py-3 text-start">
+                                                {c.department}
+                                            </th>
+                                            <th className="px-5 py-3 text-start">
+                                                {ar ? 'التواصل' : 'Contact'}
+                                            </th>
+                                            <th className="px-5 py-3 text-start">
+                                                {c.basis}
+                                            </th>
+                                            <th className="px-5 py-3 text-start">
+                                                {c.balance}
+                                            </th>
+                                            <th className="px-5 py-3 text-start">
+                                                {c.status}
+                                            </th>
+                                            <th className="px-5 py-3 text-end">
+                                                {ar ? 'فتح' : 'Open'}
+                                            </th>
+                                        </tr>
+                                    </thead>
 
-                                        return (
-                                            <button
-                                                type="button"
-                                                key={
-                                                    employee.id
-                                                }
-                                                onClick={() =>
-                                                    openEmployee(
-                                                        employee,
-                                                    )
-                                                }
-                                                className="group rounded-[20px] border border-[var(--ac-line)] bg-white p-4 text-start transition hover:-translate-y-0.5 hover:border-[var(--ac-line-strong)] hover:shadow-[var(--ac-shadow-soft)]"
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex min-w-0 items-center gap-3">
-                                                        <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-accent-soft)] text-sm font-bold text-[var(--ac-accent-strong)]">
-                                                            {employee.name
-                                                                .trim()
-                                                                .charAt(
-                                                                    0,
-                                                                )
-                                                                .toUpperCase()}
-                                                        </div>
+                                    <tbody className="divide-y divide-[var(--ac-line)]">
+                                        {result?.data.data.map(
+                                            (
+                                                employee,
+                                            ) => {
+                                                const employeeDepartment =
+                                                    result.departments.find(
+                                                        (
+                                                            item,
+                                                        ) =>
+                                                            item.id ===
+                                                            employee.department_id,
+                                                    );
 
-                                                        <div className="min-w-0">
-                                                            <strong className="block truncate text-sm">
-                                                                {
-                                                                    employee.name
-                                                                }
-                                                            </strong>
-
-                                                            <p className="mt-1 truncate text-xs text-[var(--ac-text-muted)]">
-                                                                {employee.job_title
-                                                                    ?? '—'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    {ar ? (
-                                                        <ArrowLeft
-                                                            size={
-                                                                16
-                                                            }
-                                                            className="text-[var(--ac-text-muted)] transition group-hover:-translate-x-1"
-                                                        />
-                                                    ) : (
-                                                        <ArrowRight
-                                                            size={
-                                                                16
-                                                            }
-                                                            className="text-[var(--ac-text-muted)] transition group-hover:translate-x-1"
-                                                        />
-                                                    )}
-                                                </div>
-
-                                                <div className="mt-4 grid grid-cols-2 gap-2">
-                                                    <div className="rounded-xl bg-[var(--ac-surface-soft)] p-3">
-                                                        <p className="text-[10px] text-[var(--ac-text-muted)]">
-                                                            {
-                                                                c.department
-                                                            }
-                                                        </p>
-
-                                                        <p className="mt-1 truncate text-xs font-semibold">
-                                                            {employeeDepartment?.name
-                                                                ?? '—'}
-                                                        </p>
-                                                    </div>
-
-                                                    <div className="rounded-xl bg-[var(--ac-surface-soft)] p-3">
-                                                        <p className="text-[10px] text-[var(--ac-text-muted)]">
-                                                            {
-                                                                c.balance
-                                                            }
-                                                        </p>
-
-                                                        <bdi className="mt-1 block truncate text-xs font-semibold">
-                                                            {money(
-                                                                employee.balance
-                                                                ?? '0',
-                                                                employee.currency,
-                                                            )}
-                                                        </bdi>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-3 flex items-center justify-between gap-3">
-                                                    <span
-                                                        className={[
-                                                            'rounded-full px-2.5 py-1 text-[10px] font-semibold',
-                                                            employee.active
-                                                                ? 'bg-emerald-50 text-emerald-700'
-                                                                : 'bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]',
-                                                        ].join(
-                                                            ' ',
-                                                        )}
-                                                    >
-                                                        {employee.active
-                                                            ? c.active
-                                                            : c.inactive}
-                                                    </span>
-
-                                                    <span className="text-[10px] text-[var(--ac-text-muted)]">
-                                                        {
-                                                            c[
-                                                                employee.basis
-                                                            ]
+                                                return (
+                                                    <tr
+                                                        key={
+                                                            employee.id
                                                         }
-                                                    </span>
-                                                </div>
-                                            </button>
-                                        );
-                                    },
-                                )}
+                                                        className="transition hover:bg-[var(--ac-surface-soft)]"
+                                                    >
+                                                        <td className="px-5 py-3.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    openEmployee(
+                                                                        employee,
+                                                                    )
+                                                                }
+                                                                className="flex min-w-0 items-center gap-3 text-start"
+                                                            >
+                                                                <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-accent-soft)] text-xs font-bold text-[var(--ac-accent-strong)]">
+                                                                    {employee.name
+                                                                        .trim()
+                                                                        .charAt(
+                                                                            0,
+                                                                        )
+                                                                        .toUpperCase()}
+                                                                </span>
 
-                                {! result?.data.data.length && (
-                                    <div className="col-span-full p-10 text-center text-sm text-[var(--ac-text-muted)]">
-                                        {
-                                            c.empty
-                                        }
-                                    </div>
-                                )}
+                                                                <span className="min-w-0">
+                                                                    <strong className="block max-w-52 truncate text-xs">
+                                                                        {
+                                                                            employee.name
+                                                                        }
+                                                                    </strong>
+
+                                                                    <span className="mt-1 block max-w-52 truncate text-[10px] text-[var(--ac-text-muted)]">
+                                                                        {employee.job_title
+                                                                            ?? (ar
+                                                                                ? 'بدون مسمى وظيفي'
+                                                                                : 'No job title')}
+                                                                    </span>
+                                                                </span>
+                                                            </button>
+                                                        </td>
+
+                                                        <td className="px-5 py-3.5">
+                                                            <span className="max-w-40 truncate">
+                                                                {employeeDepartment?.name
+                                                                    ?? '—'}
+                                                            </span>
+                                                        </td>
+
+                                                        <td className="px-5 py-3.5">
+                                                            <div className="max-w-52">
+                                                                <span className="block truncate">
+                                                                    {employee.phone
+                                                                        ?? '—'}
+                                                                </span>
+
+                                                                {employee.email && (
+                                                                    <span className="mt-1 block truncate text-[10px] text-[var(--ac-text-muted)]">
+                                                                        {
+                                                                            employee.email
+                                                                        }
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+
+                                                        <td className="px-5 py-3.5">
+                                                            <span className="rounded-full bg-[var(--ac-surface-soft)] px-2.5 py-1 text-[10px]">
+                                                                {
+                                                                    c[
+                                                                        employee.basis
+                                                                    ]
+                                                                }
+                                                            </span>
+                                                        </td>
+
+                                                        <td className="px-5 py-3.5">
+                                                            <bdi className="font-semibold">
+                                                                {money(
+                                                                    employee.balance
+                                                                    ?? '0',
+                                                                    employee.currency,
+                                                                )}
+                                                            </bdi>
+                                                        </td>
+
+                                                        <td className="px-5 py-3.5">
+                                                            <span
+                                                                className={[
+                                                                    'rounded-full px-2.5 py-1 text-[10px] font-semibold',
+                                                                    employee.active
+                                                                        ? 'bg-emerald-50 text-emerald-700'
+                                                                        : 'bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]',
+                                                                ].join(
+                                                                    ' ',
+                                                                )}
+                                                            >
+                                                                {employee.active
+                                                                    ? c.active
+                                                                    : c.inactive}
+                                                            </span>
+                                                        </td>
+
+                                                        <td className="px-5 py-3.5 text-end">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    openEmployee(
+                                                                        employee,
+                                                                    )
+                                                                }
+                                                                className={
+                                                                    button
+                                                                }
+                                                            >
+                                                                {ar
+                                                                    ? 'عرض'
+                                                                    : 'View'}
+
+                                                                {ar ? (
+                                                                    <ArrowLeft
+                                                                        size={
+                                                                            13
+                                                                        }
+                                                                    />
+                                                                ) : (
+                                                                    <ArrowRight
+                                                                        size={
+                                                                            13
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            },
+                                        )}
+
+                                        {! result?.data.data.length && (
+                                            <tr>
+                                                <td
+                                                    colSpan={
+                                                        7
+                                                    }
+                                                    className="p-10 text-center text-sm text-[var(--ac-text-muted)]"
+                                                >
+                                                    {
+                                                        c.empty
+                                                    }
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
 
