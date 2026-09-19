@@ -187,7 +187,6 @@ class StaffWorkflowTest extends TestCase
             );
     }
 
-
     public function test_staff_migration_center_imports_employees_attendance_and_payroll_from_csv(): void
     {
         $this->workspace();
