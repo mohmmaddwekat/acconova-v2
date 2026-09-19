@@ -28,49 +28,26 @@ class TaskManagementController extends Controller
     public function page(
         Request $request,
     ): InertiaResponse {
-        $path = trim(
-            $request->path(),
-            '/',
-        );
-
         $taskId = $request->route(
             'task',
         );
 
-        $view = match (true) {
-            str_ends_with(
-                $path,
-                '/create',
-            ) => 'create',
+        $teamId = $request->route(
+            'team',
+        );
 
-            str_ends_with(
-                $path,
-                '/edit',
-            ) => 'edit',
-
-            str_ends_with(
-                $path,
-                '/projects',
-            ) => 'projects',
-
-            str_ends_with(
-                $path,
-                '/team',
-            ),
-            str_ends_with(
-                $path,
-                '/departments',
-            ) => 'team',
-
-            str_ends_with(
-                $path,
-                '/tasks',
-            ) => 'list',
-
-            $taskId !== null => 'detail',
-
-            default => 'dashboard',
-        };
+        /*
+         * Task routes declare their intended React surface through a route
+         * default. Keeping that decision in the route table makes nested
+         * resources such as teams predictable and avoids fragile URL suffix
+         * matching.
+         */
+        $view = (string) (
+            $request->route(
+                'view',
+            )
+            ?? 'dashboard'
+        );
 
         return Inertia::render(
             'TaskManagement',
@@ -78,6 +55,9 @@ class TaskManagementController extends Controller
                 'taskView' => $view,
                 'taskId' => $taskId !== null
                     ? (int) $taskId
+                    : null,
+                'teamId' => $teamId !== null
+                    ? (int) $teamId
                     : null,
             ],
         );
