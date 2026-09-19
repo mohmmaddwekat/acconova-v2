@@ -7,6 +7,7 @@ use App\Http\Controllers\ProfileCenterController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StaffCorrectionController;
+use App\Http\Controllers\StaffImportController;
 use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\StaffWorkforceController;
 use App\Http\Controllers\WorkspaceConversationController;
@@ -229,6 +230,15 @@ Route::middleware([
     );
 
     Route::get(
+        '/app/staff/import',
+        fn () => Inertia::render(
+            'StaffImport',
+        ),
+    )->name(
+        'app.staff.import',
+    );
+
+    Route::get(
         '/app/departments',
         fn () => Inertia::render(
             'Departments',
@@ -425,6 +435,26 @@ Route::prefix(
                 StaffController::class,
                 'overview',
             ],
+        );
+
+        Route::post(
+            'staff-import/preview',
+            [
+                StaffImportController::class,
+                'preview',
+            ],
+        )->middleware(
+            'throttle:12,1',
+        );
+
+        Route::post(
+            'staff-import/commit',
+            [
+                StaffImportController::class,
+                'commit',
+            ],
+        )->middleware(
+            'throttle:6,1',
         );
 
         Route::post(

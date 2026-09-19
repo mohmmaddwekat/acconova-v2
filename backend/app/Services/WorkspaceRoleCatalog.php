@@ -104,6 +104,7 @@ final class WorkspaceRoleCatalog
                     'staff.view',
                     'staff.manage',
                     'staff.attendance',
+                    'staff.import',
 
                     'teams.view',
                     'teams.create',
@@ -289,6 +290,7 @@ final class WorkspaceRoleCatalog
                     'staff.view',
                     'staff.manage',
                     'staff.attendance',
+                    'staff.import',
                 ],
             ],
 
@@ -303,6 +305,7 @@ final class WorkspaceRoleCatalog
                     'staff.manage',
                     'staff.attendance',
                     'staff.pay',
+                    'staff.import',
                 ],
             ],
         ];
@@ -449,6 +452,17 @@ final class WorkspaceRoleCatalog
             ) {
                 $normalized[] =
                     'staff.view';
+            }
+
+            if (
+                $permission ===
+                'staff.import'
+            ) {
+                $normalized[] =
+                    'staff.view';
+
+                $normalized[] =
+                    'staff.manage';
             }
 
             if (
