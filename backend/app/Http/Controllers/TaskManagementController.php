@@ -2743,6 +2743,14 @@ class TaskManagementController extends Controller
                 $task,
             );
 
+        abort_unless(
+            TaskAccess::canUpdate(
+                $item,
+                $request->user(),
+            ),
+            403,
+        );
+
         $request->validate([
             'file' => [
                 'required',
