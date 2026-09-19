@@ -306,6 +306,7 @@ const groups: PermissionGroup[] = [
             'staff.manage',
             'staff.attendance',
             'staff.pay',
+            'staff.import',
         ],
     },
 ];
@@ -452,6 +453,11 @@ function permissionLabel(
             'مستحقات كل الشركة',
             'Company payroll',
         ],
+
+        'staff.import': [
+            'استيراد الموظفين وبياناتهم من Excel/CSV',
+            'Import employees and history from Excel/CSV',
+        ],
     };
 
     const label =
@@ -566,6 +572,19 @@ function normalizePermissions(
         ) {
             permissions.add(
                 'staff.view',
+            );
+        }
+
+        if (
+            permission ===
+            'staff.import'
+        ) {
+            permissions.add(
+                'staff.view',
+            );
+
+            permissions.add(
+                'staff.manage',
             );
         }
 
