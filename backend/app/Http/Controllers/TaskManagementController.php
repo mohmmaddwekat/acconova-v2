@@ -1287,16 +1287,11 @@ class TaskManagementController extends Controller
     }
 
     /**
-     * Create a persisted task team inside the caller's permitted department.
+     * Create a top-level team or a child team inside the permitted hierarchy.
      */
     public function storeTeam(
         Request $request,
     ): JsonResponse {
-        abort_unless(
-            TaskAccess::canViewTeam(),
-            403,
-        );
-
         abort_unless(
             Schema::hasTable('task_teams')
             && Schema::hasTable('task_team_members')
@@ -1353,6 +1348,23 @@ class TaskManagementController extends Controller
                         'organization_id',
                         $tenant->id(),
                     ),
+                ],
+
+                'parent_team_id' => [
+                    'nullable',
+                    'integer',
+
+                    Rule::exists(
+                        'task_teams',
+                        'id',
+                    )
+                        ->where(
+                            'organization_id',
+                            $tenant->id(),
+                        )
+                        ->whereNull(
+                            'deleted_at',
+                        ),
                 ],
 
                 'leader_id' => [
@@ -1428,33 +1440,50 @@ class TaskManagementController extends Controller
         $departmentId =
             (int) $data['department_id'];
 
-        $role =
-            $tenant
-                ->role()
-                ->value;
+        $parent =
+            isset(
+                $data['parent_team_id'],
+            )
+                ? TaskTeam::findOrFail(
+                    (int) $data['parent_team_id'],
+                )
+                : null;
 
-        $canManageAll =
-            in_array(
-                $role,
-                [
-                    'owner',
-                    'admin',
-                ],
-                true,
+        if ($parent) {
+            abort_unless(
+                TaskAccess::allowed(
+                    'teams.subteams.create',
+                    $request->user(),
+                ),
+                403,
             );
 
-        $canManageDepartment =
-            in_array(
+            $this->authorizeTeamAction(
+                $parent,
+                'teams.subteams.create',
+                $request,
+            );
+
+            abort_unless(
+                (int) $parent->department_id ===
+                    $departmentId,
+                422,
+                'A sub-team must belong to the same department as its parent team.',
+            );
+        } else {
+            abort_unless(
+                TaskAccess::allowed(
+                    'teams.create',
+                    $request->user(),
+                ),
+                403,
+            );
+
+            $this->authorizeTeamDepartment(
                 $departmentId,
-                StaffController::managedDepartmentIds(),
-                true,
+                $request,
             );
-
-        abort_unless(
-            $canManageAll
-            || $canManageDepartment,
-            403,
-        );
+        }
 
         $memberIds =
             collect(
@@ -1524,10 +1553,13 @@ class TaskManagementController extends Controller
                     $departmentId,
                     $memberIds,
                     $projectIds,
+                    $parent,
                 ): TaskTeam {
                     $team =
                         TaskTeam::create([
                             'department_id' => $departmentId,
+
+                            'parent_task_team_id' => $parent?->id,
 
                             'leader_staff_member_id' => (int) $data['leader_id'],
 
@@ -1547,38 +1579,32 @@ class TaskManagementController extends Controller
                             'priority' => $data['priority'],
                         ]);
 
-                    $memberPayload =
-                        $memberIds
-                            ->mapWithKeys(
-                                fn (int $id): array => [
-                                    $id => [
-                                        'organization_id' => $tenant->id(),
-                                    ],
-                                ],
-                            )
-                            ->all();
-
                     $team
                         ->members()
                         ->sync(
-                            $memberPayload,
-                        );
-
-                    $projectPayload =
-                        $projectIds
-                            ->mapWithKeys(
-                                fn (int $id): array => [
-                                    $id => [
-                                        'organization_id' => $tenant->id(),
+                            $memberIds
+                                ->mapWithKeys(
+                                    fn (int $id): array => [
+                                        $id => [
+                                            'organization_id' => $tenant->id(),
+                                        ],
                                     ],
-                                ],
-                            )
-                            ->all();
+                                )
+                                ->all(),
+                        );
 
                     $team
                         ->projects()
                         ->sync(
-                            $projectPayload,
+                            $projectIds
+                                ->mapWithKeys(
+                                    fn (int $id): array => [
+                                        $id => [
+                                            'organization_id' => $tenant->id(),
+                                        ],
+                                    ],
+                                )
+                                ->all(),
                         );
 
                     return $team;
@@ -1588,18 +1614,15 @@ class TaskManagementController extends Controller
 
         return response()->json([
             'team' => $this->serializeTeam(
-                $team->fresh([
-                    'department:id,name',
-                    'leader:id,name,job_title',
-                    'members:id,name,job_title,department_id,user_id',
-                    'projects:id,name,description,accent',
-                ]),
+                $this->freshTeam(
+                    $team,
+                ),
             ),
         ], 201);
     }
 
     /**
-     * Update a persisted task team and its member/project assignments.
+     * Update team details, hierarchy, members, lead, or linked projects.
      */
     public function updateTeam(
         Request $request,
@@ -1621,10 +1644,6 @@ class TaskManagementController extends Controller
                 ->findOrFail(
                     $team,
                 );
-
-        $this->authorizeTeamDepartment(
-            (int) $item->department_id,
-        );
 
         $tenant =
             app(
@@ -1664,6 +1683,24 @@ class TaskManagementController extends Controller
                     'nullable',
                     'string',
                     'max:3000',
+                ],
+
+                'parent_team_id' => [
+                    'sometimes',
+                    'nullable',
+                    'integer',
+
+                    Rule::exists(
+                        'task_teams',
+                        'id',
+                    )
+                        ->where(
+                            'organization_id',
+                            $tenant->id(),
+                        )
+                        ->whereNull(
+                            'deleted_at',
+                        ),
                 ],
 
                 'leader_id' => [
@@ -1738,6 +1775,133 @@ class TaskManagementController extends Controller
                     ),
                 ],
             ]);
+
+        $detailFields =
+            array_intersect(
+                array_keys(
+                    $data,
+                ),
+                [
+                    'name',
+                    'description',
+                    'capacity',
+                    'priority',
+                ],
+            );
+
+        if ($detailFields !== []) {
+            $this->authorizeTeamAction(
+                $item,
+                'teams.update',
+                $request,
+            );
+        }
+
+        if (
+            array_key_exists(
+                'leader_id',
+                $data,
+            )
+        ) {
+            $this->authorizeTeamAction(
+                $item,
+                'teams.lead.manage',
+                $request,
+            );
+        }
+
+        if (
+            array_key_exists(
+                'member_ids',
+                $data,
+            )
+        ) {
+            $this->authorizeTeamAction(
+                $item,
+                'teams.members.manage',
+                $request,
+            );
+        }
+
+        if (
+            array_key_exists(
+                'project_ids',
+                $data,
+            )
+        ) {
+            $this->authorizeTeamAction(
+                $item,
+                'teams.projects.manage',
+                $request,
+            );
+        }
+
+        $parentId =
+            $item->parent_task_team_id !== null
+                ? (int) $item->parent_task_team_id
+                : null;
+
+        if (
+            array_key_exists(
+                'parent_team_id',
+                $data,
+            )
+        ) {
+            $this->authorizeTeamAction(
+                $item,
+                'teams.move',
+                $request,
+            );
+
+            $parentId =
+                $data['parent_team_id'] !== null
+                    ? (int) $data['parent_team_id']
+                    : null;
+
+            abort_if(
+                $parentId ===
+                    (int) $item->id,
+                422,
+                'A team cannot be its own parent.',
+            );
+
+            if ($parentId !== null) {
+                $parent =
+                    TaskTeam::findOrFail(
+                        $parentId,
+                    );
+
+                $this->authorizeTeamAction(
+                    $parent,
+                    'teams.view',
+                    $request,
+                );
+
+                abort_unless(
+                    (int) $parent->department_id ===
+                        (int) $item->department_id,
+                    422,
+                    'A team can only move below a team in the same department.',
+                );
+
+                abort_if(
+                    in_array(
+                        $parentId,
+                        $this->teamDescendantIds(
+                            $item->id,
+                        ),
+                        true,
+                    ),
+                    422,
+                    'A team cannot be moved below one of its descendants.',
+                );
+            } else {
+                $this->authorizeTeamDepartment(
+                    (int) $item->department_id,
+                    $request,
+                );
+            }
+        }
 
         $memberIds =
             collect(
@@ -1843,6 +2007,7 @@ class TaskManagementController extends Controller
                 $capacity,
                 $memberIds,
                 $projectIds,
+                $parentId,
             ): void {
                 $payload = [];
 
@@ -1869,15 +2034,41 @@ class TaskManagementController extends Controller
                     }
                 }
 
-                $payload['leader_staff_member_id'] =
-                    $leaderId;
+                if (
+                    array_key_exists(
+                        'parent_team_id',
+                        $data,
+                    )
+                ) {
+                    $payload['parent_task_team_id'] =
+                        $parentId;
+                }
 
-                $payload['capacity'] =
-                    $capacity;
+                if (
+                    array_key_exists(
+                        'leader_id',
+                        $data,
+                    )
+                ) {
+                    $payload['leader_staff_member_id'] =
+                        $leaderId;
+                }
 
-                $item->update(
-                    $payload,
-                );
+                if (
+                    array_key_exists(
+                        'capacity',
+                        $data,
+                    )
+                ) {
+                    $payload['capacity'] =
+                        $capacity;
+                }
+
+                if ($payload !== []) {
+                    $item->update(
+                        $payload,
+                    );
+                }
 
                 if (
                     array_key_exists(
@@ -1930,12 +2121,9 @@ class TaskManagementController extends Controller
 
         return response()->json([
             'team' => $this->serializeTeam(
-                $item->fresh([
-                    'department:id,name',
-                    'leader:id,name,job_title',
-                    'members:id,name,job_title,department_id,user_id',
-                    'projects:id,name,description,accent',
-                ]),
+                $this->freshTeam(
+                    $item,
+                ),
             ),
         ]);
     }
@@ -1956,8 +2144,10 @@ class TaskManagementController extends Controller
                     $team,
                 );
 
-        $this->authorizeTeamDepartment(
-            (int) $source->department_id,
+        $this->authorizeTeamAction(
+            $source,
+            'teams.members.manage',
+            $request,
         );
 
         $tenant =
@@ -2033,8 +2223,10 @@ class TaskManagementController extends Controller
                     (int) $data['target_team_id'],
                 );
 
-        $this->authorizeTeamDepartment(
-            (int) $target->department_id,
+        $this->authorizeTeamAction(
+            $target,
+            'teams.members.manage',
+            $request,
         );
 
         abort_unless(
@@ -2081,7 +2273,7 @@ class TaskManagementController extends Controller
     }
 
     /**
-     * Archive a task team while keeping its history recoverable.
+     * Archive a team only after its child teams have been moved or archived.
      */
     public function destroyTeam(
         Request $request,
@@ -2099,8 +2291,18 @@ class TaskManagementController extends Controller
                 $team,
             );
 
-        $this->authorizeTeamDepartment(
-            (int) $item->department_id,
+        $this->authorizeTeamAction(
+            $item,
+            'teams.archive',
+            $request,
+        );
+
+        abort_if(
+            $item
+                ->children()
+                ->exists(),
+            422,
+            'Move or archive the child teams before archiving this team.',
         );
 
         $item->delete();
