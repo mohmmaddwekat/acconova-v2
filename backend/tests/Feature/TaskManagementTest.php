@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class TaskManagementTest extends TestCase
@@ -575,4 +577,84 @@ class TaskManagementTest extends TestCase
             ],
         );
     }
+
+    public function test_task_attachment_upload_and_download_routes_work(): void
+    {
+        $this->workspace();
+        Storage::fake('local');
+
+        $projectId =
+            $this
+                ->postJson(
+                    '/api/task-management/projects',
+                    [
+                        'name' => 'Attachment project',
+                        'color' => 'blue',
+                    ],
+                )
+                ->assertCreated()
+                ->json(
+                    'project.id',
+                );
+
+        $taskId =
+            $this
+                ->postJson(
+                    '/api/task-management/tasks',
+                    [
+                        'title' => 'Attachment task',
+                        'project_id' => $projectId,
+                        'status' => 'idea',
+                        'priority' => 'medium',
+                        'assignees' => [],
+                        'checklist' => [],
+                        'tags' => [],
+                        'progress' => 0,
+                        'starts_on' => '2026-09-20',
+                        'due_on' => '2026-09-21',
+                        'estimated_hours' => 1,
+                        'visibility' => 'workspace',
+                    ],
+                )
+                ->assertCreated()
+                ->json(
+                    'task.id',
+                );
+
+        $attachmentId =
+            $this
+                ->post(
+                    '/api/task-management/tasks/'.$taskId.'/attachments',
+                    [
+                        'file' => UploadedFile::fake()->create(
+                            'brief.pdf',
+                            64,
+                            'application/pdf',
+                        ),
+                    ],
+                )
+                ->assertCreated()
+                ->json(
+                    'id',
+                );
+
+        $this->assertDatabaseHas(
+            'task_attachments',
+            [
+                'id' => $attachmentId,
+                'task_id' => $taskId,
+                'original_name' => 'brief.pdf',
+            ],
+        );
+
+        $this
+            ->get(
+                '/api/task-management/tasks/'
+                .$taskId
+                .'/attachments/'
+                .$attachmentId,
+            )
+            ->assertOk();
+    }
+
 }
