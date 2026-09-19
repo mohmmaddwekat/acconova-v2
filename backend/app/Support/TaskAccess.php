@@ -28,6 +28,18 @@ final class TaskAccess
         'tasks.archive',
         'tasks.reports',
         'tasks.projects_manage',
+
+        'teams.view',
+        'teams.create',
+        'teams.update',
+        'teams.archive',
+        'teams.members.manage',
+        'teams.lead.manage',
+        'teams.projects.manage',
+        'teams.subteams.create',
+        'teams.subteams.manage',
+        'teams.move',
+        'teams.view_workload',
     ];
 
     /**

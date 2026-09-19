@@ -16,6 +16,7 @@ import {
     Gauge,
     Layers3,
     Link2,
+    ListTree,
     ListTodo,
     MoreHorizontal,
     Pencil,
@@ -80,6 +81,9 @@ type UiTeam = {
     tasks: Task[];
     workload: number;
     departmentId: number;
+    parentTeamId: number | null;
+    parentTeamName?: string | null;
+    childCount: number;
     department?: string | null;
     capacity: number;
     priority: 'low' | 'medium' | 'high';
@@ -113,6 +117,7 @@ export function TeamsExperience({
     data,
     tasks,
     ar,
+    permissions,
     onChanged,
 }: {
     view: TeamsView;
@@ -120,6 +125,7 @@ export function TeamsExperience({
     data: TaskData;
     tasks: Task[];
     ar: boolean;
+    permissions: string[];
     onChanged: () => void;
 }) {
     const teams = useMemo(
@@ -132,7 +138,10 @@ export function TeamsExperience({
         return (
             <CreateTeamSurface
                 data={data}
+                teams={teams}
+                parentTeamId={teamId}
                 ar={ar}
+                permissions={permissions}
             />
         );
     }
@@ -143,6 +152,7 @@ export function TeamsExperience({
                 team={selected}
                 data={data}
                 ar={ar}
+                permissions={permissions}
                 onChanged={onChanged}
             />
         ) : (
@@ -156,6 +166,7 @@ export function TeamsExperience({
                 team={selected}
                 data={data}
                 ar={ar}
+                permissions={permissions}
                 onChanged={onChanged}
             />
         ) : (
@@ -169,6 +180,7 @@ export function TeamsExperience({
             data={data}
             tasks={tasks}
             ar={ar}
+            permissions={permissions}
         />
     );
 }
@@ -214,11 +226,62 @@ function buildTeams(
             tasks: teamTasks,
             workload,
             departmentId: team.department_id,
+            parentTeamId: team.parent_team_id,
+            parentTeamName: team.parent_team_name,
+            childCount: team.child_count,
             department: team.department,
             capacity: team.capacity,
             priority: team.priority,
         };
     });
+}
+
+function canManageTeam(
+    team: UiTeam,
+    permissions: string[],
+    permission: string,
+): boolean {
+    if (permissions.includes(permission)) {
+        return true;
+    }
+
+    return (
+        team.parentTeamId !== null
+        && permissions.includes('teams.subteams.manage')
+        && [
+            'teams.update',
+            'teams.members.manage',
+            'teams.lead.manage',
+            'teams.projects.manage',
+        ].includes(permission)
+    );
+}
+
+function collectDescendantIds(
+    teams: UiTeam[],
+    teamId: number,
+): number[] {
+    const descendants: number[] = [];
+    let frontier = [teamId];
+
+    while (frontier.length) {
+        const children = teams
+            .filter((team: UiTeam) => (
+                team.parentTeamId !== null
+                && frontier.includes(team.parentTeamId)
+            ))
+            .map((team: UiTeam) => team.id)
+            .filter((id: number) => ! descendants.includes(id));
+
+        if (! children.length) {
+            break;
+        }
+
+        descendants.push(...children);
+        frontier = children;
+    }
+
+    return descendants;
 }
 
 function MissingTeam({
@@ -253,13 +316,16 @@ function TeamsHub({
     data,
     tasks,
     ar,
+    permissions,
 }: {
     teams: UiTeam[];
     data: TaskData;
     tasks: Task[];
     ar: boolean;
+    permissions: string[];
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const can = (permission: string): boolean => permissions.includes(permission);
     const departments = Array.from(
         new Set(
             data.members
@@ -268,9 +334,15 @@ function TeamsHub({
         ),
     );
     const [department, setDepartment] = useState(departments[0] ?? '');
+    const [viewMode, setViewMode] = useState<'cards' | 'tree'>('cards');
     const visibleTeams = department
         ? teams.filter((team: UiTeam) => team.department === department)
         : teams;
+    const visibleIds = new Set(visibleTeams.map((team: UiTeam) => team.id));
+    const rootTeams = visibleTeams.filter((team: UiTeam) => (
+        team.parentTeamId === null
+        || ! visibleIds.has(team.parentTeamId)
+    ));
     const visibleProjectIds = new Set(
         visibleTeams.flatMap((team: UiTeam) => team.projects.map((project: Project) => project.id)),
     );
@@ -283,11 +355,12 @@ function TeamsHub({
               ) / visibleTeams.length,
           )
         : 0;
+    const childTeams = visibleTeams.filter((team: UiTeam) => team.parentTeamId !== null).length;
 
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-52 items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <select
                         className={input + ' min-w-52 !w-auto'}
                         aria-label={text('القسم', 'Department')}
@@ -303,15 +376,46 @@ function TeamsHub({
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
+
+                    <div className="flex rounded-xl border border-slate-200 bg-white p-1">
+                        <button
+                            type="button"
+                            className={
+                                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold transition '
+                                + (viewMode === 'cards'
+                                    ? 'bg-blue-50 text-blue-600'
+                                    : 'text-slate-400 hover:text-slate-600')
+                            }
+                            onClick={() => setViewMode('cards')}
+                        >
+                            <UsersRound size={13} />
+                            {text('البطاقات', 'Cards')}
+                        </button>
+                        <button
+                            type="button"
+                            className={
+                                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold transition '
+                                + (viewMode === 'tree'
+                                    ? 'bg-blue-50 text-blue-600'
+                                    : 'text-slate-400 hover:text-slate-600')
+                            }
+                            onClick={() => setViewMode('tree')}
+                        >
+                            <ListTree size={13} />
+                            {text('الهيكل', 'Hierarchy')}
+                        </button>
+                    </div>
                 </div>
 
-                <Link
-                    href={base + '/teams/create'}
-                    className={primary}
-                >
-                    <Plus size={16} />
-                    {text('إنشاء فريق', 'Create team')}
-                </Link>
+                {can('teams.create') && (
+                    <Link
+                        href={base + '/teams/create'}
+                        className={primary}
+                    >
+                        <Plus size={16} />
+                        {text('إنشاء فريق رئيسي', 'Create top-level team')}
+                    </Link>
+                )}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -319,7 +423,10 @@ function TeamsHub({
                     title={text('إجمالي الفرق', 'Total teams')}
                     value={visibleTeams.length}
                     icon={UsersRound}
-                    hint={text('فرق داخل القسم', 'Teams in this department')}
+                    hint={text(
+                        childTeams + ' فرق فرعية',
+                        childTeams + ' sub-teams',
+                    )}
                 />
                 <Stat
                     title={text('إجمالي أعضاء القسم', 'Department members')}
@@ -342,42 +449,90 @@ function TeamsHub({
                     )}
                 />
                 <Stat
-                    title={text('متوسط عبء العمل', 'Average workload')}
-                    value={averageWorkload + '%'}
-                    icon={BarChart3}
+                    title={text(
+                        can('teams.view_workload') ? 'متوسط عبء العمل' : 'الفرق الفرعية',
+                        can('teams.view_workload') ? 'Average workload' : 'Sub-teams',
+                    )}
+                    value={can('teams.view_workload') ? averageWorkload + '%' : childTeams}
+                    icon={can('teams.view_workload') ? BarChart3 : ListTree}
                     color="red"
-                    hint={text('عبر جميع الفرق', 'Across all teams')}
+                    hint={text('عبر الفرق الظاهرة', 'Across visible teams')}
                 />
             </div>
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,2.2fr)_minmax(300px,.8fr)]">
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {visibleTeams.map((team: UiTeam) => (
-                        <TeamCard
-                            key={team.id}
-                            team={team}
-                            ar={ar}
-                        />
-                    ))}
+                <div>
+                    {viewMode === 'cards' ? (
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {visibleTeams.map((team: UiTeam) => (
+                                <TeamCard
+                                    key={team.id}
+                                    team={team}
+                                    ar={ar}
+                                    permissions={permissions}
+                                />
+                            ))}
 
-                    <Link
-                        href={base + '/teams/create'}
-                        className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-7 text-center transition hover:border-blue-300 hover:bg-blue-50/30"
-                    >
-                        <span className="mb-4 flex size-14 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-                            <UsersRound size={28} />
-                        </span>
-                        <strong className="text-sm">
-                            {text('إنشاء فريق جديد', 'Create a new team')}
-                        </strong>
-                        <span className="mt-2 text-[11px] leading-6 text-slate-400">
-                            {text('قم بإنشاء فريق جديد داخل هذا القسم', 'Create another team inside this department')}
-                        </span>
-                        <span className={button + ' mt-5'}>
-                            <Plus size={14} />
-                            {text('إنشاء فريق', 'Create team')}
-                        </span>
-                    </Link>
+                            {can('teams.create') && (
+                                <Link
+                                    href={base + '/teams/create'}
+                                    className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-7 text-center transition hover:border-blue-300 hover:bg-blue-50/30"
+                                >
+                                    <span className="mb-4 flex size-14 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                                        <UsersRound size={28} />
+                                    </span>
+                                    <strong className="text-sm">
+                                        {text('إنشاء فريق رئيسي جديد', 'Create a new top-level team')}
+                                    </strong>
+                                    <span className="mt-2 text-[11px] leading-6 text-slate-400">
+                                        {text('يمكنك بعدها إضافة فرق فرعية بداخله بلا حد ثابت.', 'You can then nest sub-teams below it without a fixed depth.')}
+                                    </span>
+                                    <span className={button + ' mt-5'}>
+                                        <Plus size={14} />
+                                        {text('إنشاء فريق', 'Create team')}
+                                    </span>
+                                </Link>
+                            )}
+                        </div>
+                    ) : (
+                        <section className="tm-panel">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-sm font-bold">
+                                        {text('الهيكل التنظيمي للفرق', 'Team hierarchy')}
+                                    </h2>
+                                    <p className="mt-1 text-[10px] text-slate-400">
+                                        {text(
+                                            'كل فريق يمكن أن يحتوي فرقًا فرعية، والفرق الفرعية يمكن أن تحتوي فرقًا أخرى.',
+                                            'Every team can contain sub-teams, with unlimited nesting.',
+                                        )}
+                                    </p>
+                                </div>
+                                <Badge color="blue">
+                                    {rootTeams.length} {text('فرق رئيسية', 'roots')}
+                                </Badge>
+                            </div>
+
+                            <div className="space-y-2">
+                                {rootTeams.map((team: UiTeam) => (
+                                    <TeamTreeNode
+                                        key={team.id}
+                                        team={team}
+                                        teams={visibleTeams}
+                                        ar={ar}
+                                        permissions={permissions}
+                                        depth={0}
+                                    />
+                                ))}
+
+                                {! rootTeams.length && (
+                                    <div className="py-10 text-center text-xs text-slate-400">
+                                        {text('لا توجد فرق ضمن هذا القسم بعد.', 'No teams exist in this department yet.')}
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    )}
                 </div>
 
                 <aside className="space-y-4">
@@ -396,34 +551,36 @@ function TeamsHub({
                         />
                     </Panel>
 
-                    <Panel
-                        title={text('عبء العمل حسب الفريق', 'Workload by team')}
-                        icon={Gauge}
-                    >
-                        <div className="space-y-4">
-                            {visibleTeams.map((team: UiTeam) => (
-                                <div key={team.id}>
-                                    <div className="mb-2 flex items-center justify-between text-[10px]">
-                                        <span>{ar ? team.nameAr : team.nameEn}</span>
-                                        <strong>{team.workload}%</strong>
+                    {can('teams.view_workload') && (
+                        <Panel
+                            title={text('عبء العمل حسب الفريق', 'Workload by team')}
+                            icon={Gauge}
+                        >
+                            <div className="space-y-4">
+                                {visibleTeams.map((team: UiTeam) => (
+                                    <div key={team.id}>
+                                        <div className="mb-2 flex items-center justify-between text-[10px]">
+                                            <span>{ar ? team.nameAr : team.nameEn}</span>
+                                            <strong>{team.workload}%</strong>
+                                        </div>
+                                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                                            <div
+                                                className={
+                                                    'h-full rounded-full '
+                                                    + (team.workload >= 80
+                                                        ? 'bg-red-400'
+                                                        : team.workload >= 65
+                                                            ? 'bg-amber-400'
+                                                            : 'bg-emerald-400')
+                                                }
+                                                style={{ width: team.workload + '%' }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                                        <div
-                                            className={
-                                                'h-full rounded-full '
-                                                + (team.workload >= 80
-                                                    ? 'bg-red-400'
-                                                    : team.workload >= 65
-                                                        ? 'bg-amber-400'
-                                                        : 'bg-emerald-400')
-                                            }
-                                            style={{ width: team.workload + '%' }}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </Panel>
+                                ))}
+                            </div>
+                        </Panel>
+                    )}
 
                     <Panel
                         title={text('أحدث الأنشطة', 'Recent activity')}
@@ -444,26 +601,31 @@ function TeamsHub({
 function TeamCard({
     team,
     ar,
+    permissions,
 }: {
     team: UiTeam;
     ar: boolean;
+    permissions: string[];
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const can = (permission: string): boolean => permissions.includes(permission);
     const Icon = team.Icon;
 
     return (
         <section className="tm-panel flex min-h-72 flex-col">
             <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                    <span className={'flex size-11 items-center justify-center rounded-xl ' + toneClasses[team.tone]}>
+                <div className="flex min-w-0 items-center gap-3">
+                    <span className={'flex size-11 shrink-0 items-center justify-center rounded-xl ' + toneClasses[team.tone]}>
                         <Icon size={22} />
                     </span>
-                    <div>
-                        <h2 className="text-sm font-bold">
+                    <div className="min-w-0">
+                        <h2 className="truncate text-sm font-bold">
                             {ar ? team.nameAr : team.nameEn}
                         </h2>
-                        <p className="mt-1 text-[10px] text-slate-400">
-                            {ar ? team.descriptionAr : team.descriptionEn}
+                        <p className="mt-1 truncate text-[10px] text-slate-400">
+                            {team.parentTeamName
+                                ? text('ضمن: ', 'Under: ') + team.parentTeamName
+                                : text('فريق رئيسي', 'Top-level team')}
                         </p>
                     </div>
                 </div>
@@ -482,10 +644,18 @@ function TeamCard({
                 </Badge>
             </div>
 
-            <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+            <p className="mb-4 min-h-8 text-[10px] leading-5 text-slate-400">
+                {ar ? team.descriptionAr : team.descriptionEn}
+            </p>
+
+            <div className="mb-4 grid grid-cols-4 gap-2 text-center">
                 <Metric value={team.members.length} label={text('أعضاء', 'Members')} />
                 <Metric value={team.projects.length} label={text('مشاريع', 'Projects')} />
-                <Metric value={team.workload + '%'} label={text('عبء العمل', 'Workload')} />
+                <Metric value={team.childCount} label={text('فرعية', 'Children')} />
+                <Metric
+                    value={can('teams.view_workload') ? team.workload + '%' : '—'}
+                    label={text('عبء العمل', 'Workload')}
+                />
             </div>
 
             <div className="mb-4">
@@ -505,19 +675,6 @@ function TeamCard({
                 </div>
             </div>
 
-            <div className="mb-5 flex min-h-8 items-center">
-                <div className="flex -space-x-2 rtl:space-x-reverse">
-                    {team.members.slice(0, 5).map((member: Member) => (
-                        <Avatar key={member.id} member={member} />
-                    ))}
-                </div>
-                {team.members.length > 5 && (
-                    <span className="ms-2 text-[10px] text-blue-500">
-                        +{team.members.length - 5}
-                    </span>
-                )}
-            </div>
-
             <div className="mt-auto grid grid-cols-2 gap-2">
                 <Link
                     href={base + '/teams/' + team.id}
@@ -525,14 +682,113 @@ function TeamCard({
                 >
                     {text('عرض الفريق', 'View team')}
                 </Link>
-                <Link
-                    href={base + '/teams/' + team.id + '/members'}
-                    className={primary}
-                >
-                    {text('إدارة الأعضاء', 'Manage members')}
-                </Link>
+                {can('teams.subteams.create') ? (
+                    <Link
+                        href={base + '/teams/' + team.id + '/create'}
+                        className={primary}
+                    >
+                        <Plus size={13} />
+                        {text('فريق فرعي', 'Sub-team')}
+                    </Link>
+                ) : (
+                    <Link
+                        href={base + '/teams/' + team.id + '/members'}
+                        className={button}
+                    >
+                        {text('الأعضاء', 'Members')}
+                    </Link>
+                )}
             </div>
         </section>
+    );
+}
+
+function TeamTreeNode({
+    team,
+    teams,
+    ar,
+    permissions,
+    depth,
+}: {
+    team: UiTeam;
+    teams: UiTeam[];
+    ar: boolean;
+    permissions: string[];
+    depth: number;
+}) {
+    const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const children = teams.filter((item: UiTeam) => item.parentTeamId === team.id);
+    const canCreateChild = permissions.includes('teams.subteams.create');
+
+    return (
+        <div>
+            <div
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-3 shadow-sm"
+                style={{ marginInlineStart: Math.min(depth, 8) * 22 }}
+            >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    {depth === 0 ? <UsersRound size={17} /> : <ListTree size={17} />}
+                </span>
+
+                <div className="min-w-40 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <strong className="text-xs">
+                            {ar ? team.nameAr : team.nameEn}
+                        </strong>
+                        <Badge color={depth === 0 ? 'blue' : 'green'}>
+                            {depth === 0
+                                ? text('رئيسي', 'Root')
+                                : text('فرعي', 'Sub-team')}
+                        </Badge>
+                    </div>
+                    <p className="mt-1 text-[9px] text-slate-400">
+                        {team.members.length} {text('أعضاء', 'members')}
+                        {' · '}
+                        {team.projects.length} {text('مشاريع', 'projects')}
+                        {' · '}
+                        {team.childCount} {text('فرق تحته', 'children')}
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {permissions.includes('teams.view_workload') && (
+                        <Badge color={team.workload >= 80 ? 'red' : 'green'}>
+                            {team.workload}% {text('عبء', 'load')}
+                        </Badge>
+                    )}
+                    <Link
+                        href={base + '/teams/' + team.id}
+                        className={button}
+                    >
+                        {text('فتح', 'Open')}
+                    </Link>
+                    {canCreateChild && (
+                        <Link
+                            href={base + '/teams/' + team.id + '/create'}
+                            className={button}
+                        >
+                            <Plus size={12} />
+                            {text('فريق فرعي', 'Sub-team')}
+                        </Link>
+                    )}
+                </div>
+            </div>
+
+            {children.length > 0 && (
+                <div className="mt-2 space-y-2">
+                    {children.map((child: UiTeam) => (
+                        <TeamTreeNode
+                            key={child.id}
+                            team={child}
+                            teams={teams}
+                            ar={ar}
+                            permissions={permissions}
+                            depth={depth + 1}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -610,12 +866,21 @@ function TeamDistribution({
 
 function CreateTeamSurface({
     data,
+    teams,
+    parentTeamId,
     ar,
+    permissions,
 }: {
     data: TaskData;
+    teams: UiTeam[];
+    parentTeamId: number | null;
     ar: boolean;
+    permissions: string[];
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const requestedParent = teams.find((team: UiTeam) => team.id === parentTeamId) ?? null;
+    const canCreateRoot = permissions.includes('teams.create');
+    const canCreateChild = permissions.includes('teams.subteams.create');
     const departments = Array.from(
         new Set(
             data.members
@@ -623,9 +888,13 @@ function CreateTeamSurface({
                 .filter((value): value is string => Boolean(value)),
         ),
     );
+    const initialDepartment = requestedParent?.department ?? departments[0] ?? '';
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [department, setDepartment] = useState(departments[0] ?? '');
+    const [department, setDepartment] = useState(initialDepartment);
+    const [parentId, setParentId] = useState(
+        requestedParent ? String(requestedParent.id) : '',
+    );
     const [leader, setLeader] = useState('');
     const [capacity, setCapacity] = useState('8');
     const [priority, setPriority] = useState('medium');
@@ -635,6 +904,13 @@ function CreateTeamSurface({
     const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
     const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
 
+    const selectedParent = teams.find(
+        (team: UiTeam) => String(team.id) === parentId,
+    ) ?? null;
+    const parentCandidates = teams.filter((team: UiTeam) => (
+        ! department
+        || team.department === department
+    ));
     const departmentMembers = data.members.filter((member: Member) => (
         ! department || member.department === department
     ));
@@ -656,6 +932,10 @@ function CreateTeamSurface({
                 .includes(memberSearchValue);
         })
         .slice(0, 8);
+
+    const allowedToCreate = selectedParent
+        ? canCreateChild
+        : canCreateRoot;
 
     function addMember(id: number): void {
         const maxMembers = Math.max(1, Number(capacity) || 1);
@@ -688,6 +968,32 @@ function CreateTeamSurface({
         ));
     }
 
+    function chooseDepartment(nextDepartment: string): void {
+        setDepartment(nextDepartment);
+        setParentId('');
+        setLeader('');
+        setSelectedMembers([]);
+        setMemberSearch('');
+    }
+
+    function chooseParent(nextParentId: string): void {
+        setParentId(nextParentId);
+        const parent = teams.find(
+            (team: UiTeam) => String(team.id) === nextParentId,
+        );
+
+        if (
+            parent
+            && parent.department
+            && parent.department !== department
+        ) {
+            setDepartment(parent.department);
+            setLeader('');
+            setSelectedMembers([]);
+            setMemberSearch('');
+        }
+    }
+
     async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
 
@@ -695,7 +1001,19 @@ function CreateTeamSurface({
             return;
         }
 
-        const departmentId = departmentMembers[0]?.department_id ?? null;
+        if (! allowedToCreate) {
+            setSubmitError(
+                selectedParent
+                    ? text('لا تملك صلاحية إنشاء فرق فرعية.', 'You do not have permission to create sub-teams.')
+                    : text('لا تملك صلاحية إنشاء فريق رئيسي.', 'You do not have permission to create a top-level team.'),
+            );
+            return;
+        }
+
+        const departmentId = selectedParent?.departmentId
+            ?? departmentMembers[0]?.department_id
+            ?? teams.find((team: UiTeam) => team.department === department)?.departmentId
+            ?? null;
 
         if (! name.trim()) {
             setSubmitError(text('اكتب اسم الفريق أولًا.', 'Enter a team name first.'));
@@ -729,6 +1047,7 @@ function CreateTeamSurface({
                         name: name.trim(),
                         description: description.trim() || null,
                         department_id: departmentId,
+                        parent_team_id: selectedParent?.id ?? null,
                         leader_id: Number(leader),
                         capacity: Math.max(1, Number(capacity) || 1),
                         priority,
@@ -749,6 +1068,23 @@ function CreateTeamSurface({
     return (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_330px]">
             <form onSubmit={submit} className="space-y-4">
+                {requestedParent && (
+                    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                        <div className="flex items-center gap-3">
+                            <ListTree size={18} className="text-blue-600" />
+                            <div>
+                                <strong className="text-xs text-blue-800">
+                                    {text('إنشاء فريق فرعي', 'Creating a sub-team')}
+                                </strong>
+                                <p className="mt-1 text-[10px] text-blue-600">
+                                    {text('سيتم إنشاء الفريق داخل ', 'This team will be created under ')}
+                                    {ar ? requestedParent.nameAr : requestedParent.nameEn}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <Panel
                     title={text('المعلومات الأساسية', 'Basic information')}
                     icon={ListTodo}
@@ -761,7 +1097,7 @@ function CreateTeamSurface({
                                 value={name}
                                 required
                                 onChange={(event) => setName(event.target.value)}
-                                placeholder={text('مثال: فريق تطوير الواجهة الأمامية', 'Example: Frontend development team')}
+                                placeholder={text('مثال: فريق مبيعات الشركات', 'Example: Enterprise sales team')}
                             />
                         </label>
 
@@ -771,16 +1107,11 @@ function CreateTeamSurface({
                                 <select
                                     className={input}
                                     value={department}
-                                    onChange={(event) => {
-                                        const nextDepartment = event.target.value;
-                                        setDepartment(nextDepartment);
-                                        setLeader('');
-                                        setSelectedMembers([]);
-                                        setMemberSearch('');
-                                    }}
+                                    disabled={Boolean(selectedParent)}
+                                    onChange={(event) => chooseDepartment(event.target.value)}
                                 >
                                     {! departments.length && (
-                                        <option value="">{text('قسم البرمجة', 'Engineering')}</option>
+                                        <option value="">{text('القسم الحالي', 'Current department')}</option>
                                     )}
                                     {departments.map((departmentName: string) => (
                                         <option key={departmentName} value={departmentName}>
@@ -791,31 +1122,56 @@ function CreateTeamSurface({
                             </label>
 
                             <label className="tm-field">
-                                {text('قائد الفريق', 'Team lead')}
+                                {text('الفريق الأب', 'Parent team')}
                                 <select
                                     className={input}
-                                    value={leader}
-                                    required
-                                    onChange={(event) => {
-                                        const nextLeader = event.target.value;
-                                        setLeader(nextLeader);
-
-                                        if (nextLeader) {
-                                            addMember(Number(nextLeader));
-                                        }
-                                    }}
+                                    value={parentId}
+                                    disabled={! canCreateChild || Boolean(requestedParent)}
+                                    onChange={(event) => chooseParent(event.target.value)}
                                 >
                                     <option value="">
-                                        {text('اختر قائد الفريق', 'Choose team lead')}
+                                        {text('بدون — فريق رئيسي', 'None — top-level team')}
                                     </option>
-                                    {departmentMembers.map((member: Member) => (
-                                        <option key={member.id} value={member.id}>
-                                            {member.name}
+                                    {parentCandidates.map((team: UiTeam) => (
+                                        <option key={team.id} value={team.id}>
+                                            {ar ? team.nameAr : team.nameEn}
                                         </option>
                                     ))}
                                 </select>
+                                <span className="text-[9px] font-normal text-slate-400">
+                                    {text(
+                                        'اختياري: اختر فريقًا أبًا لتحويل هذا الفريق إلى فريق فرعي.',
+                                        'Optional: choose a parent to create this as a sub-team.',
+                                    )}
+                                </span>
                             </label>
                         </div>
+
+                        <label className="tm-field">
+                            {text('قائد الفريق', 'Team lead')}
+                            <select
+                                className={input}
+                                value={leader}
+                                required
+                                onChange={(event) => {
+                                    const nextLeader = event.target.value;
+                                    setLeader(nextLeader);
+
+                                    if (nextLeader) {
+                                        addMember(Number(nextLeader));
+                                    }
+                                }}
+                            >
+                                <option value="">
+                                    {text('اختر قائد الفريق', 'Choose team lead')}
+                                </option>
+                                {departmentMembers.map((member: Member) => (
+                                    <option key={member.id} value={member.id}>
+                                        {member.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
 
                         <label className="tm-field">
                             {text('وصف الفريق', 'Team description')}
@@ -935,14 +1291,6 @@ function CreateTeamSurface({
                             {' '}
                             {text('أعضاء محددون', 'members selected')}
                         </span>
-                        {! memberSearch.trim() && availableMembers.length > 0 && (
-                            <span>
-                                {text(
-                                    'اكتب اسم الموظف في البحث لإظهار زر الإضافة.',
-                                    'Type an employee name to show the Add button.',
-                                )}
-                            </span>
-                        )}
                     </div>
 
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -1030,14 +1378,19 @@ function CreateTeamSurface({
                     <button
                         type="submit"
                         className={primary}
-                        disabled={submitting}
+                        disabled={submitting || ! allowedToCreate}
                     >
                         <Plus size={15} />
                         {submitting
                             ? text('جارٍ إنشاء الفريق…', 'Creating team…')
-                            : text('إنشاء الفريق', 'Create team')}
+                            : selectedParent
+                                ? text('إنشاء الفريق الفرعي', 'Create sub-team')
+                                : text('إنشاء الفريق', 'Create team')}
                     </button>
-                    <Link href={base + '/teams'} className={button}>
+                    <Link
+                        href={selectedParent ? base + '/teams/' + selectedParent.id : base + '/teams'}
+                        className={button}
+                    >
                         {text('إلغاء', 'Cancel')}
                     </Link>
                 </div>
@@ -1056,11 +1409,19 @@ function CreateTeamSurface({
                             {name || text('فريق جديد', 'New team')}
                         </h3>
                         <p className="mt-1 text-[10px] text-slate-400">
-                            {department || text('قسم البرمجة', 'Engineering')}
+                            {department || text('القسم الحالي', 'Current department')}
                         </p>
                     </div>
 
                     <div className="mt-5 space-y-4 text-[11px]">
+                        <PreviewRow
+                            label={text('المستوى', 'Hierarchy')}
+                            value={
+                                selectedParent
+                                    ? text('فرعي داخل ', 'Child of ') + (ar ? selectedParent.nameAr : selectedParent.nameEn)
+                                    : text('فريق رئيسي', 'Top-level team')
+                            }
+                        />
                         <PreviewRow
                             label={text('قائد الفريق', 'Team lead')}
                             value={
@@ -1094,16 +1455,16 @@ function CreateTeamSurface({
                 </Panel>
 
                 <Panel
-                    title={text('نصائح لإنشاء فريق ناجح', 'Tips for a successful team')}
-                    icon={Sparkles}
+                    title={text('قواعد الهيكل', 'Hierarchy rules')}
+                    icon={ListTree}
                 >
                     <div className="space-y-3 text-[10px] text-slate-500">
                         {[
-                            text('اختر اسمًا واضحًا ومميزًا للفريق', 'Choose a clear team name'),
-                            text('قم بتعيين قائد فريق مناسب', 'Assign an appropriate team lead'),
-                            text('أضف أعضاء ذوي مهارات متكاملة', 'Add complementary skills'),
-                            text('حدد سعة الفريق بشكل واقعي', 'Set realistic team capacity'),
-                            text('اربط المشاريع ذات الصلة', 'Link related projects'),
+                            text('الفريق الفرعي يبقى داخل نفس قسم الفريق الأب', 'A sub-team stays in the same department as its parent'),
+                            text('يمكن إنشاء مستويات فرعية متعددة بدون حد ثابت', 'Sub-teams can be nested to multiple levels'),
+                            text('لا يمكن نقل فريق تحت أحد الفرق التابعة له', 'A team cannot move below its own descendant'),
+                            text('صلاحيات القائد تُقيّد بنطاق فريقه والفرق التابعة له', 'Leader authority is scoped to their team subtree'),
+                            text('كل تعديل حساس يخضع لصلاحية مستقلة', 'Each sensitive action has its own permission'),
                         ].map((tip: string) => (
                             <p key={tip} className="flex items-center gap-2">
                                 <CheckCircle2 size={14} className="text-emerald-500" />
@@ -1151,15 +1512,26 @@ function TeamDetailSurface({
     team,
     data,
     ar,
+    permissions,
     onChanged,
 }: {
     team: UiTeam;
     data: TaskData;
     ar: boolean;
+    permissions: string[];
     onChanged: () => void;
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const can = (permission: string): boolean => canManageTeam(team, permissions, permission);
     const Icon = team.Icon;
+    const allTeams = buildTeams(data, data.tasks);
+    const descendants = new Set(collectDescendantIds(allTeams, team.id));
+    const immediateChildren = allTeams.filter((item: UiTeam) => item.parentTeamId === team.id);
+    const parentOptions = allTeams.filter((item: UiTeam) => (
+        item.id !== team.id
+        && item.departmentId === team.departmentId
+        && ! descendants.has(item.id)
+    ));
     const completed = team.tasks.filter((task: Task) => task.status === 'completed').length;
     const [editOpen, setEditOpen] = useState(false);
     const [projectsOpen, setProjectsOpen] = useState(false);
@@ -1175,6 +1547,9 @@ function TeamDetailSurface({
     const [editCapacity, setEditCapacity] = useState(String(team.capacity));
     const [editPriority, setEditPriority] = useState(team.priority);
     const [editLeader, setEditLeader] = useState(String(team.leader?.id ?? ''));
+    const [editParent, setEditParent] = useState(
+        team.parentTeamId !== null ? String(team.parentTeamId) : '',
+    );
     const [projectIds, setProjectIds] = useState<number[]>(
         team.projects.map((project: Project) => project.id),
     );
@@ -1184,14 +1559,27 @@ function TeamDetailSurface({
         setBusy(true);
         setActionError('');
 
+        const payload: Record<string, unknown> = {};
+
+        if (can('teams.update')) {
+            payload.name = editName.trim();
+            payload.description = editDescription.trim() || null;
+            payload.capacity = Math.max(team.members.length, Number(editCapacity) || 1);
+            payload.priority = editPriority;
+        }
+
+        if (can('teams.lead.manage')) {
+            payload.leader_id = Number(editLeader);
+        }
+
+        if (permissions.includes('teams.move')) {
+            payload.parent_team_id = editParent ? Number(editParent) : null;
+        }
+
         try {
-            await updateTeamRecord(team.id, {
-                name: editName.trim(),
-                description: editDescription.trim() || null,
-                capacity: Math.max(team.members.length, Number(editCapacity) || 1),
-                priority: editPriority,
-                leader_id: Number(editLeader),
-            });
+            if (Object.keys(payload).length) {
+                await updateTeamRecord(team.id, payload);
+            }
             setEditOpen(false);
             onChanged();
         } catch (failure) {
@@ -1308,60 +1696,87 @@ function TeamDetailSurface({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                    <div className="relative">
+                    {permissions.includes('teams.archive') && (
+                        <div className="relative">
+                            <button
+                                type="button"
+                                className={button}
+                                aria-expanded={moreOpen}
+                                onClick={() => setMoreOpen((value: boolean) => ! value)}
+                            >
+                                <MoreHorizontal size={15} />
+                            </button>
+
+                            {moreOpen && (
+                                <div className="absolute end-0 top-11 z-30 w-44 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-[10px] text-red-500 hover:bg-red-50"
+                                        disabled={busy}
+                                        onClick={archiveTeam}
+                                    >
+                                        <X size={13} />
+                                        {text('أرشفة الفريق', 'Archive team')}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {permissions.includes('teams.subteams.create') && (
+                        <Link
+                            href={base + '/teams/' + team.id + '/create'}
+                            className={button}
+                        >
+                            <Plus size={15} />
+                            {text('فريق فرعي', 'Sub-team')}
+                        </Link>
+                    )}
+
+                    {can('teams.projects.manage') && (
                         <button
                             type="button"
                             className={button}
-                            aria-expanded={moreOpen}
-                            onClick={() => setMoreOpen((value: boolean) => ! value)}
+                            onClick={openProjectsPicker}
                         >
-                            <MoreHorizontal size={15} />
+                            <Link2 size={15} />
+                            {text('ربط مشروع', 'Link project')}
                         </button>
+                    )}
 
-                        {moreOpen && (
-                            <div className="absolute end-0 top-11 z-30 w-44 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
-                                <button
-                                    type="button"
-                                    className="flex w-full items-center rounded-lg px-3 py-2 text-start text-[10px] text-red-500 hover:bg-red-50"
-                                    disabled={busy}
-                                    onClick={archiveTeam}
-                                >
-                                    <X size={13} />
-                                    {text('أرشفة الفريق', 'Archive team')}
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    {(can('teams.update')
+                        || can('teams.lead.manage')
+                        || permissions.includes('teams.move')) && (
+                        <button
+                            type="button"
+                            className={button}
+                            onClick={() => {
+                                setEditName(ar ? team.nameAr : team.nameEn);
+                                setEditDescription(ar ? team.descriptionAr : team.descriptionEn);
+                                setEditCapacity(String(team.capacity));
+                                setEditPriority(team.priority);
+                                setEditLeader(String(team.leader?.id ?? ''));
+                                setEditParent(
+                                    team.parentTeamId !== null
+                                        ? String(team.parentTeamId)
+                                        : '',
+                                );
+                                setEditOpen(true);
+                            }}
+                        >
+                            <Pencil size={15} />
+                            {text('تعديل الفريق', 'Edit team')}
+                        </button>
+                    )}
 
-                    <button
-                        type="button"
-                        className={button}
-                        onClick={openProjectsPicker}
-                    >
-                        <Link2 size={15} />
-                        {text('ربط مشروع', 'Link project')}
-                    </button>
-                    <button
-                        type="button"
-                        className={button}
-                        onClick={() => {
-                            setEditName(ar ? team.nameAr : team.nameEn);
-                            setEditDescription(ar ? team.descriptionAr : team.descriptionEn);
-                            setEditCapacity(String(team.capacity));
-                            setEditPriority(team.priority);
-                            setEditLeader(String(team.leader?.id ?? ''));
-                            setEditOpen(true);
-                        }}
-                    >
-                        <Pencil size={15} />
-                        {text('تعديل الفريق', 'Edit team')}
-                    </button>
                     <Link
                         href={base + '/teams/' + team.id + '/members'}
-                        className={primary}
+                        className={can('teams.members.manage') ? primary : button}
                     >
                         <UsersRound size={15} />
-                        {text('إدارة الأعضاء', 'Manage members')}
+                        {can('teams.members.manage')
+                            ? text('إدارة الأعضاء', 'Manage members')
+                            : text('عرض الأعضاء', 'View members')}
                     </Link>
                 </div>
             </div>
@@ -1406,13 +1821,94 @@ function TeamDetailSurface({
                         hint={text(completed + ' مهام مكتملة', completed + ' completed tasks')}
                     />
                     <Stat
-                        title={text('عبء العمل', 'Workload')}
-                        value={team.workload + '%'}
-                        icon={BarChart3}
+                        title={text(
+                            permissions.includes('teams.view_workload')
+                                ? 'عبء العمل'
+                                : 'الفرق الفرعية',
+                            permissions.includes('teams.view_workload')
+                                ? 'Workload'
+                                : 'Sub-teams',
+                        )}
+                        value={
+                            permissions.includes('teams.view_workload')
+                                ? team.workload + '%'
+                                : team.childCount
+                        }
+                        icon={permissions.includes('teams.view_workload') ? BarChart3 : ListTree}
                         color="red"
                     />
                 </div>
             </div>
+
+            {(team.parentTeamId !== null || immediateChildren.length > 0) && (
+                <Panel
+                    title={text('الهيكل التنظيمي', 'Team hierarchy')}
+                    icon={ListTree}
+                    action={permissions.includes('teams.subteams.create') ? (
+                        <Link
+                            href={base + '/teams/' + team.id + '/create'}
+                            className="text-[10px] font-semibold text-blue-600"
+                        >
+                            <Plus size={12} />
+                            {text('إضافة فريق فرعي', 'Add sub-team')}
+                        </Link>
+                    ) : undefined}
+                >
+                    <div className="space-y-3">
+                        {team.parentTeamId !== null && (
+                            <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                                <div>
+                                    <p className="text-[9px] text-blue-500">
+                                        {text('الفريق الأب', 'Parent team')}
+                                    </p>
+                                    <strong className="mt-1 block text-xs text-blue-800">
+                                        {team.parentTeamName ?? text('فريق أعلى', 'Parent team')}
+                                    </strong>
+                                </div>
+                                <Link
+                                    href={base + '/teams/' + team.parentTeamId}
+                                    className={button}
+                                >
+                                    {text('فتح', 'Open')}
+                                </Link>
+                            </div>
+                        )}
+
+                        {immediateChildren.map((child: UiTeam) => (
+                            <div
+                                key={child.id}
+                                className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 p-3"
+                            >
+                                <span className="flex size-9 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                                    <ListTree size={16} />
+                                </span>
+                                <div className="min-w-40 flex-1">
+                                    <strong className="text-xs">
+                                        {ar ? child.nameAr : child.nameEn}
+                                    </strong>
+                                    <p className="mt-1 text-[9px] text-slate-400">
+                                        {child.members.length} {text('أعضاء', 'members')}
+                                        {' · '}
+                                        {child.childCount} {text('فرق فرعية', 'sub-teams')}
+                                    </p>
+                                </div>
+                                <Link
+                                    href={base + '/teams/' + child.id}
+                                    className={button}
+                                >
+                                    {text('فتح الفريق', 'Open team')}
+                                </Link>
+                            </div>
+                        ))}
+
+                        {team.parentTeamId === null && ! immediateChildren.length && (
+                            <p className="text-[11px] text-slate-400">
+                                {text('هذا الفريق لا يحتوي فرقًا فرعية بعد.', 'This team does not have sub-teams yet.')}
+                            </p>
+                        )}
+                    </div>
+                </Panel>
+            )}
 
             <div className="grid gap-4 xl:grid-cols-3">
                 <Panel
@@ -1483,34 +1979,54 @@ function TeamDetailSurface({
                     </div>
                 </Panel>
 
-                <Panel
-                    title={text('عبء العمل', 'Workload')}
-                    icon={BarChart3}
-                >
-                    <div className="flex items-center justify-center py-2">
-                        <div
-                            className="flex size-40 items-center justify-center rounded-full"
-                            style={{
-                                background:
-                                    'conic-gradient(#2879ff 0 '
-                                    + team.workload
-                                    + '%, #e8eef8 '
-                                    + team.workload
-                                    + '% 100%)',
-                            }}
-                        >
-                            <div className="flex size-28 flex-col items-center justify-center rounded-full bg-white">
-                                <strong className="text-2xl">{team.workload}%</strong>
-                                <span className="text-[9px] text-slate-400">
-                                    {text('عبء العمل', 'Workload')}
-                                </span>
+                {permissions.includes('teams.view_workload') ? (
+                    <Panel
+                        title={text('عبء العمل', 'Workload')}
+                        icon={BarChart3}
+                    >
+                        <div className="flex items-center justify-center py-2">
+                            <div
+                                className="flex size-40 items-center justify-center rounded-full"
+                                style={{
+                                    background:
+                                        'conic-gradient(#2879ff 0 '
+                                        + team.workload
+                                        + '%, #e8eef8 '
+                                        + team.workload
+                                        + '% 100%)',
+                                }}
+                            >
+                                <div className="flex size-28 flex-col items-center justify-center rounded-full bg-white">
+                                    <strong className="text-2xl">{team.workload}%</strong>
+                                    <span className="text-[9px] text-slate-400">
+                                        {text('عبء العمل', 'Workload')}
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <p className="rounded-lg bg-emerald-50 p-3 text-center text-xs font-semibold text-emerald-600">
-                        {text('أداء الفريق ضمن النطاق الصحي', 'Team performance is within a healthy range')}
-                    </p>
-                </Panel>
+                        <p className="rounded-lg bg-emerald-50 p-3 text-center text-xs font-semibold text-emerald-600">
+                            {text('أداء الفريق ضمن النطاق الصحي', 'Team performance is within a healthy range')}
+                        </p>
+                    </Panel>
+                ) : (
+                    <Panel
+                        title={text('الفرق الفرعية', 'Sub-teams')}
+                        icon={ListTree}
+                    >
+                        <div className="space-y-3">
+                            <Metric
+                                value={team.childCount}
+                                label={text('فرق مباشرة', 'Direct child teams')}
+                            />
+                            <p className="text-[10px] leading-5 text-slate-400">
+                                {text(
+                                    'تحليلات عبء العمل مخفية حسب صلاحيات دورك.',
+                                    'Workload analytics are hidden by your role permissions.',
+                                )}
+                            </p>
+                        </div>
+                    </Panel>
+                )}
             </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
@@ -1565,25 +2081,55 @@ function TeamDetailSurface({
                             <X size={14} />
                         </button>
                     </div>
-                    <label className="tm-field">
-                        {text('اسم الفريق', 'Team name')}
-                        <input
-                            className={input}
-                            required
-                            value={editName}
-                            onChange={(event) => setEditName(event.target.value)}
-                        />
-                    </label>
-                    <label className="tm-field">
-                        {text('وصف الفريق', 'Description')}
-                        <textarea
-                            className={input}
-                            rows={4}
-                            value={editDescription}
-                            onChange={(event) => setEditDescription(event.target.value)}
-                        />
-                    </label>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    {can('teams.update') && (
+                        <>
+                            <label className="tm-field">
+                                {text('اسم الفريق', 'Team name')}
+                                <input
+                                    className={input}
+                                    required
+                                    value={editName}
+                                    onChange={(event) => setEditName(event.target.value)}
+                                />
+                            </label>
+                            <label className="tm-field">
+                                {text('وصف الفريق', 'Description')}
+                                <textarea
+                                    className={input}
+                                    rows={4}
+                                    value={editDescription}
+                                    onChange={(event) => setEditDescription(event.target.value)}
+                                />
+                            </label>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="tm-field">
+                                    {text('سعة الفريق', 'Capacity')}
+                                    <input
+                                        className={input}
+                                        type="number"
+                                        min={Math.max(1, team.members.length)}
+                                        max="100"
+                                        value={editCapacity}
+                                        onChange={(event) => setEditCapacity(event.target.value)}
+                                    />
+                                </label>
+                                <label className="tm-field">
+                                    {text('الأولوية', 'Priority')}
+                                    <select
+                                        className={input}
+                                        value={editPriority}
+                                        onChange={(event) => setEditPriority(event.target.value as 'low' | 'medium' | 'high')}
+                                    >
+                                        <option value="low">{text('منخفضة', 'Low')}</option>
+                                        <option value="medium">{text('متوسطة', 'Medium')}</option>
+                                        <option value="high">{text('عالية', 'High')}</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </>
+                    )}
+
+                    {can('teams.lead.manage') && (
                         <label className="tm-field">
                             {text('قائد الفريق', 'Team lead')}
                             <select
@@ -1596,35 +2142,43 @@ function TeamDetailSurface({
                                 ))}
                             </select>
                         </label>
+                    )}
+
+                    {permissions.includes('teams.move') && (
                         <label className="tm-field">
-                            {text('سعة الفريق', 'Capacity')}
-                            <input
+                            {text('الموقع داخل الهيكل', 'Hierarchy position')}
+                            <select
                                 className={input}
-                                type="number"
-                                min={Math.max(1, team.members.length)}
-                                max="100"
-                                value={editCapacity}
-                                onChange={(event) => setEditCapacity(event.target.value)}
-                            />
+                                value={editParent}
+                                onChange={(event) => setEditParent(event.target.value)}
+                            >
+                                <option value="">
+                                    {text('فريق رئيسي داخل القسم', 'Top-level team in department')}
+                                </option>
+                                {parentOptions.map((option: UiTeam) => (
+                                    <option key={option.id} value={option.id}>
+                                        {ar ? option.nameAr : option.nameEn}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="text-[9px] font-normal text-slate-400">
+                                {text(
+                                    'لا يمكنك نقل الفريق تحت نفسه أو تحت أحد الفرق التابعة له.',
+                                    'You cannot move a team below itself or one of its descendants.',
+                                )}
+                            </span>
                         </label>
-                    </div>
-                    <label className="tm-field">
-                        {text('الأولوية', 'Priority')}
-                        <select
-                            className={input}
-                            value={editPriority}
-                            onChange={(event) => setEditPriority(event.target.value as 'low' | 'medium' | 'high')}
-                        >
-                            <option value="low">{text('منخفضة', 'Low')}</option>
-                            <option value="medium">{text('متوسطة', 'Medium')}</option>
-                            <option value="high">{text('عالية', 'High')}</option>
-                        </select>
-                    </label>
+                    )}
+
                     <div className="flex justify-end gap-2">
                         <button type="button" className={button} disabled={busy} onClick={() => setEditOpen(false)}>
                             {text('إلغاء', 'Cancel')}
                         </button>
-                        <button type="submit" className={primary} disabled={busy || ! editLeader}>
+                        <button
+                            type="submit"
+                            className={primary}
+                            disabled={busy || (can('teams.lead.manage') && ! editLeader)}
+                        >
                             {busy ? text('جارٍ الحفظ…', 'Saving…') : text('حفظ التعديلات', 'Save changes')}
                         </button>
                     </div>
@@ -1644,7 +2198,7 @@ function TeamDetailSurface({
                         </button>
                     </div>
                     <div className="max-h-80 space-y-2 overflow-y-auto">
-                        {data.projects.map((project: Project) => {
+                        {projectOptions.map((project: Project) => {
                             const selected = projectIds.includes(project.id);
 
                             return (
@@ -1711,14 +2265,17 @@ function TeamMembersSurface({
     team,
     data,
     ar,
+    permissions,
     onChanged,
 }: {
     team: UiTeam;
     data: TaskData;
     ar: boolean;
+    permissions: string[];
     onChanged: () => void;
 }) {
     const text = (arabic: string, english: string): string => ar ? arabic : english;
+    const can = (permission: string): boolean => canManageTeam(team, permissions, permission);
     const [activeTab, setActiveTab] = useState<'members' | 'tasks' | 'projects' | 'settings'>('members');
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState<'all' | 'lead' | 'member'>('all');
@@ -1948,9 +2505,20 @@ function TeamMembersSurface({
                     color="green"
                 />
                 <Stat
-                    title={text('متوسط نسبة الانشغال', 'Average utilization')}
-                    value={averageWorkload + '%'}
-                    icon={BarChart3}
+                    title={text(
+                        permissions.includes('teams.view_workload')
+                            ? 'متوسط نسبة الانشغال'
+                            : 'الفرق الفرعية',
+                        permissions.includes('teams.view_workload')
+                            ? 'Average utilization'
+                            : 'Sub-teams',
+                    )}
+                    value={
+                        permissions.includes('teams.view_workload')
+                            ? averageWorkload + '%'
+                            : team.childCount
+                    }
+                    icon={permissions.includes('teams.view_workload') ? BarChart3 : ListTree}
                     color="red"
                 />
                 <Stat
@@ -1986,18 +2554,20 @@ function TeamMembersSurface({
                     {activeTab === 'members' && (
                         <>
                             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
-                                <button
-                                    type="button"
-                                    className={primary}
-                                    disabled={team.members.length >= team.capacity}
-                                    onClick={() => {
-                                        setCandidateId('');
-                                        setAddOpen(true);
-                                    }}
-                                >
-                                    <Plus size={14} />
-                                    {text('إضافة عضو', 'Add member')}
-                                </button>
+                                {can('teams.members.manage') && (
+                                    <button
+                                        type="button"
+                                        className={primary}
+                                        disabled={team.members.length >= team.capacity}
+                                        onClick={() => {
+                                            setCandidateId('');
+                                            setAddOpen(true);
+                                        }}
+                                    >
+                                        <Plus size={14} />
+                                        {text('إضافة عضو', 'Add member')}
+                                    </button>
+                                )}
 
                                 <label className="relative min-w-48 flex-1">
                                     <Search
@@ -2096,7 +2666,9 @@ function TeamMembersSurface({
                                                         </Badge>
                                                     </td>
                                                     <td>
-                                                        <Progress value={workload} />
+                                                        {permissions.includes('teams.view_workload')
+                                                            ? <Progress value={workload} />
+                                                            : <span className="text-[10px] text-slate-400">—</span>}
                                                     </td>
                                                     <td>
                                                         {isLead ? (
@@ -2230,17 +2802,19 @@ function TeamMembersSurface({
                                             {team.leader?.job_title ?? text('قائد الفريق', 'Team lead')}
                                         </p>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className={button}
-                                        onClick={() => {
-                                            setLeadId(String(team.leader?.id ?? ''));
-                                            setLeadOpen(true);
-                                        }}
-                                    >
-                                        <Pencil size={13} />
-                                        {text('تغيير القائد', 'Change lead')}
-                                    </button>
+                                    {can('teams.lead.manage') && (
+                                        <button
+                                            type="button"
+                                            className={button}
+                                            onClick={() => {
+                                                setLeadId(String(team.leader?.id ?? ''));
+                                                setLeadOpen(true);
+                                            }}
+                                        >
+                                            <Pencil size={13} />
+                                            {text('تغيير القائد', 'Change lead')}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -2283,16 +2857,29 @@ function TeamMembersSurface({
                         title={text('سعة الفريق', 'Team capacity')}
                         icon={Gauge}
                     >
-                        <div className="mb-3 flex items-center justify-between">
-                            <div>
-                                <strong className="text-xl">{averageWorkload}%</strong>
-                                <p className="text-[9px] text-slate-400">
-                                    {text('متوسط نسبة الانشغال', 'Average utilization')}
+                        {permissions.includes('teams.view_workload') ? (
+                            <>
+                                <div className="mb-3 flex items-center justify-between">
+                                    <div>
+                                        <strong className="text-xl">{averageWorkload}%</strong>
+                                        <p className="text-[9px] text-slate-400">
+                                            {text('متوسط نسبة الانشغال', 'Average utilization')}
+                                        </p>
+                                    </div>
+                                    <Gauge size={27} className="text-blue-500" />
+                                </div>
+                                <Progress value={averageWorkload} label={false} />
+                            </>
+                        ) : (
+                            <div className="mb-3 rounded-lg bg-slate-50 p-3">
+                                <p className="text-[10px] text-slate-400">
+                                    {text(
+                                        'تحليلات عبء العمل مخفية حسب صلاحيات دورك.',
+                                        'Workload analytics are hidden by your role permissions.',
+                                    )}
                                 </p>
                             </div>
-                            <Gauge size={27} className="text-blue-500" />
-                        </div>
-                        <Progress value={averageWorkload} label={false} />
+                        )}
                         <div className="mt-3 flex justify-between text-[10px] text-slate-400">
                             <span>
                                 {team.members.length} / {team.capacity}
@@ -2312,54 +2899,70 @@ function TeamMembersSurface({
                         icon={Sparkles}
                     >
                         <div className="grid gap-2">
-                            <button
-                                type="button"
-                                className={button}
-                                disabled={team.members.length >= team.capacity}
-                                onClick={() => {
-                                    setCandidateId('');
-                                    setAddOpen(true);
-                                }}
-                            >
-                                <Plus size={14} />
-                                {text('إضافة عضو جديد', 'Add member')}
-                            </button>
-                            <button
-                                type="button"
-                                className={button}
-                                disabled={team.members.length <= 1 || ! targetTeams.length}
-                                onClick={() => {
-                                    setTransferMemberId('');
-                                    setTargetTeamId('');
-                                    setTransferOpen(true);
-                                }}
-                            >
-                                <UsersRound size={14} />
-                                {text('نقل عضو إلى فريق آخر', 'Move member')}
-                            </button>
-                            <button
-                                type="button"
-                                className={button}
-                                onClick={() => {
-                                    setLeadId(String(team.leader?.id ?? ''));
-                                    setLeadOpen(true);
-                                }}
-                            >
-                                <Crown size={14} />
-                                {text('تعيين قائد للفريق', 'Assign team lead')}
-                            </button>
-                            <button
-                                type="button"
-                                className="tm-button border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600"
-                                disabled={team.members.filter((member: Member) => member.id !== team.leader?.id).length === 0}
-                                onClick={() => {
-                                    setRemoveId('');
-                                    setRemoveOpen(true);
-                                }}
-                            >
-                                <X size={14} />
-                                {text('إزالة عضو من الفريق', 'Remove member')}
-                            </button>
+                            {can('teams.members.manage') && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className={button}
+                                        disabled={team.members.length >= team.capacity}
+                                        onClick={() => {
+                                            setCandidateId('');
+                                            setAddOpen(true);
+                                        }}
+                                    >
+                                        <Plus size={14} />
+                                        {text('إضافة عضو جديد', 'Add member')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={button}
+                                        disabled={team.members.length <= 1 || ! targetTeams.length}
+                                        onClick={() => {
+                                            setTransferMemberId('');
+                                            setTargetTeamId('');
+                                            setTransferOpen(true);
+                                        }}
+                                    >
+                                        <UsersRound size={14} />
+                                        {text('نقل عضو إلى فريق آخر', 'Move member')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="tm-button border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600"
+                                        disabled={team.members.filter((member: Member) => member.id !== team.leader?.id).length === 0}
+                                        onClick={() => {
+                                            setRemoveId('');
+                                            setRemoveOpen(true);
+                                        }}
+                                    >
+                                        <X size={14} />
+                                        {text('إزالة عضو من الفريق', 'Remove member')}
+                                    </button>
+                                </>
+                            )}
+
+                            {can('teams.lead.manage') && (
+                                <button
+                                    type="button"
+                                    className={button}
+                                    onClick={() => {
+                                        setLeadId(String(team.leader?.id ?? ''));
+                                        setLeadOpen(true);
+                                    }}
+                                >
+                                    <Crown size={14} />
+                                    {text('تعيين قائد للفريق', 'Assign team lead')}
+                                </button>
+                            )}
+
+                            {! can('teams.members.manage') && ! can('teams.lead.manage') && (
+                                <p className="rounded-lg bg-slate-50 p-3 text-[10px] leading-5 text-slate-400">
+                                    {text(
+                                        'هذه الصفحة للعرض فقط حسب صلاحيات دورك.',
+                                        'This page is read-only under your current role permissions.',
+                                    )}
+                                </p>
+                            )}
                         </div>
                     </Panel>
 
@@ -2404,35 +3007,41 @@ function TeamMembersSurface({
                             >
                                 {text('عرض الملف الشخصي', 'View profile')}
                             </button>
-                            <button
-                                type="button"
-                                className={button + ' w-full'}
-                                disabled={member.id === team.leader?.id || ! targetTeams.length}
-                                onClick={() => {
-                                    setTransferMemberId(String(member.id));
-                                    setTargetTeamId('');
-                                    setTransferOpen(true);
-                                    setActionMemberId(null);
-                                }}
-                            >
-                                {text('نقل إلى فريق آخر', 'Move to another team')}
-                            </button>
-                            <button
-                                type="button"
-                                className={button + ' w-full'}
-                                disabled={member.id === team.leader?.id || busy}
-                                onClick={() => assignLead(member.id)}
-                            >
-                                {text('تعيين قائد للفريق', 'Make team lead')}
-                            </button>
-                            <button
-                                type="button"
-                                className="tm-button w-full border-red-100 text-red-500 hover:bg-red-50"
-                                disabled={member.id === team.leader?.id || busy}
-                                onClick={() => removeMember(member.id)}
-                            >
-                                {text('إزالة من الفريق', 'Remove from team')}
-                            </button>
+                            {can('teams.members.manage') && (
+                                <button
+                                    type="button"
+                                    className={button + ' w-full'}
+                                    disabled={member.id === team.leader?.id || ! targetTeams.length}
+                                    onClick={() => {
+                                        setTransferMemberId(String(member.id));
+                                        setTargetTeamId('');
+                                        setTransferOpen(true);
+                                        setActionMemberId(null);
+                                    }}
+                                >
+                                    {text('نقل إلى فريق آخر', 'Move to another team')}
+                                </button>
+                            )}
+                            {can('teams.lead.manage') && (
+                                <button
+                                    type="button"
+                                    className={button + ' w-full'}
+                                    disabled={member.id === team.leader?.id || busy}
+                                    onClick={() => assignLead(member.id)}
+                                >
+                                    {text('تعيين قائد للفريق', 'Make team lead')}
+                                </button>
+                            )}
+                            {can('teams.members.manage') && (
+                                <button
+                                    type="button"
+                                    className="tm-button w-full border-red-100 text-red-500 hover:bg-red-50"
+                                    disabled={member.id === team.leader?.id || busy}
+                                    onClick={() => removeMember(member.id)}
+                                >
+                                    {text('إزالة من الفريق', 'Remove from team')}
+                                </button>
+                            )}
                         </div>
                     );
                 })()}
@@ -2456,10 +3065,12 @@ function TeamMembersSurface({
                         </div>
                         <PreviewRow label={text('البريد الإلكتروني', 'Email')} value={profileMember.email ?? '—'} />
                         <PreviewRow label={text('القسم', 'Department')} value={profileMember.department ?? '—'} />
-                        <PreviewRow
-                            label={text('نسبة الانشغال', 'Utilization')}
-                            value={memberWorkload(profileMember) + '%'}
-                        />
+                        {permissions.includes('teams.view_workload') && (
+                            <PreviewRow
+                                label={text('نسبة الانشغال', 'Utilization')}
+                                value={memberWorkload(profileMember) + '%'}
+                            />
+                        )}
                         <button type="button" className={button + ' w-full'} onClick={() => setProfileMemberId(null)}>
                             {text('إغلاق', 'Close')}
                         </button>

@@ -386,10 +386,17 @@ function TaskWorkspace({
 
     const pageTitle = view === 'team'
         ? teamTitles[effectiveTeamSection]
-        : titles[view];
+        : view === 'teams-create' && teamId !== null
+            ? ['إنشاء فريق فرعي', 'Create a sub-team'] as [string, string]
+            : titles[view];
     const pageDescription = view === 'team'
         ? teamDescriptions[effectiveTeamSection]
-        : descriptions[view];
+        : view === 'teams-create' && teamId !== null
+            ? [
+                'أنشئ فريقًا داخل الفريق الحالي مع الحفاظ على نطاق القسم والصلاحيات.',
+                'Create a child team inside the current hierarchy and department scope.',
+            ] as [string, string]
+            : descriptions[view];
 
     const navigation: NavItem[] = [
         {
@@ -426,7 +433,7 @@ function TaskWorkspace({
         },
         {
             key: 'teams',
-            permission: 'tasks.team',
+            permission: 'teams.view',
             path: '/teams',
             ar: 'الفرق',
             en: 'Teams',
@@ -761,6 +768,7 @@ function TaskWorkspace({
                                         data={data}
                                         tasks={tasks}
                                         ar={ar}
+                                        permissions={permissions}
                                         onChanged={refresh}
                                     />
                                 )}

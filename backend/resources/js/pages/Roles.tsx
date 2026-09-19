@@ -91,50 +91,30 @@ type PermissionGroup = {
 };
 
 const taskPermissionLabels: Record<string, [string, string]> = {
-    'tasks.dashboard': [
-        'عرض لوحة إدارة المهام',
-        'View task dashboard',
-    ],
+    'tasks.create': ['إنشاء مهام', 'Create tasks'],
+    'tasks.view_team': ['عرض مهام القسم', 'View department tasks'],
+    'tasks.view_all': ['عرض جميع مهام الشركة', 'View all company tasks'],
+    'tasks.assign_team': ['إسناد المهام داخل القسم', 'Assign tasks within department'],
+    'tasks.assign_all': ['إسناد المهام لأي موظف', 'Assign tasks to any employee'],
+    'tasks.update_team': ['تعديل مهام القسم', 'Edit department tasks'],
+    'tasks.update_all': ['تعديل جميع المهام', 'Edit all tasks'],
+    'tasks.archive': ['أرشفة المهام', 'Archive tasks'],
+    'tasks.reports': ['عرض تقارير المهام', 'View task reports'],
+    'tasks.projects_manage': ['إنشاء وإدارة المشاريع', 'Create and manage projects'],
+};
 
-    'tasks.view': [
-        'عرض المهام',
-        'View tasks',
-    ],
-
-    'tasks.create': [
-        'إنشاء مهام',
-        'Create tasks',
-    ],
-
-    'tasks.update': [
-        'تعديل المهام',
-        'Edit tasks',
-    ],
-
-    'tasks.assign': [
-        'إسناد المهام',
-        'Assign tasks',
-    ],
-
-    'tasks.projects.view': [
-        'عرض المشاريع',
-        'View projects',
-    ],
-
-    'tasks.projects.manage': [
-        'إدارة المشاريع',
-        'Manage projects',
-    ],
-
-    'tasks.team': [
-        'عرض الفريق وأعباء العمل وأعضاء النطاق المسموح',
-        'View team workload and members within allowed scope',
-    ],
-
-    'tasks.view_all': [
-        'عرض كل المهام وتحليلات الفريق الكاملة',
-        'View all tasks and full team analytics',
-    ],
+const teamPermissionLabels: Record<string, [string, string]> = {
+    'teams.view': ['عرض صفحة الفرق والهيكل', 'View teams and hierarchy'],
+    'teams.create': ['إنشاء فريق رئيسي', 'Create top-level teams'],
+    'teams.update': ['تعديل بيانات الفريق', 'Edit team details'],
+    'teams.archive': ['أرشفة الفرق', 'Archive teams'],
+    'teams.members.manage': ['إضافة ونقل وإزالة الأعضاء', 'Add, move and remove members'],
+    'teams.lead.manage': ['تعيين وتغيير قائد الفريق', 'Assign and change team lead'],
+    'teams.projects.manage': ['ربط المشاريع بالفرق', 'Link projects to teams'],
+    'teams.subteams.create': ['إنشاء فرق فرعية', 'Create sub-teams'],
+    'teams.subteams.manage': ['إدارة الفرق الفرعية', 'Manage sub-teams'],
+    'teams.move': ['نقل فريق داخل الشجرة', 'Move a team in the hierarchy'],
+    'teams.view_workload': ['عرض عبء العمل والتحليلات', 'View team workload analytics'],
 };
 
 const fieldClass =
@@ -147,7 +127,24 @@ const primaryButton =
     'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-strong)] px-5 text-sm font-semibold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40';
 
 const groups: PermissionGroup[] = [
-    { key: 'tasks', titleAr: 'إدارة المهام والمشاريع', titleEn: 'Tasks & Projects', descriptionAr: 'ظهور الصفحات ونطاق المهام والإسناد والتعديل وإدارة الفريق.', descriptionEn: 'Page access, task scope, assignment, editing and team workload.', icon: Package, permissions: Object.keys(taskPermissionLabels) },
+    {
+        key: 'tasks',
+        titleAr: 'إدارة المهام والمشاريع',
+        titleEn: 'Tasks & Projects',
+        descriptionAr: 'إنشاء المهام ونطاق عرضها وإسنادها وتعديلها والتقارير.',
+        descriptionEn: 'Task creation, visibility scope, assignment, editing and reports.',
+        icon: Package,
+        permissions: Object.keys(taskPermissionLabels),
+    },
+    {
+        key: 'teams',
+        titleAr: 'الفرق والهيكل التنظيمي',
+        titleEn: 'Teams & Hierarchy',
+        descriptionAr: 'صلاحيات مستقلة لإنشاء الفرق والفرق الفرعية والأعضاء والقادة والمشاريع.',
+        descriptionEn: 'Granular authority for teams, sub-teams, members, leaders and linked projects.',
+        icon: Users,
+        permissions: Object.keys(teamPermissionLabels),
+    },
     {
         key:
             'products',
@@ -320,7 +317,13 @@ function permissionLabel(
     permission: string,
     ar: boolean,
 ): string {
-    if (taskPermissionLabels[permission]) { return taskPermissionLabels[permission][ar ? 0 : 1]; }
+    if (taskPermissionLabels[permission]) {
+        return taskPermissionLabels[permission][ar ? 0 : 1];
+    }
+
+    if (teamPermissionLabels[permission]) {
+        return teamPermissionLabels[permission][ar ? 0 : 1];
+    }
     const labels: Record<
         string,
         [string, string]
@@ -473,11 +476,6 @@ function normalizePermissions(
     const permissions =
         new Set(input);
 
-    input.forEach((permission) => {
-        if (permission.startsWith('tasks.') && ! ['tasks.dashboard', 'tasks.projects.view', 'tasks.team'].includes(permission)) { permissions.add('tasks.view'); }
-        if (permission === 'tasks.projects.manage') { permissions.add('tasks.projects.view'); }
-    });
-
     for (
         const permission of
         Array.from(
@@ -582,6 +580,27 @@ function normalizePermissions(
         ) {
             permissions.add(
                 'staff.team_view',
+            );
+        }
+
+        if (
+            permission.startsWith(
+                'teams.',
+            )
+            && permission !==
+                'teams.view'
+        ) {
+            permissions.add(
+                'teams.view',
+            );
+        }
+
+        if (
+            permission ===
+            'teams.subteams.create'
+        ) {
+            permissions.add(
+                'teams.create',
             );
         }
     }
@@ -2509,6 +2528,38 @@ function RoleWorkspace() {
                                                                     : copy.selectAll}
                                                             </button>
                                                         </div>
+
+                                                        {group.key ===
+                                                            'teams' && (
+                                                            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {ar ? 'نطاق القسم' : 'Department scope'}
+                                                                    </strong>
+                                                                    {ar
+                                                                        ? 'مدير القسم يدير الفرق الموجودة داخل قسمه فقط.'
+                                                                        : 'Department managers act only on teams inside their department.'}
+                                                                </div>
+
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {ar ? 'نطاق قائد الفريق' : 'Team lead scope'}
+                                                                    </strong>
+                                                                    {ar
+                                                                        ? 'قائد الفريق يرى فريقه والفرق المتفرعة تحته ضمن الصلاحيات الممنوحة.'
+                                                                        : 'A team lead is scoped to their team and descendant teams.'}
+                                                                </div>
+
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                    <strong className="block text-[var(--ac-text)]">
+                                                                        {ar ? 'الشركة كاملة' : 'Company-wide'}
+                                                                    </strong>
+                                                                    {ar
+                                                                        ? 'المالك والإدارة العليا يمكنهم العمل على كامل شجرة الفرق.'
+                                                                        : 'Owner and company-wide authority can manage the full team tree.'}
+                                                                </div>
+                                                            </div>
+                                                        )}
 
                                                         {group.key ===
                                                             'staff' && (
