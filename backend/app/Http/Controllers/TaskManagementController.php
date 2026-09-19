@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\StaffMember;
 use App\Models\Task;
 use App\Models\TaskProject;
+use App\Models\TaskTeam;
 use App\Support\TaskAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -1282,6 +1283,292 @@ class TaskManagementController extends Controller
     }
 
     /**
+     * Create a persisted task team inside the caller's permitted department.
+     */
+    public function storeTeam(
+        Request $request,
+    ): JsonResponse {
+        abort_unless(
+            TaskAccess::canViewTeam(),
+            403,
+        );
+
+        $tenant =
+            app(
+                TenantContext::class,
+            );
+
+        $data =
+            $request->validate([
+                'name' => [
+                    'required',
+                    'string',
+                    'max:160',
+                ],
+
+                'description' => [
+                    'nullable',
+                    'string',
+                    'max:3000',
+                ],
+
+                'department_id' => [
+                    'required',
+                    'integer',
+
+                    Rule::exists(
+                        'departments',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    ),
+                ],
+
+                'leader_id' => [
+                    'required',
+                    'integer',
+
+                    Rule::exists(
+                        'staff_members',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    ),
+                ],
+
+                'capacity' => [
+                    'required',
+                    'integer',
+                    'min:1',
+                    'max:100',
+                ],
+
+                'priority' => [
+                    'required',
+
+                    Rule::in([
+                        'low',
+                        'medium',
+                        'high',
+                    ]),
+                ],
+
+                'member_ids' => [
+                    'required',
+                    'array',
+                    'min:1',
+                    'max:100',
+                ],
+
+                'member_ids.*' => [
+                    'integer',
+                    'distinct',
+
+                    Rule::exists(
+                        'staff_members',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    ),
+                ],
+
+                'project_ids' => [
+                    'sometimes',
+                    'array',
+                    'max:100',
+                ],
+
+                'project_ids.*' => [
+                    'integer',
+                    'distinct',
+
+                    Rule::exists(
+                        'task_projects',
+                        'id',
+                    )->where(
+                        'organization_id',
+                        $tenant->id(),
+                    ),
+                ],
+            ]);
+
+        $departmentId =
+            (int) $data['department_id'];
+
+        $role =
+            $tenant
+                ->role()
+                ->value;
+
+        $canManageAll =
+            in_array(
+                $role,
+                [
+                    'owner',
+                    'admin',
+                ],
+                true,
+            );
+
+        $canManageDepartment =
+            in_array(
+                $departmentId,
+                StaffController::managedDepartmentIds(),
+                true,
+            );
+
+        abort_unless(
+            $canManageAll
+            || $canManageDepartment,
+            403,
+        );
+
+        $memberIds =
+            collect(
+                $data['member_ids'],
+            )
+                ->map(
+                    fn ($id): int => (int) $id,
+                )
+                ->unique()
+                ->values();
+
+        abort_unless(
+            $memberIds->contains(
+                (int) $data['leader_id'],
+            ),
+            422,
+            'Team lead must be one of the selected team members.',
+        );
+
+        abort_if(
+            $memberIds->count() >
+                (int) $data['capacity'],
+            422,
+            'Team capacity cannot be lower than the number of selected members.',
+        );
+
+        $validMembers =
+            StaffMember::query()
+                ->where(
+                    'active',
+                    true,
+                )
+                ->where(
+                    'department_id',
+                    $departmentId,
+                )
+                ->whereIn(
+                    'id',
+                    $memberIds,
+                )
+                ->count();
+
+        abort_unless(
+            $validMembers ===
+                $memberIds->count(),
+            422,
+            'All team members must be active employees in the selected department.',
+        );
+
+        $projectIds =
+            collect(
+                $data['project_ids']
+                    ?? [],
+            )
+                ->map(
+                    fn ($id): int => (int) $id,
+                )
+                ->unique()
+                ->values();
+
+        $team =
+            DB::transaction(
+                function () use (
+                    $request,
+                    $tenant,
+                    $data,
+                    $departmentId,
+                    $memberIds,
+                    $projectIds,
+                ): TaskTeam {
+                    $team =
+                        TaskTeam::create([
+                            'department_id' => $departmentId,
+
+                            'leader_staff_member_id' => (int) $data['leader_id'],
+
+                            'created_by' => $request
+                                ->user()
+                                ->id,
+
+                            'name' => trim(
+                                $data['name'],
+                            ),
+
+                            'description' => $data['description']
+                                ?? null,
+
+                            'capacity' => (int) $data['capacity'],
+
+                            'priority' => $data['priority'],
+                        ]);
+
+                    $memberPayload =
+                        $memberIds
+                            ->mapWithKeys(
+                                fn (int $id): array => [
+                                    $id => [
+                                        'organization_id' => $tenant->id(),
+                                    ],
+                                ],
+                            )
+                            ->all();
+
+                    $team
+                        ->members()
+                        ->sync(
+                            $memberPayload,
+                        );
+
+                    $projectPayload =
+                        $projectIds
+                            ->mapWithKeys(
+                                fn (int $id): array => [
+                                    $id => [
+                                        'organization_id' => $tenant->id(),
+                                    ],
+                                ],
+                            )
+                            ->all();
+
+                    $team
+                        ->projects()
+                        ->sync(
+                            $projectPayload,
+                        );
+
+                    return $team;
+                },
+                3,
+            );
+
+        return response()->json([
+            'team' => $this->serializeTeam(
+                $team->fresh([
+                    'department:id,name',
+                    'leader:id,name,job_title',
+                    'members:id,name,job_title,department_id,user_id',
+                    'projects:id,name,description,accent',
+                ]),
+            ),
+        ], 201);
+    }
+
+    /**
      * Return department summary cards and performance totals.
      */
     public function departmentsSummary(
@@ -1739,6 +2026,67 @@ class TaskManagementController extends Controller
                 )
                 ->values();
 
+        $teamQuery =
+            TaskTeam::query()
+                ->with([
+                    'department:id,name',
+                    'leader:id,name,job_title',
+                    'members:id,name,job_title,department_id,user_id',
+                    'projects:id,name,description,accent',
+                ])
+                ->orderBy(
+                    'name',
+                );
+
+        $role =
+            app(
+                TenantContext::class,
+            )
+                ->role()
+                ->value;
+
+        if (
+            ! in_array(
+                $role,
+                [
+                    'owner',
+                    'admin',
+                ],
+                true,
+            )
+        ) {
+            $managedDepartments =
+                StaffController::managedDepartmentIds();
+
+            if (
+                $managedDepartments ===
+                []
+            ) {
+                $teamQuery->whereRaw(
+                    '1 = 0',
+                );
+            } else {
+                $teamQuery->whereIn(
+                    'department_id',
+                    $managedDepartments,
+                );
+            }
+        }
+
+        $teams =
+            TaskAccess::canViewTeam()
+                ? $teamQuery
+                    ->get()
+                    ->map(
+                        fn (
+                            TaskTeam $team,
+                        ): array => $this->serializeTeam(
+                            $team,
+                        ),
+                    )
+                    ->values()
+                : collect();
+
         $events =
             $visibleTaskIds->isEmpty()
             ? collect()
@@ -1812,10 +2160,63 @@ class TaskManagementController extends Controller
 
             'events' => $events,
 
+            'teams' => $teams,
+
             'permissions' => $this->browserPermissions(
                 $request,
             ),
         ]);
+    }
+
+    /**
+     * Serialize one persisted team for the Task Management browser surface.
+     *
+     * @return array<string, mixed>
+     */
+    private function serializeTeam(
+        TaskTeam $team,
+    ): array {
+        return [
+            'id' => (int) $team->id,
+
+            'name' => $team->name,
+
+            'description' => $team->description,
+
+            'department_id' => (int) $team->department_id,
+
+            'department' => $team->department?->name,
+
+            'leader_id' => $team->leader_staff_member_id !== null
+                ? (int) $team->leader_staff_member_id
+                : null,
+
+            'leader_name' => $team->leader?->name,
+
+            'capacity' => (int) $team->capacity,
+
+            'priority' => $team->priority,
+
+            'member_ids' => $team
+                ->members
+                ->pluck(
+                    'id',
+                )
+                ->map(
+                    fn ($id): int => (int) $id,
+                )
+                ->values(),
+
+            'project_ids' => $team
+                ->projects
+                ->pluck(
+                    'id',
+                )
+                ->map(
+                    fn ($id): int => (int) $id,
+                )
+                ->values(),
+        ];
     }
 
     /**
