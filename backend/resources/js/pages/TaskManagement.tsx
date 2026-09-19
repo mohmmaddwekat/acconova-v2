@@ -75,6 +75,10 @@ import type {
 } from '@/features/task-management/types';
 import { TaskEditor } from '@/features/task-management/TaskEditor';
 import { TaskDrawer } from '@/features/task-management/TaskDrawer';
+import {
+    TeamsExperience,
+    type TeamsView,
+} from '@/features/task-management/TeamsExperience';
 import '../../css/task-management.css';
 
 type Filters = {
@@ -175,6 +179,7 @@ export default function TaskManagement() {
         AppPageProps & {
             taskView: TaskView;
             taskId: number | null;
+            teamId: number | null;
         }
     >();
 
@@ -183,6 +188,7 @@ export default function TaskManagement() {
             key={page.props.workspace.activeOrganization?.id ?? 'none'}
             view={page.props.taskView}
             taskId={page.props.taskId}
+            teamId={page.props.teamId}
         />
     );
 }
@@ -193,9 +199,11 @@ export default function TaskManagement() {
 function TaskWorkspace({
     view,
     taskId,
+    teamId,
 }: {
     view: TaskView;
     taskId: number | null;
+    teamId: number | null;
 }) {
     const ar = useLocale() === 'ar';
     const page = usePage<AppPageProps>();
@@ -290,6 +298,10 @@ function TaskWorkspace({
         list: ['قائمة المهام', 'Task list'],
         projects: ['لوحة المهام والمشاريع', 'Projects & task board'],
         team: ['الفريق وعبء العمل', 'Team & workload'],
+        teams: ['الفرق', 'Teams'],
+        'teams-create': ['إنشاء فريق جديد', 'Create a new team'],
+        'teams-detail': ['تفاصيل الفريق', 'Team details'],
+        'teams-members': ['إدارة أعضاء الفريق', 'Manage team members'],
         create: ['إضافة مهمة جديدة', 'Create a task'],
         edit: ['تعديل المهمة', 'Edit task'],
         detail: ['قائمة المهام', 'Task list'],
@@ -311,6 +323,22 @@ function TaskWorkspace({
         team: [
             'رؤية شاملة لتوزيع العمل والمهام المتأخرة على أعضاء الفريق.',
             'Understand assignments, workload and overdue work.',
+        ],
+        teams: [
+            'إدارة فرق القسم ومتابعة الأعضاء والمشاريع وعبء العمل.',
+            'Manage department teams, members, projects and workload.',
+        ],
+        'teams-create': [
+            'أنشئ فريقًا جديدًا داخل القسم وحدد القائد والأعضاء والمشاريع المبدئية.',
+            'Create a team and configure its lead, members and initial projects.',
+        ],
+        'teams-detail': [
+            'تابع أعضاء الفريق ومشاريعه وعبء العمل والنشاط في مكان واحد.',
+            'Review team members, projects, workload and recent activity.',
+        ],
+        'teams-members': [
+            'إدارة أعضاء الفريق وتوزيع الأدوار ومتابعة نسبة الانشغال.',
+            'Manage team membership, roles and utilization.',
         ],
         create: [
             'أضف مهمة واضحة وحدد المسؤوليات والأولويات والجدول الزمني.',
@@ -390,6 +418,14 @@ function TaskWorkspace({
             path: '/team',
             ar: 'الفريق وعبء العمل',
             en: 'Team & workload',
+            icon: UsersRound,
+        },
+        {
+            key: 'teams',
+            permission: 'tasks.team',
+            path: '/teams',
+            ar: 'الفرق',
+            en: 'Teams',
             icon: UsersRound,
         },
     ];
@@ -505,6 +541,7 @@ function TaskWorkspace({
     }
 
     const editor = view === 'create' || view === 'edit';
+    const teamsView = view.startsWith('teams');
 
     return (
         <AppShell>
@@ -515,7 +552,7 @@ function TaskWorkspace({
                     <div>
                         <h1 className="flex items-center gap-2 text-xl font-bold">
                             <span className="text-blue-500">
-                                {view === 'team'
+                                {view === 'team' || teamsView
                                     ? <UsersRound size={24} />
                                     : view === 'projects'
                                         ? <FolderKanban size={24} />
@@ -563,7 +600,7 @@ function TaskWorkspace({
                             </>
                         )}
 
-                        {! editor && can('tasks.create') && (
+                        {! editor && ! teamsView && can('tasks.create') && (
                             <Link
                                 className={primary}
                                 href={`${base}/create`}
@@ -587,7 +624,8 @@ function TaskWorkspace({
                         const Icon = item.icon;
                         const active =
                             view === item.key
-                            || (view === 'detail' && item.key === 'list');
+                            || (view === 'detail' && item.key === 'list')
+                            || (teamsView && item.key === 'teams');
 
                         return (
                             <Link
@@ -637,7 +675,7 @@ function TaskWorkspace({
                             />
                         ) : (
                             <>
-                                {view !== 'projects' && view !== 'team' && (
+                                {view !== 'projects' && view !== 'team' && ! teamsView && (
                                     <Summary
                                         tasks={tasks}
                                         members={data.members}
@@ -645,7 +683,7 @@ function TaskWorkspace({
                                     />
                                 )}
 
-                                {view !== 'team' && (
+                                {view !== 'team' && ! teamsView && (
                                     <FiltersBar
                                         data={data}
                                         filters={filters}
@@ -709,6 +747,16 @@ function TaskWorkspace({
                                         tasks={tasks}
                                         ar={ar}
                                         section={effectiveTeamSection}
+                                    />
+                                )}
+
+                                {teamsView && (
+                                    <TeamsExperience
+                                        view={view as TeamsView}
+                                        teamId={teamId}
+                                        data={data}
+                                        tasks={tasks}
+                                        ar={ar}
                                     />
                                 )}
                             </>
