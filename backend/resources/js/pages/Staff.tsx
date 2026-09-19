@@ -3393,6 +3393,23 @@ function StaffWorkspace() {
                                             : 'No linked account'}
                                     </option>
 
+                                    {linkedUserId
+                                        && ! result?.accounts.some(
+                                            (
+                                                account,
+                                            ) =>
+                                                String(
+                                                    account.id,
+                                                ) ===
+                                                linkedUserId,
+                                        ) && (
+                                        <option value={linkedUserId}>
+                                            {ar
+                                                ? 'الحساب المرتبط · جارٍ تحميل بياناته…'
+                                                : 'Linked account · loading details…'}
+                                        </option>
+                                    )}
+
                                     {result?.accounts.map(
                                         (
                                             account,
