@@ -1979,34 +1979,54 @@ function TeamDetailSurface({
                     </div>
                 </Panel>
 
-                <Panel
-                    title={text('عبء العمل', 'Workload')}
-                    icon={BarChart3}
-                >
-                    <div className="flex items-center justify-center py-2">
-                        <div
-                            className="flex size-40 items-center justify-center rounded-full"
-                            style={{
-                                background:
-                                    'conic-gradient(#2879ff 0 '
-                                    + team.workload
-                                    + '%, #e8eef8 '
-                                    + team.workload
-                                    + '% 100%)',
-                            }}
-                        >
-                            <div className="flex size-28 flex-col items-center justify-center rounded-full bg-white">
-                                <strong className="text-2xl">{team.workload}%</strong>
-                                <span className="text-[9px] text-slate-400">
-                                    {text('عبء العمل', 'Workload')}
-                                </span>
+                {permissions.includes('teams.view_workload') ? (
+                    <Panel
+                        title={text('عبء العمل', 'Workload')}
+                        icon={BarChart3}
+                    >
+                        <div className="flex items-center justify-center py-2">
+                            <div
+                                className="flex size-40 items-center justify-center rounded-full"
+                                style={{
+                                    background:
+                                        'conic-gradient(#2879ff 0 '
+                                        + team.workload
+                                        + '%, #e8eef8 '
+                                        + team.workload
+                                        + '% 100%)',
+                                }}
+                            >
+                                <div className="flex size-28 flex-col items-center justify-center rounded-full bg-white">
+                                    <strong className="text-2xl">{team.workload}%</strong>
+                                    <span className="text-[9px] text-slate-400">
+                                        {text('عبء العمل', 'Workload')}
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <p className="rounded-lg bg-emerald-50 p-3 text-center text-xs font-semibold text-emerald-600">
-                        {text('أداء الفريق ضمن النطاق الصحي', 'Team performance is within a healthy range')}
-                    </p>
-                </Panel>
+                        <p className="rounded-lg bg-emerald-50 p-3 text-center text-xs font-semibold text-emerald-600">
+                            {text('أداء الفريق ضمن النطاق الصحي', 'Team performance is within a healthy range')}
+                        </p>
+                    </Panel>
+                ) : (
+                    <Panel
+                        title={text('الفرق الفرعية', 'Sub-teams')}
+                        icon={ListTree}
+                    >
+                        <div className="space-y-3">
+                            <Metric
+                                value={team.childCount}
+                                label={text('فرق مباشرة', 'Direct child teams')}
+                            />
+                            <p className="text-[10px] leading-5 text-slate-400">
+                                {text(
+                                    'تحليلات عبء العمل مخفية حسب صلاحيات دورك.',
+                                    'Workload analytics are hidden by your role permissions.',
+                                )}
+                            </p>
+                        </div>
+                    </Panel>
+                )}
             </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
@@ -2061,25 +2081,55 @@ function TeamDetailSurface({
                             <X size={14} />
                         </button>
                     </div>
-                    <label className="tm-field">
-                        {text('اسم الفريق', 'Team name')}
-                        <input
-                            className={input}
-                            required
-                            value={editName}
-                            onChange={(event) => setEditName(event.target.value)}
-                        />
-                    </label>
-                    <label className="tm-field">
-                        {text('وصف الفريق', 'Description')}
-                        <textarea
-                            className={input}
-                            rows={4}
-                            value={editDescription}
-                            onChange={(event) => setEditDescription(event.target.value)}
-                        />
-                    </label>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    {can('teams.update') && (
+                        <>
+                            <label className="tm-field">
+                                {text('اسم الفريق', 'Team name')}
+                                <input
+                                    className={input}
+                                    required
+                                    value={editName}
+                                    onChange={(event) => setEditName(event.target.value)}
+                                />
+                            </label>
+                            <label className="tm-field">
+                                {text('وصف الفريق', 'Description')}
+                                <textarea
+                                    className={input}
+                                    rows={4}
+                                    value={editDescription}
+                                    onChange={(event) => setEditDescription(event.target.value)}
+                                />
+                            </label>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="tm-field">
+                                    {text('سعة الفريق', 'Capacity')}
+                                    <input
+                                        className={input}
+                                        type="number"
+                                        min={Math.max(1, team.members.length)}
+                                        max="100"
+                                        value={editCapacity}
+                                        onChange={(event) => setEditCapacity(event.target.value)}
+                                    />
+                                </label>
+                                <label className="tm-field">
+                                    {text('الأولوية', 'Priority')}
+                                    <select
+                                        className={input}
+                                        value={editPriority}
+                                        onChange={(event) => setEditPriority(event.target.value as 'low' | 'medium' | 'high')}
+                                    >
+                                        <option value="low">{text('منخفضة', 'Low')}</option>
+                                        <option value="medium">{text('متوسطة', 'Medium')}</option>
+                                        <option value="high">{text('عالية', 'High')}</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </>
+                    )}
+
+                    {can('teams.lead.manage') && (
                         <label className="tm-field">
                             {text('قائد الفريق', 'Team lead')}
                             <select
@@ -2092,30 +2142,34 @@ function TeamDetailSurface({
                                 ))}
                             </select>
                         </label>
+                    )}
+
+                    {permissions.includes('teams.move') && (
                         <label className="tm-field">
-                            {text('سعة الفريق', 'Capacity')}
-                            <input
+                            {text('الموقع داخل الهيكل', 'Hierarchy position')}
+                            <select
                                 className={input}
-                                type="number"
-                                min={Math.max(1, team.members.length)}
-                                max="100"
-                                value={editCapacity}
-                                onChange={(event) => setEditCapacity(event.target.value)}
-                            />
+                                value={editParent}
+                                onChange={(event) => setEditParent(event.target.value)}
+                            >
+                                <option value="">
+                                    {text('فريق رئيسي داخل القسم', 'Top-level team in department')}
+                                </option>
+                                {parentOptions.map((option: UiTeam) => (
+                                    <option key={option.id} value={option.id}>
+                                        {ar ? option.nameAr : option.nameEn}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="text-[9px] font-normal text-slate-400">
+                                {text(
+                                    'لا يمكنك نقل الفريق تحت نفسه أو تحت أحد الفرق التابعة له.',
+                                    'You cannot move a team below itself or one of its descendants.',
+                                )}
+                            </span>
                         </label>
-                    </div>
-                    <label className="tm-field">
-                        {text('الأولوية', 'Priority')}
-                        <select
-                            className={input}
-                            value={editPriority}
-                            onChange={(event) => setEditPriority(event.target.value as 'low' | 'medium' | 'high')}
-                        >
-                            <option value="low">{text('منخفضة', 'Low')}</option>
-                            <option value="medium">{text('متوسطة', 'Medium')}</option>
-                            <option value="high">{text('عالية', 'High')}</option>
-                        </select>
-                    </label>
+                    )}
+
                     <div className="flex justify-end gap-2">
                         <button type="button" className={button} disabled={busy} onClick={() => setEditOpen(false)}>
                             {text('إلغاء', 'Cancel')}
@@ -2140,7 +2194,7 @@ function TeamDetailSurface({
                         </button>
                     </div>
                     <div className="max-h-80 space-y-2 overflow-y-auto">
-                        {data.projects.map((project: Project) => {
+                        {projectOptions.map((project: Project) => {
                             const selected = projectIds.includes(project.id);
 
                             return (
