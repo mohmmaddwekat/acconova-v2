@@ -575,22 +575,59 @@ function CreateTeamSurface({
     );
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
+    const [department, setDepartment] = useState(departments[0] ?? '');
     const [leader, setLeader] = useState('');
     const [capacity, setCapacity] = useState('8');
     const [priority, setPriority] = useState('medium');
-    const [selectedMembers, setSelectedMembers] = useState<number[]>(
-        data.members.slice(0, 4).map((member: Member) => member.id),
-    );
+    const [memberSearch, setMemberSearch] = useState('');
+    const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
     const [selectedProjects, setSelectedProjects] = useState<number[]>(
         data.projects.slice(0, 3).map((project: Project) => project.id),
     );
 
-    function toggleMember(id: number): void {
+    const departmentMembers = data.members.filter((member: Member) => (
+        ! department || member.department === department
+    ));
+    const memberSearchValue = memberSearch.trim().toLocaleLowerCase();
+    const availableMembers = departmentMembers
+        .filter((member: Member) => ! selectedMembers.includes(member.id))
+        .filter((member: Member) => {
+            if (! memberSearchValue) {
+                return true;
+            }
+
+            return [
+                member.name,
+                member.email ?? '',
+                member.job_title ?? '',
+            ]
+                .join(' ')
+                .toLocaleLowerCase()
+                .includes(memberSearchValue);
+        })
+        .slice(0, 8);
+
+    function addMember(id: number): void {
+        const maxMembers = Math.max(1, Number(capacity) || 1);
+
+        setSelectedMembers((current: number[]) => {
+            if (current.includes(id) || current.length >= maxMembers) {
+                return current;
+            }
+
+            return [...current, id];
+        });
+        setMemberSearch('');
+    }
+
+    function removeMember(id: number): void {
         setSelectedMembers((current: number[]) => (
-            current.includes(id)
-                ? current.filter((value: number) => value !== id)
-                : [...current, id]
+            current.filter((value: number) => value !== id)
         ));
+
+        if (leader === String(id)) {
+            setLeader('');
+        }
     }
 
     function toggleProject(id: number): void {
@@ -626,12 +663,24 @@ function CreateTeamSurface({
                         <div className="grid gap-4 md:grid-cols-2">
                             <label className="tm-field">
                                 {text('القسم', 'Department')}
-                                <select className={input}>
+                                <select
+                                    className={input}
+                                    value={department}
+                                    onChange={(event) => {
+                                        const nextDepartment = event.target.value;
+                                        setDepartment(nextDepartment);
+                                        setLeader('');
+                                        setSelectedMembers([]);
+                                        setMemberSearch('');
+                                    }}
+                                >
                                     {! departments.length && (
-                                        <option>{text('قسم البرمجة', 'Engineering')}</option>
+                                        <option value="">{text('قسم البرمجة', 'Engineering')}</option>
                                     )}
-                                    {departments.map((department: string) => (
-                                        <option key={department}>{department}</option>
+                                    {departments.map((departmentName: string) => (
+                                        <option key={departmentName} value={departmentName}>
+                                            {departmentName}
+                                        </option>
                                     ))}
                                 </select>
                             </label>
@@ -641,12 +690,19 @@ function CreateTeamSurface({
                                 <select
                                     className={input}
                                     value={leader}
-                                    onChange={(event) => setLeader(event.target.value)}
+                                    onChange={(event) => {
+                                        const nextLeader = event.target.value;
+                                        setLeader(nextLeader);
+
+                                        if (nextLeader) {
+                                            addMember(Number(nextLeader));
+                                        }
+                                    }}
                                 >
                                     <option value="">
                                         {text('اختر قائد الفريق', 'Choose team lead')}
                                     </option>
-                                    {data.members.map((member: Member) => (
+                                    {departmentMembers.map((member: Member) => (
                                         <option key={member.id} value={member.id}>
                                             {member.name}
                                         </option>
@@ -676,39 +732,111 @@ function CreateTeamSurface({
                     title={text('أعضاء الفريق', 'Team members')}
                     icon={UsersRound}
                 >
-                    <label className="relative mb-3 block">
+                    <div className="relative mb-3">
                         <Search
                             size={14}
                             className="absolute start-3 top-3 text-slate-400"
                         />
                         <input
                             className={input + ' !ps-9'}
+                            value={memberSearch}
+                            onChange={(event) => setMemberSearch(event.target.value)}
                             placeholder={text('البحث عن موظفين لإضافتهم إلى الفريق…', 'Search employees to add…')}
                         />
-                    </label>
+
+                        {memberSearch.trim() && (
+                            <div className="absolute inset-x-0 top-[42px] z-30 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                                {availableMembers.length ? (
+                                    availableMembers.map((member: Member) => (
+                                        <div
+                                            key={member.id}
+                                            className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-slate-50"
+                                        >
+                                            <Avatar member={member} />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-[11px] font-semibold">
+                                                    {member.name}
+                                                </p>
+                                                <p className="truncate text-[9px] text-slate-400">
+                                                    {member.job_title ?? member.email ?? text('موظف', 'Employee')}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className={primary}
+                                                disabled={selectedMembers.length >= Math.max(1, Number(capacity) || 1)}
+                                                onClick={() => addMember(member.id)}
+                                            >
+                                                <Plus size={13} />
+                                                {text('إضافة', 'Add')}
+                                            </button>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="px-3 py-4 text-center text-[10px] text-slate-400">
+                                        {text(
+                                            'لا يوجد موظفون متاحون يطابقون البحث.',
+                                            'No available employees match this search.',
+                                        )}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
 
                     <div className="flex flex-wrap gap-2">
-                        {data.members.map((member: Member) => {
-                            const selected = selectedMembers.includes(member.id);
+                        {selectedMembers.map((memberId: number) => {
+                            const member = data.members.find(
+                                (item: Member) => item.id === memberId,
+                            );
+
+                            if (! member) {
+                                return null;
+                            }
 
                             return (
-                                <button
+                                <span
                                     key={member.id}
-                                    type="button"
-                                    onClick={() => toggleMember(member.id)}
-                                    className={
-                                        'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] transition '
-                                        + (selected
-                                            ? 'border-blue-200 bg-blue-50 text-blue-700'
-                                            : 'border-slate-200 bg-white text-slate-500')
-                                    }
+                                    className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-[10px] text-blue-700"
                                 >
                                     <Avatar member={member} />
                                     {member.name}
-                                    {selected ? <X size={11} /> : <Plus size={11} />}
-                                </button>
+                                    <button
+                                        type="button"
+                                        aria-label={text('إزالة العضو', 'Remove member')}
+                                        className="rounded-full p-0.5 hover:bg-blue-100"
+                                        onClick={() => removeMember(member.id)}
+                                    >
+                                        <X size={11} />
+                                    </button>
+                                </span>
                             );
                         })}
+
+                        {! selectedMembers.length && (
+                            <span className="text-[10px] text-slate-400">
+                                {text(
+                                    'ابحث عن موظف ثم اضغط «إضافة».',
+                                    'Search for an employee, then press “Add”.',
+                                )}
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-3 text-[9px] text-slate-400">
+                        <span>
+                            {selectedMembers.length} / {Math.max(1, Number(capacity) || 1)}
+                            {' '}
+                            {text('أعضاء محددون', 'members selected')}
+                        </span>
+                        {! memberSearch.trim() && availableMembers.length > 0 && (
+                            <span>
+                                {text(
+                                    'اكتب اسم الموظف في البحث لإظهار زر الإضافة.',
+                                    'Type an employee name to show the Add button.',
+                                )}
+                            </span>
+                        )}
                     </div>
 
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -720,7 +848,12 @@ function CreateTeamSurface({
                                 min="1"
                                 max="100"
                                 value={capacity}
-                                onChange={(event) => setCapacity(event.target.value)}
+                                onChange={(event) => {
+                                    const next = event.target.value;
+                                    setCapacity(next);
+                                    const maxMembers = Math.max(1, Number(next) || 1);
+                                    setSelectedMembers((current: number[]) => current.slice(0, maxMembers));
+                                }}
                             />
                             <span className="text-[9px] font-normal text-slate-400">
                                 {text('العدد الأقصى للأعضاء في الفريق', 'Maximum number of team members')}
@@ -802,7 +935,7 @@ function CreateTeamSurface({
                             {name || text('فريق جديد', 'New team')}
                         </h3>
                         <p className="mt-1 text-[10px] text-slate-400">
-                            {departments[0] ?? text('قسم البرمجة', 'Engineering')}
+                            {department || text('قسم البرمجة', 'Engineering')}
                         </p>
                     </div>
 
