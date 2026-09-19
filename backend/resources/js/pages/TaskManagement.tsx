@@ -662,6 +662,7 @@ function TaskWorkspace({
                                         className={button}
                                         onClick={() => {
                                             setError('');
+                                            setEditingProject(null);
                                             setProjectDialog(true);
                                         }}
                                     >
@@ -802,6 +803,14 @@ function TaskWorkspace({
                                             data={data}
                                             tasks={filtered}
                                             ar={ar}
+                                            canManage={can('tasks.projects.manage')}
+                                            busy={busy}
+                                            onEdit={(project: Project) => {
+                                                setError('');
+                                                setEditingProject(project);
+                                                setProjectDialog(true);
+                                            }}
+                                            onDelete={deleteProject}
                                             onSelect={(projectId: number) => {
                                                 setFilters({
                                                     ...emptyFilters,
@@ -854,20 +863,33 @@ function TaskWorkspace({
                     onClose={() => {
                         if (! busy) {
                             setProjectDialog(false);
+                            setEditingProject(null);
                         }
                     }}
-                    title={text('مشروع جديد', 'New project')}
+                    title={
+                        editingProject
+                            ? text('تعديل المشروع', 'Edit project')
+                            : text('مشروع جديد', 'New project')
+                    }
                 >
-                    <form onSubmit={createProject}>
+                    <form
+                        key={editingProject?.id ?? 'new-project'}
+                        onSubmit={saveProject}
+                    >
                         <div className="mb-5 flex justify-between">
                             <h2 className="font-bold">
-                                {text('إضافة مشروع جديد', 'Create a project')}
+                                {editingProject
+                                    ? text('تعديل بيانات المشروع', 'Edit project details')
+                                    : text('إضافة مشروع جديد', 'Create a project')}
                             </h2>
                             <button
                                 type="button"
                                 disabled={busy}
                                 aria-label={text('إغلاق', 'Close')}
-                                onClick={() => setProjectDialog(false)}
+                                onClick={() => {
+                                    setProjectDialog(false);
+                                    setEditingProject(null);
+                                }}
                             >
                                 <X size={18} />
                             </button>
@@ -879,8 +901,9 @@ function TaskWorkspace({
                                 className={input}
                                 autoFocus
                                 required
-                                maxLength={255}
+                                maxLength={160}
                                 name="name"
+                                defaultValue={editingProject?.name ?? ''}
                             />
                         </label>
 
@@ -889,16 +912,40 @@ function TaskWorkspace({
                             <textarea
                                 className={input}
                                 name="description"
-                                maxLength={5000}
+                                maxLength={3000}
                                 rows={3}
+                                defaultValue={editingProject?.description ?? ''}
                             />
                         </label>
+
+                        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                            <label className="tm-field">
+                                {text('تاريخ البدء', 'Start date')}
+                                <input
+                                    className={input}
+                                    type="date"
+                                    name="starts_on"
+                                    defaultValue={editingProject?.starts_on ?? ''}
+                                />
+                            </label>
+
+                            <label className="tm-field">
+                                {text('تاريخ الاستحقاق', 'Due date')}
+                                <input
+                                    className={input}
+                                    type="date"
+                                    name="due_on"
+                                    defaultValue={editingProject?.due_on ?? ''}
+                                />
+                            </label>
+                        </div>
 
                         <label className="tm-field mb-5">
                             {text('لون المشروع', 'Project color')}
                             <select
                                 className={input}
                                 name="color"
+                                defaultValue={editingProject?.color ?? 'blue'}
                             >
                                 <option value="blue">{text('أزرق', 'Blue')}</option>
                                 <option value="green">{text('أخضر', 'Green')}</option>
@@ -920,7 +967,11 @@ function TaskWorkspace({
                             disabled={busy}
                             className={`${primary} w-full`}
                         >
-                            {text('حفظ المشروع', 'Save project')}
+                            {busy
+                                ? text('جارٍ الحفظ…', 'Saving…')
+                                : editingProject
+                                    ? text('حفظ التعديلات', 'Save changes')
+                                    : text('حفظ المشروع', 'Save project')}
                         </button>
                     </form>
                 </Modal>
