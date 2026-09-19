@@ -761,6 +761,7 @@ function TaskWorkspace({
                                         data={data}
                                         tasks={tasks}
                                         ar={ar}
+                                        onChanged={refresh}
                                     />
                                 )}
                             </>
