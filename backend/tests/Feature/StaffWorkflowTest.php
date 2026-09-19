@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -185,4 +186,172 @@ class StaffWorkflowTest extends TestCase
             );
     }
 
+
+    public function test_staff_migration_center_imports_employees_attendance_and_payroll_from_csv(): void
+    {
+        $this->workspace();
+
+        $employeePreview =
+            $this
+                ->post(
+                    '/api/staff-import/preview',
+                    [
+                        'file' => UploadedFile::fake()->createWithContent(
+                            'employees.csv',
+                            "Full Name,Phone,Department,Pay Basis,Rate,Allowance,Start Date,Active\n"
+                            ."Imported One,0599000001,Sales,Monthly,1200,100,2026-01-01,Yes\n"
+                            ."Imported Two,0599000002,Sales,Hourly,12,0,2026-02-01,Yes\n",
+                        ),
+                    ],
+                )
+                ->assertOk()
+                ->json();
+
+        $this
+            ->postJson(
+                '/api/staff-import/commit',
+                [
+                    'token' => $employeePreview['token'],
+                    'sheet' => $employeePreview['sheets'][0]['name'],
+                    'type' => 'employees',
+                    'match_by' => 'phone',
+                    'duplicate_strategy' => 'skip',
+                    'create_departments' => true,
+                    'mapping' => [
+                        'name' => 'Full Name',
+                        'phone' => 'Phone',
+                        'department' => 'Department',
+                        'basis' => 'Pay Basis',
+                        'rate' => 'Rate',
+                        'monthly_allowance' => 'Allowance',
+                        'started_on' => 'Start Date',
+                        'active' => 'Active',
+                    ],
+                ],
+            )
+            ->assertOk()
+            ->assertJsonPath(
+                'created',
+                2,
+            );
+
+        $this->assertDatabaseHas(
+            'departments',
+            [
+                'name' => 'Sales',
+            ],
+        );
+
+        $this->assertDatabaseHas(
+            'staff_members',
+            [
+                'name' => 'Imported One',
+                'phone' => '0599000001',
+                'basis' => 'month',
+            ],
+        );
+
+        $attendancePreview =
+            $this
+                ->post(
+                    '/api/staff-import/preview',
+                    [
+                        'file' => UploadedFile::fake()->createWithContent(
+                            'attendance.csv',
+                            "Employee,Date,Status,Hours,Overtime\n"
+                            ."Imported One,2026-09-18,Present,1,2\n",
+                        ),
+                    ],
+                )
+                ->assertOk()
+                ->json();
+
+        $this
+            ->postJson(
+                '/api/staff-import/commit',
+                [
+                    'token' => $attendancePreview['token'],
+                    'sheet' => $attendancePreview['sheets'][0]['name'],
+                    'type' => 'attendance',
+                    'match_by' => 'name',
+                    'duplicate_strategy' => 'skip',
+                    'mapping' => [
+                        'employee' => 'Employee',
+                        'occurred_on' => 'Date',
+                        'status' => 'Status',
+                        'quantity' => 'Hours',
+                        'overtime_hours' => 'Overtime',
+                    ],
+                ],
+            )
+            ->assertOk()
+            ->assertJsonPath(
+                'created',
+                1,
+            );
+
+        $staffId =
+            StaffMember::where(
+                'name',
+                'Imported One',
+            )->value(
+                'id',
+            );
+
+        $this->assertDatabaseHas(
+            'staff_attendances',
+            [
+                'staff_member_id' => $staffId,
+                'status' => 'present',
+            ],
+        );
+
+        $payrollPreview =
+            $this
+                ->post(
+                    '/api/staff-import/preview',
+                    [
+                        'file' => UploadedFile::fake()->createWithContent(
+                            'payroll.csv',
+                            "Employee,Type,Date,Amount,Notes\n"
+                            ."Imported One,Payment,2026-09-18,250,Legacy payment\n",
+                        ),
+                    ],
+                )
+                ->assertOk()
+                ->json();
+
+        $this
+            ->postJson(
+                '/api/staff-import/commit',
+                [
+                    'token' => $payrollPreview['token'],
+                    'sheet' => $payrollPreview['sheets'][0]['name'],
+                    'type' => 'payroll',
+                    'match_by' => 'name',
+                    'mapping' => [
+                        'employee' => 'Employee',
+                        'kind' => 'Type',
+                        'occurred_on' => 'Date',
+                        'amount' => 'Amount',
+                        'notes' => 'Notes',
+                    ],
+                ],
+            )
+            ->assertOk()
+            ->assertJsonPath(
+                'created',
+                1,
+            );
+
+        $this->assertDatabaseHas(
+            'staff_entries',
+            [
+                'staff_member_id' => $staffId,
+                'kind' => 'payment',
+                'amount' => -250,
+                'notes' => 'Legacy payment',
+            ],
+        );
+    }
 }
