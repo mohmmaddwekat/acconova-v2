@@ -590,9 +590,9 @@ export function ProductEditorDrawer({
                 aria-label={t(
                     'ui.catalog_context',
                 )}
-                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[660px]"
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[660px]"
             >
-                <header className="shrink-0 border-b border-[var(--ac-line)] bg-white px-5 py-5 sm:px-6">
+                <header className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 py-5 sm:px-6">
                     <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
                             <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-accent-strong)]">
@@ -764,14 +764,14 @@ export function ProductEditorDrawer({
                                             }),
                                         )
                                     }
-                                    className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-white px-3.5 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                                    className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3.5 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                 />
                             </Field>
 
                             <div className="grid gap-5 sm:grid-cols-2">
                                 <div className="rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3.5">
                                     <div className="flex items-start gap-3">
-                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-white text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]">
+                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-surface)] text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]">
                                             <Hash
                                                 size={
                                                     15
@@ -874,7 +874,7 @@ export function ProductEditorDrawer({
                                                     form.unit ===
                                                     unit.value
                                                         ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                                                        : 'border-[var(--ac-line)] bg-white text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
+                                                        : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
                                                 ].join(
                                                     ' ',
                                                 )}
@@ -1094,7 +1094,7 @@ export function ProductEditorDrawer({
                             onClick={
                                 closeDialog
                             }
-                            className="h-11 rounded-[14px] border border-[var(--ac-line)] bg-white text-sm font-semibold disabled:opacity-50"
+                            className="h-11 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] text-sm font-semibold disabled:opacity-50"
                         >
                             {t(
                                 'ui.cancel',
@@ -1163,7 +1163,7 @@ function CatalogSemanticsCard({
             )}
         >
             <div className="flex items-start gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-white shadow-sm">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-surface)] shadow-sm">
                     <Icon
                         size={
                             15
@@ -1234,7 +1234,7 @@ function TypeButton({
                 'rounded-[18px] border p-4 text-start transition',
                 active
                     ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
-                    : 'border-[var(--ac-line)] bg-white hover:border-[var(--ac-line-strong)]',
+                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)] hover:border-[var(--ac-line-strong)]',
             ].join(
                 ' ',
             )}
