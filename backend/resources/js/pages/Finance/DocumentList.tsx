@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { FinanceNav } from './FinanceNav';
+import { InvoiceAutomationLibrary } from './InvoiceAutomationLibrary';
 import {
     FinanceHeader,
     FPanel,
@@ -506,6 +507,12 @@ export function DocumentList({
                         onToggleColumn={listPreferences.toggleColumn}
                         onDensityChange={listPreferences.setDensity}
                         ar={ar}
+                    />
+
+                    <InvoiceAutomationLibrary
+                        kind={kind}
+                        ar={ar}
+                        canManage={canManage}
                     />
 
                     <SavedViews
