@@ -1,4 +1,5 @@
 export type FinanceView =
+    | 'overview'
     | 'sales-list'
     | 'sales-create'
     | 'sales-detail'
