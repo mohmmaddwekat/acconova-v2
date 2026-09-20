@@ -475,6 +475,12 @@ class CashMovementService
                 ]);
             }
 
+            if ($locked->status !== 'posted') {
+                throw ValidationException::withMessages([
+                    'status' => ['Check status can only be updated after the cash movement is posted.'],
+                ]);
+            }
+
             $before = $this->snapshot($locked);
             $locked->check_status = $status;
             $locked->updated_by = $actorId;
