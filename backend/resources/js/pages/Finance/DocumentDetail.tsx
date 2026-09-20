@@ -1640,13 +1640,16 @@ function InvoicePrintView({
     return (
         <div
             dir={ar ? 'rtl' : 'ltr'}
-            className="hidden bg-white text-[#172b4d] print:block"
+            className="ac-invoice-print hidden bg-white text-[#172b4d] print:block"
         >
             <style>
                 {[
                     '@media print {',
                     '@page { size: ' + paperSize + '; margin: ' + margin + '; }',
                     'html, body { background: white !important; }',
+                    'body * { visibility: hidden !important; }',
+                    '.ac-invoice-print, .ac-invoice-print * { visibility: visible !important; }',
+                    '.ac-invoice-print { display: block !important; position: absolute !important; inset: 0 !important; width: 100% !important; }',
                     '}',
                 ].join(' ')}
             </style>
