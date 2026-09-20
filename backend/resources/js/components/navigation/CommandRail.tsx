@@ -10,17 +10,14 @@ import {
     usePage,
 } from '@inertiajs/react';
 import {
-    Banknote,
     Boxes,
     ContactRound,
     Factory,
     Gauge,
-    HandCoins,
     Landmark,
     ListTodo,
     PanelLeftClose,
     PanelLeftOpen,
-    ReceiptText,
     Settings,
     ShieldCheck,
     Sparkles,
@@ -271,120 +268,37 @@ export function CommandRail({
             ?? '',
         );
 
-    const canViewSalesInvoices =
+    const canViewFinance =
         customPermissions
-            ? customPermissions.includes(
+            ? [
                   'finance.sales.view',
-              )
-            : builtinFinanceAccess;
-
-    const canViewPurchaseInvoices =
-        customPermissions
-            ? customPermissions.includes(
                   'finance.purchases.view',
-              )
-            : builtinFinanceAccess;
-
-    const canViewCash =
-        customPermissions
-            ? customPermissions.includes(
                   'finance.cash.view',
-              )
-            : builtinFinanceAccess;
-
-    if (
-        canViewSalesInvoices
-        || canViewPurchaseInvoices
-    ) {
-        navigationItems.push({
-            label:
-                locale ===
-                'ar'
-                    ? 'الفواتير'
-                    : 'Invoices',
-
-            description:
-                locale ===
-                'ar'
-                    ? 'فواتير البيع والشراء'
-                    : 'Sales & purchase invoices',
-
-            href:
-                canViewSalesInvoices
-                    ? '/app/invoices'
-                    : '/app/invoices/purchases',
-
-            icon:
-                ReceiptText,
-        });
-    }
-
-    if (canViewCash) {
-        navigationItems.push(
-            {
-                label:
-                    locale ===
-                    'ar'
-                        ? 'المدفوعات'
-                        : 'Payments',
-
-                description:
-                    locale ===
-                    'ar'
-                        ? 'الصرف والمصاريف والسداد'
-                        : 'Outgoing cash & expenses',
-
-                href:
-                    '/app/payments',
-
-                icon:
-                    Banknote,
-            },
-            {
-                label:
-                    locale ===
-                    'ar'
-                        ? 'المقبوضات'
-                        : 'Receipts',
-
-                description:
-                    locale ===
-                    'ar'
-                        ? 'التحصيل والتدفقات الواردة'
-                        : 'Collections & incoming cash',
-
-                href:
-                    '/app/receipts',
-
-                icon:
-                    HandCoins,
-            },
-        );
-    }
-
-    const canViewTaxes =
-        customPermissions
-            ? customPermissions.includes(
                   'finance.taxes.view',
+              ].some(
+                  permission =>
+                      customPermissions.includes(
+                          permission,
+                      ),
               )
             : builtinFinanceAccess;
 
-    if (canViewTaxes) {
+    if (canViewFinance) {
         navigationItems.push({
             label:
                 locale ===
                 'ar'
-                    ? 'الضرائب والمستحقات'
-                    : 'Taxes & Obligations',
+                    ? 'المركز المالي'
+                    : 'Finance Center',
 
             description:
                 locale ===
                 'ar'
-                    ? 'القواعد الضريبية والجهات الحكومية'
-                    : 'Tax rules & government dues',
+                    ? 'الفواتير والمدفوعات والمقبوضات والضرائب'
+                    : 'Invoices, cash, receipts & taxes',
 
             href:
-                '/app/finance/taxes',
+                '/app/finance',
 
             icon:
                 Landmark,
@@ -472,8 +386,8 @@ export function CommandRail({
         '/app/inventory/production':
             'inventory.view',
 
-        '/app/finance/taxes':
-            'finance.taxes.view',
+        '/app/finance':
+            'finance.sales.view',
     };
 
     const visibleItems =
@@ -484,6 +398,13 @@ export function CommandRail({
                   ) => {
                       if (! item.href) {
                           return true;
+                      }
+
+                      if (
+                          item.href ===
+                          '/app/finance'
+                      ) {
+                          return canViewFinance;
                       }
 
                       const permission =
