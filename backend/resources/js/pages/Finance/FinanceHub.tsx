@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import {
     Banknote,
     CalendarClock,
+    FileSpreadsheet,
     HandCoins,
     Landmark,
     ReceiptText,
@@ -69,6 +70,18 @@ export function FinanceHub({
             href: '/app/payments',
             icon: Banknote,
             visible: lookups.permissions.cash_view,
+        },
+        {
+            title: text('نقل البيانات القديمة', 'Import legacy data'),
+            description: text(
+                'نزّل نموذج Excel وانقل فواتير البيع والشراء والدفعات والمصاريف من النظام القديم.',
+                'Download an Excel template and move legacy invoices, payments and expenses into AccoNova.',
+            ),
+            href: '/app/finance/import',
+            icon: FileSpreadsheet,
+            visible: lookups.permissions.sales_manage
+                || lookups.permissions.purchases_manage
+                || lookups.permissions.cash_view,
         },
         {
             title: text('الضرائب والمستحقات', 'Taxes & obligations'),
