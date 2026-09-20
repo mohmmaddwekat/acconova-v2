@@ -97,7 +97,6 @@ export type FinancePermissions = {
 
 export type FinanceLookups = {
     currency: string;
-    default_payment_terms_days: number;
     parties: LookupParty[];
     products: LookupProduct[];
     warehouses: LookupWarehouse[];
