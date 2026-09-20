@@ -41,6 +41,15 @@
     --ac-accent-strong: #145b46;
 
     /*
+     * Canonical action palette selected for AccoNova.
+     * Buttons are outline in both light and dark appearance modes.
+     */
+    --ac-button-border: #6aa6ff;
+    --ac-button-text: #6aa6ff;
+    --ac-button-hover-bg: #1b2a40;
+    --ac-chrome: var(--ac-bg);
+
+    /*
      * Semantic states
      */
     --ac-success: #43c99a;
@@ -140,6 +149,54 @@ body {
 
     color:
         var(--ac-text);
+}
+
+
+/*
+ * AccoNova action-button contract.
+ * Every normal action button is outline in both light and dark modes:
+ * #6AA6FF border/text, #1B2A40 hover.
+ */
+:where(
+    button:not([role='switch']),
+    input[type='button'],
+    input[type='submit'],
+    input[type='reset'],
+    a[role='button'],
+    a[class*='inline-flex'][class*='rounded']
+) {
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: var(--ac-button-border) !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    color: var(--ac-button-text) !important;
+    box-shadow: none !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    :where(
+        button:not([role='switch']):not(:disabled),
+        input[type='button']:not(:disabled),
+        input[type='submit']:not(:disabled),
+        input[type='reset']:not(:disabled),
+        a[role='button'],
+        a[class*='inline-flex'][class*='rounded']
+    ):hover {
+        border-color: var(--ac-button-border) !important;
+        background-color: var(--ac-button-hover-bg) !important;
+        color: var(--ac-button-text) !important;
+    }
+}
+
+:where(
+    button:not([role='switch'])[aria-pressed='true'],
+    button:not([role='switch'])[aria-current='page'],
+    a[role='button'][aria-current='page']
+) {
+    border-color: var(--ac-button-border) !important;
+    background-color: var(--ac-button-hover-bg) !important;
+    color: var(--ac-button-text) !important;
 }
 
 /*
@@ -732,61 +789,77 @@ aside[role='dialog']
  * the Profile Center preview.
  */
 html[data-ac-resolved-theme='dark'] {
-    --ac-bg: #0f1713;
-    --ac-bg-soft: #131e18;
-    --ac-surface: #17231d;
-    --ac-surface-soft: #1c2a23;
-    --ac-surface-strong: #223229;
-    --ac-line: rgba(226, 240, 232, 0.10);
-    --ac-line-strong: rgba(226, 240, 232, 0.18);
-    --ac-text: #edf5f0;
-    --ac-text-soft: #bdcbc3;
-    --ac-text-muted: #91a39a;
-    --ac-text-faint: #708078;
-    --ac-inverse-bg: #e7f0eb;
-    --ac-inverse-text: #132019;
-    --ac-accent-solid: #176b4d;
-    --ac-accent-solid-text: #ffffff;
-    --ac-accent-soft: rgba(67, 201, 154, 0.16);
-    --ac-accent-strong: #78e0bb;
-    --ac-shadow-soft:
-        0 1px 2px rgba(0, 0, 0, 0.18),
-        0 10px 32px rgba(0, 0, 0, 0.18);
-    --ac-shadow-panel:
-        0 1px 2px rgba(0, 0, 0, 0.2),
-        0 18px 54px rgba(0, 0, 0, 0.22);
+    /*
+     * Approved dark palette
+     * 1  #0E1623 — every application/page surface
+     * 2  #6AA6FF — buttons, accents and button text
+     * 3  #1B2A40 — hover / interactive emphasis
+     * 4  #E6EFFD — normal interface text
+     * chrome #162235 — global navbar and header only
+     */
+    --ac-bg: #0e1623;
+    --ac-bg-soft: #0e1623;
+    --ac-surface: #0e1623;
+    --ac-surface-soft: #0e1623;
+    --ac-surface-strong: #0e1623;
+
+    --ac-line: #1b2a40;
+    --ac-line-strong: #6aa6ff;
+
+    --ac-text: #e6effd;
+    --ac-text-soft: #e6effd;
+    --ac-text-muted: #e6effd;
+    --ac-text-faint: #e6effd;
+
+    --ac-inverse-bg: #0e1623;
+    --ac-inverse-text: #6aa6ff;
+    --ac-accent-solid: transparent;
+    --ac-accent-solid-text: #6aa6ff;
+
+    --ac-accent: #6aa6ff;
+    --ac-accent-hover: #1b2a40;
+    --ac-accent-soft: #1b2a40;
+    --ac-accent-strong: #6aa6ff;
+
+    --ac-button-border: #6aa6ff;
+    --ac-button-text: #6aa6ff;
+    --ac-button-hover-bg: #1b2a40;
+    --ac-chrome: #162235;
+
+    --ac-success: #43c99a;
+    --ac-warning: #d9a34f;
+    --ac-danger: #df6b70;
+    --ac-info: #6aa6ff;
+
+    --ac-shadow-soft: none;
+    --ac-shadow-panel: none;
+
+    /*
+     * Settings uses the same dark palette instead of a separate dark skin.
+     */
     --acs-bg: #0e1623;
-    --acs-surface: #151f2f;
-    --acs-surface-soft: #192538;
-    --acs-surface-strong: #21314a;
-    --acs-line: rgba(184, 204, 231, 0.14);
-    --acs-line-soft: rgba(184, 204, 231, 0.09);
-    --acs-line-strong: rgba(184, 204, 231, 0.22);
+    --acs-surface: #0e1623;
+    --acs-surface-soft: #0e1623;
+    --acs-surface-strong: #0e1623;
+    --acs-line: #1b2a40;
+    --acs-line-soft: #1b2a40;
+    --acs-line-strong: #6aa6ff;
     --acs-text: #e6effd;
-    --acs-text-strong: #f5f8ff;
-    --acs-text-soft: #afc1db;
-    --acs-text-muted: #7f96b6;
+    --acs-text-strong: #e6effd;
+    --acs-text-soft: #e6effd;
+    --acs-text-muted: #e6effd;
     --acs-accent: #6aa6ff;
-    --acs-accent-hover: #83b5ff;
-    --acs-accent-soft: rgba(74, 137, 232, 0.16);
-    --acs-control: #111b2a;
+    --acs-accent-hover: #1b2a40;
+    --acs-accent-soft: #1b2a40;
+    --acs-control: #0e1623;
     --acs-control-hover: #1b2a40;
-    --acs-toggle-off: #44536a;
+    --acs-toggle-off: #1b2a40;
+
+    color-scheme: dark;
 }
 
 html[data-ac-resolved-theme='dark'] body {
-    background:
-        radial-gradient(
-            circle at 16% -10%,
-            rgba(67, 201, 154, 0.10),
-            transparent 34%
-        ),
-        radial-gradient(
-            circle at 94% 8%,
-            rgba(102, 129, 232, 0.07),
-            transparent 30%
-        ),
-        var(--ac-bg);
+    background: #0e1623;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -872,7 +945,7 @@ html[data-ac-resolved-theme='dark']
         .bg-white\/60,
         .bg-white\/50
     ) {
-    background-color: var(--ac-surface) !important;
+    background-color: #0e1623 !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -884,7 +957,7 @@ html[data-ac-resolved-theme='dark']
         .bg-zinc-50,
         .bg-zinc-100
     ) {
-    background-color: var(--ac-surface-soft) !important;
+    background-color: #0e1623 !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -961,17 +1034,17 @@ html[data-ac-resolved-theme='dark']
 
 /* Light gradients must resolve to dark surfaces too. */
 html[data-ac-resolved-theme='dark'] .from-white {
-    --tw-gradient-from: var(--ac-surface) var(--tw-gradient-from-position) !important;
-    --tw-gradient-to: color-mix(in srgb, var(--ac-surface) 0%, transparent)
+    --tw-gradient-from: #0e1623 var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: color-mix(in srgb, #0e1623 0%, transparent)
         var(--tw-gradient-to-position) !important;
 }
 
 html[data-ac-resolved-theme='dark'] .via-white {
-    --tw-gradient-via: var(--ac-surface) var(--tw-gradient-via-position) !important;
+    --tw-gradient-via: #0e1623 var(--tw-gradient-via-position) !important;
 }
 
 html[data-ac-resolved-theme='dark'] .to-white {
-    --tw-gradient-to: var(--ac-surface) var(--tw-gradient-to-position) !important;
+    --tw-gradient-to: #0e1623 var(--tw-gradient-to-position) !important;
 }
 
 /*
@@ -990,7 +1063,7 @@ html[data-ac-resolved-theme='dark']
         [class~="bg-[#f3f7fc]"],
         [class~="bg-[#eef5ff]"]
     ) {
-    background-color: var(--ac-surface-soft) !important;
+    background-color: #0e1623 !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -1141,71 +1214,16 @@ html[data-ac-resolved-theme='dark']
 /* Selected/hovered index rows were intentionally white in the light theme. */
 html[data-ac-resolved-theme='dark']
     .ac-index-row[data-selected='true'] {
-    background:
-        linear-gradient(
-            135deg,
-            rgba(67, 201, 154, 0.13),
-            color-mix(in srgb, var(--ac-surface) 96%, transparent) 48%,
-            rgba(67, 201, 154, 0.05)
-        ) !important;
+    border-color: #6aa6ff !important;
+    background: #1b2a40 !important;
+    box-shadow: none !important;
 }
 
 @media (hover: hover) and (pointer: fine) {
     html[data-ac-resolved-theme='dark']
         .ac-index-row:not([data-selected='true']):hover {
-        background-color: var(--ac-surface-soft) !important;
+        background-color: #0e1623 !important;
     }
-}
-
-/*
- * Paper previews and printable documents are intentionally light even while
- * the application chrome is dark.
- */
-html[data-ac-resolved-theme='dark']
-    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print) {
-    color-scheme: light;
-}
-
-html[data-ac-resolved-theme='dark']
-    .ac-settings-paper.bg-white,
-html[data-ac-resolved-theme='dark']
-    .ac-invoice-print.bg-white,
-html[data-ac-resolved-theme='dark']
-    .ac-voucher-print.bg-white,
-html[data-ac-resolved-theme='dark']
-    :is(.ac-invoice-print, .ac-voucher-print) .bg-white {
-    background-color: #ffffff !important;
-}
-
-/* Keep print/paper sub-surfaces in their real light-paper palette. */
-html[data-ac-resolved-theme='dark']
-    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
-    :is(.bg-slate-50, .bg-gray-50) {
-    background-color: #f8fafc !important;
-}
-
-html[data-ac-resolved-theme='dark']
-    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
-    :is(.bg-slate-100, .bg-gray-100) {
-    background-color: #f1f5f9 !important;
-}
-
-html[data-ac-resolved-theme='dark']
-    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
-    :is(.border-slate-100, .border-slate-200, .border-gray-100, .border-gray-200) {
-    border-color: #e2e8f0 !important;
-}
-
-html[data-ac-resolved-theme='dark']
-    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
-    :is(.text-slate-900, .text-slate-800, .text-slate-700) {
-    color: #334155 !important;
-}
-
-html[data-ac-resolved-theme='dark']
-    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
-    :is(.text-slate-600, .text-slate-500, .text-slate-400, .text-slate-300) {
-    color: #64748b !important;
 }
 
 html[data-ac-density='compact']
@@ -1281,4 +1299,37 @@ html[data-ac-reduced-motion='true']
     --acs-accent: #1265d8;
     --acs-accent-soft: #eaf3ff;
     color-scheme: light;
+}
+
+html[data-ac-resolved-theme='dark'] .ac-settings-paper {
+    --acs-bg: #0e1623;
+    --acs-surface: #0e1623;
+    --acs-surface-soft: #0e1623;
+    --acs-surface-strong: #0e1623;
+    --acs-line: #1b2a40;
+    --acs-line-soft: #1b2a40;
+    --acs-line-strong: #6aa6ff;
+    --acs-text: #e6effd;
+    --acs-text-strong: #e6effd;
+    --acs-text-soft: #e6effd;
+    --acs-text-muted: #e6effd;
+    --acs-accent: #6aa6ff;
+    --acs-accent-soft: #1b2a40;
+    color-scheme: dark;
+}
+
+@media print {
+    .ac-settings-paper,
+    .ac-invoice-print,
+    .ac-voucher-print {
+        background: #ffffff !important;
+        color: #111827 !important;
+        color-scheme: light !important;
+    }
+
+    .ac-settings-paper *,
+    .ac-invoice-print *,
+    .ac-voucher-print * {
+        color-scheme: light !important;
+    }
 }
