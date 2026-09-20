@@ -3,6 +3,7 @@
 use App\Http\Controllers\PartyBulkActionController;
 use App\Http\Controllers\PartyController;
 use App\Http\Controllers\PartyDataTransferController;
+use App\Http\Controllers\PartyInsightsController;
 use App\Http\Controllers\PartyPermanentDeletionController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
@@ -75,6 +76,13 @@ Route::middleware([
             PartyController::class,
             'store',
         ],
+    );
+
+    Route::get(
+        'parties/{party}/360',
+        PartyInsightsController::class,
+    )->whereNumber(
+        'party',
     );
 
     Route::get(
