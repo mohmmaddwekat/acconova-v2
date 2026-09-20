@@ -27,89 +27,119 @@ class FinanceLookupController extends Controller
             403,
         );
 
-        $parties = Party::query()
-            ->usableForNewBusiness()
-            ->with('roles')
-            ->orderByRaw('COALESCE(company_name, name)')
-            ->limit(500)
-            ->get()
-            ->map(fn (Party $party): array => [
-                'id' => $party->id,
-                'name' => $party->company_name ?: $party->name,
-                'email' => $party->email,
-                'phone' => $party->phone,
-                'tax_number' => $party->tax_number,
-                'country_code' => $party->country_code,
-                'region_code' => $party->state,
-                'roles' => $party->roles->pluck('role')->map(fn ($role) => $role->value)->values()->all(),
-            ]);
+        $canSalesView = FinanceAuthorization::allows($request->user(), 'finance.sales.view');
+        $canSalesManage = FinanceAuthorization::allows($request->user(), 'finance.sales.manage');
+        $canPurchasesView = FinanceAuthorization::allows($request->user(), 'finance.purchases.view');
+        $canPurchasesManage = FinanceAuthorization::allows($request->user(), 'finance.purchases.manage');
+        $canCashView = FinanceAuthorization::allows($request->user(), 'finance.cash.view');
+        $canCashPay = FinanceAuthorization::allows($request->user(), 'finance.cash.pay');
+        $canCashReceive = FinanceAuthorization::allows($request->user(), 'finance.cash.receive');
+        $canTaxesView = FinanceAuthorization::allows($request->user(), 'finance.taxes.view');
+        $canTaxesManage = FinanceAuthorization::allows($request->user(), 'finance.taxes.manage');
 
-        $products = Product::query()
-            ->usableForNewBusiness()
-            ->orderBy('name')
-            ->limit(1000)
-            ->get()
-            ->map(fn (Product $product): array => [
-                'id' => $product->id,
-                'name' => $product->name,
-                'sku' => $product->sku,
-                'type' => $product->type->value,
-                'unit' => $product->unit,
-                'unit_price' => $product->unit_price,
-                'cost_price' => $product->cost_price,
-                'tax_rate' => $product->tax_rate,
-                'track_inventory' => (bool) $product->track_inventory,
-            ]);
+        $canPartyData = $canSalesView || $canPurchasesView || $canCashView;
+        $canProductData = $canSalesView || $canPurchasesView;
+        $canOperationalData = $canSalesManage || $canPurchasesManage || $canCashPay || $canCashReceive;
+        $canTaxRules = $canSalesManage || $canPurchasesManage || $canTaxesView;
+        $canObligations = $canTaxesView || $canCashPay;
 
-        $warehouses = Warehouse::query()
-            ->orderByDesc('is_default')
-            ->orderBy('name')
-            ->get(['id', 'code', 'name', 'is_default'])
-            ->map(fn (Warehouse $warehouse): array => [
-                'id' => $warehouse->id,
-                'code' => $warehouse->code,
-                'name' => $warehouse->name,
-                'is_default' => (bool) $warehouse->is_default,
-            ]);
+        $parties = $canPartyData
+            ? Party::query()
+                ->usableForNewBusiness()
+                ->with('roles')
+                ->orderByRaw('COALESCE(company_name, name)')
+                ->limit(500)
+                ->get()
+                ->map(fn (Party $party): array => [
+                    'id' => $party->id,
+                    'name' => $party->company_name ?: $party->name,
+                    'email' => $party->email,
+                    'phone' => $party->phone,
+                    'tax_number' => $party->tax_number,
+                    'country_code' => $party->country_code,
+                    'region_code' => $party->state,
+                    'roles' => $party->roles->pluck('role')->map(fn ($role) => $role->value)->values()->all(),
+                ])
+            : collect();
 
-        $taxRules = TaxRule::query()
-            ->where('active', true)
-            ->orderBy('country_code')
-            ->orderBy('region_code')
-            ->orderBy('name')
-            ->get()
-            ->map(fn (TaxRule $rule): array => [
-                'id' => $rule->id,
-                'name' => $rule->name,
-                'code' => $rule->code,
-                'tax_type' => $rule->tax_type,
-                'country_code' => $rule->country_code,
-                'region_code' => $rule->region_code,
-                'applies_to' => $rule->applies_to,
-                'rate' => $rule->rate,
-                'inclusive' => (bool) $rule->inclusive,
-                'recoverable' => (bool) $rule->recoverable,
-                'effective_from' => $rule->effective_from?->format('Y-m-d'),
-                'effective_to' => $rule->effective_to?->format('Y-m-d'),
-            ]);
+        $products = $canProductData
+            ? Product::query()
+                ->usableForNewBusiness()
+                ->orderBy('name')
+                ->limit(1000)
+                ->get()
+                ->map(fn (Product $product): array => [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'type' => $product->type->value,
+                    'unit' => $product->unit,
+                    'unit_price' => $product->unit_price,
+                    'cost_price' => $product->cost_price,
+                    'tax_rate' => $product->tax_rate,
+                    'track_inventory' => (bool) $product->track_inventory,
+                ])
+            : collect();
 
-        $obligations = GovernmentObligation::query()
-            ->whereIn('status', ['open', 'partial'])
-            ->orderBy('due_date')
-            ->get()
-            ->map(fn (GovernmentObligation $obligation): array => [
-                'id' => $obligation->id,
-                'title' => $obligation->title,
-                'authority_name' => $obligation->authority_name,
-                'country_code' => $obligation->country_code,
-                'region_code' => $obligation->region_code,
-                'due_date' => $obligation->due_date->format('Y-m-d'),
-                'amount' => $obligation->amount,
-                'paid_total' => $obligation->paid_total,
-                'balance_due' => $obligation->balance_due,
-                'currency' => $obligation->currency,
-                'status' => $obligation->status,
-            ]);
+        $warehouses = ($canSalesManage || $canPurchasesManage)
+            ? Warehouse::query()
+                ->orderByDesc('is_default')
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'is_default'])
+                ->map(fn (Warehouse $warehouse): array => [
+                    'id' => $warehouse->id,
+                    'code' => $warehouse->code,
+                    'name' => $warehouse->name,
+                    'is_default' => (bool) $warehouse->is_default,
+                ])
+            : collect();
+
+        $taxRules = $canTaxRules
+            ? TaxRule::query()
+                ->where('active', true)
+                ->orderBy('country_code')
+                ->orderBy('region_code')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (TaxRule $rule): array => [
+                    'id' => $rule->id,
+                    'name' => $rule->name,
+                    'code' => $rule->code,
+                    'tax_type' => $rule->tax_type,
+                    'country_code' => $rule->country_code,
+                    'region_code' => $rule->region_code,
+                    'applies_to' => $rule->applies_to,
+                    'rate' => $rule->rate,
+                    'inclusive' => (bool) $rule->inclusive,
+                    'recoverable' => (bool) $rule->recoverable,
+                    'effective_from' => $rule->effective_from?->format('Y-m-d'),
+                    'effective_to' => $rule->effective_to?->format('Y-m-d'),
+                ])
+            : collect();
+
+        $obligations = $canObligations
+            ? GovernmentObligation::query()
+                ->whereIn('status', ['open', 'partial'])
+                ->orderBy('due_date')
+                ->get()
+                ->map(fn (GovernmentObligation $obligation): array => [
+                    'id' => $obligation->id,
+                    'title' => $obligation->title,
+                    'authority_name' => $obligation->authority_name,
+                    'country_code' => $obligation->country_code,
+                    'region_code' => $obligation->region_code,
+                    'due_date' => $obligation->due_date->format('Y-m-d'),
+                    'amount' => $obligation->amount,
+                    'paid_total' => $obligation->paid_total,
+                    'balance_due' => $obligation->balance_due,
+                    'currency' => $obligation->currency,
+                    'status' => $obligation->status,
+                ])
+            : collect();
+
+        $departments = $canOperationalData
+            ? Department::query()->orderBy('name')->get(['id', 'name'])
+            : collect();
 
         $organization = app(TenantContext::class)->organization();
 
@@ -118,7 +148,7 @@ class FinanceLookupController extends Controller
             'parties' => $parties,
             'products' => $products,
             'warehouses' => $warehouses,
-            'departments' => Department::query()->orderBy('name')->get(['id', 'name']),
+            'departments' => $departments,
             'tax_rules' => $taxRules,
             'government_obligations' => $obligations,
             'permissions' => [
