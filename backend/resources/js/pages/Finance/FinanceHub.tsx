@@ -121,19 +121,19 @@ export function FinanceHub({
                                 <Link
                                     key={card.href}
                                     href={card.href}
-                                    className="group rounded-[18px] border border-[#dfe9f6] bg-white p-5 transition hover:-translate-y-0.5 hover:border-[#b9d3f5] hover:shadow-[0_14px_34px_rgba(25,80,150,0.08)]"
+                                    className="group rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 transition hover:-translate-y-0.5 hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] hover:shadow-[var(--ac-shadow-soft)]"
                                 >
                                     <div className="flex items-start gap-4">
-                                        <div className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#eef5ff] text-[#1265d8] transition group-hover:bg-[#1265d8] group-hover:text-white">
+                                        <div className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)] transition group-hover:bg-[var(--ac-accent-solid)] group-hover:text-[var(--ac-accent-solid-text)]">
                                             <Icon size={20} />
                                         </div>
 
                                         <div className="min-w-0">
-                                            <h3 className="font-bold text-[#123d78]">
+                                            <h3 className="font-bold text-[var(--ac-text)]">
                                                 {card.title}
                                             </h3>
 
-                                            <p className="mt-2 text-xs leading-6 text-slate-500">
+                                            <p className="mt-2 text-xs leading-6 text-[var(--ac-text-muted)]">
                                                 {card.description}
                                             </p>
                                         </div>
