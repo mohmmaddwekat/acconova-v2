@@ -15,6 +15,10 @@ import {
     ApiError,
 } from '@/lib/http';
 import {
+    useGlobalSave,
+    useUnsavedChanges,
+} from '@/lib/editorSafety';
+import {
     t,
     useLocale,
     type TranslationKey,
@@ -32,6 +36,7 @@ import {
 } from 'lucide-react';
 import {
     useEffect,
+    useRef,
     useState,
     type FormEvent,
     type ReactNode,
@@ -44,6 +49,10 @@ type ProductEditorDrawerProps = {
     open: boolean;
 
     product:
+        | Product
+        | null;
+
+    copyFrom?:
         | Product
         | null;
 
@@ -292,10 +301,16 @@ function errorMessage(
 export function ProductEditorDrawer({
     open,
     product,
+    copyFrom = null,
     onClose,
     onSaved,
 }: ProductEditorDrawerProps) {
     const ar = useLocale() === 'ar';
+
+    const formRef =
+        useRef<HTMLFormElement | null>(
+            null,
+        );
 
     const [
         form,
@@ -358,7 +373,20 @@ export function ProductEditorDrawer({
                 ? formFromProduct(
                       product,
                   )
-                : emptyForm(),
+                : copyFrom
+                    ? {
+                        ...formFromProduct(
+                            copyFrom,
+                        ),
+                        name:
+                            copyFrom.name
+                            + (
+                                ar
+                                    ? ' - نسخة'
+                                    : ' - Copy'
+                            ),
+                    }
+                    : emptyForm(),
         );
 
         setError(
@@ -371,6 +399,8 @@ export function ProductEditorDrawer({
     }, [
         open,
         product,
+        copyFrom,
+        ar,
     ]);
 
     /*
@@ -418,11 +448,22 @@ export function ProductEditorDrawer({
      * Close only while no catalog mutation is running.
      */
     function closeDialog(): void {
-        if (
-            ! busy
-        ) {
-            onClose();
+        if (busy) {
+            return;
         }
+
+        if (
+            dirty
+            && ! window.confirm(
+                ar
+                    ? 'لديك تغييرات غير محفوظة. هل تريد إغلاق النموذج؟'
+                    : 'You have unsaved changes. Close the form?',
+            )
+        ) {
+            return;
+        }
+
+        onClose();
     }
 
     /**
@@ -471,6 +512,48 @@ export function ProductEditorDrawer({
             null,
         );
     }
+
+    const baselineForm =
+        product
+            ? formFromProduct(
+                product,
+            )
+            : copyFrom
+                ? {
+                    ...formFromProduct(
+                        copyFrom,
+                    ),
+                    name:
+                        copyFrom.name
+                        + (
+                            ar
+                                ? ' - نسخة'
+                                : ' - Copy'
+                        ),
+                }
+                : emptyForm();
+
+    const dirty =
+        open
+        && JSON.stringify(
+            form,
+        ) !==
+            JSON.stringify(
+                baselineForm,
+            );
+
+    useUnsavedChanges(
+        dirty && ! busy,
+        ar,
+    );
+
+    useGlobalSave(
+        () =>
+            formRef.current
+                ?.requestSubmit(),
+        open
+        && ! busy,
+    );
 
     /**
      * Apply one canonical unit while still allowing arbitrary custom units.
@@ -679,6 +762,7 @@ export function ProductEditorDrawer({
                 </header>
 
                 <form
+                    ref={formRef}
                     onSubmit={(
                         event,
                     ) =>
