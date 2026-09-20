@@ -161,7 +161,7 @@ export function Party360Panel({
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--ac-text-muted)]">
                         {ar ? 'Customer 360 — العميل' : 'Customer 360'}
                     </p>
-                    <div className="grid gap-2 sm:grid-cols-4">
+                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                         <Metric
                             label={ar ? 'فواتير البيع' : 'Sales invoices'}
                             value={String(data.customer.invoice_count)}
@@ -177,6 +177,14 @@ export function Party360Panel({
                         <Metric
                             label={ar ? 'المقبوضات' : 'Receipts'}
                             value={money(data.customer.receipts_total)}
+                        />
+                        <Metric
+                            label={ar ? 'الحد الائتماني' : 'Credit limit'}
+                            value={
+                                party.credit_limit
+                                    ? money(party.credit_limit)
+                                    : (ar ? 'غير محدد' : 'Not set')
+                            }
                         />
                     </div>
                 </div>
