@@ -11,7 +11,6 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Support\InventoryQuantity;
-use Illuminate\Support\Facades\DB;
 
 class FinanceInventoryService
 {
