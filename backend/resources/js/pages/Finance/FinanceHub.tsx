@@ -66,7 +66,9 @@ export function FinanceHub({
                 'سداد الموردين والمصاريف والتحويلات والشيكات، ومن داخلها المدفوعات المتكررة.',
                 'Supplier settlements, expenses, transfers, checks, and recurring payments inside the same area.',
             ),
-            href: '/app/payments',
+            href: lookups.permissions.cash_view
+                ? '/app/payments'
+                : '/app/payments/recurring',
             icon: Banknote,
             visible: lookups.permissions.cash_view
                 || lookups.permissions.recurring_payments_view,
