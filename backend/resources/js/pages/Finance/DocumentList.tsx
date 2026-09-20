@@ -147,13 +147,13 @@ export function DocumentList({
         );
 
     const createHref = sales
-        ? '/app/invoices/sales/create'
-        : '/app/invoices/purchases/create';
+        ? '/app/finance?view=sales-create'
+        : '/app/finance?view=purchase-create';
 
     const showHref = (id: number): string =>
         sales
-            ? '/app/invoices/sales/' + id
-            : '/app/invoices/purchases/' + id;
+            ? '/app/finance?view=sales-detail&id=' + id
+            : '/app/finance?view=purchase-detail&id=' + id;
 
     function exportRows(): void {
         const rows = response?.data ?? [];
