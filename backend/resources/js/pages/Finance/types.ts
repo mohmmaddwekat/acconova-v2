@@ -20,6 +20,8 @@ export type LookupParty = {
     email: string | null;
     phone: string | null;
     tax_number: string | null;
+    credit_limit: string | null;
+    credit_used: string;
     country_code: string | null;
     region_code: string | null;
     roles: string[];
