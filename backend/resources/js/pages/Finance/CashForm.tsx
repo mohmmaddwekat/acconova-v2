@@ -408,8 +408,8 @@ export function CashForm({
 
             window.location.assign(
                 incoming
-                    ? '/app/receipts/' + movement.id
-                    : '/app/payments/' + movement.id,
+                    ? '/app/finance?view=receipt-detail&id=' + movement.id
+                    : '/app/finance?view=payment-detail&id=' + movement.id,
             );
         } catch (failure) {
             setError(apiErrorText(failure));
