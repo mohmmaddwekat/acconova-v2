@@ -458,6 +458,17 @@ class FinanceDocumentService
             ]);
         }
 
+        $manualDescriptions = collect($lines)
+            ->filter(fn (array $line): bool => empty($line['product_id']))
+            ->map(fn (array $line): string => mb_strtolower(trim((string) ($line['description'] ?? ''))))
+            ->filter();
+
+        if ($manualDescriptions->count() !== $manualDescriptions->unique()->count()) {
+            throw ValidationException::withMessages([
+                'lines' => ['The same manual line cannot appear twice on one invoice. Increase the quantity or edit the existing line instead.'],
+            ]);
+        }
+
         foreach (array_values($lines) as $index => $line) {
             $product = isset($line['product_id']) && $line['product_id']
                 ? Product::query()->findOrFail((int) $line['product_id'])
