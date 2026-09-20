@@ -6,6 +6,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\FinanceDocumentController;
 use App\Http\Controllers\FinanceImportController;
 use App\Http\Controllers\FinanceLookupController;
+use App\Http\Controllers\InvoiceAutomationController;
 use App\Http\Controllers\PaymentPlanController;
 use App\Http\Controllers\ProfileCenterController;
 use App\Http\Controllers\ProfileController;
@@ -667,6 +668,41 @@ Route::prefix(
             'records/party/{record}/relationships/{relationship}',
             [RecordCollaborationController::class, 'deleteRelationship'],
         )->whereNumber(['record', 'relationship']);
+
+        Route::get(
+            'finance/invoice-automation',
+            [InvoiceAutomationController::class, 'index'],
+        );
+
+        Route::post(
+            'finance/documents/{document}/templates',
+            [InvoiceAutomationController::class, 'saveTemplate'],
+        )->whereNumber('document');
+
+        Route::post(
+            'finance/invoice-templates/{template}/create-draft',
+            [InvoiceAutomationController::class, 'createFromTemplate'],
+        )->whereNumber('template');
+
+        Route::delete(
+            'finance/invoice-templates/{template}',
+            [InvoiceAutomationController::class, 'deleteTemplate'],
+        )->whereNumber('template');
+
+        Route::post(
+            'finance/documents/{document}/recurring',
+            [InvoiceAutomationController::class, 'saveRecurring'],
+        )->whereNumber('document');
+
+        Route::patch(
+            'finance/recurring-invoices/{profile}',
+            [InvoiceAutomationController::class, 'updateRecurring'],
+        )->whereNumber('profile');
+
+        Route::delete(
+            'finance/recurring-invoices/{profile}',
+            [InvoiceAutomationController::class, 'deleteRecurring'],
+        )->whereNumber('profile');
 
         Route::get('finance/lookups', FinanceLookupController::class);
         Route::get('finance/reference-price', [FinanceLookupController::class, 'referencePrice']);
