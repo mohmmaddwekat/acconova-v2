@@ -756,8 +756,8 @@ html[data-ac-resolved-theme='dark'] {
     --ac-text-muted: #8fa1bb;
     --ac-text-faint: #6d8099;
 
-    --ac-inverse-bg: #e6effd;
-    --ac-inverse-text: #0e1623;
+    --ac-inverse-bg: #4d92f2;
+    --ac-inverse-text: #08111e;
     --ac-accent-solid: #4d92f2;
     --ac-accent-solid-text: #08111e;
 
@@ -1036,6 +1036,78 @@ html[data-ac-resolved-theme='dark']
         [class~="bg-[#0f58bf]"]
     ) {
     background-color: var(--ac-accent-solid) !important;
+}
+
+/*
+ * Source-wide legacy fallback.
+ *
+ * Older modules contain arbitrary Tailwind colors such as bg-[#f8fbff],
+ * bg-[#eef4fb], border-[#dbe6f5], and dark text literals. Match the color
+ * families instead of maintaining an endless per-page list. This is scoped
+ * to the authenticated shell and only applies in dark mode.
+ */
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        [class*="bg-[#f"],
+        [class*="bg-[#F"],
+        [class*="bg-[#e"],
+        [class*="bg-[#E"],
+        [class*="bg-[#d"],
+        [class*="bg-[#D"],
+        .bg-neutral-50,
+        .bg-neutral-100,
+        .bg-stone-50,
+        .bg-stone-100
+    ) {
+    background-color: var(--ac-surface-soft) !important;
+    background-image: none !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        [class*="border-[#f"],
+        [class*="border-[#F"],
+        [class*="border-[#e"],
+        [class*="border-[#E"],
+        [class*="border-[#d"],
+        [class*="border-[#D"],
+        .border-neutral-100,
+        .border-neutral-200,
+        .border-stone-100,
+        .border-stone-200
+    ) {
+    border-color: var(--ac-line) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        [class*="text-[#0"],
+        [class*="text-[#1"],
+        [class*="text-[#2"],
+        [class*="text-[#3"]
+    ) {
+    color: var(--ac-text) !important;
+}
+
+/* Dialogs/drawers are a common source of accidental light islands. */
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        dialog,
+        [role='dialog'],
+        aside[role='dialog']
+    ) {
+    color: var(--ac-text);
+}
+
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(select option) {
+    background-color: var(--ac-surface);
+    color: var(--ac-text);
 }
 
 /* Inputs/selects should inherit the active theme even when a browser paints native UI. */
