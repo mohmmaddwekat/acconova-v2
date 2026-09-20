@@ -132,13 +132,13 @@ type StaffOverview = {
 };
 
 const panel =
-    'rounded-[22px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)]';
+    'rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]';
 
 const button =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-white px-4 text-xs font-semibold transition hover:bg-[var(--ac-accent-soft)]';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-xs font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)]';
 
 const primary =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-text)] px-4 text-xs font-semibold text-white transition hover:-translate-y-px';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-solid)] px-4 text-xs font-semibold text-[var(--ac-accent-solid-text)] transition hover:bg-[var(--ac-accent-hover)]';
 
 function errorText(
     error: unknown,
@@ -541,7 +541,7 @@ export default function StaffHubPage() {
             <Head title={title} />
 
             <main className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
-                <header className="rounded-[28px] border border-[var(--ac-line)] bg-gradient-to-br from-white via-white to-[var(--ac-accent-soft)] p-5 sm:p-7">
+                <header className="rounded-[28px] border border-[var(--ac-line)] bg-gradient-to-br from-[var(--ac-surface)] via-[var(--ac-surface)] to-[var(--ac-accent-soft)] p-5 sm:p-7">
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex items-start gap-4">
                             <span className="flex size-12 shrink-0 items-center justify-center rounded-[17px] bg-[var(--ac-text)] text-white">
