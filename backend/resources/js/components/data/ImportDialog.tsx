@@ -201,7 +201,7 @@ export function ImportDialog({
                 className="absolute inset-0 bg-[var(--ac-text)]/24 backdrop-blur-[3px]"
             />
 
-            <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('ui.import')} className="relative z-10 flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-panel)] sm:max-w-[720px] sm:rounded-[28px]">
+            <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('ui.import')} className="relative z-10 flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-[28px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-panel)] sm:max-w-[720px] sm:rounded-[28px]">
                 <header className="flex items-start justify-between border-b border-[var(--ac-line)] px-5 py-5 sm:px-6">
                     <div>
                         <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-accent-strong)]">
@@ -237,7 +237,7 @@ export function ImportDialog({
                         className="group flex items-center justify-between gap-4 rounded-[20px] border border-[var(--ac-accent)]/25 bg-[var(--ac-accent-soft)] p-4 transition hover:-translate-y-0.5"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="flex size-10 items-center justify-center rounded-[14px] bg-white text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]">
+                            <div className="flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-surface)] text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]">
                                 <FileSpreadsheet
                                     size={
                                         17
@@ -470,7 +470,7 @@ export function ImportDialog({
                         onClick={() =>
                             void handlePreview()
                         }
-                        className="h-11 rounded-[14px] border border-[var(--ac-line)] bg-white px-5 text-sm font-semibold text-[var(--ac-text)] disabled:opacity-40"
+                        className="h-11 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 text-sm font-semibold text-[var(--ac-text)] disabled:opacity-40"
                     >
                         {busy
                             ? t('ui.checking')
@@ -528,7 +528,7 @@ function DuplicateChoice({
                 'rounded-[17px] border p-4 text-start transition',
                 active
                     ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
-                    : 'border-[var(--ac-line)] bg-white',
+                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)]',
             ].join(' ')}
         >
             <p className="text-xs font-semibold text-[var(--ac-text)]">
@@ -560,7 +560,7 @@ function PreviewStat({
 }: PreviewStatProps) {
     useLocale();
     return (
-        <div className="rounded-[16px] border border-[var(--ac-line)] bg-white p-3">
+        <div className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3">
             <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-text-muted)]">
                 {label}
             </p>
