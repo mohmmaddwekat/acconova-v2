@@ -455,11 +455,7 @@ function SettingsWorkspace() {
                 ),
             );
         } catch (failure) {
-            autoSavePatchRef.current = {
-                ...patch,
-                ...autoSavePatchRef.current,
-            };
-
+            setMessage('');
             setError(
                 errorText(
                     failure,
@@ -660,6 +656,7 @@ function SettingsWorkspace() {
                 ),
             );
         } catch (failure) {
+            setMessage('');
             setError(
                 errorText(
                     failure,
