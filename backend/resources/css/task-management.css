@@ -25,14 +25,15 @@
     justify-content: center;
     gap: 7px;
     min-height: 35px;
-    border: 1px solid var(--tm-line);
+    border: 1px solid var(--ac-button-border);
     border-radius: 7px;
     padding: 8px 12px;
     font-size: 11px;
     font-weight: 600;
-    color: var(--tm-text-soft);
-    background: var(--tm-panel);
+    color: var(--ac-button-text);
+    background: transparent;
     cursor: pointer;
+    box-shadow: none;
     transition:
         background-color var(--ac-transition-fast) ease,
         border-color var(--ac-transition-fast) ease,
@@ -40,9 +41,9 @@
 }
 
 .tm-button:hover {
-    background: var(--tm-panel-soft);
-    border-color: var(--tm-line-strong);
-    color: #4f92ff;
+    background: var(--ac-button-hover-bg);
+    border-color: var(--ac-button-border);
+    color: var(--ac-button-text);
 }
 
 .tm-button:disabled {
@@ -51,16 +52,16 @@
 }
 
 .tm-primary {
-    background: #1670ff;
-    border-color: #1670ff;
-    color: white;
-    box-shadow: 0 3px 9px #1670ff1a;
+    background: transparent;
+    border-color: var(--ac-button-border);
+    color: var(--ac-button-text);
+    box-shadow: none;
 }
 
 .tm-primary:hover {
-    background: #075de2;
-    border-color: #075de2;
-    color: white;
+    background: var(--ac-button-hover-bg);
+    border-color: var(--ac-button-border);
+    color: var(--ac-button-text);
 }
 
 .tm-input {
