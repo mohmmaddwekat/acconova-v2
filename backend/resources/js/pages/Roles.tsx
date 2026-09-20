@@ -700,6 +700,24 @@ function normalizePermissions(
             permissions.add(
                 'parties.view',
             );
+
+            if (
+                permission ===
+                'finance.cash.receive'
+            ) {
+                permissions.add(
+                    'finance.sales.view',
+                );
+            }
+
+            if (
+                permission ===
+                'finance.cash.pay'
+            ) {
+                permissions.add(
+                    'finance.purchases.view',
+                );
+            }
         }
 
         if (
