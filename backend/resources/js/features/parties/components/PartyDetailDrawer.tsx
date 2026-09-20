@@ -1,4 +1,7 @@
 import {
+    RecordCollaborationPanel,
+} from '@/components/data/RecordCollaborationPanel';
+import {
     PermanentDeleteControl,
 } from '@/components/data/PermanentDeleteControl';
 import {
@@ -768,6 +771,19 @@ export function PartyDetailDrawer({
                     <Party360Panel
                         party={resolvedParty}
                         ar={locale === 'ar'}
+                    />
+
+                    <RecordCollaborationPanel
+                        type="party"
+                        recordId={resolvedParty.id}
+                        ar={locale === 'ar'}
+                        allowRelationships
+                        allowReminders
+                        title={
+                            locale === 'ar'
+                                ? 'العلاقة الداخلية والمتابعة'
+                                : 'Internal relationship & follow-up'
+                        }
                     />
 
                     <div className="mt-6">
