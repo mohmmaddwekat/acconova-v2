@@ -19,6 +19,9 @@ import {
 import {
     updatePartyNotes,
 } from '@/features/parties/api';
+import {
+    Party360Panel,
+} from '@/features/parties/components/Party360Panel';
 import type {
     Party,
 } from '@/features/parties/types';
@@ -762,6 +765,11 @@ export function PartyDetailDrawer({
                             />
                         </div>
                     </section>
+                    <Party360Panel
+                        party={resolvedParty}
+                        ar={locale === 'ar'}
+                    />
+
                     <div className="mt-6">
                         <ActivityTimeline
                             title={locale === 'ar' ? 'سجل النشاط' : 'Activity timeline'}
