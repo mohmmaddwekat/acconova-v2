@@ -69,9 +69,10 @@ class CashMovementController extends Controller
         ]);
     }
 
-    public function show(Request $request, CashMovement $movement): JsonResponse
+    public function show(Request $request, string $movement): JsonResponse
     {
         FinanceAuthorization::authorize($request->user(), 'finance.cash.view');
+        $movement = CashMovement::query()->findOrFail($movement);
         $movement->load([
             'party.roles',
             'governmentObligation.taxRule',
@@ -107,8 +108,9 @@ class CashMovementController extends Controller
         return response()->json(['data' => $this->detail($movement)], 201);
     }
 
-    public function update(Request $request, CashMovement $movement, CashMovementService $service): JsonResponse
+    public function update(Request $request, string $movement, CashMovementService $service): JsonResponse
     {
+        $movement = CashMovement::query()->findOrFail($movement);
         $this->authorizeDirection($request, $movement->direction);
         $data = $this->validatedMovement($request, $movement->direction);
         $movement = $service->updateDraft($movement, $data, $request->user()->id);
@@ -116,17 +118,19 @@ class CashMovementController extends Controller
         return response()->json(['data' => $this->detail($movement)]);
     }
 
-    public function post(Request $request, CashMovement $movement, CashMovementService $service): JsonResponse
+    public function post(Request $request, string $movement, CashMovementService $service): JsonResponse
     {
+        $movement = CashMovement::query()->findOrFail($movement);
         $this->authorizeDirection($request, $movement->direction);
         $movement = $service->post($movement, $request->user()->id);
 
         return response()->json(['data' => $this->detail($movement)]);
     }
 
-    public function reverse(Request $request, CashMovement $movement, CashMovementService $service): JsonResponse
+    public function reverse(Request $request, string $movement, CashMovementService $service): JsonResponse
     {
         FinanceAuthorization::authorize($request->user(), 'finance.cash.correct');
+        $movement = CashMovement::query()->findOrFail($movement);
         $data = $request->validate([
             'reason' => ['required', 'string', 'min:5', 'max:1000'],
         ]);
@@ -136,9 +140,10 @@ class CashMovementController extends Controller
         return response()->json(['data' => $this->detail($reversal)], 201);
     }
 
-    public function correct(Request $request, CashMovement $movement, CashMovementService $service): JsonResponse
+    public function correct(Request $request, string $movement, CashMovementService $service): JsonResponse
     {
         FinanceAuthorization::authorize($request->user(), 'finance.cash.correct');
+        $movement = CashMovement::query()->findOrFail($movement);
         $data = $request->validate([
             'reason' => ['required', 'string', 'min:5', 'max:1000'],
         ]);
@@ -148,9 +153,10 @@ class CashMovementController extends Controller
         return response()->json(['data' => $this->detail($replacement)], 201);
     }
 
-    public function checkStatus(Request $request, CashMovement $movement, CashMovementService $service): JsonResponse
+    public function checkStatus(Request $request, string $movement, CashMovementService $service): JsonResponse
     {
         FinanceAuthorization::authorize($request->user(), 'finance.cash.correct');
+        $movement = CashMovement::query()->findOrFail($movement);
         $data = $request->validate([
             'status' => ['required', Rule::in(['pending', 'cleared', 'bounced', 'cancelled'])],
         ]);
