@@ -346,6 +346,38 @@ export function DocumentForm({
         );
     }
 
+    function catalogPrice(
+        product: FinanceLookups['products'][number],
+    ): string {
+        if (sales) {
+            return product.unit_price
+                ?? '0';
+        }
+
+        return product.cost_price
+            ?? '0';
+    }
+
+    function applyResolvedPrice(
+        clientId: string,
+        productId: number,
+        price: string,
+    ): void {
+        setLines(
+            current =>
+                current.map(
+                    item =>
+                        item.client_id === clientId
+                        && item.product_id === productId
+                            ? {
+                                ...item,
+                                unit_price: price,
+                            }
+                            : item,
+                ),
+        );
+    }
+
     async function loadPartyPrice(
         clientId: string,
         productId: number,
@@ -363,28 +395,27 @@ export function DocumentForm({
         }
 
         if (! selectedPartyId) {
-            changeLine(
+            const unitPrice =
+                catalogPrice(
+                    product,
+                );
+
+            applyResolvedPrice(
                 clientId,
-                {
-                    unit_price:
-                        sales
-                            ? product.unit_price
-                            : product.cost_price,
-                },
+                productId,
+                unitPrice,
             );
 
             setPriceReferences(
-                current => {
-                    const next = {
-                        ...current,
-                    };
-
-                    delete next[
-                        clientId
-                    ];
-
-                    return next;
-                },
+                current => ({
+                    ...current,
+                    [clientId]: {
+                        source: 'catalog',
+                        unit_price: unitPrice,
+                        document_number: null,
+                        issue_date: null,
+                    },
+                }),
             );
 
             return;
@@ -405,12 +436,10 @@ export function DocumentForm({
                     + kind,
                 );
 
-            changeLine(
+            applyResolvedPrice(
                 clientId,
-                {
-                    unit_price:
-                        result.unit_price,
-                },
+                productId,
+                result.unit_price,
             );
 
             setPriceReferences(
@@ -421,14 +450,27 @@ export function DocumentForm({
                 }),
             );
         } catch {
-            changeLine(
+            const unitPrice =
+                catalogPrice(
+                    product,
+                );
+
+            applyResolvedPrice(
                 clientId,
-                {
-                    unit_price:
-                        sales
-                            ? product.unit_price
-                            : product.cost_price,
-                },
+                productId,
+                unitPrice,
+            );
+
+            setPriceReferences(
+                current => ({
+                    ...current,
+                    [clientId]: {
+                        source: 'catalog',
+                        unit_price: unitPrice,
+                        document_number: null,
+                        issue_date: null,
+                    },
+                }),
             );
         }
     }
@@ -535,9 +577,9 @@ export function DocumentForm({
                     product.unit
                     ?? '',
                 unit_price:
-                    sales
-                        ? product.unit_price
-                        : product.cost_price,
+                    catalogPrice(
+                        product,
+                    ),
                 tax_rate:
                     product.tax_rate
                     ?? '0',
@@ -552,6 +594,23 @@ export function DocumentForm({
                         )
                         : null,
             },
+        );
+
+        const immediatePrice =
+            catalogPrice(
+                product,
+            );
+
+        setPriceReferences(
+            current => ({
+                ...current,
+                [line.client_id]: {
+                    source: 'catalog',
+                    unit_price: immediatePrice,
+                    document_number: null,
+                    issue_date: null,
+                },
+            }),
         );
 
         void loadPartyPrice(
@@ -2222,9 +2281,30 @@ export function DocumentForm({
                                                                                 'The last purchase price from this supplier was applied automatically.',
                                                                             )
                                                                     )
-                                                                    : text(
-                                                                        'لا يوجد سعر سابق لهذا الطرف؛ تم استخدام السعر المرجعي للمنتج.',
-                                                                        'No prior price exists for this party; the product reference price was used.',
+                                                                    : (
+                                                                        selectedParty
+                                                                            ? text(
+                                                                                'لا يوجد سعر سابق لهذا الطرف؛ تم تطبيق السعر المرجعي للمنتج تلقائياً.',
+                                                                                'No prior price exists for this party; the product reference price was applied automatically.',
+                                                                            )
+                                                                            : (
+                                                                                sales
+                                                                                    ? text(
+                                                                                        'تم تطبيق سعر البيع المحفوظ في بطاقة المنتج تلقائياً.',
+                                                                                        'The product catalog selling price was applied automatically.',
+                                                                                    )
+                                                                                    : (
+                                                                                        product.cost_price
+                                                                                            ? text(
+                                                                                                'تم تطبيق تكلفة الشراء المحفوظة في بطاقة المنتج تلقائياً.',
+                                                                                                'The product catalog purchase cost was applied automatically.',
+                                                                                            )
+                                                                                            : text(
+                                                                                                'لا توجد تكلفة شراء محفوظة لهذا المنتج؛ أدخل السعر أو اختر المورد لاستخدام آخر سعر منه.',
+                                                                                                'No purchase cost is stored for this product; enter a price or select a supplier to reuse the last supplier price.',
+                                                                                            )
+                                                                                    )
+                                                                            )
                                                                     )}
                                                             </span>
                                                         </div>
