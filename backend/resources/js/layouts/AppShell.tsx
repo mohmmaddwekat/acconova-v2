@@ -89,9 +89,39 @@ export function AppShell({
                     () => undefined,
                 );
 
+            const handlePreferences =
+                (
+                    event: Event,
+                ): void => {
+                    const preferences =
+                        (
+                            event as CustomEvent<ProfilePreferences>
+                        ).detail;
+
+                    if (! preferences) {
+                        return;
+                    }
+
+                    unbindSystemTheme();
+
+                    unbindSystemTheme =
+                        bindSystemTheme(
+                            preferences,
+                        );
+                };
+
+            window.addEventListener(
+                'acconova:profile-preferences',
+                handlePreferences,
+            );
+
             return () => {
                 controller.abort();
                 unbindSystemTheme();
+                window.removeEventListener(
+                    'acconova:profile-preferences',
+                    handlePreferences,
+                );
             };
         },
         [],
