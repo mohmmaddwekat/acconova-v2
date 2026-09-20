@@ -448,3 +448,19 @@ export async function bulkPartyAction(
 
     return response.data;
 }
+
+/**
+ * Load one Party by id for deep links such as global search results.
+ */
+export async function fetchParty(
+    partyId: number,
+): Promise<Party> {
+    const response =
+        await apiRequest<{
+            data: Party;
+        }>(
+            `/api/parties/${partyId}`,
+        );
+
+    return response.data;
+}
