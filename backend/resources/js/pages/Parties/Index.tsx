@@ -2,6 +2,7 @@ import { useLocale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import {
     Head,
+    Link,
     usePage,
 } from '@inertiajs/react';
 import {
@@ -1215,6 +1216,13 @@ function PartiesWorkspace() {
                                         }
                                     />
                                 </div>
+
+                                <Link
+                                    href="/app/follow-ups"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-surface-soft)]"
+                                >
+                                    {ar ? 'قائمة المتابعة' : 'Follow-ups'}
+                                </Link>
 
                                 {allowCreate && (
                                     <button
