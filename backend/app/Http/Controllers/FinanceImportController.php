@@ -538,10 +538,19 @@ class FinanceImportController extends Controller
 
     private function authorizeType(Request $request, string $type): void
     {
+        if ($type === 'cash_movements') {
+            abort_unless(
+                FinanceAuthorization::allows($request->user(), 'finance.cash.pay')
+                || FinanceAuthorization::allows($request->user(), 'finance.cash.receive'),
+                403,
+            );
+
+            return;
+        }
+
         $permission = match ($type) {
             'sales_invoices' => 'finance.sales.manage',
             'purchase_invoices' => 'finance.purchases.manage',
-            'cash_movements' => 'finance.cash.view',
             default => abort(404),
         };
 
