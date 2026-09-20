@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CashAllocation;
+use App\Models\Department;
 use App\Models\FinancialDocument;
 use App\Models\FinancialDocumentLine;
 use App\Models\Party;
@@ -26,6 +27,7 @@ class FinanceDocumentService
         return DB::transaction(function () use ($data, $actorId): FinancialDocument {
             $kind = $data['kind'];
             $this->assertPartyRole((int) $data['party_id'], $kind);
+            $this->assertHeaderReferences($data);
 
             $document = FinancialDocument::create([
                 ...$this->headerPayload($data),
@@ -72,6 +74,7 @@ class FinanceDocumentService
             $before = $this->snapshot($locked);
             $kind = $locked->kind;
             $this->assertPartyRole((int) $data['party_id'], $kind);
+            $this->assertHeaderReferences($data);
 
             $locked->fill([
                 ...$this->headerPayload($data),
@@ -540,6 +543,19 @@ class FinanceDocumentService
         $document->balance_due = number_format($total, 4, '.', '');
         $document->credit_total = '0.0000';
         $document->save();
+    }
+
+    private function assertHeaderReferences(array $data): void
+    {
+        if ($data['warehouse_id'] ?? null) {
+            Warehouse::query()
+                ->findOrFail((int) $data['warehouse_id']);
+        }
+
+        if ($data['department_id'] ?? null) {
+            Department::query()
+                ->findOrFail((int) $data['department_id']);
+        }
     }
 
     private function assertPartyRole(int $partyId, string $kind): void
