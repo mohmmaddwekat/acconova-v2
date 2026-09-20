@@ -6,6 +6,7 @@ import type { AppPageProps } from '@/types/app';
 import { router, usePage } from '@inertiajs/react';
 import {
     Banknote,
+    Bell,
     Boxes,
     Command,
     HandCoins,
@@ -101,6 +102,14 @@ export function CommandCenter() {
             detail: text('فتح فواتير الموردين', 'Open supplier invoices'),
             href: '/app/invoices/purchases',
             icon: ShoppingCart,
+            kind: 'module',
+        },
+        {
+            key: 'notifications',
+            label: text('مركز الإشعارات', 'Notification center'),
+            detail: text('المخزون والمدفوعات والنشاط والرسائل', 'Stock, payments, activity and messages'),
+            href: '/app/notifications',
+            icon: Bell,
             kind: 'module',
         },
         {
