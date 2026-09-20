@@ -345,6 +345,8 @@ export function DocumentForm({
                         null,
                     affects_inventory:
                         false,
+                    price_status:
+                        'final',
                 },
             );
 
@@ -1241,8 +1243,8 @@ export function DocumentForm({
 
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {text(
-                                    'تاريخ الاستحقاق',
-                                    'Due date',
+                                    'تاريخ الاستحقاق (اختياري)',
+                                    'Due date (optional)',
                                 )}
 
                                 <input
@@ -1268,8 +1270,8 @@ export function DocumentForm({
                             {! sales && (
                                 <label className="text-xs font-semibold text-[#49698f]">
                                     {text(
-                                        'رقم فاتورة المورد',
-                                        'Supplier invoice number',
+                                        'رقم فاتورة المورد (اختياري)',
+                                        'Supplier invoice number (optional)',
                                     )}
 
                                     <input
@@ -1435,8 +1437,8 @@ export function DocumentForm({
 
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {text(
-                                    'المستودع الافتراضي',
-                                    'Default warehouse',
+                                    'المستودع الافتراضي (اختياري)',
+                                    'Default warehouse (optional)',
                                 )}
 
                                 <select
@@ -1484,8 +1486,8 @@ export function DocumentForm({
 
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {text(
-                                    'القسم',
-                                    'Department',
+                                    'القسم (اختياري)',
+                                    'Department (optional)',
                                 )}
 
                                 <select
@@ -1533,8 +1535,8 @@ export function DocumentForm({
 
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {text(
-                                    'الفرع / الموقع',
-                                    'Branch / location',
+                                    'الفرع / الموقع (اختياري)',
+                                    'Branch / location (optional)',
                                 )}
 
                                 <input
@@ -1558,8 +1560,8 @@ export function DocumentForm({
 
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {text(
-                                    'شروط الدفع',
-                                    'Payment terms',
+                                    'شروط الدفع (اختياري)',
+                                    'Payment terms (optional)',
                                 )}
 
                                 <input
@@ -1645,15 +1647,22 @@ export function DocumentForm({
                                             key={
                                                 line.client_id
                                             }
-                                            className="grid gap-2 rounded-[14px] border border-[#e5edf7] bg-[#fbfdff] p-3 xl:grid-cols-[1.6fr_.7fr_.6fr_.7fr_.65fr_.8fr_.65fr_auto]"
+                                            className="grid gap-3 rounded-[16px] border border-[#dfe9f6] bg-white p-4 shadow-[0_6px_18px_rgba(32,78,140,0.04)] md:grid-cols-2 xl:grid-cols-12"
                                         >
-                                            <div>
-                                                <label className="text-[10px] font-semibold text-[#6c84a6]">
+                                            <div className="xl:col-span-3">
+                                                <div className="mb-2 flex items-center justify-between gap-2">
+                                                    <label className="text-[10px] font-semibold text-[#6c84a6]">
                                                     {text(
                                                         'المنتج / الخدمة',
                                                         'Product / service',
                                                     )}
-                                                </label>
+                                                    </label>
+
+                                                    <span className="rounded-full bg-[#eef5ff] px-2 py-1 text-[9px] font-bold text-[#1265d8]">
+                                                        {text('بند ', 'Line ')}
+                                                        {index + 1}
+                                                    </span>
+                                                </div>
 
                                                 <select
                                                     className={
@@ -1695,7 +1704,7 @@ export function DocumentForm({
                                                                 ),
                                                         )
                                                         .map(
-                                                        product => (
+                                                            product => (
                                                             <option
                                                                 key={
                                                                     product.id
@@ -1745,7 +1754,7 @@ export function DocumentForm({
                                                 )}
                                             </div>
 
-                                            <label className="text-[10px] font-semibold text-[#6c84a6]">
+                                            <label className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-1">
                                                 {text(
                                                     'الكمية *',
                                                     'Quantity *',
@@ -1777,7 +1786,7 @@ export function DocumentForm({
                                                 />
                                             </label>
 
-                                            <label className="text-[10px] font-semibold text-[#6c84a6]">
+                                            <label className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-1">
                                                 {text(
                                                     'الوحدة',
                                                     'Unit',
@@ -1806,39 +1815,41 @@ export function DocumentForm({
                                                 />
                                             </label>
 
-                                            <label className="text-[10px] font-semibold text-[#6c84a6]">
-                                                {text(
-                                                    'سعر الوحدة *',
-                                                    'Unit price *',
-                                                )}
+                                            <div className="xl:col-span-2">
+                                                <label className="block text-[10px] font-semibold text-[#6c84a6]">
+                                                    {text(
+                                                        'سعر الوحدة *',
+                                                        'Unit price *',
+                                                    )}
 
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.0001"
-                                                    className={
-                                                        financeInput
-                                                        + ' mt-1'
-                                                    }
-                                                    value={
-                                                        line.unit_price
-                                                    }
-                                                    onChange={
-                                                        event =>
-                                                            changeLine(
-                                                                line.client_id,
-                                                                {
-                                                                    unit_price:
-                                                                        event
-                                                                            .target
-                                                                            .value,
-                                                                },
-                                                            )
-                                                    }
-                                                />
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.0001"
+                                                        className={
+                                                            financeInput
+                                                            + ' mt-1'
+                                                        }
+                                                        value={
+                                                            line.unit_price
+                                                        }
+                                                        onChange={
+                                                            event =>
+                                                                changeLine(
+                                                                    line.client_id,
+                                                                    {
+                                                                        unit_price:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    },
+                                                                )
+                                                        }
+                                                    />
+                                                </label>
 
                                                 {! sales && (
-                                                    <label className="mt-2 flex items-center gap-2 text-[10px] font-semibold text-amber-700">
+                                                    <label className="mt-2 flex items-center gap-2 rounded-[10px] bg-amber-50 px-2 py-2 text-[10px] font-semibold text-amber-700">
                                                         <input
                                                             type="checkbox"
                                                             checked={
@@ -1859,14 +1870,14 @@ export function DocumentForm({
                                                             }
                                                         />
                                                         {text(
-                                                            'السعر مبدئي — سأثبته لاحقاً',
+                                                            'سعر مبدئي — سأثبته لاحقاً',
                                                             'Provisional price — finalize later',
                                                         )}
                                                     </label>
                                                 )}
-                                            </label>
+                                            </div>
 
-                                            <label className="text-[10px] font-semibold text-[#6c84a6]">
+                                            <label className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-1">
                                                 {text(
                                                     'خصم %',
                                                     'Discount %',
@@ -1899,7 +1910,7 @@ export function DocumentForm({
                                                 />
                                             </label>
 
-                                            <label className="text-[10px] font-semibold text-[#6c84a6]">
+                                            <label className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-2">
                                                 {text(
                                                     'قاعدة الضريبة',
                                                     'Tax rule',
@@ -1963,7 +1974,7 @@ export function DocumentForm({
                                                 </select>
                                             </label>
 
-                                            <div className="text-[10px] font-semibold text-[#6c84a6]">
+                                            <div className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-1">
                                                 {text(
                                                     'المخزون',
                                                     'Inventory',
@@ -2011,7 +2022,7 @@ export function DocumentForm({
                                                 </label>
                                             </div>
 
-                                            <div className="flex items-end gap-2">
+                                            <div className="flex items-end justify-end gap-2 xl:col-span-1">
                                                 <div className="min-w-24 rounded-[10px] bg-white p-2 text-end">
                                                     <p className="text-[9px] text-slate-400">
                                                         {text(
