@@ -58,6 +58,24 @@ class IndexProductRequest extends FormRequest
                 ]),
             ],
 
+            'unit' => [
+                'nullable',
+                'string',
+                'max:40',
+            ],
+
+            'min_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+
+            'max_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+
             'sort' => [
                 'nullable',
                 Rule::in([
@@ -135,6 +153,11 @@ class IndexProductRequest extends FormRequest
                         ),
                     );
             }
+        }
+
+        if ($this->has('unit')) {
+            $unit = trim((string) $this->input('unit'));
+            $data['unit'] = $unit === '' ? null : $unit;
         }
 
         $this->merge(
