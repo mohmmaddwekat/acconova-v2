@@ -999,6 +999,27 @@ html[data-ac-resolved-theme='dark']
     color: var(--ac-text-muted) !important;
 }
 
+html[data-ac-resolved-theme='dark']
+    [class~="from-[#f6faff]"] {
+    --tw-gradient-from: var(--ac-surface-soft) var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: color-mix(in srgb, var(--ac-surface-soft) 0%, transparent)
+        var(--tw-gradient-to-position) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        [class~="text-[#1265d8]"],
+        [class~="text-[#1958a6]"],
+        [class~="text-[#124f9e]"]
+    ) {
+    color: #8fc0ff !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    [class~="bg-[#123d78]"] {
+    background-color: #2563a9 !important;
+}
+
 /* Inputs/selects should inherit the active theme even when a browser paints native UI. */
 html[data-ac-resolved-theme='dark']
     :is(input, select, textarea) {
