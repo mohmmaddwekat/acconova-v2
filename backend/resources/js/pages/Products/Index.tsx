@@ -1,6 +1,16 @@
 import { ProductDataActions } from '@/features/products/components/ProductDataActions';
 import { ProductImportDialog } from '@/features/products/components/ProductImportDialog';
 import { BulkActionBar } from '@/components/data/BulkActionBar';
+import {
+    AdvancedFilterBuilder,
+    type AdvancedFilterCondition,
+} from '@/components/data/AdvancedFilterBuilder';
+import { BulkEditDialog } from '@/components/data/BulkEditDialog';
+import {
+    ListPreferencesControl,
+    useListPreferences,
+    type ListColumn,
+} from '@/components/data/ListPreferences';
 import { SavedViews } from '@/components/data/SavedViews';
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { apiRequest } from '@/lib/http';
@@ -34,6 +44,7 @@ import {
     fetchProducts,
     fetchProduct,
     restoreProduct,
+    updateProduct,
     type ProductFilters,
 } from '@/features/products/api';
 import {
@@ -135,6 +146,14 @@ function ProductsWorkspace() {
             sort: 'name_asc',
         });
 
+    const [
+        advancedConditions,
+        setAdvancedConditions,
+    ] = useState<AdvancedFilterCondition[]>([]);
+
+    const [bulkEditOpen, setBulkEditOpen] =
+        useState(false);
+
     const [page, setPage] =
         useState(1);
 
@@ -231,6 +250,76 @@ function ProductsWorkspace() {
         ar,
     ]);
 
+    const productColumns: ListColumn[] = [
+        {
+            key: 'identity',
+            label: ar ? 'المنتج / الخدمة' : 'Product / service',
+        },
+        {
+            key: 'sku',
+            label: 'SKU',
+        },
+        {
+            key: 'price',
+            label: ar ? 'سعر البيع' : 'Selling price',
+        },
+        {
+            key: 'unit_tax',
+            label: ar ? 'الوحدة والضريبة' : 'Unit & tax',
+        },
+        {
+            key: 'stock',
+            label: ar ? 'المخزون' : 'Stock',
+        },
+        {
+            key: 'actions',
+            label: ar ? 'الإجراءات' : 'Actions',
+        },
+    ];
+
+    const listPreferences = useListPreferences(
+        `acconova:list-preferences:products:${activeOrganization?.id ?? 'none'}`,
+        productColumns,
+    );
+
+    const advancedFilterValues = advancedConditions.reduce(
+        (result, condition) => {
+            const value = condition.value.trim();
+
+            if (! value) {
+                return result;
+            }
+
+            if (condition.field === 'unit') {
+                result.unit = value;
+            }
+
+            if (condition.field === 'price') {
+                if (
+                    condition.operator === 'gte'
+                    || condition.operator === 'after'
+                ) {
+                    result.min_price = value;
+                }
+
+                if (
+                    condition.operator === 'lte'
+                    || condition.operator === 'before'
+                ) {
+                    result.max_price = value;
+                }
+
+                if (condition.operator === 'equals') {
+                    result.min_price = value;
+                    result.max_price = value;
+                }
+            }
+
+            return result;
+        },
+        {} as Pick<ProductFilters, 'unit' | 'min_price' | 'max_price'>,
+    );
+
     const productFilters:
         ProductFilters = {
         search,
@@ -246,6 +335,8 @@ function ProductsWorkspace() {
 
         sort:
             filters.sort,
+
+        ...advancedFilterValues,
 
         page,
 
@@ -299,6 +390,9 @@ function ProductsWorkspace() {
                 page,
                 perPage,
                 search,
+                advancedFilterValues.unit,
+                advancedFilterValues.min_price,
+                advancedFilterValues.max_price,
             ],
         );
 
@@ -439,7 +533,14 @@ function ProductsWorkspace() {
 
     useEffect(() => {
         setSelectedIds(new Set());
-    }, [filters, page, perPage, search, activeOrganization?.id]);
+    }, [
+        filters,
+        page,
+        perPage,
+        search,
+        advancedConditions,
+        activeOrganization?.id,
+    ]);
 
     /** Apply only the confirmed selection; the server authorizes every record atomically. */
     async function confirmBulkAction(): Promise<void> {
@@ -480,6 +581,132 @@ function ProductsWorkspace() {
         } catch (error) {
             showToast(error instanceof ApiError ? error.message : t('errors.unexpected'), 'error');
         } finally { setActionBusy(false); }
+    }
+
+    async function inlineUpdateProduct(
+        product: Product,
+        patch: Partial<Product>,
+    ): Promise<void> {
+        if (! allowEdit) {
+            return;
+        }
+
+        try {
+            const updated = await updateProduct(
+                product.id,
+                {
+                    type: product.type,
+                    name: product.name,
+                    sku: product.sku,
+                    description: product.description,
+                    unit:
+                        typeof patch.unit === 'string'
+                            ? patch.unit
+                            : product.unit,
+                    unit_price:
+                        typeof patch.unit_price === 'string'
+                            ? patch.unit_price
+                            : product.unit_price,
+                    cost_price: product.cost_price,
+                    tax_rate:
+                        typeof patch.tax_rate === 'string'
+                            ? patch.tax_rate
+                            : product.tax_rate,
+                },
+            );
+
+            setResponse((current) =>
+                current
+                    ? {
+                        ...current,
+                        data: current.data.map((item) =>
+                            item.id === updated.id
+                                ? updated
+                                : item,
+                        ),
+                    }
+                    : current,
+            );
+
+            if (detailProduct?.id === updated.id) {
+                setDetailProduct(updated);
+            }
+
+            showToast(
+                ar
+                    ? 'تم تحديث العنصر مباشرة.'
+                    : 'Item updated inline.',
+            );
+        } catch (exception) {
+            showToast(
+                exception instanceof ApiError
+                    ? exception.message
+                    : t('errors.unexpected'),
+                'error',
+            );
+            throw exception;
+        }
+    }
+
+    async function applyBulkEdit(
+        patch: Record<string, string>,
+    ): Promise<void> {
+        if (! allowEdit || actionBusy) {
+            return;
+        }
+
+        const selected = (response?.data ?? []).filter(
+            (product) => selectedIds.has(product.id),
+        );
+
+        if (! selected.length) {
+            return;
+        }
+
+        setActionBusy(true);
+
+        try {
+            await Promise.all(
+                selected.map((product) =>
+                    updateProduct(
+                        product.id,
+                        {
+                            type: product.type,
+                            name: product.name,
+                            sku: product.sku,
+                            description: product.description,
+                            unit: patch.unit ?? product.unit,
+                            unit_price:
+                                patch.unit_price
+                                ?? product.unit_price,
+                            cost_price: product.cost_price,
+                            tax_rate:
+                                patch.tax_rate
+                                ?? product.tax_rate,
+                        },
+                    ),
+                ),
+            );
+
+            setBulkEditOpen(false);
+            setSelectedIds(new Set());
+            await loadProducts();
+
+            showToast(
+                ar
+                    ? `تم تعديل ${selected.length} عنصر.`
+                    : `Updated ${selected.length} items.`,
+            );
+        } catch (exception) {
+            showToast(
+                exception instanceof ApiError
+                    ? exception.message
+                    : t('errors.unexpected'),
+                'error',
+            );
+        } finally {
+            setActionBusy(false);
+        }
     }
 
     const products =
@@ -605,6 +832,40 @@ function ProductsWorkspace() {
                                 }}
                             />
 
+                            <AdvancedFilterBuilder
+                                ar={ar}
+                                value={advancedConditions}
+                                onChange={(next) => {
+                                    setAdvancedConditions(next);
+                                    setPage(1);
+                                }}
+                                fields={[
+                                    {
+                                        key: 'unit',
+                                        label: ar ? 'الوحدة' : 'Unit',
+                                        type: 'text',
+                                        operators: ['contains', 'equals'],
+                                    },
+                                    {
+                                        key: 'price',
+                                        label: ar ? 'سعر البيع' : 'Selling price',
+                                        type: 'number',
+                                        operators: ['gte', 'lte', 'equals'],
+                                    },
+                                ]}
+                            />
+
+                            <ListPreferencesControl
+                                columns={productColumns}
+                                order={listPreferences.order}
+                                hidden={listPreferences.hidden}
+                                density={listPreferences.density}
+                                onOrderChange={listPreferences.setOrder}
+                                onToggleColumn={listPreferences.toggleColumn}
+                                onDensityChange={listPreferences.setDensity}
+                                ar={ar}
+                            />
+
                             <SavedViews
                                 storageKey={`acconova:saved-views:products:${activeOrganization?.id ?? 'none'}`}
                                 ar={ar}
@@ -612,15 +873,31 @@ function ProductsWorkspace() {
                                     search,
                                     filters,
                                     perPage,
+                                    advancedConditions,
                                 }}
                                 onApply={(saved) => {
                                     setDraftSearch(saved.search);
                                     setSearch(saved.search);
                                     setFilters(saved.filters);
                                     setPerPage(saved.perPage);
+                                    setAdvancedConditions(
+                                        saved.advancedConditions ?? [],
+                                    );
                                     setPage(1);
                                 }}
                             />
+
+                            {allowEdit && selectedIds.size > 0 && filters.status !== 'deleted' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setBulkEditOpen(true)}
+                                    className="inline-flex h-10 items-center rounded-[12px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-3 text-[11px] font-semibold text-[var(--ac-accent)]"
+                                >
+                                    {ar
+                                        ? `تعديل جماعي (${selectedIds.size})`
+                                        : `Bulk edit (${selectedIds.size})`}
+                                </button>
+                            )}
 
                             <ProductDataActions filters={productFilters} canImport={allowEdit && allowCreate} onImport={() => setImportOpen(true)} />
                             {allowCreate && (
@@ -885,6 +1162,40 @@ function ProductsWorkspace() {
                                 value,
                         })
                     }
+                />
+
+                <BulkEditDialog
+                    open={bulkEditOpen}
+                    title={
+                        ar
+                            ? 'تعديل المنتجات المحددة'
+                            : 'Edit selected products'
+                    }
+                    description={
+                        ar
+                            ? 'اكتب فقط الحقول التي تريد تغييرها؛ الباقي سيبقى كما هو.'
+                            : 'Fill only the fields you want to change; everything else stays untouched.'
+                    }
+                    fields={[
+                        {
+                            key: 'unit',
+                            label: ar ? 'الوحدة' : 'Unit',
+                        },
+                        {
+                            key: 'unit_price',
+                            label: ar ? 'سعر البيع' : 'Selling price',
+                            type: 'number',
+                        },
+                        {
+                            key: 'tax_rate',
+                            label: ar ? 'نسبة الضريبة %' : 'Tax rate %',
+                            type: 'number',
+                        },
+                    ]}
+                    busy={actionBusy}
+                    ar={ar}
+                    onClose={() => setBulkEditOpen(false)}
+                    onApply={applyBulkEdit}
                 />
 
                 <ProductImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={(result) => {
