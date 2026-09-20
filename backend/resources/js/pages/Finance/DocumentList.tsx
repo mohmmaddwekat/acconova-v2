@@ -11,7 +11,6 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { FinanceNav } from './FinanceNav';
 import {
     FinanceHeader,
     FPanel,
@@ -277,12 +276,6 @@ export function DocumentList({
                     tone="red"
                 />
             </div>
-
-            <FinanceNav
-                lookups={lookups}
-                ar={ar}
-                active={sales ? 'sales' : 'purchases'}
-            />
 
             <FPanel
                 title={text('عوامل التصفية والبحث', 'Filters & search')}
