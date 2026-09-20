@@ -477,9 +477,9 @@ export function PartyEditorDrawer({
                 aria-label={t(
                     'ui.relationship_context',
                 )}
-                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.14)] sm:max-w-[640px]"
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[-40px_0_100px_rgba(20,35,30,0.14)] sm:max-w-[640px]"
             >
-                <header className="shrink-0 border-b border-[var(--ac-line)] bg-white px-4 py-5 sm:px-7 sm:py-6">
+                <header className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-5 sm:px-7 sm:py-6">
                     <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--ac-accent-strong)]">
@@ -623,7 +623,7 @@ export function PartyEditorDrawer({
                                         }),
                                     )
                                 }
-                                className="h-12 w-full rounded-[16px] border border-[var(--ac-line-strong)] bg-white px-4 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                                className="h-12 w-full rounded-[16px] border border-[var(--ac-line-strong)] bg-[var(--ac-surface)] px-4 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                             />
 
                             {identityError && (
@@ -1020,7 +1020,7 @@ export function PartyEditorDrawer({
                                     onClick={
                                         closeDialog
                                     }
-                                    className="h-11 flex-1 rounded-[14px] border border-transparent px-5 text-sm font-medium text-[var(--ac-text-soft)] transition hover:bg-white disabled:opacity-50 sm:flex-none"
+                                    className="h-11 flex-1 rounded-[14px] border border-transparent px-5 text-sm font-medium text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-surface)] disabled:opacity-50 sm:flex-none"
                                 >
                                     {t(
                                         'ui.cancel',
@@ -1238,7 +1238,7 @@ function PartyField({
                             .value,
                     )
                 }
-                className="h-12 w-full rounded-[16px] border border-[var(--ac-line)] bg-white px-4 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                className="h-12 w-full rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
             />
 
             {error && (
