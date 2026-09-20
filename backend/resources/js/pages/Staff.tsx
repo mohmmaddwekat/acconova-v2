@@ -2310,6 +2310,38 @@ function StaffWorkspace() {
                                         </div>
                                     </div>
 
+                                    <div className="border-t border-[var(--ac-line)] p-5 sm:p-6">
+                                        <RecordHealth
+                                            ar={ar}
+                                            fields={[
+                                                {
+                                                    label: ar ? 'الاسم' : 'Name',
+                                                    complete: Boolean(ledger.member.name.trim()),
+                                                },
+                                                {
+                                                    label: ar ? 'المسمى الوظيفي' : 'Job title',
+                                                    complete: Boolean(ledger.member.job_title?.trim()),
+                                                },
+                                                {
+                                                    label: ar ? 'البريد الإلكتروني' : 'Email',
+                                                    complete: Boolean(ledger.member.email?.trim()),
+                                                },
+                                                {
+                                                    label: ar ? 'الهاتف' : 'Phone',
+                                                    complete: Boolean(ledger.member.phone?.trim()),
+                                                },
+                                                {
+                                                    label: ar ? 'القسم' : 'Department',
+                                                    complete: Boolean(ledger.member.department_id),
+                                                },
+                                                {
+                                                    label: ar ? 'تاريخ البدء' : 'Start date',
+                                                    complete: Boolean(ledger.member.started_on),
+                                                },
+                                            ]}
+                                        />
+                                    </div>
+
                                     <nav className="flex gap-1 overflow-x-auto border-t border-[var(--ac-line)] p-2">
                                         {tabs.map(
                                             (
