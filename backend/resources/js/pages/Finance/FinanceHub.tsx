@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
 import {
     Banknote,
-    CalendarClock,
     FileSpreadsheet,
     HandCoins,
     Landmark,
@@ -64,8 +63,8 @@ export function FinanceHub({
         {
             title: text('المدفوعات', 'Payments'),
             description: text(
-                'سداد الموردين والمصاريف والتحويلات والشيكات.',
-                'Supplier settlements, expenses, transfers and checks.',
+                'سداد الموردين والمصاريف والتحويلات والشيكات، ومن داخلها المدفوعات المتكررة.',
+                'Supplier settlements, expenses, transfers, checks, and recurring payments inside the same area.',
             ),
             href: '/app/payments',
             icon: Banknote,
@@ -92,16 +91,6 @@ export function FinanceHub({
             href: '/app/finance/taxes',
             icon: Landmark,
             visible: lookups.permissions.taxes_view,
-        },
-        {
-            title: text('المدفوعات الدورية', 'Recurring payments'),
-            description: text(
-                'متابعة الالتزامات والمدفوعات المتكررة من مكان واحد.',
-                'Track recurring obligations and payments from one place.',
-            ),
-            href: '/app/payments/recurring',
-            icon: CalendarClock,
-            visible: lookups.permissions.recurring_payments_view,
         },
     ];
 
