@@ -173,6 +173,36 @@ const primaryButton =
     'inline-flex items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-solid)] px-4 py-2.5 text-sm font-semibold text-[var(--ac-accent-solid-text)] transition hover:bg-[var(--ac-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50';
 
 /**
+ * Create an idempotency/request token in both secure production origins and
+ * local HTTP development hosts such as acconova.test.
+ *
+ * requestToken() is unavailable in some non-secure browser contexts and
+ * calling it during the initial React render makes the whole Staff page blank.
+ */
+function requestToken(): string {
+    if (
+        typeof globalThis.crypto
+            ?.randomUUID ===
+        'function'
+    ) {
+        return globalThis.crypto
+            .randomUUID();
+    }
+
+    return [
+        'req',
+        Date.now()
+            .toString(36),
+        Math.random()
+            .toString(36)
+            .slice(2),
+        Math.random()
+            .toString(36)
+            .slice(2),
+    ].join('-');
+}
+
+/**
  * Return today's local calendar date without converting through UTC.
  */
 function today(): string {
@@ -436,7 +466,7 @@ function StaffWorkspace() {
     ] =
         useState(
             () =>
-                crypto.randomUUID(),
+                requestToken(),
         );
 
     const [
@@ -866,7 +896,7 @@ function StaffWorkspace() {
         );
 
         setRequestId(
-            crypto.randomUUID(),
+            requestToken(),
         );
 
         setInvitationUrl(
@@ -975,7 +1005,7 @@ function StaffWorkspace() {
             form.reset();
 
             setRequestId(
-                crypto.randomUUID(),
+                requestToken(),
             );
         }
     }
