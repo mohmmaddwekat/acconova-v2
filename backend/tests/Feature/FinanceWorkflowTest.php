@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Enums\OrganizationRole;
 use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
