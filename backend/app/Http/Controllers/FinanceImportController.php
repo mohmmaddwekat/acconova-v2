@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FinancialDocument;
 use App\Models\Party;
+use App\Models\Product;
 use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
@@ -43,7 +44,8 @@ class FinanceImportController extends Controller
             ['Workspace currency', $currency],
             ['Dates', 'YYYY-MM-DD'],
             ['Important', 'Do not change the column names in the Data sheet.'],
-            ['Historical invoices', 'Imported invoice lines do not affect current inventory quantities.'],
+            ['Historical invoices', 'Imported invoice lines do not affect current inventory quantities. Product SKU/name can optionally link old lines to your current catalog.'],
+            ['Customer / supplier pricing', 'When an imported historical invoice line is linked to a product, AccoNova can reuse that party’s latest historical unit price on future invoices.'],
             ['Duplicate protection', 'Existing external numbers / movement references are skipped where possible.'],
             ['Payments linked to invoices', 'Use invoice_external_number. For multiple invoices, separate numbers with ;. Allocation follows the listed order and any remainder becomes party advance credit.'],
             ['Allowed directions', 'incoming, outgoing'],
@@ -208,23 +210,50 @@ class FinanceImportController extends Controller
                     $lines = [];
 
                     foreach ($group as $row) {
-                        $description = trim((string) ($row['line_description'] ?? ''));
+                        $productSku = trim((string) ($row['product_sku'] ?? ''));
+                        $productName = trim((string) ($row['product_name'] ?? ''));
+                        $product = null;
+
+                        if ($productSku !== '') {
+                            $product = Product::query()
+                                ->usableForNewBusiness()
+                                ->where('sku', $productSku)
+                                ->first();
+                        }
+
+                        if (! $product && $productName !== '') {
+                            $product = Product::query()
+                                ->usableForNewBusiness()
+                                ->where('name', $productName)
+                                ->first();
+                        }
+
+                        $description = trim((string) ($row['line_description'] ?? ''))
+                            ?: $product?->name
+                            ?: '';
                         $quantity = $this->decimal($row['quantity'] ?? null);
                         $unitPrice = $this->decimal($row['unit_price'] ?? null);
 
                         if ($description === '' || $quantity === null || $unitPrice === null || (float) $quantity <= 0 || (float) $unitPrice < 0) {
-                            throw new RuntimeException('Every line needs line_description, quantity > 0, and unit_price >= 0.');
+                            throw new RuntimeException('Every line needs a description or matched product, quantity > 0, and unit_price >= 0.');
                         }
 
                         $discount = $this->decimal($row['discount_percent'] ?? null) ?? '0';
-                        $taxRate = $this->decimal($row['tax_rate'] ?? null) ?? '0';
+                        $taxRate = $this->decimal($row['tax_rate'] ?? null)
+                            ?? $product?->tax_rate
+                            ?? '0';
 
                         if ((float) $discount < 0 || (float) $discount > 100 || (float) $taxRate < 0 || (float) $taxRate > 100) {
                             throw new RuntimeException('discount_percent and tax_rate must be between 0 and 100.');
                         }
 
-                        $unit = trim((string) ($row['unit'] ?? '')) ?: null;
-                        $lineKey = mb_strtolower($description).'|'.$unit.'|'.$unitPrice.'|'.$discount.'|'.$taxRate;
+                        $unit = trim((string) ($row['unit'] ?? ''))
+                            ?: $product?->unit
+                            ?: null;
+                        $lineKey = ($product?->id
+                            ? 'product:'.$product->id
+                            : 'manual:'.mb_strtolower($description))
+                            .'|'.$unitPrice.'|'.$discount.'|'.$taxRate;
                         $existingIndex = null;
 
                         foreach ($lines as $lineIndex => $existingLine) {
@@ -247,7 +276,7 @@ class FinanceImportController extends Controller
 
                         $lines[] = [
                             '_import_key' => $lineKey,
-                            'product_id' => null,
+                            'product_id' => $product?->id,
                             'warehouse_id' => null,
                             'tax_rule_id' => null,
                             'description' => $description,
@@ -536,6 +565,13 @@ class FinanceImportController extends Controller
             'تاريخ_الإصدار' => 'issue_date',
             'التاريخ' => 'movement_date',
             'تاريخ_الاستحقاق' => 'due_date',
+            'رمز_المنتج' => 'product_sku',
+            'كود_المنتج' => 'product_sku',
+            'sku' => 'product_sku',
+            'product_code' => 'product_sku',
+            'اسم_المنتج' => 'product_name',
+            'المنتج' => 'product_name',
+            'product' => 'product_name',
             'وصف_البند' => 'line_description',
             'الوصف' => 'line_description',
             'البيان' => 'line_description',
@@ -649,11 +685,11 @@ class FinanceImportController extends Controller
 
         return [[
             'document_key', 'external_number', 'party_name', 'issue_date', 'due_date',
-            'line_description', 'unit', 'quantity', 'unit_price', 'discount_percent',
-            'tax_rate', 'shipping_total', 'notes',
+            'product_sku', 'product_name', 'line_description', 'unit', 'quantity',
+            'unit_price', 'discount_percent', 'tax_rate', 'shipping_total', 'notes',
         ], [
-            ['INV-001', $type === 'sales_invoices' ? 'SAL-100' : 'PUR-100', $type === 'sales_invoices' ? 'Customer A' : 'Supplier A', '2026-01-10', '2026-02-10', 'Legacy line 1', 'unit', 2, 100, 5, 0, 0, 'Imported invoice'],
-            ['INV-001', $type === 'sales_invoices' ? 'SAL-100' : 'PUR-100', $type === 'sales_invoices' ? 'Customer A' : 'Supplier A', '2026-01-10', '2026-02-10', 'Legacy line 2', 'unit', 1, 50, 0, 0, 0, 'Same document_key groups lines into one invoice'],
+            ['INV-001', $type === 'sales_invoices' ? 'SAL-100' : 'PUR-100', $type === 'sales_invoices' ? 'Customer A' : 'Supplier A', '2026-01-10', '2026-02-10', 'SKU-001', 'Catalog item', 'Legacy line 1', 'unit', 2, 100, 5, 0, 0, 'If SKU/name matches AccoNova, the historical line is linked to that product'],
+            ['INV-001', $type === 'sales_invoices' ? 'SAL-100' : 'PUR-100', $type === 'sales_invoices' ? 'Customer A' : 'Supplier A', '2026-01-10', '2026-02-10', '', '', 'Legacy manual line', 'unit', 1, 50, 0, 0, 0, 'Same document_key groups lines into one invoice'],
         ]];
     }
 
