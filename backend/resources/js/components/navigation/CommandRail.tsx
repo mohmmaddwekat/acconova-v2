@@ -874,8 +874,8 @@ function DesktopNavigationItem({
                     : 'justify-center px-1',
 
                 active
-                    ? 'bg-[var(--ac-surface-strong)] text-[var(--ac-text)]'
-                    : 'text-[var(--ac-text-soft)] hover:bg-[var(--ac-bg-soft)]',
+                    ? 'bg-[var(--ac-button-hover-bg)] text-[var(--ac-text)]'
+                    : 'text-[var(--ac-text-soft)] hover:bg-[var(--ac-button-hover-bg)]',
             ].join(
                 ' ',
             )}
@@ -953,8 +953,8 @@ function MobileNavigationItem({
             className={[
                 'flex items-center gap-3 rounded-[16px] px-3 py-3 transition',
                 active
-                    ? 'bg-[var(--ac-surface-strong)]'
-                    : 'hover:bg-[var(--ac-bg-soft)]',
+                    ? 'bg-[var(--ac-button-hover-bg)]'
+                    : 'hover:bg-[var(--ac-button-hover-bg)]',
             ].join(
                 ' ',
             )}
