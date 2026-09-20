@@ -1,5 +1,4 @@
 import { apiRequest, ApiError } from '@/lib/http';
-import { getLocale, setLocale } from '@/lib/locale';
 import {
     applyProfilePreferences,
     defaultProfilePreferences,
