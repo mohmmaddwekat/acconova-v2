@@ -17,12 +17,14 @@ import {
 } from 'react';
 
 import { DataPagination } from '@/components/data/DataPagination';
+import { SavedViews } from '@/components/data/SavedViews';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import {
     archiveParty,
     bulkPartyAction,
     fetchParties,
+    fetchParty,
     restoreParty,
     type PartyBulkAction,
     type PartyFilters,
@@ -97,7 +99,7 @@ export default function PartiesIndex() {
 
 /** Reset transient records, dialogs and selections when the authorized workspace changes. */
 function PartiesWorkspace() {
-    useLocale();
+    const ar = useLocale() === 'ar';
     const {
         workspace,
     } = usePage<AppPageProps>().props;
@@ -208,6 +210,52 @@ function PartiesWorkspace() {
     ] = useState(false);
 
     const { showToast } = useToast();
+
+    /*
+     * Global search / quick-create deep links are intentionally handled by the
+     * destination page so the same editor/detail drawer is reused everywhere.
+     */
+    useEffect(() => {
+        if (
+            typeof window === 'undefined'
+            || ! activeOrganization
+        ) {
+            return;
+        }
+
+        const url = new URL(window.location.href);
+        const createRequested =
+            url.searchParams.get('create') === '1';
+        const focusId =
+            Number(url.searchParams.get('focus') ?? 0);
+
+        if (createRequested && allowCreate) {
+            openCreate();
+            url.searchParams.delete('create');
+            window.history.replaceState({}, '', url);
+        }
+
+        if (Number.isInteger(focusId) && focusId > 0) {
+            url.searchParams.delete('focus');
+            window.history.replaceState({}, '', url);
+
+            void fetchParty(focusId)
+                .then((party) => {
+                    setDetailParty(party);
+                })
+                .catch(() => {
+                    setError(
+                        ar
+                            ? 'تعذر فتح الجهة المطلوبة.'
+                            : 'The requested Party could not be opened.',
+                    );
+                });
+        }
+    }, [
+        activeOrganization?.id,
+        allowCreate,
+        ar,
+    ]);
 
     const partyFilters:
         PartyFilters = {
@@ -800,6 +848,23 @@ function PartiesWorkspace() {
                                         onChange={
                                             applyFilters
                                         }
+                                    />
+
+                                    <SavedViews
+                                        storageKey={`acconova:saved-views:parties:${activeOrganization?.id ?? 'none'}`}
+                                        ar={ar}
+                                        value={{
+                                            search,
+                                            filters,
+                                            perPage,
+                                        }}
+                                        onApply={(saved) => {
+                                            setDraftSearch(saved.search);
+                                            setSearch(saved.search);
+                                            setFilters(saved.filters);
+                                            setPerPage(saved.perPage);
+                                            setPage(1);
+                                        }}
                                     />
 
                                     <PartyDataActions
