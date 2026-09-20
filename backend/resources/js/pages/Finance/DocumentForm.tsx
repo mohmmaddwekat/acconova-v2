@@ -1994,9 +1994,9 @@ export function DocumentForm({
                                             key={
                                                 line.client_id
                                             }
-                                            className="overflow-hidden rounded-[20px] border border-[#dbe6f5] bg-white shadow-[0_10px_30px_rgba(25,74,135,.055)]"
+                                            className="overflow-hidden rounded-[20px] border border-[#dbe6f5] bg-[var(--ac-surface)] shadow-[0_10px_30px_rgba(25,74,135,.055)]"
                                         >
-                                            <div className="flex items-center justify-between gap-3 border-b border-[#eaf0f8] bg-gradient-to-l from-[#f6faff] via-white to-white px-4 py-3 sm:px-5">
+                                            <div className="flex items-center justify-between gap-3 border-b border-[#eaf0f8] bg-gradient-to-l from-[#f6faff] via-[var(--ac-surface)] to-[var(--ac-surface)] px-4 py-3 sm:px-5">
                                                 <div className="flex min-w-0 items-center gap-3">
                                                     <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[#1265d8] text-xs font-bold text-white">
                                                         {index + 1}
@@ -2258,7 +2258,7 @@ export function DocumentForm({
                                                             priceReference.source ===
                                                             'party_history'
                                                                 ? 'border-blue-100 bg-blue-50/70 text-blue-800'
-                                                                : 'border-slate-100 bg-slate-50 text-slate-600',
+                                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-slate-600',
                                                         ].join(' ')}
                                                     >
                                                         <div className="flex items-center gap-2">
@@ -2479,7 +2479,7 @@ export function DocumentForm({
                                                     </summary>
 
                                                     <div className="grid gap-4 border-t border-[#eaf0f8] p-4 md:grid-cols-2 2xl:grid-cols-4">
-                                                        <div className="rounded-[13px] border border-[#e5edf7] bg-white p-3 md:col-span-2 2xl:col-span-1">
+                                                        <div className="rounded-[13px] border border-[#e5edf7] bg-[var(--ac-surface)] p-3 md:col-span-2 2xl:col-span-1">
                                                             <p className="text-[11px] font-semibold text-[#58739a]">
                                                                 {text(
                                                                     'الخصم (اختياري)',
@@ -2527,7 +2527,7 @@ export function DocumentForm({
                                                                                 'rounded-[8px] px-2.5 py-2 text-[10px] font-bold transition',
                                                                                 line.discount_type ===
                                                                                 value
-                                                                                    ? 'bg-white text-[#1265d8] shadow-sm'
+                                                                                    ? 'bg-[var(--ac-surface)] text-[#1265d8] shadow-sm'
                                                                                     : 'text-[#7890b1] hover:text-[#49698f]',
                                                                             ].join(' ')}
                                                                         >
@@ -2654,7 +2654,7 @@ export function DocumentForm({
                                                                 'Inventory impact',
                                                             )}
 
-                                                            <label className="mt-2 flex min-h-11 items-center gap-3 rounded-[12px] border border-[#dbe6f5] bg-white px-3">
+                                                            <label className="mt-2 flex min-h-11 items-center gap-3 rounded-[12px] border border-[#dbe6f5] bg-[var(--ac-surface)] px-3">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={
@@ -2754,7 +2754,7 @@ export function DocumentForm({
                                                                 </select>
                                                             </label>
                                                         ) : (
-                                                            <div className="rounded-[12px] border border-dashed border-[#dbe6f5] bg-white px-3 py-3 text-[10px] leading-5 text-[#7890b1]">
+                                                            <div className="rounded-[12px] border border-dashed border-[#dbe6f5] bg-[var(--ac-surface)] px-3 py-3 text-[10px] leading-5 text-[#7890b1]">
                                                                 {text(
                                                                     'المستودع يظهر فقط عندما يكون للبند تأثير على المخزون.',
                                                                     'Warehouse selection appears only when this line affects inventory.',
