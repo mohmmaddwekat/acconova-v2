@@ -16,6 +16,10 @@ import {
     ApiError,
 } from '@/lib/http';
 import {
+    useGlobalSave,
+    useUnsavedChanges,
+} from '@/lib/editorSafety';
+import {
     t,
     useLocale,
 } from '@/lib/i18n';
@@ -29,6 +33,7 @@ import {
 import {
     useEffect,
     useId,
+    useRef,
     useState,
     type FormEvent,
 } from 'react';
@@ -221,6 +226,11 @@ export function PartyEditorDrawer({
 }: PartyEditorDrawerProps) {
     const ar = useLocale() === 'ar';
 
+    const formRef =
+        useRef<HTMLFormElement | null>(
+            null,
+        );
+
     const [
         form,
         setForm,
@@ -276,11 +286,22 @@ export function PartyEditorDrawer({
      * Prevent closing while Party persistence is still in flight.
      */
     function closeDialog(): void {
-        if (
-            ! busy
-        ) {
-            onClose();
+        if (busy) {
+            return;
         }
+
+        if (
+            dirty
+            && ! window.confirm(
+                ar
+                    ? 'لديك تغييرات غير محفوظة. هل تريد إغلاق النموذج؟'
+                    : 'You have unsaved changes. Close the form?',
+            )
+        ) {
+            return;
+        }
+
+        onClose();
     }
 
     useEffect(() => {
@@ -398,6 +419,30 @@ export function PartyEditorDrawer({
         form.phone,
         form.taxNumber,
     ]);
+
+    const dirty =
+        open
+        && JSON.stringify(
+            form,
+        ) !==
+            JSON.stringify(
+                formFromParty(
+                    party,
+                ),
+            );
+
+    useUnsavedChanges(
+        dirty && ! busy,
+        ar,
+    );
+
+    useGlobalSave(
+        () =>
+            formRef.current
+                ?.requestSubmit(),
+        open
+        && ! busy,
+    );
 
     /**
      * Change the Party identity type while retaining entered information.
@@ -620,6 +665,7 @@ export function PartyEditorDrawer({
                 </header>
 
                 <form
+                    ref={formRef}
                     onSubmit={(
                         event,
                     ) =>
