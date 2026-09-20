@@ -98,6 +98,8 @@ class CashMovementController extends Controller
 
     public function store(Request $request, CashMovementService $service): JsonResponse
     {
+        FinanceAuthorization::authorize($request->user(), 'finance.cash.view');
+
         $data = $this->validatedMovement($request);
         $this->authorizeDirection($request, $data['direction']);
         $movement = $service->createDraft($data, $request->user()->id);
