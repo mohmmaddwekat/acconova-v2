@@ -132,7 +132,7 @@ export default function Dashboard() {
 
                     <Link
                         href="/app/parties"
-                        className="group relative min-h-[250px] overflow-hidden rounded-[24px] border border-[var(--ac-line)] bg-[linear-gradient(145deg,var(--ac-surface-strong),white)] p-5 shadow-[var(--ac-shadow-soft)] transition duration-300 hover:-translate-y-1 hover:shadow-[var(--ac-shadow-panel)] sm:rounded-[28px] sm:p-7"
+                        className="group relative min-h-[250px] overflow-hidden rounded-[24px] border border-[var(--ac-line)] bg-[linear-gradient(145deg,var(--ac-surface-strong),var(--ac-surface))] p-5 shadow-[var(--ac-shadow-soft)] transition duration-300 hover:-translate-y-1 hover:shadow-[var(--ac-shadow-panel)] sm:rounded-[28px] sm:p-7"
                     >
                         <div className="absolute -bottom-16 -end-12 size-48 rounded-full border border-[var(--ac-accent)]/10 transition duration-500 group-hover:scale-110" />
 
