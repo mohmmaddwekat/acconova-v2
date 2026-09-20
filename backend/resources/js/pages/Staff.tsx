@@ -5,6 +5,9 @@ import {
     StaffModuleNav,
 } from '@/components/staff/StaffModuleNav';
 import {
+    SavedViews,
+} from '@/components/data/SavedViews';
+import {
     AppShell,
 } from '@/layouts/AppShell';
 import {
@@ -319,6 +322,14 @@ function StaffWorkspace() {
         staffCopy[
             locale
         ];
+
+    const organizationId =
+        usePage<AppPageProps>()
+            .props
+            .workspace
+            .activeOrganization
+            ?.id
+        ?? 'none';
 
     const [
         search,
@@ -1717,6 +1728,28 @@ function StaffWorkspace() {
                                     </option>
                                 </select>
                             </label>
+                        </div>
+
+                        <div className="border-b border-[var(--ac-line)] px-4 py-3">
+                            <SavedViews
+                                storageKey={`acconova:saved-views:staff:${organizationId}`}
+                                ar={ar}
+                                value={{
+                                    search,
+                                    department,
+                                    basisFilter,
+                                    activeFilter,
+                                    perPage,
+                                }}
+                                onApply={(saved) => {
+                                    setSearch(saved.search);
+                                    setDepartment(saved.department);
+                                    setBasisFilter(saved.basisFilter);
+                                    setActiveFilter(saved.activeFilter);
+                                    setPerPage(saved.perPage);
+                                    setPage(1);
+                                }}
+                            />
                         </div>
 
                         <div className="flex items-center justify-between gap-3 border-b border-[var(--ac-line)] px-5 py-3 text-xs text-[var(--ac-text-muted)]">
