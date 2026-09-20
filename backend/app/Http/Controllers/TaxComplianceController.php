@@ -88,9 +88,19 @@ class TaxComplianceController extends Controller
     /** @return array<string, mixed> */
     private function validatedRule(Request $request): array
     {
+        $taxRule = $request->route('taxRule');
+
         return $request->validate([
             'name' => ['required', 'string', 'max:160'],
-            'code' => ['required', 'string', 'max:48', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'code' => [
+                'required',
+                'string',
+                'max:48',
+                'regex:/^[A-Za-z0-9._-]+$/',
+                Rule::unique('tax_rules', 'code')
+                    ->where('organization_id', app(TenantContext::class)->id())
+                    ->ignore($taxRule?->id),
+            ],
             'tax_type' => ['required', Rule::in(['vat', 'sales_tax', 'gst', 'withholding', 'payroll', 'corporate', 'customs', 'excise', 'property', 'other'])],
             'country_code' => ['required', 'regex:/^[A-Z]{2}$/'],
             'region_code' => ['nullable', 'string', 'max:80'],
