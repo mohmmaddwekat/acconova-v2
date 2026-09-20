@@ -124,7 +124,7 @@ export function InlineEditValue({
     return (
         <span className={['group/inline flex min-w-0 items-center gap-1.5', className].join(' ')}>
             <span className="min-w-0 flex-1 truncate">
-                {display ?? value || emptyLabel}
+                {display ?? (value || emptyLabel)}
             </span>
 
             {editable && (
