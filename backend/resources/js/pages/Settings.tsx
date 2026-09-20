@@ -127,16 +127,16 @@ type NavItem = {
 };
 
 const panel =
-    'rounded-[18px] border border-[#dfe8f4] bg-white shadow-[0_10px_28px_rgba(30,75,140,.045)]';
+    'rounded-[18px] border border-[var(--acs-line)] bg-[var(--acs-surface)] shadow-[0_10px_28px_rgba(30,75,140,.045)]';
 
 const input =
-    'mt-2 min-h-11 w-full rounded-[11px] border border-[#d9e5f2] bg-white px-3.5 text-sm text-[#19345f] outline-none transition placeholder:text-[#9badc5] focus:border-[#2f7df4] focus:ring-2 focus:ring-[#2f7df4]/10 disabled:bg-slate-50 disabled:text-slate-400';
+    'mt-2 min-h-11 w-full rounded-[11px] border border-[var(--acs-line)] bg-[var(--acs-control)] px-3.5 text-sm text-[var(--acs-text)] outline-none transition placeholder:text-[var(--acs-text-muted)] focus:border-[var(--acs-accent)] focus:ring-2 focus:ring-[#2f7df4]/10 disabled:bg-slate-50 disabled:text-slate-400';
 
 const secondaryButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[#cfe0f4] bg-white px-4 text-xs font-semibold text-[#2563c7] transition hover:bg-[#f5f9ff] disabled:cursor-not-allowed disabled:opacity-45';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[var(--acs-line-strong)] bg-[var(--acs-control)] px-4 text-xs font-semibold text-[var(--acs-accent)] transition hover:bg-[var(--acs-control-hover)] disabled:cursor-not-allowed disabled:opacity-45';
 
 const primaryButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-[#1468ea] px-5 text-xs font-semibold text-white shadow-[0_8px_18px_rgba(20,104,234,.2)] transition hover:bg-[#0f5fd8] disabled:cursor-not-allowed disabled:opacity-45';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-[var(--acs-accent)] px-5 text-xs font-semibold text-white shadow-[0_8px_18px_rgba(20,104,234,.2)] transition hover:bg-[var(--acs-accent-hover)] disabled:cursor-not-allowed disabled:opacity-45';
 
 function errorText(error: unknown, fallback: string): string {
     if (error instanceof ApiError) {
@@ -162,13 +162,13 @@ function SettingsCard({
 }) {
     return (
         <section className={panel}>
-            <div className="border-b border-[#edf2f8] px-5 py-4">
-                <h2 className="flex items-center gap-2 text-sm font-bold text-[#17386d]">
-                    <Icon size={17} className="text-[#1265d8]" />
+            <div className="border-b border-[var(--acs-line-soft)] px-5 py-4">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-[var(--acs-text)]">
+                    <Icon size={17} className="text-[var(--acs-accent)]" />
                     {title}
                 </h2>
                 {description && (
-                    <p className="mt-1 text-[10px] leading-5 text-[#899db7]">
+                    <p className="mt-1 text-[10px] leading-5 text-[var(--acs-text-muted)]">
                         {description}
                     </p>
                 )}
@@ -196,7 +196,7 @@ function Toggle({
             onClick={onChange}
             className={[
                 'relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40',
-                checked ? 'bg-[#1d73ec]' : 'bg-[#cbd5e1]',
+                checked ? 'bg-[var(--acs-accent)]' : 'bg-[var(--acs-toggle-off)]',
             ].join(' ')}
         >
             <span
@@ -223,11 +223,11 @@ function SettingRow({
     disabled?: boolean;
 }) {
     return (
-        <div className="flex items-center justify-between gap-4 border-b border-[#edf2f8] py-3 last:border-b-0">
+        <div className="flex items-center justify-between gap-4 border-b border-[var(--acs-line-soft)] py-3 last:border-b-0">
             <div>
-                <p className="text-xs font-semibold text-[#19345f]">{label}</p>
+                <p className="text-xs font-semibold text-[var(--acs-text)]">{label}</p>
                 {description && (
-                    <p className="mt-1 text-[10px] leading-5 text-[#8ba0bc]">
+                    <p className="mt-1 text-[10px] leading-5 text-[var(--acs-text-muted)]">
                         {description}
                     </p>
                 )}
@@ -251,14 +251,14 @@ function SectionLink({
     return (
         <Link
             href={href}
-            className="flex items-center gap-4 rounded-[14px] border border-[#dfe8f4] bg-white p-4 transition hover:border-[#bfd4ef] hover:bg-[#f8fbff]"
+            className="flex items-center gap-4 rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface)] p-4 transition hover:border-[var(--acs-line-strong)] hover:bg-[var(--acs-bg)]"
         >
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-[#edf5ff] text-[#1265d8]">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-[var(--acs-surface-strong)] text-[var(--acs-accent)]">
                 <Icon size={19} />
             </span>
             <span className="min-w-0">
-                <strong className="block text-xs text-[#17386d]">{title}</strong>
-                <span className="mt-1 block text-[10px] leading-5 text-[#8ba0bc]">
+                <strong className="block text-xs text-[var(--acs-text)]">{title}</strong>
+                <span className="mt-1 block text-[10px] leading-5 text-[var(--acs-text-muted)]">
                     {description}
                 </span>
             </span>
@@ -613,8 +613,8 @@ function SettingsWorkspace() {
         return (
             <AppShell>
                 <Head title={text('الإعدادات', 'Settings')} />
-                <main className="min-h-[calc(100dvh-72px)] bg-[#f8fbff] p-8">
-                    <div className="mx-auto max-w-[1540px] rounded-[18px] border border-[#dfe8f4] bg-white p-12 text-center text-sm text-[#8ba0bc]">
+                <main className="ac-settings-page min-h-[calc(100dvh-72px)] bg-[var(--acs-bg)] p-8 text-[var(--acs-text)]">
+                    <div className="mx-auto max-w-[1540px] rounded-[18px] border border-[var(--acs-line)] bg-[var(--acs-surface)] p-12 text-center text-sm text-[var(--acs-text-muted)]">
                         {error || text('جارٍ تحميل الإعدادات...', 'Loading settings...')}
                     </div>
                 </main>
@@ -654,15 +654,15 @@ function SettingsWorkspace() {
 
             <main
                 dir={ar ? 'rtl' : 'ltr'}
-                className="min-h-[calc(100dvh-72px)] bg-[#f8fbff] px-3 py-4 sm:px-5 lg:px-6"
+                className="ac-settings-page min-h-[calc(100dvh-72px)] bg-[var(--acs-bg)] px-3 py-4 text-[var(--acs-text)] sm:px-5 lg:px-6"
             >
                 <div className="mx-auto max-w-[1540px]">
                     <div className="mb-4 flex items-end justify-between gap-4">
                         <div>
-                            <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-[#122b55] sm:text-3xl">
+                            <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-[var(--acs-text-strong)] sm:text-3xl">
                                 {text('الإعدادات', 'Settings')}
                             </h1>
-                            <p className="mt-1 text-xs leading-6 text-[#7f93af]">
+                            <p className="mt-1 text-xs leading-6 text-[var(--acs-text-muted)]">
                                 {text(
                                     'إعدادات المؤسسة والمالية والطباعة متصلة فعلياً بالنظام وتحفظ على مستوى مساحة العمل.',
                                     'Organization, finance and print settings are persisted and applied across the workspace.',
@@ -681,14 +681,14 @@ function SettingsWorkspace() {
                         <section className="min-w-0 lg:col-start-1 lg:row-start-1">
                             {section === 'general' && (
                                 <div className="space-y-4">
-                                    <section className="rounded-[18px] border border-[#d6e4f6] bg-gradient-to-l from-[#edf5ff] to-white p-5">
-                                        <h2 className="text-xl font-extrabold text-[#17386d]">
+                                    <section className="rounded-[18px] border border-[var(--acs-line-strong)] bg-gradient-to-l from-[var(--acs-accent-soft)] to-[var(--acs-surface)] p-5">
+                                        <h2 className="text-xl font-extrabold text-[var(--acs-text)]">
                                             {text(
                                                 'مرحباً ' + (auth.user?.name ?? '') + ' 👋',
                                                 'Welcome ' + (auth.user?.name ?? ''),
                                             )}
                                         </h2>
-                                        <p className="mt-1 text-xs leading-6 text-[#6f86a8]">
+                                        <p className="mt-1 text-xs leading-6 text-[var(--acs-text-soft)]">
                                             {text(
                                                 'هذه إعدادات إدارية لمساحة العمل، ولا تظهر للمستخدمين العاديين.',
                                                 'These are workspace administration settings and are hidden from regular users.',
@@ -702,7 +702,7 @@ function SettingsWorkspace() {
                                             description={text('تفضيلات حسابك الشخصية وتحفظ لحسابك.', 'Personal account preferences.')}
                                             icon={Globe2}
                                         >
-                                            <label className="block text-[11px] font-semibold text-[#5e789e]">
+                                            <label className="block text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('اللغة', 'Language')}
                                                 <select
                                                     className={input}
@@ -718,7 +718,7 @@ function SettingsWorkspace() {
                                                     <option value="en">English</option>
                                                 </select>
                                             </label>
-                                            <label className="mt-4 block text-[11px] font-semibold text-[#5e789e]">
+                                            <label className="mt-4 block text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('المنطقة الزمنية', 'Timezone')}
                                                 <input
                                                     className={input}
@@ -738,7 +738,7 @@ function SettingsWorkspace() {
                                             description={text('هوية مؤسستك وإعدادات العمل، وليس إعدادات منتج AccoNova نفسه.', 'Your organization preferences, not AccoNova product-level settings.')}
                                             icon={Building2}
                                         >
-                                            <p className="text-[10px] leading-6 text-[#6f86a8]">
+                                            <p className="text-[10px] leading-6 text-[var(--acs-text-soft)]">
                                                 {text(
                                                     'اسم وشعار AccoNova يظلان ثابتين. من تبويب المؤسسة يمكنك تعديل اسم مؤسستك وشعارها وبياناتها التي تظهر في الفواتير والمستندات.',
                                                     'The AccoNova product name and brand stay fixed. Use Organization to edit your company identity and invoice details.',
@@ -765,7 +765,7 @@ function SettingsWorkspace() {
                                         icon={Building2}
                                     >
                                         <div className="grid gap-5 xl:grid-cols-[240px_1fr]">
-                                            <div className="flex min-h-64 flex-col items-center justify-center rounded-[15px] border border-dashed border-[#c7d9ee] bg-[#fbfdff] p-4">
+                                            <div className="flex min-h-64 flex-col items-center justify-center rounded-[15px] border border-dashed border-[var(--acs-line-strong)] bg-[var(--acs-surface-soft)] p-4">
                                                 {settings.logo_url ? (
                                                     <img
                                                         src={settings.logo_url}
@@ -773,11 +773,11 @@ function SettingsWorkspace() {
                                                         className="max-h-24 max-w-[180px] object-contain"
                                                     />
                                                 ) : (
-                                                    <div className="flex size-24 items-center justify-center rounded-[24px] bg-[#edf5ff] text-4xl font-black text-[#1265d8]">
+                                                    <div className="flex size-24 items-center justify-center rounded-[24px] bg-[var(--acs-surface-strong)] text-4xl font-black text-[var(--acs-accent)]">
                                                         {(settings.trade_name || settings.name).charAt(0).toUpperCase()}
                                                     </div>
                                                 )}
-                                                <strong className="mt-3 text-xl text-[#102e61]">
+                                                <strong className="mt-3 text-xl text-[var(--acs-text-strong)]">
                                                     {settings.trade_name || settings.name}
                                                 </strong>
                                                 <label className={secondaryButton + ' mt-4 cursor-pointer'}>
@@ -793,41 +793,41 @@ function SettingsWorkspace() {
                                                         onChange={event => void uploadLogo(event.target.files?.[0] ?? null)}
                                                     />
                                                 </label>
-                                                <p className="mt-2 text-[9px] text-[#8ba0bc]">
+                                                <p className="mt-2 text-[9px] text-[var(--acs-text-muted)]">
                                                     PNG / JPG / WEBP · 2MB max
                                                 </p>
                                             </div>
 
                                             <div className="grid gap-4 sm:grid-cols-2">
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('اسم مساحة العمل *', 'Workspace name *')}
                                                     <input className={input} value={settings.name} onChange={event => updateSetting('name', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('الاسم القانوني للمؤسسة *', 'Legal name *')}
                                                     <input className={input} value={settings.legal_name} onChange={event => updateSetting('legal_name', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('الاسم التجاري *', 'Trade name *')}
                                                     <input className={input} value={settings.trade_name} onChange={event => updateSetting('trade_name', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('البريد الإلكتروني للدعم', 'Support email')}
                                                     <input className={input} type="email" value={settings.support_email} onChange={event => updateSetting('support_email', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('رقم الجوال', 'Phone')}
                                                     <input className={input} dir="ltr" value={settings.phone} onChange={event => updateSetting('phone', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('رقم السجل التجاري', 'Commercial registration')}
                                                     <input className={input} value={settings.commercial_registration} onChange={event => updateSetting('commercial_registration', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('الرقم الضريبي (VAT)', 'VAT number')}
                                                     <input className={input} value={settings.vat_number} onChange={event => updateSetting('vat_number', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('الموقع الإلكتروني', 'Website')}
                                                     <input className={input} dir="ltr" value={settings.website} onChange={event => updateSetting('website', event.target.value)} />
                                                 </label>
@@ -842,15 +842,15 @@ function SettingsWorkspace() {
                                             icon={Globe2}
                                         >
                                             <div className="grid gap-4 sm:grid-cols-3">
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('الدولة', 'Country')}
                                                     <input className={input} value={settings.country} onChange={event => updateSetting('country', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('المدينة', 'City')}
                                                     <input className={input} value={settings.city} onChange={event => updateSetting('city', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('العنوان التفصيلي', 'Detailed address')}
                                                     <input className={input} value={settings.address} onChange={event => updateSetting('address', event.target.value)} />
                                                 </label>
@@ -862,9 +862,9 @@ function SettingsWorkspace() {
                                             description={text('الفروع التشغيلية تدار من بيانات النظام الفعلية، وليس من بطاقة وهمية هنا.', 'Operational branches should be managed from real workspace data.')}
                                             icon={Grid2X2}
                                         >
-                                            <div className="rounded-[14px] bg-[#f8fbff] p-5 text-center">
-                                                <Building2 size={24} className="mx-auto text-[#1265d8]" />
-                                                <p className="mt-3 text-[10px] leading-5 text-[#8ba0bc]">
+                                            <div className="rounded-[14px] bg-[var(--acs-bg)] p-5 text-center">
+                                                <Building2 size={24} className="mx-auto text-[var(--acs-accent)]" />
+                                                <p className="mt-3 text-[10px] leading-5 text-[var(--acs-text-muted)]">
                                                     {text(
                                                         'لن ننشئ فروعاً تجريبية من الإعدادات. عند إضافة موديول الفروع سيظهر هنا بشكل مباشر.',
                                                         'No fake branches are created here. Real branch management will appear when the branch module is available.',
@@ -879,7 +879,7 @@ function SettingsWorkspace() {
                             {section === 'finance' && (
                                 <div className="grid gap-4 xl:grid-cols-3">
                                     <SettingsCard title={text('السنة المالية', 'Fiscal year')} description={text('بداية السنة المالية للمؤسسة.', 'Workspace fiscal-year start.')} icon={CalendarDays}>
-                                        <label className="text-[11px] font-semibold text-[#5e789e]">
+                                        <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                             {text('تبدأ السنة المالية في', 'Fiscal year starts in')}
                                             <select
                                                 className={input}
@@ -897,7 +897,7 @@ function SettingsWorkspace() {
                                     </SettingsCard>
 
                                     <SettingsCard title={text('الدقة والتقريب', 'Precision & rounding')} description={text('الخانات العشرية للعرض من 1 إلى 10.', 'Display precision from 1 to 10 decimals.')} icon={Settings2}>
-                                        <label className="text-[11px] font-semibold text-[#5e789e]">
+                                        <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                             {text('عدد الخانات العشرية', 'Decimal places')}
                                             <input
                                                 type="number"
@@ -912,7 +912,7 @@ function SettingsWorkspace() {
                                     </SettingsCard>
 
                                     <SettingsCard title={text('العملة الافتراضية', 'Default currency')} description={text('اكتب رمز العملة يدوياً. لا توجد قائمة محصورة.', 'Enter the currency code manually.')} icon={CreditCard}>
-                                        <label className="text-[11px] font-semibold text-[#5e789e]">
+                                        <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                             {text('رمز العملة', 'Currency code')}
                                             <input
                                                 className={input}
@@ -923,35 +923,35 @@ function SettingsWorkspace() {
                                                 dir="ltr"
                                             />
                                         </label>
-                                        <div className="mt-4 rounded-[12px] bg-[#f7fbff] p-4 text-center text-xl font-bold text-[#17386d]">
+                                        <div className="mt-4 rounded-[12px] bg-[var(--acs-surface-soft)] p-4 text-center text-xl font-bold text-[var(--acs-text)]">
                                             {settings.currency} {moneyPreview}
                                         </div>
                                     </SettingsCard>
 
                                     <SettingsCard title={text('الحسابات البنكية', 'Bank accounts')} description={text('لا يتم إنشاء أي حساب افتراضي. أضف حساباتك الحقيقية فقط.', 'No fake accounts are created. Add only real accounts.')} icon={Banknote}>
                                         {settings.bank_accounts.length === 0 && !addingBank && (
-                                            <div className="rounded-[12px] border border-dashed border-[#cadcf1] bg-[#fbfdff] p-5 text-center">
-                                                <p className="text-xs font-semibold text-[#17386d]">{text('لا توجد حسابات بنكية', 'No bank accounts')}</p>
-                                                <p className="mt-1 text-[10px] text-[#8ba0bc]">{text('أضف حساباً فقط إذا كنت تستخدمه فعلياً.', 'Add an account only when you actually use one.')}</p>
+                                            <div className="rounded-[12px] border border-dashed border-[var(--acs-line-strong)] bg-[var(--acs-surface-soft)] p-5 text-center">
+                                                <p className="text-xs font-semibold text-[var(--acs-text)]">{text('لا توجد حسابات بنكية', 'No bank accounts')}</p>
+                                                <p className="mt-1 text-[10px] text-[var(--acs-text-muted)]">{text('أضف حساباً فقط إذا كنت تستخدمه فعلياً.', 'Add an account only when you actually use one.')}</p>
                                             </div>
                                         )}
 
                                         <div className="space-y-2">
                                             {settings.bank_accounts.map(account => (
-                                                <div key={account.id} className="rounded-[12px] border border-[#dfe8f4] p-3">
+                                                <div key={account.id} className="rounded-[12px] border border-[var(--acs-line)] p-3">
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div>
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                <strong className="text-xs text-[#17386d]">{account.bank_name}</strong>
+                                                                <strong className="text-xs text-[var(--acs-text)]">{account.bank_name}</strong>
                                                                 {account.is_primary && (
                                                                     <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">
                                                                         {text('الأساسي', 'Primary')}
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            {account.account_name && <p className="mt-1 text-[10px] text-[#6f86a8]">{account.account_name}</p>}
+                                                            {account.account_name && <p className="mt-1 text-[10px] text-[var(--acs-text-soft)]">{account.account_name}</p>}
                                                             {(account.iban || account.account_number) && (
-                                                                <p className="mt-1 text-[9px] text-[#8ba0bc]" dir="ltr">
+                                                                <p className="mt-1 text-[9px] text-[var(--acs-text-muted)]" dir="ltr">
                                                                     {account.iban || account.account_number}
                                                                 </p>
                                                             )}
@@ -961,7 +961,7 @@ function SettingsWorkspace() {
                                                         </button>
                                                     </div>
                                                     {!account.is_primary && (
-                                                        <button type="button" onClick={() => makePrimaryBank(account.id)} className="mt-2 text-[10px] font-semibold text-[#1265d8]">
+                                                        <button type="button" onClick={() => makePrimaryBank(account.id)} className="mt-2 text-[10px] font-semibold text-[var(--acs-accent)]">
                                                             {text('تعيين كأساسي', 'Make primary')}
                                                         </button>
                                                     )}
@@ -970,7 +970,7 @@ function SettingsWorkspace() {
                                         </div>
 
                                         {addingBank ? (
-                                            <div className="mt-3 rounded-[12px] border border-[#dfe8f4] bg-[#f9fbff] p-3">
+                                            <div className="mt-3 rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-3">
                                                 <input className={input + ' !mt-0'} value={bankName} onChange={event => setBankName(event.target.value)} placeholder={text('اسم البنك *', 'Bank name *')} />
                                                 <input className={input} value={bankAccountName} onChange={event => setBankAccountName(event.target.value)} placeholder={text('اسم الحساب', 'Account name')} />
                                                 <input className={input} dir="ltr" value={bankIban} onChange={event => setBankIban(event.target.value)} placeholder="IBAN" />
@@ -989,8 +989,8 @@ function SettingsWorkspace() {
 
                                     <SettingsCard title={text('طرق الدفع', 'Payment methods')} description={text('الطرق المفعلة هنا هي التي تظهر فعلياً في تسجيل الدفعات والمقبوضات.', 'Only enabled methods appear in payment and receipt entry.')} icon={CreditCard}>
                                         {paymentMethods.map(([value, label]) => (
-                                            <label key={value} className="flex items-center justify-between border-b border-[#edf2f8] py-3 last:border-0">
-                                                <span className="text-xs font-semibold text-[#19345f]">{label}</span>
+                                            <label key={value} className="flex items-center justify-between border-b border-[var(--acs-line-soft)] py-3 last:border-0">
+                                                <span className="text-xs font-semibold text-[var(--acs-text)]">{label}</span>
                                                 <input
                                                     type="checkbox"
                                                     className="size-4 accent-[#1265d8]"
@@ -1035,14 +1035,14 @@ function SettingsWorkspace() {
                                 <div className="space-y-4">
                                     <div className="grid gap-4 xl:grid-cols-[340px_1fr]">
                                         <SettingsCard title={text('قالب الفاتورة الحالي', 'Current invoice template')} description={text('المعاينة تتغير مباشرة حسب الإعدادات.', 'Preview updates directly from the saved settings.')} icon={FileText}>
-                                            <div className="rounded-[12px] border border-[#dfe8f4] bg-[#fbfdff] p-4">
-                                                <div className="mx-auto max-w-[280px] bg-white p-4 shadow-sm">
+                                            <div className="rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-4">
+                                                <div className="ac-settings-paper mx-auto max-w-[280px] bg-white p-4 text-[#17386d] shadow-sm">
                                                     <div className={[
                                                         'flex items-start gap-3',
                                                         settings.logo_position === 'center' ? 'flex-col items-center text-center' : 'justify-between',
                                                     ].join(' ')}>
                                                         {settings.show_invoice_logo && (
-                                                            <strong className="text-[#1265d8]">{settings.trade_name || workspaceName}</strong>
+                                                            <strong className="text-[var(--acs-accent)]">{settings.trade_name || workspaceName}</strong>
                                                         )}
                                                         <div className={settings.logo_position === 'center' ? '' : 'text-end'}>
                                                             <strong className="text-xs">{text('فاتورة ضريبية', 'Tax invoice')}</strong>
@@ -1050,15 +1050,15 @@ function SettingsWorkspace() {
                                                         </div>
                                                     </div>
                                                     {settings.show_invoice_contact && (
-                                                        <p className="mt-2 text-[8px] leading-4 text-[#8092aa]">
+                                                        <p className="mt-2 text-[8px] leading-4 text-[var(--acs-text-muted)]">
                                                             {[settings.phone, settings.support_email, settings.city].filter(Boolean).join(' · ')}
                                                         </p>
                                                     )}
                                                     <div className="my-4 h-px bg-[#e7edf5]" />
-                                                    <div className="grid grid-cols-3 gap-2 text-[8px] text-[#6d82a0]">
+                                                    <div className="grid grid-cols-3 gap-2 text-[8px] text-[var(--acs-text-soft)]">
                                                         <span>{text('الوصف','Description')}</span><span>{text('الكمية','Qty')}</span><span>{text('المجموع','Total')}</span>
                                                     </div>
-                                                    <div className="mt-2 grid grid-cols-3 gap-2 border-b border-[#edf2f8] pb-2 text-[8px]"><span>{text('خدمة','Service')}</span><span>1</span><span>200.00</span></div>
+                                                    <div className="mt-2 grid grid-cols-3 gap-2 border-b border-[var(--acs-line-soft)] pb-2 text-[8px]"><span>{text('خدمة','Service')}</span><span>1</span><span>200.00</span></div>
                                                     <div className="mt-4 text-end text-[9px]"><strong>{text('الإجمالي','Total')}: 200.00 {settings.currency}</strong></div>
                                                 </div>
                                             </div>
@@ -1079,17 +1079,17 @@ function SettingsWorkspace() {
                                                         className={[
                                                             'rounded-[12px] border p-2',
                                                             settings.invoice_template === value
-                                                                ? 'border-[#2f7df4] bg-[#f4f8ff]'
-                                                                : 'border-[#dfe8f4]',
+                                                                ? 'border-[var(--acs-accent)] bg-[var(--acs-accent-soft)]'
+                                                                : 'border-[var(--acs-line)]',
                                                         ].join(' ')}
                                                     >
-                                                        <div className="h-20 rounded-[8px] border border-[#e4ebf4] bg-white p-2">
+                                                        <div className="h-20 rounded-[8px] border border-[var(--acs-line)] bg-white p-2">
                                                             <div className="h-2 w-10 rounded bg-[#1265d8]/70" />
                                                             <div className="mt-3 h-1.5 rounded bg-slate-100" />
                                                             <div className="mt-2 h-1.5 rounded bg-slate-100" />
                                                             <div className="mt-2 h-5 rounded bg-blue-50" />
                                                         </div>
-                                                        <span className="mt-2 block text-[10px] font-semibold text-[#17386d]">{label}</span>
+                                                        <span className="mt-2 block text-[10px] font-semibold text-[var(--acs-text)]">{label}</span>
                                                     </button>
                                                 ))}
                                             </div>
@@ -1105,21 +1105,21 @@ function SettingsWorkspace() {
                                         </SettingsCard>
 
                                         <SettingsCard title={text('إعدادات الطباعة', 'Print settings')} description={text('الحجم والهوامش وموقع هوية المؤسسة.', 'Paper, margins and brand placement.')} icon={Printer}>
-                                            <label className="text-[11px] font-semibold text-[#5e789e]">
+                                            <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('حجم الورق', 'Paper size')}
                                                 <select className={input} value={settings.print_paper_size} onChange={event => updateSetting('print_paper_size', event.target.value as WorkspaceSettings['print_paper_size'])}>
                                                     <option value="a4">A4 (210 × 297 mm)</option>
                                                     <option value="letter">Letter</option>
                                                 </select>
                                             </label>
-                                            <label className="mt-4 block text-[11px] font-semibold text-[#5e789e]">
+                                            <label className="mt-4 block text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('هوامش الطباعة', 'Print margins')}
                                                 <select className={input} value={settings.print_margins} onChange={event => updateSetting('print_margins', event.target.value as WorkspaceSettings['print_margins'])}>
                                                     <option value="normal">{text('عادية', 'Normal')}</option>
                                                     <option value="compact">{text('ضيقة', 'Compact')}</option>
                                                 </select>
                                             </label>
-                                            <p className="mt-4 text-[11px] font-semibold text-[#5e789e]">{text('موقع الهوية', 'Brand position')}</p>
+                                            <p className="mt-4 text-[11px] font-semibold text-[var(--acs-text-soft)]">{text('موقع الهوية', 'Brand position')}</p>
                                             <div className="mt-2 grid grid-cols-3 gap-2">
                                                 {([
                                                     ['start', text('بداية','Start')],
@@ -1133,8 +1133,8 @@ function SettingsWorkspace() {
                                                         className={[
                                                             'rounded-[10px] border p-3 text-[10px] font-semibold',
                                                             settings.logo_position === value
-                                                                ? 'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]'
-                                                                : 'border-[#dfe8f4] text-[#6e85a5]',
+                                                                ? 'border-[var(--acs-accent)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]'
+                                                                : 'border-[var(--acs-line)] text-[var(--acs-text-soft)]',
                                                         ].join(' ')}
                                                     >
                                                         {label}
@@ -1145,27 +1145,27 @@ function SettingsWorkspace() {
 
                                         <SettingsCard title={text('ترقيم المستندات', 'Document numbering')} description={text('البادئات تستخدم في الأرقام الجديدة فعلياً.', 'Prefixes are used by newly created documents.')} icon={FileSpreadsheet}>
                                             <div className="grid grid-cols-2 gap-3">
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('بادئة البيع', 'Sales prefix')}
                                                     <input className={input} value={settings.invoice_prefix} onChange={event => updateSetting('invoice_prefix', event.target.value.toUpperCase())} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('رقم البداية', 'Start number')}
                                                     <input type="number" min={1} className={input} value={settings.invoice_start_number} onChange={event => updateSetting('invoice_start_number', Math.max(1, Number(event.target.value) || 1))} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('بادئة الشراء', 'Purchase prefix')}
                                                     <input className={input} value={settings.purchase_prefix} onChange={event => updateSetting('purchase_prefix', event.target.value.toUpperCase())} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('رقم البداية', 'Start number')}
                                                     <input type="number" min={1} className={input} value={settings.purchase_start_number} onChange={event => updateSetting('purchase_start_number', Math.max(1, Number(event.target.value) || 1))} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('بادئة المقبوض', 'Receipt prefix')}
                                                     <input className={input} value={settings.receipt_prefix} onChange={event => updateSetting('receipt_prefix', event.target.value.toUpperCase())} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                     {text('بادئة الدفع', 'Payment prefix')}
                                                     <input className={input} value={settings.payment_prefix} onChange={event => updateSetting('payment_prefix', event.target.value.toUpperCase())} />
                                                 </label>
@@ -1186,8 +1186,8 @@ function SettingsWorkspace() {
                                                             className={[
                                                                 'rounded-[10px] border px-3 py-2 text-[10px] font-semibold',
                                                                 active
-                                                                    ? 'border-[#bcd5f6] bg-[#f5f9ff] text-[#1265d8]'
-                                                                    : 'border-[#dfe8f4] text-[#8ba0bc]',
+                                                                    ? 'border-[var(--acs-accent)] bg-[var(--acs-control-hover)] text-[var(--acs-accent)]'
+                                                                    : 'border-[var(--acs-line)] text-[var(--acs-text-muted)]',
                                                             ].join(' ')}
                                                         >
                                                             {active ? '✓ ' : ''}{label}
@@ -1213,7 +1213,7 @@ function SettingsWorkspace() {
                                         {activeOrganization?.role === 'owner' ? (
                                             <SectionLink href="/app/roles" icon={ShieldCheck} title={text('فتح إدارة الصلاحيات', 'Open permissions')} description={text('تعديل الأدوار ومن يمكنه الوصول لكل جزء.', 'Control who can access each area.')} />
                                         ) : (
-                                            <div className="rounded-[12px] bg-[#f8fbff] p-4 text-[10px] leading-5 text-[#6f86a8]">
+                                            <div className="rounded-[12px] bg-[var(--acs-bg)] p-4 text-[10px] leading-5 text-[var(--acs-text-soft)]">
                                                 {text(
                                                     'إدارة الأدوار محصورة بمالك مساحة العمل. يمكنك كمدير إدارة الإعدادات والمستخدمين ضمن صلاحياتك الحالية.',
                                                     'Role management is restricted to the workspace owner. Admins can manage settings and users within their current permissions.',
@@ -1235,7 +1235,7 @@ function SettingsWorkspace() {
                                         />
                                     </SettingsCard>
                                     <SettingsCard title={text('موعد تذكير الاستحقاقات', 'Due reminder timing')} description={text('عدد الأيام قبل الاستحقاق.', 'Days before due date.')} icon={CalendarDays}>
-                                        <label className="text-[11px] font-semibold text-[#5e789e]">
+                                        <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                             {text('الأيام', 'Days')}
                                             <input type="number" min={0} max={30} className={input} value={settings.reminder_days} onChange={event => updateSetting('reminder_days', Math.min(30, Math.max(0, Number(event.target.value) || 0)))} />
                                         </label>
@@ -1245,12 +1245,12 @@ function SettingsWorkspace() {
 
                             {section === 'integrations' && (
                                 <SettingsCard title={text('التكاملات', 'Integrations')} description={text('لن نعرض اتصالات وهمية. هذه الصفحة تعرض فقط التكاملات المتاحة فعلياً في النظام.', 'No fake connections are shown here; only real available integrations are listed.')} icon={Link2}>
-                                    <div className="rounded-[14px] border border-dashed border-[#cadcf1] bg-[#fbfdff] p-8 text-center">
-                                        <Mail size={26} className="mx-auto text-[#1265d8]" />
-                                        <strong className="mt-3 block text-sm text-[#17386d]">
+                                    <div className="rounded-[14px] border border-dashed border-[var(--acs-line-strong)] bg-[var(--acs-surface-soft)] p-8 text-center">
+                                        <Mail size={26} className="mx-auto text-[var(--acs-accent)]" />
+                                        <strong className="mt-3 block text-sm text-[var(--acs-text)]">
                                             {text('لا توجد تكاملات قابلة للإدارة من هذه الصفحة حالياً', 'No integrations are managed from this page yet')}
                                         </strong>
-                                        <p className="mx-auto mt-2 max-w-xl text-[10px] leading-5 text-[#8ba0bc]">
+                                        <p className="mx-auto mt-2 max-w-xl text-[10px] leading-5 text-[var(--acs-text-muted)]">
                                             {text(
                                                 'لن نضع أزرار ربط شكلية. عندما نضيف تكامل فعلي مثل Stripe أو Google Drive سيظهر هنا بحالته الحقيقية.',
                                                 'We will not show decorative connect buttons. Real integrations will appear here with real connection state.',
@@ -1276,12 +1276,12 @@ function SettingsWorkspace() {
 
                             {section === 'billing' && (
                                 <SettingsCard title={text('الفوترة والاشتراك', 'Billing & subscription')} description={text('لا نعرض مبالغ أو بطاقات تجريبية غير مرتبطة باشتراك حقيقي.', 'No fake plans, cards, or billing history are shown.')} icon={WalletCards}>
-                                    <div className="rounded-[14px] border border-dashed border-[#cadcf1] bg-[#fbfdff] p-8 text-center">
-                                        <WalletCards size={26} className="mx-auto text-[#1265d8]" />
-                                        <strong className="mt-3 block text-sm text-[#17386d]">
+                                    <div className="rounded-[14px] border border-dashed border-[var(--acs-line-strong)] bg-[var(--acs-surface-soft)] p-8 text-center">
+                                        <WalletCards size={26} className="mx-auto text-[var(--acs-accent)]" />
+                                        <strong className="mt-3 block text-sm text-[var(--acs-text)]">
                                             {text('إدارة الاشتراك غير مربوطة بعد بمصدر فوترة حقيقي', 'Subscription management is not connected to a real billing source yet')}
                                         </strong>
-                                        <p className="mx-auto mt-2 max-w-xl text-[10px] leading-5 text-[#8ba0bc]">
+                                        <p className="mx-auto mt-2 max-w-xl text-[10px] leading-5 text-[var(--acs-text-muted)]">
                                             {text('تم حذف البيانات التجريبية من هذه الصفحة حتى لا تظهر كمعلومات حقيقية.', 'Sample billing data was removed so it cannot be mistaken for real information.')}
                                         </p>
                                     </div>
@@ -1307,7 +1307,7 @@ function SettingsWorkspace() {
                                                 ].join(' ')}
                                             >
                                                 <div className={['h-28 rounded-[12px] border', value === 'dark' ? 'border-slate-700 bg-[#172033]' : value === 'system' ? 'bg-gradient-to-r from-white from-50% to-[#172033] to-50%' : 'bg-white'].join(' ')} />
-                                                <strong className="mt-3 block text-xs text-[#17386d]">{label}</strong>
+                                                <strong className="mt-3 block text-xs text-[var(--acs-text)]">{label}</strong>
                                             </button>
                                         ))}
                                     </div>
@@ -1324,7 +1324,7 @@ function SettingsWorkspace() {
                                                         onClick={() => setProfilePreferences(current => ({ ...current, density: value }))}
                                                         className={[
                                                             'rounded-[12px] border p-4 text-xs font-semibold',
-                                                            profilePreferences.density === value ? 'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]' : 'border-[#dfe8f4] text-[#6e85a5]',
+                                                            profilePreferences.density === value ? 'border-[var(--acs-accent)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]' : 'border-[var(--acs-line)] text-[var(--acs-text-soft)]',
                                                         ].join(' ')}
                                                     >
                                                         {label}
@@ -1334,7 +1334,7 @@ function SettingsWorkspace() {
                                         </SettingsCard>
                                         <SettingsCard title={text('الحركة وحجم القوائم', 'Motion & list size')} description={text('تفضيلات عرض شخصية.', 'Personal display preferences.')} icon={Palette}>
                                             <SettingRow label={text('تقليل الحركة', 'Reduce motion')} checked={profilePreferences.reduced_motion} onChange={() => setProfilePreferences(current => ({ ...current, reduced_motion: !current.reduced_motion }))} />
-                                            <label className="mt-3 block text-[11px] font-semibold text-[#5e789e]">
+                                            <label className="mt-3 block text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('عدد العناصر في الصفحة', 'Items per page')}
                                                 <select className={input} value={profilePreferences.page_size} onChange={event => setProfilePreferences(current => ({ ...current, page_size: Number(event.target.value) }))}>
                                                     <option value={10}>10</option>
@@ -1347,8 +1347,8 @@ function SettingsWorkspace() {
                                 </div>
                             )}
 
-                            <div className="sticky bottom-0 z-20 mt-5 flex items-center justify-between gap-3 border-t border-[#dfe8f4] bg-[#f8fbff]/95 py-3 backdrop-blur">
-                                <div className="min-w-0 text-[10px] text-[#8ba0bc]">
+                            <div className="sticky bottom-0 z-20 mt-5 flex items-center justify-between gap-3 border-t border-[var(--acs-line)] bg-[var(--acs-bg)]/95 py-3 backdrop-blur">
+                                <div className="min-w-0 text-[10px] text-[var(--acs-text-muted)]">
                                     {message && (
                                         <span className="inline-flex items-center gap-2 text-emerald-700">
                                             <CheckCircle2 size={14} />
@@ -1381,7 +1381,7 @@ function SettingsWorkspace() {
                         <aside className="lg:col-start-2 lg:row-start-1 lg:sticky lg:top-4">
                             <div className={panel + ' overflow-hidden p-2.5'}>
                                 <div className="px-3 pb-3 pt-2">
-                                    <p className="text-sm font-bold text-[#17386d]">
+                                    <p className="text-sm font-bold text-[var(--acs-text)]">
                                         {text('إعدادات الحساب', 'Account settings')}
                                     </p>
                                 </div>
@@ -1402,8 +1402,8 @@ function SettingsWorkspace() {
                                                 className={[
                                                     'flex w-full items-center gap-3 rounded-[11px] px-3 py-2.5 text-start text-xs font-semibold transition',
                                                     active
-                                                        ? 'bg-[#eaf3ff] text-[#1265d8]'
-                                                        : 'text-[#28466f] hover:bg-[#f6f9fd]',
+                                                        ? 'bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]'
+                                                        : 'text-[var(--acs-text)] hover:bg-[var(--acs-surface-soft)]',
                                                 ].join(' ')}
                                             >
                                                 <Icon size={16} />
