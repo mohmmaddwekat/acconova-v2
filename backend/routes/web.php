@@ -596,6 +596,7 @@ Route::prefix(
         );
 
         Route::get('finance/lookups', FinanceLookupController::class);
+        Route::get('finance/reference-price', [FinanceLookupController::class, 'referencePrice']);
 
         Route::get('finance-import/template/{type}', [FinanceImportController::class, 'template']);
         Route::post('finance-import/preview', [FinanceImportController::class, 'preview'])->middleware('throttle:12,1');
