@@ -57,6 +57,14 @@ export function CashForm({
     const canManage = incoming
         ? lookups.permissions.cash_receive
         : lookups.permissions.cash_pay;
+    const enabledMethodValues =
+        lookups.settings.payment_methods.length
+            ? lookups.settings.payment_methods
+            : ['bank_transfer'];
+    const initialMethodValue =
+        initial?.method
+        ?? enabledMethodValues[0]
+        ?? 'bank_transfer';
 
     const [partyId, setPartyId] = useState(
         initial?.party_id ? String(initial.party_id) : '',
@@ -75,7 +83,7 @@ export function CashForm({
     const [movementDate, setMovementDate] = useState(
         initial?.movement_date ?? todayValue(),
     );
-    const [method, setMethod] = useState(initial?.method ?? 'bank_transfer');
+    const [method, setMethod] = useState(initialMethodValue);
     const [accountLabel, setAccountLabel] = useState(initial?.account_label ?? '');
     const [branchLabel, setBranchLabel] = useState(initial?.branch_label ?? '');
     const [costCenter, setCostCenter] = useState(initial?.cost_center ?? '');
@@ -479,7 +487,7 @@ export function CashForm({
         ['other', text('أخرى', 'Other')],
     ];
 
-    const methods = [
+    const allMethods = [
         ['cash', text('نقدي', 'Cash')],
         ['bank_transfer', text('تحويل بنكي', 'Bank transfer')],
         ['check', text('شيك', 'Check')],
@@ -488,6 +496,15 @@ export function CashForm({
         ['direct_debit', text('خصم مباشر', 'Direct debit')],
         ['other', text('طريقة أخرى', 'Other')],
     ];
+
+    const methods = allMethods.filter(
+        ([value]) =>
+            enabledMethodValues.includes(value)
+            || value === initial?.method,
+    );
+
+    const configuredBankAccounts =
+        lookups.settings.bank_accounts;
 
     return (
         <div className="space-y-4">
@@ -689,12 +706,40 @@ export function CashForm({
 
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {text('الحساب / الصندوق (اختياري)', 'Account / cash box (optional)')}
-                                <input
-                                    className={financeInput + ' mt-2'}
-                                    value={accountLabel}
-                                    onChange={(event) => setAccountLabel(event.target.value)}
-                                    placeholder={text('مثال: البنك الأهلي - 0123', 'Example: Main bank - 0123')}
-                                />
+                                {method === 'bank_transfer' && configuredBankAccounts.length > 0 ? (
+                                    <select
+                                        className={financeInput + ' mt-2'}
+                                        value={accountLabel}
+                                        onChange={(event) => setAccountLabel(event.target.value)}
+                                    >
+                                        <option value="">
+                                            {text('اختر حساباً بنكياً', 'Select bank account')}
+                                        </option>
+                                        {configuredBankAccounts.map((account) => {
+                                            const label = [
+                                                account.bank_name,
+                                                account.account_name,
+                                                account.iban || account.account_number,
+                                            ].filter(Boolean).join(' · ');
+
+                                            return (
+                                                <option key={account.id} value={label}>
+                                                    {label}
+                                                    {account.is_primary
+                                                        ? text(' · أساسي', ' · Primary')
+                                                        : ''}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                ) : (
+                                    <input
+                                        className={financeInput + ' mt-2'}
+                                        value={accountLabel}
+                                        onChange={(event) => setAccountLabel(event.target.value)}
+                                        placeholder={text('مثال: الصندوق الرئيسي', 'Example: Main cash box')}
+                                    />
+                                )}
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
