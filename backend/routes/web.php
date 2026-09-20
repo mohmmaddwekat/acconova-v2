@@ -274,23 +274,19 @@ Route::middleware([
     Route::get(
         '/app/finance',
         function (\Illuminate\Http\Request $request) {
-            if (FinanceAuthorization::allows($request->user(), 'finance.sales.view')) {
-                return redirect()->route('app.invoices');
-            }
+            $financeView = match (true) {
+                FinanceAuthorization::allows($request->user(), 'finance.sales.view') => 'sales-list',
+                FinanceAuthorization::allows($request->user(), 'finance.purchases.view') => 'purchase-list',
+                FinanceAuthorization::allows($request->user(), 'finance.cash.view') => 'payment-list',
+                FinanceAuthorization::allows($request->user(), 'finance.taxes.view') => 'taxes',
+                default => null,
+            };
 
-            if (FinanceAuthorization::allows($request->user(), 'finance.purchases.view')) {
-                return redirect()->route('app.invoices.purchases');
-            }
+            abort_unless($financeView, 403);
 
-            if (FinanceAuthorization::allows($request->user(), 'finance.cash.view')) {
-                return redirect()->route('app.payments');
-            }
-
-            if (FinanceAuthorization::allows($request->user(), 'finance.taxes.view')) {
-                return redirect()->route('app.finance.taxes');
-            }
-
-            abort(403);
+            return Inertia::render('Finance/Index', [
+                'financeView' => $financeView,
+            ]);
         },
     )->name('app.finance');
 
