@@ -476,7 +476,7 @@ export function CommandRail({
         <>
             <aside
                 className={[
-                    'fixed inset-y-0 start-0 z-50 hidden flex-col border-e border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[10px_0_40px_rgba(25,35,31,0.025)] backdrop-blur-xl transition-[width] duration-300 ease-out md:flex',
+                    'ac-app-nav fixed inset-y-0 start-0 z-50 hidden flex-col border-e border-[var(--ac-line)] bg-[var(--ac-chrome)] shadow-none transition-[width] duration-300 ease-out md:flex',
                     expanded
                         ? 'w-[248px]'
                         : 'w-[84px]',
@@ -650,7 +650,7 @@ export function CommandRail({
 
             <aside
                 className={[
-                    'fixed inset-y-0 start-0 z-[80] flex w-[min(84vw,310px)] flex-col border-e border-[var(--ac-line)] bg-white shadow-[30px_0_80px_rgba(20,35,30,0.18)] transition-transform duration-300 ease-out md:hidden',
+                    'ac-app-nav fixed inset-y-0 start-0 z-[80] flex w-[min(84vw,310px)] flex-col border-e border-[var(--ac-line)] bg-[var(--ac-chrome)] shadow-none transition-transform duration-300 ease-out md:hidden',
                     mobileOpen
                         ? 'translate-x-0'
                         : '-translate-x-full rtl:translate-x-full',
