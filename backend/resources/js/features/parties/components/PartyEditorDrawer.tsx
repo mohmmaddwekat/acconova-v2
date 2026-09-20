@@ -3,6 +3,7 @@ import {
 } from '@/components/feedback/useDialog';
 import {
     createParty,
+    fetchParties,
     updateParty,
     type PartyPayload,
 } from '@/features/parties/api';
@@ -218,7 +219,7 @@ export function PartyEditorDrawer({
     onClose,
     onSaved,
 }: PartyEditorDrawerProps) {
-    useLocale();
+    const ar = useLocale() === 'ar';
 
     const [
         form,
@@ -250,6 +251,11 @@ export function PartyEditorDrawer({
         >(
             null,
         );
+
+    const [
+        possibleDuplicates,
+        setPossibleDuplicates,
+    ] = useState<Party[]>([]);
 
     const [
         busy,
@@ -300,6 +306,97 @@ export function PartyEditorDrawer({
     }, [
         open,
         party,
+    ]);
+
+    /*
+     * Warn before a duplicate Party is created. This is advisory because two
+     * people can legitimately share a name or phone number, while exact email
+     * uniqueness remains enforced by the server.
+     */
+    useEffect(() => {
+        if (! open) {
+            setPossibleDuplicates([]);
+            return;
+        }
+
+        const needle =
+            form.email.trim()
+            || form.phone.trim()
+            || form.taxNumber.trim()
+            || form.displayName.trim();
+
+        if (needle.length < 3) {
+            setPossibleDuplicates([]);
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            void fetchParties({
+                search: needle,
+                status: 'active',
+                page: 1,
+                perPage: 8,
+            })
+                .then((response) => {
+                    const normalizedName =
+                        form.displayName.trim().toLocaleLowerCase();
+                    const normalizedEmail =
+                        form.email.trim().toLocaleLowerCase();
+                    const normalizedPhone =
+                        form.phone.trim().replace(/\s+/g, '');
+                    const normalizedTax =
+                        form.taxNumber.trim().toLocaleLowerCase();
+
+                    setPossibleDuplicates(
+                        response.data.filter((candidate) => {
+                            if (candidate.id === party?.id) {
+                                return false;
+                            }
+
+                            const candidateName =
+                                (
+                                    candidate.type === 'company'
+                                        ? candidate.company_name
+                                        : candidate.name
+                                )?.trim().toLocaleLowerCase() ?? '';
+
+                            return Boolean(
+                                (
+                                    normalizedEmail
+                                    && candidate.email?.trim().toLocaleLowerCase()
+                                        === normalizedEmail
+                                )
+                                || (
+                                    normalizedPhone
+                                    && candidate.phone?.trim().replace(/\s+/g, '')
+                                        === normalizedPhone
+                                )
+                                || (
+                                    normalizedTax
+                                    && candidate.tax_number?.trim().toLocaleLowerCase()
+                                        === normalizedTax
+                                )
+                                || (
+                                    normalizedName.length >= 3
+                                    && candidateName === normalizedName
+                                ),
+                            );
+                        }).slice(0, 4),
+                    );
+                })
+                .catch(() => {
+                    setPossibleDuplicates([]);
+                });
+        }, 300);
+
+        return () => window.clearTimeout(timer);
+    }, [
+        open,
+        party?.id,
+        form.displayName,
+        form.email,
+        form.phone,
+        form.taxNumber,
     ]);
 
     /**
@@ -990,6 +1087,36 @@ export function PartyEditorDrawer({
                                 }
                             />
                         </div>
+
+                        {possibleDuplicates.length > 0 && (
+                            <div className="mt-6 rounded-[16px] border border-amber-300 bg-amber-50 p-4 text-amber-900">
+                                <div className="flex items-start gap-3">
+                                    <Building2 size={17} className="mt-0.5 shrink-0" />
+                                    <div>
+                                        <strong className="text-sm">
+                                            {ar
+                                                ? 'قد تكون هذه الجهة موجودة مسبقاً'
+                                                : 'This Party may already exist'}
+                                        </strong>
+                                        <p className="mt-1 text-xs leading-5">
+                                            {ar
+                                                ? 'راجع النتائج قبل الحفظ حتى لا تنشئ عميلاً أو مورداً مكرراً.'
+                                                : 'Review these matches before saving to avoid a duplicate customer or supplier.'}
+                                        </p>
+                                        <ul className="mt-2 space-y-1 text-xs">
+                                            {possibleDuplicates.map((candidate) => (
+                                                <li key={candidate.id}>
+                                                    • {candidate.type === 'company'
+                                                        ? candidate.company_name
+                                                        : candidate.name}
+                                                    {candidate.email ? ' · ' + candidate.email : ''}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {message && (
                             <div
