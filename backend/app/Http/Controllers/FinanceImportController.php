@@ -188,7 +188,7 @@ class FinanceImportController extends Controller
 
                     $partyName = trim((string) ($first['party_name'] ?? ''));
                     $issueDate = $this->date($first['issue_date'] ?? null);
-                    $externalNumber = trim((string) ($first['external_number'] ?? '')) ?: 'LEGACY-'.$key;
+                    $externalNumber = trim((string) ($first['external_number'] ?? '')) ?: $key;
 
                     if ($partyName === '' || $issueDate === null) {
                         throw new RuntimeException('party_name and issue_date are required.');
@@ -349,7 +349,7 @@ class FinanceImportController extends Controller
                         throw new RuntimeException('Outgoing movements cannot use an incoming-only category.');
                     }
 
-                    $reference = trim((string) ($row['reference'] ?? '')) ?: 'LEGACY-'.$movementKey;
+                    $reference = trim((string) ($row['reference'] ?? '')) ?: $movementKey;
                     $duplicate = \App\Models\CashMovement::query()
                         ->where('reference', $reference)
                         ->whereDate('movement_date', $movementDate)
@@ -514,7 +514,71 @@ class FinanceImportController extends Controller
 
     private function header(string $value): string
     {
-        return strtolower(trim(preg_replace('/[^A-Za-z0-9_]+/', '_', $value) ?? ''));
+        $raw = mb_strtolower(trim($value));
+        $normalized = trim((string) preg_replace('/[\\s\\-\\/]+/u', '_', $raw), '_');
+
+        $aliases = [
+            'معرف_الفاتورة' => 'document_key',
+            'رقم_الفاتورة' => 'document_key',
+            'invoice_number' => 'document_key',
+            'invoice_no' => 'document_key',
+            'document_number' => 'document_key',
+            'الرقم_الخارجي' => 'external_number',
+            'رقم_المورد' => 'external_number',
+            'external_invoice_number' => 'external_number',
+            'اسم_العميل' => 'party_name',
+            'العميل' => 'party_name',
+            'اسم_المورد' => 'party_name',
+            'المورد' => 'party_name',
+            'اسم_الطرف' => 'party_name',
+            'الطرف' => 'party_name',
+            'تاريخ_الفاتورة' => 'issue_date',
+            'تاريخ_الإصدار' => 'issue_date',
+            'التاريخ' => 'movement_date',
+            'تاريخ_الاستحقاق' => 'due_date',
+            'وصف_البند' => 'line_description',
+            'الوصف' => 'line_description',
+            'البيان' => 'line_description',
+            'الوحدة' => 'unit',
+            'الكمية' => 'quantity',
+            'سعر_الوحدة' => 'unit_price',
+            'السعر' => 'unit_price',
+            'نسبة_الخصم' => 'discount_percent',
+            'الخصم' => 'discount_percent',
+            'نسبة_الضريبة' => 'tax_rate',
+            'الضريبة' => 'tax_rate',
+            'الشحن' => 'shipping_total',
+            'ملاحظات' => 'notes',
+            'الملاحظات' => 'notes',
+            'معرف_الحركة' => 'movement_key',
+            'رقم_الحركة' => 'movement_key',
+            'movement_number' => 'movement_key',
+            'الاتجاه' => 'direction',
+            'نوع_الحركة' => 'direction',
+            'الفئة' => 'category',
+            'التصنيف' => 'category',
+            'المبلغ' => 'amount',
+            'تاريخ_الحركة' => 'movement_date',
+            'طريقة_الدفع' => 'method',
+            'طريقة_القبض' => 'method',
+            'الطريقة' => 'method',
+            'المرجع' => 'reference',
+            'رقم_المرجع' => 'reference',
+            'الحساب' => 'account_label',
+            'الصندوق' => 'account_label',
+            'الفاتورة_المرتبطة' => 'invoice_external_number',
+            'رقم_الفاتورة_المرتبطة' => 'invoice_external_number',
+            'رقم_الشيك' => 'check_number',
+            'بنك_الشيك' => 'check_bank',
+            'البنك' => 'check_bank',
+            'استحقاق_الشيك' => 'check_due_date',
+        ];
+
+        if (isset($aliases[$normalized])) {
+            return $aliases[$normalized];
+        }
+
+        return strtolower(trim(preg_replace('/[^A-Za-z0-9_]+/', '_', $normalized) ?? ''));
     }
 
     private function decimal(mixed $value): ?string
