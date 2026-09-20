@@ -33,6 +33,12 @@ export type ProductFilters = {
 
     quality?: ProductQuality;
 
+    unit?: string;
+
+    min_price?: string;
+
+    max_price?: string;
+
     sort?: ProductSort;
 
     page?: number;
@@ -95,6 +101,18 @@ export function buildProductQuery(
             'quality',
             filters.quality,
         );
+    }
+
+    if (filters.unit?.trim()) {
+        query.set('unit', filters.unit.trim());
+    }
+
+    if (filters.min_price?.trim()) {
+        query.set('min_price', filters.min_price.trim());
+    }
+
+    if (filters.max_price?.trim()) {
+        query.set('max_price', filters.max_price.trim());
     }
 
     query.set(
