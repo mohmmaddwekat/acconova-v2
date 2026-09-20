@@ -2,20 +2,29 @@ import { fetchParties } from '@/features/parties/api';
 import { fetchProducts } from '@/features/products/api';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
+import {
+    rememberRecent,
+    useWorkspaceRecords,
+    type WorkspaceRecordKind,
+    type WorkspaceRecordLink,
+} from '@/lib/workspaceRecords';
 import type { AppPageProps } from '@/types/app';
 import { router, usePage } from '@inertiajs/react';
 import {
     Banknote,
     Bell,
     Boxes,
+    Clock3,
     Command,
     HandCoins,
+    Keyboard,
     ListTodo,
     PackagePlus,
     Plus,
     ReceiptText,
     Search,
     ShoppingCart,
+    Star,
     UserPlus,
     UsersRound,
     X,
@@ -36,6 +45,7 @@ type SearchHit = {
     href: string;
     icon: LucideIcon;
     kind: 'module' | 'party' | 'product' | 'staff';
+    aliases?: string[];
 };
 
 type StaffSearchResponse = {
@@ -94,7 +104,7 @@ type TaskSearchResponse = {
     };
 };
 
-type Mode = 'search' | 'create';
+type Mode = 'search' | 'create' | 'shortcuts';
 
 function normalize(value: string): string {
     return value
@@ -102,11 +112,40 @@ function normalize(value: string): string {
         .toLocaleLowerCase();
 }
 
+function iconForRecordKind(
+    kind: WorkspaceRecordKind,
+): LucideIcon {
+    switch (kind) {
+        case 'party':
+            return UsersRound;
+        case 'product':
+            return Boxes;
+        case 'staff':
+            return UserPlus;
+        case 'sale_invoice':
+            return ReceiptText;
+        case 'purchase_invoice':
+            return ShoppingCart;
+        case 'payment':
+            return Banknote;
+        case 'receipt':
+            return HandCoins;
+        case 'task':
+            return ListTodo;
+        default:
+            return Command;
+    }
+}
+
 export function CommandCenter() {
     const locale = useLocale();
     const ar = locale === 'ar';
     const { workspace } = usePage<AppPageProps>().props;
     const organizationId = workspace.activeOrganization?.id ?? null;
+    const {
+        recent,
+        favorites,
+    } = useWorkspaceRecords(organizationId);
     const [open, setOpen] = useState(false);
     const [mode, setMode] = useState<Mode>('search');
     const [query, setQuery] = useState('');
@@ -173,6 +212,13 @@ export function CommandCenter() {
             href: '/app/staff/directory',
             icon: UserPlus,
             kind: 'module',
+            aliases: [
+                'موظف جديد',
+                'اضف موظف',
+                'أضف موظف',
+                'new employee',
+                'add employee',
+            ],
         },
     ], [ar]);
 
@@ -184,6 +230,17 @@ export function CommandCenter() {
             href: '/app/parties?create=1',
             icon: UsersRound,
             kind: 'module',
+            aliases: [
+                'اضف عميل',
+                'أضف عميل',
+                'عميل جديد',
+                'مورد جديد',
+                'جهة جديدة',
+                'new customer',
+                'new supplier',
+                'add customer',
+                'add party',
+            ],
         },
         {
             key: 'create-product',
@@ -192,6 +249,15 @@ export function CommandCenter() {
             href: '/app/products?create=1',
             icon: PackagePlus,
             kind: 'module',
+            aliases: [
+                'منتج جديد',
+                'خدمة جديدة',
+                'اضف منتج',
+                'أضف منتج',
+                'new product',
+                'new service',
+                'add product',
+            ],
         },
         {
             key: 'create-sale',
@@ -200,6 +266,15 @@ export function CommandCenter() {
             href: '/app/invoices/sales/create',
             icon: ReceiptText,
             kind: 'module',
+            aliases: [
+                'فاتورة جديدة',
+                'فاتورة بيع',
+                'انشاء فاتورة',
+                'إنشاء فاتورة',
+                'new invoice',
+                'sales invoice',
+                'create invoice',
+            ],
         },
         {
             key: 'create-purchase',
@@ -208,6 +283,12 @@ export function CommandCenter() {
             href: '/app/invoices/purchases/create',
             icon: ShoppingCart,
             kind: 'module',
+            aliases: [
+                'فاتورة شراء',
+                'شراء جديد',
+                'new purchase invoice',
+                'purchase invoice',
+            ],
         },
         {
             key: 'create-payment',
@@ -216,6 +297,13 @@ export function CommandCenter() {
             href: '/app/payments/create',
             icon: Banknote,
             kind: 'module',
+            aliases: [
+                'سجل دفعة',
+                'دفعة جديدة',
+                'دفع جديد',
+                'record payment',
+                'new payment',
+            ],
         },
         {
             key: 'create-receipt',
@@ -224,6 +312,13 @@ export function CommandCenter() {
             href: '/app/receipts/create',
             icon: HandCoins,
             kind: 'module',
+            aliases: [
+                'سجل مقبوض',
+                'مقبوض جديد',
+                'قبض جديد',
+                'record receipt',
+                'new receipt',
+            ],
         },
         {
             key: 'create-task',
@@ -232,6 +327,13 @@ export function CommandCenter() {
             href: '/app/task-management/create',
             icon: ListTodo,
             kind: 'module',
+            aliases: [
+                'مهمة جديدة',
+                'اضف مهمة',
+                'أضف مهمة',
+                'new task',
+                'add task',
+            ],
         },
         {
             key: 'create-staff',
@@ -245,13 +347,66 @@ export function CommandCenter() {
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent): void => {
+            const target = event.target as HTMLElement | null;
+            const typing =
+                target?.tagName === 'INPUT'
+                || target?.tagName === 'TEXTAREA'
+                || target?.tagName === 'SELECT'
+                || target?.isContentEditable;
+
+            const key =
+                event.key.toLocaleLowerCase();
+
             if (
                 (event.ctrlKey || event.metaKey)
-                && event.key.toLocaleLowerCase() === 'k'
+                && key === 'k'
             ) {
                 event.preventDefault();
                 setMode('search');
                 setOpen(true);
+                return;
+            }
+
+            if (
+                (event.ctrlKey || event.metaKey)
+                && key === 's'
+            ) {
+                event.preventDefault();
+                window.dispatchEvent(
+                    new CustomEvent('acconova:save'),
+                );
+                return;
+            }
+
+            if (
+                (event.ctrlKey || event.metaKey)
+                && event.key === '/'
+            ) {
+                event.preventDefault();
+                setMode('shortcuts');
+                setOpen(true);
+                return;
+            }
+
+            if (! typing && event.key === '/') {
+                event.preventDefault();
+                setMode('search');
+                setOpen(true);
+                return;
+            }
+
+            if (! typing && key === 'n') {
+                event.preventDefault();
+                setMode('create');
+                setOpen(true);
+                return;
+            }
+
+            if (! typing && event.key === '?') {
+                event.preventDefault();
+                setMode('shortcuts');
+                setOpen(true);
+                return;
             }
 
             if (event.key === 'Escape') {
@@ -509,18 +664,55 @@ export function CommandCenter() {
     }
 
     const normalizedQuery = normalize(query);
-    const localHits = mode === 'search'
-        ? modules.filter((item) => {
-            if (! normalizedQuery) {
-                return true;
-            }
 
-            return normalize(item.label + ' ' + item.detail)
-                .includes(normalizedQuery);
-        })
-        : createActions;
+    const matchesQuery = (
+        item: SearchHit,
+    ): boolean => {
+        if (! normalizedQuery) {
+            return true;
+        }
 
-    const go = (href: string): void => {
+        return normalize(
+            [
+                item.label,
+                item.detail,
+                ...(item.aliases ?? []),
+            ].join(' '),
+        ).includes(
+            normalizedQuery,
+        );
+    };
+
+    const actionHits =
+        mode === 'search'
+        && normalizedQuery
+            ? createActions.filter(
+                matchesQuery,
+            )
+            : [];
+
+    const localHits =
+        mode === 'search'
+            ? modules.filter(
+                matchesQuery,
+            )
+            : mode === 'create'
+                ? createActions.filter(
+                    matchesQuery,
+                )
+                : [];
+
+    const go = (
+        href: string,
+        recentItem?: Omit<WorkspaceRecordLink, 'touchedAt'>,
+    ): void => {
+        if (recentItem) {
+            rememberRecent(
+                organizationId,
+                recentItem,
+            );
+        }
+
         setOpen(false);
         router.visit(href);
     };
@@ -538,24 +730,49 @@ export function CommandCenter() {
                 <section
                     role="dialog"
                     aria-modal="true"
-                    aria-label={mode === 'search'
-                        ? text('البحث السريع', 'Global search')
-                        : text('إنشاء سريع', 'Quick create')}
+                    aria-label={
+                        mode === 'search'
+                            ? text('البحث السريع', 'Global search')
+                            : mode === 'create'
+                                ? text('إنشاء سريع', 'Quick create')
+                                : text('اختصارات لوحة المفاتيح', 'Keyboard shortcuts')
+                    }
                     className="absolute left-1/2 top-[10vh] flex max-h-[78vh] w-[min(92vw,760px)] -translate-x-1/2 flex-col overflow-hidden rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[0_32px_100px_rgba(1,20,35,.32)]"
                 >
                     <header className="flex items-center gap-3 border-b border-[var(--ac-line)] p-3 sm:p-4">
                         <div className="flex min-w-0 flex-1 items-center gap-3 rounded-[16px] bg-[var(--ac-surface-soft)] px-4">
                             {mode === 'search'
                                 ? <Search size={18} className="shrink-0 text-[var(--ac-accent)]" />
-                                : <Plus size={18} className="shrink-0 text-[var(--ac-accent)]" />}
+                                : mode === 'create'
+                                    ? <Plus size={18} className="shrink-0 text-[var(--ac-accent)]" />
+                                    : <Keyboard size={18} className="shrink-0 text-[var(--ac-accent)]" />}
 
                             <input
                                 ref={inputRef}
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
-                                placeholder={mode === 'search'
-                                    ? text('ابحث عن عميل، مورد، منتج، موظف أو صفحة…', 'Search customers, suppliers, products, employees or pages…')
-                                    : text('فلتر أوامر الإنشاء…', 'Filter create actions…')}
+                                onKeyDown={(event) => {
+                                    if (event.key !== 'Enter') {
+                                        return;
+                                    }
+
+                                    const target =
+                                        actionHits[0]
+                                        ?? localHits[0]
+                                        ?? remoteHits[0];
+
+                                    if (target) {
+                                        event.preventDefault();
+                                        go(target.href);
+                                    }
+                                }}
+                                placeholder={
+                                    mode === 'search'
+                                        ? text('ابحث أو اكتب أمراً مثل: فاتورة جديدة…', 'Search or type a command like: new invoice…')
+                                        : mode === 'create'
+                                            ? text('فلتر أوامر الإنشاء…', 'Filter create actions…')
+                                            : text('ابحث داخل الاختصارات…', 'Filter shortcuts…')
+                                }
                                 className="h-12 min-w-0 flex-1 bg-transparent text-sm text-[var(--ac-text)] outline-none placeholder:text-[var(--ac-text-muted)]"
                             />
 
@@ -603,45 +820,111 @@ export function CommandCenter() {
                         >
                             {text('إنشاء سريع', 'Quick create')}
                         </button>
+
+                        <button
+                            type="button"
+                            aria-pressed={mode === 'shortcuts'}
+                            onClick={() => setMode('shortcuts')}
+                            className={[
+                                'rounded-[12px] px-3 py-2 text-xs font-semibold transition',
+                                mode === 'shortcuts'
+                                    ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                    : 'text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)]',
+                            ].join(' ')}
+                        >
+                            {text('الاختصارات', 'Shortcuts')}
+                        </button>
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
                         <div className="space-y-2">
-                            {localHits
-                                .filter((item) => ! normalizedQuery
-                                    || normalize(item.label + ' ' + item.detail).includes(normalizedQuery))
-                                .map((item) => (
-                                    <CommandRow
-                                        key={item.key}
-                                        item={item}
-                                        onOpen={go}
-                                    />
-                                ))}
-
-                            {mode === 'search' && remoteHits.length > 0 && (
+                            {mode === 'shortcuts' ? (
+                                <ShortcutList
+                                    ar={ar}
+                                    query={query}
+                                />
+                            ) : (
                                 <>
-                                    <p className="px-2 pb-1 pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
-                                        {text('نتائج البيانات', 'Data results')}
-                                    </p>
+                                    {mode === 'search' && actionHits.length > 0 && (
+                                        <>
+                                            <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
+                                                {text('أوامر', 'Commands')}
+                                            </p>
+                                            {actionHits.map((item) => (
+                                                <CommandRow
+                                                    key={'command-' + item.key}
+                                                    item={item}
+                                                    onOpen={go}
+                                                />
+                                            ))}
+                                        </>
+                                    )}
 
-                                    {remoteHits.map((item) => (
+                                    {mode === 'search' && ! normalizedQuery && favorites.length > 0 && (
+                                        <WorkspaceLinkSection
+                                            title={text('المفضلة', 'Favorites')}
+                                            items={favorites}
+                                            icon={Star}
+                                            onOpen={(item) => go(item.href, {
+                                                key: item.key,
+                                                kind: item.kind,
+                                                label: item.label,
+                                                detail: item.detail,
+                                                href: item.href,
+                                            })}
+                                        />
+                                    )}
+
+                                    {mode === 'search' && ! normalizedQuery && recent.length > 0 && (
+                                        <WorkspaceLinkSection
+                                            title={text('آخر ما فتحته', 'Recent items')}
+                                            items={recent}
+                                            icon={Clock3}
+                                            onOpen={(item) => go(item.href, {
+                                                key: item.key,
+                                                kind: item.kind,
+                                                label: item.label,
+                                                detail: item.detail,
+                                                href: item.href,
+                                            })}
+                                        />
+                                    )}
+
+                                    {localHits.map((item) => (
                                         <CommandRow
                                             key={item.key}
                                             item={item}
                                             onOpen={go}
                                         />
                                     ))}
+
+                                    {mode === 'search' && remoteHits.length > 0 && (
+                                        <>
+                                            <p className="px-2 pb-1 pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
+                                                {text('نتائج البيانات', 'Data results')}
+                                            </p>
+
+                                            {remoteHits.map((item) => (
+                                                <CommandRow
+                                                    key={item.key}
+                                                    item={item}
+                                                    onOpen={go}
+                                                />
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {! loading
+                                        && actionHits.length === 0
+                                        && localHits.length === 0
+                                        && remoteHits.length === 0
+                                        && (
+                                            <div className="rounded-[18px] border border-dashed border-[var(--ac-line)] px-5 py-12 text-center text-sm text-[var(--ac-text-muted)]">
+                                                {text('لا توجد نتائج مطابقة.', 'No matching results.')}
+                                            </div>
+                                        )}
                                 </>
                             )}
-
-                            {! loading
-                                && localHits.length === 0
-                                && remoteHits.length === 0
-                                && (
-                                    <div className="rounded-[18px] border border-dashed border-[var(--ac-line)] px-5 py-12 text-center text-sm text-[var(--ac-text-muted)]">
-                                        {text('لا توجد نتائج مطابقة.', 'No matching results.')}
-                                    </div>
-                                )}
                         </div>
                     </div>
 
@@ -694,6 +977,99 @@ export function CommandCenter() {
 
             {overlay}
         </>
+    );
+}
+
+function WorkspaceLinkSection({
+    title,
+    items,
+    icon: SectionIcon,
+    onOpen,
+}: {
+    title: string;
+    items: WorkspaceRecordLink[];
+    icon: LucideIcon;
+    onOpen: (item: WorkspaceRecordLink) => void;
+}) {
+    return (
+        <section className="pb-2">
+            <p className="flex items-center gap-2 px-2 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
+                <SectionIcon size={12} />
+                {title}
+            </p>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+                {items.map((item) => {
+                    const Icon =
+                        iconForRecordKind(
+                            item.kind,
+                        );
+
+                    return (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => onOpen(item)}
+                            className="flex min-w-0 items-center gap-3 rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-3 text-start transition hover:bg-[var(--ac-surface-soft)]"
+                        >
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]">
+                                <Icon size={15} />
+                            </span>
+
+                            <span className="min-w-0">
+                                <strong className="block truncate text-xs text-[var(--ac-text)]">
+                                    {item.label}
+                                </strong>
+                                {item.detail && (
+                                    <span className="mt-0.5 block truncate text-[10px] text-[var(--ac-text-muted)]">
+                                        {item.detail}
+                                    </span>
+                                )}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
+function ShortcutList({
+    ar,
+    query,
+}: {
+    ar: boolean;
+    query: string;
+}) {
+    const rows = [
+        ['Ctrl / ⌘ + K', ar ? 'فتح البحث الشامل' : 'Open global search'],
+        ['/', ar ? 'فتح البحث من أي صفحة' : 'Open search from any page'],
+        ['N', ar ? 'فتح الإنشاء السريع' : 'Open quick create'],
+        ['Ctrl / ⌘ + S', ar ? 'حفظ النموذج النشط' : 'Save the active form'],
+        ['Esc', ar ? 'إغلاق النافذة أو البحث' : 'Close the active dialog/search'],
+        ['Ctrl / ⌘ + /', ar ? 'عرض هذه الاختصارات' : 'Show keyboard shortcuts'],
+        ['?', ar ? 'عرض الاختصارات عندما لا تكون تكتب' : 'Show shortcuts when not typing'],
+    ].filter((row) =>
+        ! query.trim()
+        || normalize(row.join(' ')).includes(normalize(query)),
+    );
+
+    return (
+        <div className="overflow-hidden rounded-[18px] border border-[var(--ac-line)]">
+            {rows.map(([keys, label]) => (
+                <div
+                    key={keys}
+                    className="flex items-center justify-between gap-4 border-b border-[var(--ac-line)] px-4 py-3 last:border-b-0"
+                >
+                    <span className="text-xs text-[var(--ac-text-soft)]">
+                        {label}
+                    </span>
+                    <kbd className="rounded-[9px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-2 py-1 text-[10px] font-bold text-[var(--ac-text)]">
+                        {keys}
+                    </kbd>
+                </div>
+            ))}
+        </div>
     );
 }
 
