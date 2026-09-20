@@ -665,6 +665,7 @@ export function PartyEditorDrawer({
                 </header>
 
                 <form
+                    data-ac-managed-dirty="true"
                     ref={formRef}
                     onSubmit={(
                         event,
