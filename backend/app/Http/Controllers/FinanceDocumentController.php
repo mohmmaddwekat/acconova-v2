@@ -22,6 +22,10 @@ class FinanceDocumentController extends Controller
             'status' => ['nullable', Rule::in(['draft', 'issued', 'partially_paid', 'paid', 'overpaid', 'superseded', 'voided'])],
             'party_id' => ['nullable', 'integer'],
             'search' => ['nullable', 'string', 'max:120'],
+            'min_total' => ['nullable', 'numeric', 'min:0'],
+            'max_total' => ['nullable', 'numeric', 'min:0'],
+            'due_after' => ['nullable', 'date'],
+            'due_before' => ['nullable', 'date'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'between:10,100'],
         ]);
@@ -33,6 +37,10 @@ class FinanceDocumentController extends Controller
             ->where('kind', $data['kind'])
             ->when($data['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($data['party_id'] ?? null, fn ($query, $partyId) => $query->where('party_id', $partyId))
+            ->when(isset($data['min_total']), fn ($query) => $query->where('total', '>=', $data['min_total']))
+            ->when(isset($data['max_total']), fn ($query) => $query->where('total', '<=', $data['max_total']))
+            ->when($data['due_after'] ?? null, fn ($query, $date) => $query->whereDate('due_date', '>=', $date))
+            ->when($data['due_before'] ?? null, fn ($query, $date) => $query->whereDate('due_date', '<=', $date))
             ->when($data['search'] ?? null, function ($query, $search): void {
                 $query->where(function ($inner) use ($search): void {
                     $inner
