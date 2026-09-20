@@ -133,8 +133,8 @@ export default function FinanceImport() {
                             </h1>
                             <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
                                 {text(
-                                    'نزّل النموذج، عبّئه من Excel أو انسخ إليه البيانات المصدّرة من نظامك القديم، ثم ارفعه هنا. لا تحتاج لإعادة إدخال سنوات من الفواتير والدفعات يدوياً.',
-                                    'Download a template, fill it in Excel or copy exported legacy data into it, then upload it here. You do not need to re-enter years of invoices and payments one by one.',
+                                    'انقل آلاف السجلات بدل إدخالها يدوياً: استخدم نموذج Excel، أو ارفع CSV/XLS/XLSX، أو ملف JSON مُصدّر من قاعدة بيانات أو نظام قديم. AccoNova يفحص الملف قبل الاعتماد ويحمي من التكرار.',
+                                    'Move thousands of records instead of re-entering them: use the Excel template, upload CSV/XLS/XLSX, or a JSON export from a legacy database/system. AccoNova previews the file before import and protects against duplicates.',
                                 )}
                             </p>
                         </div>
@@ -181,8 +181,8 @@ export default function FinanceImport() {
                                 </h2>
                                 <p className="mt-1 text-xs leading-6 text-slate-500">
                                     {text(
-                                        'النموذج يحتوي مثالاً حقيقياً وتعليمات. لا تغيّر أسماء الأعمدة في صف العناوين.',
-                                        'The template includes realistic examples and instructions. Do not rename the header columns.',
+                                        'النموذج يحتوي أمثلة وتعليمات. وإذا كان ملفك من نظام قديم، يتعرف AccoNova على مجموعة واسعة من أسماء الأعمدة العربية والإنجليزية، ومنها رقم الفاتورة والعميل والمورد والمنتج وSKU.',
+                                        'The template includes examples and instructions. For legacy exports, AccoNova also recognizes many common Arabic and English column names including invoice number, customer, supplier, product and SKU.',
                                     )}
                                 </p>
                             </div>
@@ -207,7 +207,7 @@ export default function FinanceImport() {
                                 {label}
                                 <input
                                     type="file"
-                                    accept=".csv,.txt,.xls,.xlsx"
+                                    accept=".csv,.txt,.xls,.xlsx,.json"
                                     onChange={(event) => {
                                         setFile(event.target.files?.[0] ?? null);
                                         setPreview(null);
@@ -296,8 +296,8 @@ export default function FinanceImport() {
 
                                 <p className="text-[11px] leading-6 text-slate-500">
                                     {text(
-                                        'فواتير الماضي المستوردة لا تغيّر مخزونك الحالي. إذا ربطت دفعة بفاتورة وكان المبلغ أكبر من المتبقي، يتحول الفرق إلى رصيد مقدم للطرف.',
-                                        'Imported historical invoices do not change current stock. If a linked payment exceeds an invoice balance, the remainder becomes party advance credit.',
+                                        'فواتير الماضي المستوردة لا تغيّر مخزون اليوم. وإذا طابقنا SKU أو اسم المنتج، نحفظ ارتباط البند بالمنتج حتى يستفيد النظام من آخر سعر للعميل أو المورد لاحقاً. وإذا كانت دفعة قديمة أكبر من المتبقي على الفاتورة، يبقى الفرق رصيداً مقدماً للطرف.',
+                                        'Imported historical invoices do not change today’s stock. When SKU or product name matches, the historical line stays linked to that product so future customer/supplier pricing can reuse the last price. If a legacy payment exceeds the invoice balance, the remainder stays as party advance credit.',
                                     )}
                                 </p>
                             </div>
