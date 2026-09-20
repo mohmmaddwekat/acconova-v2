@@ -877,9 +877,9 @@ export function DocumentForm({
 
             window.location.assign(
                 sales
-                    ? '/app/invoices/sales/'
+                    ? '/app/finance?view=sales-detail&id='
                         + document.id
-                    : '/app/invoices/purchases/'
+                    : '/app/finance?view=purchase-detail&id='
                         + document.id,
             );
         } catch (
