@@ -40,13 +40,7 @@
     --ac-accent-soft: rgba(67, 201, 154, 0.12);
     --ac-accent-strong: #145b46;
 
-    /*
-     * Canonical action palette selected for AccoNova.
-     * Buttons are outline in both light and dark appearance modes.
-     */
-    --ac-button-border: #6aa6ff;
-    --ac-button-text: #6aa6ff;
-    --ac-button-hover-bg: #1b2a40;
+    /* Global application chrome (header/navbar). */
     --ac-chrome: var(--ac-bg);
 
     /*
@@ -151,71 +145,6 @@ body {
         var(--ac-text);
 }
 
-
-/*
- * AccoNova action-button contract.
- * Every normal action button is outline in both light and dark modes:
- * #6AA6FF border/text, #1B2A40 hover.
- */
-:where(
-    button:not([role='switch']),
-    input[type='button'],
-    input[type='submit'],
-    input[type='reset'],
-    a[role='button'],
-    a[class*='inline-flex'][class*='rounded'],
-    label[class*='inline-flex'][class*='rounded']
-) {
-    border-width: 1px !important;
-    border-style: solid !important;
-    border-color: var(--ac-button-border) !important;
-    background-color: transparent !important;
-    background-image: none !important;
-    color: var(--ac-button-text) !important;
-    box-shadow: none !important;
-}
-
-/*
- * Button children inherit the approved action color, preventing legacy
- * text-white/icon utilities from creating mixed-color buttons.
- */
-:where(
-    button:not([role='switch']),
-    input[type='button'],
-    input[type='submit'],
-    input[type='reset'],
-    a[role='button'],
-    a[class*='inline-flex'][class*='rounded'],
-    label[class*='inline-flex'][class*='rounded']
-) > :is(span, svg) {
-    color: inherit !important;
-}
-
-@media (hover: hover) and (pointer: fine) {
-    :where(
-        button:not([role='switch']):not(:disabled),
-        input[type='button']:not(:disabled),
-        input[type='submit']:not(:disabled),
-        input[type='reset']:not(:disabled),
-        a[role='button'],
-        a[class*='inline-flex'][class*='rounded'],
-        label[class*='inline-flex'][class*='rounded']
-    ):hover {
-        border-color: var(--ac-button-border) !important;
-        background-color: var(--ac-button-hover-bg) !important;
-        color: var(--ac-button-text) !important;
-    }
-}
-
-:where(
-    button:not([role='switch'])[aria-pressed='true'],
-    button:not([role='switch'])[aria-current='page'],
-    a[role='button'][aria-current='page']
-) {
-    border-color: var(--ac-button-border) !important;
-    background-color: var(--ac-button-hover-bg) !important;
-    color: var(--ac-button-text) !important;
-}
 
 /*
  * Page entrance.
@@ -836,12 +765,9 @@ html[data-ac-resolved-theme='dark'] {
 
     --ac-accent: #6aa6ff;
     --ac-accent-hover: #1b2a40;
-    --ac-accent-soft: #0e1623;
+    --ac-accent-soft: #1b2a40;
     --ac-accent-strong: #6aa6ff;
 
-    --ac-button-border: #6aa6ff;
-    --ac-button-text: #6aa6ff;
-    --ac-button-hover-bg: #1b2a40;
     --ac-chrome: #162235;
 
     --ac-success: #43c99a;
@@ -868,7 +794,7 @@ html[data-ac-resolved-theme='dark'] {
     --acs-text-muted: #e6effd;
     --acs-accent: #6aa6ff;
     --acs-accent-hover: #1b2a40;
-    --acs-accent-soft: #0e1623;
+    --acs-accent-soft: #1b2a40;
     --acs-control: #0e1623;
     --acs-control-hover: #1b2a40;
     --acs-toggle-off: #1b2a40;
