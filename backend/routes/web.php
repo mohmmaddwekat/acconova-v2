@@ -281,7 +281,9 @@ Route::middleware([
 
             return Inertia::render('Settings');
         },
-    )->name('app.settings');
+    )
+        ->middleware(ResolveOrganization::class)
+        ->name('app.settings');
 
     Route::get(
         '/app/finance',
