@@ -12,7 +12,6 @@ import {
     ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
-import { FinanceNav } from './FinanceNav';
 import {
     FPanel,
     FinanceHeader,
@@ -263,12 +262,6 @@ export function Taxes({
                         </>
                         : undefined
                 }
-            />
-
-            <FinanceNav
-                lookups={lookups}
-                ar={ar}
-                active="taxes"
             />
 
             <div className="rounded-[18px] border border-blue-200 bg-blue-50 p-4 text-xs leading-6 text-blue-800">
