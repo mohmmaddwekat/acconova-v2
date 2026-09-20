@@ -264,12 +264,24 @@ Route::middleware([
 
     Route::get(
         '/app/settings',
-        fn () => Inertia::render(
-            'Settings',
-        ),
-    )->name(
-        'app.settings',
-    );
+        function () {
+            $role = app(\App\Tenancy\TenantContext::class)->role();
+
+            abort_unless(
+                in_array(
+                    $role,
+                    [
+                        \App\Enums\OrganizationRole::Owner,
+                        \App\Enums\OrganizationRole::Admin,
+                    ],
+                    true,
+                ),
+                403,
+            );
+
+            return Inertia::render('Settings');
+        },
+    )->name('app.settings');
 
     Route::get(
         '/app/finance',
