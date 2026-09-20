@@ -26,6 +26,7 @@ class Party extends Model
         'email',
         'phone',
         'tax_number',
+        'credit_limit',
         'address_line_1',
         'address_line_2',
         'city',
@@ -44,6 +45,7 @@ class Party extends Model
     {
         return [
             'type' => PartyType::class,
+            'credit_limit' => 'decimal:4',
         ];
     }
 
