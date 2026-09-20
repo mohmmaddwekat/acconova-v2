@@ -1222,7 +1222,7 @@ html[data-ac-resolved-theme='dark']
 @media (hover: hover) and (pointer: fine) {
     html[data-ac-resolved-theme='dark']
         .ac-index-row:not([data-selected='true']):hover {
-        background-color: #0e1623 !important;
+        background-color: #1b2a40 !important;
     }
 }
 
