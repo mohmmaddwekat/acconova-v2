@@ -49,7 +49,7 @@ class FinanceDocumentController extends Controller
         $paginator = $query->paginate($data['per_page'] ?? 20);
 
         return response()->json([
-            'data' => collect($paginator->items())->map(fn (FinancialDocument $document) => $this->row($document))->values(),
+            'data' => collect($paginator->items())->map(fn (string $document) => $this->row($document))->values(),
             'meta' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),
@@ -228,7 +228,7 @@ class FinanceDocumentController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function row(FinancialDocument $document): array
+    private function row(string $document): array
     {
         return [
             'id' => $document->id,
@@ -254,7 +254,7 @@ class FinanceDocumentController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function detail(FinancialDocument $document, FinanceDocumentService $service): array
+    private function detail(string $document, FinanceDocumentService $service): array
     {
         return [
             ...$this->row($document),
