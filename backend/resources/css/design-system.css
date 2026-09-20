@@ -45,6 +45,7 @@
     --ac-accent-hover: #0570C7;
     --ac-accent-soft: rgba(6, 140, 240, 0.12);
     --ac-accent-strong: #045495;
+    --ac-button-hover-bg: #E6F3FE;
 
     /* Global application chrome (header/navbar). */
     --ac-chrome: var(--ac-bg);
@@ -768,6 +769,7 @@ html[data-ac-resolved-theme='dark'] {
     --ac-accent-hover: #6ABAF8;
     --ac-accent-soft: rgba(56, 163, 250, 0.14);
     --ac-accent-strong: #068CF0;
+    --ac-button-hover-bg: #033863;
 
     --ac-chrome: #011C32;
 
@@ -833,30 +835,84 @@ html[data-ac-resolved-theme='dark']
 }
 
 /*
- * Variant safety net: legacy Tailwind hover/focus utilities must never flash a
- * light surface while the resolved theme is dark. This keeps text and icons
- * readable during interaction, not only at rest.
+ * Interaction safety net.
+ *
+ * Older screens still contain light-only Tailwind hover/focus/active variants.
+ * In dark mode those variants must resolve to the approved dark palette instead
+ * of flashing white/light blue behind light text. Keep this central so legacy
+ * modules and newly discovered states remain readable without page-by-page
+ * emergency overrides.
  */
 html[data-ac-resolved-theme='dark']
     .ac-app-shell
     :is(
         [class~="hover:bg-white"]:hover,
+        [class*="hover:bg-white/"]:hover,
         [class~="hover:bg-slate-50"]:hover,
         [class~="hover:bg-slate-100"]:hover,
         [class~="hover:bg-gray-50"]:hover,
         [class~="hover:bg-gray-100"]:hover,
+        [class~="hover:bg-zinc-50"]:hover,
+        [class~="hover:bg-zinc-100"]:hover,
         [class~="hover:bg-blue-50"]:hover,
         [class~="hover:bg-neutral-50"]:hover,
         [class~="hover:bg-neutral-100"]:hover,
         [class~="hover:bg-stone-50"]:hover,
         [class~="hover:bg-stone-100"]:hover,
+        [class*="hover:bg-[#f"]:hover,
+        [class*="hover:bg-[#F"]:hover,
+        [class*="hover:bg-[#e"]:hover,
+        [class*="hover:bg-[#E"]:hover,
+        [class*="hover:bg-[#d"]:hover,
+        [class*="hover:bg-[#D"]:hover,
+
         [class~="focus:bg-white"]:focus,
+        [class*="focus:bg-white/"]:focus,
         [class~="focus:bg-slate-50"]:focus,
+        [class~="focus:bg-slate-100"]:focus,
         [class~="focus:bg-gray-50"]:focus,
-        [class~="focus:bg-blue-50"]:focus
+        [class~="focus:bg-gray-100"]:focus,
+        [class~="focus:bg-zinc-50"]:focus,
+        [class~="focus:bg-zinc-100"]:focus,
+        [class~="focus:bg-blue-50"]:focus,
+        [class*="focus:bg-[#f"]:focus,
+        [class*="focus:bg-[#F"]:focus,
+        [class*="focus:bg-[#e"]:focus,
+        [class*="focus:bg-[#E"]:focus,
+        [class*="focus:bg-[#d"]:focus,
+        [class*="focus:bg-[#D"]:focus,
+
+        [class~="focus-visible:bg-white"]:focus-visible,
+        [class~="focus-visible:bg-slate-50"]:focus-visible,
+        [class~="focus-visible:bg-gray-50"]:focus-visible,
+        [class~="focus-visible:bg-blue-50"]:focus-visible,
+        [class*="focus-visible:bg-[#f"]:focus-visible,
+        [class*="focus-visible:bg-[#F"]:focus-visible,
+        [class*="focus-visible:bg-[#e"]:focus-visible,
+        [class*="focus-visible:bg-[#E"]:focus-visible,
+        [class*="focus-visible:bg-[#d"]:focus-visible,
+        [class*="focus-visible:bg-[#D"]:focus-visible,
+
+        [class~="active:bg-white"]:active,
+        [class*="active:bg-white/"]:active,
+        [class~="active:bg-slate-50"]:active,
+        [class~="active:bg-slate-100"]:active,
+        [class~="active:bg-gray-50"]:active,
+        [class~="active:bg-gray-100"]:active,
+        [class~="active:bg-zinc-50"]:active,
+        [class~="active:bg-zinc-100"]:active,
+        [class~="active:bg-blue-50"]:active,
+        [class*="active:bg-[#f"]:active,
+        [class*="active:bg-[#F"]:active,
+        [class*="active:bg-[#e"]:active,
+        [class*="active:bg-[#E"]:active,
+        [class*="active:bg-[#d"]:active,
+        [class*="active:bg-[#D"]:active
     ) {
     background-color: var(--ac-surface-soft) !important;
+    background-image: none !important;
     color: var(--ac-text) !important;
+    border-color: var(--ac-line-strong) !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -864,12 +920,39 @@ html[data-ac-resolved-theme='dark']
     .group:hover
     :is(
         [class~="group-hover:bg-white"],
+        [class*="group-hover:bg-white/"],
         [class~="group-hover:bg-blue-50"],
         [class~="group-hover:bg-slate-50"],
-        [class~="group-hover:bg-gray-50"]
+        [class~="group-hover:bg-gray-50"],
+        [class~="group-hover:bg-zinc-50"],
+        [class~="group-hover:bg-neutral-50"],
+        [class~="group-hover:bg-stone-50"],
+        [class*="group-hover:bg-[#f"],
+        [class*="group-hover:bg-[#F"],
+        [class*="group-hover:bg-[#e"],
+        [class*="group-hover:bg-[#E"],
+        [class*="group-hover:bg-[#d"],
+        [class*="group-hover:bg-[#D"]
+    ) {
+    background-color: var(--ac-surface-soft) !important;
+    background-image: none !important;
+    color: var(--ac-text) !important;
+    border-color: var(--ac-line-strong) !important;
+}
+
+/* Keep state-driven selected tabs/cards on the same dark palette too. */
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        [aria-selected='true'][class~="aria-selected:bg-white"],
+        [aria-pressed='true'][class~="aria-pressed:bg-white"],
+        [data-state='active'][class*="data-[state=active]:bg-white"],
+        [data-state='checked'][class*="data-[state=checked]:bg-white"],
+        [data-state='open'][class*="data-[state=open]:bg-white"]
     ) {
     background-color: var(--ac-surface-soft) !important;
     color: var(--ac-text) !important;
+    border-color: var(--ac-line-strong) !important;
 }
 
 html[data-ac-resolved-theme='dark']
