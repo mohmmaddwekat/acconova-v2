@@ -47,6 +47,11 @@ class PartyIndexQuery
             $filters,
         );
 
+        $this->applyAdvancedLocation(
+            $query,
+            $filters,
+        );
+
         $this->applySort(
             $query,
             $filters,
@@ -402,6 +407,31 @@ class PartyIndexQuery
                     '<>',
                     '',
                 );
+        }
+    }
+
+    /**
+     * Apply optional advanced location filters from the list builder.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyAdvancedLocation(
+        Builder $query,
+        array $filters,
+    ): void {
+        if (! empty($filters['city'])) {
+            $query->where(
+                'city',
+                'like',
+                '%'.$filters['city'].'%',
+            );
+        }
+
+        if (! empty($filters['country_code'])) {
+            $query->where(
+                'country_code',
+                strtoupper((string) $filters['country_code']),
+            );
         }
     }
 
