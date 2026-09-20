@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { FinanceNav } from './FinanceNav';
-import { RecurringPaymentsPanel } from '../Payments';
+import { RecurringPaymentsPanel } from './RecurringPaymentsPanel';
 import {
     FinanceHeader,
     FPanel,
@@ -73,7 +73,37 @@ export function CashList({
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [paymentView, setPaymentView] = useState<'transactions' | 'recurring'>('transactions');
+    const [paymentView, setPaymentView] = useState<'transactions' | 'recurring'>(() => {
+        if (typeof window === 'undefined') {
+            return 'transactions';
+        }
+
+        return new URLSearchParams(window.location.search).get('view') === 'recurring'
+            ? 'recurring'
+            : 'transactions';
+    });
+
+    function changePaymentView(
+        view: 'transactions' | 'recurring',
+    ): void {
+        setPaymentView(view);
+
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+
+            if (view === 'recurring') {
+                url.searchParams.set('view', 'recurring');
+            } else {
+                url.searchParams.delete('view');
+            }
+
+            window.history.replaceState(
+                {},
+                '',
+                url.pathname + url.search,
+            );
+        }
+    }
 
     useEffect(() => {
         const controller = new AbortController();
@@ -214,10 +244,23 @@ export function CashList({
     return (
         <div className="space-y-4">
             <FinanceHeader
-                title={title}
-                subtitle={subtitle}
+                title={
+                    ! incoming && paymentView === 'recurring'
+                        ? text('المدفوعات المتكررة', 'Recurring payments')
+                        : title
+                }
+                subtitle={
+                    ! incoming && paymentView === 'recurring'
+                        ? text(
+                            'الإيجار والاشتراكات والخدمات والالتزامات الدورية، كلها داخل صفحة المدفوعات نفسها.',
+                            'Rent, subscriptions, services and recurring obligations, all inside the payments workspace.',
+                        )
+                        : subtitle
+                }
                 actions={
-                    <>
+                    ! incoming && paymentView === 'recurring'
+                        ? undefined
+                        : <>
                         <button
                             type="button"
                             className={financeButton}
@@ -240,6 +283,10 @@ export function CashList({
                 }
             />
 
+            {(
+                incoming
+                || paymentView === 'transactions'
+            ) && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SummaryCard
                     label={text('إجمالي الحركات', 'Movements')}
@@ -279,6 +326,7 @@ export function CashList({
                     tone="red"
                 />
             </div>
+            )}
 
             <FinanceNav
                 lookups={lookups}
@@ -292,7 +340,7 @@ export function CashList({
                         <button
                             type="button"
                             aria-pressed={paymentView === 'transactions'}
-                            onClick={() => setPaymentView('transactions')}
+                            onClick={() => changePaymentView('transactions')}
                             className={[
                                 'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
                                 paymentView === 'transactions'
@@ -307,7 +355,7 @@ export function CashList({
                         <button
                             type="button"
                             aria-pressed={paymentView === 'recurring'}
-                            onClick={() => setPaymentView('recurring')}
+                            onClick={() => changePaymentView('recurring')}
                             className={[
                                 'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
                                 paymentView === 'recurring'
