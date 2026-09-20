@@ -1,7 +1,6 @@
 import {
     useCallback,
     useEffect,
-    useMemo,
     useState,
 } from 'react';
 
@@ -28,6 +27,104 @@ export type WorkspaceRecordLink = {
 const EVENT_NAME = 'acconova:workspace-records';
 const MAX_RECENTS = 10;
 const MAX_FAVORITES = 30;
+const MAX_HISTORY = 40;
+
+type NavigationHistory = {
+    items: WorkspaceRecordLink[];
+    cursor: number;
+};
+
+function historyKey(
+    organizationId: number | string,
+): string {
+    return `acconova:record-history:${organizationId}`;
+}
+
+function readHistory(
+    organizationId: number | string,
+): NavigationHistory {
+    if (
+        typeof window === 'undefined'
+    ) {
+        return {
+            items: [],
+            cursor: -1,
+        };
+    }
+
+    try {
+        const raw =
+            window.sessionStorage
+                .getItem(
+                    historyKey(
+                        organizationId,
+                    ),
+                );
+
+        if (! raw) {
+            return {
+                items: [],
+                cursor: -1,
+            };
+        }
+
+        const parsed =
+            JSON.parse(
+                raw,
+            ) as NavigationHistory;
+
+        return {
+            items:
+                Array.isArray(
+                    parsed.items,
+                )
+                    ? parsed.items
+                    : [],
+            cursor:
+                Number.isInteger(
+                    parsed.cursor,
+                )
+                    ? parsed.cursor
+                    : -1,
+        };
+    } catch {
+        return {
+            items: [],
+            cursor: -1,
+        };
+    }
+}
+
+function writeHistory(
+    organizationId: number | string,
+    history: NavigationHistory,
+): void {
+    if (
+        typeof window === 'undefined'
+    ) {
+        return;
+    }
+
+    try {
+        window.sessionStorage
+            .setItem(
+                historyKey(
+                    organizationId,
+                ),
+                JSON.stringify(
+                    history,
+                ),
+            );
+
+        window.dispatchEvent(
+            new CustomEvent(
+                EVENT_NAME,
+            ),
+        );
+    } catch {
+        // Session history is a convenience feature only.
+    }
+}
 
 function storageKey(
     organizationId: number | string,
@@ -127,6 +224,129 @@ export function rememberRecent(
             ),
         ].slice(0, MAX_RECENTS),
     );
+}
+
+export function rememberNavigation(
+    organizationId: number | string | null | undefined,
+    item: Omit<WorkspaceRecordLink, 'touchedAt'>,
+): void {
+    if (! organizationId) {
+        return;
+    }
+
+    const history =
+        readHistory(
+            organizationId,
+        );
+
+    const existingIndex =
+        history.items.findIndex(
+            (existing) =>
+                existing.key ===
+                    item.key,
+        );
+
+    const nextItem: WorkspaceRecordLink = {
+        ...item,
+        touchedAt:
+            new Date()
+                .toISOString(),
+    };
+
+    if (
+        existingIndex >= 0
+        && Math.abs(
+            existingIndex
+            - history.cursor,
+        ) <= 1
+    ) {
+        const items =
+            [
+                ...history.items,
+            ];
+
+        items[
+            existingIndex
+        ] =
+            nextItem;
+
+        writeHistory(
+            organizationId,
+            {
+                items,
+                cursor:
+                    existingIndex,
+            },
+        );
+
+        return;
+    }
+
+    const prefix =
+        history.items.slice(
+            0,
+            Math.max(
+                history.cursor
+                + 1,
+                0,
+            ),
+        );
+
+    const items =
+        [
+            ...prefix,
+            nextItem,
+        ].slice(
+            -MAX_HISTORY,
+        );
+
+    writeHistory(
+        organizationId,
+        {
+            items,
+            cursor:
+                items.length
+                - 1,
+        },
+    );
+}
+
+export function moveRecordHistory(
+    organizationId: number | string | null | undefined,
+    direction: -1 | 1,
+): WorkspaceRecordLink | null {
+    if (! organizationId) {
+        return null;
+    }
+
+    const history =
+        readHistory(
+            organizationId,
+        );
+
+    const cursor =
+        history.cursor
+        + direction;
+
+    if (
+        cursor < 0
+        || cursor >=
+            history.items.length
+    ) {
+        return null;
+    }
+
+    writeHistory(
+        organizationId,
+        {
+            ...history,
+            cursor,
+        },
+    );
+
+    return history.items[
+        cursor
+    ] ?? null;
 }
 
 export function isFavorite(
@@ -276,39 +496,88 @@ export function useWorkspaceRecords(
 
 export function useRecordNavigation(
     organizationId: number | string | null | undefined,
-    kind: WorkspaceRecordKind,
+    _kind: WorkspaceRecordKind,
     currentKey: string,
 ) {
-    const {
-        recent,
-    } =
-        useWorkspaceRecords(
+    const [
+        version,
+        setVersion,
+    ] =
+        useState(
+            0,
+        );
+
+    useEffect(() => {
+        if (
+            typeof window ===
+            'undefined'
+        ) {
+            return;
+        }
+
+        const refresh =
+            (): void =>
+                setVersion(
+                    (value) =>
+                        value
+                        + 1,
+                );
+
+        window.addEventListener(
+            EVENT_NAME,
+            refresh,
+        );
+
+        return () =>
+            window.removeEventListener(
+                EVENT_NAME,
+                refresh,
+            );
+    }, []);
+
+    void version;
+
+    if (! organizationId) {
+        return {
+            previous:
+                null,
+            next:
+                null,
+        };
+    }
+
+    const history =
+        readHistory(
             organizationId,
         );
 
-    const sameKind =
-        useMemo(
-            () =>
-                recent.filter(
-                    (item) =>
-                        item.kind ===
-                            kind
-                        && item.key !==
-                            currentKey,
-                ),
-            [
-                recent,
-                kind,
-                currentKey,
-            ],
+    const currentIndex =
+        history.items.findIndex(
+            (item) =>
+                item.key ===
+                    currentKey,
         );
+
+    const cursor =
+        currentIndex >= 0
+            ? currentIndex
+            : history.cursor;
 
     return {
         previous:
-            sameKind[0]
-            ?? null,
+            cursor > 0
+                ? history.items[
+                    cursor - 1
+                ] ?? null
+                : null,
         next:
-            sameKind[1]
-            ?? null,
+            cursor >= 0
+            && cursor <
+                history.items.length
+                - 1
+                ? history.items[
+                    cursor + 1
+                ] ?? null
+                : null,
     };
 }
