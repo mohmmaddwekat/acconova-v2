@@ -269,6 +269,7 @@ class FinanceDocumentService
                     'unit_snapshot' => $line->unit_snapshot,
                     'quantity' => $line->quantity,
                     'unit_price' => $line->unit_price,
+                    'price_status' => $line->price_status,
                     'discount_percent' => $line->discount_percent,
                     'tax_name_snapshot' => $line->tax_name_snapshot,
                     'tax_rate' => $line->tax_rate,
@@ -446,6 +447,17 @@ class FinanceDocumentService
     {
         $document->lines()->delete();
 
+        $productIds = collect($lines)
+            ->pluck('product_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id);
+
+        if ($productIds->count() !== $productIds->unique()->count()) {
+            throw ValidationException::withMessages([
+                'lines' => ['The same product cannot appear twice on one invoice. Increase the quantity on the existing line instead.'],
+            ]);
+        }
+
         foreach (array_values($lines) as $index => $line) {
             $product = isset($line['product_id']) && $line['product_id']
                 ? Product::query()->findOrFail((int) $line['product_id'])
@@ -476,8 +488,17 @@ class FinanceDocumentService
                 Warehouse::query()->findOrFail((int) $warehouseId);
             }
 
+            if (! $product && trim((string) ($line['description'] ?? '')) === '') {
+                throw ValidationException::withMessages([
+                    "lines.$index.description" => ['A description is required for a manual line.'],
+                ]);
+            }
+
             $quantity = (float) $line['quantity'];
             $unitPrice = (float) $line['unit_price'];
+            $priceStatus = $document->isPurchase()
+                ? ($line['price_status'] ?? 'final')
+                : 'final';
             $discountPercent = (float) ($line['discount_percent'] ?? 0);
             $taxRate = (float) ($taxRule?->rate ?? $line['tax_rate'] ?? 0);
             $subtotal = round($quantity * $unitPrice, 4);
@@ -511,6 +532,7 @@ class FinanceDocumentService
                 'unit_snapshot' => $line['unit'] ?? $product?->unit,
                 'quantity' => number_format($quantity, 4, '.', ''),
                 'unit_price' => number_format($unitPrice, 4, '.', ''),
+                'price_status' => $priceStatus,
                 'discount_percent' => number_format($discountPercent, 4, '.', ''),
                 'tax_name_snapshot' => $taxRule?->name,
                 'tax_rate' => number_format($taxRate, 4, '.', ''),
