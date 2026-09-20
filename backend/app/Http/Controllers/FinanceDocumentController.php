@@ -103,6 +103,12 @@ class FinanceDocumentController extends Controller
 
     public function store(Request $request, FinanceDocumentService $service): JsonResponse
     {
+        abort_unless(
+            FinanceAuthorization::allows($request->user(), 'finance.sales.manage')
+            || FinanceAuthorization::allows($request->user(), 'finance.purchases.manage'),
+            403,
+        );
+
         $data = $this->validatedDocument($request);
         $this->authorizeKind($request, $data['kind'], true);
 
