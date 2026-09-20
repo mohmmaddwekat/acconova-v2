@@ -98,6 +98,42 @@ class FinanceDocumentService
         }, 3);
     }
 
+    public function deleteDraft(FinancialDocument $document, int $actorId): void
+    {
+        DB::transaction(function () use ($document, $actorId): void {
+            $locked = FinancialDocument::query()
+                ->with(['lines', 'allocations'])
+                ->lockForUpdate()
+                ->findOrFail($document->id);
+
+            if (! $locked->isDraft()) {
+                throw ValidationException::withMessages([
+                    'status' => ['Only draft invoices can be deleted. Issued invoices must be voided or corrected so the audit trail stays intact.'],
+                ]);
+            }
+
+            if ($locked->allocations->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'payments' => ['Remove linked payment allocations before deleting this draft.'],
+                ]);
+            }
+
+            $snapshot = $this->snapshot($locked);
+
+            $this->audit->record(
+                $locked,
+                'draft_deleted',
+                $actorId,
+                'Draft deleted before issue',
+                $snapshot,
+                null,
+            );
+
+            $locked->lines()->delete();
+            $locked->delete();
+        }, 3);
+    }
+
     public function issue(
         FinancialDocument $document,
         int $actorId,
@@ -308,14 +344,13 @@ class FinanceDocumentService
                 ]);
             }
 
-            $hasPostedAllocations = CashAllocation::query()
+            $hasAllocations = CashAllocation::query()
                 ->where('financial_document_id', $locked->id)
-                ->whereHas('movement', fn ($query) => $query->where('status', 'posted'))
                 ->exists();
 
-            if ($hasPostedAllocations) {
+            if ($hasAllocations) {
                 throw ValidationException::withMessages([
-                    'payments' => ['Reverse or correct linked payments before voiding this document.'],
+                    'payments' => ['Remove draft allocations, or reverse/correct posted payments, before voiding this document.'],
                 ]);
             }
 
