@@ -132,6 +132,7 @@ class NotificationCenter
             ->get()
             ->each(function ($reminder) use ($organizationId): void {
                 $url = $this->recordUrl(
+                    $organizationId,
                     (string) $reminder->record_type,
                     (int) $reminder->record_id,
                 );
@@ -160,7 +161,11 @@ class NotificationCenter
             });
     }
 
-    private function recordUrl(string $type, int $recordId): string
+    private function recordUrl(
+        int $organizationId,
+        string $type,
+        int $recordId,
+    ): string
     {
         if ($type === 'party') {
             return '/app/parties?focus='.$recordId;
@@ -180,7 +185,7 @@ class NotificationCenter
 
         if ($type === 'document') {
             $document = DB::table('financial_documents')
-                ->where('organization_id', app(\App\Tenancy\TenantContext::class)->id())
+                ->where('organization_id', $organizationId)
                 ->where('id', $recordId)
                 ->first(['id', 'kind']);
 
