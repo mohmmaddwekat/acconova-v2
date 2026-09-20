@@ -1,4 +1,7 @@
 import {
+    RecordCollaborationPanel,
+} from '@/components/data/RecordCollaborationPanel';
+import {
     PermanentDeleteControl,
 } from '@/components/data/PermanentDeleteControl';
 import {
@@ -383,6 +386,17 @@ export function ProductDetailDrawer({
                     <Product360Panel
                         product={resolvedProduct}
                         ar={locale === 'ar'}
+                    />
+
+                    <RecordCollaborationPanel
+                        type="product"
+                        recordId={resolvedProduct.id}
+                        ar={locale === 'ar'}
+                        title={
+                            locale === 'ar'
+                                ? 'وسوم وتعليقات ومرفقات المنتج'
+                                : 'Product tags, comments & attachments'
+                        }
                     />
 
                     <div className="mt-6">
