@@ -689,6 +689,22 @@ function CashVoucherPrintView({
     const organization = lookups.settings.organization;
     const paperSize = invoice.paper_size === 'letter' ? 'Letter' : 'A4';
     const margin = invoice.margins === 'compact' ? '8mm' : '14mm';
+    const accentColor = invoice.accent_color || '#2563EB';
+    const template = invoice.receipt_template;
+
+    const templateClass = {
+        professional: 'border-t-[6px]',
+        classic: 'border-t-2 border-slate-800',
+        modern: 'border-s-8',
+        simple: '',
+    }[template];
+
+    const templateStyle =
+        template === 'professional'
+            ? { borderTopColor: accentColor }
+            : template === 'modern'
+                ? { borderInlineStartColor: accentColor }
+                : undefined;
 
     return (
         <div
@@ -707,7 +723,10 @@ function CashVoucherPrintView({
                 ].join(' ')}
             </style>
 
-            <article className="mx-auto bg-white p-2">
+            <article
+                className={['mx-auto bg-white p-2', templateClass].join(' ')}
+                style={templateStyle}
+            >
                 <header className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
                     <div>
                         {invoice.show_logo && organization.logo_url && (
@@ -718,7 +737,10 @@ function CashVoucherPrintView({
                             />
                         )}
                         {invoice.show_logo && (
-                            <h1 className="text-xl font-extrabold text-[#1265d8]">
+                            <h1
+                                className="text-xl font-extrabold"
+                                style={{ color: accentColor }}
+                            >
                                 {organization.trade_name || organization.name}
                             </h1>
                         )}
@@ -772,11 +794,20 @@ function CashVoucherPrintView({
                     </div>
                 </div>
 
-                <div className="my-7 rounded-xl border border-[#cfe0f4] bg-[#f5f9ff] p-5 text-center">
+                <div
+                    className="my-7 rounded-xl border p-5 text-center"
+                    style={{
+                        borderColor: accentColor + '35',
+                        backgroundColor: accentColor + '0D',
+                    }}
+                >
                     <p className="text-[10px] text-[#6f86a8]">
                         {incoming ? text('المبلغ المقبوض', 'Amount received') : text('المبلغ المدفوع', 'Amount paid')}
                     </p>
-                    <div className="mt-2 text-2xl font-extrabold text-[#1265d8]">
+                    <div
+                        className="mt-2 text-2xl font-extrabold"
+                        style={{ color: accentColor }}
+                    >
                         <Money value={movement.amount} currency={movement.currency} />
                     </div>
                 </div>
