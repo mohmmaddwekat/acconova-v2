@@ -258,6 +258,13 @@ class FinanceWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.check_status', 'bounced');
 
+        $this->assertDatabaseHas('financial_documents', [
+            'id' => $invoiceId,
+            'status' => 'issued',
+            'paid_total' => '0.0000',
+            'balance_due' => '100.0000',
+        ]);
+
         $replacementId = $this->postJson(
             "/api/finance/cash-movements/{$receiptId}/correct",
             ['reason' => 'Customer replaced bounced check with bank transfer'],
