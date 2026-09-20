@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FinanceAuditEvent;
 use App\Models\FinancialDocument;
+use App\Tenancy\TenantContext;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
 use Illuminate\Http\JsonResponse;
@@ -213,6 +214,10 @@ class FinanceDocumentController extends Controller
         if ($forcedKind) {
             $data['kind'] = $forcedKind;
         }
+
+        $organization = app(TenantContext::class)->organization();
+        $data['currency'] = strtoupper((string) ($organization->preferences['currency'] ?? 'ILS'));
+        $data['exchange_rate'] = '1';
 
         return $data;
     }
