@@ -13,7 +13,7 @@ import {
     type ProfilePreferences,
 } from '@/lib/profilePreferences';
 import type { AppPageProps } from '@/types/app';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     Banknote,
     Bell,
@@ -36,7 +36,6 @@ import {
     Percent,
     Printer,
     ReceiptText,
-    Save,
     Settings2,
     ShieldCheck,
     ShoppingCart,
@@ -50,6 +49,7 @@ import {
 import {
     useEffect,
     useMemo,
+    useRef,
     useState,
     type ReactNode,
 } from 'react';
@@ -312,6 +312,9 @@ function SettingsWorkspace() {
         useState<ProfilePreferences>(defaultProfilePreferences());
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const autoSavePatchRef = useRef<Partial<WorkspaceSettings>>({});
+    const autoSaveInFlightRef = useRef(false);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [addingBank, setAddingBank] = useState(false);
@@ -376,6 +379,107 @@ function SettingsWorkspace() {
         return () => controller.abort();
     }, [activeOrganization?.id]);
 
+    function scheduleWorkspaceAutosave(delay = 700): void {
+        if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+        }
+
+        setSaving(true);
+        setMessage(
+            text(
+                'جارٍ الحفظ تلقائياً...',
+                'Saving automatically...',
+            ),
+        );
+
+        autoSaveTimerRef.current = setTimeout(() => {
+            void flushWorkspaceAutosave();
+        }, delay);
+    }
+
+    async function flushWorkspaceAutosave(): Promise<void> {
+        if (autoSaveInFlightRef.current) {
+            scheduleWorkspaceAutosave(250);
+            return;
+        }
+
+        const patch = autoSavePatchRef.current;
+
+        if (Object.keys(patch).length === 0) {
+            setSaving(false);
+            return;
+        }
+
+        autoSavePatchRef.current = {};
+        autoSaveTimerRef.current = null;
+        autoSaveInFlightRef.current = true;
+        setError('');
+
+        const payload: Partial<WorkspaceSettings> = {
+            ...patch,
+        };
+
+        if (typeof payload.currency === 'string') {
+            payload.currency = payload.currency.trim().toUpperCase();
+        }
+
+        try {
+            const saved = await apiRequest<WorkspaceSettings>(
+                '/api/workspace-settings',
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify(payload),
+                },
+            );
+
+            setSettings(current => {
+                if (!current) {
+                    return saved;
+                }
+
+                return {
+                    ...saved,
+                    ...autoSavePatchRef.current,
+                };
+            });
+
+            if (Object.prototype.hasOwnProperty.call(payload, 'decimal_places')) {
+                document.documentElement.dataset.acFinanceDecimals =
+                    String(saved.decimal_places);
+            }
+
+            setMessage(
+                text(
+                    'تم الحفظ تلقائياً.',
+                    'Saved automatically.',
+                ),
+            );
+        } catch (failure) {
+            autoSavePatchRef.current = {
+                ...patch,
+                ...autoSavePatchRef.current,
+            };
+
+            setError(
+                errorText(
+                    failure,
+                    text(
+                        'تعذر الحفظ التلقائي. صحح القيمة وسيعاد الحفظ تلقائياً عند التعديل التالي.',
+                        'Auto-save failed. Correct the value and it will save automatically on the next change.',
+                    ),
+                ),
+            );
+        } finally {
+            autoSaveInFlightRef.current = false;
+
+            if (Object.keys(autoSavePatchRef.current).length > 0) {
+                scheduleWorkspaceAutosave(500);
+            } else {
+                setSaving(false);
+            }
+        }
+    }
+
     function updateSetting<K extends keyof WorkspaceSettings>(
         key: K,
         value: WorkspaceSettings[K],
@@ -385,7 +489,14 @@ function SettingsWorkspace() {
                 ? { ...current, [key]: value }
                 : current,
         );
-        setMessage('');
+
+        autoSavePatchRef.current = {
+            ...autoSavePatchRef.current,
+            [key]: value,
+        };
+
+        setError('');
+        scheduleWorkspaceAutosave();
     }
 
     function toggleArrayValue(
@@ -516,8 +627,14 @@ function SettingsWorkspace() {
 
         setProfilePreferences(next);
         applyProfilePreferences(next);
+        setSaving(true);
         setError('');
-        setMessage('');
+        setMessage(
+            text(
+                'جارٍ الحفظ تلقائياً...',
+                'Saving automatically...',
+            ),
+        );
 
         try {
             const response = await apiRequest<{ settings: ProfilePreferences }>(
@@ -538,8 +655,8 @@ function SettingsWorkspace() {
 
             setMessage(
                 text(
-                    'تم تطبيق تفضيلات المظهر.',
-                    'Appearance preferences applied.',
+                    'تم الحفظ تلقائياً وتطبيق تفضيلات المظهر.',
+                    'Saved automatically and appearance preferences applied.',
                 ),
             );
         } catch (failure) {
@@ -550,134 +667,6 @@ function SettingsWorkspace() {
                         'تعذر حفظ تفضيلات المظهر.',
                         'Could not save appearance preferences.',
                     ),
-                ),
-            );
-        }
-    }
-
-    async function saveChanges(): Promise<void> {
-        if (!settings || saving) {
-            return;
-        }
-
-        /*
-         * Appearance is a personal preference. Saving it must not revalidate
-         * unrelated organization fields (website, invoice data, banking, etc).
-         * This also makes switching light/dark mode reliable even when another
-         * settings section still contains unfinished data.
-         */
-        if (section === 'appearance') {
-            setSaving(true);
-            setError('');
-            setMessage('');
-
-            try {
-                const response = await apiRequest<{ settings: ProfilePreferences }>(
-                    '/api/profile/preferences',
-                    {
-                        method: 'PUT',
-                        body: JSON.stringify(profilePreferences),
-                    },
-                );
-
-                const savedPreferences = {
-                    ...defaultProfilePreferences(),
-                    ...response.settings,
-                };
-
-                setProfilePreferences(savedPreferences);
-                applyProfilePreferences(savedPreferences);
-                setMessage(
-                    text(
-                        'تم حفظ إعدادات المظهر وتطبيقها.',
-                        'Appearance settings saved and applied.',
-                    ),
-                );
-            } catch (failure) {
-                setError(
-                    errorText(
-                        failure,
-                        text(
-                            'تعذر حفظ إعدادات المظهر.',
-                            'Could not save appearance settings.',
-                        ),
-                    ),
-                );
-            } finally {
-                setSaving(false);
-            }
-
-            return;
-        }
-
-        if (!/^[A-Z0-9]{3}$/.test(settings.currency.trim().toUpperCase())) {
-            setError(
-                text(
-                    'اكتب رمز العملة من 3 أحرف، مثل ILS أو USD أو JOD.',
-                    'Enter a 3-character currency code such as ILS, USD or JOD.',
-                ),
-            );
-            return;
-        }
-
-        if (
-            settings.decimal_places < 1
-            || settings.decimal_places > 10
-        ) {
-            setError(
-                text(
-                    'عدد الخانات العشرية يجب أن يكون من 1 إلى 10.',
-                    'Decimal places must be between 1 and 10.',
-                ),
-            );
-            return;
-        }
-
-        setSaving(true);
-        setError('');
-        setMessage('');
-
-        try {
-            const payload = {
-                ...settings,
-                currency: settings.currency.trim().toUpperCase(),
-            };
-
-            const saved = await apiRequest<WorkspaceSettings>(
-                '/api/workspace-settings',
-                {
-                    method: 'PATCH',
-                    body: JSON.stringify(payload),
-                },
-            );
-
-            await apiRequest('/api/profile/preferences', {
-                method: 'PUT',
-                body: JSON.stringify(profilePreferences),
-            });
-
-            setSettings(saved);
-            applyProfilePreferences(profilePreferences);
-
-            document.documentElement.dataset.acFinanceDecimals =
-                String(saved.decimal_places);
-
-            router.reload({
-                only: ['workspace'],
-                preserveScroll: true,
-            });
-
-            setMessage(
-                text(
-                    'تم حفظ الإعدادات وتطبيقها على النظام.',
-                    'Settings saved and applied to the system.',
-                ),
-            );
-        } catch (failure) {
-            setError(
-                errorText(
-                    failure,
-                    text('تعذر حفظ الإعدادات.', 'Could not save settings.'),
                 ),
             );
         } finally {
@@ -1762,33 +1751,26 @@ function SettingsWorkspace() {
                                 </div>
                             )}
 
-                            <div className="sticky bottom-0 z-20 mt-5 flex items-center justify-between gap-3 border-t border-[var(--acs-line)] bg-[var(--acs-bg)]/95 py-3 backdrop-blur">
+                            <div className="sticky bottom-0 z-20 mt-5 flex items-center gap-3 border-t border-[var(--acs-line)] bg-[var(--acs-bg)]/95 py-3 backdrop-blur">
                                 <div className="min-w-0 text-[10px] text-[var(--acs-text-muted)]">
-                                    {message && (
+                                    {saving ? (
+                                        <span className="inline-flex items-center gap-2 text-[var(--acs-accent)]">
+                                            <span className="size-2 animate-pulse rounded-full bg-[var(--acs-accent)]" />
+                                            {text('جارٍ الحفظ تلقائياً...', 'Saving automatically...')}
+                                        </span>
+                                    ) : message ? (
                                         <span className="inline-flex items-center gap-2 text-emerald-700">
                                             <CheckCircle2 size={14} />
                                             {message}
                                         </span>
+                                    ) : (
+                                        <span>
+                                            {text(
+                                                'أي تعديل تحفظه AccoNova تلقائياً.',
+                                                'AccoNova saves every change automatically.',
+                                            )}
+                                        </span>
                                     )}
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        className={secondaryButton}
-                                        disabled={saving}
-                                        onClick={() => window.location.reload()}
-                                    >
-                                        {text('إلغاء', 'Cancel')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={primaryButton}
-                                        disabled={saving}
-                                        onClick={() => void saveChanges()}
-                                    >
-                                        <Save size={14} />
-                                        {saving ? text('جارٍ الحفظ...', 'Saving...') : text('حفظ التغييرات', 'Save changes')}
-                                    </button>
                                 </div>
                             </div>
                         </section>
