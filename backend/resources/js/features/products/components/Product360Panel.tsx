@@ -1,5 +1,6 @@
 import { apiRequest } from '@/lib/http';
 import type { Product } from '@/features/products/types';
+import { PriceHistoryChart } from '@/features/products/components/PriceHistoryChart';
 import type { AppPageProps } from '@/types/app';
 import {
     Link,
@@ -59,6 +60,12 @@ type Product360Data = {
         name: string | null;
         quantity: string;
         total: string;
+    }>;
+    price_history: Array<{
+        date: string;
+        kind: 'sale_invoice' | 'purchase_invoice';
+        price: string;
+        count: number;
     }>;
 };
 
@@ -164,6 +171,11 @@ export function Product360Panel({
                     value={number(data.purchases.spend) + (currency ? ' ' + currency : '')}
                 />
             </div>
+
+            <PriceHistoryChart
+                points={data.price_history}
+                ar={ar}
+            />
 
             <div className="grid gap-3 lg:grid-cols-3">
                 <div className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
