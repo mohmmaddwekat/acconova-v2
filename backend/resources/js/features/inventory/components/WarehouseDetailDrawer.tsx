@@ -301,9 +301,9 @@ export function WarehouseDetailDrawer({
                 }
                 role="dialog"
                 aria-modal="true"
-                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[620px]"
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[620px]"
             >
-                <header className="shrink-0 border-b border-[var(--ac-line)] bg-white p-5 sm:p-6">
+                <header className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 items-start gap-3">
                             <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
@@ -384,7 +384,7 @@ export function WarehouseDetailDrawer({
                         />
                     </div>
 
-                    <section className="mt-6 overflow-hidden rounded-[18px] border border-[var(--ac-line)] bg-white">
+                    <section className="mt-6 overflow-hidden rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
                         <InfoRow
                             label={t(
                                 'inventory.code',
@@ -467,7 +467,7 @@ export function WarehouseDetailDrawer({
                                 placeholder={t(
                                     'inventory.searchProducts',
                                 )}
-                                className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-white pe-3 ps-9 text-sm outline-none focus:border-[var(--ac-accent)]"
+                                className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] pe-3 ps-9 text-sm outline-none focus:border-[var(--ac-accent)]"
                             />
                         </label>
 
@@ -654,7 +654,7 @@ export function WarehouseDetailDrawer({
                                             warehouse,
                                         )
                                     }
-                                    className="flex size-11 items-center justify-center rounded-[14px] bg-white text-[var(--ac-text-soft)] shadow-sm"
+                                    className="flex size-11 items-center justify-center rounded-[14px] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] shadow-sm"
                                 >
                                     <Pencil
                                         size={
@@ -701,7 +701,7 @@ export function WarehouseDetailDrawer({
                                                 warehouse,
                                             )
                                         }
-                                        className="flex size-11 items-center justify-center rounded-[14px] bg-white text-[var(--ac-text-muted)] hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)]"
+                                        className="flex size-11 items-center justify-center rounded-[14px] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)]"
                                     >
                                         <Archive
                                             size={
@@ -819,7 +819,7 @@ function Metric({
     value,
 }: MetricProps) {
     return (
-        <div className="rounded-[17px] border border-[var(--ac-line)] bg-white p-4">
+        <div className="rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
             <Icon
                 size={
                     15
