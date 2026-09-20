@@ -4,6 +4,12 @@ import {
 import {
     ActivityTimeline,
 } from '@/components/data/ActivityTimeline';
+import {
+    RecordHealth,
+} from '@/components/data/RecordHealth';
+import {
+    RecordQuickActions,
+} from '@/components/data/RecordQuickActions';
 import { ServiceOperationsPanel } from '@/features/products/components/ServiceOperationsPanel';
 import { ProductionPanel } from '@/features/products/components/ProductionPanel';
 import {
@@ -21,6 +27,7 @@ import {
 } from '@/lib/locale';
 import {
     Archive,
+    Copy,
     Package,
     Pencil,
     RotateCcw,
@@ -52,6 +59,10 @@ type ProductDetailDrawerProps = {
         product: Product,
     ) => void;
 
+    onCopy: (
+        product: Product,
+    ) => void;
+
     onRestore: (
         product: Product,
     ) => void;
@@ -71,6 +82,7 @@ export function ProductDetailDrawer({
     onClose,
     onEdit,
     onArchive,
+    onCopy,
     onRestore,
 }: ProductDetailDrawerProps) {
     const locale = useLocale();
@@ -165,6 +177,19 @@ export function ProductDetailDrawer({
                             </div>
                         </div>
 
+                        <div className="flex shrink-0 items-center gap-2">
+                            <RecordQuickActions
+                                recordKey={'product-' + String(resolvedProduct.id)}
+                                kind="product"
+                                label={resolvedProduct.name}
+                                detail={[
+                                    resolvedProduct.sku,
+                                    resolvedProduct.unit,
+                                ].filter(Boolean).join(' · ')}
+                                href={'/app/products?focus=' + String(resolvedProduct.id)}
+                                ar={locale === 'ar'}
+                            />
+
                         <button
                             type="button"
                             aria-label={t(
@@ -181,10 +206,40 @@ export function ProductDetailDrawer({
                                 }
                             />
                         </button>
+                        </div>
                     </div>
                 </header>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
+                    <div className="mb-5">
+                        <RecordHealth
+                            ar={locale === 'ar'}
+                            fields={[
+                                {
+                                    label: locale === 'ar' ? 'الاسم' : 'Name',
+                                    complete: Boolean(resolvedProduct.name?.trim()),
+                                },
+                                {
+                                    label: locale === 'ar' ? 'الوصف' : 'Description',
+                                    complete: Boolean(resolvedProduct.description?.trim()),
+                                },
+                                {
+                                    label: locale === 'ar' ? 'الوحدة' : 'Unit',
+                                    complete: Boolean(resolvedProduct.unit?.trim()),
+                                },
+                                {
+                                    label: locale === 'ar' ? 'سعر البيع' : 'Selling price',
+                                    complete: Number(resolvedProduct.unit_price) > 0,
+                                },
+                                {
+                                    label: locale === 'ar' ? 'التكلفة' : 'Cost',
+                                    complete: resolvedProduct.type === 'service'
+                                        || Number(resolvedProduct.cost_price) > 0,
+                                },
+                            ]}
+                        />
+                    </div>
+
                     <div className="grid gap-3 sm:grid-cols-2">
                         <Metric
                             label={t(
@@ -354,6 +409,22 @@ export function ProductDetailDrawer({
 
                 <footer className="shrink-0 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
                     <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                        {! archived &&
+                            canEdit && (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        onCopy(
+                                            resolvedProduct,
+                                        )
+                                    }
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 text-sm font-semibold transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                                >
+                                    <Copy size={15} />
+                                    {locale === 'ar' ? 'نسخ السجل' : 'Copy record'}
+                                </button>
+                            )}
+
                         {! archived &&
                             canEdit && (
                                 <button
