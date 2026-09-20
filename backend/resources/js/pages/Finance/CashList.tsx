@@ -1,5 +1,5 @@
 import { apiRequest } from '@/lib/http';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     Banknote,
     CalendarClock,
@@ -73,37 +73,16 @@ export function CashList({
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [paymentView, setPaymentView] = useState<'transactions' | 'recurring'>(() => {
-        if (typeof window === 'undefined') {
-            return 'transactions';
-        }
-
-        return new URLSearchParams(window.location.search).get('view') === 'recurring'
+    const inertiaUrl = usePage().url;
+    const paymentView: 'transactions' | 'recurring' =
+        ! incoming
+        && new URLSearchParams(
+            inertiaUrl.includes('?')
+                ? inertiaUrl.split('?')[1]
+                : '',
+        ).get('view') === 'recurring'
             ? 'recurring'
             : 'transactions';
-    });
-
-    function changePaymentView(
-        view: 'transactions' | 'recurring',
-    ): void {
-        setPaymentView(view);
-
-        if (typeof window !== 'undefined') {
-            const url = new URL(window.location.href);
-
-            if (view === 'recurring') {
-                url.searchParams.set('view', 'recurring');
-            } else {
-                url.searchParams.delete('view');
-            }
-
-            window.history.replaceState(
-                {},
-                '',
-                url.pathname + url.search,
-            );
-        }
-    }
 
     useEffect(() => {
         const controller = new AbortController();
@@ -337,10 +316,15 @@ export function CashList({
             {! incoming && lookups.permissions.recurring_payments_view && (
                 <div className="rounded-[16px] border border-[#dbe6f5] bg-white p-2 shadow-[0_8px_28px_rgba(30,75,140,.04)]">
                     <div className="flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            aria-pressed={paymentView === 'transactions'}
-                            onClick={() => changePaymentView('transactions')}
+                        <Link
+                            href="/app/payments"
+                            preserveScroll
+                            replace
+                            aria-current={
+                                paymentView === 'transactions'
+                                    ? 'page'
+                                    : undefined
+                            }
                             className={[
                                 'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
                                 paymentView === 'transactions'
@@ -350,12 +334,17 @@ export function CashList({
                         >
                             <WalletCards size={14} />
                             {text('الحركات', 'Transactions')}
-                        </button>
+                        </Link>
 
-                        <button
-                            type="button"
-                            aria-pressed={paymentView === 'recurring'}
-                            onClick={() => changePaymentView('recurring')}
+                        <Link
+                            href="/app/payments?view=recurring"
+                            preserveScroll
+                            replace
+                            aria-current={
+                                paymentView === 'recurring'
+                                    ? 'page'
+                                    : undefined
+                            }
                             className={[
                                 'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
                                 paymentView === 'recurring'
@@ -365,7 +354,7 @@ export function CashList({
                         >
                             <CalendarClock size={14} />
                             {text('المدفوعات المتكررة', 'Recurring payments')}
-                        </button>
+                        </Link>
                     </div>
                 </div>
             )}
