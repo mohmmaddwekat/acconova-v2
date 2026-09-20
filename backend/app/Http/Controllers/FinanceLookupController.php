@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Department;
+use App\Models\FinancialDocumentLine;
 use App\Models\GovernmentObligation;
 use App\Models\Party;
 use App\Models\Product;
@@ -16,6 +17,60 @@ use Illuminate\Http\Request;
 
 class FinanceLookupController extends Controller
 {
+    public function referencePrice(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'party_id' => ['required', 'integer'],
+            'product_id' => ['required', 'integer'],
+            'kind' => ['required', 'in:sale_invoice,purchase_invoice'],
+        ]);
+
+        FinanceAuthorization::authorize(
+            $request->user(),
+            $data['kind'] === 'sale_invoice'
+                ? 'finance.sales.view'
+                : 'finance.purchases.view',
+        );
+
+        $party = Party::query()
+            ->usableForNewBusiness()
+            ->findOrFail((int) $data['party_id']);
+
+        $product = Product::query()
+            ->usableForNewBusiness()
+            ->findOrFail((int) $data['product_id']);
+
+        $line = FinancialDocumentLine::query()
+            ->with('document:id,party_id,kind,number,issue_date,status')
+            ->where('product_id', $product->id)
+            ->whereHas('document', function ($query) use ($party, $data): void {
+                $query
+                    ->where('party_id', $party->id)
+                    ->where('kind', $data['kind'])
+                    ->whereIn('status', ['issued', 'partially_paid', 'paid', 'overpaid']);
+            })
+            ->latest('id')
+            ->first();
+
+        if ($line) {
+            return response()->json([
+                'source' => 'party_history',
+                'unit_price' => $line->unit_price,
+                'document_number' => $line->document?->number,
+                'issue_date' => $line->document?->issue_date?->format('Y-m-d'),
+            ]);
+        }
+
+        return response()->json([
+            'source' => 'catalog',
+            'unit_price' => $data['kind'] === 'sale_invoice'
+                ? $product->unit_price
+                : $product->cost_price,
+            'document_number' => null,
+            'issue_date' => null,
+        ]);
+    }
+
     public function __invoke(Request $request): JsonResponse
     {
         abort_unless(
