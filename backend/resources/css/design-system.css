@@ -23,6 +23,16 @@
     --ac-text-faint: #a8b1ad;
 
     /*
+     * High-contrast inverse controls. Some legacy components used
+     * --ac-text as a button background; these dedicated tokens keep those
+     * controls readable when the text palette flips in dark mode.
+     */
+    --ac-inverse-bg: #19231f;
+    --ac-inverse-text: #ffffff;
+    --ac-accent-solid: #145b46;
+    --ac-accent-solid-text: #ffffff;
+
+    /*
      * AccoNova accent
      */
     --ac-accent: #43c99a;
@@ -733,6 +743,10 @@ html[data-ac-resolved-theme='dark'] {
     --ac-text-soft: #bdcbc3;
     --ac-text-muted: #91a39a;
     --ac-text-faint: #708078;
+    --ac-inverse-bg: #e7f0eb;
+    --ac-inverse-text: #132019;
+    --ac-accent-solid: #176b4d;
+    --ac-accent-solid-text: #ffffff;
     --ac-accent-soft: rgba(67, 201, 154, 0.16);
     --ac-accent-strong: #78e0bb;
     --ac-shadow-soft:
@@ -918,6 +932,31 @@ html[data-ac-resolved-theme='dark']
         .text-gray-300
     ) {
     color: var(--ac-text-muted) !important;
+}
+
+/*
+ * Legacy inverse buttons used the text variable as their fill. In dark mode
+ * --ac-text becomes near-white, so without this mapping they become
+ * white-on-white. Preserve the intended high-contrast inverse treatment.
+ */
+html[data-ac-resolved-theme='dark']
+    [class~="bg-[var(--ac-text)]"] {
+    background-color: var(--ac-inverse-bg) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    [class~="bg-[var(--ac-text)]"][class~="text-white"] {
+    color: var(--ac-inverse-text) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    [class~="bg-[var(--ac-accent-strong)]"] {
+    background-color: var(--ac-accent-solid) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    [class~="bg-[var(--ac-accent-strong)]"][class~="text-white"] {
+    color: var(--ac-accent-solid-text) !important;
 }
 
 /* Light gradients must resolve to dark surfaces too. */
