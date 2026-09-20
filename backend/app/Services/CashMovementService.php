@@ -319,6 +319,8 @@ class CashMovementService
             $locked->updated_by = $actorId;
             $locked->save();
 
+            $this->refreshLinkedBalances($locked);
+
             $this->audit->record(
                 $locked,
                 'check_status_changed',
@@ -436,6 +438,12 @@ class CashMovementService
             ->where('government_obligation_id', $obligation->id)
             ->where('direction', 'outgoing')
             ->where('status', 'posted')
+            ->where(function ($query): void {
+                $query
+                    ->where('method', '!=', 'check')
+                    ->orWhereNull('check_status')
+                    ->orWhereNotIn('check_status', ['bounced', 'cancelled']);
+            })
             ->sum('amount');
 
         $amount = (float) $obligation->amount;
