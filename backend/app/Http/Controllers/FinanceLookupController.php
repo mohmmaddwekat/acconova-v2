@@ -41,6 +41,23 @@ class FinanceLookupController extends Controller
             ->usableForNewBusiness()
             ->findOrFail((int) $data['product_id']);
 
+        if ($data['kind'] === 'sale_invoice') {
+            $override = \Illuminate\Support\Facades\DB::table('party_product_prices')
+                ->where('organization_id', app(TenantContext::class)->id())
+                ->where('party_id', $party->id)
+                ->where('product_id', $product->id)
+                ->first();
+
+            if ($override) {
+                return response()->json([
+                    'source' => 'party_override',
+                    'unit_price' => $override->unit_price,
+                    'document_number' => null,
+                    'issue_date' => null,
+                ]);
+            }
+        }
+
         $document = FinancialDocument::query()
             ->where('party_id', $party->id)
             ->where('kind', $data['kind'])
