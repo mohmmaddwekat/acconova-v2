@@ -111,7 +111,9 @@ export function RecordQuickActions({
                     : 'Previous record'}
                 className="flex size-9 items-center justify-center rounded-[11px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-surface-soft)] disabled:opacity-35"
             >
-                <ArrowRight size={14} />
+                {ar
+                    ? <ArrowRight size={14} />
+                    : <ArrowLeft size={14} />}
             </button>
 
             <button
@@ -127,7 +129,9 @@ export function RecordQuickActions({
                     : 'Next record'}
                 className="flex size-9 items-center justify-center rounded-[11px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-surface-soft)] disabled:opacity-35"
             >
-                <ArrowLeft size={14} />
+                {ar
+                    ? <ArrowLeft size={14} />
+                    : <ArrowRight size={14} />}
             </button>
 
             <button
