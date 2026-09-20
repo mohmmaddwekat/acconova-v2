@@ -1,3 +1,6 @@
+import {
+    RecordCollaborationPanel,
+} from '@/components/data/RecordCollaborationPanel';
 import { apiRequest } from '@/lib/http';
 import { RecordQuickActions } from '@/components/data/RecordQuickActions';
 import { Link } from '@inertiajs/react';
@@ -19,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DocumentForm } from './DocumentForm';
+import { InvoiceAutomationActions } from './InvoiceAutomationActions';
 import {
     FPanel,
     FinanceHeader,
@@ -639,7 +643,7 @@ export function DocumentDetail({
                 actions={
                     <>
                         <RecordQuickActions
-                            recordKey={(sales ? 'sale-invoice-' : 'purchase-invoice-') + String(document.id)}
+                            recordKey={(sales ? 'sale-invoice-' : 'purchase-invoice-') + String(document.id)
                             kind={sales ? 'sale_invoice' : 'purchase_invoice'}
                             label={document.number}
                             detail={[
@@ -653,6 +657,13 @@ export function DocumentDetail({
                                 + String(document.id)
                             }
                             ar={ar}
+                        />
+
+                        <InvoiceAutomationActions
+                            documentId={document.id}
+                            ar={ar}
+                            canManage={canCopy}
+                            onError={setError}
                         />
 
                         {canCopy && (
@@ -1631,6 +1642,16 @@ export function DocumentDetail({
                     )}
                 </aside>
             </div>
+
+            <RecordCollaborationPanel
+                type="document"
+                recordId={document.id}
+                ar={ar}
+                title={text(
+                    'تعليقات ومرفقات الفاتورة',
+                    'Invoice comments & attachments',
+                )}
+            />
         </div>
 
             <InvoicePrintView
