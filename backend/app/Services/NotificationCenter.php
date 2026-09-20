@@ -100,6 +100,8 @@ class NotificationCenter
 
     public function syncDue(int $organizationId): void
     {
+        $this->syncRecordReminders($organizationId);
+
         PaymentPlan::withoutGlobalScopes()->where('organization_id', $organizationId)->where('active', true)
             ->whereDate('next_due_on', '<=', today()->addDays(30))->chunkById(100, function ($plans) use ($organizationId): void {
                 foreach ($plans as $plan) {
@@ -116,5 +118,79 @@ class NotificationCenter
                         route('app.payments'), true);
                 }
             });
+    }
+
+    private function syncRecordReminders(int $organizationId): void
+    {
+        DB::table('record_reminders')
+            ->where('organization_id', $organizationId)
+            ->whereNull('completed_at')
+            ->whereNull('notified_at')
+            ->where('due_at', '<=', now())
+            ->orderBy('id')
+            ->limit(200)
+            ->get()
+            ->each(function ($reminder) use ($organizationId): void {
+                $url = $this->recordUrl(
+                    (string) $reminder->record_type,
+                    (int) $reminder->record_id,
+                );
+
+                DB::table('workspace_notifications')->insertOrIgnore([
+                    'organization_id' => $organizationId,
+                    'user_id' => $reminder->user_id,
+                    'event_key' => 'record-reminder:'.$reminder->id,
+                    'kind' => 'follow_up_due',
+                    'category' => 'activity',
+                    'data' => json_encode([
+                        'name' => $reminder->note ?: 'Follow-up reminder',
+                        'detail' => $reminder->due_at,
+                    ], JSON_THROW_ON_ERROR),
+                    'url' => $url,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                DB::table('record_reminders')
+                    ->where('id', $reminder->id)
+                    ->update([
+                        'notified_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            });
+    }
+
+    private function recordUrl(string $type, int $recordId): string
+    {
+        if ($type === 'party') {
+            return '/app/parties?focus='.$recordId;
+        }
+
+        if ($type === 'product') {
+            return '/app/products?focus='.$recordId;
+        }
+
+        if ($type === 'staff') {
+            return '/app/staff/directory?staff='.$recordId;
+        }
+
+        if ($type === 'task') {
+            return '/app/task-management/'.$recordId;
+        }
+
+        if ($type === 'document') {
+            $document = DB::table('financial_documents')
+                ->where('organization_id', app(\App\Tenancy\TenantContext::class)->id())
+                ->where('id', $recordId)
+                ->first(['id', 'kind']);
+
+            if ($document) {
+                return $document->kind === 'sale_invoice'
+                    ? '/app/invoices/sales/'.$recordId
+                    : '/app/invoices/purchases/'.$recordId;
+            }
+        }
+
+        return '/app';
     }
 }
