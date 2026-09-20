@@ -139,8 +139,8 @@ export function CashDetail({
 
             window.location.assign(
                 incoming
-                    ? '/app/receipts/' + response.data.id
-                    : '/app/payments/' + response.data.id,
+                    ? '/app/finance?view=receipt-detail&id=' + response.data.id
+                    : '/app/finance?view=payment-detail&id=' + response.data.id,
             );
         } catch (failure) {
             setError(apiErrorText(failure));
