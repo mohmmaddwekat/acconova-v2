@@ -569,6 +569,10 @@ export function DocumentDetail({
                         'Discount',
                     ),
                     text(
+                        'نوع الخصم',
+                        'Discount type',
+                    ),
+                    text(
                         'الضريبة',
                         'Tax',
                     ),
@@ -585,6 +589,9 @@ export function DocumentDetail({
                         line.quantity,
                         line.unit_price,
                         line.line_discount,
+                        line.discount_type === 'fixed'
+                            ? text('مبلغ ثابت', 'Fixed amount')
+                            : String(line.discount_value) + '%',
                         line.line_tax,
                         line.line_total,
                     ],
@@ -1041,6 +1048,26 @@ export function DocumentDetail({
                                                         }
                                                         compact
                                                     />
+
+                                                    {Number(
+                                                        line.line_discount
+                                                        ?? 0,
+                                                    ) > 0 && (
+                                                        <span className="mt-1 block text-[9px] font-medium text-slate-400">
+                                                            {line.discount_type ===
+                                                            'fixed'
+                                                                ? text(
+                                                                    'مبلغ ثابت',
+                                                                    'Fixed amount',
+                                                                )
+                                                                : (
+                                                                    String(
+                                                                        line.discount_value,
+                                                                    )
+                                                                    + '%'
+                                                                )}
+                                                        </span>
+                                                    )}
                                                 </td>
 
                                                 <td className="px-3 py-3">
