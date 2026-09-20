@@ -17,7 +17,15 @@ class FinanceLookupController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        FinanceAuthorization::authorize($request->user(), 'finance.sales.view');
+        abort_unless(
+            collect([
+                'finance.sales.view',
+                'finance.purchases.view',
+                'finance.cash.view',
+                'finance.taxes.view',
+            ])->contains(fn (string $permission): bool => FinanceAuthorization::allows($request->user(), $permission)),
+            403,
+        );
 
         $parties = Party::query()
             ->usableForNewBusiness()
