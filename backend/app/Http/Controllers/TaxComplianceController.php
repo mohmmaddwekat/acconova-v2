@@ -72,6 +72,11 @@ class TaxComplianceController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
+        $data['currency'] = strtoupper((string) (
+            app(TenantContext::class)->organization()->preferences['currency']
+            ?? 'ILS'
+        ));
+
         if ($data['tax_rule_id'] ?? null) {
             TaxRule::query()->findOrFail($data['tax_rule_id']);
         }
