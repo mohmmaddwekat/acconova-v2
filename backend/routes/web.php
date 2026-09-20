@@ -270,6 +270,11 @@ Route::middleware([
     );
 
     Route::get(
+        '/app/finance',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'hub']),
+    )->name('app.finance');
+
+    Route::get(
         '/app/invoices',
         fn () => Inertia::render('Finance/Index', ['financeView' => 'sales-list']),
     )->name('app.invoices');
@@ -574,6 +579,8 @@ Route::prefix(
         Route::post('finance/documents/{document}/issue', [FinanceDocumentController::class, 'issue'])->whereNumber('document');
         Route::post('finance/documents/{document}/correct', [FinanceDocumentController::class, 'correct'])->whereNumber('document');
         Route::post('finance/documents/{document}/void', [FinanceDocumentController::class, 'void'])->whereNumber('document');
+        Route::get('finance/documents/{document}/available-credits', [FinanceDocumentController::class, 'availableCredits'])->whereNumber('document');
+        Route::post('finance/documents/{document}/apply-credit', [FinanceDocumentController::class, 'applyCredit'])->whereNumber('document');
 
         Route::get('finance/cash-movements', [CashMovementController::class, 'index']);
         Route::post('finance/cash-movements', [CashMovementController::class, 'store']);

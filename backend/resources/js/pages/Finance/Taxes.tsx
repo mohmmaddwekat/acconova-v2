@@ -594,7 +594,19 @@ export function Taxes({
 
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {text('العملة', 'Currency')}
-                                <input required maxLength={3} name="currency" defaultValue={data?.currency ?? lookups.currency} className={financeInput + ' mt-2'} />
+                                <input
+                                    required
+                                    readOnly
+                                    aria-readonly="true"
+                                    maxLength={3}
+                                    name="currency"
+                                    value={data?.currency ?? lookups.currency}
+                                    className={financeInput + ' mt-2'}
+                                    title={text(
+                                        'العملة محددة من إعدادات مساحة العمل',
+                                        'Currency is controlled by workspace settings',
+                                    )}
+                                />
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f] md:col-span-2 xl:col-span-4">

@@ -1,4 +1,5 @@
 export type FinanceView =
+    | 'hub'
     | 'sales-list'
     | 'sales-create'
     | 'sales-detail'
@@ -134,6 +135,7 @@ export type DocumentLine = {
     unit: string;
     quantity: string;
     unit_price: string;
+    price_status: 'estimated' | 'final';
     discount_percent: string;
     tax_name?: string | null;
     tax_rate: string;

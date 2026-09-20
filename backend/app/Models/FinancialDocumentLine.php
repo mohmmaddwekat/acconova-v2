@@ -21,6 +21,7 @@ class FinancialDocumentLine extends Model
         'unit_snapshot',
         'quantity',
         'unit_price',
+        'price_status',
         'discount_percent',
         'tax_name_snapshot',
         'tax_rate',

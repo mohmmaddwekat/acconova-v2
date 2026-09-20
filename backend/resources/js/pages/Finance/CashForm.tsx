@@ -1,5 +1,7 @@
 import { apiRequest } from '@/lib/http';
+import { Link } from '@inertiajs/react';
 import {
+    ArrowLeft,
     Banknote,
     Building2,
     CalendarDays,
@@ -69,7 +71,7 @@ export function CashForm({
             ?? (incoming ? 'customer_receipt' : 'supplier_payment'),
     );
     const [amount, setAmount] = useState(initial?.amount ?? '0');
-    const [currency, setCurrency] = useState(initial?.currency ?? lookups.currency);
+    const currency = lookups.currency;
     const [movementDate, setMovementDate] = useState(
         initial?.movement_date ?? todayValue(),
     );
@@ -138,7 +140,6 @@ export function CashForm({
                     }
 
                     setPartyId(document.party?.id ? String(document.party.id) : '');
-                    setCurrency(document.currency);
                     setAmount(document.balance_due);
                     setCategory(incoming ? 'customer_receipt' : 'supplier_payment');
                     setAllocations([
@@ -167,7 +168,6 @@ export function CashForm({
                         : 'government_fee',
                 );
                 setAmount(obligation.balance_due);
-                setCurrency(obligation.currency);
                 setReference(obligation.authority_name);
             }
         }
@@ -265,7 +265,6 @@ export function CashForm({
         }
 
         if (! allocations.length) {
-            setCurrency(document.currency);
         }
 
         const remainingAmount = Math.max(
@@ -329,8 +328,43 @@ export function CashForm({
             return;
         }
 
+        if (
+            ['customer_receipt', 'supplier_payment'].includes(category)
+            && ! partyId
+        ) {
+            setError(
+                text(
+                    incoming
+                        ? 'اختر عميلاً مسجلاً حتى نحفظ أي مبلغ زائد أو دفعة مقدمة كرصيد له.'
+                        : 'اختر مورداً مسجلاً حتى نحفظ أي مبلغ زائد أو دفعة مقدمة كرصيد له.',
+                    incoming
+                        ? 'Select a saved customer so any overpayment or advance is kept as their credit.'
+                        : 'Select a saved supplier so any overpayment or advance is kept as their credit.',
+                ),
+            );
+            return;
+        }
+
         if ((Number(amount) || 0) <= 0) {
             setError(text('أدخل مبلغاً صحيحاً.', 'Enter a valid amount.'));
+            return;
+        }
+
+        const overAllocatedInvoice =
+            allocations.find(
+                allocation =>
+                    (Number(allocation.amount) || 0)
+                    > (Number(allocation.document_balance_due) || 0)
+                        + 0.00005,
+            );
+
+        if (overAllocatedInvoice) {
+            setError(
+                text(
+                    'المبلغ المخصص للفاتورة لا يمكن أن يتجاوز المتبقي عليها. أي مبلغ زائد سيبقى تلقائياً رصيداً مقدماً للطرف.',
+                    'An invoice allocation cannot exceed its outstanding balance. Any extra amount will remain as advance credit for the party.',
+                ),
+            );
             return;
         }
 
@@ -419,7 +453,7 @@ export function CashForm({
     }
 
     const incomingCategories = [
-        ['customer_receipt', text('تحصيل فواتير بيع', 'Sales invoice collection')],
+        ['customer_receipt', text('دفعة عميل / تحصيل / دفعة مقدمة', 'Customer payment / collection / advance')],
         ['capital', text('تمويل أو رأس مال', 'Capital / funding')],
         ['loan', text('قرض مستلم', 'Loan received')],
         ['asset_sale', text('بيع أصل', 'Asset sale')],
@@ -429,12 +463,11 @@ export function CashForm({
     ];
 
     const outgoingCategories = [
-        ['supplier_payment', text('دفعة مورد', 'Supplier payment')],
+        ['supplier_payment', text('دفعة مورد / دفعة مقدمة', 'Supplier payment / advance')],
         ['raw_material', text('مواد خام', 'Raw materials')],
         ['goods_for_resale', text('بضائع لإعادة البيع', 'Goods for resale')],
         ['packaging', text('تعبئة وتغليف', 'Packaging')],
         ['operating_expense', text('مصروف تشغيلي', 'Operating expense')],
-        ['payroll', text('رواتب', 'Payroll')],
         ['rent', text('إيجار', 'Rent')],
         ['utilities', text('كهرباء ومياه', 'Utilities')],
         ['shipping_customs', text('شحن وجمارك', 'Freight & customs')],
@@ -482,6 +515,14 @@ export function CashForm({
                 }
                 actions={
                     <>
+                        <Link
+                            href={incoming ? '/app/receipts' : '/app/payments'}
+                            className={financeButton}
+                        >
+                            <ArrowLeft size={15} className="rtl:rotate-180" />
+                            {text('رجوع', 'Back')}
+                        </Link>
+
                         <button
                             type="button"
                             className={financeButton}
@@ -515,6 +556,13 @@ export function CashForm({
                 </div>
             )}
 
+            <div className="rounded-[14px] border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-blue-700">
+                {text(
+                    'الحقول التي تحمل علامة * مطلوبة. الحقول الأخرى اختيارية، وبيانات الشيك تصبح مطلوبة فقط عند اختيار شيك.',
+                    'Fields marked * are required. Other fields are optional; check details become required only when Check is selected.',
+                )}
+            </div>
+
             {initial?.correction_reason && (
                 <div className="rounded-[14px] border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
                     <strong>{text('مسودة تصحيح:', 'Correction draft:')}</strong>{' '}
@@ -537,8 +585,8 @@ export function CashForm({
                         <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {incoming
-                                    ? text('مصدر المقبوض', 'Receipt source')
-                                    : text('فئة الدفع', 'Payment category')}
+                                    ? text('مصدر المقبوض *', 'Receipt source *')
+                                    : text('فئة الدفع *', 'Payment category *')}
                                 <select
                                     className={financeInput + ' mt-2'}
                                     value={category}
@@ -558,8 +606,22 @@ export function CashForm({
 
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {incoming
-                                    ? text('العميل / المصدر', 'Customer / source')
-                                    : text('المستفيد / المورد', 'Beneficiary / supplier')}
+                                    ? text(
+                                        category === 'customer_receipt'
+                                            ? 'العميل *'
+                                            : 'العميل / المصدر',
+                                        category === 'customer_receipt'
+                                            ? 'Customer *'
+                                            : 'Customer / source',
+                                    )
+                                    : text(
+                                        category === 'supplier_payment'
+                                            ? 'المورد *'
+                                            : 'المستفيد / المورد',
+                                        category === 'supplier_payment'
+                                            ? 'Supplier *'
+                                            : 'Beneficiary / supplier',
+                                    )}
                                 <select
                                     className={financeInput + ' mt-2'}
                                     value={partyId}
@@ -577,7 +639,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('المبلغ', 'Amount')}
+                                {text('المبلغ *', 'Amount *')}
                                 <input
                                     type="number"
                                     min="0.0001"
@@ -594,12 +656,17 @@ export function CashForm({
                                     className={financeInput + ' mt-2'}
                                     maxLength={3}
                                     value={currency}
-                                    onChange={(event) => setCurrency(event.target.value.toUpperCase())}
+                                    readOnly
+                                    aria-readonly="true"
+                                    title={text(
+                                        'العملة محددة من إعدادات مساحة العمل',
+                                        'Currency is controlled by workspace settings',
+                                    )}
                                 />
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('تاريخ الحركة', 'Movement date')}
+                                {text('تاريخ الحركة *', 'Movement date *')}
                                 <input
                                     type="date"
                                     className={financeInput + ' mt-2'}
@@ -609,7 +676,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('طريقة الدفع / القبض', 'Payment method')}
+                                {text('طريقة الدفع / القبض *', 'Payment method *')}
                                 <select
                                     className={financeInput + ' mt-2'}
                                     value={method}
@@ -622,7 +689,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('الحساب / الصندوق', 'Account / cash box')}
+                                {text('الحساب / الصندوق (اختياري)', 'Account / cash box (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
                                     value={accountLabel}
@@ -632,7 +699,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('رقم المرجع', 'Reference')}
+                                {text('رقم المرجع (اختياري)', 'Reference (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
                                     value={reference}
@@ -641,7 +708,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('القسم', 'Department')}
+                                {text('القسم (اختياري)', 'Department (optional)')}
                                 <select
                                     className={financeInput + ' mt-2'}
                                     value={departmentId}
@@ -657,7 +724,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('الفرع / الموقع', 'Branch / location')}
+                                {text('الفرع / الموقع (اختياري)', 'Branch / location (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
                                     value={branchLabel}
@@ -666,7 +733,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('مركز التكلفة', 'Cost center')}
+                                {text('مركز التكلفة (اختياري)', 'Cost center (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
                                     value={costCenter}
@@ -676,7 +743,7 @@ export function CashForm({
 
                             {! incoming && (
                                 <label className="text-xs font-semibold text-[#49698f]">
-                                    {text('مستحق حكومي مرتبط', 'Government obligation')}
+                                    {text('مستحق حكومي مرتبط (اختياري)', 'Government obligation (optional)')}
                                     <select
                                         className={financeInput + ' mt-2'}
                                         value={governmentObligationId}
@@ -689,7 +756,6 @@ export function CashForm({
 
                                             if (obligation) {
                                                 setAmount(obligation.balance_due);
-                                                setCurrency(obligation.currency);
                                                 setCategory('tax_payment');
                                                 setReference(obligation.authority_name);
                                             }
@@ -698,7 +764,9 @@ export function CashForm({
                                         <option value="">
                                             {text('بدون مستحق حكومي', 'No government obligation')}
                                         </option>
-                                        {lookups.government_obligations.map((obligation) => (
+                                        {lookups.government_obligations
+                                            .filter((obligation) => obligation.currency === currency)
+                                            .map((obligation) => (
                                             <option key={obligation.id} value={obligation.id}>
                                                 {obligation.title} · {obligation.authority_name} · {obligation.balance_due} {obligation.currency}
                                             </option>
@@ -716,7 +784,7 @@ export function CashForm({
                         >
                             <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
                                 <label className="text-xs font-semibold text-[#49698f]">
-                                    {text('رقم الشيك', 'Check number')}
+                                    {text('رقم الشيك *', 'Check number *')}
                                     <input
                                         className={financeInput + ' mt-2'}
                                         value={checkNumber}
@@ -725,7 +793,7 @@ export function CashForm({
                                 </label>
 
                                 <label className="text-xs font-semibold text-[#49698f]">
-                                    {text('البنك', 'Bank')}
+                                    {text('البنك *', 'Bank *')}
                                     <input
                                         className={financeInput + ' mt-2'}
                                         value={checkBank}
@@ -734,7 +802,7 @@ export function CashForm({
                                 </label>
 
                                 <label className="text-xs font-semibold text-[#49698f]">
-                                    {text('تاريخ الاستحقاق', 'Due date')}
+                                    {text('تاريخ الاستحقاق *', 'Due date *')}
                                     <input
                                         type="date"
                                         className={financeInput + ' mt-2'}
@@ -854,6 +922,7 @@ export function CashForm({
                                                         <input
                                                             type="number"
                                                             min="0"
+                                                            max={allocation.document_balance_due}
                                                             step="0.0001"
                                                             className={financeInput + ' max-w-36'}
                                                             value={allocation.amount}
@@ -934,7 +1003,13 @@ export function CashForm({
                                 className="text-emerald-600"
                             />
                             <SummaryLine
-                                label={text('غير المخصص', 'Unallocated')}
+                                label={
+                                    incoming && selectedParty && category === 'customer_receipt'
+                                        ? text('رصيد مقدم للعميل', 'Customer advance credit')
+                                        : ! incoming && selectedParty && category === 'supplier_payment'
+                                          ? text('دفعة مقدمة للمورد', 'Supplier advance credit')
+                                          : text('غير المخصص', 'Unallocated')
+                                }
                                 value={String(unallocated)}
                                 currency={currency}
                                 className={unallocated > 0 ? 'text-amber-600' : 'text-emerald-600'}
@@ -942,6 +1017,32 @@ export function CashForm({
                             />
                         </div>
                     </FPanel>
+
+                    {unallocated > 0
+                        && selectedParty
+                        && (
+                            (incoming && category === 'customer_receipt')
+                            || (! incoming && category === 'supplier_payment')
+                        ) && (
+                        <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4 text-xs leading-6 text-emerald-800">
+                            <strong>
+                                {incoming
+                                    ? text('رصيد عميل محفوظ', 'Saved customer credit')
+                                    : text('دفعة مورد مقدمة محفوظة', 'Saved supplier advance')}
+                            </strong>
+                            <p className="mt-1">
+                                {incoming
+                                    ? text(
+                                        'سيبقى هذا المبلغ رصيداً مقدماً باسم العميل ويمكن استخدامه لاحقاً على فاتورة جديدة.',
+                                        'This amount remains as customer credit and can be applied to a future invoice.',
+                                    )
+                                    : text(
+                                        'سيبقى هذا المبلغ دفعة مقدمة باسم المورد ويمكن ربطه لاحقاً بفاتورة شراء.',
+                                        'This amount remains as a supplier advance and can be linked to a future purchase invoice.',
+                                    )}
+                            </p>
+                        </div>
+                    )}
 
                     <FPanel
                         title={incoming ? text('معلومات المصدر', 'Source information') : text('معلومات المستفيد', 'Beneficiary information')}

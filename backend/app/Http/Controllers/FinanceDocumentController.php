@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CashMovement;
 use App\Models\FinanceAuditEvent;
 use App\Models\FinancialDocument;
+use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -99,6 +102,106 @@ class FinanceDocumentController extends Controller
                     'created_by' => $event->created_by,
                     'created_at' => $event->created_at?->toIso8601String(),
                 ]),
+        ]);
+    }
+
+    public function availableCredits(Request $request, string $document): JsonResponse
+    {
+        $document = FinancialDocument::query()->findOrFail($document);
+        $this->authorizeKind($request, $document->kind, false);
+        FinanceAuthorization::authorize($request->user(), 'finance.cash.view');
+
+        if (! $document->party_id || ! in_array($document->status, ['issued', 'partially_paid'], true)) {
+            return response()->json(['data' => []]);
+        }
+
+        $direction = $document->isSale() ? 'incoming' : 'outgoing';
+        $category = $document->isSale() ? 'customer_receipt' : 'supplier_payment';
+
+        $credits = CashMovement::query()
+            ->with('allocations:id,cash_movement_id,financial_document_id,amount')
+            ->where('party_id', $document->party_id)
+            ->where('direction', $direction)
+            ->where('category', $category)
+            ->where('currency', $document->currency)
+            ->where('status', 'posted')
+            ->whereNull('reversal_of_id')
+            ->where(function ($query): void {
+                $query
+                    ->where('method', '!=', 'check')
+                    ->orWhereNull('check_status')
+                    ->orWhereNotIn('check_status', ['bounced', 'cancelled']);
+            })
+            ->latest('movement_date')
+            ->latest('id')
+            ->limit(100)
+            ->get()
+            ->map(function (CashMovement $movement): ?array {
+                $allocated = (float) $movement->allocations
+                    ->sum(fn ($allocation): float => (float) $allocation->amount);
+                $available = max((float) $movement->amount - $allocated, 0);
+
+                if ($available <= 0.00005) {
+                    return null;
+                }
+
+                return [
+                    'id' => $movement->id,
+                    'number' => $movement->number,
+                    'movement_date' => $movement->movement_date->format('Y-m-d'),
+                    'method' => $movement->method,
+                    'amount' => $movement->amount,
+                    'allocated' => number_format($allocated, 4, '.', ''),
+                    'available' => number_format($available, 4, '.', ''),
+                    'currency' => $movement->currency,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        return response()->json(['data' => $credits]);
+    }
+
+    public function applyCredit(
+        Request $request,
+        string $document,
+        CashMovementService $cashService,
+        FinanceDocumentService $documentService,
+    ): JsonResponse {
+        $document = FinancialDocument::query()->findOrFail($document);
+        $this->authorizeKind($request, $document->kind, true);
+        FinanceAuthorization::authorize(
+            $request->user(),
+            $document->isSale() ? 'finance.cash.receive' : 'finance.cash.pay',
+        );
+
+        $data = $request->validate([
+            'movement_id' => ['required', 'integer'],
+            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999'],
+        ]);
+
+        $movement = CashMovement::query()->findOrFail((int) $data['movement_id']);
+
+        $cashService->applyAvailableCredit(
+            $movement,
+            $document,
+            (string) $data['amount'],
+            $request->user()->id,
+        );
+
+        $document = FinancialDocument::query()->findOrFail($document->id);
+        $document->load([
+            'party.roles',
+            'warehouse',
+            'department',
+            'lines.product',
+            'lines.warehouse',
+            'lines.taxRule',
+            'allocations.movement',
+        ]);
+
+        return response()->json([
+            'data' => $this->detail($document, $documentService),
         ]);
     }
 
@@ -205,6 +308,7 @@ class FinanceDocumentController extends Controller
             'lines.*.unit' => ['nullable', 'string', 'max:80'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999999'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0', 'max:999999999999'],
+            'lines.*.price_status' => ['nullable', Rule::in(['estimated', 'final'])],
             'lines.*.discount_percent' => ['nullable', 'numeric', 'between:0,100'],
             'lines.*.tax_rate' => ['nullable', 'numeric', 'between:0,100'],
             'lines.*.affects_inventory' => ['sometimes', 'boolean'],
@@ -213,6 +317,10 @@ class FinanceDocumentController extends Controller
         if ($forcedKind) {
             $data['kind'] = $forcedKind;
         }
+
+        $organization = app(TenantContext::class)->organization();
+        $data['currency'] = strtoupper((string) ($organization->preferences['currency'] ?? 'ILS'));
+        $data['exchange_rate'] = '1';
 
         return $data;
     }
@@ -293,6 +401,7 @@ class FinanceDocumentController extends Controller
                 'unit' => $line->unit_snapshot,
                 'quantity' => $line->quantity,
                 'unit_price' => $line->unit_price,
+                'price_status' => $line->price_status,
                 'discount_percent' => $line->discount_percent,
                 'tax_name' => $line->tax_name_snapshot,
                 'tax_rate' => $line->tax_rate,

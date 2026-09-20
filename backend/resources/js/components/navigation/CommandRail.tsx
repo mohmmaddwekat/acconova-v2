@@ -10,13 +10,10 @@ import {
     usePage,
 } from '@inertiajs/react';
 import {
-    Banknote,
     Boxes,
     ContactRound,
     Factory,
     Gauge,
-    HandCoins,
-    Landmark,
     ListTodo,
     PanelLeftClose,
     PanelLeftOpen,
@@ -76,6 +73,24 @@ function destinationIsActive(
     ) {
         return currentUrl ===
             '/app';
+    }
+
+    if (
+        href ===
+        '/app/finance'
+    ) {
+        return currentUrl.startsWith(
+            '/app/finance',
+        )
+            || currentUrl.startsWith(
+                '/app/invoices',
+            )
+            || currentUrl.startsWith(
+                '/app/payments',
+            )
+            || currentUrl.startsWith(
+                '/app/receipts',
+            );
     }
 
     if (
@@ -292,76 +307,6 @@ export function CommandRail({
               )
             : builtinFinanceAccess;
 
-    if (
-        canViewSalesInvoices
-        || canViewPurchaseInvoices
-    ) {
-        navigationItems.push({
-            label:
-                locale ===
-                'ar'
-                    ? 'الفواتير'
-                    : 'Invoices',
-
-            description:
-                locale ===
-                'ar'
-                    ? 'فواتير البيع والشراء'
-                    : 'Sales & purchase invoices',
-
-            href:
-                canViewSalesInvoices
-                    ? '/app/invoices'
-                    : '/app/invoices/purchases',
-
-            icon:
-                ReceiptText,
-        });
-    }
-
-    if (canViewCash) {
-        navigationItems.push(
-            {
-                label:
-                    locale ===
-                    'ar'
-                        ? 'المدفوعات'
-                        : 'Payments',
-
-                description:
-                    locale ===
-                    'ar'
-                        ? 'الصرف والمصاريف والسداد'
-                        : 'Outgoing cash & expenses',
-
-                href:
-                    '/app/payments',
-
-                icon:
-                    Banknote,
-            },
-            {
-                label:
-                    locale ===
-                    'ar'
-                        ? 'المقبوضات'
-                        : 'Receipts',
-
-                description:
-                    locale ===
-                    'ar'
-                        ? 'التحصيل والتدفقات الواردة'
-                        : 'Collections & incoming cash',
-
-                href:
-                    '/app/receipts',
-
-                icon:
-                    HandCoins,
-            },
-        );
-    }
-
     const canViewTaxes =
         customPermissions
             ? customPermissions.includes(
@@ -369,25 +314,31 @@ export function CommandRail({
               )
             : builtinFinanceAccess;
 
-    if (canViewTaxes) {
+    const canViewFinance =
+        canViewSalesInvoices
+        || canViewPurchaseInvoices
+        || canViewCash
+        || canViewTaxes;
+
+    if (canViewFinance) {
         navigationItems.push({
             label:
                 locale ===
                 'ar'
-                    ? 'الضرائب والمستحقات'
-                    : 'Taxes & Obligations',
+                    ? 'المالية'
+                    : 'Finance',
 
             description:
                 locale ===
                 'ar'
-                    ? 'القواعد الضريبية والجهات الحكومية'
-                    : 'Tax rules & government dues',
+                    ? 'الفواتير والقبض والدفع والضرائب'
+                    : 'Invoices, cash & taxes',
 
             href:
-                '/app/finance/taxes',
+                '/app/finance',
 
             icon:
-                Landmark,
+                ReceiptText,
         });
     }
 

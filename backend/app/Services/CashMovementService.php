@@ -314,6 +314,153 @@ class CashMovementService
         }, 3);
     }
 
+    public function applyAvailableCredit(
+        CashMovement $movement,
+        FinancialDocument $document,
+        string $amount,
+        int $actorId,
+    ): CashMovement {
+        return DB::transaction(function () use ($movement, $document, $amount, $actorId): CashMovement {
+            $lockedMovement = CashMovement::query()
+                ->lockForUpdate()
+                ->findOrFail($movement->id);
+
+            $lockedDocument = FinancialDocument::query()
+                ->lockForUpdate()
+                ->findOrFail($document->id);
+
+            $allocations = CashAllocation::query()
+                ->where('cash_movement_id', $lockedMovement->id)
+                ->lockForUpdate()
+                ->get();
+
+            if ($lockedMovement->status !== 'posted' || $lockedMovement->reversal_of_id !== null) {
+                throw ValidationException::withMessages([
+                    'movement_id' => ['Only an active posted cash movement can provide advance credit.'],
+                ]);
+            }
+
+            if (
+                $lockedMovement->method === 'check'
+                && in_array($lockedMovement->check_status, ['bounced', 'cancelled'], true)
+            ) {
+                throw ValidationException::withMessages([
+                    'movement_id' => ['A bounced or cancelled check cannot be used as credit.'],
+                ]);
+            }
+
+            if (! in_array($lockedDocument->status, ['issued', 'partially_paid'], true)) {
+                throw ValidationException::withMessages([
+                    'document' => ['Advance credit can only be applied to an open issued invoice.'],
+                ]);
+            }
+
+            $requiredDirection = $lockedDocument->isSale() ? 'incoming' : 'outgoing';
+            $requiredCategory = $lockedDocument->isSale() ? 'customer_receipt' : 'supplier_payment';
+
+            if (
+                $lockedMovement->direction !== $requiredDirection
+                || $lockedMovement->category !== $requiredCategory
+            ) {
+                throw ValidationException::withMessages([
+                    'movement_id' => ['The selected advance does not match this invoice type.'],
+                ]);
+            }
+
+            if (
+                ! $lockedDocument->party_id
+                || (int) $lockedMovement->party_id !== (int) $lockedDocument->party_id
+            ) {
+                throw ValidationException::withMessages([
+                    'movement_id' => ['The advance must belong to the same customer or supplier as the invoice.'],
+                ]);
+            }
+
+            if ($lockedMovement->currency !== $lockedDocument->currency) {
+                throw ValidationException::withMessages([
+                    'movement_id' => ['The advance currency must match the invoice currency.'],
+                ]);
+            }
+
+            $requested = round((float) $amount, 4);
+            $allocated = (float) $allocations->sum(fn (CashAllocation $allocation): float => (float) $allocation->amount);
+            $available = max((float) $lockedMovement->amount - $allocated, 0);
+            $outstanding = max((float) $lockedDocument->balance_due, 0);
+
+            if ($requested <= 0) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Enter a credit amount greater than zero.'],
+                ]);
+            }
+
+            if ($requested > $available + 0.00005) {
+                throw ValidationException::withMessages([
+                    'amount' => ['The requested amount exceeds the available advance credit.'],
+                ]);
+            }
+
+            if ($requested > $outstanding + 0.00005) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Advance credit cannot exceed the invoice outstanding balance.'],
+                ]);
+            }
+
+            $before = $this->snapshot($lockedMovement);
+            $existing = $allocations->firstWhere('financial_document_id', $lockedDocument->id);
+
+            if ($existing) {
+                $existing->amount = number_format(
+                    (float) $existing->amount + $requested,
+                    4,
+                    '.',
+                    '',
+                );
+                $existing->save();
+            } else {
+                CashAllocation::create([
+                    'cash_movement_id' => $lockedMovement->id,
+                    'financial_document_id' => $lockedDocument->id,
+                    'amount' => number_format($requested, 4, '.', ''),
+                ]);
+            }
+
+            $this->documents->recalculatePaymentState($lockedDocument);
+            $lockedMovement->load('allocations');
+
+            $reason = sprintf(
+                'Applied advance credit %s to invoice %s.',
+                number_format($requested, 4, '.', ''),
+                $lockedDocument->number,
+            );
+
+            $this->audit->record(
+                $lockedMovement,
+                'advance_credit_applied',
+                $actorId,
+                $reason,
+                $before,
+                $this->snapshot($lockedMovement),
+            );
+
+            $this->audit->record(
+                $lockedDocument,
+                'advance_credit_applied',
+                $actorId,
+                $reason,
+                [
+                    'balance_due' => number_format($outstanding, 4, '.', ''),
+                ],
+                [
+                    'cash_movement_id' => $lockedMovement->id,
+                    'amount' => number_format($requested, 4, '.', ''),
+                    'balance_due' => $lockedDocument->fresh()->balance_due,
+                ],
+            );
+
+            return $lockedMovement->fresh($this->relations());
+        }, 3);
+    }
+
     public function updateCheckStatus(
         CashMovement $movement,
         string $status,
@@ -433,6 +580,15 @@ class CashMovementService
             if ($movement->party_id && (int) $document->party_id !== (int) $movement->party_id) {
                 throw ValidationException::withMessages([
                     'allocations' => ['All allocated invoices must belong to the selected counterparty.'],
+                ]);
+            }
+
+            if (
+                ! $movement->corrected_from_id
+                && (float) $allocation->amount > (float) $document->balance_due + 0.00005
+            ) {
+                throw ValidationException::withMessages([
+                    'allocations' => ['New cash movements cannot allocate more than the invoice outstanding balance. Keep the extra amount as advance credit.'],
                 ]);
             }
 

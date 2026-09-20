@@ -6,6 +6,7 @@ use App\Models\CashMovement;
 use App\Models\FinanceAuditEvent;
 use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -213,7 +214,6 @@ class CashMovementController extends Controller
                 'goods_for_resale',
                 'packaging',
                 'operating_expense',
-                'payroll',
                 'rent',
                 'utilities',
                 'shipping_customs',
@@ -251,6 +251,15 @@ class CashMovementController extends Controller
 
         if ($forcedDirection) {
             $data['direction'] = $forcedDirection;
+        }
+
+        $organization = app(TenantContext::class)->organization();
+        $data['currency'] = strtoupper((string) ($organization->preferences['currency'] ?? 'ILS'));
+
+        if (in_array($data['category'], ['customer_receipt', 'supplier_payment'], true) && empty($data['party_id'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'party_id' => ['A saved customer or supplier is required for invoice settlements and advance balances.'],
+            ]);
         }
 
         return $data;

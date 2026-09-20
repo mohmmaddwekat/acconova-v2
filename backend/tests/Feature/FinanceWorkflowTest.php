@@ -338,6 +338,259 @@ class FinanceWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_customer_overpayment_stays_as_advance_credit_and_can_pay_a_future_invoice(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance advances');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Advance Customer');
+
+        $firstInvoiceId = $this->postJson('/api/finance/documents', [
+            'kind' => 'sale_invoice',
+            'party_id' => $customerId,
+            'issue_date' => '2026-09-20',
+            'currency' => 'USD',
+            'lines' => [[
+                'description' => 'First order',
+                'quantity' => '1',
+                'unit_price' => '4000',
+                'discount_percent' => '0',
+                'tax_rate' => '0',
+                'affects_inventory' => false,
+            ]],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.currency', 'ILS')
+            ->json('data.id');
+
+        $this->postJson(
+            "/api/finance/documents/{$firstInvoiceId}/issue",
+            ['acknowledge_warnings' => false],
+        )->assertOk();
+
+        $receiptId = $this->postJson('/api/finance/cash-movements', [
+            'direction' => 'incoming',
+            'party_id' => $customerId,
+            'category' => 'customer_receipt',
+            'amount' => '6000',
+            'currency' => 'USD',
+            'movement_date' => '2026-09-20',
+            'method' => 'bank_transfer',
+            'allocations' => [[
+                'financial_document_id' => $firstInvoiceId,
+                'amount' => '4000',
+            ]],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.currency', 'ILS')
+            ->json('data.id');
+
+        $this->postJson("/api/finance/cash-movements/{$receiptId}/post")
+            ->assertOk();
+
+        $this->assertDatabaseHas('financial_documents', [
+            'id' => $firstInvoiceId,
+            'status' => 'paid',
+            'balance_due' => '0.0000',
+        ]);
+
+        $secondInvoiceId = $this->postJson('/api/finance/documents', [
+            'kind' => 'sale_invoice',
+            'party_id' => $customerId,
+            'issue_date' => '2026-09-21',
+            'currency' => 'ILS',
+            'lines' => [[
+                'description' => 'Future goods',
+                'quantity' => '1',
+                'unit_price' => '1500',
+                'discount_percent' => '0',
+                'tax_rate' => '0',
+                'affects_inventory' => false,
+            ]],
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson(
+            "/api/finance/documents/{$secondInvoiceId}/issue",
+            ['acknowledge_warnings' => false],
+        )->assertOk();
+
+        $this->getJson("/api/finance/documents/{$secondInvoiceId}/available-credits")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $receiptId)
+            ->assertJsonPath('data.0.available', '2000.0000');
+
+        $this->postJson("/api/finance/documents/{$secondInvoiceId}/apply-credit", [
+            'movement_id' => $receiptId,
+            'amount' => '1500',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'paid')
+            ->assertJsonPath('data.balance_due', '0.0000');
+
+        $thirdInvoiceId = $this->postJson('/api/finance/documents', [
+            'kind' => 'sale_invoice',
+            'party_id' => $customerId,
+            'issue_date' => '2026-09-22',
+            'currency' => 'ILS',
+            'lines' => [[
+                'description' => 'Third order',
+                'quantity' => '1',
+                'unit_price' => '1000',
+                'discount_percent' => '0',
+                'tax_rate' => '0',
+                'affects_inventory' => false,
+            ]],
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson(
+            "/api/finance/documents/{$thirdInvoiceId}/issue",
+            ['acknowledge_warnings' => false],
+        )->assertOk();
+
+        $this->getJson("/api/finance/documents/{$thirdInvoiceId}/available-credits")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $receiptId)
+            ->assertJsonPath('data.0.available', '500.0000');
+
+        $this->assertDatabaseHas('finance_audit_events', [
+            'auditable_type' => 'CashMovement',
+            'auditable_id' => $receiptId,
+            'action' => 'advance_credit_applied',
+        ]);
+    }
+
+    public function test_dual_role_party_provisional_purchase_price_and_duplicate_line_guards(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance safeguards');
+        $this->actingInWorkspace($owner, $organization);
+
+        $partyId = (int) $this->postJson('/api/parties', [
+            'type' => 'company',
+            'company_name' => 'Dual Role Trading',
+            'roles' => ['customer', 'supplier'],
+        ])->assertCreated()->json('data.id');
+
+        $saleId = $this->postJson('/api/finance/documents', [
+            'kind' => 'sale_invoice',
+            'party_id' => $partyId,
+            'issue_date' => '2026-09-20',
+            'currency' => 'USD',
+            'lines' => [[
+                'description' => 'Sale service',
+                'quantity' => '1',
+                'unit_price' => '25',
+                'discount_percent' => '10',
+                'tax_rate' => '0',
+                'affects_inventory' => false,
+            ]],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.currency', 'ILS')
+            ->json('data.id');
+
+        $this->assertNotEmpty($saleId);
+
+        $purchaseId = $this->postJson('/api/finance/documents', [
+            'kind' => 'purchase_invoice',
+            'party_id' => $partyId,
+            'issue_date' => '2026-09-20',
+            'currency' => 'USD',
+            'lines' => [[
+                'description' => 'Unknown supplier price',
+                'quantity' => '2',
+                'unit_price' => '10',
+                'price_status' => 'estimated',
+                'discount_percent' => '5',
+                'tax_rate' => '0',
+                'affects_inventory' => false,
+            ]],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.currency', 'ILS')
+            ->assertJsonPath('data.lines.0.price_status', 'estimated')
+            ->json('data.id');
+
+        $this->postJson(
+            "/api/finance/documents/{$purchaseId}/issue",
+            ['acknowledge_warnings' => false],
+        )->assertOk();
+
+        $correction = $this->postJson(
+            "/api/finance/documents/{$purchaseId}/correct",
+            ['reason' => 'Supplier confirmed the final price'],
+        )
+            ->assertCreated()
+            ->assertJsonPath('data.lines.0.price_status', 'estimated')
+            ->json('data');
+
+        $correctionId = (int) $correction['id'];
+
+        $this->patchJson("/api/finance/documents/{$correctionId}", [
+            'kind' => 'purchase_invoice',
+            'party_id' => $partyId,
+            'issue_date' => '2026-09-21',
+            'currency' => 'USD',
+            'lines' => [[
+                'description' => 'Unknown supplier price',
+                'quantity' => '2',
+                'unit_price' => '8.5',
+                'price_status' => 'final',
+                'discount_percent' => '5',
+                'tax_rate' => '0',
+                'affects_inventory' => false,
+            ]],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.currency', 'ILS')
+            ->assertJsonPath('data.lines.0.price_status', 'final');
+
+        $this->postJson(
+            "/api/finance/documents/{$correctionId}/issue",
+            ['acknowledge_warnings' => false],
+        )
+            ->assertOk()
+            ->assertJsonPath('data.lines.0.price_status', 'final');
+
+        $productId = $this->product('No Duplicate Product', '12.0000', '8.0000');
+
+        $this->postJson('/api/finance/documents', [
+            'kind' => 'sale_invoice',
+            'party_id' => $partyId,
+            'issue_date' => '2026-09-20',
+            'currency' => 'ILS',
+            'lines' => [
+                [
+                    'product_id' => $productId,
+                    'description' => 'Same item',
+                    'quantity' => '1',
+                    'unit_price' => '12',
+                    'affects_inventory' => false,
+                ],
+                [
+                    'product_id' => $productId,
+                    'description' => 'Same item again',
+                    'quantity' => '1',
+                    'unit_price' => '12',
+                    'affects_inventory' => false,
+                ],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lines');
+
+        $this->postJson('/api/finance/cash-movements', [
+            'direction' => 'outgoing',
+            'category' => 'payroll',
+            'amount' => '100',
+            'currency' => 'ILS',
+            'movement_date' => '2026-09-20',
+            'method' => 'cash',
+            'allocations' => [],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('category');
+    }
+
     public function test_tax_rules_are_jurisdiction_scoped_and_government_payment_updates_obligation(): void
     {
         [$owner, $organization] = $this->workspace('owner', 'Finance tax');
