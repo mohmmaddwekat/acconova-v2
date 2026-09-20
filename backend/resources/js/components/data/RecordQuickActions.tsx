@@ -7,10 +7,14 @@ import {
     router,
     usePage,
 } from '@inertiajs/react';
+import {
+    useEffect,
+} from 'react';
 import type {
     AppPageProps,
 } from '@/types/app';
 import {
+    rememberRecent,
     toggleFavorite,
     useRecordNavigation,
     useWorkspaceRecords,
@@ -72,6 +76,20 @@ export function RecordQuickActions({
         detail,
         href,
     };
+
+    useEffect(() => {
+        rememberRecent(
+            organizationId,
+            item,
+        );
+    }, [
+        organizationId,
+        recordKey,
+        kind,
+        label,
+        detail,
+        href,
+    ]);
 
     return (
         <div className="flex items-center gap-1.5">
