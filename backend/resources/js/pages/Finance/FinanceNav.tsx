@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
 import {
     Banknote,
-    CalendarClock,
     HandCoins,
     Landmark,
     ReceiptText,
@@ -16,7 +15,6 @@ type FinanceDestination =
     | 'purchases'
     | 'receipts'
     | 'payments'
-    | 'recurring'
     | 'taxes';
 
 export function FinanceNav({
@@ -67,15 +65,6 @@ export function FinanceNav({
                 href: '/app/payments',
                 label: text('المدفوعات', 'Payments'),
                 icon: Banknote,
-            }
-            : null,
-
-        lookups.permissions.recurring_payments_view
-            ? {
-                key: 'recurring' as const,
-                href: '/app/payments/recurring',
-                label: text('الدفعات المتكررة', 'Recurring'),
-                icon: CalendarClock,
             }
             : null,
 
