@@ -1,5 +1,5 @@
 import { apiRequest } from '@/lib/http';
-import { Link, usePage } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import {
     Banknote,
     CalendarClock,
@@ -73,16 +73,16 @@ export function CashList({
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const inertiaUrl = usePage().url;
-    const paymentView: 'transactions' | 'recurring' =
-        ! incoming
-        && new URLSearchParams(
-            inertiaUrl.includes('?')
-                ? inertiaUrl.split('?')[1]
-                : '',
-        ).get('view') === 'recurring'
-            ? 'recurring'
-            : 'transactions';
+    const [paymentView, setPaymentView] =
+        useState<'transactions' | 'recurring'>(
+            'transactions',
+        );
+
+    function changePaymentView(
+        view: 'transactions' | 'recurring',
+    ): void {
+        setPaymentView(view);
+    }
 
     useEffect(() => {
         const controller = new AbortController();
@@ -316,15 +316,10 @@ export function CashList({
             {! incoming && lookups.permissions.recurring_payments_view && (
                 <div className="rounded-[16px] border border-[#dbe6f5] bg-white p-2 shadow-[0_8px_28px_rgba(30,75,140,.04)]">
                     <div className="flex flex-wrap gap-2">
-                        <Link
-                            href="/app/payments"
-                            preserveScroll
-                            replace
-                            aria-current={
-                                paymentView === 'transactions'
-                                    ? 'page'
-                                    : undefined
-                            }
+                        <button
+                            type="button"
+                            aria-pressed={paymentView === 'transactions'}
+                            onClick={() => changePaymentView('transactions')}
                             className={[
                                 'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
                                 paymentView === 'transactions'
@@ -334,17 +329,12 @@ export function CashList({
                         >
                             <WalletCards size={14} />
                             {text('الحركات', 'Transactions')}
-                        </Link>
+                        </button>
 
-                        <Link
-                            href="/app/payments?view=recurring"
-                            preserveScroll
-                            replace
-                            aria-current={
-                                paymentView === 'recurring'
-                                    ? 'page'
-                                    : undefined
-                            }
+                        <button
+                            type="button"
+                            aria-pressed={paymentView === 'recurring'}
+                            onClick={() => changePaymentView('recurring')}
                             className={[
                                 'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
                                 paymentView === 'recurring'
@@ -354,7 +344,7 @@ export function CashList({
                         >
                             <CalendarClock size={14} />
                             {text('المدفوعات المتكررة', 'Recurring payments')}
-                        </Link>
+                        </button>
                     </div>
                 </div>
             )}
