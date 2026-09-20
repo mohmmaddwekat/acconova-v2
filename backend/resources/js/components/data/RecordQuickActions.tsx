@@ -14,6 +14,7 @@ import type {
     AppPageProps,
 } from '@/types/app';
 import {
+    rememberNavigation,
     rememberRecent,
     toggleFavorite,
     useRecordNavigation,
@@ -79,6 +80,10 @@ export function RecordQuickActions({
 
     useEffect(() => {
         rememberRecent(
+            organizationId,
+            item,
+        );
+        rememberNavigation(
             organizationId,
             item,
         );
