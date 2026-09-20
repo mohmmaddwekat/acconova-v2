@@ -29,7 +29,9 @@ import type {
  * application feel active even before deeper business modules are connected.
  */
 export default function Dashboard() {
-    useLocale();
+    const ar =
+        useLocale()
+        === 'ar';
     const {
         workspace,
     } = usePage<AppPageProps>().props;
@@ -101,7 +103,7 @@ export default function Dashboard() {
                 </section>
 
                 <DailyBusinessBrief
-                    ar={document.documentElement.lang === 'ar'}
+                    ar={ar}
                 />
 
                 <section className="mt-4 grid gap-4 lg:mt-5 lg:grid-cols-[1.15fr_0.85fr]">
