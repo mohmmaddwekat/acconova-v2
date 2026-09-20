@@ -163,7 +163,8 @@ body {
     input[type='submit'],
     input[type='reset'],
     a[role='button'],
-    a[class*='inline-flex'][class*='rounded']
+    a[class*='inline-flex'][class*='rounded'],
+    label[class*='inline-flex'][class*='rounded']
 ) {
     border-width: 1px !important;
     border-style: solid !important;
@@ -174,6 +175,22 @@ body {
     box-shadow: none !important;
 }
 
+/*
+ * Button children inherit the approved action color, preventing legacy
+ * text-white/icon utilities from creating mixed-color buttons.
+ */
+:where(
+    button:not([role='switch']),
+    input[type='button'],
+    input[type='submit'],
+    input[type='reset'],
+    a[role='button'],
+    a[class*='inline-flex'][class*='rounded'],
+    label[class*='inline-flex'][class*='rounded']
+) > :is(span, svg) {
+    color: inherit !important;
+}
+
 @media (hover: hover) and (pointer: fine) {
     :where(
         button:not([role='switch']):not(:disabled),
@@ -181,7 +198,8 @@ body {
         input[type='submit']:not(:disabled),
         input[type='reset']:not(:disabled),
         a[role='button'],
-        a[class*='inline-flex'][class*='rounded']
+        a[class*='inline-flex'][class*='rounded'],
+        label[class*='inline-flex'][class*='rounded']
     ):hover {
         border-color: var(--ac-button-border) !important;
         background-color: var(--ac-button-hover-bg) !important;
