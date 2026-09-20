@@ -1658,6 +1658,13 @@ function InvoicePrintView({
                 <header className={['flex flex-col gap-3', headerAlignment].join(' ')}>
                     {invoice.show_logo && (
                         <div>
+                            {organization.logo_url && (
+                                <img
+                                    src={organization.logo_url}
+                                    alt={organization.trade_name || organization.name}
+                                    className="mb-2 max-h-16 max-w-[180px] object-contain"
+                                />
+                            )}
                             <div className="text-2xl font-extrabold text-[#1265d8]">
                                 {organization.trade_name || organization.name}
                             </div>
