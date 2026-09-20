@@ -57,12 +57,12 @@ export function RecordHealth({
 
                 <span
                     className={[
-                        'flex size-10 items-center justify-center rounded-[14px]',
+                        'flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-surface-soft)]',
                         score >= 80
-                            ? 'bg-emerald-50 text-emerald-600'
+                            ? 'text-emerald-500'
                             : score >= 50
-                                ? 'bg-amber-50 text-amber-700'
-                                : 'bg-red-50 text-red-600',
+                                ? 'text-amber-500'
+                                : 'text-red-500',
                     ].join(' ')}
                 >
                     {score >= 80
