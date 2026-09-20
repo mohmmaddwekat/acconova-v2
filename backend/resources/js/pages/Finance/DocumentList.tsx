@@ -1,3 +1,4 @@
+import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { SavedViews } from '@/components/data/SavedViews';
 import { apiRequest } from '@/lib/http';
 import { Link } from '@inertiajs/react';
@@ -381,9 +382,49 @@ export function DocumentList({
                         {text('جارٍ تحميل الفواتير...', 'Loading invoices...')}
                     </div>
                 ) : ! response?.data.length ? (
-                    <div className="p-12 text-center text-sm text-slate-400">
-                        {text('لا توجد فواتير مطابقة.', 'No matching invoices.')}
-                    </div>
+                    <SmartEmptyState
+                        icon={FileText}
+                        title={text(
+                            search || status
+                                ? 'لا توجد فواتير مطابقة'
+                                : 'لا توجد فواتير بعد',
+                            search || status
+                                ? 'No matching invoices'
+                                : 'No invoices yet',
+                        )}
+                        description={text(
+                            search || status
+                                ? 'غيّر البحث أو الحالة، أو ابدأ فاتورة جديدة.'
+                                : 'أنشئ أول فاتورة لتبدأ دورة البيع أو الشراء داخل AccoNova.',
+                            search || status
+                                ? 'Adjust search or status, or start a new invoice.'
+                                : 'Create the first invoice to start this finance workflow in AccoNova.',
+                        )}
+                        primary={canManage ? (
+                            <Link
+                                href={createHref}
+                                className={financePrimary}
+                            >
+                                <Plus size={15} />
+                                {sales
+                                    ? text('إنشاء فاتورة بيع', 'Create sales invoice')
+                                    : text('إنشاء فاتورة شراء', 'Create purchase invoice')}
+                            </Link>
+                        ) : undefined}
+                        secondary={(search || status) ? (
+                            <button
+                                type="button"
+                                className={financeButton}
+                                onClick={() => {
+                                    setSearch('');
+                                    setStatus('');
+                                    setPage(1);
+                                }}
+                            >
+                                {text('مسح التصفية', 'Clear filters')}
+                            </button>
+                        ) : undefined}
+                    />
                 ) : (
                     <>
                         <div className="overflow-x-auto">
