@@ -63,8 +63,9 @@ class WorkspaceSettingsController extends Controller
             'bank_accounts' => array_values($preferences['bank_accounts'] ?? []),
 
             'invoice_template' => $preferences['invoice_template'] ?? 'professional',
-            'purchase_template' => $preferences['purchase_template'] ?? 'default',
-            'receipt_template' => $preferences['receipt_template'] ?? 'default',
+            'purchase_template' => $preferences['purchase_template'] ?? 'professional',
+            'receipt_template' => $preferences['receipt_template'] ?? 'professional',
+            'invoice_accent_color' => $preferences['invoice_accent_color'] ?? '#2563EB',
             'print_paper_size' => $preferences['print_paper_size'] ?? 'a4',
             'print_margins' => $preferences['print_margins'] ?? 'normal',
             'logo_position' => $preferences['logo_position'] ?? 'center',
@@ -147,8 +148,9 @@ class WorkspaceSettingsController extends Controller
             'bank_accounts.*.is_primary' => ['required', 'boolean'],
 
             'invoice_template' => ['sometimes', Rule::in(['professional', 'classic', 'modern', 'simple'])],
-            'purchase_template' => ['sometimes', Rule::in(['default'])],
-            'receipt_template' => ['sometimes', Rule::in(['default'])],
+            'purchase_template' => ['sometimes', Rule::in(['professional', 'classic', 'modern', 'simple'])],
+            'receipt_template' => ['sometimes', Rule::in(['professional', 'classic', 'modern', 'simple'])],
+            'invoice_accent_color' => ['sometimes', 'required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'print_paper_size' => ['sometimes', Rule::in(['a4', 'letter'])],
             'print_margins' => ['sometimes', Rule::in(['normal', 'compact'])],
             'logo_position' => ['sometimes', Rule::in(['start', 'center', 'end'])],
