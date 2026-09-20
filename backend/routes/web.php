@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\FinanceDocumentController;
+use App\Http\Controllers\FinanceImportController;
 use App\Http\Controllers\FinanceLookupController;
 use App\Http\Controllers\PaymentPlanController;
 use App\Http\Controllers\ProfileCenterController;
@@ -273,6 +274,11 @@ Route::middleware([
         '/app/finance',
         fn () => Inertia::render('Finance/Index', ['financeView' => 'hub']),
     )->name('app.finance');
+
+    Route::get(
+        '/app/finance/import',
+        fn () => Inertia::render('FinanceImport'),
+    )->name('app.finance.import');
 
     Route::get(
         '/app/invoices',
@@ -571,6 +577,10 @@ Route::prefix(
         );
 
         Route::get('finance/lookups', FinanceLookupController::class);
+
+        Route::get('finance-import/template/{type}', [FinanceImportController::class, 'template']);
+        Route::post('finance-import/preview', [FinanceImportController::class, 'preview'])->middleware('throttle:12,1');
+        Route::post('finance-import/commit', [FinanceImportController::class, 'commit'])->middleware('throttle:6,1');
 
         Route::get('finance/documents', [FinanceDocumentController::class, 'index']);
         Route::post('finance/documents', [FinanceDocumentController::class, 'store']);
