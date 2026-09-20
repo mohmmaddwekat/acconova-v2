@@ -1,10 +1,21 @@
 import {
+    useEffect,
     useState,
     type PropsWithChildren,
 } from 'react';
 
 import { CommandRail } from '@/components/navigation/CommandRail';
 import { ContextBar } from '@/components/navigation/ContextBar';
+import {
+    apiRequest,
+} from '@/lib/http';
+import {
+    applyProfilePreferences,
+    bindSystemTheme,
+    cachedProfilePreferences,
+    defaultProfilePreferences,
+    type ProfilePreferences,
+} from '@/lib/profilePreferences';
 
 /**
  * Provide AccoNova's responsive authenticated application shell.
@@ -25,6 +36,66 @@ export function AppShell({
         mobileNavigationOpen,
         setMobileNavigationOpen,
     ] = useState(false);
+
+    useEffect(
+        () => {
+            const cached =
+                cachedProfilePreferences()
+                ?? defaultProfilePreferences();
+
+            applyProfilePreferences(
+                cached,
+            );
+
+            let unbindSystemTheme =
+                bindSystemTheme(
+                    cached,
+                );
+
+            const controller =
+                new AbortController();
+
+            apiRequest<{
+                settings: Partial<ProfilePreferences> | null;
+            }>(
+                '/api/profile/preferences',
+                {
+                    signal:
+                        controller.signal,
+                },
+            )
+                .then(
+                    (
+                        response,
+                    ) => {
+                        const preferences = {
+                            ...defaultProfilePreferences(),
+                            ...response.settings,
+                        };
+
+                        unbindSystemTheme();
+
+                        applyProfilePreferences(
+                            preferences,
+                        );
+
+                        unbindSystemTheme =
+                            bindSystemTheme(
+                                preferences,
+                            );
+                    },
+                )
+                .catch(
+                    () => undefined,
+                );
+
+            return () => {
+                controller.abort();
+                unbindSystemTheme();
+            };
+        },
+        [],
+    );
 
     return (
         <div className="relative min-h-dvh min-w-0 overflow-x-clip bg-[var(--ac-bg)] text-[var(--ac-text)]">
