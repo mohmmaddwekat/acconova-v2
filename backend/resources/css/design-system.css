@@ -1,44 +1,50 @@
 :root {
     /*
+     * AccoNova reference palette (Coolors / Tailwind scale)
+     * 50  #E6F3FE   100 #CDE8FE   200 #9CD1FC
+     * 300 #6ABAF8   400 #38A3FA   500 #068CF0
+     * 600 #0570C7   700 #045495   800 #033863
+     * 900 #011C32   950 #011423
+     */
+
+    /*
      * Core surfaces
      */
-    --ac-bg: #f5f6f2;
-    --ac-bg-soft: #eef1ec;
+    --ac-bg: #f8fbff;
+    --ac-bg-soft: #E6F3FE;
     --ac-surface: #ffffff;
-    --ac-surface-soft: #f9faf7;
-    --ac-surface-strong: #edf2ee;
+    --ac-surface-soft: #f8fbff;
+    --ac-surface-strong: #CDE8FE;
 
     /*
      * Borders
      */
-    --ac-line: rgba(26, 39, 34, 0.08);
-    --ac-line-strong: rgba(26, 39, 34, 0.14);
+    --ac-line: #CDE8FE;
+    --ac-line-strong: #9CD1FC;
 
     /*
      * Typography
      */
-    --ac-text: #19231f;
-    --ac-text-soft: #5f6d67;
-    --ac-text-muted: #8a9691;
-    --ac-text-faint: #a8b1ad;
+    --ac-text: #011C32;
+    --ac-text-soft: #033863;
+    --ac-text-muted: #045495;
+    --ac-text-faint: #0570C7;
 
     /*
-     * High-contrast inverse controls. Some legacy components used
-     * --ac-text as a button background; these dedicated tokens keep those
-     * controls readable when the text palette flips in dark mode.
+     * High-contrast inverse controls.
      */
-    --ac-inverse-bg: #19231f;
-    --ac-inverse-text: #ffffff;
-    --ac-accent-solid: #145b46;
+    --ac-inverse-bg: #011C32;
+    --ac-inverse-text: #E6F3FE;
+    --ac-accent-solid: #068CF0;
     --ac-accent-solid-text: #ffffff;
 
     /*
      * AccoNova accent
      */
-    --ac-accent: #43c99a;
-    --ac-accent-hover: #35b98a;
-    --ac-accent-soft: rgba(67, 201, 154, 0.12);
-    --ac-accent-strong: #145b46;
+    --ac-accent: #068CF0;
+    --ac-accent-hover: #0570C7;
+    --ac-accent-soft: rgba(6, 140, 240, 0.12);
+    --ac-accent-strong: #045495;
 
     /* Global application chrome (header/navbar). */
     --ac-chrome: var(--ac-bg);
@@ -46,10 +52,10 @@
     /*
      * Semantic states
      */
-    --ac-success: #43c99a;
+    --ac-success: #22a06b;
     --ac-warning: #d9a34f;
     --ac-danger: #df6b70;
-    --ac-info: #6681e8;
+    --ac-info: #068CF0;
 
     /*
      * Shape
@@ -63,34 +69,33 @@
      * Elevation
      */
     --ac-shadow-soft:
-        0 1px 2px rgba(23, 35, 30, 0.03),
-        0 10px 32px rgba(23, 35, 30, 0.05);
+        0 1px 2px rgba(1, 28, 50, 0.03),
+        0 10px 32px rgba(1, 28, 50, 0.05);
 
     --ac-shadow-panel:
-        0 1px 2px rgba(23, 35, 30, 0.03),
-        0 18px 54px rgba(23, 35, 30, 0.07);
+        0 1px 2px rgba(1, 28, 50, 0.03),
+        0 18px 54px rgba(1, 28, 50, 0.07);
 
     /*
-     * Settings workspace palette.
-     * Kept separate because Settings uses a blue SaaS visual language.
+     * Settings workspace follows the same product palette.
      */
     --acs-bg: #f8fbff;
     --acs-surface: #ffffff;
-    --acs-surface-soft: #fbfdff;
-    --acs-surface-strong: #edf5ff;
-    --acs-line: #dfe8f4;
-    --acs-line-soft: #edf2f8;
-    --acs-line-strong: #cfe0f4;
-    --acs-text: #17386d;
-    --acs-text-strong: #122b55;
-    --acs-text-soft: #5e789e;
-    --acs-text-muted: #8ba0bc;
-    --acs-accent: #1265d8;
-    --acs-accent-hover: #0f5fd8;
-    --acs-accent-soft: #eaf3ff;
+    --acs-surface-soft: #f8fbff;
+    --acs-surface-strong: #CDE8FE;
+    --acs-line: #CDE8FE;
+    --acs-line-soft: #E6F3FE;
+    --acs-line-strong: #9CD1FC;
+    --acs-text: #011C32;
+    --acs-text-strong: #011423;
+    --acs-text-soft: #033863;
+    --acs-text-muted: #045495;
+    --acs-accent: #068CF0;
+    --acs-accent-hover: #0570C7;
+    --acs-accent-soft: #E6F3FE;
     --acs-control: #ffffff;
-    --acs-control-hover: #f5f9ff;
-    --acs-toggle-off: #cbd5e1;
+    --acs-control-hover: #E6F3FE;
+    --acs-toggle-off: #9CD1FC;
 
     /*
      * Motion
@@ -131,12 +136,12 @@ body {
     background:
         radial-gradient(
             circle at 16% -10%,
-            rgba(67, 201, 154, 0.09),
+            rgba(6, 140, 240, 0.09),
             transparent 34%
         ),
         radial-gradient(
             circle at 94% 8%,
-            rgba(102, 129, 232, 0.05),
+            rgba(56, 163, 250, 0.05),
             transparent 30%
         ),
         var(--ac-bg);
@@ -213,7 +218,7 @@ main {
  *
  * The indicator uses logical positioning so it automatically follows LTR/RTL.
  * It is intentionally narrow and restrained instead of painting the entire row
- * bright green.
+ * a loud accent.
  */
 .ac-index-row::before {
     content: '';
@@ -241,7 +246,7 @@ main {
 
     box-shadow:
         0 0 0 3px
-            rgba(67, 201, 154, 0.08);
+            rgba(6, 140, 240, 0.08);
 
     opacity:
         0;
@@ -266,7 +271,7 @@ main {
 /*
  * Professional selected state.
  *
- * A selected record receives only a restrained mint wash, a clearer outline,
+ * A selected record receives only a restrained blue wash, a clearer outline,
  * and slightly stronger elevation. It does not shift horizontally, keeping
  * dense operating lists perfectly aligned.
  */
@@ -737,73 +742,70 @@ aside[role='dialog']
  */
 html[data-ac-resolved-theme='dark'] {
     /*
-     * Unified AccoNova dark theme.
-     * Pages stay dark everywhere, while cards/controls get just enough
-     * elevation to keep the interface readable instead of becoming one flat
-     * black sheet.
+     * Dark mode uses the same reference palette, with 950/900 as the canvas
+     * and the lighter 50-300 steps reserved for readable text.
      */
-    --ac-bg: #0e1623;
-    --ac-bg-soft: #111b2a;
-    --ac-surface: #131f30;
-    --ac-surface-soft: #17253a;
-    --ac-surface-strong: #1b2a40;
+    --ac-bg: #011423;
+    --ac-bg-soft: #011C32;
+    --ac-surface: #011C32;
+    --ac-surface-soft: #033863;
+    --ac-surface-strong: #045495;
 
-    --ac-line: #26384f;
-    --ac-line-strong: #3a5576;
+    --ac-line: #033863;
+    --ac-line-strong: #045495;
 
-    --ac-text: #e6effd;
-    --ac-text-soft: #b9c8dc;
-    --ac-text-muted: #8fa1bb;
-    --ac-text-faint: #6d8099;
+    --ac-text: #E6F3FE;
+    --ac-text-soft: #CDE8FE;
+    --ac-text-muted: #9CD1FC;
+    --ac-text-faint: #6ABAF8;
 
-    --ac-inverse-bg: #4d92f2;
-    --ac-inverse-text: #08111e;
-    --ac-accent-solid: #4d92f2;
-    --ac-accent-solid-text: #08111e;
+    --ac-inverse-bg: #38A3FA;
+    --ac-inverse-text: #011423;
+    --ac-accent-solid: #068CF0;
+    --ac-accent-solid-text: #ffffff;
 
-    --ac-accent: #6aa6ff;
-    --ac-accent-hover: #80b4ff;
-    --ac-accent-soft: rgba(106, 166, 255, 0.14);
-    --ac-accent-strong: #4d92f2;
+    --ac-accent: #38A3FA;
+    --ac-accent-hover: #6ABAF8;
+    --ac-accent-soft: rgba(56, 163, 250, 0.14);
+    --ac-accent-strong: #068CF0;
 
-    --ac-chrome: #162235;
+    --ac-chrome: #011C32;
 
     --ac-success: #43c99a;
     --ac-warning: #e0ad55;
     --ac-danger: #f07d84;
-    --ac-info: #6aa6ff;
+    --ac-info: #38A3FA;
 
     --ac-shadow-soft:
-        0 1px 2px rgba(0, 0, 0, 0.20),
-        0 12px 30px rgba(0, 0, 0, 0.16);
+        0 1px 2px rgba(0, 0, 0, 0.22),
+        0 12px 30px rgba(0, 0, 0, 0.18);
     --ac-shadow-panel:
-        0 1px 2px rgba(0, 0, 0, 0.24),
-        0 20px 52px rgba(0, 0, 0, 0.20);
+        0 1px 2px rgba(0, 0, 0, 0.26),
+        0 20px 52px rgba(0, 0, 0, 0.22);
 
-    /* Settings follows the same global dark hierarchy. */
-    --acs-bg: #0e1623;
-    --acs-surface: #131f30;
-    --acs-surface-soft: #17253a;
-    --acs-surface-strong: #1b2a40;
-    --acs-line: #26384f;
-    --acs-line-soft: #22334a;
-    --acs-line-strong: #3a5576;
-    --acs-text: #e6effd;
-    --acs-text-strong: #f3f7ff;
-    --acs-text-soft: #b9c8dc;
-    --acs-text-muted: #8fa1bb;
-    --acs-accent: #6aa6ff;
-    --acs-accent-hover: #80b4ff;
-    --acs-accent-soft: rgba(106, 166, 255, 0.14);
-    --acs-control: #111c2c;
-    --acs-control-hover: #1b2a40;
-    --acs-toggle-off: #40536d;
+    --acs-bg: #011423;
+    --acs-surface: #011C32;
+    --acs-surface-soft: #033863;
+    --acs-surface-strong: #045495;
+    --acs-line: #033863;
+    --acs-line-soft: #011C32;
+    --acs-line-strong: #045495;
+    --acs-text: #E6F3FE;
+    --acs-text-strong: #E6F3FE;
+    --acs-text-soft: #CDE8FE;
+    --acs-text-muted: #9CD1FC;
+    --acs-accent: #38A3FA;
+    --acs-accent-hover: #6ABAF8;
+    --acs-accent-soft: rgba(56, 163, 250, 0.14);
+    --acs-control: #011C32;
+    --acs-control-hover: #033863;
+    --acs-toggle-off: #045495;
 
     color-scheme: dark;
 }
 
 html[data-ac-resolved-theme='dark'] body {
-    background: #0e1623;
+    background: #011423;
 }
 
 /*
@@ -861,7 +863,7 @@ html[data-ac-resolved-theme='dark']
  */
 html[data-ac-resolved-theme='dark']
     :is(.text-white, .text-white\/90, .text-white\/80, .text-white\/70, .text-white\/60, .text-white\/50) {
-    color: #e6effd !important;
+    color: #E6F3FE !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -925,17 +927,17 @@ html[data-ac-resolved-theme='dark']
 
 /* Light gradients must resolve to dark surfaces too. */
 html[data-ac-resolved-theme='dark'] .from-white {
-    --tw-gradient-from: #0e1623 var(--tw-gradient-from-position) !important;
-    --tw-gradient-to: color-mix(in srgb, #0e1623 0%, transparent)
+    --tw-gradient-from: #011423 var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: color-mix(in srgb, #011423 0%, transparent)
         var(--tw-gradient-to-position) !important;
 }
 
 html[data-ac-resolved-theme='dark'] .via-white {
-    --tw-gradient-via: #0e1623 var(--tw-gradient-via-position) !important;
+    --tw-gradient-via: #011423 var(--tw-gradient-via-position) !important;
 }
 
 html[data-ac-resolved-theme='dark'] .to-white {
-    --tw-gradient-to: #0e1623 var(--tw-gradient-to-position) !important;
+    --tw-gradient-to: #011423 var(--tw-gradient-to-position) !important;
 }
 
 /*
@@ -1025,7 +1027,7 @@ html[data-ac-resolved-theme='dark']
         [class~="text-[#124f9e]"],
         [class~="text-[#4f92ff]"]
     ) {
-    color: #6aa6ff !important;
+    color: #38A3FA !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -1219,7 +1221,7 @@ html[data-ac-resolved-theme='dark']
 
 html[data-ac-resolved-theme='dark']
     .ac-index-row[data-selected='true']::before {
-    background: #6aa6ff !important;
+    background: #38A3FA !important;
     box-shadow: none !important;
 }
 
@@ -1291,34 +1293,36 @@ html[data-ac-reduced-motion='true']
 .ac-settings-paper {
     --acs-bg: #f8fbff;
     --acs-surface: #ffffff;
-    --acs-surface-soft: #fbfdff;
-    --acs-surface-strong: #edf5ff;
-    --acs-line: #dfe8f4;
-    --acs-line-soft: #edf2f8;
-    --acs-line-strong: #cfe0f4;
-    --acs-text: #17386d;
-    --acs-text-strong: #122b55;
-    --acs-text-soft: #5e789e;
-    --acs-text-muted: #8ba0bc;
-    --acs-accent: #1265d8;
-    --acs-accent-soft: #eaf3ff;
+    --acs-surface-soft: #f8fbff;
+    --acs-surface-strong: #CDE8FE;
+    --acs-line: #CDE8FE;
+    --acs-line-soft: #E6F3FE;
+    --acs-line-strong: #9CD1FC;
+    --acs-text: #011C32;
+    --acs-text-strong: #011423;
+    --acs-text-soft: #033863;
+    --acs-text-muted: #045495;
+    --acs-accent: #068CF0;
+    --acs-accent-hover: #0570C7;
+    --acs-accent-soft: #E6F3FE;
     color-scheme: light;
 }
 
 html[data-ac-resolved-theme='dark'] .ac-settings-paper {
-    --acs-bg: #0e1623;
-    --acs-surface: #131f30;
-    --acs-surface-soft: #17253a;
-    --acs-surface-strong: #1b2a40;
-    --acs-line: #26384f;
-    --acs-line-soft: #22334a;
-    --acs-line-strong: #3a5576;
-    --acs-text: #e6effd;
-    --acs-text-strong: #f3f7ff;
-    --acs-text-soft: #b9c8dc;
-    --acs-text-muted: #8fa1bb;
-    --acs-accent: #6aa6ff;
-    --acs-accent-soft: rgba(106, 166, 255, 0.14);
+    --acs-bg: #011423;
+    --acs-surface: #011C32;
+    --acs-surface-soft: #033863;
+    --acs-surface-strong: #045495;
+    --acs-line: #033863;
+    --acs-line-soft: #011C32;
+    --acs-line-strong: #045495;
+    --acs-text: #E6F3FE;
+    --acs-text-strong: #E6F3FE;
+    --acs-text-soft: #CDE8FE;
+    --acs-text-muted: #9CD1FC;
+    --acs-accent: #38A3FA;
+    --acs-accent-hover: #6ABAF8;
+    --acs-accent-soft: rgba(56, 163, 250, 0.14);
     color-scheme: dark;
 }
 
