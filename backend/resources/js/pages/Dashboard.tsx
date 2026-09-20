@@ -1,3 +1,6 @@
+import {
+    DailyBusinessBrief,
+} from '@/components/dashboard/DailyBusinessBrief';
 import { useLocale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import {
@@ -72,8 +75,8 @@ export default function Dashboard() {
                         </p>
 
                         <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <button
-                                type="button"
+                            <a
+                                href="#daily-business-brief"
                                 className="group flex h-12 items-center justify-center gap-3 rounded-[16px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white shadow-[var(--ac-shadow-soft)] transition duration-300 hover:-translate-y-1 hover:shadow-[var(--ac-shadow-panel)] sm:w-auto"
                             >
                                 {t('ui.open_business_pulse')}
@@ -82,7 +85,7 @@ export default function Dashboard() {
                                     size={16}
                                     className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                                 />
-                            </button>
+                            </a>
 
                             <p className="text-xs text-[var(--ac-text-muted)]">
                                 {organization
@@ -96,6 +99,10 @@ export default function Dashboard() {
                         <SignalOrbit />
                     </div>
                 </section>
+
+                <DailyBusinessBrief
+                    ar={document.documentElement.lang === 'ar'}
+                />
 
                 <section className="mt-4 grid gap-4 lg:mt-5 lg:grid-cols-[1.15fr_0.85fr]">
                     <article className="group relative min-h-[250px] overflow-hidden rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)] transition duration-300 hover:-translate-y-1 hover:shadow-[var(--ac-shadow-panel)] sm:rounded-[28px] sm:p-7">
