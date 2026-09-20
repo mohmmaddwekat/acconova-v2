@@ -74,11 +74,14 @@ class FinanceImportController extends Controller
     {
         $data = $request->validate([
             'type' => ['required', Rule::in(['sales_invoices', 'purchase_invoices', 'cash_movements'])],
-            'file' => ['required', 'file', 'max:20480', 'mimes:csv,txt,xls,xlsx'],
+            'file' => ['required', 'file', 'max:20480', 'mimes:csv,txt,xls,xlsx,json'],
         ]);
 
         $this->authorizeType($request, $data['type']);
-        $rows = $this->readRows($request->file('file')->getRealPath());
+        $rows = $this->readRows(
+            $request->file('file')->getRealPath(),
+            strtolower($request->file('file')->getClientOriginalExtension()),
+        );
         $headers = array_keys($rows[0] ?? []);
         [$required] = $this->requiredColumns($data['type']);
         $missing = array_values(array_diff($required, $headers));
@@ -105,7 +108,10 @@ class FinanceImportController extends Controller
         ]);
 
         $this->authorizeType($request, $data['type']);
-        $rows = $this->readRows($request->file('file')->getRealPath());
+        $rows = $this->readRows(
+            $request->file('file')->getRealPath(),
+            strtolower($request->file('file')->getClientOriginalExtension()),
+        );
 
         [$required] = $this->requiredColumns($data['type']);
         $headers = array_keys($rows[0] ?? []);
@@ -507,8 +513,50 @@ class FinanceImportController extends Controller
     }
 
     /** @return list<array<string,mixed>> */
-    private function readRows(string $path): array
+    private function readRows(string $path, string $extension = ''): array
     {
+        if ($extension === 'json') {
+            $decoded = json_decode((string) file_get_contents($path), true);
+
+            if (! is_array($decoded)) {
+                throw new RuntimeException('The JSON file is not valid.');
+            }
+
+            if (isset($decoded['data']) && is_array($decoded['data'])) {
+                $decoded = $decoded['data'];
+            }
+
+            $rows = [];
+
+            foreach (array_values($decoded) as $row) {
+                if (count($rows) >= self::MAX_ROWS) {
+                    throw new RuntimeException('Import is limited to 10,000 rows per file.');
+                }
+
+                if (! is_array($row)) {
+                    continue;
+                }
+
+                $normalized = [];
+
+                foreach ($row as $key => $value) {
+                    $header = $this->header((string) $key);
+
+                    if ($header !== '') {
+                        $normalized[$header] = is_scalar($value) || $value === null
+                            ? $value
+                            : json_encode($value, JSON_UNESCAPED_UNICODE);
+                    }
+                }
+
+                if ($normalized !== []) {
+                    $rows[] = $normalized;
+                }
+            }
+
+            return $rows;
+        }
+
         $spreadsheet = IOFactory::load($path);
         $sheet = $spreadsheet->getActiveSheet();
         $raw = $sheet->toArray(null, true, true, false);
