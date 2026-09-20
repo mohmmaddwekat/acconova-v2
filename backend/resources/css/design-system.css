@@ -929,6 +929,15 @@ html[data-ac-resolved-theme='dark']
     border-color: var(--ac-line) !important;
 }
 
+/*
+ * Exact palette text normalization: ordinary white/light text utilities use
+ * approved color 4 in dark mode.
+ */
+html[data-ac-resolved-theme='dark']
+    :is(.text-white, .text-white\/90, .text-white\/80, .text-white\/70, .text-white\/60, .text-white\/50) {
+    color: #e6effd !important;
+}
+
 html[data-ac-resolved-theme='dark']
     :is(
         .text-slate-950,
@@ -1052,6 +1061,7 @@ html[data-ac-resolved-theme='dark']
         [class~="text-[#123d78]"],
         [class~="text-[#153d76]"],
         [class~="text-[#163d77]"],
+        [class~="text-[#17386d]"],
         [class~="text-[#172b4d]"],
         [class~="text-[#173f78]"],
         [class~="text-[#1c2c50]"],
