@@ -608,7 +608,8 @@ export function DocumentDetail({
                 + document.id;
 
     return (
-        <div className="space-y-4">
+        <>
+            <div className="space-y-4 print:hidden">
             <FinanceHeader
                 title={
                     (
@@ -1591,6 +1592,177 @@ export function DocumentDetail({
                     )}
                 </aside>
             </div>
+        </div>
+
+            <InvoicePrintView
+                document={document}
+                lookups={lookups}
+                ar={ar}
+            />
+        </>
+    );
+}
+
+function InvoicePrintView({
+    document,
+    lookups,
+    ar,
+}: {
+    document: DocumentDetailType;
+    lookups: FinanceLookups;
+    ar: boolean;
+}) {
+    const text = (arabic: string, english: string): string =>
+        ar ? arabic : english;
+    const invoice = lookups.settings.invoice;
+    const organization = lookups.settings.organization;
+    const columns = invoice.columns;
+    const paperSize = invoice.paper_size === 'letter'
+        ? 'Letter'
+        : 'A4';
+    const margin = invoice.margins === 'compact'
+        ? '8mm'
+        : '14mm';
+
+    const templateClass = {
+        professional: 'border-t-[6px] border-[#1265d8]',
+        classic: 'border-t-2 border-slate-800',
+        modern: 'border-s-8 border-[#1265d8]',
+        simple: '',
+    }[invoice.template];
+
+    const headerAlignment = invoice.logo_position === 'center'
+        ? 'items-center text-center'
+        : invoice.logo_position === 'end'
+            ? 'items-end text-end'
+            : 'items-start text-start';
+
+    return (
+        <div
+            dir={ar ? 'rtl' : 'ltr'}
+            className="hidden bg-white text-[#172b4d] print:block"
+        >
+            <style>
+                {[
+                    '@media print {',
+                    '@page { size: ' + paperSize + '; margin: ' + margin + '; }',
+                    'html, body { background: white !important; }',
+                    '}',
+                ].join(' ')}
+            </style>
+
+            <article className={['mx-auto bg-white p-2', templateClass].join(' ')}>
+                <header className={['flex flex-col gap-3', headerAlignment].join(' ')}>
+                    {invoice.show_logo && (
+                        <div>
+                            <div className="text-2xl font-extrabold text-[#1265d8]">
+                                {organization.trade_name || organization.name}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500">
+                                {organization.legal_name}
+                            </div>
+                        </div>
+                    )}
+
+                    {invoice.show_contact && (
+                        <div className="text-[10px] leading-5 text-slate-500">
+                            {[organization.address, organization.city, organization.country]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            {(organization.phone || organization.support_email) && <br />}
+                            {[organization.phone, organization.support_email]
+                                .filter(Boolean)
+                                .join(' · ')}
+                        </div>
+                    )}
+
+                    {invoice.show_tax_number && organization.vat_number && (
+                        <div className="text-[10px] text-slate-500">
+                            {text('الرقم الضريبي', 'VAT')}: {organization.vat_number}
+                        </div>
+                    )}
+                </header>
+
+                <div className="my-5 flex items-end justify-between gap-4 border-b border-slate-200 pb-4">
+                    <div>
+                        <h1 className="text-xl font-bold">
+                            {document.kind === 'sale_invoice'
+                                ? text('فاتورة بيع', 'Sales invoice')
+                                : text('فاتورة شراء', 'Purchase invoice')}
+                        </h1>
+                        <p className="mt-1 text-xs text-slate-500">
+                            {document.number}
+                        </p>
+                    </div>
+                    <div className="text-end text-[10px] leading-5 text-slate-500">
+                        <div>{text('تاريخ الإصدار', 'Issue date')}: {document.issue_date}</div>
+                        {document.due_date && (
+                            <div>{text('تاريخ الاستحقاق', 'Due date')}: {document.due_date}</div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="mb-5 rounded-lg bg-slate-50 p-3 text-[10px] leading-5">
+                    <strong className="block text-xs text-slate-700">
+                        {document.party?.name ?? text('بدون طرف', 'No party')}
+                    </strong>
+                    {document.party_detail?.tax_number && (
+                        <span className="text-slate-500">
+                            {text('الرقم الضريبي', 'Tax number')}: {document.party_detail.tax_number}
+                        </span>
+                    )}
+                </div>
+
+                <table className="w-full border-collapse text-[10px]">
+                    <thead>
+                        <tr className="border-y border-slate-200 bg-slate-50">
+                            {columns.includes('sku') && <th className="px-2 py-2 text-start">{text('الصنف', 'SKU')}</th>}
+                            {columns.includes('description') && <th className="px-2 py-2 text-start">{text('الوصف', 'Description')}</th>}
+                            {columns.includes('quantity') && <th className="px-2 py-2 text-start">{text('الكمية', 'Qty')}</th>}
+                            {columns.includes('unit_price') && <th className="px-2 py-2 text-start">{text('سعر الوحدة', 'Unit price')}</th>}
+                            {columns.includes('discount') && <th className="px-2 py-2 text-start">{text('الخصم', 'Discount')}</th>}
+                            {columns.includes('tax') && <th className="px-2 py-2 text-start">{text('الضريبة', 'Tax')}</th>}
+                            {columns.includes('total') && <th className="px-2 py-2 text-start">{text('الإجمالي', 'Total')}</th>}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {document.lines.map((line) => (
+                            <tr key={line.id ?? line.description} className="border-b border-slate-100">
+                                {columns.includes('sku') && <td className="px-2 py-2">{line.sku || '—'}</td>}
+                                {columns.includes('description') && <td className="px-2 py-2">{line.description}</td>}
+                                {columns.includes('quantity') && <td className="px-2 py-2">{line.quantity} {line.unit}</td>}
+                                {columns.includes('unit_price') && <td className="px-2 py-2"><Money value={line.unit_price} currency={document.currency} compact /></td>}
+                                {columns.includes('discount') && <td className="px-2 py-2"><Money value={line.line_discount ?? 0} currency={document.currency} compact /></td>}
+                                {columns.includes('tax') && <td className="px-2 py-2"><Money value={line.line_tax ?? 0} currency={document.currency} compact /></td>}
+                                {columns.includes('total') && <td className="px-2 py-2 font-semibold"><Money value={line.line_total ?? 0} currency={document.currency} compact /></td>}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                <div className="mt-5 ms-auto w-full max-w-[320px] space-y-2 text-[10px]">
+                    <SummaryLine label={text('المجموع الفرعي', 'Subtotal')} value={document.subtotal} currency={document.currency} />
+                    <SummaryLine label={text('الخصم', 'Discount')} value={document.discount_total} currency={document.currency} />
+                    <SummaryLine label={text('الضريبة', 'Tax')} value={document.tax_total} currency={document.currency} />
+                    <SummaryLine label={text('الشحن', 'Shipping')} value={document.shipping_total} currency={document.currency} />
+                    <div className="border-t border-slate-300 pt-2">
+                        <SummaryLine label={text('الإجمالي', 'Total')} value={document.total} currency={document.currency} strong />
+                    </div>
+                </div>
+
+                {invoice.show_notes && document.notes && (
+                    <div className="mt-6 rounded-lg border border-slate-200 p-3 text-[10px] leading-5">
+                        <strong>{text('ملاحظات', 'Notes')}</strong>
+                        <p className="mt-1 whitespace-pre-wrap text-slate-600">{document.notes}</p>
+                    </div>
+                )}
+
+                {organization.invoice_footer && (
+                    <footer className="mt-8 border-t border-slate-200 pt-4 text-center text-[9px] leading-5 text-slate-500">
+                        {organization.invoice_footer}
+                    </footer>
+                )}
+            </article>
         </div>
     );
 }
