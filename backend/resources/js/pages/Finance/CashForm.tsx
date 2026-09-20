@@ -65,6 +65,8 @@ export function CashForm({
         initial?.method
         ?? enabledMethodValues[0]
         ?? 'bank_transfer';
+    const configuredBankAccounts =
+        lookups.settings.bank_accounts;
     const primaryBankAccount =
         configuredBankAccounts.find(account => account.is_primary)
         ?? configuredBankAccounts[0]
@@ -520,9 +522,6 @@ export function CashForm({
             enabledMethodValues.includes(value)
             || value === initial?.method,
     );
-
-    const configuredBankAccounts =
-        lookups.settings.bank_accounts;
 
     return (
         <div className="space-y-4">
