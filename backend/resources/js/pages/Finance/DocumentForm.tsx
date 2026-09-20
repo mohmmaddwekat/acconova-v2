@@ -982,6 +982,49 @@ export function DocumentForm({
             return;
         }
 
+        const invalidFixedDiscount =
+            lines.findIndex(
+                (
+                    line,
+                    index,
+                ) =>
+                    line.discount_type ===
+                        'fixed'
+                    && Number(
+                        line.discount_value,
+                    ) >
+                        (
+                            calculated.rows[
+                                index
+                            ]?.subtotal
+                            ?? 0
+                        ),
+            );
+
+        if (
+            invalidFixedDiscount !==
+            -1
+        ) {
+            setError(
+                text(
+                    'قيمة الخصم الثابت في البند '
+                    + String(
+                        invalidFixedDiscount
+                        + 1,
+                    )
+                    + ' أكبر من قيمة البند قبل الخصم.',
+                    'The fixed discount on line '
+                    + String(
+                        invalidFixedDiscount
+                        + 1,
+                    )
+                    + ' is greater than the line subtotal.',
+                ),
+            );
+
+            return;
+        }
+
         if (! partyId) {
             setError(
                 sales
