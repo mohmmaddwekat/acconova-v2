@@ -765,9 +765,9 @@ function ProductsWorkspace() {
                 </section>
 
                 <section className="mt-7 overflow-visible rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] shadow-[var(--ac-shadow-soft)] lg:mt-10 lg:rounded-[28px]">
-                    <div className="rounded-t-[22px] border-b border-[var(--ac-line)] bg-white p-3 sm:p-5 lg:rounded-t-[28px] lg:p-6">
-                        <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
-                            <div className="relative">
+                    <div className="rounded-t-[22px] border-b border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 sm:p-5 lg:rounded-t-[28px] lg:p-6">
+                        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+                            <div className="relative min-w-0">
                                 <Search
                                     size={15}
                                     className="absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
@@ -787,7 +787,7 @@ function ProductsWorkspace() {
                                         )
                                     }
                                     placeholder={t('ui.search_name_sku_description_unit')}
-                                    className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-bg)] ps-10 pe-11 text-sm outline-none focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                                    className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-bg)] ps-10 pe-11 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                 />
 
                                 {draftSearch && (
@@ -806,7 +806,7 @@ function ProductsWorkspace() {
                                                 1,
                                             );
                                         }}
-                                        className="absolute end-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center"
+                                        className="absolute end-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)]"
                                     >
                                         <X
                                             size={14}
@@ -815,57 +815,126 @@ function ProductsWorkspace() {
                                 )}
                             </div>
 
-                            <ProductFilterPopover
-                                value={
-                                    filters
-                                }
-                                onChange={(
-                                    next,
-                                ) => {
-                                    setFilters(
+                            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                                {allowEdit && selectedIds.size > 0 && filters.status !== 'deleted' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setBulkEditOpen(true)}
+                                        className="inline-flex h-10 items-center rounded-[12px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-3 text-[11px] font-semibold text-[var(--ac-accent)]"
+                                    >
+                                        {ar
+                                            ? `تعديل جماعي (${selectedIds.size})`
+                                            : `Bulk edit (${selectedIds.size})`}
+                                    </button>
+                                )}
+
+                                <ProductDataActions
+                                    filters={productFilters}
+                                    canImport={allowEdit && allowCreate}
+                                    onImport={() => setImportOpen(true)}
+                                />
+
+                                {allowCreate && (
+                                    <button
+                                        type="button"
+                                        onClick={
+                                            create
+                                        }
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] bg-[var(--ac-accent-solid)] px-4 text-xs font-semibold text-[var(--ac-accent-solid-text)] shadow-[var(--ac-shadow-soft)] transition hover:-translate-y-px"
+                                    >
+                                        <Plus
+                                            size={15}
+                                        />
+
+                                        {t('ui.new_item')}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-3 flex flex-col gap-3 border-t border-[var(--ac-line)] pt-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <ProductFilterPopover
+                                    value={
+                                        filters
+                                    }
+                                    onChange={(
                                         next,
-                                    );
+                                    ) => {
+                                        setFilters(
+                                            next,
+                                        );
 
-                                    setPage(
-                                        1,
-                                    );
-                                }}
-                            />
+                                        setPage(
+                                            1,
+                                        );
+                                    }}
+                                />
 
-                            <AdvancedFilterBuilder
-                                ar={ar}
-                                value={advancedConditions}
-                                onChange={(next) => {
-                                    setAdvancedConditions(next);
-                                    setPage(1);
-                                }}
-                                fields={[
-                                    {
-                                        key: 'unit',
-                                        label: ar ? 'الوحدة' : 'Unit',
-                                        type: 'text',
-                                        operators: ['contains', 'equals'],
-                                    },
-                                    {
-                                        key: 'price',
-                                        label: ar ? 'سعر البيع' : 'Selling price',
-                                        type: 'number',
-                                        operators: ['gte', 'lte', 'equals'],
-                                    },
-                                ]}
-                            />
+                                <AdvancedFilterBuilder
+                                    ar={ar}
+                                    value={advancedConditions}
+                                    onChange={(next) => {
+                                        setAdvancedConditions(next);
+                                        setPage(1);
+                                    }}
+                                    fields={[
+                                        {
+                                            key: 'unit',
+                                            label: ar ? 'الوحدة' : 'Unit',
+                                            type: 'text',
+                                            operators: ['contains', 'equals'],
+                                        },
+                                        {
+                                            key: 'price',
+                                            label: ar ? 'سعر البيع' : 'Selling price',
+                                            type: 'number',
+                                            operators: ['gte', 'lte', 'equals'],
+                                        },
+                                    ]}
+                                />
 
-                            <ListPreferencesControl
-                                columns={productColumns}
-                                order={listPreferences.order}
-                                hidden={listPreferences.hidden}
-                                density={listPreferences.density}
-                                onOrderChange={listPreferences.setOrder}
-                                onToggleColumn={listPreferences.toggleColumn}
-                                onDensityChange={listPreferences.setDensity}
-                                ar={ar}
-                            />
+                                <ListPreferencesControl
+                                    columns={productColumns}
+                                    order={listPreferences.order}
+                                    hidden={listPreferences.hidden}
+                                    density={listPreferences.density}
+                                    onOrderChange={listPreferences.setOrder}
+                                    onToggleColumn={listPreferences.toggleColumn}
+                                    onDensityChange={listPreferences.setDensity}
+                                    ar={ar}
+                                />
+                            </div>
 
+                            {(search ||
+                                countProductFilters(
+                                    filters,
+                                ) > 0 ||
+                                advancedConditions.length > 0) && (
+                                <div className="flex flex-wrap items-center gap-2 text-[10px] text-[var(--ac-text-muted)] lg:justify-end">
+                                    <span>
+                                        {t('ui.refined_catalog_view')}
+                                    </span>
+
+                                    {search && (
+                                        <span className="rounded-full bg-[var(--ac-bg-soft)] px-2.5 py-1 font-semibold text-[var(--ac-text-soft)]">
+                                            “{search}”
+                                        </span>
+                                    )}
+
+                                    {(countProductFilters(filters) > 0
+                                        || advancedConditions.length > 0) && (
+                                        <span className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 font-semibold text-[var(--ac-accent)]">
+                                            {ar
+                                                ? `${countProductFilters(filters) + advancedConditions.length} فلتر`
+                                                : `${countProductFilters(filters) + advancedConditions.length} filters`}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-3 border-t border-[var(--ac-line)] pt-3">
                             <SavedViews
                                 storageKey={`acconova:saved-views:products:${activeOrganization?.id ?? 'none'}`}
                                 ar={ar}
@@ -886,46 +955,7 @@ function ProductsWorkspace() {
                                     setPage(1);
                                 }}
                             />
-
-                            {allowEdit && selectedIds.size > 0 && filters.status !== 'deleted' && (
-                                <button
-                                    type="button"
-                                    onClick={() => setBulkEditOpen(true)}
-                                    className="inline-flex h-10 items-center rounded-[12px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-3 text-[11px] font-semibold text-[var(--ac-accent)]"
-                                >
-                                    {ar
-                                        ? `تعديل جماعي (${selectedIds.size})`
-                                        : `Bulk edit (${selectedIds.size})`}
-                                </button>
-                            )}
-
-                            <ProductDataActions filters={productFilters} canImport={allowEdit && allowCreate} onImport={() => setImportOpen(true)} />
-                            {allowCreate && (
-                                <button
-                                    type="button"
-                                    onClick={
-                                        create
-                                    }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white"
-                                >
-                                    <Plus
-                                        size={16}
-                                    />
-
-                                    {t('ui.new_item')}
-                                </button>
-                            )}
                         </div>
-
-                        {(search ||
-                            countProductFilters(
-                                filters,
-                            ) > 0) && (
-                            <p className="mt-3 text-[11px] text-[var(--ac-text-muted)]">
-                                {t('ui.refined_catalog_view')}{' '}
-                                {t('count.filters', { count: countProductFilters(filters) })}
-                            </p>
-                        )}
                     </div>
 
                     {error && (
