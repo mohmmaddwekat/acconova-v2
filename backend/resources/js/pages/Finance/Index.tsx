@@ -9,6 +9,8 @@ import { CashList } from './CashList';
 import { DocumentDetail } from './DocumentDetail';
 import { DocumentForm } from './DocumentForm';
 import { DocumentList } from './DocumentList';
+import { FinanceHome } from './FinanceHome';
+import { FinanceNav } from './FinanceNav';
 import { Taxes } from './Taxes';
 import { apiErrorText } from './shared';
 import type {
@@ -47,6 +49,8 @@ export default function FinanceIndex({
 
     const title = (() => {
         switch (financeView) {
+            case 'overview':
+                return ar ? 'المركز المالي' : 'Finance Center';
             case 'sales-list':
                 return ar ? 'فواتير البيع' : 'Sales invoices';
             case 'sales-create':
@@ -101,12 +105,20 @@ export default function FinanceIndex({
                     )}
 
                     {lookups && (
-                        <FinanceViewRenderer
-                            financeView={financeView}
-                            recordId={recordId ?? null}
-                            lookups={lookups}
-                            ar={ar}
-                        />
+                        <div className="space-y-4">
+                            <FinanceNav
+                                lookups={lookups}
+                                ar={ar}
+                                active={activeDestination(financeView)}
+                            />
+
+                            <FinanceViewRenderer
+                                financeView={financeView}
+                                recordId={recordId ?? null}
+                                lookups={lookups}
+                                ar={ar}
+                            />
+                        </div>
                     )}
                 </div>
             </main>
@@ -119,6 +131,8 @@ function canOpenFinanceView(
     permissions: FinanceLookups['permissions'],
 ): boolean {
     switch (financeView) {
+        case 'overview':
+            return true;
         case 'sales-list':
         case 'sales-detail':
             return permissions.sales_view;
@@ -143,6 +157,32 @@ function canOpenFinanceView(
     }
 }
 
+function activeDestination(
+    financeView: FinanceView,
+): 'overview' | 'sales' | 'purchases' | 'payments' | 'receipts' | 'taxes' {
+    if (financeView.startsWith('sales')) {
+        return 'sales';
+    }
+
+    if (financeView.startsWith('purchase')) {
+        return 'purchases';
+    }
+
+    if (financeView.startsWith('payment')) {
+        return 'payments';
+    }
+
+    if (financeView.startsWith('receipt')) {
+        return 'receipts';
+    }
+
+    if (financeView === 'taxes') {
+        return 'taxes';
+    }
+
+    return 'overview';
+}
+
 function FinanceViewRenderer({
     financeView,
     recordId,
@@ -165,6 +205,9 @@ function FinanceViewRenderer({
     }
 
     switch (financeView) {
+        case 'overview':
+            return <FinanceHome lookups={lookups} ar={ar} />;
+
         case 'sales-list':
             return <DocumentList kind="sale_invoice" lookups={lookups} ar={ar} />;
 
