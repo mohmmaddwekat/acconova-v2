@@ -14,6 +14,7 @@ export type AuthUser = {
 
 export type WorkspaceOrganization = {
     task_permissions?: string[];
+    system_name?: string;
     currency?: string;
     permissions?: string[] | null;
     id: number;
