@@ -95,8 +95,50 @@ export type FinancePermissions = {
     recurring_payments_view: boolean;
 };
 
+export type FinanceBankAccount = {
+    id: string;
+    bank_name: string;
+    account_name: string | null;
+    iban: string | null;
+    account_number: string | null;
+    is_primary: boolean;
+};
+
 export type FinanceLookups = {
     currency: string;
+    settings: {
+        decimal_places: number;
+        payment_methods: string[];
+        validate_check_date: boolean;
+        post_dated_checks_pending: boolean;
+        bank_accounts: FinanceBankAccount[];
+        organization: {
+            name: string;
+            legal_name: string;
+            trade_name: string;
+            support_email: string;
+            phone: string;
+            commercial_registration: string;
+            vat_number: string;
+            website: string;
+            country: string;
+            city: string;
+            address: string;
+            invoice_footer: string;
+        };
+        invoice: {
+            template: 'professional' | 'classic' | 'modern' | 'simple';
+            paper_size: 'a4' | 'letter';
+            margins: 'normal' | 'compact';
+            logo_position: 'start' | 'center' | 'end';
+            show_logo: boolean;
+            show_contact: boolean;
+            show_tax_number: boolean;
+            show_notes: boolean;
+            show_qr: boolean;
+            columns: string[];
+        };
+    };
     parties: LookupParty[];
     products: LookupProduct[];
     warehouses: LookupWarehouse[];
