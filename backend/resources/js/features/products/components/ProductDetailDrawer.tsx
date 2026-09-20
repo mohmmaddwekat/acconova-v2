@@ -125,9 +125,9 @@ export function ProductDetailDrawer({
                 aria-label={t(
                     'ui.catalog_context',
                 )}
-                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[580px]"
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[580px]"
             >
-                <header className="shrink-0 border-b border-[var(--ac-line)] bg-white p-5 sm:p-6">
+                <header className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 gap-3">
                             <div className="flex size-12 shrink-0 items-center justify-center rounded-[17px] bg-[var(--ac-surface-strong)]">
@@ -318,7 +318,7 @@ export function ProductDetailDrawer({
                     )}
                 </div>
 
-                <footer className="shrink-0 border-t border-[var(--ac-line)] bg-white p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
+                <footer className="shrink-0 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
                     <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
                         {! archived &&
                             canEdit && (
@@ -329,7 +329,7 @@ export function ProductDetailDrawer({
                                             resolvedProduct,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-5 text-sm font-semibold transition duration-200 hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)]"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 text-sm font-semibold transition duration-200 hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)]"
                                 >
                                     <Pencil
                                         size={
@@ -429,7 +429,7 @@ function Metric({
     value,
 }: MetricProps) {
     return (
-        <div className="rounded-[17px] border border-[var(--ac-line)] bg-white p-4">
+        <div className="rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
             <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--ac-text-muted)]">
                 {
                     label
