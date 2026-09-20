@@ -314,7 +314,7 @@ export function CashList({
             />
 
             {! incoming && lookups.permissions.recurring_payments_view && (
-                <div className="rounded-[16px] border border-[#dbe6f5] bg-[var(--ac-surface)] p-2 shadow-[0_8px_28px_rgba(30,75,140,.04)]">
+                <div className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2 shadow-[0_8px_28px_rgba(30,75,140,.04)]">
                     <div className="flex flex-wrap gap-2">
                         <button
                             type="button"
@@ -323,8 +323,8 @@ export function CashList({
                             className={[
                                 'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
                                 paymentView === 'transactions'
-                                    ? 'bg-[#123d78] text-white shadow-[0_5px_14px_rgba(18,101,216,.14)]'
-                                    : 'text-[#52709a] hover:bg-blue-50 hover:text-[#1958a6]',
+                                    ? 'bg-[var(--ac-accent-solid)] text-white shadow-[0_5px_14px_rgba(18,101,216,.14)]'
+                                    : 'text-[var(--ac-text-soft)] hover:bg-blue-50 hover:text-[var(--ac-accent)]',
                             ].join(' ')}
                         >
                             <WalletCards size={14} />
@@ -338,8 +338,8 @@ export function CashList({
                             className={[
                                 'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
                                 paymentView === 'recurring'
-                                    ? 'bg-[#123d78] text-white shadow-[0_5px_14px_rgba(18,101,216,.14)]'
-                                    : 'text-[#52709a] hover:bg-blue-50 hover:text-[#1958a6]',
+                                    ? 'bg-[var(--ac-accent-solid)] text-white shadow-[0_5px_14px_rgba(18,101,216,.14)]'
+                                    : 'text-[var(--ac-text-soft)] hover:bg-blue-50 hover:text-[var(--ac-accent)]',
                             ].join(' ')}
                         >
                             <CalendarClock size={14} />
@@ -356,7 +356,7 @@ export function CashList({
             <FPanel title={text('عوامل التصفية والبحث', 'Filters & search')} icon={Search}>
                 <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
                     <label className="relative xl:col-span-2">
-                        <Search size={16} className="absolute start-3 top-3 text-slate-400" />
+                        <Search size={16} className="absolute start-3 top-3 text-[var(--ac-text-muted)]" />
                         <input
                             className={financeInput + ' ps-9'}
                             value={search}
@@ -423,18 +423,18 @@ export function CashList({
 
             <FPanel title={title + (response ? ' (' + response.meta.total + ')' : '')} icon={CheckCircle2}>
                 {loading ? (
-                    <div className="p-12 text-center text-sm text-slate-400">
+                    <div className="p-12 text-center text-sm text-[var(--ac-text-muted)]">
                         {text('جارٍ تحميل الحركات...', 'Loading movements...')}
                     </div>
                 ) : ! response?.data.length ? (
-                    <div className="p-12 text-center text-sm text-slate-400">
+                    <div className="p-12 text-center text-sm text-[var(--ac-text-muted)]">
                         {text('لا توجد حركات مطابقة.', 'No matching movements.')}
                     </div>
                 ) : (
                     <>
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[980px] text-xs">
-                                <thead className="bg-[#f7faff] text-[#6f86a8]">
+                                <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                     <tr>
                                         {[
                                             text('رقم الحركة', 'Movement'),
@@ -457,16 +457,16 @@ export function CashList({
                                     {response.data.map((row) => (
                                         <tr
                                             key={row.id}
-                                            className="border-t border-[#edf3fa] text-[#1d3f72] hover:bg-blue-50/40"
+                                            className="border-t border-[var(--ac-line)] text-[var(--ac-text)] hover:bg-blue-50/40"
                                         >
-                                            <td className="px-3 py-3 font-semibold text-[#1265d8]">{row.number}</td>
+                                            <td className="px-3 py-3 font-semibold text-[var(--ac-accent)]">{row.number}</td>
                                             <td className="px-3 py-3">{row.movement_date}</td>
                                             <td className="px-3 py-3">{row.party?.name ?? '—'}</td>
                                             <td className="px-3 py-3">{row.category}</td>
                                             <td className="px-3 py-3">
                                                 {row.method}
                                                 {row.method === 'check' && row.check_status
-                                                    ? <span className="ms-1 text-[9px] text-slate-400">({row.check_status})</span>
+                                                    ? <span className="ms-1 text-[9px] text-[var(--ac-text-muted)]">({row.check_status})</span>
                                                     : null}
                                             </td>
                                             <td className="px-3 py-3">{row.reference ?? '—'}</td>
@@ -488,7 +488,7 @@ export function CashList({
                         </div>
 
                         {response.meta.last_page > 1 && (
-                            <div className="flex items-center justify-between border-t border-[#edf3fa] p-4 text-xs text-slate-500">
+                            <div className="flex items-center justify-between border-t border-[var(--ac-line)] p-4 text-xs text-[var(--ac-text-muted)]">
                                 <span>
                                     {text('صفحة', 'Page')} {response.meta.current_page} / {response.meta.last_page}
                                 </span>
