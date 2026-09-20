@@ -133,6 +133,42 @@ class ProductInsightsController extends Controller
             ->latest('id')
             ->first();
 
+        $priceHistory = FinancialDocumentLine::query()
+            ->where('product_id', $record->id)
+            ->whereHas('document', function ($query) use ($operationalStatuses): void {
+                $query->whereIn('status', $operationalStatuses);
+            })
+            ->with('document:id,kind,issue_date,status')
+            ->latest('id')
+            ->limit(160)
+            ->get()
+            ->filter(fn ($line) => $line->document?->issue_date)
+            ->groupBy(fn ($line) =>
+                $line->document->issue_date->format('Y-m-d')
+                .'|'
+                .$line->document->kind,
+            )
+            ->map(function ($lines) {
+                $first = $lines->first();
+
+                return [
+                    'date' => $first->document->issue_date->format('Y-m-d'),
+                    'kind' => $first->document->kind,
+                    'price' => number_format(
+                        (float) $lines->avg(
+                            fn ($line) => (float) $line->unit_price,
+                        ),
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'count' => $lines->count(),
+                ];
+            })
+            ->sortBy('date')
+            ->take(-60)
+            ->values();
+
         $balances = $record->inventoryBalances()
             ->with('warehouse:id,name')
             ->get();
@@ -208,6 +244,7 @@ class ProductInsightsController extends Controller
                     'recent_movements' => $recentMovements,
                 ],
                 'top_customers' => $topCustomers,
+                'price_history' => $priceHistory,
             ],
         ]);
     }
