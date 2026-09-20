@@ -847,6 +847,13 @@ export function CashForm({
                         }
                     >
                         <div className="space-y-4 p-4">
+                            <div className="rounded-[12px] border border-blue-100 bg-blue-50/70 p-3 text-[11px] leading-6 text-blue-800">
+                                {text(
+                                    'التوزيع اختياري وآمن: لا يمكن تخصيص أكثر من المتبقي على الفاتورة، وأي زيادة في المبلغ تبقى رصيداً مقدماً للطرف. مسودة الفاتورة يمكن حذفها قبل الإصدار فقط؛ أما الفاتورة الصادرة المرتبطة بدفعة فلا تُحذف، بل تُصحح أو تُلغى بعد معالجة الدفعة المرتبطة.',
+                                    'Allocation is optional and protected: you cannot allocate more than the invoice outstanding balance, and any extra amount remains party advance credit. An invoice draft can only be deleted before issue; an issued invoice linked to a payment is corrected or voided after the linked payment is handled, never silently deleted.',
+                                )}
+                            </div>
+
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 <input
                                     className={financeInput}
