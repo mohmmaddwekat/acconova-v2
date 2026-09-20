@@ -8,25 +8,17 @@
 
 .profile-center[data-theme='dark'] {
     color-scheme: dark;
-    --ac-text: #e6effd;
-    --ac-text-muted: #e6effd;
-    --ac-surface-soft: #0e1623;
-    --ac-line: #1b2a40;
-    --profile-surface: #0e1623;
-    --profile-tint: #0e1623;
-    --profile-accent: #6aa6ff;
+    --profile-surface: var(--ac-surface);
+    --profile-tint: var(--ac-surface-soft);
+    --profile-accent: var(--ac-accent);
 }
 
 @media (prefers-color-scheme: dark) {
     .profile-center[data-theme='system'] {
         color-scheme: dark;
-        --ac-text: #e6effd;
-        --ac-text-muted: #e6effd;
-        --ac-surface-soft: #0e1623;
-        --ac-line: #1b2a40;
-        --profile-surface: #0e1623;
-        --profile-tint: #0e1623;
-        --profile-accent: #6aa6ff;
+        --profile-surface: var(--ac-surface);
+        --profile-tint: var(--ac-surface-soft);
+        --profile-accent: var(--ac-accent);
     }
 }
 
@@ -47,6 +39,6 @@
 }
 
 .profile-center :is(button, a):focus-visible {
-    outline: 2px solid #6aa6ff;
+    outline: 2px solid var(--ac-accent);
     outline-offset: 3px;
 }
