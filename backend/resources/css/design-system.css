@@ -818,7 +818,7 @@ html[data-ac-resolved-theme='dark'] {
 
     --ac-accent: #6aa6ff;
     --ac-accent-hover: #1b2a40;
-    --ac-accent-soft: #1b2a40;
+    --ac-accent-soft: #0e1623;
     --ac-accent-strong: #6aa6ff;
 
     --ac-button-border: #6aa6ff;
@@ -850,7 +850,7 @@ html[data-ac-resolved-theme='dark'] {
     --acs-text-muted: #e6effd;
     --acs-accent: #6aa6ff;
     --acs-accent-hover: #1b2a40;
-    --acs-accent-soft: #1b2a40;
+    --acs-accent-soft: #0e1623;
     --acs-control: #0e1623;
     --acs-control-hover: #1b2a40;
     --acs-toggle-off: #1b2a40;
@@ -1139,6 +1139,32 @@ html[data-ac-resolved-theme='dark']
     background-color: #2563a9 !important;
 }
 
+/*
+ * Approved dark pages are flat: remove arbitrary decorative gradients from
+ * page content so every page/card surface resolves to #0E1623.
+ */
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        main,
+        section,
+        article,
+        aside:not(.ac-app-nav),
+        dialog
+    )[class*="bg-[radial-gradient"],
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        main,
+        section,
+        article,
+        aside:not(.ac-app-nav),
+        dialog
+    )[class*="bg-[linear-gradient"] {
+    background-image: none !important;
+    background-color: #0e1623 !important;
+}
+
 /* Inputs/selects should inherit the active theme even when a browser paints native UI. */
 html[data-ac-resolved-theme='dark']
     :is(input, select, textarea) {
@@ -1155,21 +1181,22 @@ html[data-ac-resolved-theme='dark']
  * mode keep the hue but reduce luminance so status chips and action pills do
  * not turn into bright white islands.
  */
-html[data-ac-resolved-theme='dark'] .bg-blue-50 {
-    background-color: color-mix(in srgb, #3b82f6 15%, var(--ac-surface)) !important;
-}
-html[data-ac-resolved-theme='dark'] .bg-emerald-50 {
-    background-color: color-mix(in srgb, #10b981 14%, var(--ac-surface)) !important;
-}
-html[data-ac-resolved-theme='dark'] .bg-amber-50 {
-    background-color: color-mix(in srgb, #f59e0b 14%, var(--ac-surface)) !important;
-}
-html[data-ac-resolved-theme='dark'] .bg-red-50 {
-    background-color: color-mix(in srgb, #ef4444 14%, var(--ac-surface)) !important;
-}
-html[data-ac-resolved-theme='dark'] .bg-violet-50,
-html[data-ac-resolved-theme='dark'] .bg-purple-50 {
-    background-color: color-mix(in srgb, #8b5cf6 14%, var(--ac-surface)) !important;
+html[data-ac-resolved-theme='dark']
+    :is(
+        .bg-blue-50,
+        .bg-blue-100,
+        .bg-emerald-50,
+        .bg-emerald-100,
+        .bg-amber-50,
+        .bg-amber-100,
+        .bg-red-50,
+        .bg-red-100,
+        .bg-violet-50,
+        .bg-violet-100,
+        .bg-purple-50,
+        .bg-purple-100
+    ) {
+    background-color: #0e1623 !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -1314,22 +1341,25 @@ html[data-ac-resolved-theme='dark'] .ac-settings-paper {
     --acs-text-soft: #e6effd;
     --acs-text-muted: #e6effd;
     --acs-accent: #6aa6ff;
-    --acs-accent-soft: #1b2a40;
+    --acs-accent-soft: #0e1623;
     color-scheme: dark;
 }
 
 @media print {
-    .ac-settings-paper,
-    .ac-invoice-print,
-    .ac-voucher-print {
+    html[data-ac-resolved-theme='dark']
+        :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print),
+    html[data-ac-resolved-theme='dark']
+        :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
+        :is(.bg-white, .bg-slate-50, .bg-slate-100, .bg-gray-50, .bg-gray-100) {
         background: #ffffff !important;
+        background-color: #ffffff !important;
         color: #111827 !important;
         color-scheme: light !important;
     }
 
-    .ac-settings-paper *,
-    .ac-invoice-print *,
-    .ac-voucher-print * {
+    html[data-ac-resolved-theme='dark']
+        :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
+        * {
         color-scheme: light !important;
     }
 }
