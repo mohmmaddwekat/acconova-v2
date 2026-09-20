@@ -125,6 +125,7 @@ export type FinanceLookups = {
             city: string;
             address: string;
             invoice_footer: string;
+            logo_url: string | null;
         };
         invoice: {
             template: 'professional' | 'classic' | 'modern' | 'simple';
