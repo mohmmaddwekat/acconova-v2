@@ -17,6 +17,7 @@ import {
     Gauge,
     HandCoins,
     Landmark,
+    Landmark,
     ListTodo,
     PanelLeftClose,
     PanelLeftOpen,
