@@ -344,13 +344,27 @@ class FinanceDocumentService
                 ]);
             }
 
-            $hasAllocations = CashAllocation::query()
+            $hasBlockingAllocations = CashAllocation::query()
                 ->where('financial_document_id', $locked->id)
+                ->whereHas('movement', function ($query): void {
+                    $query
+                        ->where('status', 'draft')
+                        ->orWhere(function ($posted): void {
+                            $posted
+                                ->where('status', 'posted')
+                                ->where(function ($effective): void {
+                                    $effective
+                                        ->where('method', '!=', 'check')
+                                        ->orWhereNull('check_status')
+                                        ->orWhereNotIn('check_status', ['bounced', 'cancelled']);
+                                });
+                        });
+                })
                 ->exists();
 
-            if ($hasAllocations) {
+            if ($hasBlockingAllocations) {
                 throw ValidationException::withMessages([
-                    'payments' => ['Remove draft allocations, or reverse/correct posted payments, before voiding this document.'],
+                    'payments' => ['Remove linked draft allocations, or reverse/correct active posted payments, before voiding this document.'],
                 ]);
             }
 
