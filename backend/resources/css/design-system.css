@@ -690,3 +690,166 @@ aside[role='dialog']
                 ease;
     }
 }
+
+
+/*
+ * User appearance preferences.
+ *
+ * These attributes are applied by AppShell from the authenticated profile
+ * preferences so appearance changes affect the whole product instead of only
+ * the Profile Center preview.
+ */
+html[data-ac-resolved-theme='dark'] {
+    --ac-bg: #0f1713;
+    --ac-bg-soft: #131e18;
+    --ac-surface: #17231d;
+    --ac-surface-soft: #1c2a23;
+    --ac-surface-strong: #223229;
+    --ac-line: rgba(226, 240, 232, 0.10);
+    --ac-line-strong: rgba(226, 240, 232, 0.18);
+    --ac-text: #edf5f0;
+    --ac-text-soft: #bdcbc3;
+    --ac-text-muted: #91a39a;
+    --ac-text-faint: #708078;
+    --ac-accent-soft: rgba(67, 201, 154, 0.16);
+    --ac-accent-strong: #78e0bb;
+    --ac-shadow-soft:
+        0 1px 2px rgba(0, 0, 0, 0.18),
+        0 10px 32px rgba(0, 0, 0, 0.18);
+    --ac-shadow-panel:
+        0 1px 2px rgba(0, 0, 0, 0.2),
+        0 18px 54px rgba(0, 0, 0, 0.22);
+}
+
+html[data-ac-resolved-theme='dark'] body {
+    background:
+        radial-gradient(
+            circle at 16% -10%,
+            rgba(67, 201, 154, 0.10),
+            transparent 34%
+        ),
+        radial-gradient(
+            circle at 94% 8%,
+            rgba(102, 129, 232, 0.07),
+            transparent 30%
+        ),
+        var(--ac-bg);
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(.bg-white, .bg-white\/95, .bg-white\/90) {
+    background-color:
+        var(--ac-surface) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .bg-slate-50,
+        .bg-slate-100,
+        .bg-gray-50,
+        .bg-gray-100
+    ) {
+    background-color:
+        var(--ac-surface-soft) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .text-slate-900,
+        .text-slate-800,
+        .text-gray-900,
+        .text-gray-800
+    ) {
+    color:
+        var(--ac-text) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .text-slate-700,
+        .text-slate-600,
+        .text-gray-700,
+        .text-gray-600
+    ) {
+    color:
+        var(--ac-text-soft) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .text-slate-500,
+        .text-slate-400,
+        .text-gray-500,
+        .text-gray-400
+    ) {
+    color:
+        var(--ac-text-muted) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .border-slate-100,
+        .border-slate-200,
+        .border-gray-100,
+        .border-gray-200
+    ) {
+    border-color:
+        var(--ac-line) !important;
+}
+
+html[data-ac-density='compact']
+    main
+    :is(.p-6, .p-5) {
+    padding:
+        1rem !important;
+}
+
+html[data-ac-density='compact']
+    main
+    .p-4 {
+    padding:
+        0.75rem !important;
+}
+
+html[data-ac-density='compact']
+    main
+    :is(.gap-6, .gap-5, .gap-4) {
+    gap:
+        0.75rem !important;
+}
+
+html[data-ac-density='compact']
+    main
+    :is(
+        button,
+        input,
+        select,
+        textarea
+    ) {
+    min-height:
+        2.25rem;
+}
+
+html[data-ac-reduced-motion='true'] {
+    scroll-behavior:
+        auto !important;
+}
+
+html[data-ac-reduced-motion='true']
+    *,
+html[data-ac-reduced-motion='true']
+    *::before,
+html[data-ac-reduced-motion='true']
+    *::after {
+    animation-duration:
+        0.001ms !important;
+
+    animation-iteration-count:
+        1 !important;
+
+    scroll-behavior:
+        auto !important;
+
+    transition-duration:
+        0.001ms !important;
+}
