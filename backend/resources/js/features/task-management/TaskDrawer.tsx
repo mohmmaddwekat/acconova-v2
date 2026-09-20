@@ -1,7 +1,9 @@
 import { Link } from '@inertiajs/react';
+import { RecordQuickActions } from '@/components/data/RecordQuickActions';
 import {
     Activity,
     Check,
+    Copy,
     Download,
     Edit3,
     FileText,
@@ -321,6 +323,16 @@ export function TaskDrawer({
                         </Link>
                     )}
 
+                    {task && can('tasks.create') && (
+                        <Link
+                            href={`${base}/create?copy_from=${task.id}`}
+                            className={button}
+                        >
+                            <Copy size={13} />
+                            {text('نسخ المهمة', 'Copy task')}
+                        </Link>
+                    )}
+
                     {task
                         && can('tasks.update')
                         && task.status !== 'completed' && (
@@ -348,6 +360,20 @@ export function TaskDrawer({
                     )}
                 </div>
 
+                <div className="flex items-center gap-2">
+                    {task && (
+                        <RecordQuickActions
+                            recordKey={'task-' + String(task.id)}
+                            kind="task"
+                            label={task.title}
+                            detail={data.projects.find(
+                                (project) => project.id === task.project_id,
+                            )?.name ?? null}
+                            href={`${base}/${task.id}`}
+                            ar={ar}
+                        />
+                    )}
+
                 <button
                     type="button"
                     disabled={busy}
@@ -357,6 +383,7 @@ export function TaskDrawer({
                 >
                     <X size={19} />
                 </button>
+                </div>
             </header>
 
             {error && (
