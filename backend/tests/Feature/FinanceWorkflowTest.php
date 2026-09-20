@@ -846,6 +846,9 @@ class FinanceWorkflowTest extends TestCase
             'invoice_start_number' => 25,
             'purchase_start_number' => 40,
             'invoice_template' => 'modern',
+            'purchase_template' => 'classic',
+            'receipt_template' => 'simple',
+            'invoice_accent_color' => '#7C3AED',
             'print_paper_size' => 'a4',
             'print_margins' => 'compact',
             'logo_position' => 'center',
@@ -870,6 +873,9 @@ class FinanceWorkflowTest extends TestCase
             ->assertJsonPath('settings.payment_methods.0', 'cash')
             ->assertJsonPath('settings.bank_accounts.0.bank_name', 'Test Bank')
             ->assertJsonPath('settings.invoice.template', 'modern')
+            ->assertJsonPath('settings.invoice.purchase_template', 'classic')
+            ->assertJsonPath('settings.invoice.receipt_template', 'simple')
+            ->assertJsonPath('settings.invoice.accent_color', '#7C3AED')
             ->assertJsonPath('settings.invoice.margins', 'compact');
 
         $this->postJson('/api/finance/cash-movements', [
