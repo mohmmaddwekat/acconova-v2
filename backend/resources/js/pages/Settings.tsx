@@ -64,8 +64,6 @@ type WorkspaceSettings = {
     currency: string;
     reminder_days: number;
     can_manage: boolean;
-    system_name: string;
-    system_description: string;
     legal_name: string;
     trade_name: string;
     support_email: string;
@@ -700,29 +698,6 @@ function SettingsWorkspace() {
 
                                     <div className="grid gap-4 xl:grid-cols-2">
                                         <SettingsCard
-                                            title={text('الإعدادات العامة', 'General settings')}
-                                            description={text('اسم النظام والوصف الظاهر لإدارة مساحة العمل.', 'Workspace display identity.')}
-                                            icon={Settings2}
-                                        >
-                                            <label className="block text-[11px] font-semibold text-[#5e789e]">
-                                                {text('اسم النظام', 'System name')}
-                                                <input
-                                                    className={input}
-                                                    value={settings.system_name}
-                                                    onChange={event => updateSetting('system_name', event.target.value)}
-                                                />
-                                            </label>
-                                            <label className="mt-4 block text-[11px] font-semibold text-[#5e789e]">
-                                                {text('الوصف', 'Description')}
-                                                <textarea
-                                                    className={input + ' min-h-24 py-3'}
-                                                    value={settings.system_description}
-                                                    onChange={event => updateSetting('system_description', event.target.value)}
-                                                />
-                                            </label>
-                                        </SettingsCard>
-
-                                        <SettingsCard
                                             title={text('اللغة والمنطقة', 'Language & region')}
                                             description={text('تفضيلات حسابك الشخصية وتحفظ لحسابك.', 'Personal account preferences.')}
                                             icon={Globe2}
@@ -756,6 +731,27 @@ function SettingsWorkspace() {
                                                     }
                                                 />
                                             </label>
+                                        </SettingsCard>
+
+                                        <SettingsCard
+                                            title={text('إعدادات مساحة العمل', 'Workspace settings')}
+                                            description={text('هوية مؤسستك وإعدادات العمل، وليس إعدادات منتج AccoNova نفسه.', 'Your organization preferences, not AccoNova product-level settings.')}
+                                            icon={Building2}
+                                        >
+                                            <p className="text-[10px] leading-6 text-[#6f86a8]">
+                                                {text(
+                                                    'اسم وشعار AccoNova يظلان ثابتين. من تبويب المؤسسة يمكنك تعديل اسم مؤسستك وشعارها وبياناتها التي تظهر في الفواتير والمستندات.',
+                                                    'The AccoNova product name and brand stay fixed. Use Organization to edit your company identity and invoice details.',
+                                                )}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSection('organization')}
+                                                className={secondaryButton + ' mt-4'}
+                                            >
+                                                <Building2 size={14} />
+                                                {text('فتح إعدادات المؤسسة', 'Open organization settings')}
+                                            </button>
                                         </SettingsCard>
                                     </div>
                                 </div>
