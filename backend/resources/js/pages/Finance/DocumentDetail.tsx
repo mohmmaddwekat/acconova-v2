@@ -286,9 +286,9 @@ export function DocumentDetail({
 
             window.location.assign(
                 sales
-                    ? '/app/invoices/sales/'
+                    ? '/app/finance?view=sales-detail&id='
                         + response.data.id
-                    : '/app/invoices/purchases/'
+                    : '/app/finance?view=purchase-detail&id='
                         + response.data.id,
             );
         } catch (
@@ -428,9 +428,9 @@ export function DocumentDetail({
 
     const cashHref =
         sales
-            ? '/app/receipts/create?document_id='
+            ? '/app/finance?view=receipt-create&document_id='
                 + document.id
-            : '/app/payments/create?document_id='
+            : '/app/finance?view=payment-create&document_id='
                 + document.id;
 
     return (
