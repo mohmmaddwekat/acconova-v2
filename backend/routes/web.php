@@ -331,7 +331,7 @@ Route::middleware([
 
     Route::get(
         '/app/payments/recurring',
-        fn () => Inertia::render('Payments'),
+        fn () => redirect()->route('app.payments'),
     )->name('app.payments.recurring');
 
     Route::get(
