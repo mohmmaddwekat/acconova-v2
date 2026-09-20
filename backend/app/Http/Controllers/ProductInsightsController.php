@@ -6,6 +6,8 @@ use App\Models\FinancialDocumentLine;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Tenancy\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class ProductInsightsController extends Controller
@@ -169,6 +171,31 @@ class ProductInsightsController extends Controller
             ->take(-60)
             ->values();
 
+        $customPrices = DB::table('party_product_prices as ppp')
+            ->join('parties as p', 'p.id', '=', 'ppp.party_id')
+            ->where('ppp.organization_id', app(TenantContext::class)->id())
+            ->where('ppp.product_id', $record->id)
+            ->orderByRaw("COALESCE(NULLIF(p.company_name, ''), NULLIF(p.name, ''), '')")
+            ->limit(50)
+            ->get([
+                'ppp.party_id',
+                'p.name',
+                'p.company_name',
+                'ppp.unit_price',
+                'ppp.currency',
+                'ppp.note',
+                'ppp.updated_at',
+            ])
+            ->map(fn ($row) => [
+                'party_id' => $row->party_id,
+                'party_name' => $row->company_name ?: $row->name ?: '#'.$row->party_id,
+                'unit_price' => (string) $row->unit_price,
+                'currency' => $row->currency,
+                'note' => $row->note,
+                'updated_at' => $row->updated_at,
+            ])
+            ->values();
+
         $balances = $record->inventoryBalances()
             ->with('warehouse:id,name')
             ->get();
@@ -244,6 +271,7 @@ class ProductInsightsController extends Controller
                     'recent_movements' => $recentMovements,
                 ],
                 'top_customers' => $topCustomers,
+                'custom_prices' => $customPrices,
                 'price_history' => $priceHistory,
             ],
         ]);
