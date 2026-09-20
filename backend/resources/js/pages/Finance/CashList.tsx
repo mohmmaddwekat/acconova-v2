@@ -129,13 +129,13 @@ export function CashList({
         );
 
     const createHref = incoming
-        ? '/app/receipts/create'
-        : '/app/payments/create';
+        ? '/app/finance?view=receipt-create'
+        : '/app/finance?view=payment-create';
 
     const detailHref = (id: number): string =>
         incoming
-            ? '/app/receipts/' + id
-            : '/app/payments/' + id;
+            ? '/app/finance?view=receipt-detail&id=' + id
+            : '/app/finance?view=payment-detail&id=' + id;
 
     const categories = incoming
         ? [
