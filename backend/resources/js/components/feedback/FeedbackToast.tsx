@@ -12,7 +12,7 @@ export type FeedbackTone =
 type FeedbackToastProps = {
     message: string | null;
 
-    tone?: FeedbackTone;
+    tone?: FeedbackTone | undefined;
 
     actionLabel?: string | undefined;
 
