@@ -30,6 +30,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import {
     archiveProduct,
     fetchProducts,
+    fetchProduct,
     restoreProduct,
     type ProductFilters,
 } from '@/features/products/api';
@@ -83,7 +84,7 @@ export default function ProductsIndex() {
 
 /** Reset transient records, dialogs and selections when the authorized workspace changes. */
 function ProductsWorkspace() {
-    useLocale();
+    const ar = useLocale() === 'ar';
     const {
         workspace,
     } = usePage<AppPageProps>().props;
@@ -173,6 +174,52 @@ function ProductsWorkspace() {
         useState<string | null>(
             null,
         );
+
+    /*
+     * Global search / quick-create deep links reuse the existing editor and
+     * detail drawer rather than creating a second catalog workflow.
+     */
+    useEffect(() => {
+        if (
+            typeof window === 'undefined'
+            || ! activeOrganization
+        ) {
+            return;
+        }
+
+        const url = new URL(window.location.href);
+        const createRequested =
+            url.searchParams.get('create') === '1';
+        const focusId =
+            Number(url.searchParams.get('focus') ?? 0);
+
+        if (createRequested && allowCreate) {
+            create();
+            url.searchParams.delete('create');
+            window.history.replaceState({}, '', url);
+        }
+
+        if (Number.isInteger(focusId) && focusId > 0) {
+            url.searchParams.delete('focus');
+            window.history.replaceState({}, '', url);
+
+            void fetchProduct(focusId)
+                .then((product) => {
+                    setDetailProduct(product);
+                })
+                .catch(() => {
+                    setError(
+                        ar
+                            ? 'تعذر فتح عنصر الكتالوج المطلوب.'
+                            : 'The requested catalog item could not be opened.',
+                    );
+                });
+        }
+    }, [
+        activeOrganization?.id,
+        allowCreate,
+        ar,
+    ]);
 
     const productFilters:
         ProductFilters = {
@@ -491,6 +538,23 @@ function ProductsWorkspace() {
                                     setPage(
                                         1,
                                     );
+                                }}
+                            />
+
+                            <SavedViews
+                                storageKey={`acconova:saved-views:products:${activeOrganization?.id ?? 'none'}`}
+                                ar={ar}
+                                value={{
+                                    search,
+                                    filters,
+                                    perPage,
+                                }}
+                                onApply={(saved) => {
+                                    setDraftSearch(saved.search);
+                                    setSearch(saved.search);
+                                    setFilters(saved.filters);
+                                    setPerPage(saved.perPage);
+                                    setPage(1);
                                 }}
                             />
 
