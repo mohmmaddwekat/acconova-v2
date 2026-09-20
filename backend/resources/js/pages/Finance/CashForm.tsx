@@ -350,6 +350,24 @@ export function CashForm({
             return;
         }
 
+        const overAllocatedInvoice =
+            allocations.find(
+                allocation =>
+                    (Number(allocation.amount) || 0)
+                    > (Number(allocation.document_balance_due) || 0)
+                        + 0.00005,
+            );
+
+        if (overAllocatedInvoice) {
+            setError(
+                text(
+                    'المبلغ المخصص للفاتورة لا يمكن أن يتجاوز المتبقي عليها. أي مبلغ زائد سيبقى تلقائياً رصيداً مقدماً للطرف.',
+                    'An invoice allocation cannot exceed its outstanding balance. Any extra amount will remain as advance credit for the party.',
+                ),
+            );
+            return;
+        }
+
         if (allocated > (Number(amount) || 0) + 0.00005) {
             setError(
                 text(
@@ -567,8 +585,8 @@ export function CashForm({
                         <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {incoming
-                                    ? text('مصدر المقبوض', 'Receipt source')
-                                    : text('فئة الدفع', 'Payment category')}
+                                    ? text('مصدر المقبوض *', 'Receipt source *')
+                                    : text('فئة الدفع *', 'Payment category *')}
                                 <select
                                     className={financeInput + ' mt-2'}
                                     value={category}
@@ -671,7 +689,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('الحساب / الصندوق', 'Account / cash box')}
+                                {text('الحساب / الصندوق (اختياري)', 'Account / cash box (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
                                     value={accountLabel}
@@ -681,7 +699,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('رقم المرجع', 'Reference')}
+                                {text('رقم المرجع (اختياري)', 'Reference (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
                                     value={reference}
@@ -690,7 +708,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('القسم', 'Department')}
+                                {text('القسم (اختياري)', 'Department (optional)')}
                                 <select
                                     className={financeInput + ' mt-2'}
                                     value={departmentId}
@@ -706,7 +724,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('الفرع / الموقع', 'Branch / location')}
+                                {text('الفرع / الموقع (اختياري)', 'Branch / location (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
                                     value={branchLabel}
@@ -715,7 +733,7 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[#49698f]">
-                                {text('مركز التكلفة', 'Cost center')}
+                                {text('مركز التكلفة (اختياري)', 'Cost center (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
                                     value={costCenter}
@@ -725,7 +743,7 @@ export function CashForm({
 
                             {! incoming && (
                                 <label className="text-xs font-semibold text-[#49698f]">
-                                    {text('مستحق حكومي مرتبط', 'Government obligation')}
+                                    {text('مستحق حكومي مرتبط (اختياري)', 'Government obligation (optional)')}
                                     <select
                                         className={financeInput + ' mt-2'}
                                         value={governmentObligationId}
@@ -746,7 +764,9 @@ export function CashForm({
                                         <option value="">
                                             {text('بدون مستحق حكومي', 'No government obligation')}
                                         </option>
-                                        {lookups.government_obligations.map((obligation) => (
+                                        {lookups.government_obligations
+                                            .filter((obligation) => obligation.currency === currency)
+                                            .map((obligation) => (
                                             <option key={obligation.id} value={obligation.id}>
                                                 {obligation.title} · {obligation.authority_name} · {obligation.balance_due} {obligation.currency}
                                             </option>
@@ -902,6 +922,7 @@ export function CashForm({
                                                         <input
                                                             type="number"
                                                             min="0"
+                                                            max={allocation.document_balance_due}
                                                             step="0.0001"
                                                             className={financeInput + ' max-w-36'}
                                                             value={allocation.amount}
