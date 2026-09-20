@@ -307,6 +307,8 @@ class FinanceDocumentService
                     'unit_price' => $line->unit_price,
                     'price_status' => $line->price_status,
                     'discount_percent' => $line->discount_percent,
+                    'discount_type' => $line->discount_type,
+                    'discount_value' => $line->discount_value,
                     'tax_name_snapshot' => $line->tax_name_snapshot,
                     'tax_rate' => $line->tax_rate,
                     'line_subtotal' => $line->line_subtotal,
@@ -559,10 +561,39 @@ class FinanceDocumentService
             $priceStatus = $document->isPurchase()
                 ? ($line['price_status'] ?? 'final')
                 : 'final';
-            $discountPercent = (float) ($line['discount_percent'] ?? 0);
-            $taxRate = (float) ($taxRule?->rate ?? $line['tax_rate'] ?? 0);
+            $discountType = in_array(
+                ($line['discount_type'] ?? 'percent'),
+                ['percent', 'fixed'],
+                true,
+            )
+                ? ($line['discount_type'] ?? 'percent')
+                : 'percent';
+            $discountValue = (float) (
+                $line['discount_value']
+                ?? $line['discount_percent']
+                ?? 0
+            );
             $subtotal = round($quantity * $unitPrice, 4);
-            $discount = round($subtotal * ($discountPercent / 100), 4);
+
+            if ($discountType === 'percent' && ($discountValue < 0 || $discountValue > 100)) {
+                throw ValidationException::withMessages([
+                    "lines.$index.discount_value" => ['Percentage discount must be between 0 and 100.'],
+                ]);
+            }
+
+            if ($discountType === 'fixed' && ($discountValue < 0 || $discountValue > $subtotal)) {
+                throw ValidationException::withMessages([
+                    "lines.$index.discount_value" => ['Fixed discount cannot exceed the line subtotal.'],
+                ]);
+            }
+
+            $discountPercent = $discountType === 'percent'
+                ? $discountValue
+                : 0;
+            $discount = $discountType === 'fixed'
+                ? round($discountValue, 4)
+                : round($subtotal * ($discountValue / 100), 4);
+            $taxRate = (float) ($taxRule?->rate ?? $line['tax_rate'] ?? 0);
             $taxable = max($subtotal - $discount, 0);
 
             if ($taxRule?->inclusive && $taxRate > 0) {
@@ -594,6 +625,8 @@ class FinanceDocumentService
                 'unit_price' => number_format($unitPrice, 4, '.', ''),
                 'price_status' => $priceStatus,
                 'discount_percent' => number_format($discountPercent, 4, '.', ''),
+                'discount_type' => $discountType,
+                'discount_value' => number_format($discountValue, 4, '.', ''),
                 'tax_name_snapshot' => $taxRule?->name,
                 'tax_rate' => number_format($taxRate, 4, '.', ''),
                 'line_subtotal' => number_format($subtotal, 4, '.', ''),
