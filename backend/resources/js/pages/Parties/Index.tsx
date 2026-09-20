@@ -18,6 +18,7 @@ import {
 
 import { DataPagination } from '@/components/data/DataPagination';
 import { SavedViews } from '@/components/data/SavedViews';
+import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import {
@@ -623,8 +624,26 @@ function PartiesWorkspace() {
                         .party.id,
                 );
 
+                const archivedParty =
+                    pendingAction.party;
+
                 showToast(
                     t('ui.relationship_archived_historical_data_remains_preserved'),
+                    'success',
+                    {
+                        label:
+                            ar
+                                ? 'تراجع'
+                                : 'Undo',
+                        run:
+                            async () => {
+                                await restoreParty(
+                                    archivedParty.id,
+                                );
+                                await loadParties();
+                            },
+                    },
+                    8000,
                 );
             } else {
                 await restoreParty(
@@ -949,21 +968,30 @@ function PartiesWorkspace() {
                             </div>
                         ) : parties.length ===
                           0 ? (
-                            <div className="px-4 py-16 text-center sm:py-20">
-                                <div className="mx-auto flex size-12 items-center justify-center rounded-[18px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]">
-                                    <UsersRound
-                                        size={19}
-                                    />
-                                </div>
-
-                                <h2 className="mt-5 text-xl font-semibold tracking-[-0.04em]">
-                                    {t('ui.no_relationships_match_this_view')}
-                                </h2>
-
-                                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ac-text-soft)]">
-                                    {t('ui.clear_the_search_adjust_the_filters_or_import_existing_business_data')}
-                                </p>
-                            </div>
+                            <SmartEmptyState
+                                icon={UsersRound}
+                                title={t('ui.no_relationships_match_this_view')}
+                                description={t('ui.clear_the_search_adjust_the_filters_or_import_existing_business_data')}
+                                primary={allowCreate ? (
+                                    <button
+                                        type="button"
+                                        onClick={openCreate}
+                                        className="inline-flex h-11 items-center gap-2 rounded-[14px] bg-[var(--ac-accent-solid)] px-5 text-sm font-semibold text-[var(--ac-accent-solid-text)]"
+                                    >
+                                        <Plus size={15} />
+                                        {t('ui.new_relationship')}
+                                    </button>
+                                ) : undefined}
+                                secondary={(allowEdit && allowCreate) ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setImportOpen(true)}
+                                        className="inline-flex h-11 items-center rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 text-sm font-semibold text-[var(--ac-text-soft)]"
+                                    >
+                                        {ar ? 'استيراد Excel / CSV' : 'Import Excel / CSV'}
+                                    </button>
+                                ) : undefined}
+                            />
                         ) : (
                             <div>
                                 {parties.map(
