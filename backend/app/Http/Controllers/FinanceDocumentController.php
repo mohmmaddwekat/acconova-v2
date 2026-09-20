@@ -319,6 +319,8 @@ class FinanceDocumentController extends Controller
             'lines.*.unit_price' => ['required', 'numeric', 'min:0', 'max:999999999999'],
             'lines.*.price_status' => ['nullable', Rule::in(['estimated', 'final'])],
             'lines.*.discount_percent' => ['nullable', 'numeric', 'between:0,100'],
+            'lines.*.discount_type' => ['nullable', Rule::in(['percent', 'fixed'])],
+            'lines.*.discount_value' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'lines.*.tax_rate' => ['nullable', 'numeric', 'between:0,100'],
             'lines.*.affects_inventory' => ['sometimes', 'boolean'],
         ]);
@@ -412,6 +414,8 @@ class FinanceDocumentController extends Controller
                 'unit_price' => $line->unit_price,
                 'price_status' => $line->price_status,
                 'discount_percent' => $line->discount_percent,
+                'discount_type' => $line->discount_type,
+                'discount_value' => $line->discount_value,
                 'tax_name' => $line->tax_name_snapshot,
                 'tax_rate' => $line->tax_rate,
                 'line_subtotal' => $line->line_subtotal,
