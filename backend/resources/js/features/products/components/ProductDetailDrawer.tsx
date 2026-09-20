@@ -1,6 +1,9 @@
 import {
     PermanentDeleteControl,
 } from '@/components/data/PermanentDeleteControl';
+import {
+    ActivityTimeline,
+} from '@/components/data/ActivityTimeline';
 import { ServiceOperationsPanel } from '@/features/products/components/ServiceOperationsPanel';
 import { ProductionPanel } from '@/features/products/components/ProductionPanel';
 import {
@@ -70,7 +73,7 @@ export function ProductDetailDrawer({
     onArchive,
     onRestore,
 }: ProductDetailDrawerProps) {
-    useLocale();
+    const locale = useLocale();
 
     const dialogRef =
         useDialog(
@@ -316,6 +319,37 @@ export function ProductDetailDrawer({
                             </p>
                         </div>
                     )}
+                    <div className="mt-6">
+                        <ActivityTimeline
+                            title={locale === 'ar' ? 'سجل النشاط' : 'Activity timeline'}
+                            locale={locale}
+                            items={[
+                                {
+                                    key: 'product-created',
+                                    label: locale === 'ar' ? 'تم إنشاء العنصر' : 'Catalog item created',
+                                    detail: locale === 'ar' ? 'تمت إضافة العنصر إلى كتالوج مساحة العمل.' : 'The item was added to this workspace catalog.',
+                                    at: resolvedProduct.created_at,
+                                    tone: 'created',
+                                },
+                                {
+                                    key: 'product-updated',
+                                    label: locale === 'ar' ? 'آخر تعديل' : 'Last updated',
+                                    detail: locale === 'ar' ? 'آخر تعديل على بيانات المنتج أو الخدمة.' : 'Most recent product or service update.',
+                                    at: resolvedProduct.updated_at,
+                                    tone: 'updated',
+                                },
+                                ...(resolvedProduct.deleted_at
+                                    ? [{
+                                        key: 'product-archived',
+                                        label: locale === 'ar' ? 'تمت الأرشفة' : 'Catalog item archived',
+                                        detail: locale === 'ar' ? 'لا يمكن استخدامه في أعمال جديدة حتى تتم استعادته.' : 'Unavailable for new business until restored.',
+                                        at: resolvedProduct.deleted_at,
+                                        tone: 'archived' as const,
+                                    }]
+                                    : []),
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 <footer className="shrink-0 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
