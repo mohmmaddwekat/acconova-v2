@@ -1680,9 +1680,15 @@ function InvoicePrintView({
                                 .filter(Boolean)
                                 .join(' · ')}
                             {(organization.phone || organization.support_email) && <br />}
-                            {[organization.phone, organization.support_email]
+                            {[organization.phone, organization.support_email, organization.website]
                                 .filter(Boolean)
                                 .join(' · ')}
+                            {organization.commercial_registration && (
+                                <>
+                                    <br />
+                                    {text('السجل التجاري', 'Registration')}: {organization.commercial_registration}
+                                </>
+                            )}
                         </div>
                     )}
 
