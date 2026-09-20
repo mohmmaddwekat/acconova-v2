@@ -1840,7 +1840,7 @@ export function DocumentForm({
                             </button>
                         }
                     >
-                        <div className="space-y-3 p-4">
+                        <div className="space-y-4 p-4">
                             {lines.map(
                                 (
                                     line,
@@ -1851,214 +1851,354 @@ export function DocumentForm({
                                             index
                                         ];
 
+                                    const priceReference =
+                                        priceReferences[
+                                            line.client_id
+                                        ];
+
                                     return (
-                                        <div
+                                        <article
                                             key={
                                                 line.client_id
                                             }
-                                            className="grid gap-3 rounded-[16px] border border-[#dfe9f6] bg-white p-4 shadow-[0_6px_18px_rgba(32,78,140,0.04)] md:grid-cols-2 xl:grid-cols-12"
+                                            className="overflow-hidden rounded-[20px] border border-[#dbe6f5] bg-white shadow-[0_10px_30px_rgba(25,74,135,.055)]"
                                         >
-                                            <div className="xl:col-span-3">
-                                                <div className="mb-2 flex items-center justify-between gap-2">
-                                                    <label className="text-[10px] font-semibold text-[#6c84a6]">
-                                                    {text(
-                                                        'المنتج / الخدمة',
-                                                        'Product / service',
-                                                    )}
-                                                    </label>
-
-                                                    <span className="rounded-full bg-[#eef5ff] px-2 py-1 text-[9px] font-bold text-[#1265d8]">
-                                                        {text('بند ', 'Line ')}
+                                            <div className="flex items-center justify-between gap-3 border-b border-[#eaf0f8] bg-gradient-to-l from-[#f6faff] via-white to-white px-4 py-3 sm:px-5">
+                                                <div className="flex min-w-0 items-center gap-3">
+                                                    <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[#1265d8] text-xs font-bold text-white">
                                                         {index + 1}
                                                     </span>
+
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-bold text-[#123d78]">
+                                                            {text(
+                                                                'بند الفاتورة',
+                                                                'Invoice line',
+                                                            )}
+                                                        </p>
+
+                                                        <p className="mt-0.5 truncate text-[10px] text-[#7890b1]">
+                                                            {line.product_id
+                                                                ? (
+                                                                    lookups.products.find(
+                                                                        product =>
+                                                                            product.id ===
+                                                                            line.product_id,
+                                                                    )?.name
+                                                                    ?? line.description
+                                                                )
+                                                                : text(
+                                                                    'بند يدوي / خدمة / مصروف',
+                                                                    'Manual line / service / expense',
+                                                                )}
+                                                        </p>
+                                                    </div>
                                                 </div>
 
-                                                <select
-                                                    className={
-                                                        financeInput
-                                                        + ' mt-1'
+                                                <button
+                                                    type="button"
+                                                    className="flex size-9 shrink-0 items-center justify-center rounded-[11px] border border-red-100 bg-red-50 text-red-500 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-30"
+                                                    aria-label={text(
+                                                        'حذف البند',
+                                                        'Delete line',
+                                                    )}
+                                                    disabled={
+                                                        lines.length <=
+                                                        1
                                                     }
-                                                    value={
-                                                        line.product_id
-                                                        ?? ''
-                                                    }
-                                                    onChange={
-                                                        event =>
-                                                            selectProduct(
-                                                                line,
-                                                                event
-                                                                    .target
-                                                                    .value,
-                                                            )
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        {text(
-                                                            'بند يدوي / مصروف أو خدمة',
-                                                            'Manual line / expense / service',
-                                                        )}
-                                                    </option>
-
-                                                    {lookups.products
-                                                        .filter(
-                                                            product =>
-                                                                product.id ===
-                                                                            line.product_id
-                                                                || ! lines.some(
+                                                    onClick={() =>
+                                                        setLines(
+                                                            current =>
+                                                                current.filter(
                                                                     item =>
                                                                         item.client_id !==
-                                                                            line.client_id
-                                                                        && item.product_id ===
-                                                                            product.id,
+                                                                        line.client_id,
                                                                 ),
                                                         )
-                                                        .map(
-                                                            product => (
-                                                            <option
-                                                                key={
-                                                                    product.id
+                                                    }
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-4 p-4 sm:p-5">
+                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(260px,2.2fr)_110px_120px_minmax(170px,1fr)]">
+                                                    <label className="text-[11px] font-semibold text-[#58739a]">
+                                                        {text(
+                                                            'المنتج / الخدمة',
+                                                            'Product / service',
+                                                        )}
+
+                                                        <select
+                                                            className={
+                                                                financeInput
+                                                                + ' mt-2'
+                                                            }
+                                                            value={
+                                                                line.product_id
+                                                                ?? ''
+                                                            }
+                                                            onChange={
+                                                                event =>
+                                                                    selectProduct(
+                                                                        line,
+                                                                        event.target.value,
+                                                                    )
+                                                            }
+                                                        >
+                                                            <option value="">
+                                                                {text(
+                                                                    'بند يدوي — خدمة، مصروف أو بند غير مسجل',
+                                                                    'Manual line — service, expense or unlisted item',
+                                                                )}
+                                                            </option>
+
+                                                            {lookups.products
+                                                                .filter(
+                                                                    product =>
+                                                                        product.id ===
+                                                                            line.product_id
+                                                                        || ! lines.some(
+                                                                            item =>
+                                                                                item.client_id !==
+                                                                                    line.client_id
+                                                                                && item.product_id ===
+                                                                                    product.id,
+                                                                        ),
+                                                                )
+                                                                .map(
+                                                                    product => (
+                                                                        <option
+                                                                            key={
+                                                                                product.id
+                                                                            }
+                                                                            value={
+                                                                                product.id
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                product.name
+                                                                            }
+                                                                            {product.sku
+                                                                                ? ' · '
+                                                                                    + product.sku
+                                                                                : ''}
+                                                                        </option>
+                                                                    ),
+                                                                )}
+                                                        </select>
+                                                    </label>
+
+                                                    <label className="text-[11px] font-semibold text-[#58739a]">
+                                                        {text(
+                                                            'الكمية *',
+                                                            'Quantity *',
+                                                        )}
+
+                                                        <input
+                                                            type="number"
+                                                            min="0.0001"
+                                                            step="0.0001"
+                                                            className={
+                                                                financeInput
+                                                                + ' mt-2 text-center font-semibold'
+                                                            }
+                                                            value={
+                                                                line.quantity
+                                                            }
+                                                            onChange={
+                                                                event =>
+                                                                    changeLine(
+                                                                        line.client_id,
+                                                                        {
+                                                                            quantity:
+                                                                                event.target.value,
+                                                                        },
+                                                                    )
+                                                            }
+                                                        />
+                                                    </label>
+
+                                                    <label className="text-[11px] font-semibold text-[#58739a]">
+                                                        {text(
+                                                            'الوحدة',
+                                                            'Unit',
+                                                        )}
+
+                                                        <input
+                                                            className={
+                                                                financeInput
+                                                                + ' mt-2'
+                                                            }
+                                                            value={
+                                                                line.unit
+                                                            }
+                                                            onChange={
+                                                                event =>
+                                                                    changeLine(
+                                                                        line.client_id,
+                                                                        {
+                                                                            unit:
+                                                                                event.target.value,
+                                                                        },
+                                                                    )
+                                                            }
+                                                            placeholder={text(
+                                                                'قطعة',
+                                                                'Unit',
+                                                            )}
+                                                        />
+                                                    </label>
+
+                                                    <label className="text-[11px] font-semibold text-[#58739a]">
+                                                        {text(
+                                                            'سعر الوحدة *',
+                                                            'Unit price *',
+                                                        )}
+
+                                                        <div className="relative mt-2">
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.0001"
+                                                                dir="ltr"
+                                                                className={
+                                                                    financeInput
+                                                                    + ' pe-14 text-start font-bold text-[#123d78]'
                                                                 }
                                                                 value={
-                                                                    product.id
+                                                                    line.unit_price
                                                                 }
-                                                            >
-                                                                {
-                                                                    product.name
+                                                                onChange={
+                                                                    event =>
+                                                                        changeLine(
+                                                                            line.client_id,
+                                                                            {
+                                                                                unit_price:
+                                                                                    event.target.value,
+                                                                            },
+                                                                        )
                                                                 }
-                                                                {product.sku
-                                                                    ? ' · '
-                                                                        + product.sku
-                                                                    : ''}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
+                                                            />
+
+                                                            <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#7890b1]">
+                                                                {currency}
+                                                            </span>
+                                                        </div>
+                                                    </label>
+                                                </div>
 
                                                 {! line.product_id && (
-                                                    <input
-                                                        className={
-                                                            financeInput
-                                                            + ' mt-2'
-                                                        }
-                                                        value={
-                                                            line.description
-                                                        }
-                                                        onChange={
-                                                            event =>
-                                                                changeLine(
-                                                                    line.client_id,
-                                                                    {
-                                                                        description:
-                                                                            event
-                                                                                .target
-                                                                                .value,
-                                                                    },
-                                                                )
-                                                        }
-                                                        placeholder={text(
+                                                    <label className="block text-[11px] font-semibold text-[#58739a]">
+                                                        {text(
                                                             'وصف البند اليدوي *',
                                                             'Manual line description *',
                                                         )}
-                                                    />
-                                                )}
-                                            </div>
 
-                                            <label className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-1">
-                                                {text(
-                                                    'الكمية *',
-                                                    'Quantity *',
-                                                )}
-
-                                                <input
-                                                    type="number"
-                                                    min="0.0001"
-                                                    step="0.0001"
-                                                    className={
-                                                        financeInput
-                                                        + ' mt-1'
-                                                    }
-                                                    value={
-                                                        line.quantity
-                                                    }
-                                                    onChange={
-                                                        event =>
-                                                            changeLine(
-                                                                line.client_id,
-                                                                {
-                                                                    quantity:
-                                                                        event
-                                                                            .target
-                                                                            .value,
-                                                                },
-                                                            )
-                                                    }
-                                                />
-                                            </label>
-
-                                            <label className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-1">
-                                                {text(
-                                                    'الوحدة',
-                                                    'Unit',
+                                                        <input
+                                                            className={
+                                                                financeInput
+                                                                + ' mt-2'
+                                                            }
+                                                            value={
+                                                                line.description
+                                                            }
+                                                            onChange={
+                                                                event =>
+                                                                    changeLine(
+                                                                        line.client_id,
+                                                                        {
+                                                                            description:
+                                                                                event.target.value,
+                                                                        },
+                                                                    )
+                                                            }
+                                                            placeholder={text(
+                                                                'اكتب وصفاً واضحاً يظهر في الفاتورة',
+                                                                'Write a clear description that will appear on the invoice',
+                                                            )}
+                                                        />
+                                                    </label>
                                                 )}
 
-                                                <input
-                                                    className={
-                                                        financeInput
-                                                        + ' mt-1'
-                                                    }
-                                                    value={
-                                                        line.unit
-                                                    }
-                                                    onChange={
-                                                        event =>
-                                                            changeLine(
-                                                                line.client_id,
-                                                                {
-                                                                    unit:
-                                                                        event
-                                                                            .target
-                                                                            .value,
-                                                                },
-                                                            )
-                                                    }
-                                                />
-                                            </label>
+                                                {line.product_id && priceReference && (
+                                                    <div
+                                                        className={[
+                                                            'flex flex-col gap-2 rounded-[13px] border px-3.5 py-3 text-[10px] sm:flex-row sm:items-center sm:justify-between',
+                                                            priceReference.source ===
+                                                            'party_history'
+                                                                ? 'border-blue-100 bg-blue-50/70 text-blue-800'
+                                                                : 'border-slate-100 bg-slate-50 text-slate-600',
+                                                        ].join(' ')}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <History
+                                                                size={14}
+                                                                className="shrink-0"
+                                                            />
 
-                                            <div className="xl:col-span-2">
-                                                <label className="block text-[10px] font-semibold text-[#6c84a6]">
-                                                    {text(
-                                                        'سعر الوحدة *',
-                                                        'Unit price *',
-                                                    )}
+                                                            <span>
+                                                                {priceReference.source ===
+                                                                'party_history'
+                                                                    ? (
+                                                                        sales
+                                                                            ? text(
+                                                                                'تم استخدام آخر سعر بيع لهذا العميل تلقائياً.',
+                                                                                'The last selling price for this customer was applied automatically.',
+                                                                            )
+                                                                            : text(
+                                                                                'تم استخدام آخر سعر شراء من هذا المورد تلقائياً.',
+                                                                                'The last purchase price from this supplier was applied automatically.',
+                                                                            )
+                                                                    )
+                                                                    : text(
+                                                                        'لا يوجد سعر سابق لهذا الطرف؛ تم استخدام السعر المرجعي للمنتج.',
+                                                                        'No prior price exists for this party; the product reference price was used.',
+                                                                    )}
+                                                            </span>
+                                                        </div>
 
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.0001"
-                                                        className={
-                                                            financeInput
-                                                            + ' mt-1'
-                                                        }
-                                                        value={
-                                                            line.unit_price
-                                                        }
-                                                        onChange={
-                                                            event =>
-                                                                changeLine(
-                                                                    line.client_id,
-                                                                    {
-                                                                        unit_price:
-                                                                            event
-                                                                                .target
-                                                                                .value,
-                                                                    },
-                                                                )
-                                                        }
-                                                    />
-                                                </label>
+                                                        <div className="flex flex-wrap items-center gap-2 font-semibold">
+                                                            <Money
+                                                                value={
+                                                                    priceReference.unit_price
+                                                                }
+                                                                currency={
+                                                                    currency
+                                                                }
+                                                                compact
+                                                            />
+
+                                                            {priceReference.document_number && (
+                                                                <span className="text-[#7890b1]">
+                                                                    {priceReference.document_number}
+                                                                    {priceReference.issue_date
+                                                                        ? ' · '
+                                                                            + priceReference.issue_date
+                                                                        : ''}
+                                                                </span>
+                                                            )}
+
+                                                            <span className="font-normal text-[#7890b1]">
+                                                                {text(
+                                                                    'يمكنك تعديل السعر الآن؛ بعد إصدار الفاتورة يصبح هو السعر الأحدث لهذا الطرف.',
+                                                                    'You can override it now; once the invoice is issued, it becomes this party’s latest price.',
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 {! sales && (
-                                                    <label className="mt-2 flex items-center gap-2 rounded-[10px] bg-amber-50 px-2 py-2 text-[10px] font-semibold text-amber-700">
+                                                    <label
+                                                        className={[
+                                                            'flex cursor-pointer items-start gap-3 rounded-[14px] border p-3 transition',
+                                                            line.price_status ===
+                                                            'estimated'
+                                                                ? 'border-amber-200 bg-amber-50'
+                                                                : 'border-[#e6edf7] bg-[#fbfdff]',
+                                                        ].join(' ')}
+                                                    >
                                                         <input
                                                             type="checkbox"
                                                             checked={
@@ -2077,212 +2217,343 @@ export function DocumentForm({
                                                                         },
                                                                     )
                                                             }
+                                                            className="mt-0.5"
                                                         />
-                                                        {text(
-                                                            'سعر مبدئي — سأثبته لاحقاً',
-                                                            'Provisional price — finalize later',
-                                                        )}
+
+                                                        <span>
+                                                            <strong className="block text-[11px] text-[#123d78]">
+                                                                {text(
+                                                                    'السعر غير نهائي بعد',
+                                                                    'Price is provisional',
+                                                                )}
+                                                            </strong>
+
+                                                            <span className="mt-1 block text-[10px] leading-5 text-[#7890b1]">
+                                                                {text(
+                                                                    'فعّلها إذا سجلت سعر الشراء مؤقتاً وتنتظر السعر النهائي من المورد.',
+                                                                    'Enable this when the purchase price is temporary and you are waiting for the supplier’s final price.',
+                                                                )}
+                                                            </span>
+                                                        </span>
                                                     </label>
                                                 )}
-                                            </div>
 
-                                            <label className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-1">
-                                                {text(
-                                                    'خصم % (اختياري)',
-                                                    'Discount % (optional)',
-                                                )}
-
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="100"
-                                                    step="0.01"
-                                                    className={
-                                                        financeInput
-                                                        + ' mt-1'
-                                                    }
-                                                    value={
-                                                        line.discount_percent
-                                                    }
-                                                    onChange={
-                                                        event =>
-                                                            changeLine(
-                                                                line.client_id,
-                                                                {
-                                                                    discount_percent:
-                                                                        event
-                                                                            .target
-                                                                            .value,
-                                                                },
-                                                            )
-                                                    }
-                                                />
-                                            </label>
-
-                                            <label className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-2">
-                                                {text(
-                                                    'قاعدة الضريبة',
-                                                    'Tax rule',
-                                                )}
-
-                                                <select
-                                                    className={
-                                                        financeInput
-                                                        + ' mt-1'
-                                                    }
-                                                    value={
-                                                        line.tax_rule_id
-                                                        ?? ''
-                                                    }
-                                                    onChange={
-                                                        event =>
-                                                            selectTaxRule(
-                                                                line,
-                                                                event
-                                                                    .target
-                                                                    .value,
-                                                            )
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        {text(
-                                                            'بدون قاعدة',
-                                                            'No rule',
-                                                        )}
-                                                    </option>
-
-                                                    {availableTaxRules.map(
-                                                        rule => (
-                                                            <option
+                                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                                    {[
+                                                        [
+                                                            text(
+                                                                'قبل الخصم',
+                                                                'Subtotal',
+                                                            ),
+                                                            row?.subtotal
+                                                            ?? 0,
+                                                        ],
+                                                        [
+                                                            text(
+                                                                'الخصم',
+                                                                'Discount',
+                                                            ),
+                                                            row?.discount
+                                                            ?? 0,
+                                                        ],
+                                                        [
+                                                            text(
+                                                                'الضريبة',
+                                                                'Tax',
+                                                            ),
+                                                            row?.tax
+                                                            ?? 0,
+                                                        ],
+                                                        [
+                                                            text(
+                                                                'إجمالي البند',
+                                                                'Line total',
+                                                            ),
+                                                            row?.total
+                                                            ?? 0,
+                                                        ],
+                                                    ].map(
+                                                        (
+                                                            [
+                                                                label,
+                                                                value,
+                                                            ],
+                                                            summaryIndex,
+                                                        ) => (
+                                                            <div
                                                                 key={
-                                                                    rule.id
+                                                                    label
                                                                 }
-                                                                value={
-                                                                    rule.id
-                                                                }
+                                                                className={[
+                                                                    'rounded-[13px] border px-3 py-3',
+                                                                    summaryIndex ===
+                                                                    3
+                                                                        ? 'border-blue-100 bg-[#eef5ff]'
+                                                                        : 'border-[#edf2f8] bg-[#fbfdff]',
+                                                                ].join(' ')}
                                                             >
-                                                                {
-                                                                    rule.name
-                                                                }
-                                                                {' · '}
-                                                                {
-                                                                    rule.rate
-                                                                }
-                                                                %
-                                                                {' · '}
-                                                                {
-                                                                    rule.country_code
-                                                                }
-                                                                {rule.region_code
-                                                                    ? '-'
-                                                                        + rule.region_code
-                                                                    : ''}
-                                                            </option>
+                                                                <p className="text-[9px] font-semibold text-[#7890b1]">
+                                                                    {label}
+                                                                </p>
+
+                                                                <strong className="mt-1 block text-xs text-[#123d78]">
+                                                                    <Money
+                                                                        value={
+                                                                            value
+                                                                        }
+                                                                        currency={
+                                                                            currency
+                                                                        }
+                                                                        compact
+                                                                    />
+                                                                </strong>
+                                                            </div>
                                                         ),
                                                     )}
-                                                </select>
-                                            </label>
-
-                                            <div className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-1">
-                                                {text(
-                                                    'المخزون',
-                                                    'Inventory',
-                                                )}
-
-                                                <label className="mt-2 flex min-h-10 items-center gap-2 rounded-[10px] border border-[#d8e4f4] bg-white px-3">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={
-                                                            line.affects_inventory
-                                                        }
-                                                        disabled={
-                                                            ! line.product_id
-                                                        }
-                                                        onChange={
-                                                            event =>
-                                                                changeLine(
-                                                                    line.client_id,
-                                                                    {
-                                                                        affects_inventory:
-                                                                            event
-                                                                                .target
-                                                                                .checked,
-                                                                        warehouse_id:
-                                                                            event
-                                                                                .target
-                                                                                .checked
-                                                                                ? (
-                                                                                    line.warehouse_id
-                                                                                    ?? defaultWarehouse?.id
-                                                                                    ?? null
-                                                                                )
-                                                                                : null,
-                                                                    },
-                                                                )
-                                                        }
-                                                    />
-
-                                                    <span>
-                                                        {text(
-                                                            'يؤثر',
-                                                            'Affects',
-                                                        )}
-                                                    </span>
-                                                </label>
-                                            </div>
-
-                                            <div className="flex items-end justify-end gap-2 xl:col-span-1">
-                                                <div className="min-w-24 rounded-[10px] bg-white p-2 text-end">
-                                                    <p className="text-[9px] text-slate-400">
-                                                        {text(
-                                                            'الإجمالي',
-                                                            'Total',
-                                                        )}
-                                                    </p>
-
-                                                    <strong className="text-xs text-[#123d78]">
-                                                        <Money
-                                                            value={
-                                                                row?.total
-                                                                ?? 0
-                                                            }
-                                                            currency={
-                                                                currency
-                                                            }
-                                                            compact
-                                                        />
-                                                    </strong>
                                                 </div>
 
-                                                <button
-                                                    type="button"
-                                                    className="flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-red-100 bg-red-50 text-red-500 disabled:opacity-30"
-                                                    disabled={
-                                                        lines.length <=
-                                                        1
-                                                    }
-                                                    onClick={() =>
-                                                        setLines(
-                                                            current =>
-                                                                current.filter(
-                                                                    item =>
-                                                                        item.client_id !==
-                                                                        line.client_id,
-                                                                ),
-                                                        )
-                                                    }
-                                                >
-                                                    <Trash2
-                                                        size={
-                                                            15
-                                                        }
-                                                    />
-                                                </button>
+                                                <details className="group rounded-[15px] border border-[#e4edf8] bg-[#fbfdff]">
+                                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[11px] font-bold text-[#49698f] [&::-webkit-details-marker]:hidden">
+                                                        <span>
+                                                            {text(
+                                                                'الخصم والضريبة والمخزون',
+                                                                'Discount, tax & inventory',
+                                                            )}
+                                                        </span>
+
+                                                        <ChevronDown
+                                                            size={15}
+                                                            className="transition group-open:rotate-180"
+                                                        />
+                                                    </summary>
+
+                                                    <div className="grid gap-4 border-t border-[#eaf0f8] p-4 md:grid-cols-2 xl:grid-cols-4">
+                                                        <label className="text-[11px] font-semibold text-[#58739a]">
+                                                            {text(
+                                                                'خصم % (اختياري)',
+                                                                'Discount % (optional)',
+                                                            )}
+
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="0.01"
+                                                                className={
+                                                                    financeInput
+                                                                    + ' mt-2'
+                                                                }
+                                                                value={
+                                                                    line.discount_percent
+                                                                }
+                                                                onChange={
+                                                                    event =>
+                                                                        changeLine(
+                                                                            line.client_id,
+                                                                            {
+                                                                                discount_percent:
+                                                                                    event.target.value,
+                                                                            },
+                                                                        )
+                                                                }
+                                                            />
+                                                        </label>
+
+                                                        <label className="text-[11px] font-semibold text-[#58739a]">
+                                                            {text(
+                                                                'قاعدة الضريبة (اختياري)',
+                                                                'Tax rule (optional)',
+                                                            )}
+
+                                                            <select
+                                                                className={
+                                                                    financeInput
+                                                                    + ' mt-2'
+                                                                }
+                                                                value={
+                                                                    line.tax_rule_id
+                                                                    ?? ''
+                                                                }
+                                                                onChange={
+                                                                    event =>
+                                                                        selectTaxRule(
+                                                                            line,
+                                                                            event.target.value,
+                                                                        )
+                                                                }
+                                                            >
+                                                                <option value="">
+                                                                    {text(
+                                                                        'بدون ضريبة',
+                                                                        'No tax',
+                                                                    )}
+                                                                </option>
+
+                                                                {availableTaxRules.map(
+                                                                    rule => (
+                                                                        <option
+                                                                            key={
+                                                                                rule.id
+                                                                            }
+                                                                            value={
+                                                                                rule.id
+                                                                            }
+                                                                        >
+                                                                            {rule.name}
+                                                                            {' · '}
+                                                                            {rule.rate}
+                                                                            %
+                                                                        </option>
+                                                                    ),
+                                                                )}
+                                                            </select>
+                                                        </label>
+
+                                                        <div className="text-[11px] font-semibold text-[#58739a]">
+                                                            {text(
+                                                                'تأثير المخزون',
+                                                                'Inventory impact',
+                                                            )}
+
+                                                            <label className="mt-2 flex min-h-11 items-center gap-3 rounded-[12px] border border-[#dbe6f5] bg-white px-3">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={
+                                                                        line.affects_inventory
+                                                                    }
+                                                                    disabled={
+                                                                        ! line.product_id
+                                                                    }
+                                                                    onChange={
+                                                                        event =>
+                                                                            changeLine(
+                                                                                line.client_id,
+                                                                                {
+                                                                                    affects_inventory:
+                                                                                        event.target.checked,
+                                                                                    warehouse_id:
+                                                                                        event.target.checked
+                                                                                            ? (
+                                                                                                line.warehouse_id
+                                                                                                ?? defaultWarehouse?.id
+                                                                                                ?? null
+                                                                                            )
+                                                                                            : null,
+                                                                                },
+                                                                            )
+                                                                    }
+                                                                />
+
+                                                                <span>
+                                                                    {line.affects_inventory
+                                                                        ? text(
+                                                                            'يؤثر على المخزون',
+                                                                            'Affects inventory',
+                                                                        )
+                                                                        : text(
+                                                                            'بدون حركة مخزون',
+                                                                            'No stock movement',
+                                                                        )}
+                                                                </span>
+                                                            </label>
+                                                        </div>
+
+                                                        {line.affects_inventory ? (
+                                                            <label className="text-[11px] font-semibold text-[#58739a]">
+                                                                {text(
+                                                                    'المستودع *',
+                                                                    'Warehouse *',
+                                                                )}
+
+                                                                <select
+                                                                    className={
+                                                                        financeInput
+                                                                        + ' mt-2'
+                                                                    }
+                                                                    value={
+                                                                        line.warehouse_id
+                                                                        ?? ''
+                                                                    }
+                                                                    onChange={
+                                                                        event =>
+                                                                            changeLine(
+                                                                                line.client_id,
+                                                                                {
+                                                                                    warehouse_id:
+                                                                                        event.target.value
+                                                                                            ? Number(
+                                                                                                event.target.value,
+                                                                                            )
+                                                                                            : null,
+                                                                                },
+                                                                            )
+                                                                    }
+                                                                >
+                                                                    <option value="">
+                                                                        {text(
+                                                                            'اختر المستودع',
+                                                                            'Select warehouse',
+                                                                        )}
+                                                                    </option>
+
+                                                                    {lookups.warehouses.map(
+                                                                        warehouse => (
+                                                                            <option
+                                                                                key={
+                                                                                    warehouse.id
+                                                                                }
+                                                                                value={
+                                                                                    warehouse.id
+                                                                                }
+                                                                            >
+                                                                                {
+                                                                                    warehouse.name
+                                                                                }
+                                                                            </option>
+                                                                        ),
+                                                                    )}
+                                                                </select>
+                                                            </label>
+                                                        ) : (
+                                                            <div className="rounded-[12px] border border-dashed border-[#dbe6f5] bg-white px-3 py-3 text-[10px] leading-5 text-[#7890b1]">
+                                                                {text(
+                                                                    'المستودع يظهر فقط عندما يكون للبند تأثير على المخزون.',
+                                                                    'Warehouse selection appears only when this line affects inventory.',
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </details>
                                             </div>
-                                        </div>
+                                        </article>
                                     );
                                 },
                             )}
+
+                            <button
+                                type="button"
+                                className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[#a9c8ee] bg-[#f8fbff] px-4 py-4 text-xs font-bold text-[#1265d8] transition hover:border-[#1265d8] hover:bg-[#eef5ff]"
+                                onClick={() =>
+                                    setLines(
+                                        current => [
+                                            ...current,
+                                            emptyLine(
+                                                warehouseId
+                                                    ? Number(
+                                                        warehouseId,
+                                                    )
+                                                    : null,
+                                            ),
+                                        ],
+                                    )
+                                }
+                            >
+                                <Plus size={15} />
+                                {text(
+                                    'إضافة بند آخر',
+                                    'Add another line',
+                                )}
+                            </button>
                         </div>
                     </FPanel>
 
