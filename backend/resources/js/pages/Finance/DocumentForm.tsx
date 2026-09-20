@@ -127,7 +127,7 @@ export function DocumentForm({
         initial?.due_date
         ?? addDays(
             issueDate,
-            30,
+            lookups.default_payment_terms_days,
         ),
     );
 
@@ -196,7 +196,9 @@ export function DocumentForm({
         setPaymentTerms,
     ] = useState(
         initial?.payment_terms
-        ?? '30',
+        ?? String(
+            lookups.default_payment_terms_days,
+        ),
     );
 
     const [
