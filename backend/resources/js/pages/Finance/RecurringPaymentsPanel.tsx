@@ -714,7 +714,7 @@ export function RecurringPaymentsPanel() {
                                         'العملة',
                                         'Currency',
                                     )}
-                                    <div className={financeInput + ' mt-2 bg-slate-50 font-bold text-[#123d78]'}>
+                                    <div className={financeInput + ' mt-2 bg-[var(--ac-surface-soft)] font-bold text-[#123d78]'}>
                                         {defaults?.currency
                                             ?? workspace.activeOrganization?.currency
                                             ?? 'ILS'}
@@ -780,7 +780,7 @@ export function RecurringPaymentsPanel() {
             {selected && (
                 <section
                     ref={recordSection}
-                    className="rounded-[18px] border border-[#8dbcf8] bg-white p-5 shadow-[0_8px_28px_rgba(30,75,140,.055)]"
+                    className="rounded-[18px] border border-[#8dbcf8] bg-[var(--ac-surface)] p-5 shadow-[0_8px_28px_rgba(30,75,140,.055)]"
                 >
                     <h3 className="text-sm font-bold text-[#123d78]">
                         {text(
@@ -1046,7 +1046,7 @@ export function RecurringPaymentsPanel() {
                                         'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-semibold transition',
                                         direction === value
                                             ? 'border-[#8dbcf8] bg-blue-50 text-[#1265d8]'
-                                            : 'border-[#edf3fa] bg-white text-[#7890b1] hover:bg-slate-50',
+                                            : 'border-[#edf3fa] bg-[var(--ac-surface)] text-[#7890b1] hover:bg-[var(--ac-surface-soft)]',
                                     ].join(' ')}
                                 >
                                     <Icon size={13} />
@@ -1132,7 +1132,7 @@ export function RecurringPaymentsPanel() {
                         {plans.map(plan => (
                             <article
                                 key={plan.id}
-                                className="rounded-[16px] border border-[#e4edf8] bg-white p-4 transition hover:border-[#b8d3f5] hover:shadow-[0_8px_24px_rgba(18,101,216,.06)]"
+                                className="rounded-[16px] border border-[#e4edf8] bg-[var(--ac-surface)] p-4 transition hover:border-[#b8d3f5] hover:shadow-[0_8px_24px_rgba(18,101,216,.06)]"
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
@@ -1409,7 +1409,7 @@ function ChoiceField({
                             className="peer sr-only"
                         />
 
-                        <span className="block rounded-[10px] border border-[#dbe6f5] bg-white px-3.5 py-2.5 text-[10px] font-semibold text-[#58739a] transition peer-checked:border-[#8dbcf8] peer-checked:bg-blue-50 peer-checked:text-[#1265d8]">
+                        <span className="block rounded-[10px] border border-[#dbe6f5] bg-[var(--ac-surface)] px-3.5 py-2.5 text-[10px] font-semibold text-[#58739a] transition peer-checked:border-[#8dbcf8] peer-checked:bg-blue-50 peer-checked:text-[#1265d8]">
                             {option.label}
                         </span>
                     </label>
