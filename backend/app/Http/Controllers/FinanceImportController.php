@@ -49,6 +49,7 @@ class FinanceImportController extends Controller
             ['Duplicate protection', 'Existing external numbers / movement references are skipped where possible.'],
             ['Payments linked to invoices', 'Use invoice_external_number. For multiple invoices, separate numbers with ;. Allocation follows the listed order and any remainder becomes party advance credit.'],
             ['Allowed directions', 'incoming, outgoing'],
+            ['Invoice line discounts', 'discount_type can be percent or fixed; discount_value holds the percentage or fixed amount. Legacy discount_percent columns are still accepted.'],
             ['Allowed methods', 'cash, bank_transfer, check, card, electronic_wallet, direct_debit, other'],
             ['Common outgoing categories', 'supplier_payment, raw_material, goods_for_resale, packaging, operating_expense, rent, utilities, shipping_customs, maintenance, marketing, tax_payment, government_fee, asset_purchase, other_expense, other'],
             ['Common incoming categories', 'customer_receipt, capital, loan, asset_sale, refund, other_income, other'],
@@ -244,13 +245,27 @@ class FinanceImportController extends Controller
                             throw new RuntimeException('Every line needs a description or matched product, quantity > 0, and unit_price >= 0.');
                         }
 
-                        $discount = $this->decimal($row['discount_percent'] ?? null) ?? '0';
+                        $discountType = $this->normalizeDiscountType(
+                            $row['discount_type'] ?? null,
+                        );
+                        $discountValue = $this->decimal(
+                            $row['discount_value']
+                            ?? $row['discount_percent']
+                            ?? null,
+                        ) ?? '0';
                         $taxRate = $this->decimal($row['tax_rate'] ?? null)
                             ?? $product?->tax_rate
                             ?? '0';
 
-                        if ((float) $discount < 0 || (float) $discount > 100 || (float) $taxRate < 0 || (float) $taxRate > 100) {
-                            throw new RuntimeException('discount_percent and tax_rate must be between 0 and 100.');
+                        if (
+                            $discountType === 'percent'
+                            && ((float) $discountValue < 0 || (float) $discountValue > 100)
+                        ) {
+                            throw new RuntimeException('Percentage discount must be between 0 and 100.');
+                        }
+
+                        if ((float) $discountValue < 0 || (float) $taxRate < 0 || (float) $taxRate > 100) {
+                            throw new RuntimeException('Discount cannot be negative and tax_rate must be between 0 and 100.');
                         }
 
                         $unit = trim((string) ($row['unit'] ?? ''))
@@ -259,7 +274,7 @@ class FinanceImportController extends Controller
                         $lineKey = ($product?->id
                             ? 'product:'.$product->id
                             : 'manual:'.mb_strtolower($description))
-                            .'|'.$unitPrice.'|'.$discount.'|'.$taxRate;
+                            .'|'.$unitPrice.'|'.$discountType.'|'.$discountValue.'|'.$taxRate;
                         $existingIndex = null;
 
                         foreach ($lines as $lineIndex => $existingLine) {
@@ -290,7 +305,11 @@ class FinanceImportController extends Controller
                             'quantity' => $quantity,
                             'unit_price' => $unitPrice,
                             'price_status' => 'final',
-                            'discount_percent' => $discount,
+                            'discount_percent' => $discountType === 'percent'
+                                ? $discountValue
+                                : '0',
+                            'discount_type' => $discountType,
+                            'discount_value' => $discountValue,
                             'tax_rate' => $taxRate,
                             'affects_inventory' => false,
                         ];
@@ -627,6 +646,11 @@ class FinanceImportController extends Controller
             'الكمية' => 'quantity',
             'سعر_الوحدة' => 'unit_price',
             'السعر' => 'unit_price',
+            'نوع_الخصم' => 'discount_type',
+            'discount_mode' => 'discount_type',
+            'قيمة_الخصم' => 'discount_value',
+            'مبلغ_الخصم' => 'discount_value',
+            'discount_amount' => 'discount_value',
             'نسبة_الخصم' => 'discount_percent',
             'الخصم' => 'discount_percent',
             'نسبة_الضريبة' => 'tax_rate',
@@ -700,6 +724,17 @@ class FinanceImportController extends Controller
         }
     }
 
+    private function normalizeDiscountType(mixed $value): string
+    {
+        $mode = mb_strtolower(trim((string) $value));
+
+        return match ($mode) {
+            '', 'percent', 'percentage', '%', 'نسبة', 'نسبة مئوية' => 'percent',
+            'fixed', 'fixed_amount', 'amount', 'مبلغ', 'مبلغ ثابت' => 'fixed',
+            default => throw new RuntimeException('discount_type must be percent or fixed.'),
+        };
+    }
+
     private function normalizeMethod(mixed $value): ?string
     {
         $method = strtolower(trim((string) $value));
@@ -734,10 +769,10 @@ class FinanceImportController extends Controller
         return [[
             'document_key', 'external_number', 'party_name', 'issue_date', 'due_date',
             'product_sku', 'product_name', 'line_description', 'unit', 'quantity',
-            'unit_price', 'discount_percent', 'tax_rate', 'shipping_total', 'notes',
+            'unit_price', 'discount_type', 'discount_value', 'tax_rate', 'shipping_total', 'notes',
         ], [
-            ['INV-001', $type === 'sales_invoices' ? 'SAL-100' : 'PUR-100', $type === 'sales_invoices' ? 'Customer A' : 'Supplier A', '2026-01-10', '2026-02-10', 'SKU-001', 'Catalog item', 'Legacy line 1', 'unit', 2, 100, 5, 0, 0, 'If SKU/name matches AccoNova, the historical line is linked to that product'],
-            ['INV-001', $type === 'sales_invoices' ? 'SAL-100' : 'PUR-100', $type === 'sales_invoices' ? 'Customer A' : 'Supplier A', '2026-01-10', '2026-02-10', '', '', 'Legacy manual line', 'unit', 1, 50, 0, 0, 0, 'Same document_key groups lines into one invoice'],
+            ['INV-001', $type === 'sales_invoices' ? 'SAL-100' : 'PUR-100', $type === 'sales_invoices' ? 'Customer A' : 'Supplier A', '2026-01-10', '2026-02-10', 'SKU-001', 'Catalog item', 'Legacy line 1', 'unit', 2, 100, 'percent', 5, 0, 0, 'If SKU/name matches AccoNova, the historical line is linked to that product'],
+            ['INV-001', $type === 'sales_invoices' ? 'SAL-100' : 'PUR-100', $type === 'sales_invoices' ? 'Customer A' : 'Supplier A', '2026-01-10', '2026-02-10', '', '', 'Legacy manual line', 'unit', 1, 50, 'fixed', 3, 0, 0, 'Same document_key groups lines into one invoice'],
         ]];
     }
 
