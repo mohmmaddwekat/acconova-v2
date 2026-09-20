@@ -44,9 +44,11 @@ class TaxComplianceController extends Controller
         return response()->json(['data' => $this->rule($rule)], 201);
     }
 
-    public function updateRule(Request $request, TaxRule $taxRule): JsonResponse
+    public function updateRule(Request $request, string $taxRule): JsonResponse
     {
         FinanceAuthorization::authorize($request->user(), 'finance.taxes.manage');
+        $taxRule = TaxRule::query()->findOrFail($taxRule);
+        $request->route()->setParameter('taxRule', $taxRule);
         $taxRule->update($this->validatedRule($request));
 
         return response()->json(['data' => $this->rule($taxRule->fresh())]);
