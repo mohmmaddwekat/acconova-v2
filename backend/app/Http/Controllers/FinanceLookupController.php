@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\TaxRule;
 use App\Models\Warehouse;
 use App\Services\FinanceAuthorization;
+use App\Services\WorkspacePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,6 +37,15 @@ class FinanceLookupController extends Controller
         $canCashReceive = FinanceAuthorization::allows($request->user(), 'finance.cash.receive');
         $canTaxesView = FinanceAuthorization::allows($request->user(), 'finance.taxes.view');
         $canTaxesManage = FinanceAuthorization::allows($request->user(), 'finance.taxes.manage');
+
+        $tenant = app(TenantContext::class);
+        $customRole = WorkspacePermissions::custom(
+            $request->user()->id,
+            $tenant->id(),
+        );
+        $canRecurringPayments = $customRole
+            ? in_array('payments.view', $customRole->permissions, true)
+            : in_array($tenant->role()->value, ['owner', 'admin', 'manager', 'accountant'], true);
 
         $canPartyData = $canSalesView || $canPurchasesView || $canCashView;
         $canProductData = $canSalesView || $canPurchasesView;
@@ -163,6 +173,7 @@ class FinanceLookupController extends Controller
                 'documents_correct' => FinanceAuthorization::allows($request->user(), 'finance.documents.correct'),
                 'taxes_view' => FinanceAuthorization::allows($request->user(), 'finance.taxes.view'),
                 'taxes_manage' => FinanceAuthorization::allows($request->user(), 'finance.taxes.manage'),
+                'recurring_payments_view' => $canRecurringPayments,
             ],
         ]);
     }
