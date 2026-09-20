@@ -1170,6 +1170,37 @@ html[data-ac-resolved-theme='dark']
     background-color: #ffffff !important;
 }
 
+/* Keep print/paper sub-surfaces in their real light-paper palette. */
+html[data-ac-resolved-theme='dark']
+    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
+    :is(.bg-slate-50, .bg-gray-50) {
+    background-color: #f8fafc !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
+    :is(.bg-slate-100, .bg-gray-100) {
+    background-color: #f1f5f9 !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
+    :is(.border-slate-100, .border-slate-200, .border-gray-100, .border-gray-200) {
+    border-color: #e2e8f0 !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
+    :is(.text-slate-900, .text-slate-800, .text-slate-700) {
+    color: #334155 !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print)
+    :is(.text-slate-600, .text-slate-500, .text-slate-400, .text-slate-300) {
+    color: #64748b !important;
+}
+
 html[data-ac-density='compact']
     main
     :is(.p-6, .p-5) {
