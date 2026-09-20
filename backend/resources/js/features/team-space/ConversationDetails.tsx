@@ -21,7 +21,7 @@ export const chatThemes: Record<string, { background: string; bubble: string; ot
     blue: { background: '#f0f6ff', bubble: '#cfe2ff', other: '#e6effc', text: '#172c4e', surface: '#f8fbff', soft: '#e4efff', line: '#cbdcf3', muted: '#536f94', accent: '#245eae', accentText: '#245eae' },
     purple: { background: '#f8f1ff', bubble: '#e9d5ff', other: '#f0e5fa', text: '#36214f', surface: '#fdf9ff', soft: '#f0e3fb', line: '#e2ccef', muted: '#79608f', accent: '#7940a3', accentText: '#7940a3' },
     rose: { background: '#fff1f5', bubble: '#ffdce6', other: '#fce7ed', text: '#4d2630', surface: '#fff9fb', soft: '#fde5ed', line: '#efccd8', muted: '#926170', accent: '#ad3e64', accentText: '#ad3e64' },
-    dark: { background: '#191c1b', bubble: '#285849', other: '#343a37', text: '#f1f6f3', surface: '#242a27', soft: '#313b35', line: '#44534b', muted: '#b2c5ba', accent: '#287458', accentText: '#94e0bd' },
+    dark: { background: '#0e1623', bubble: '#1b2a40', other: '#0e1623', text: '#e6effd', surface: '#0e1623', soft: '#0e1623', line: '#1b2a40', muted: '#e6effd', accent: '#6aa6ff', accentText: '#6aa6ff' },
 };
 
 function Section({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {
