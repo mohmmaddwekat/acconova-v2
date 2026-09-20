@@ -1101,12 +1101,27 @@ function SettingsWorkspace() {
                                                     ['البريد الإلكتروني', Mail, 'emailChannel'],
                                                     ['الإشعارات داخل التطبيق', AppWindow, 'appChannel'],
                                                     ['الرسائل النصية (SMS)', Smartphone, 'smsChannel'],
-                                                    ['الإشعارات الفورية', Bell, 'pushChannel'],
+                                                    ['الإشعارات الفورية', Bell, 'devicePush'],
                                                 ].map(([label,Icon,key]) => (
                                                     <div key={String(key)} className="rounded-[14px] border border-[#dfe8f4] p-4 text-center">
                                                         <span className="mx-auto flex size-11 items-center justify-center rounded-[14px] bg-[#edf5ff] text-[#1265d8]"><Icon size={19} /></span>
                                                         <strong className="mt-3 block text-xs text-[#17386d]">{String(label)}</strong>
-                                                        <Toggle checked={flags[String(key)]} onChange={() => flip(String(key))} />
+                                                        <div className="mt-3 flex justify-center">
+                                                            <Toggle
+                                                                checked={
+                                                                    String(key) === 'devicePush'
+                                                                        ? deviceNotifications
+                                                                        : flags[String(key)]
+                                                                }
+                                                                onChange={() => {
+                                                                    if (String(key) === 'devicePush') {
+                                                                        void toggleDeviceNotifications();
+                                                                        return;
+                                                                    }
+                                                                    flip(String(key));
+                                                                }}
+                                                            />
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
