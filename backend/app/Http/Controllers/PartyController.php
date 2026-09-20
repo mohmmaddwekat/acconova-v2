@@ -79,6 +79,7 @@ class PartyController extends Controller
     public function update(
         UpdatePartyRequest $request,
         UpdateParty $updateParty,
+        MentionNotifier $mentions,
     ): JsonResponse {
         $party =
             $updateParty->execute(
@@ -86,15 +87,15 @@ class PartyController extends Controller
                 $request->validated(),
             );
 
-        $notes = (string) ($request->validated()['notes'] ?? '');
-
-        $mentions->notify(
-            app(TenantContext::class)->id(),
-            $request->user(),
-            $notes,
-            'party-notes:'.$party->id.':'.$party->updated_at?->getTimestamp(),
-            '/app/parties?focus='.$party->id,
-        );
+        if ($request->has('notes')) {
+            $mentions->notify(
+                app(TenantContext::class)->id(),
+                $request->user(),
+                (string) ($request->validated()['notes'] ?? ''),
+                'party-notes:'.$party->id.':'.$party->updated_at?->getTimestamp(),
+                '/app/parties?focus='.$party->id,
+            );
+        }
 
         return (
             new PartyResource(
@@ -117,6 +118,14 @@ class PartyController extends Controller
                 $request->party(),
                 $request->validated(),
             );
+
+        $mentions->notify(
+            app(TenantContext::class)->id(),
+            $request->user(),
+            (string) ($request->validated()['notes'] ?? ''),
+            'party-notes:'.$party->id.':'.$party->updated_at?->getTimestamp(),
+            '/app/parties?focus='.$party->id,
+        );
 
         return (
             new PartyResource(
