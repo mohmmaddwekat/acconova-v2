@@ -5,6 +5,7 @@ import {
     Landmark,
     ReceiptText,
     ShoppingCart,
+    UploadCloud,
 } from 'lucide-react';
 import type {
     FinanceLookups,
@@ -30,6 +31,12 @@ export function FinanceNav({
         arabic: string,
         english: string,
     ): string => ar ? arabic : english;
+
+    const canImport =
+        lookups.permissions.sales_manage
+        || lookups.permissions.purchases_manage
+        || lookups.permissions.cash_pay
+        || lookups.permissions.cash_receive;
 
     const items = [
         lookups.permissions.sales_view
@@ -83,7 +90,7 @@ export function FinanceNav({
             item !== null,
     );
 
-    if (items.length <= 1) {
+    if (items.length <= 1 && ! canImport) {
         return null;
     }
 
@@ -138,6 +145,19 @@ export function FinanceNav({
                         </Link>
                     );
                 },
+            )}
+
+            {canImport && (
+                <Link
+                    href="/app/finance/import"
+                    className="ms-auto inline-flex min-h-9 items-center gap-2 rounded-[10px] border border-dashed border-[#b9d0ed] px-3.5 py-2 text-xs font-semibold text-[#52709a] transition hover:border-[#1265d8] hover:bg-blue-50 hover:text-[#1265d8]"
+                >
+                    <UploadCloud size={14} />
+                    {text(
+                        'نقل بيانات',
+                        'Import data',
+                    )}
+                </Link>
             )}
         </nav>
     );
