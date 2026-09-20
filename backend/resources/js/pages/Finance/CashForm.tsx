@@ -616,7 +616,7 @@ export function CashForm({
                         icon={Banknote}
                     >
                         <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {incoming
                                     ? text('مصدر المقبوض *', 'Receipt source *')
                                     : text('فئة الدفع *', 'Payment category *')}
@@ -637,7 +637,7 @@ export function CashForm({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {incoming
                                     ? text(
                                         category === 'customer_receipt'
@@ -671,7 +671,7 @@ export function CashForm({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('المبلغ *', 'Amount *')}
                                 <input
                                     type="number"
@@ -683,7 +683,7 @@ export function CashForm({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('العملة', 'Currency')}
                                 <input
                                     className={financeInput + ' mt-2'}
@@ -698,7 +698,7 @@ export function CashForm({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('تاريخ الحركة *', 'Movement date *')}
                                 <input
                                     type="date"
@@ -708,7 +708,7 @@ export function CashForm({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('طريقة الدفع / القبض *', 'Payment method *')}
                                 <select
                                     className={financeInput + ' mt-2'}
@@ -734,7 +734,7 @@ export function CashForm({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('الحساب / الصندوق (اختياري)', 'Account / cash box (optional)')}
                                 {method === 'bank_transfer' && configuredBankAccounts.length > 0 ? (
                                     <select
@@ -768,7 +768,7 @@ export function CashForm({
                                 )}
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('رقم المرجع (اختياري)', 'Reference (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
@@ -777,7 +777,7 @@ export function CashForm({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('القسم (اختياري)', 'Department (optional)')}
                                 <select
                                     className={financeInput + ' mt-2'}
@@ -793,7 +793,7 @@ export function CashForm({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('الفرع / الموقع (اختياري)', 'Branch / location (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
@@ -802,7 +802,7 @@ export function CashForm({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('مركز التكلفة (اختياري)', 'Cost center (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
@@ -812,7 +812,7 @@ export function CashForm({
                             </label>
 
                             {! incoming && (
-                                <label className="text-xs font-semibold text-[#49698f]">
+                                <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {text('مستحق حكومي مرتبط (اختياري)', 'Government obligation (optional)')}
                                     <select
                                         className={financeInput + ' mt-2'}
@@ -853,7 +853,7 @@ export function CashForm({
                             icon={Landmark}
                         >
                             <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-                                <label className="text-xs font-semibold text-[#49698f]">
+                                <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {text('رقم الشيك *', 'Check number *')}
                                     <input
                                         className={financeInput + ' mt-2'}
@@ -862,7 +862,7 @@ export function CashForm({
                                     />
                                 </label>
 
-                                <label className="text-xs font-semibold text-[#49698f]">
+                                <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {text('البنك *', 'Bank *')}
                                     <input
                                         className={financeInput + ' mt-2'}
@@ -871,7 +871,7 @@ export function CashForm({
                                     />
                                 </label>
 
-                                <label className="text-xs font-semibold text-[#49698f]">
+                                <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {text('تاريخ الاستحقاق *', 'Due date *')}
                                     <input
                                         type="date"
@@ -882,16 +882,16 @@ export function CashForm({
                                 </label>
 
                                 <div className="rounded-[13px] border border-blue-100 bg-blue-50/70 p-3">
-                                    <p className="text-[10px] font-semibold text-[#6b82a5]">
+                                    <p className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
                                         {text('حالة الشيك', 'Check status')}
                                     </p>
 
-                                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-[var(--ac-surface)] px-3 py-1.5 text-[11px] font-bold text-[#1265d8]">
-                                        <span className="size-2 rounded-full bg-[#1265d8]" />
+                                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-[var(--ac-surface)] px-3 py-1.5 text-[11px] font-bold text-[var(--ac-accent)]">
+                                        <span className="size-2 rounded-full bg-[var(--ac-accent-solid)]" />
                                         {text('قيد التحصيل تلقائياً', 'Pending automatically')}
                                     </div>
 
-                                    <p className="mt-2 text-[10px] leading-5 text-[#6f86a8]">
+                                    <p className="mt-2 text-[10px] leading-5 text-[var(--ac-text-muted)]">
                                         {text(
                                             'عند تسجيل الشيك لا تحتاج لاختيار حالته. بعد اعتماد الحركة غيّر الحالة من صفحة تفاصيل الشيك إلى محصل أو مرتجع أو ملغي.',
                                             'You do not choose the check status while recording it. After posting, update it from the check details page to cleared, bounced or cancelled.',
@@ -954,11 +954,11 @@ export function CashForm({
                                             type="button"
                                             key={document.id}
                                             onClick={() => addAllocation(document)}
-                                            className="flex items-center justify-between gap-3 rounded-[12px] border border-[#e3ebf6] p-3 text-start text-xs hover:bg-blue-50"
+                                            className="flex items-center justify-between gap-3 rounded-[12px] border border-[var(--ac-line)] p-3 text-start text-xs hover:bg-blue-50"
                                         >
                                             <div>
-                                                <strong className="text-[#1265d8]">{document.number}</strong>
-                                                <p className="mt-1 text-[10px] text-slate-400">
+                                                <strong className="text-[var(--ac-accent)]">{document.number}</strong>
+                                                <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
                                                     {document.party?.name ?? '—'}
                                                 </p>
                                             </div>
@@ -975,7 +975,7 @@ export function CashForm({
                             {allocations.length > 0 ? (
                                 <div className="overflow-x-auto">
                                     <table className="w-full min-w-[620px] text-xs">
-                                        <thead className="bg-[#f7faff] text-[#7188aa]">
+                                        <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                             <tr>
                                                 <th className="px-3 py-3 text-start">{text('الفاتورة', 'Invoice')}</th>
                                                 <th className="px-3 py-3 text-start">{text('إجمالي الفاتورة', 'Invoice total')}</th>
@@ -988,9 +988,9 @@ export function CashForm({
                                             {allocations.map((allocation) => (
                                                 <tr
                                                     key={allocation.financial_document_id}
-                                                    className="border-t border-[#edf3fa]"
+                                                    className="border-t border-[var(--ac-line)]"
                                                 >
-                                                    <td className="px-3 py-3 font-semibold text-[#1265d8]">
+                                                    <td className="px-3 py-3 font-semibold text-[var(--ac-accent)]">
                                                         {allocation.document_number}
                                                     </td>
                                                     <td className="px-3 py-3">
@@ -1040,7 +1040,7 @@ export function CashForm({
                                     </table>
                                 </div>
                             ) : (
-                                <p className="text-xs leading-6 text-slate-400">
+                                <p className="text-xs leading-6 text-[var(--ac-text-muted)]">
                                     {incoming
                                         ? text(
                                             'ربط المقبوض بالفواتير اختياري. يمكنك تسجيل دخل أو دفعة مقدمة بدون فاتورة.',
@@ -1130,11 +1130,11 @@ export function CashForm({
                         icon={Building2}
                     >
                         <div className="space-y-2 p-4 text-xs">
-                            <strong className="block text-base text-[#123d78]">
+                            <strong className="block text-base text-[var(--ac-text)]">
                                 {selectedParty?.name ?? text('طرف غير مسجل', 'Unsaved party')}
                             </strong>
-                            <p className="text-slate-500">{selectedParty?.phone ?? '—'}</p>
-                            <p className="text-slate-500">{selectedParty?.email ?? '—'}</p>
+                            <p className="text-[var(--ac-text-muted)]">{selectedParty?.phone ?? '—'}</p>
+                            <p className="text-[var(--ac-text-muted)]">{selectedParty?.email ?? '—'}</p>
                         </div>
                     </FPanel>
 
@@ -1144,9 +1144,9 @@ export function CashForm({
                             icon={Landmark}
                         >
                             <div className="space-y-2 p-4 text-xs">
-                                <strong className="block text-[#123d78]">{selectedObligation.title}</strong>
-                                <p className="text-slate-500">{selectedObligation.authority_name}</p>
-                                <p className="text-slate-500">
+                                <strong className="block text-[var(--ac-text)]">{selectedObligation.title}</strong>
+                                <p className="text-[var(--ac-text-muted)]">{selectedObligation.authority_name}</p>
+                                <p className="text-[var(--ac-text-muted)]">
                                     {selectedObligation.country_code}
                                     {selectedObligation.region_code
                                         ? ' / ' + selectedObligation.region_code
@@ -1223,7 +1223,7 @@ function SummaryLine({
 }) {
     return (
         <div className="flex items-center justify-between gap-4">
-            <span className="text-slate-500">{label}</span>
+            <span className="text-[var(--ac-text-muted)]">{label}</span>
             <span className={(strong ? 'text-base font-bold ' : 'font-semibold ') + className}>
                 <Money value={value} currency={currency} />
             </span>
