@@ -643,7 +643,7 @@ export function DocumentDetail({
                 actions={
                     <>
                         <RecordQuickActions
-                            recordKey={(sales ? 'sale-invoice-' : 'purchase-invoice-') + String(document.id)
+                            recordKey={(sales ? 'sale-invoice-' : 'purchase-invoice-') + String(document.id)}
                             kind={sales ? 'sale_invoice' : 'purchase_invoice'}
                             label={document.number}
                             detail={[
