@@ -1004,6 +1004,18 @@ function ProductsWorkspace() {
                                         canArchive={
                                             allowArchive
                                         }
+                                        columnOrder={
+                                            listPreferences.order
+                                        }
+                                        hiddenColumns={
+                                            listPreferences.hidden
+                                        }
+                                        density={
+                                            listPreferences.density
+                                        }
+                                        onInlineUpdate={
+                                            inlineUpdateProduct
+                                        }
                                         onView={
                                             setDetailProduct
                                         }
