@@ -342,6 +342,73 @@ class BusinessPulseController extends Controller
 
         if (FinanceAuthorization::allows(
             $request->user(),
+            'finance.sales.view',
+        )) {
+            $balances = DB::table('financial_documents as d')
+                ->leftJoin('parties as p', 'p.id', '=', 'd.party_id')
+                ->where('d.organization_id', $organizationId)
+                ->where('d.kind', 'sale_invoice')
+                ->whereIn('d.status', self::OPEN_DOCUMENT_STATUSES)
+                ->where('d.balance_due', '>', 0)
+                ->whereNotNull('d.party_id')
+                ->selectRaw(
+                    'd.party_id,
+                     COALESCE(p.company_name, p.name) as party_name,
+                     SUM(d.balance_due) as outstanding,
+                     MIN(d.currency) as currency',
+                )
+                ->groupBy(
+                    'd.party_id',
+                    'p.company_name',
+                    'p.name',
+                )
+                ->get();
+
+            $positiveAverage = (float) (
+                $balances->avg(
+                    fn ($row) => (float) $row->outstanding,
+                )
+                ?: 0
+            );
+
+            if ($positiveAverage > 0) {
+                $balances
+                    ->filter(
+                        fn ($row) =>
+                            (float) $row->outstanding
+                            >= $positiveAverage * 3,
+                    )
+                    ->sortByDesc(
+                        fn ($row) => (float) $row->outstanding,
+                    )
+                    ->take(20)
+                    ->each(function ($row) use ($items, $positiveAverage): void {
+                        $items->push([
+                            'key' => 'party-balance-'.$row->party_id,
+                            'severity' => 'review',
+                            'kind' => 'unusual_customer_balance',
+                            'title' => $row->party_name
+                                ?: '#'.$row->party_id,
+                            'detail' => number_format(
+                                (float) $row->outstanding,
+                                2,
+                            )
+                                .' '.$row->currency
+                                .' · ~'
+                                .number_format(
+                                    (float) $row->outstanding
+                                    / $positiveAverage,
+                                    1,
+                                )
+                                .'× average open customer balance',
+                            'url' => '/app/parties?focus='.$row->party_id,
+                        ]);
+                    });
+            }
+        }
+
+        if (FinanceAuthorization::allows(
+            $request->user(),
             'finance.cash.view',
         )) {
             PaymentPlan::query()
@@ -602,6 +669,7 @@ class BusinessPulseController extends Controller
             ->whereHas('roles', fn ($query) =>
                 $query->where('role', 'customer'),
             )
+            ->where('parties.updated_at', '<', $cutoff)
             ->whereNotExists(function ($query) use ($organizationId, $cutoff): void {
                 $query
                     ->selectRaw('1')
