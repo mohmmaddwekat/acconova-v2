@@ -154,7 +154,7 @@ export function RecordQuickActions({
                 className={[
                     'flex size-9 items-center justify-center rounded-[11px] border transition',
                     favorite
-                        ? 'border-amber-300 bg-amber-50 text-amber-600'
+                        ? 'border-amber-400/50 bg-[var(--ac-surface-soft)] text-amber-500'
                         : 'border-[var(--ac-line)] text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)]',
                 ].join(' ')}
             >
