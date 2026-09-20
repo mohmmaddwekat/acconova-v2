@@ -1191,7 +1191,16 @@ export function RecurringPaymentsPanel() {
                                                 'Next due',
                                             )}
                                         </p>
-                                        <strong className="mt-1 block text-xs text-[var(--ac-text)]">
+                                        <strong
+                                            className={[
+                                                'mt-1 inline-flex rounded-full border px-2 py-1 text-[10px]',
+                                                plan.due
+                                                    ? 'border-red-200 bg-red-50 text-red-700'
+                                                    : plan.reminder
+                                                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                                        : 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                                            ].join(' ')}
+                                        >
                                             {plan.next_due_on}
                                         </strong>
                                     </div>
