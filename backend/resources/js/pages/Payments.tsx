@@ -2,8 +2,8 @@ import { AppShell } from '@/layouts/AppShell';
 import { ApiError, apiRequest } from '@/lib/http';
 import { t, useLocale } from '@/lib/i18n';
 import type { AppPageProps } from '@/types/app';
-import { Wallet, Plus, ChevronDown, CalendarClock, ArrowDownLeft, ArrowUpRight, ReceiptText, ArrowLeft } from 'lucide-react';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Wallet, Plus, ChevronDown, CalendarClock, ArrowDownLeft, ArrowUpRight, ReceiptText } from 'lucide-react';
+import { Head, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 type Frequency = 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -19,10 +19,27 @@ function localDate(): string {
 
 export default function Payments() {
     const { workspace } = usePage<AppPageProps>().props;
-    return <PaymentsWorkspace key={workspace.activeOrganization?.id ?? 'none'} />;
+    const locale = useLocale();
+    const ar = locale === 'ar';
+
+    return (
+        <AppShell>
+            <Head title={ar ? 'المدفوعات المتكررة' : 'Recurring payments'} />
+            <main
+                dir={ar ? 'rtl' : 'ltr'}
+                className="min-h-[calc(100dvh-72px)] bg-[#f8fbff] px-3 py-5 sm:px-5 lg:px-8"
+            >
+                <div className="mx-auto w-full max-w-[1680px]">
+                    <RecurringPaymentsPanel
+                        key={workspace.activeOrganization?.id ?? 'none'}
+                    />
+                </div>
+            </main>
+        </AppShell>
+    );
 }
 
-function PaymentsWorkspace() {
+export function RecurringPaymentsPanel() {
     const locale = useLocale();
     const { workspace } = usePage<AppPageProps>().props;
     const permissions = workspace.activeOrganization?.permissions;
@@ -92,39 +109,24 @@ function PaymentsWorkspace() {
 
     const ar = locale === 'ar';
 
-    return <AppShell><Head title={ar ? 'المدفوعات المتكررة' : 'Recurring payments'} /><main dir={ar ? 'rtl' : 'ltr'} className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-8">
-        <header className="rounded-[24px] border border-[var(--ac-line)] bg-gradient-to-br from-white via-white to-[var(--ac-accent-soft)] p-6 shadow-sm sm:p-8">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex items-start gap-5">
-                    <span className="flex size-14 shrink-0 items-center justify-center rounded-[18px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]"><CalendarClock size={26} /></span>
-                    <div>
-                        <p className="text-xs font-semibold text-[var(--ac-text-muted)]">{ar ? 'المالية / المدفوعات' : 'Finance / Payments'}</p>
-                        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{ar ? 'المدفوعات المتكررة' : 'Recurring payments'}</h1>
-                        <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--ac-text-soft)]">
-                            {ar
-                                ? 'أنشئ التزامات تتكرر تلقائياً في جدول المتابعة مثل الإيجار والاشتراكات والخدمات. الرواتب لا تُسجل هنا لأنها تُدار من نظام الموظفين.'
-                                : 'Track repeating obligations such as rent, subscriptions and services. Payroll is managed in the staff module instead.'}
-                        </p>
-                    </div>
-                </div>
-
-                <Link href="/app/payments" className={button}>
-                    <ArrowLeft size={15} className="rtl:rotate-180" />
-                    {ar ? 'رجوع للمدفوعات' : 'Back to payments'}
-                </Link>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--ac-line)] pt-4">
-                <Link href="/app/payments" className={button}>
-                    <Wallet size={15} />
-                    {ar ? 'الحركات' : 'Transactions'}
-                </Link>
-                <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-text)] px-4 text-xs font-semibold text-white">
-                    <CalendarClock size={15} />
-                    {ar ? 'المتكررة' : 'Recurring'}
+    return <div dir={ar ? 'rtl' : 'ltr'} className="space-y-4">
+        <section className="rounded-[20px] border border-[#dbe6f5] bg-white p-5 shadow-[0_8px_28px_rgba(30,75,140,.04)]">
+            <div className="flex items-start gap-4">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#eef5ff] text-[#1265d8]">
+                    <CalendarClock size={19} />
                 </span>
+                <div>
+                    <h2 className="text-base font-bold text-[#123d78]">
+                        {ar ? 'المدفوعات المتكررة' : 'Recurring payments'}
+                    </h2>
+                    <p className="mt-1 max-w-3xl text-xs leading-6 text-[#6f86a8]">
+                        {ar
+                            ? 'الإيجار والاشتراكات والخدمات والالتزامات التي تتكرر دورياً تظهر هنا داخل صفحة المدفوعات نفسها. الرواتب تبقى داخل نظام الموظفين.'
+                            : 'Rent, subscriptions, services and other recurring obligations live here inside the payments page. Payroll stays in the staff module.'}
+                    </p>
+                </div>
             </div>
-        </header>
+        </section>
         {!allowed ? <p>{t('payments.noAccess')}</p> : <>
             {canCreate && <details className="group rounded-2xl border border-[var(--ac-line)] bg-white p-5 shadow-sm open:border-[var(--ac-accent)] sm:p-6">
                 <summary className="flex cursor-pointer list-none items-center gap-3 font-semibold [&::-webkit-details-marker]:hidden"><span className="flex size-10 items-center justify-center rounded-xl bg-[var(--ac-text)] text-white"><Plus size={19} /></span>{ar ? 'إضافة دفعة متكررة' : 'Add recurring payment'}<ChevronDown size={18} className="ms-auto text-[var(--ac-text-muted)] transition group-open:rotate-180" /></summary>
@@ -160,7 +162,7 @@ function PaymentsWorkspace() {
             {!loading && !loadError && lastPage > 1 && <div className="flex items-center justify-between"><button className={button} disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>{t('catalog.operations.previous')}</button><span>{page} / {lastPage}</span><button className={button} disabled={page >= lastPage} onClick={() => setPage((value) => value + 1)}>{t('catalog.operations.next')}</button></div>}
             <p className="text-xs leading-6 text-[var(--ac-text-muted)]">{t('payments.notice')}</p>
         </>}
-    </main></AppShell>;
+    </div>;
 }
 
 function ChoiceField({ name, label, options, defaultValue, onChange }: { name: string; label: string; options: { value: string; label: string }[]; defaultValue?: string; onChange?: (value: string) => void }) {
