@@ -1,3 +1,4 @@
+import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { SavedViews } from '@/components/data/SavedViews';
 import { apiRequest } from '@/lib/http';
 import { Link } from '@inertiajs/react';
@@ -448,9 +449,55 @@ export function CashList({
                         {text('جارٍ تحميل الحركات...', 'Loading movements...')}
                     </div>
                 ) : ! response?.data.length ? (
-                    <div className="p-12 text-center text-sm text-[var(--ac-text-muted)]">
-                        {text('لا توجد حركات مطابقة.', 'No matching movements.')}
-                    </div>
+                    <SmartEmptyState
+                        icon={incoming ? WalletCards : Banknote}
+                        title={text(
+                            search || method || status || category
+                                ? 'لا توجد حركات مطابقة'
+                                : incoming
+                                    ? 'لا توجد مقبوضات بعد'
+                                    : 'لا توجد مدفوعات بعد',
+                            search || method || status || category
+                                ? 'No matching movements'
+                                : incoming
+                                    ? 'No receipts yet'
+                                    : 'No payments yet',
+                        )}
+                        description={text(
+                            search || method || status || category
+                                ? 'غيّر البحث أو عوامل التصفية، أو سجّل حركة جديدة.'
+                                : 'ابدأ بتسجيل أول حركة مالية لتظهر هنا مع حالة الاعتماد وطريقة الدفع.',
+                            search || method || status || category
+                                ? 'Adjust the search or filters, or record a new movement.'
+                                : 'Record the first cash movement to track status and payment method here.',
+                        )}
+                        primary={canCreate ? (
+                            <Link
+                                href={createHref}
+                                className={financePrimary}
+                            >
+                                <Plus size={15} />
+                                {incoming
+                                    ? text('تسجيل مقبوض', 'Record receipt')
+                                    : text('تسجيل دفعة', 'Record payment')}
+                            </Link>
+                        ) : undefined}
+                        secondary={(search || method || status || category) ? (
+                            <button
+                                type="button"
+                                className={financeButton}
+                                onClick={() => {
+                                    setSearch('');
+                                    setMethod('');
+                                    setStatus('');
+                                    setCategory('');
+                                    setPage(1);
+                                }}
+                            >
+                                {text('مسح التصفية', 'Clear filters')}
+                            </button>
+                        ) : undefined}
+                    />
                 ) : (
                     <>
                         <div className="overflow-x-auto">
