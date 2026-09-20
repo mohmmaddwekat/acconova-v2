@@ -1096,6 +1096,7 @@ html[data-ac-resolved-theme='dark']
         [class~="text-[#123d78]"],
         [class~="text-[#153d76]"],
         [class~="text-[#163d77]"],
+        [class~="text-[#172b4d]"],
         [class~="text-[#173f78]"],
         [class~="text-[#1c2c50]"],
         [class~="text-[#1d3f72]"]
@@ -1129,14 +1130,20 @@ html[data-ac-resolved-theme='dark']
     :is(
         [class~="text-[#1265d8]"],
         [class~="text-[#1958a6]"],
-        [class~="text-[#124f9e]"]
+        [class~="text-[#124f9e]"],
+        [class~="text-[#4f92ff]"]
     ) {
-    color: #8fc0ff !important;
+    color: #6aa6ff !important;
 }
 
 html[data-ac-resolved-theme='dark']
-    [class~="bg-[#123d78]"] {
-    background-color: #2563a9 !important;
+    :is(
+        [class~="bg-[#123d78]"],
+        [class~="bg-[#1265d8]"],
+        [class~="bg-[#0e57bd]"],
+        [class~="bg-[#0f58bf]"]
+    ) {
+    background-color: #0e1623 !important;
 }
 
 /*
@@ -1177,9 +1184,9 @@ html[data-ac-resolved-theme='dark']
 }
 
 /*
- * Pastel semantic utilities are tuned for light surfaces by default. In dark
- * mode keep the hue but reduce luminance so status chips and action pills do
- * not turn into bright white islands.
+ * Pale semantic utilities are tuned for light surfaces by default. In dark
+ * mode their backgrounds collapse to the approved #0E1623 surface; semantic
+ * meaning remains in text/icon color.
  */
 html[data-ac-resolved-theme='dark']
     :is(
