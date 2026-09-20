@@ -672,6 +672,7 @@ Route::prefix(
 
 Route::middleware(['auth', 'throttle:30,1'])->prefix('api/profile')->group(function (): void {
     Route::get('/center', [ProfileCenterController::class, 'show']);
+    Route::get('/preferences', [ProfileCenterController::class, 'preferenceSettings']);
     Route::put('/preferences', [ProfileCenterController::class, 'preferences']);
     Route::post('/files', [ProfileCenterController::class, 'upload']);
     Route::patch('/files/{file}', [ProfileCenterController::class, 'updateFile'])->whereNumber('file');
