@@ -4,8 +4,11 @@ import {
     Banknote,
     Building2,
     CalendarCheck,
+    CheckCircle2,
+    CircleX,
     FileText,
     Landmark,
+    OctagonX,
     Pencil,
     Printer,
     RotateCcw,
@@ -27,6 +30,16 @@ import type {
     CashDetail as CashDetailType,
     FinanceLookups,
 } from './types';
+
+function localDateValue(): string {
+    const now = new Date();
+
+    return [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+}
 
 export function CashDetail({
     id,
@@ -190,6 +203,37 @@ export function CashDetail({
             return;
         }
 
+        const message = status === 'cleared'
+            ? (
+                incoming
+                    ? text(
+                        'تأكيد أن الشيك تم تحصيله فعلياً من البنك؟',
+                        'Confirm that this check was actually cleared by the bank?',
+                    )
+                    : text(
+                        'تأكيد أن الشيك تم صرفه فعلياً؟',
+                        'Confirm that this check was actually paid?',
+                    )
+            )
+            : status === 'bounced'
+                ? text(
+                    'تأكيد أن الشيك مرتجع؟ سيتم إلغاء أثره كدفعة فعالة وإعادة احتساب أرصدة الفواتير المرتبطة.',
+                    'Confirm that this check bounced? Its payment effect will be removed and linked invoice balances recalculated.',
+                )
+                : status === 'cancelled'
+                    ? text(
+                        'تأكيد إلغاء الشيك؟ سيتم إلغاء أثره كدفعة فعالة وإعادة احتساب أرصدة الفواتير المرتبطة.',
+                        'Confirm cancelling this check? Its payment effect will be removed and linked invoice balances recalculated.',
+                    )
+                    : text(
+                        'إعادة الشيك إلى قيد التحصيل؟ سيتم إعادة احتساب أرصدة الفواتير المرتبطة.',
+                        'Move this check back to pending? Linked invoice balances will be recalculated.',
+                    );
+
+        if (! window.confirm(message)) {
+            return;
+        }
+
         setBusy(true);
         setError('');
 
@@ -328,24 +372,91 @@ export function CashDetail({
                                 </div>
                             </div>
 
-                            {canCorrect && (
-                                <div className="flex flex-wrap gap-2 border-t border-[#edf3fa] p-4">
-                                    {[
-                                        ['pending', text('قيد التحصيل', 'Pending')],
-                                        ['cleared', text('محصل', 'Cleared')],
-                                        ['bounced', text('مرتجع', 'Bounced')],
-                                        ['cancelled', text('ملغي', 'Cancelled')],
-                                    ].map(([value, label]) => (
-                                        <button
-                                            type="button"
-                                            key={value}
-                                            className={financeButton}
-                                            disabled={busy || movement.check_status === value}
-                                            onClick={() => void updateCheckStatus(value)}
-                                        >
-                                            {label}
-                                        </button>
-                                    ))}
+                            {(movement.check_status ?? 'pending') === 'pending' && movement.check_due_date && (
+                                <div
+                                    className={[
+                                        'mx-4 mb-4 rounded-[13px] border px-4 py-3 text-[11px] leading-6',
+                                        movement.check_due_date <= localDateValue()
+                                            ? 'border-amber-200 bg-amber-50 text-amber-800'
+                                            : 'border-blue-100 bg-blue-50/70 text-blue-800',
+                                    ].join(' ')}
+                                >
+                                    <strong className="block">
+                                        {movement.check_due_date < localDateValue()
+                                            ? text('الشيك تجاوز تاريخ الاستحقاق', 'Check is past due')
+                                            : movement.check_due_date === localDateValue()
+                                                ? text('الشيك مستحق اليوم', 'Check is due today')
+                                                : text('الشيك ما زال قيد التحصيل', 'Check is still pending')}
+                                    </strong>
+                                    <span>
+                                        {text(
+                                            'الوصول لتاريخ الاستحقاق لا يعني أنه تم التحصيل تلقائياً. حدّث الحالة فقط بعد معرفة نتيجة البنك.',
+                                            'Reaching the due date does not automatically mean the check cleared. Update the status only after you know the bank result.',
+                                        )}
+                                    </span>
+                                </div>
+                            )}
+
+                            {canCorrect && movement.status === 'posted' && (
+                                <div className="border-t border-[#edf3fa] p-4">
+                                    <p className="mb-3 text-[10px] font-semibold text-[#6f86a8]">
+                                        {text(
+                                            'حدّث الحالة حسب النتيجة الفعلية للشيك:',
+                                            'Update the status based on the actual bank result:',
+                                        )}
+                                    </p>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        {(movement.check_status ?? 'pending') !== 'cleared' && (
+                                            <button
+                                                type="button"
+                                                className="inline-flex min-h-10 items-center gap-2 rounded-[12px] border border-emerald-200 bg-emerald-50 px-4 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-40"
+                                                disabled={busy}
+                                                onClick={() => void updateCheckStatus('cleared')}
+                                            >
+                                                <CheckCircle2 size={15} />
+                                                {incoming
+                                                    ? text('تم التحصيل', 'Mark cleared')
+                                                    : text('تم صرف الشيك', 'Mark paid')}
+                                            </button>
+                                        )}
+
+                                        {(movement.check_status ?? 'pending') !== 'bounced' && (
+                                            <button
+                                                type="button"
+                                                className="inline-flex min-h-10 items-center gap-2 rounded-[12px] border border-red-200 bg-red-50 px-4 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-40"
+                                                disabled={busy}
+                                                onClick={() => void updateCheckStatus('bounced')}
+                                            >
+                                                <CircleX size={15} />
+                                                {text('الشيك مرتجع', 'Mark bounced')}
+                                            </button>
+                                        )}
+
+                                        {(movement.check_status ?? 'pending') !== 'cancelled' && (
+                                            <button
+                                                type="button"
+                                                className="inline-flex min-h-10 items-center gap-2 rounded-[12px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+                                                disabled={busy}
+                                                onClick={() => void updateCheckStatus('cancelled')}
+                                            >
+                                                <OctagonX size={15} />
+                                                {text('إلغاء الشيك', 'Cancel check')}
+                                            </button>
+                                        )}
+
+                                        {(movement.check_status ?? 'pending') !== 'pending' && (
+                                            <button
+                                                type="button"
+                                                className={financeButton}
+                                                disabled={busy}
+                                                onClick={() => void updateCheckStatus('pending')}
+                                            >
+                                                <CalendarCheck size={15} />
+                                                {text('إعادة إلى قيد التحصيل', 'Move back to pending')}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </FPanel>
