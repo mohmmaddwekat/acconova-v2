@@ -314,7 +314,7 @@ export function CashList({
             />
 
             {! incoming && lookups.permissions.recurring_payments_view && (
-                <div className="rounded-[16px] border border-[#dbe6f5] bg-white p-2 shadow-[0_8px_28px_rgba(30,75,140,.04)]">
+                <div className="rounded-[16px] border border-[#dbe6f5] bg-[var(--ac-surface)] p-2 shadow-[0_8px_28px_rgba(30,75,140,.04)]">
                     <div className="flex flex-wrap gap-2">
                         <button
                             type="button"
