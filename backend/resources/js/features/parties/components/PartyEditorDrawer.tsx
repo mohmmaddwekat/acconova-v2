@@ -64,6 +64,8 @@ type PartyForm = {
 
     taxNumber: string;
 
+    creditLimit: string;
+
     addressLine1: string;
 
     addressLine2: string;
@@ -110,6 +112,10 @@ function formFromParty(
 
         taxNumber:
             party?.tax_number ??
+            '',
+
+        creditLimit:
+            party?.credit_limit ??
             '',
 
         addressLine1:
@@ -166,6 +172,10 @@ function payloadFromForm(
 
         tax_number:
             form.taxNumber.trim()
+                || null,
+
+        credit_limit:
+            form.creditLimit.trim()
                 || null,
 
         address_line_1:
@@ -949,6 +959,32 @@ export function PartyEditorDrawer({
                                             ...current,
 
                                             taxNumber:
+                                                value,
+                                        }),
+                                    )
+                                }
+                            />
+
+                            <PartyField
+                                label={ar ? 'الحد الائتماني' : 'Credit limit'}
+                                type="number"
+                                value={
+                                    form.creditLimit
+                                }
+                                error={
+                                    errors
+                                        .credit_limit?.[0]
+                                }
+                                onChange={(
+                                    value,
+                                ) =>
+                                    setForm(
+                                        (
+                                            current,
+                                        ) => ({
+                                            ...current,
+
+                                            creditLimit:
                                                 value,
                                         }),
                                     )
