@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\CashMovement;
 use App\Models\FinanceAuditEvent;
-use App\Tenancy\TenantContext;
 use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -214,7 +214,6 @@ class CashMovementController extends Controller
                 'goods_for_resale',
                 'packaging',
                 'operating_expense',
-                'payroll',
                 'rent',
                 'utilities',
                 'shipping_customs',
