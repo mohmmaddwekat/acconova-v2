@@ -7,6 +7,7 @@ use App\Models\OrganizationSequence;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class WorkspaceSettingsController extends Controller
@@ -42,6 +43,9 @@ class WorkspaceSettingsController extends Controller
             'address' => $preferences['address'] ?? '',
             'invoice_footer' => $preferences['invoice_footer']
                 ?? 'شكراً لتعاملكم معنا، للاستفسار يرجى التواصل معنا في أي وقت.',
+            'logo_url' => ! empty($preferences['logo_path'])
+                ? '/api/workspace-settings/logo?v='.urlencode((string) $organization->updated_at?->timestamp)
+                : null,
 
             'fiscal_year_start_month' => (int) ($preferences['fiscal_year_start_month'] ?? 1),
             'decimal_places' => (int) ($preferences['decimal_places'] ?? 2),
@@ -234,6 +238,62 @@ class WorkspaceSettingsController extends Controller
         );
 
         return $this->show();
+    }
+
+    public function uploadLogo(Request $request): JsonResponse
+    {
+        $context = app(TenantContext::class);
+
+        $this->authorizeSettings($context);
+
+        $data = $request->validate([
+            'logo' => ['required', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048', 'dimensions:max_width=2048,max_height=2048'],
+        ]);
+
+        $organization = $context->organization();
+        $preferences = $organization->preferences ?? [];
+        $oldPath = $preferences['logo_path'] ?? null;
+        $extension = strtolower($data['logo']->getClientOriginalExtension() ?: 'png');
+        $path = $data['logo']->storeAs(
+            'organization-logos/'.$organization->id,
+            'logo.'.$extension,
+            'local',
+        );
+
+        if ($oldPath && $oldPath !== $path) {
+            Storage::disk('local')->delete($oldPath);
+        }
+
+        $preferences['logo_path'] = $path;
+        $organization->preferences = $preferences;
+        $organization->touch();
+        $organization->save();
+
+        return response()->json([
+            'logo_url' => '/api/workspace-settings/logo?v='.$organization->updated_at->timestamp,
+        ]);
+    }
+
+    public function logo()
+    {
+        $organization = app(TenantContext::class)->organization();
+        $path = $organization->preferences['logo_path'] ?? null;
+
+        abort_unless(
+            is_string($path)
+            && $path !== ''
+            && Storage::disk('local')->exists($path),
+            404,
+        );
+
+        return Storage::disk('local')->response(
+            $path,
+            'workspace-logo.'.pathinfo($path, PATHINFO_EXTENSION),
+            [
+                'Cache-Control' => 'private, max-age=3600',
+                'Content-Disposition' => 'inline',
+            ],
+        );
     }
 
     private function authorizeSettings(TenantContext $context): void
