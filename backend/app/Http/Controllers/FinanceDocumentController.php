@@ -44,7 +44,7 @@ class FinanceDocumentController extends Controller
             ->latest('id');
 
         $summaryQuery = clone $query;
-        $summaryRows = $summaryQuery->get(['status', 'total', 'paid_total', 'balance_due']);
+        $summaryRows = $summaryQuery->get(['status', 'total', 'paid_total', 'balance_due', 'due_date']);
 
         $paginator = $query->paginate($data['per_page'] ?? 20);
 
@@ -61,7 +61,10 @@ class FinanceDocumentController extends Controller
                 'total' => number_format((float) $summaryRows->sum(fn ($row) => (float) $row->total), 4, '.', ''),
                 'paid' => number_format((float) $summaryRows->sum(fn ($row) => (float) $row->paid_total), 4, '.', ''),
                 'outstanding' => number_format((float) $summaryRows->sum(fn ($row) => (float) $row->balance_due), 4, '.', ''),
-                'overdue' => $summaryRows->whereIn('status', ['issued', 'partially_paid'])->count(),
+                'overdue' => $summaryRows
+                    ->whereIn('status', ['issued', 'partially_paid'])
+                    ->filter(fn (FinancialDocument $row): bool => $row->due_date !== null && $row->due_date->lt(today()))
+                    ->count(),
             ],
         ]);
     }
