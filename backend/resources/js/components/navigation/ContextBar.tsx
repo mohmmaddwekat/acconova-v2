@@ -1,5 +1,6 @@
 import {
     Menu,
+    Star,
 } from 'lucide-react';
 
 import {
@@ -24,6 +25,16 @@ import {
     t,
     useLocale,
 } from '@/lib/i18n';
+import {
+    toggleFavorite,
+    useWorkspaceRecords,
+} from '@/lib/workspaceRecords';
+import type {
+    AppPageProps,
+} from '@/types/app';
+import {
+    usePage,
+} from '@inertiajs/react';
 
 type ContextBarProps = {
     onOpenNavigation: () => void;
@@ -39,7 +50,108 @@ type ContextBarProps = {
 export function ContextBar({
     onOpenNavigation,
 }: ContextBarProps) {
-    useLocale();
+    const locale =
+        useLocale();
+    const page =
+        usePage<AppPageProps>();
+    const organizationId =
+        page.props.workspace
+            .activeOrganization
+            ?.id
+        ?? null;
+    const {
+        favorites,
+    } =
+        useWorkspaceRecords(
+            organizationId,
+        );
+
+    const pathname =
+        page.url.split(
+            '?',
+        )[0];
+
+    const pageLabels:
+        Record<
+            string,
+            [string, string]
+        > = {
+        '/app': [
+            'لوحة التحكم',
+            'Dashboard',
+        ],
+        '/app/finance': [
+            'المالية',
+            'Finance',
+        ],
+        '/app/invoices': [
+            'فواتير البيع',
+            'Sales invoices',
+        ],
+        '/app/invoices/purchases': [
+            'فواتير الشراء',
+            'Purchase invoices',
+        ],
+        '/app/payments': [
+            'المدفوعات',
+            'Payments',
+        ],
+        '/app/receipts': [
+            'المقبوضات',
+            'Receipts',
+        ],
+        '/app/parties': [
+            'العملاء والموردون',
+            'Parties',
+        ],
+        '/app/products': [
+            'المنتجات والخدمات',
+            'Products & services',
+        ],
+        '/app/staff/directory': [
+            'دليل الموظفين',
+            'Employee directory',
+        ],
+        '/app/task-management': [
+            'إدارة المهام',
+            'Task management',
+        ],
+        '/app/settings': [
+            'الإعدادات',
+            'Settings',
+        ],
+    };
+
+    const pageLabel =
+        pageLabels[
+            pathname
+        ]?.[
+            locale ===
+                'ar'
+                ? 0
+                : 1
+        ]
+        ?? (
+            typeof document !==
+                'undefined'
+                ? document.title
+                    .replace(
+                        /\s*[|·-]\s*AccoNova.*$/i,
+                        '',
+                    )
+                : pathname
+        )
+        || pathname;
+
+    const pageFavoriteKey =
+        'page:'
+        + pathname;
+    const pagePinned =
+        favorites.some(
+            item =>
+                item.key ===
+                    pageFavoriteKey,
+        );
 
     return (
         <header className="ac-app-header sticky top-0 z-40 border-b border-[var(--ac-line)] bg-[var(--ac-chrome)]">
@@ -67,6 +179,71 @@ export function ContextBar({
 
                 <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                     <CommandCenter />
+
+                    <button
+                        type="button"
+                        aria-pressed={
+                            pagePinned
+                        }
+                        aria-label={
+                            pagePinned
+                                ? (
+                                    locale === 'ar'
+                                        ? 'إزالة الصفحة من المفضلة'
+                                        : 'Unpin this page'
+                                )
+                                : (
+                                    locale === 'ar'
+                                        ? 'تثبيت الصفحة في المفضلة'
+                                        : 'Pin this page'
+                                )
+                        }
+                        title={
+                            pagePinned
+                                ? (
+                                    locale === 'ar'
+                                        ? 'إزالة من المفضلة'
+                                        : 'Unpin page'
+                                )
+                                : (
+                                    locale === 'ar'
+                                        ? 'تثبيت الصفحة'
+                                        : 'Pin page'
+                                )
+                        }
+                        onClick={() =>
+                            toggleFavorite(
+                                organizationId,
+                                {
+                                    key:
+                                        pageFavoriteKey,
+                                    kind:
+                                        'page',
+                                    label:
+                                        pageLabel,
+                                    detail:
+                                        pathname,
+                                    href:
+                                        page.url,
+                                },
+                            )
+                        }
+                        className={[
+                            'flex size-10 items-center justify-center rounded-[13px] border transition',
+                            pagePinned
+                                ? 'border-amber-400/50 bg-[var(--ac-surface-soft)] text-amber-500'
+                                : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)]',
+                        ].join(' ')}
+                    >
+                        <Star
+                            size={15}
+                            fill={
+                                pagePinned
+                                    ? 'currentColor'
+                                    : 'none'
+                            }
+                        />
+                    </button>
 
                     <LanguageSwitcher />
 
