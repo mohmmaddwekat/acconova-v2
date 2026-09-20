@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/http';
+import { RecordQuickActions } from '@/components/data/RecordQuickActions';
 import {
     ArrowLeftRight,
     Banknote,
@@ -272,6 +273,23 @@ export function CashDetail({
                 )}
                 actions={
                     <>
+                        <RecordQuickActions
+                            recordKey={(incoming ? 'receipt-' : 'payment-') + String(movement.id)}
+                            kind={incoming ? 'receipt' : 'payment'}
+                            label={movement.number}
+                            detail={[
+                                movement.party?.name,
+                                movement.amount + ' ' + movement.currency,
+                            ].filter(Boolean).join(' · ')}
+                            href={
+                                (incoming
+                                    ? '/app/receipts/'
+                                    : '/app/payments/')
+                                + String(movement.id)
+                            }
+                            ar={ar}
+                        />
+
                         <button
                             type="button"
                             className={financeButton}
