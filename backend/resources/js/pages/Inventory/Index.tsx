@@ -99,7 +99,9 @@ export default function InventoryIndex() {
  * Keep Inventory transient state isolated to one selected organization.
  */
 function InventoryWorkspace() {
-    useLocale();
+    const ar =
+        useLocale() ===
+        'ar';
 
     const {
         workspace,
@@ -804,12 +806,12 @@ function InventoryWorkspace() {
                             description={
                                 status === 'deleted'
                                     ? (
-                                        document.documentElement.lang === 'ar'
+                                        ar
                                             ? 'لا توجد مستودعات مؤرشفة في هذا العرض.'
                                             : 'There are no archived warehouses in this view.'
                                     )
                                     : (
-                                        document.documentElement.lang === 'ar'
+                                        ar
                                             ? 'أنشئ أول مستودع لتبدأ تتبع المخزون والحركات والكميات.'
                                             : 'Create the first warehouse to start tracking stock, movements, and quantities.'
                                     )
