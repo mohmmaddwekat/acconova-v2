@@ -65,6 +65,17 @@ export function CashForm({
         initial?.method
         ?? enabledMethodValues[0]
         ?? 'bank_transfer';
+    const primaryBankAccount =
+        configuredBankAccounts.find(account => account.is_primary)
+        ?? configuredBankAccounts[0]
+        ?? null;
+    const bankAccountLabel = (
+        account: FinanceLookups['settings']['bank_accounts'][number],
+    ): string => [
+        account.bank_name,
+        account.account_name,
+        account.iban || account.account_number,
+    ].filter(Boolean).join(' · ');
 
     const [partyId, setPartyId] = useState(
         initial?.party_id ? String(initial.party_id) : '',
@@ -84,7 +95,14 @@ export function CashForm({
         initial?.movement_date ?? todayValue(),
     );
     const [method, setMethod] = useState(initialMethodValue);
-    const [accountLabel, setAccountLabel] = useState(initial?.account_label ?? '');
+    const [accountLabel, setAccountLabel] = useState(
+        initial?.account_label
+        ?? (
+            initialMethodValue === 'bank_transfer' && primaryBankAccount
+                ? bankAccountLabel(primaryBankAccount)
+                : ''
+        ),
+    );
     const [branchLabel, setBranchLabel] = useState(initial?.branch_label ?? '');
     const [costCenter, setCostCenter] = useState(initial?.cost_center ?? '');
     const [departmentId, setDepartmentId] = useState(
@@ -696,7 +714,20 @@ export function CashForm({
                                 <select
                                     className={financeInput + ' mt-2'}
                                     value={method}
-                                    onChange={(event) => setMethod(event.target.value)}
+                                    onChange={(event) => {
+                                        const nextMethod = event.target.value;
+                                        setMethod(nextMethod);
+
+                                        if (
+                                            nextMethod === 'bank_transfer'
+                                            && ! accountLabel
+                                            && primaryBankAccount
+                                        ) {
+                                            setAccountLabel(
+                                                bankAccountLabel(primaryBankAccount),
+                                            );
+                                        }
+                                    }}
                                 >
                                     {methods.map(([value, label]) => (
                                         <option key={value} value={value}>{label}</option>
@@ -716,11 +747,7 @@ export function CashForm({
                                             {text('اختر حساباً بنكياً', 'Select bank account')}
                                         </option>
                                         {configuredBankAccounts.map((account) => {
-                                            const label = [
-                                                account.bank_name,
-                                                account.account_name,
-                                                account.iban || account.account_number,
-                                            ].filter(Boolean).join(' · ');
+                                            const label = bankAccountLabel(account);
 
                                             return (
                                                 <option key={account.id} value={label}>
