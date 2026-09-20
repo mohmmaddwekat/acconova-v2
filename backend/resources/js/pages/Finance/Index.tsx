@@ -9,6 +9,7 @@ import { CashList } from './CashList';
 import { DocumentDetail } from './DocumentDetail';
 import { DocumentForm } from './DocumentForm';
 import { DocumentList } from './DocumentList';
+import { FinanceHub } from './FinanceHub';
 import { Taxes } from './Taxes';
 import { apiErrorText } from './shared';
 import type {
@@ -47,6 +48,8 @@ export default function FinanceIndex({
 
     const title = (() => {
         switch (financeView) {
+            case 'hub':
+                return ar ? 'المالية' : 'Finance';
             case 'sales-list':
                 return ar ? 'فواتير البيع' : 'Sales invoices';
             case 'sales-create':
@@ -119,6 +122,12 @@ function canOpenFinanceView(
     permissions: FinanceLookups['permissions'],
 ): boolean {
     switch (financeView) {
+        case 'hub':
+            return permissions.sales_view
+                || permissions.purchases_view
+                || permissions.cash_view
+                || permissions.taxes_view
+                || permissions.recurring_payments_view;
         case 'sales-list':
         case 'sales-detail':
             return permissions.sales_view;
@@ -165,6 +174,9 @@ function FinanceViewRenderer({
     }
 
     switch (financeView) {
+        case 'hub':
+            return <FinanceHub lookups={lookups} ar={ar} />;
+
         case 'sales-list':
             return <DocumentList kind="sale_invoice" lookups={lookups} ar={ar} />;
 
