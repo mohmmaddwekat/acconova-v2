@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\CashMovementController;
+use App\Http\Controllers\BusinessPulseController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\FinanceDocumentController;
 use App\Http\Controllers\FinanceImportController;
@@ -382,6 +383,22 @@ Route::middleware([
     )->name('app.finance.taxes');
 
     Route::get(
+        '/app/finance/cashflow',
+        fn () => Inertia::render('Finance/CashflowCalendar'),
+    )->name('app.finance.cashflow');
+
+    Route::get(
+        '/app/finance/anomalies',
+        fn () => Inertia::render('Finance/AnomalyCenter'),
+    )->name('app.finance.anomalies');
+
+    Route::get(
+        '/app/follow-ups',
+        fn () => Inertia::render('FollowUpQueue'),
+    )->name('app.follow-ups');
+
+
+    Route::get(
         '/app/notifications',
         fn () => Inertia::render(
             'Notifications',
@@ -703,6 +720,26 @@ Route::prefix(
             'finance/recurring-invoices/{profile}',
             [InvoiceAutomationController::class, 'deleteRecurring'],
         )->whereNumber('profile');
+
+        Route::get(
+            'business-pulse/brief',
+            [BusinessPulseController::class, 'brief'],
+        );
+
+        Route::get(
+            'business-pulse/follow-ups',
+            [BusinessPulseController::class, 'followUps'],
+        );
+
+        Route::get(
+            'business-pulse/cashflow',
+            [BusinessPulseController::class, 'cashflow'],
+        );
+
+        Route::get(
+            'business-pulse/anomalies',
+            [BusinessPulseController::class, 'anomalies'],
+        );
 
         Route::get('finance/lookups', FinanceLookupController::class);
         Route::get('finance/reference-price', [FinanceLookupController::class, 'referencePrice']);
