@@ -11,6 +11,9 @@ import {
     RecordHealth,
 } from '@/components/data/RecordHealth';
 import {
+    RecordCollaborationPanel,
+} from '@/components/data/RecordCollaborationPanel';
+import {
     RecordQuickActions,
 } from '@/components/data/RecordQuickActions';
 import {
@@ -2339,6 +2342,19 @@ function StaffWorkspace() {
                                                     complete: Boolean(ledger.member.started_on),
                                                 },
                                             ]}
+                                        />
+                                    </div>
+
+                                    <div className="border-t border-[var(--ac-line)] px-5 pb-5 sm:px-6 sm:pb-6">
+                                        <RecordCollaborationPanel
+                                            type="staff"
+                                            recordId={ledger.member.id}
+                                            ar={ar}
+                                            title={
+                                                ar
+                                                    ? 'وسوم ومرفقات الموظف'
+                                                    : 'Employee tags & attachments'
+                                            }
                                         />
                                     </div>
 
