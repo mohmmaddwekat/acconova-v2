@@ -32,7 +32,7 @@ export type LookupProduct = {
     type: string;
     unit: string | null;
     unit_price: string;
-    cost_price: string;
+    cost_price: string | null;
     tax_rate: string;
     track_inventory: boolean;
 };
