@@ -817,6 +817,107 @@ class FinanceWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_workspace_finance_settings_are_persisted_enforced_and_hidden_from_regular_users(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Settings workspace');
+
+        $this->actingInWorkspace($owner, $organization);
+
+        $this->patchJson('/api/workspace-settings', [
+            'name' => 'Updated Workspace',
+            'currency' => 'JOD',
+            'decimal_places' => 6,
+            'payment_methods' => ['cash'],
+            'validate_check_date' => true,
+            'bank_accounts' => [[
+                'id' => 'bank-1',
+                'bank_name' => 'Test Bank',
+                'account_name' => 'Main',
+                'iban' => 'PS001234',
+                'account_number' => null,
+                'is_primary' => true,
+            ]],
+            'invoice_prefix' => 'SALE',
+            'purchase_prefix' => 'BUY',
+            'receipt_prefix' => 'IN',
+            'payment_prefix' => 'OUT',
+            'invoice_start_number' => 25,
+            'purchase_start_number' => 40,
+            'invoice_template' => 'modern',
+            'print_paper_size' => 'a4',
+            'print_margins' => 'compact',
+            'logo_position' => 'center',
+            'show_invoice_logo' => true,
+            'show_invoice_contact' => true,
+            'show_invoice_tax_number' => true,
+            'show_invoice_notes' => true,
+            'show_invoice_qr' => false,
+            'invoice_columns' => ['description', 'quantity', 'unit_price', 'total'],
+        ])
+            ->assertOk()
+            ->assertJsonPath('name', 'Updated Workspace')
+            ->assertJsonPath('currency', 'JOD')
+            ->assertJsonPath('decimal_places', 6)
+            ->assertJsonPath('payment_methods.0', 'cash')
+            ->assertJsonPath('bank_accounts.0.bank_name', 'Test Bank');
+
+        $this->getJson('/api/finance/lookups')
+            ->assertOk()
+            ->assertJsonPath('currency', 'JOD')
+            ->assertJsonPath('settings.decimal_places', 6)
+            ->assertJsonPath('settings.payment_methods.0', 'cash')
+            ->assertJsonPath('settings.bank_accounts.0.bank_name', 'Test Bank')
+            ->assertJsonPath('settings.invoice.template', 'modern')
+            ->assertJsonPath('settings.invoice.margins', 'compact');
+
+        $this->postJson('/api/finance/cash-movements', [
+            'direction' => 'incoming',
+            'category' => 'other_income',
+            'amount' => '10',
+            'currency' => 'JOD',
+            'movement_date' => '2026-09-20',
+            'method' => 'bank_transfer',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('method');
+
+        $this->postJson('/api/finance/cash-movements', [
+            'direction' => 'incoming',
+            'category' => 'other_income',
+            'amount' => '10',
+            'currency' => 'JOD',
+            'movement_date' => '2026-09-20',
+            'method' => 'cash',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.number', 'IN-2026-0001');
+
+        $customerId = $this->party('customer', 'Settings Customer');
+
+        $this->postJson('/api/finance/documents', [
+            'kind' => 'sale_invoice',
+            'party_id' => $customerId,
+            'issue_date' => '2026-09-20',
+            'currency' => 'JOD',
+            'lines' => [[
+                'description' => 'Configured numbering',
+                'quantity' => '1',
+                'unit_price' => '10',
+                'affects_inventory' => false,
+            ]],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.number', 'SALE-2026-0025');
+
+        $employee = User::factory()->create();
+        $organization->users()->attach($employee->id, ['role' => 'employee']);
+
+        $this->actingInWorkspace($employee, $organization);
+        $this->get('/app/settings')->assertForbidden();
+        $this->getJson('/api/workspace-settings')->assertForbidden();
+        $this->patchJson('/api/workspace-settings', ['currency' => 'USD'])->assertForbidden();
+    }
+
     public function test_employee_cannot_access_finance_and_accountant_cannot_run_sensitive_corrections(): void
     {
         [$owner, $organization] = $this->workspace('owner', 'Finance permissions');
