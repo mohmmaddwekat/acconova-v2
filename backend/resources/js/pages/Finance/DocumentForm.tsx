@@ -962,6 +962,41 @@ export function DocumentForm({
         }
     }
 
+    async function deleteDraftInvoice(): Promise<void> {
+        if (! initial?.id || busy || ! canManage) {
+            return;
+        }
+
+        if (! window.confirm(
+            text(
+                'حذف هذه المسودة نهائياً؟ هذا مسموح فقط قبل إصدار الفاتورة. الفواتير الصادرة لا تُحذف؛ يتم إلغاؤها أو تصحيحها حتى يبقى السجل المحاسبي محفوظاً.',
+                'Delete this draft permanently? This is only allowed before issue. Issued invoices are voided or corrected instead so the accounting history stays intact.',
+            ),
+        )) {
+            return;
+        }
+
+        setBusy(true);
+        setError('');
+
+        try {
+            await apiRequest(
+                '/api/finance/documents/' + initial.id,
+                { method: 'DELETE' },
+            );
+
+            window.location.assign(
+                sales
+                    ? '/app/invoices'
+                    : '/app/invoices/purchases',
+            );
+        } catch (failure) {
+            setError(apiErrorText(failure));
+        } finally {
+            setBusy(false);
+        }
+    }
+
     const title =
         initial
             ? (
@@ -1077,6 +1112,18 @@ export function DocumentForm({
                                 'Back',
                             )}
                         </Link>
+
+                        {initial?.id && (
+                            <button
+                                type="button"
+                                className={financeButton + ' !text-red-600'}
+                                disabled={busy || ! canManage}
+                                onClick={() => void deleteDraftInvoice()}
+                            >
+                                <Trash2 size={15} />
+                                {text('حذف المسودة', 'Delete draft')}
+                            </button>
+                        )}
 
                         <button
                             type="button"
