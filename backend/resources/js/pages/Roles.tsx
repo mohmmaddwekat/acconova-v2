@@ -2199,7 +2199,7 @@ function RoleWorkspace() {
                                 </div>
 
                                 <div className="mt-5 flex items-center gap-3 rounded-[17px] bg-[var(--ac-surface-soft)] p-4">
-                                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white text-base font-bold">
+                                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[var(--ac-surface)] text-base font-bold">
                                         {ownerMember
                                             ?.user
                                             .name
@@ -2757,7 +2757,7 @@ function RoleWorkspace() {
                                                     >
                                                         <div className="flex flex-wrap items-start justify-between gap-3">
                                                             <div className="flex items-start gap-3">
-                                                                <span className="flex size-10 items-center justify-center rounded-[13px] bg-white text-[var(--ac-accent-strong)]">
+                                                                <span className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-surface)] text-[var(--ac-accent-strong)]">
                                                                     <Icon
                                                                         size={
                                                                             17
@@ -2787,7 +2787,7 @@ function RoleWorkspace() {
                                                                         group,
                                                                     )
                                                                 }
-                                                                className="rounded-[11px] border border-[var(--ac-line)] bg-white px-3 py-2 text-[9px] font-semibold"
+                                                                className="rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-2 text-[9px] font-semibold"
                                                             >
                                                                 {allSelected
                                                                     ? copy.clear
@@ -2798,7 +2798,7 @@ function RoleWorkspace() {
                                                         {group.key ===
                                                             'teams' && (
                                                             <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-[9px] text-[var(--ac-text-muted)]">
                                                                     <strong className="block text-[var(--ac-text)]">
                                                                         {ar ? 'نطاق القسم' : 'Department scope'}
                                                                     </strong>
@@ -2807,7 +2807,7 @@ function RoleWorkspace() {
                                                                         : 'Department managers act only on teams inside their department.'}
                                                                 </div>
 
-                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-[9px] text-[var(--ac-text-muted)]">
                                                                     <strong className="block text-[var(--ac-text)]">
                                                                         {ar ? 'نطاق قائد الفريق' : 'Team lead scope'}
                                                                     </strong>
@@ -2816,7 +2816,7 @@ function RoleWorkspace() {
                                                                         : 'A team lead is scoped to their team and descendant teams.'}
                                                                 </div>
 
-                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-[9px] text-[var(--ac-text-muted)]">
                                                                     <strong className="block text-[var(--ac-text)]">
                                                                         {ar ? 'الشركة كاملة' : 'Company-wide'}
                                                                     </strong>
@@ -2830,7 +2830,7 @@ function RoleWorkspace() {
                                                         {group.key ===
                                                             'staff' && (
                                                             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-[9px] text-[var(--ac-text-muted)]">
                                                                     <strong className="block text-[var(--ac-text)]">
                                                                         {ar ? 'النظرة العامة والدليل' : 'Overview & directory'}
                                                                     </strong>
@@ -2839,7 +2839,7 @@ function RoleWorkspace() {
                                                                         : 'staff.team_view is department-scoped; staff.view covers the full company.'}
                                                                 </div>
 
-                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-[9px] text-[var(--ac-text-muted)]">
                                                                     <strong className="block text-[var(--ac-text)]">
                                                                         {ar ? 'صفحة الحضور' : 'Attendance page'}
                                                                     </strong>
@@ -2848,7 +2848,7 @@ function RoleWorkspace() {
                                                                         : 'Requires staff.team_attendance for a department or staff.attendance company-wide.'}
                                                                 </div>
 
-                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-[9px] text-[var(--ac-text-muted)]">
                                                                     <strong className="block text-[var(--ac-text)]">
                                                                         {ar ? 'الرواتب والمستحقات' : 'Payroll & balances'}
                                                                     </strong>
@@ -2857,7 +2857,7 @@ function RoleWorkspace() {
                                                                         : 'Financial employee totals require staff.team_pay or staff.pay.'}
                                                                 </div>
 
-                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-white p-3 text-[9px] text-[var(--ac-text-muted)]">
+                                                                <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-[9px] text-[var(--ac-text-muted)]">
                                                                     <strong className="block text-[var(--ac-text)]">
                                                                         {ar ? 'إدارة الملفات' : 'Profile management'}
                                                                     </strong>
@@ -3094,7 +3094,7 @@ function RoleWorkspace() {
                                                 }
                                                 className="flex items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4"
                                             >
-                                                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold">
+                                                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--ac-surface)] text-xs font-bold">
                                                     {member.user.name
                                                         .charAt(
                                                             0,
@@ -3123,7 +3123,7 @@ function RoleWorkspace() {
                                                             member.role ===
                                                             'owner'
                                                                 ? 'bg-amber-50 text-amber-700'
-                                                                : 'bg-white',
+                                                                : 'bg-[var(--ac-surface)]',
                                                         ].join(
                                                             ' ',
                                                         )}
@@ -3242,7 +3242,7 @@ function SummaryCard({
     value: string;
 }) {
     return (
-        <div className="rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)]">
+        <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)]">
             <div className="flex items-center justify-between gap-3">
                 <div>
                     <p className="text-[9px] font-semibold text-[var(--ac-text-muted)]">
@@ -3297,7 +3297,7 @@ function RoleCategoryIcon({
                     : Users;
 
     return (
-        <span className="flex size-10 items-center justify-center rounded-[13px] bg-white text-[var(--ac-accent-strong)] shadow-sm">
+        <span className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-surface)] text-[var(--ac-accent-strong)] shadow-sm">
             <Icon
                 size={
                     17
