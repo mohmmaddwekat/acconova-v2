@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/http';
+import { RecordQuickActions } from '@/components/data/RecordQuickActions';
 import { Link } from '@inertiajs/react';
 import {
     AlertTriangle,
@@ -6,6 +7,7 @@ import {
     Banknote,
     Building2,
     CalendarDays,
+    Copy,
     Download,
     FileText,
     Pencil,
@@ -631,6 +633,36 @@ export function DocumentDetail({
                 )}
                 actions={
                     <>
+                        <RecordQuickActions
+                            recordKey={(sales ? 'sale-invoice-' : 'purchase-invoice-') + String(document.id)}
+                            kind={sales ? 'sale_invoice' : 'purchase_invoice'}
+                            label={document.number}
+                            detail={[
+                                document.party?.name,
+                                document.total + ' ' + document.currency,
+                            ].filter(Boolean).join(' · ')}
+                            href={
+                                (sales
+                                    ? '/app/invoices/sales/'
+                                    : '/app/invoices/purchases/')
+                                + String(document.id)
+                            }
+                            ar={ar}
+                        />
+
+                        <Link
+                            href={
+                                (sales
+                                    ? '/app/invoices/sales/create?copy_from='
+                                    : '/app/invoices/purchases/create?copy_from=')
+                                + String(document.id)
+                            }
+                            className={financeButton}
+                        >
+                            <Copy size={15} />
+                            {text('نسخ الفاتورة', 'Copy invoice')}
+                        </Link>
+
                         <button
                             type="button"
                             className={
