@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class FinanceWorkflowTest extends TestCase
@@ -653,6 +654,94 @@ class FinanceWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('rules.0.country_code', 'US')
             ->assertJsonPath('rules.0.region_code', 'CA');
+    }
+
+    public function test_legacy_finance_csv_import_creates_historical_invoice(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance import');
+        $this->actingInWorkspace($owner, $organization);
+
+        $csv = implode("\n", [
+            'document_key,external_number,party_name,issue_date,due_date,line_description,unit,quantity,unit_price,discount_percent,tax_rate,shipping_total,notes',
+            'LEG-1,SAL-LEG-1,Legacy Customer,2025-01-10,2025-02-10,Old service,service,2,125,10,0,0,Imported legacy invoice',
+        ]);
+
+        $file = UploadedFile::fake()->createWithContent('legacy-sales.csv', $csv);
+
+        $this->post('/api/finance-import/commit', [
+            'type' => 'sales_invoices',
+            'file' => $file,
+        ])
+            ->assertOk()
+            ->assertJsonPath('created', 1)
+            ->assertJsonPath('skipped', 0);
+
+        $this->assertDatabaseHas('financial_documents', [
+            'kind' => 'sale_invoice',
+            'external_number' => 'SAL-LEG-1',
+            'status' => 'issued',
+            'currency' => 'ILS',
+            'total' => '225.0000',
+        ]);
+
+        $this->assertDatabaseHas('parties', [
+            'company_name' => 'Legacy Customer',
+        ]);
+    }
+
+    public function test_draft_invoice_can_be_deleted_but_issued_invoice_requires_void_or_correction(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance delete safety');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Delete Safety Customer');
+
+        $draftId = $this->postJson('/api/finance/documents', [
+            'kind' => 'sale_invoice',
+            'party_id' => $customerId,
+            'issue_date' => '2026-09-20',
+            'currency' => 'ILS',
+            'lines' => [[
+                'description' => 'Draft line',
+                'quantity' => '1',
+                'unit_price' => '10',
+                'affects_inventory' => false,
+            ]],
+        ])->assertCreated()->json('data.id');
+
+        $this->deleteJson("/api/finance/documents/{$draftId}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('financial_documents', [
+            'id' => $draftId,
+        ]);
+
+        $issuedId = $this->postJson('/api/finance/documents', [
+            'kind' => 'sale_invoice',
+            'party_id' => $customerId,
+            'issue_date' => '2026-09-20',
+            'currency' => 'ILS',
+            'lines' => [[
+                'description' => 'Issued line',
+                'quantity' => '1',
+                'unit_price' => '10',
+                'affects_inventory' => false,
+            ]],
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson(
+            "/api/finance/documents/{$issuedId}/issue",
+            ['acknowledge_warnings' => false],
+        )->assertOk();
+
+        $this->deleteJson("/api/finance/documents/{$issuedId}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+
+        $this->assertDatabaseHas('financial_documents', [
+            'id' => $issuedId,
+            'status' => 'issued',
+        ]);
     }
 
     public function test_employee_cannot_access_finance_and_accountant_cannot_run_sensitive_corrections(): void
