@@ -39,7 +39,7 @@ export function ContextBar({
     useLocale();
 
     return (
-        <header className="sticky top-0 z-40 border-b border-[var(--ac-line)] bg-[var(--ac-bg)]/82 backdrop-blur-xl">
+        <header className="ac-app-header sticky top-0 z-40 border-b border-[var(--ac-line)] bg-[var(--ac-chrome)]">
             <div className="mx-auto flex h-14 w-full max-w-[1760px] min-w-0 items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-5 lg:px-8">
                 <button
                     type="button"
