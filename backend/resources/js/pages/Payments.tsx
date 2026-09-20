@@ -127,27 +127,28 @@ function PaymentsWorkspace() {
         </header>
         {!allowed ? <p>{t('payments.noAccess')}</p> : <>
             {canCreate && <details className="group rounded-2xl border border-[var(--ac-line)] bg-white p-5 shadow-sm open:border-[var(--ac-accent)] sm:p-6">
-                <summary className="flex cursor-pointer list-none items-center gap-3 font-semibold [&::-webkit-details-marker]:hidden"><span className="flex size-10 items-center justify-center rounded-xl bg-[var(--ac-text)] text-white"><Plus size={19} /></span>{t('payments.new')}<ChevronDown size={18} className="ms-auto text-[var(--ac-text-muted)] transition group-open:rotate-180" /></summary>
+                <summary className="flex cursor-pointer list-none items-center gap-3 font-semibold [&::-webkit-details-marker]:hidden"><span className="flex size-10 items-center justify-center rounded-xl bg-[var(--ac-text)] text-white"><Plus size={19} /></span>{ar ? 'إضافة دفعة متكررة' : 'Add recurring payment'}<ChevronDown size={18} className="ms-auto text-[var(--ac-text-muted)] transition group-open:rotate-180" /></summary>
+                <p className="mt-4 rounded-xl bg-blue-50 px-3 py-2 text-[11px] leading-6 text-blue-800">{ar ? 'الحقول التي تحمل * مطلوبة. الطرف والملاحظات اختيارية. العملة ثابتة من إعدادات مساحة العمل.' : 'Fields marked * are required. Party and notes are optional. Currency comes from workspace settings.'}</p>
                 <form onSubmit={create} className="mt-5"><fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
-                    <label className="text-xs sm:col-span-2">{t('payments.name')}<input required name="title" maxLength={255} className={field} /></label>
-                    <ChoiceField name="direction" label={t('payments.direction')} defaultValue="outgoing" options={(['outgoing', 'incoming'] as const).map((value) => ({ value, label: t(`payments.${value}`) }))} />
-                    <ChoiceField name="frequency" label={t('payments.frequency')} defaultValue="once" onChange={setFrequency} options={(['once', 'daily', 'weekly', 'monthly', 'yearly'] as const).map((value) => ({ value, label: t(`payments.${value}`) }))} />
-                    <label className="text-xs">{t('settings.every')}<input name="interval_count" type="number" min="1" max="365" step="1" required disabled={frequency === 'once'} defaultValue="1" className={field} /></label><label className="text-xs">{t('payments.amount')}<input required name="amount" type="number" dir="ltr" min="0.0001" max="9999999999" step="0.0001" className={field} /></label>
+                    <label className="text-xs sm:col-span-2">{ar ? 'اسم الالتزام *' : 'Name *'}<input required name="title" maxLength={255} className={field} /></label>
+                    <ChoiceField name="direction" label={ar ? 'الاتجاه *' : 'Direction *'} defaultValue="outgoing" options={(['outgoing', 'incoming'] as const).map((value) => ({ value, label: t(`payments.${value}`) }))} />
+                    <ChoiceField name="frequency" label={ar ? 'التكرار *' : 'Frequency *'} defaultValue="once" onChange={setFrequency} options={(['once', 'daily', 'weekly', 'monthly', 'yearly'] as const).map((value) => ({ value, label: t(`payments.${value}`) }))} />
+                    <label className="text-xs">{ar ? 'كل كم فترة *' : 'Every *'}<input name="interval_count" type="number" min="1" max="365" step="1" required disabled={frequency === 'once'} defaultValue="1" className={field} /></label><label className="text-xs">{ar ? 'المبلغ *' : 'Amount *'}<input required name="amount" type="number" dir="ltr" min="0.0001" max="9999999999" step="0.0001" className={field} /></label>
                     <div className="text-xs">{t('payments.currency')}<div className="mt-2 rounded-xl bg-[var(--ac-accent-soft)] px-4 py-3 font-semibold">{defaults?.currency ?? workspace.activeOrganization?.currency ?? 'ILS'}</div></div>
-                    <label className="text-xs">{t('payments.due')}<input required name="next_due_on" type="date" defaultValue={localDate()} className={field} /></label>
-                    <label className="text-xs">{t('payments.reminderDays')}<input required name="reminder_days" type="number" min="0" max="30" key={defaults?.reminder_days ?? 'loading'} defaultValue={defaults?.reminder_days ?? 3} className={field} /></label>
-                    <label className="text-xs sm:col-span-2">{t('payments.party')}<input name="counterparty" maxLength={255} className={field} /></label>
+                    <label className="text-xs">{ar ? 'أول استحقاق *' : 'First due date *'}<input required name="next_due_on" type="date" defaultValue={localDate()} className={field} /></label>
+                    <label className="text-xs">{ar ? 'التذكير قبل (أيام) *' : 'Reminder days *'}<input required name="reminder_days" type="number" min="0" max="30" key={defaults?.reminder_days ?? 'loading'} defaultValue={defaults?.reminder_days ?? 3} className={field} /></label>
+                    <label className="text-xs sm:col-span-2">{ar ? 'الطرف (اختياري)' : 'Party (optional)'}<input name="counterparty" maxLength={255} className={field} /></label>
                     <button disabled={busy} className="rounded-xl bg-[var(--ac-accent-strong)] px-5 py-3 text-sm text-white sm:col-span-2">{t('payments.save')}</button>
                 </fieldset></form>
             </details>}
             {selected && <section ref={recordSection} className="rounded-2xl border border-[var(--ac-accent)] bg-white p-5">
                 <h2 className="font-semibold">{t('payments.record')} — {selected.title}</h2><p className="mt-2 text-xs leading-6">{t('payments.recordHelp')}</p>
                 <form key={`${selected.id}-${selected.next_due_on}`} onSubmit={record} className="mt-4"><fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
-                    <label className="text-xs">{t('payments.actual')} ({selected.currency})<input required name="amount" type="number" min="0.0001" max="9999999999" step="0.0001" dir="ltr" defaultValue={selected.amount} className={field} /></label>
-                    <label className="text-xs">{t('payments.paidOn')}<input required type="date" name="paid_on" max={localDate()} defaultValue={localDate()} className={field} /></label>
-                    <label className="text-xs">{t('payments.party')}<input name="counterparty" maxLength={255} defaultValue={selected.counterparty ?? ''} className={field} /></label>
-                    <ChoiceField name="method" label={t('payments.method')} defaultValue="cash" options={(['cash', 'bank', 'electronic'] as const).map((value) => ({ value, label: t(`payments.${value}`) }))} />
-                    <label className="text-xs sm:col-span-2">{t('payments.notes')}<textarea name="notes" maxLength={2000} className={field} /></label>
+                    <label className="text-xs">{ar ? 'المبلغ الفعلي *' : 'Actual amount *'} ({selected.currency})<input required name="amount" type="number" min="0.0001" max="9999999999" step="0.0001" dir="ltr" defaultValue={selected.amount} className={field} /></label>
+                    <label className="text-xs">{ar ? 'تاريخ الدفع *' : 'Paid on *'}<input required type="date" name="paid_on" max={localDate()} defaultValue={localDate()} className={field} /></label>
+                    <label className="text-xs">{ar ? 'الطرف (اختياري)' : 'Party (optional)'}<input name="counterparty" maxLength={255} defaultValue={selected.counterparty ?? ''} className={field} /></label>
+                    <ChoiceField name="method" label={ar ? 'طريقة الدفع *' : 'Payment method *'} defaultValue="cash" options={(['cash', 'bank', 'electronic'] as const).map((value) => ({ value, label: t(`payments.${value}`) }))} />
+                    <label className="text-xs sm:col-span-2">{ar ? 'ملاحظات (اختياري)' : 'Notes (optional)'}<textarea name="notes" maxLength={2000} className={field} /></label>
                     <button disabled={busy} className="rounded-xl bg-[var(--ac-accent-strong)] px-4 py-3 text-sm text-white">{t('payments.confirm')}</button><button type="button" className={button} onClick={() => setSelected(null)}>{t('payments.cancel')}</button>
                 </fieldset></form>
             </section>}
