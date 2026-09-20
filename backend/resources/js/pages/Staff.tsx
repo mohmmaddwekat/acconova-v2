@@ -1742,6 +1742,7 @@ function StaffWorkspace() {
                                     perPage,
                                 }}
                                 onApply={(saved) => {
+                                    setDraftSearch(saved.search);
                                     setSearch(saved.search);
                                     setDepartment(saved.department);
                                     setBasisFilter(saved.basisFilter);
