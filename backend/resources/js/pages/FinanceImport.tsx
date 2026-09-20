@@ -31,8 +31,8 @@ type ImportResult = {
     errors: { row: number; message: string }[];
 };
 
-const panel = 'rounded-[20px] border border-[#dbe6f5] bg-white p-5 shadow-[0_8px_28px_rgba(30,75,140,.04)]';
-const button = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-[12px] border border-[#dbe6f5] bg-white px-4 text-xs font-semibold text-[#345b8f] transition hover:bg-blue-50 disabled:opacity-40';
+const panel = 'rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]';
+const button = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-surface-soft)] disabled:opacity-40';
 const primary = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-[12px] bg-[#1265d8] px-5 text-xs font-semibold text-white transition hover:bg-[#0f58bf] disabled:opacity-40';
 
 function errorText(error: unknown, fallback: string): string {
@@ -124,11 +124,11 @@ export default function FinanceImport() {
         <AppShell>
             <Head title={text('استيراد البيانات المالية', 'Import finance data')} />
 
-            <main dir={ar ? 'rtl' : 'ltr'} className="min-h-[calc(100dvh-72px)] bg-[#f8fbff] px-4 py-6 sm:px-8">
+            <main dir={ar ? 'rtl' : 'ltr'} className="min-h-[calc(100dvh-72px)] bg-[var(--ac-bg)] px-4 py-6 text-[var(--ac-text)] sm:px-8">
                 <div className="mx-auto max-w-6xl space-y-5">
-                    <header className="flex flex-col gap-4 rounded-[24px] border border-[#dbe6f5] bg-white p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between">
+                    <header className="flex flex-col gap-4 rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-6 shadow-[var(--ac-shadow-soft)] sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-[#123d78]">
+                            <h1 className="text-2xl font-bold text-[var(--ac-text)]">
                                 {text('نقل البيانات القديمة إلى AccoNova', 'Move legacy data into AccoNova')}
                             </h1>
                             <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
@@ -157,7 +157,7 @@ export default function FinanceImport() {
                     </header>
 
                     <section className={panel}>
-                        <h2 className="font-bold text-[#123d78]">
+                        <h2 className="font-bold text-[var(--ac-text)]">
                             {text('1. اختر نوع البيانات', '1. Choose the data type')}
                         </h2>
 
@@ -187,7 +187,7 @@ export default function FinanceImport() {
                     <section className={panel}>
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <h2 className="font-bold text-[#123d78]">
+                                <h2 className="font-bold text-[var(--ac-text)]">
                                     {text('2. نزّل نموذج جاهز', '2. Download a ready template')}
                                 </h2>
                                 <p className="mt-1 text-xs leading-6 text-slate-500">
@@ -209,7 +209,7 @@ export default function FinanceImport() {
                     </section>
 
                     <section className={panel}>
-                        <h2 className="font-bold text-[#123d78]">
+                        <h2 className="font-bold text-[var(--ac-text)]">
                             {text('3. ارفع الملف وافحصه أولاً', '3. Upload and inspect first')}
                         </h2>
 
@@ -246,7 +246,7 @@ export default function FinanceImport() {
                         <section className={panel}>
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                    <h2 className="font-bold text-[#123d78]">
+                                    <h2 className="font-bold text-[var(--ac-text)]">
                                         {text('معاينة قبل الاستيراد', 'Preview before import')}
                                     </h2>
                                     <p className="mt-1 text-xs text-slate-500">
@@ -322,7 +322,7 @@ export default function FinanceImport() {
                                     <CheckCircle2 size={20} />
                                 </span>
                                 <div className="flex-1">
-                                    <h2 className="font-bold text-[#123d78]">
+                                    <h2 className="font-bold text-[var(--ac-text)]">
                                         {text('اكتمل الاستيراد', 'Import completed')}
                                     </h2>
                                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
