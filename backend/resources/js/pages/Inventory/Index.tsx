@@ -1,3 +1,4 @@
+import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import {
     Head,
     usePage,
@@ -793,25 +794,43 @@ function InventoryWorkspace() {
                         </div>
                     ) : warehouses.length ===
                       0 ? (
-                        <div className="px-5 py-14 text-center">
-                            <WarehouseIcon
-                                className="mx-auto text-[var(--ac-text-muted)]"
-                                size={
-                                    20
-                                }
-                            />
-
-                            <h3 className="mt-4 text-lg font-semibold">
-                                {status ===
-                                'deleted'
-                                    ? t(
-                                          'inventory.noArchivedWarehouses',
-                                      )
-                                    : t(
-                                          'inventory.noWarehouses',
-                                      )}
-                            </h3>
-                        </div>
+                        <SmartEmptyState
+                            icon={WarehouseIcon}
+                            title={
+                                status === 'deleted'
+                                    ? t('inventory.noArchivedWarehouses')
+                                    : t('inventory.noWarehouses')
+                            }
+                            description={
+                                status === 'deleted'
+                                    ? (
+                                        document.documentElement.lang === 'ar'
+                                            ? 'لا توجد مستودعات مؤرشفة في هذا العرض.'
+                                            : 'There are no archived warehouses in this view.'
+                                    )
+                                    : (
+                                        document.documentElement.lang === 'ar'
+                                            ? 'أنشئ أول مستودع لتبدأ تتبع المخزون والحركات والكميات.'
+                                            : 'Create the first warehouse to start tracking stock, movements, and quantities.'
+                                    )
+                            }
+                            primary={
+                                status !== 'deleted' && canManage
+                                    ? (
+                                        <button
+                                            type="button"
+                                            onClick={
+                                                createWarehouse
+                                            }
+                                            className="inline-flex h-11 items-center gap-2 rounded-[14px] bg-[var(--ac-accent-solid)] px-5 text-sm font-semibold text-[var(--ac-accent-solid-text)]"
+                                        >
+                                            <Plus size={15} />
+                                            {t('inventory.newWarehouse')}
+                                        </button>
+                                    )
+                                    : undefined
+                            }
+                        />
                     ) : (
                         <div className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
                             {warehouses.map(
