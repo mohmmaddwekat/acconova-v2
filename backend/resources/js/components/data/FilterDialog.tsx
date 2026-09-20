@@ -200,9 +200,9 @@ export function FilterDialog({
                 aria-labelledby={
                     titleId
                 }
-                className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[92dvh] sm:w-[min(880px,calc(100vw-2rem))] sm:rounded-[30px] sm:border sm:border-white/70 sm:shadow-[0_28px_90px_rgba(23,35,30,0.18)]"
+                className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-[var(--ac-surface)] sm:h-auto sm:max-h-[92dvh] sm:w-[min(880px,calc(100vw-2rem))] sm:rounded-[30px] sm:border sm:border-white/70 sm:shadow-[0_28px_90px_rgba(23,35,30,0.18)]"
             >
-                <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--ac-line)] bg-white px-4 py-3.5 sm:px-5 sm:py-4">
+                <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-3.5 sm:px-5 sm:py-4">
                     <div className="flex min-w-0 items-center gap-3">
                         <div className="relative flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)] sm:size-11 sm:rounded-[15px]">
                             <SlidersHorizontal
@@ -251,7 +251,7 @@ export function FilterDialog({
                             onClick={
                                 onReset
                             }
-                            className="group flex h-9 items-center justify-center gap-1.5 rounded-[12px] border border-[var(--ac-line)] bg-white px-2.5 text-[11px] font-semibold text-[var(--ac-text-soft)] transition duration-200 hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)] disabled:cursor-default disabled:opacity-30"
+                            className="group flex h-9 items-center justify-center gap-1.5 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2.5 text-[11px] font-semibold text-[var(--ac-text-soft)] transition duration-200 hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)] disabled:cursor-default disabled:opacity-30"
                         >
                             <RotateCcw
                                 size={
@@ -327,8 +327,8 @@ export function FilterDialog({
                                         className={[
                                             'relative flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-[13px] border px-3 text-start transition duration-200',
                                             selected
-                                                ? 'border-[var(--ac-accent)]/45 bg-white text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]'
-                                                : 'border-transparent bg-white/60 text-[var(--ac-text-soft)]',
+                                                ? 'border-[var(--ac-accent)]/45 bg-[var(--ac-surface)] text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]'
+                                                : 'border-transparent bg-[var(--ac-surface)]/60 text-[var(--ac-text-soft)]',
                                         ].join(
                                             ' ',
                                         )}
@@ -386,7 +386,7 @@ export function FilterDialog({
                                     ! current,
                             )
                         }
-                        className="flex min-h-12 w-full items-center gap-3 rounded-[15px] border border-[var(--ac-line)] bg-white px-3 text-start shadow-[var(--ac-shadow-soft)]"
+                        className="flex min-h-12 w-full items-center gap-3 rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-start shadow-[var(--ac-shadow-soft)]"
                     >
                         <span className="flex size-8 shrink-0 items-center justify-center rounded-[11px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
                             <CurrentIcon
@@ -426,7 +426,7 @@ export function FilterDialog({
                     </button>
 
                     {tabletSectionMenuOpen && (
-                        <div className="absolute inset-x-3 top-[calc(100%-0.25rem)] z-20 max-h-[46dvh] overflow-y-auto rounded-[17px] border border-[var(--ac-line)] bg-white p-1.5 shadow-[var(--ac-shadow-panel)]">
+                        <div className="absolute inset-x-3 top-[calc(100%-0.25rem)] z-20 max-h-[46dvh] overflow-y-auto rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-1.5 shadow-[var(--ac-shadow-panel)]">
                             {sections.map(
                                 (
                                     section,
@@ -458,7 +458,7 @@ export function FilterDialog({
                                                 ' ',
                                             )}
                                         >
-                                            <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-white shadow-sm">
+                                            <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--ac-surface)] shadow-sm">
                                                 <Icon
                                                     size={
                                                         13
@@ -527,8 +527,8 @@ export function FilterDialog({
                                             className={[
                                                 'group flex min-h-[58px] w-full items-center gap-3 rounded-[15px] px-3 text-start transition duration-200',
                                                 selected
-                                                    ? 'bg-white text-[var(--ac-text)] shadow-[var(--ac-shadow-soft)]'
-                                                    : 'text-[var(--ac-text-soft)] hover:bg-white/70 hover:text-[var(--ac-text)]',
+                                                    ? 'bg-[var(--ac-surface)] text-[var(--ac-text)] shadow-[var(--ac-shadow-soft)]'
+                                                    : 'text-[var(--ac-text-soft)] hover:bg-[var(--ac-surface)]/70 hover:text-[var(--ac-text)]',
                                             ].join(
                                                 ' ',
                                             )}
@@ -538,7 +538,7 @@ export function FilterDialog({
                                                     'flex size-9 shrink-0 items-center justify-center rounded-[12px] transition',
                                                     selected
                                                         ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                                                        : 'bg-white text-[var(--ac-text-muted)] group-hover:text-[var(--ac-text-soft)]',
+                                                        : 'bg-[var(--ac-surface)] text-[var(--ac-text-muted)] group-hover:text-[var(--ac-text-soft)]',
                                                 ].join(
                                                     ' ',
                                                 )}
@@ -576,7 +576,7 @@ export function FilterDialog({
                         </div>
                     </nav>
 
-                    <div className="min-h-0 overflow-y-auto overscroll-contain bg-white px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+                    <div className="min-h-0 overflow-y-auto overscroll-contain bg-[var(--ac-surface)] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
                         <div className="mx-auto max-w-[600px]">
                             <div className="flex items-center gap-3 border-b border-[var(--ac-line)] pb-4">
                                 <div className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
@@ -655,7 +655,7 @@ export function FilterChoice({
                 'group flex min-h-12 w-full items-center gap-3 rounded-[13px] border px-3 py-2.5 text-start transition duration-200',
                 active
                     ? 'border-[var(--ac-accent)]/45 bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                    : 'border-transparent bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)] hover:bg-white hover:text-[var(--ac-text)]',
+                    : 'border-transparent bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface)] hover:text-[var(--ac-text)]',
             ].join(
                 ' ',
             )}
@@ -665,8 +665,8 @@ export function FilterChoice({
                     className={[
                         'flex size-8 shrink-0 items-center justify-center rounded-[11px] transition',
                         active
-                            ? 'bg-white text-[var(--ac-accent-strong)] shadow-sm'
-                            : 'bg-white text-[var(--ac-text-muted)]',
+                            ? 'bg-[var(--ac-surface)] text-[var(--ac-accent-strong)] shadow-sm'
+                            : 'bg-[var(--ac-surface)] text-[var(--ac-text-muted)]',
                     ].join(
                         ' ',
                     )}
@@ -691,7 +691,7 @@ export function FilterChoice({
                     'flex size-5 shrink-0 items-center justify-center rounded-full transition',
                     active
                         ? 'bg-[var(--ac-accent)] text-white'
-                        : 'border border-[var(--ac-line-strong)] bg-white text-transparent',
+                        : 'border border-[var(--ac-line-strong)] bg-[var(--ac-surface)] text-transparent',
                 ].join(
                     ' ',
                 )}
