@@ -40,6 +40,7 @@ import {
     updateParty,
     type PartyBulkAction,
     type PartyFilters,
+    type PartyPayload,
 } from '@/features/parties/api';
 import { PartyBulkActionBar } from '@/features/parties/components/PartyBulkActionBar';
 import { PartyDataActions } from '@/features/parties/components/PartyDataActions';
@@ -579,7 +580,7 @@ function PartiesWorkspace() {
     function partyPayload(
         party: Party,
         patch: Partial<Party> = {},
-    ) {
+    ): PartyPayload {
         return {
             type: party.type,
             ...(party.type === 'company'
