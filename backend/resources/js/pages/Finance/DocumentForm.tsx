@@ -1241,62 +1241,162 @@ export function DocumentForm({
                                 line.unit_price,
                             );
 
+                        const lineWarnings:
+                            string[] = [];
+
                         if (
-                            baseline <= 0
-                            || entered <= 0
+                            baseline > 0
+                            && entered > 0
                         ) {
-                            return [];
+                            const ratio =
+                                entered
+                                / baseline;
+
+                            /*
+                             * Three-times / one-third catches common decimal-place
+                             * and extra-zero mistakes (3.5 -> 35, 120 -> 12) while
+                             * still allowing normal negotiated price movement.
+                             */
+                            if (
+                                ratio >= 3
+                                || ratio <= (1 / 3)
+                            ) {
+                                const referenceLabel =
+                                    reference?.source === 'party_history'
+                                        ? text(
+                                            'آخر سعر لهذه الجهة',
+                                            'the last price for this Party',
+                                        )
+                                        : text(
+                                            'سعر الكتالوج',
+                                            'the catalog price',
+                                        );
+
+                                lineWarnings.push(
+                                    text(
+                                        'السعر المدخل للبند «'
+                                        + product.name
+                                        + '» هو '
+                                        + String(entered)
+                                        + ' بينما '
+                                        + referenceLabel
+                                        + ' هو '
+                                        + String(baseline)
+                                        + '. راجع احتمال وجود صفر زائد أو فاصلة عشرية خاطئة.',
+                                        'The entered price for “'
+                                        + product.name
+                                        + '” is '
+                                        + String(entered)
+                                        + ' while '
+                                        + referenceLabel
+                                        + ' is '
+                                        + String(baseline)
+                                        + '. Check for an extra zero or misplaced decimal before issuing.',
+                                    ),
+                                );
+                            }
                         }
 
-                        const ratio =
-                            entered
-                            / baseline;
-
-                        /*
-                         * Three-times / one-third catches common decimal-place
-                         * and extra-zero mistakes (3.5 -> 35, 120 -> 12) while
-                         * still allowing normal negotiated price movement.
-                         */
                         if (
-                            ratio >= 3
-                            || ratio <= (1 / 3)
+                            sales
+                            && entered > 0
                         ) {
-                            const referenceLabel =
-                                reference?.source === 'party_history'
-                                    ? text(
-                                        'آخر سعر لهذه الجهة',
-                                        'the last price for this Party',
+                            const cost =
+                                Number(
+                                    product.cost_price
+                                    ?? 0,
+                                );
+                            const quantity =
+                                Math.max(
+                                    Number(
+                                        line.quantity,
+                                    ),
+                                    1,
+                                );
+                            const discount =
+                                Number(
+                                    line.discount_value
+                                    ?? 0,
+                                );
+                            const effectiveUnitPrice =
+                                line.discount_type === 'fixed'
+                                    ? Math.max(
+                                        entered
+                                        - (
+                                            discount
+                                            / quantity
+                                        ),
+                                        0,
                                     )
-                                    : text(
-                                        'سعر الكتالوج',
-                                        'the catalog price',
-                                    );
+                                    : entered
+                                        * (
+                                            1
+                                            - Math.min(
+                                                Math.max(
+                                                    discount,
+                                                    0,
+                                                ),
+                                                100,
+                                            )
+                                            / 100
+                                        );
 
-                            return [
-                                text(
-                                    'السعر المدخل للبند «'
-                                    + product.name
-                                    + '» هو '
-                                    + String(entered)
-                                    + ' بينما '
-                                    + referenceLabel
-                                    + ' هو '
-                                    + String(baseline)
-                                    + '. راجع احتمال وجود صفر زائد أو فاصلة عشرية خاطئة.',
-                                    'The entered price for “'
-                                    + product.name
-                                    + '” is '
-                                    + String(entered)
-                                    + ' while '
-                                    + referenceLabel
-                                    + ' is '
-                                    + String(baseline)
-                                    + '. Check for an extra zero or misplaced decimal before issuing.',
-                                ),
-                            ];
+                            if (
+                                cost > 0
+                                && effectiveUnitPrice < cost
+                            ) {
+                                lineWarnings.push(
+                                    text(
+                                        'سعر البيع الفعلي للبند «'
+                                        + product.name
+                                        + '» بعد الخصم ('
+                                        + effectiveUnitPrice.toFixed(2)
+                                        + ') أقل من التكلفة الحالية ('
+                                        + cost.toFixed(2)
+                                        + ').',
+                                        'The effective selling price for “'
+                                        + product.name
+                                        + '” after discount ('
+                                        + effectiveUnitPrice.toFixed(2)
+                                        + ') is below the current cost ('
+                                        + cost.toFixed(2)
+                                        + ').',
+                                    ),
+                                );
+                            } else if (
+                                cost > 0
+                                && effectiveUnitPrice > 0
+                            ) {
+                                const margin =
+                                    (
+                                        effectiveUnitPrice
+                                        - cost
+                                    )
+                                    / effectiveUnitPrice
+                                    * 100;
+
+                                if (
+                                    margin < 10
+                                ) {
+                                    lineWarnings.push(
+                                        text(
+                                            'هامش الربح للبند «'
+                                            + product.name
+                                            + '» منخفض (حوالي '
+                                            + margin.toFixed(1)
+                                            + '%). راجع السعر والخصم قبل الإصدار.',
+                                            'The margin for “'
+                                            + product.name
+                                            + '” is low (about '
+                                            + margin.toFixed(1)
+                                            + '%). Review the price and discount before issuing.',
+                                        ),
+                                    );
+                                }
+                            }
                         }
 
-                        return [];
+                        return lineWarnings;
                     },
                 ),
             [
