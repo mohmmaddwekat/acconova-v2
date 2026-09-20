@@ -121,7 +121,7 @@ export function AppShell({
     );
 
     return (
-        <div className="relative min-h-dvh min-w-0 overflow-x-clip bg-[var(--ac-bg)] text-[var(--ac-text)]">
+        <div className="ac-app-shell relative min-h-dvh min-w-0 overflow-x-clip bg-[var(--ac-bg)] text-[var(--ac-text)]">
             <div
                 aria-hidden="true"
                 className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
