@@ -1,3 +1,4 @@
+import { SavedViews } from '@/components/data/SavedViews';
 import { apiRequest } from '@/lib/http';
 import { Link } from '@inertiajs/react';
 import {
@@ -338,6 +339,22 @@ export function DocumentList({
                         <CalendarDays size={15} />
                         {text('إعادة تعيين', 'Reset')}
                     </button>
+                </div>
+
+                <div className="border-t border-[var(--ac-line)] px-4 py-3">
+                    <SavedViews
+                        storageKey={`acconova:saved-views:finance-documents:${kind}`}
+                        ar={ar}
+                        value={{
+                            search,
+                            status,
+                        }}
+                        onApply={(saved) => {
+                            setSearch(saved.search);
+                            setStatus(saved.status);
+                            setPage(1);
+                        }}
+                    />
                 </div>
             </FPanel>
 
