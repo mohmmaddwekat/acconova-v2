@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\CashAllocation;
 use App\Models\CashMovement;
+use App\Models\Department;
 use App\Models\FinancialDocument;
 use App\Models\GovernmentObligation;
+use App\Models\Party;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,6 +23,8 @@ class CashMovementService
     public function createDraft(array $data, int $actorId): CashMovement
     {
         return DB::transaction(function () use ($data, $actorId): CashMovement {
+            $this->assertReferences($data);
+
             $movement = CashMovement::create([
                 ...$this->payload($data),
                 'number' => $this->numbers->next(
@@ -59,6 +63,9 @@ class CashMovementService
 
             $before = $this->snapshot($locked);
             $direction = $locked->direction;
+
+            $data['direction'] = $direction;
+            $this->assertReferences($data);
 
             $locked->fill([
                 ...$this->payload([
@@ -455,6 +462,40 @@ class CashMovementService
             ? 'open'
             : ($paid < $amount ? 'partial' : 'paid');
         $obligation->save();
+    }
+
+    private function assertReferences(array $data): void
+    {
+        if ($data['party_id'] ?? null) {
+            Party::query()
+                ->withTrashed()
+                ->findOrFail((int) $data['party_id']);
+        }
+
+        if ($data['department_id'] ?? null) {
+            Department::query()
+                ->findOrFail((int) $data['department_id']);
+        }
+
+        if ($data['government_obligation_id'] ?? null) {
+            $obligation = GovernmentObligation::query()
+                ->findOrFail((int) $data['government_obligation_id']);
+
+            if (($data['direction'] ?? null) !== 'outgoing') {
+                throw ValidationException::withMessages([
+                    'government_obligation_id' => ['Government obligations can only be linked to outgoing payments.'],
+                ]);
+            }
+
+            if (
+                isset($data['currency'])
+                && strtoupper((string) $data['currency']) !== strtoupper((string) $obligation->currency)
+            ) {
+                throw ValidationException::withMessages([
+                    'currency' => ['Government obligation payments must use the obligation currency.'],
+                ]);
+            }
+        }
     }
 
     /** @return array<string, mixed> */
