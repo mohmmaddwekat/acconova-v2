@@ -214,8 +214,55 @@ class FinanceLookupController extends Controller
 
         $organization = app(TenantContext::class)->organization();
 
+        $preferences = $organization->preferences ?? [];
+
         return response()->json([
-            'currency' => $organization->preferences['currency'] ?? 'ILS',
+            'currency' => $preferences['currency'] ?? 'ILS',
+            'settings' => [
+                'decimal_places' => (int) ($preferences['decimal_places'] ?? 2),
+                'payment_methods' => array_values($preferences['payment_methods'] ?? [
+                    'bank_transfer',
+                    'card',
+                    'cash',
+                    'check',
+                ]),
+                'validate_check_date' => (bool) ($preferences['validate_check_date'] ?? true),
+                'post_dated_checks_pending' => (bool) ($preferences['post_dated_checks_pending'] ?? true),
+                'bank_accounts' => array_values($preferences['bank_accounts'] ?? []),
+                'organization' => [
+                    'name' => $organization->name,
+                    'legal_name' => $preferences['legal_name'] ?? $organization->name,
+                    'trade_name' => $preferences['trade_name'] ?? $organization->name,
+                    'support_email' => $preferences['support_email'] ?? '',
+                    'phone' => $preferences['phone'] ?? '',
+                    'commercial_registration' => $preferences['commercial_registration'] ?? '',
+                    'vat_number' => $preferences['vat_number'] ?? '',
+                    'website' => $preferences['website'] ?? '',
+                    'country' => $preferences['country'] ?? '',
+                    'city' => $preferences['city'] ?? '',
+                    'address' => $preferences['address'] ?? '',
+                    'invoice_footer' => $preferences['invoice_footer'] ?? '',
+                ],
+                'invoice' => [
+                    'template' => $preferences['invoice_template'] ?? 'professional',
+                    'paper_size' => $preferences['print_paper_size'] ?? 'a4',
+                    'margins' => $preferences['print_margins'] ?? 'normal',
+                    'logo_position' => $preferences['logo_position'] ?? 'center',
+                    'show_logo' => (bool) ($preferences['show_invoice_logo'] ?? true),
+                    'show_contact' => (bool) ($preferences['show_invoice_contact'] ?? true),
+                    'show_tax_number' => (bool) ($preferences['show_invoice_tax_number'] ?? true),
+                    'show_notes' => (bool) ($preferences['show_invoice_notes'] ?? true),
+                    'show_qr' => (bool) ($preferences['show_invoice_qr'] ?? false),
+                    'columns' => array_values($preferences['invoice_columns'] ?? [
+                        'description',
+                        'quantity',
+                        'unit_price',
+                        'discount',
+                        'tax',
+                        'total',
+                    ]),
+                ],
+            ],
             'parties' => $parties,
             'products' => $products,
             'warehouses' => $warehouses,
