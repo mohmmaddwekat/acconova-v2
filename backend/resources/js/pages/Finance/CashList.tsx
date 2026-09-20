@@ -2,6 +2,7 @@ import { apiRequest } from '@/lib/http';
 import { Link } from '@inertiajs/react';
 import {
     Banknote,
+    CalendarClock,
     CheckCircle2,
     Download,
     FileText,
@@ -125,8 +126,8 @@ export function CashList({
             'All incoming cash: invoice collections, advances, settlements, funding, asset sales and other income.',
         )
         : text(
-            'كل المدفوعات الخارجة: الموردون، المواد الخام، التشغيل، الرواتب، الإيجار، الشحن، الضرائب والمصاريف الأخرى.',
-            'All outgoing cash: suppliers, raw materials, operations, payroll, rent, freight, taxes and other expenses.',
+            'كل المدفوعات الخارجة: الموردون، المواد الخام، التشغيل، الإيجار، الشحن، الضرائب والمصاريف الأخرى. الرواتب تبقى داخل نظام الموظفين.',
+            'All outgoing cash: suppliers, raw materials, operations, rent, freight, taxes and other expenses. Payroll stays in the staff module.',
         );
 
     const createHref = incoming
@@ -154,7 +155,6 @@ export function CashList({
             ['goods_for_resale', text('بضائع للبيع', 'Goods for resale')],
             ['packaging', text('تعبئة وتغليف', 'Packaging')],
             ['operating_expense', text('مصروف تشغيلي', 'Operating expense')],
-            ['payroll', text('رواتب', 'Payroll')],
             ['rent', text('إيجار', 'Rent')],
             ['utilities', text('كهرباء ومياه', 'Utilities')],
             ['shipping_customs', text('شحن وجمارك', 'Freight & customs')],
@@ -283,6 +283,27 @@ export function CashList({
                 ar={ar}
                 active={incoming ? 'receipts' : 'payments'}
             />
+
+            {! incoming && lookups.permissions.recurring_payments_view && (
+                <div className="flex flex-wrap gap-2 rounded-[14px] border border-[#dbe6f5] bg-white p-2">
+                    <Link
+                        href="/app/payments"
+                        aria-current="page"
+                        className="inline-flex min-h-9 items-center gap-2 rounded-[10px] bg-[#123d78] px-3.5 py-2 text-xs font-semibold text-white"
+                    >
+                        <WalletCards size={14} />
+                        {text('الحركات', 'Transactions')}
+                    </Link>
+
+                    <Link
+                        href="/app/payments/recurring"
+                        className="inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold text-[#52709a] transition hover:bg-blue-50 hover:text-[#1958a6]"
+                    >
+                        <CalendarClock size={14} />
+                        {text('المدفوعات المتكررة', 'Recurring payments')}
+                    </Link>
+                </div>
+            )}
 
             <FPanel title={text('عوامل التصفية والبحث', 'Filters & search')} icon={Search}>
                 <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
