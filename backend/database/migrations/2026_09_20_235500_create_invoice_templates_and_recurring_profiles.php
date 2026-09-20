@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -9,15 +11,28 @@ return new class extends Migration
     public function up(): void
     {
         /*
-         * MySQL limits identifier names to 64 characters. Keep index names
-         * explicit and short instead of allowing Laravel to derive a long
-         * name from the table and column names.
+         * MySQL DDL is not transactional. The original version of this
+         * migration could therefore leave both tables behind even though
+         * Laravel did not record the migration as completed.
          *
-         * The hasTable guards also make this migration safe to rerun after
-         * MySQL partially created the tables before failing on the old index
-         * name.
+         * Do not trust Schema::hasTable() alone for recovery here. Attempt
+         * each CREATE and explicitly tolerate MySQL error 1050 (table already
+         * exists), then repair the missing composite index separately.
          */
-        if (! Schema::hasTable('invoice_templates')) {
+        $this->createInvoiceTemplatesTable();
+        $this->createRecurringProfilesTable();
+        $this->ensureRecurringScheduleIndex();
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('recurring_invoice_profiles');
+        Schema::dropIfExists('invoice_templates');
+    }
+
+    private function createInvoiceTemplatesTable(): void
+    {
+        try {
             Schema::create('invoice_templates', function (Blueprint $table): void {
                 $table->id();
                 $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
@@ -33,9 +48,16 @@ return new class extends Migration
                     'inv_tpl_org_name_kind_uq',
                 );
             });
+        } catch (QueryException $exception) {
+            if (! $this->isMysqlError($exception, 1050)) {
+                throw $exception;
+            }
         }
+    }
 
-        if (! Schema::hasTable('recurring_invoice_profiles')) {
+    private function createRecurringProfilesTable(): void
+    {
+        try {
             Schema::create('recurring_invoice_profiles', function (Blueprint $table): void {
                 $table->id();
                 $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
@@ -51,30 +73,57 @@ return new class extends Migration
                 $table->date('last_generated_on')->nullable();
                 $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
                 $table->timestamps();
-
-                $table->index(
-                    ['organization_id', 'active', 'next_run_on'],
-                    'rec_inv_org_active_next_idx',
-                );
             });
-        } else {
-            /*
-             * Recovery path for the exact partial-migration state caused by
-             * the previous overlong MySQL index name. The table already
-             * exists, but the final composite index was never created.
-             */
+        } catch (QueryException $exception) {
+            if (! $this->isMysqlError($exception, 1050)) {
+                throw $exception;
+            }
+        }
+    }
+
+    private function ensureRecurringScheduleIndex(): void
+    {
+        $indexExists = DB::selectOne(
+            <<<'SQL'
+                SELECT 1 AS found
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'recurring_invoice_profiles'
+                  AND index_name = 'rec_inv_org_active_next_idx'
+                LIMIT 1
+            SQL,
+        );
+
+        if ($indexExists) {
+            return;
+        }
+
+        try {
             Schema::table('recurring_invoice_profiles', function (Blueprint $table): void {
                 $table->index(
                     ['organization_id', 'active', 'next_run_on'],
                     'rec_inv_org_active_next_idx',
                 );
             });
+        } catch (QueryException $exception) {
+            /*
+             * 1061 means another attempt/process already created the same
+             * named index. Any other SQL error must still surface normally.
+             */
+            if (! $this->isMysqlError($exception, 1061)) {
+                throw $exception;
+            }
         }
     }
 
-    public function down(): void
-    {
-        Schema::dropIfExists('recurring_invoice_profiles');
-        Schema::dropIfExists('invoice_templates');
+    private function isMysqlError(
+        QueryException $exception,
+        int $driverCode,
+    ): bool {
+        $previous = $exception->getPrevious();
+        $errorInfo = $previous?->errorInfo ?? null;
+
+        return is_array($errorInfo)
+            && (int) ($errorInfo[1] ?? 0) === $driverCode;
     }
 };
