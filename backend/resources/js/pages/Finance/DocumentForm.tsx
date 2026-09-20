@@ -331,6 +331,14 @@ export function DocumentForm({
         clientId: string,
         patch: Partial<EditableLine>,
     ): void {
+        /*
+         * A price change invalidates any previous warning acknowledgement.
+         * Users must review the final value they are actually issuing.
+         */
+        if (Object.prototype.hasOwnProperty.call(patch, 'unit_price')) {
+            setAcknowledgeWarnings(false);
+        }
+
         setLines(
             current =>
                 current.map(
@@ -849,11 +857,19 @@ export function DocumentForm({
                             return [];
                         }
 
+                        const reference =
+                            priceReferences[
+                                line.client_id
+                            ];
+
                         const baseline =
                             Number(
-                                sales
-                                    ? product.unit_price
-                                    : product.cost_price,
+                                reference?.unit_price
+                                ?? (
+                                    sales
+                                        ? product.unit_price
+                                        : product.cost_price
+                                ),
                             );
 
                         const entered =
@@ -872,26 +888,46 @@ export function DocumentForm({
                             entered
                             / baseline;
 
+                        /*
+                         * Three-times / one-third catches common decimal-place
+                         * and extra-zero mistakes (3.5 -> 35, 120 -> 12) while
+                         * still allowing normal negotiated price movement.
+                         */
                         if (
-                            ratio >= 5
-                            || ratio <= 0.2
+                            ratio >= 3
+                            || ratio <= (1 / 3)
                         ) {
+                            const referenceLabel =
+                                reference?.source === 'party_history'
+                                    ? text(
+                                        'آخر سعر لهذه الجهة',
+                                        'the last price for this Party',
+                                    )
+                                    : text(
+                                        'سعر الكتالوج',
+                                        'the catalog price',
+                                    );
+
                             return [
                                 text(
                                     'السعر المدخل للبند «'
                                     + product.name
-                                    + '» بعيد جداً عن السعر المرجعي ('
-                                    + String(
-                                        baseline,
-                                    )
-                                    + '). راجعه قبل الإصدار.',
+                                    + '» هو '
+                                    + String(entered)
+                                    + ' بينما '
+                                    + referenceLabel
+                                    + ' هو '
+                                    + String(baseline)
+                                    + '. راجع احتمال وجود صفر زائد أو فاصلة عشرية خاطئة.',
                                     'The entered price for “'
                                     + product.name
-                                    + '” differs sharply from the catalog reference ('
-                                    + String(
-                                        baseline,
-                                    )
-                                    + '). Review it before issuing.',
+                                    + '” is '
+                                    + String(entered)
+                                    + ' while '
+                                    + referenceLabel
+                                    + ' is '
+                                    + String(baseline)
+                                    + '. Check for an extra zero or misplaced decimal before issuing.',
                                 ),
                             ];
                         }
@@ -902,6 +938,7 @@ export function DocumentForm({
             [
                 lines,
                 lookups.products,
+                priceReferences,
                 sales,
                 ar,
             ],
