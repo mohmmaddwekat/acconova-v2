@@ -250,9 +250,9 @@ export function WarehouseEditorDrawer({
                 }
                 role="dialog"
                 aria-modal="true"
-                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[520px]"
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[520px]"
             >
-                <header className="shrink-0 border-b border-[var(--ac-line)] bg-white p-5 sm:p-6">
+                <header className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 items-start gap-3">
                             <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
@@ -334,7 +334,7 @@ export function WarehouseEditorDrawer({
                                             .value,
                                     )
                                 }
-                                className="h-12 w-full rounded-[15px] border border-[var(--ac-line)] bg-white px-4 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                                className="h-12 w-full rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                             />
 
                             {errors
@@ -351,7 +351,7 @@ export function WarehouseEditorDrawer({
                         {! editing && (
                             <div className="mt-6 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
                                 <div className="flex gap-3">
-                                    <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-white text-[var(--ac-accent-strong)] shadow-sm">
+                                    <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-surface)] text-[var(--ac-accent-strong)] shadow-sm">
                                         <Star
                                             size={
                                                 15
@@ -434,7 +434,7 @@ export function WarehouseEditorDrawer({
                             onClick={
                                 close
                             }
-                            className="h-11 rounded-[14px] border border-[var(--ac-line)] bg-white text-sm font-semibold"
+                            className="h-11 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] text-sm font-semibold"
                         >
                             {t(
                                 'common.cancel',
