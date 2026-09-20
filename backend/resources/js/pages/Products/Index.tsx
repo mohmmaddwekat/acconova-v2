@@ -848,6 +848,9 @@ function ProductsWorkspace() {
                     canEdit={
                         allowEdit
                     }
+                    canCreate={
+                        allowCreate
+                    }
                     canArchive={
                         allowArchive
                     }
