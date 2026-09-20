@@ -1,4 +1,13 @@
 import { apiRequest } from '@/lib/http';
+import {
+    useGlobalSave,
+    useUnsavedChanges,
+} from '@/lib/editorSafety';
+import {
+    clearLocalDraft,
+    readLocalDraft,
+    useLocalDraft,
+} from '@/lib/localDraft';
 import { Link } from '@inertiajs/react';
 import {
     ArrowLeft,
@@ -14,7 +23,12 @@ import {
     ShieldCheck,
     Wallet,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     FPanel,
     FinanceHeader,
@@ -131,6 +145,74 @@ export function CashForm({
     const [error, setError] = useState('');
     const [prefilled, setPrefilled] = useState(false);
 
+    const localDraftKey =
+        'acconova:draft:cash:'
+        + direction
+        + ':'
+        + String(
+            initial?.id
+            ?? 'new',
+        );
+
+    const draftState = {
+        partyId,
+        governmentObligationId,
+        category,
+        amount,
+        movementDate,
+        method,
+        accountLabel,
+        branchLabel,
+        costCenter,
+        departmentId,
+        reference,
+        notes,
+        checkNumber,
+        checkBank,
+        checkDueDate,
+        allocations,
+    };
+
+    const initialDraftRef =
+        useRef(
+            JSON.stringify(
+                draftState,
+            ),
+        );
+
+    const dirty =
+        JSON.stringify(
+            draftState,
+        ) !==
+            initialDraftRef.current;
+
+    useUnsavedChanges(
+        dirty && ! busy,
+        ar,
+    );
+
+    useGlobalSave(
+        () => {
+            if (
+                canManage
+                && ! busy
+            ) {
+                void save(
+                    false,
+                );
+            }
+        },
+        canManage,
+    );
+
+    useLocalDraft(
+        localDraftKey,
+        draftState,
+        canManage
+        && ! busy,
+        900,
+    );
+
     const parties = lookups.parties.filter((party) =>
         party.roles.includes(incoming ? 'customer' : 'supplier'),
     );
@@ -199,6 +281,148 @@ export function CashForm({
             }
         }
     }, [prefilled, initial, incoming, lookups.government_obligations]);
+
+    useEffect(() => {
+        if (
+            initial
+            || typeof window === 'undefined'
+        ) {
+            return;
+        }
+
+        const params =
+            new URLSearchParams(
+                window.location.search,
+            );
+
+        if (
+            params.has(
+                'document_id',
+            )
+            || params.has(
+                'government_obligation_id',
+            )
+        ) {
+            return;
+        }
+
+        const stored =
+            readLocalDraft<
+                typeof draftState
+            >(
+                localDraftKey,
+            );
+
+        if (
+            ! stored
+            || ! (
+                stored.value
+                    .partyId
+                || Number(
+                    stored.value
+                        .amount,
+                ) > 0
+                || stored.value
+                    .reference
+                    ?.trim()
+                || stored.value
+                    .notes
+                    ?.trim()
+                || stored.value
+                    .allocations
+                    ?.length
+            )
+        ) {
+            return;
+        }
+
+        if (
+            ! window.confirm(
+                text(
+                    'وجدت مسودة حركة مالية محفوظة تلقائياً. هل تريد استعادتها؟',
+                    'An autosaved cash draft was found. Restore it?',
+                ),
+            )
+        ) {
+            return;
+        }
+
+        const draft =
+            stored.value;
+
+        setPartyId(
+            draft.partyId
+            ?? '',
+        );
+        setGovernmentObligationId(
+            draft.governmentObligationId
+            ?? '',
+        );
+        setCategory(
+            draft.category
+            ?? (
+                incoming
+                    ? 'customer_receipt'
+                    : 'supplier_payment'
+            ),
+        );
+        setAmount(
+            draft.amount
+            ?? '0',
+        );
+        setMovementDate(
+            draft.movementDate
+            ?? todayValue(),
+        );
+        setMethod(
+            draft.method
+            ?? initialMethodValue,
+        );
+        setAccountLabel(
+            draft.accountLabel
+            ?? '',
+        );
+        setBranchLabel(
+            draft.branchLabel
+            ?? '',
+        );
+        setCostCenter(
+            draft.costCenter
+            ?? '',
+        );
+        setDepartmentId(
+            draft.departmentId
+            ?? '',
+        );
+        setReference(
+            draft.reference
+            ?? '',
+        );
+        setNotes(
+            draft.notes
+            ?? '',
+        );
+        setCheckNumber(
+            draft.checkNumber
+            ?? '',
+        );
+        setCheckBank(
+            draft.checkBank
+            ?? '',
+        );
+        setCheckDueDate(
+            draft.checkDueDate
+            ?? '',
+        );
+        setAllocations(
+            draft.allocations
+            ?? [],
+        );
+    }, [
+        initial?.id,
+        direction,
+        localDraftKey,
+    ]);
 
     const allocated = useMemo(
         () => allocations.reduce(
@@ -466,6 +690,10 @@ export function CashForm({
 
                 movement = posted.data;
             }
+
+            clearLocalDraft(
+                localDraftKey,
+            );
 
             window.location.assign(
                 incoming
