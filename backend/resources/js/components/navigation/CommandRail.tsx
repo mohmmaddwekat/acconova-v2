@@ -6,6 +6,9 @@ import type {
     AppPageProps,
 } from '@/types/app';
 import {
+    useWorkspaceRecords,
+} from '@/lib/workspaceRecords';
+import {
     Link,
     usePage,
 } from '@inertiajs/react';
@@ -21,6 +24,7 @@ import {
     Settings,
     ShieldCheck,
     Sparkles,
+    Star,
     Users,
     Warehouse,
     X,
@@ -132,6 +136,13 @@ export function CommandRail({
         page.props
             .workspace
             .activeOrganization;
+
+    const {
+        favorites,
+    } = useWorkspaceRecords(
+        activeOrganization?.id
+        ?? null,
+    );
 
     const customPermissions =
         activeOrganization
@@ -554,6 +565,43 @@ export function CommandRail({
                     )}
                 </nav>
 
+                {favorites.length > 0 && (
+                    <div className="border-t border-[var(--ac-line)] px-2 py-3">
+                        {expanded && (
+                            <p className="mb-2 flex items-center gap-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
+                                <Star size={11} />
+                                {locale === 'ar' ? 'المفضلة' : 'Favorites'}
+                            </p>
+                        )}
+
+                        <div className="space-y-1">
+                            {favorites.slice(0, expanded ? 5 : 3).map((favorite) => (
+                                <Link
+                                    key={favorite.key}
+                                    href={favorite.href}
+                                    title={expanded ? undefined : favorite.label}
+                                    className={[
+                                        'flex min-h-10 items-center rounded-[13px] text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-button-hover-bg)]',
+                                        expanded
+                                            ? 'gap-2 px-2'
+                                            : 'justify-center px-1',
+                                    ].join(' ')}
+                                >
+                                    <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]">
+                                        <Star size={12} fill="currentColor" />
+                                    </span>
+
+                                    {expanded && (
+                                        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold">
+                                            {favorite.label}
+                                        </span>
+                                    )}
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <div className="border-t border-[var(--ac-line)] p-2">
                     {expanded && (
                         <div className="mb-2 rounded-[16px] bg-[var(--ac-accent-soft)] px-3 py-3">
@@ -739,6 +787,31 @@ export function CommandRail({
                         ),
                     )}
                 </nav>
+
+                {favorites.length > 0 && (
+                    <div className="mx-3 mt-3 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3">
+                        <p className="mb-2 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
+                            <Star size={11} />
+                            {locale === 'ar' ? 'المفضلة' : 'Favorites'}
+                        </p>
+
+                        <div className="space-y-1">
+                            {favorites.slice(0, 5).map((favorite) => (
+                                <Link
+                                    key={favorite.key}
+                                    href={favorite.href}
+                                    onClick={() => onMobileOpenChange(false)}
+                                    className="flex items-center gap-2 rounded-[12px] px-2 py-2 text-xs text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-surface-soft)]"
+                                >
+                                    <Star size={12} className="shrink-0 text-[var(--ac-accent)]" fill="currentColor" />
+                                    <span className="min-w-0 flex-1 truncate">
+                                        {favorite.label}
+                                    </span>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="m-3 rounded-[18px] bg-[var(--ac-accent-soft)] p-4">
                     <div className="flex items-center gap-2 text-[var(--ac-accent-strong)]">
