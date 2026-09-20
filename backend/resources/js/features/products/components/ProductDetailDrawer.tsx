@@ -11,6 +11,9 @@ import {
     RecordQuickActions,
 } from '@/components/data/RecordQuickActions';
 import { ServiceOperationsPanel } from '@/features/products/components/ServiceOperationsPanel';
+import {
+    Product360Panel,
+} from '@/features/products/components/Product360Panel';
 import { ProductionPanel } from '@/features/products/components/ProductionPanel';
 import {
     useDialog,
@@ -377,6 +380,11 @@ export function ProductDetailDrawer({
                             </p>
                         </div>
                     )}
+                    <Product360Panel
+                        product={resolvedProduct}
+                        ar={locale === 'ar'}
+                    />
+
                     <div className="mt-6">
                         <ActivityTimeline
                             title={locale === 'ar' ? 'سجل النشاط' : 'Activity timeline'}
