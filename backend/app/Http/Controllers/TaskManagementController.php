@@ -8,6 +8,7 @@ use App\Models\Task;
 use App\Models\TaskProject;
 use App\Models\TaskTeam;
 use App\Support\TaskAccess;
+use App\Services\MentionNotifier;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -2540,6 +2541,7 @@ class TaskManagementController extends Controller
     public function comment(
         Request $request,
         string $task,
+        MentionNotifier $mentions,
     ): JsonResponse {
         $item =
             TaskAccess::applyVisible(
@@ -2583,6 +2585,14 @@ class TaskManagementController extends Controller
             $item,
             $request,
             'commented',
+        );
+
+        $mentions->notify(
+            app(TenantContext::class)->id(),
+            $request->user(),
+            (string) $data['body'],
+            'task-comment:'.$item->id.':'.$id,
+            '/app/task-management/'.$item->id,
         );
 
         return response()->json([
