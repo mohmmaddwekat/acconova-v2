@@ -42,6 +42,18 @@ class WorkspacePermissions
         'payments.view',
         'payments.manage',
 
+        'finance.sales.view',
+        'finance.sales.manage',
+        'finance.purchases.view',
+        'finance.purchases.manage',
+        'finance.cash.view',
+        'finance.cash.receive',
+        'finance.cash.pay',
+        'finance.cash.correct',
+        'finance.documents.correct',
+        'finance.taxes.view',
+        'finance.taxes.manage',
+
         'staff.team_view',
         'staff.team_manage',
         'staff.team_attendance',

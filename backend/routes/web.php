@@ -1,7 +1,10 @@
 <?php
 
 use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\FinanceDocumentController;
+use App\Http\Controllers\FinanceLookupController;
 use App\Http\Controllers\PaymentPlanController;
 use App\Http\Controllers\ProfileCenterController;
 use App\Http\Controllers\ProfileController;
@@ -10,6 +13,7 @@ use App\Http\Controllers\StaffCorrectionController;
 use App\Http\Controllers\StaffImportController;
 use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\StaffWorkforceController;
+use App\Http\Controllers\TaxComplianceController;
 use App\Http\Controllers\WorkspaceConversationController;
 use App\Http\Controllers\WorkspaceConversationSettingsController;
 use App\Http\Controllers\WorkspaceMessageMemberController;
@@ -266,13 +270,74 @@ Route::middleware([
     );
 
     Route::get(
+        '/app/invoices',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'sales-list']),
+    )->name('app.invoices');
+
+    Route::get(
+        '/app/invoices/sales/create',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'sales-create']),
+    )->name('app.invoices.sales.create');
+
+    Route::get(
+        '/app/invoices/sales/{document}',
+        fn (string $document) => Inertia::render('Finance/Index', ['financeView' => 'sales-detail', 'recordId' => (int) $document]),
+    )->whereNumber('document')->name('app.invoices.sales.show');
+
+    Route::get(
+        '/app/invoices/purchases',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'purchase-list']),
+    )->name('app.invoices.purchases');
+
+    Route::get(
+        '/app/invoices/purchases/create',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'purchase-create']),
+    )->name('app.invoices.purchases.create');
+
+    Route::get(
+        '/app/invoices/purchases/{document}',
+        fn (string $document) => Inertia::render('Finance/Index', ['financeView' => 'purchase-detail', 'recordId' => (int) $document]),
+    )->whereNumber('document')->name('app.invoices.purchases.show');
+
+    Route::get(
+        '/app/payments/recurring',
+        fn () => Inertia::render('Payments'),
+    )->name('app.payments.recurring');
+
+    Route::get(
         '/app/payments',
-        fn () => Inertia::render(
-            'Payments',
-        ),
-    )->name(
-        'app.payments',
-    );
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'payment-list']),
+    )->name('app.payments');
+
+    Route::get(
+        '/app/payments/create',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'payment-create']),
+    )->name('app.payments.create');
+
+    Route::get(
+        '/app/payments/{movement}',
+        fn (string $movement) => Inertia::render('Finance/Index', ['financeView' => 'payment-detail', 'recordId' => (int) $movement]),
+    )->whereNumber('movement')->name('app.payments.show');
+
+    Route::get(
+        '/app/receipts',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'receipt-list']),
+    )->name('app.receipts');
+
+    Route::get(
+        '/app/receipts/create',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'receipt-create']),
+    )->name('app.receipts.create');
+
+    Route::get(
+        '/app/receipts/{movement}',
+        fn (string $movement) => Inertia::render('Finance/Index', ['financeView' => 'receipt-detail', 'recordId' => (int) $movement]),
+    )->whereNumber('movement')->name('app.receipts.show');
+
+    Route::get(
+        '/app/finance/taxes',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'taxes']),
+    )->name('app.finance.taxes');
 
     Route::get(
         '/app/notifications',
@@ -499,6 +564,30 @@ Route::prefix(
         )->whereNumber(
             'staff',
         );
+
+        Route::get('finance/lookups', FinanceLookupController::class);
+
+        Route::get('finance/documents', [FinanceDocumentController::class, 'index']);
+        Route::post('finance/documents', [FinanceDocumentController::class, 'store']);
+        Route::get('finance/documents/{document}', [FinanceDocumentController::class, 'show'])->whereNumber('document');
+        Route::patch('finance/documents/{document}', [FinanceDocumentController::class, 'update'])->whereNumber('document');
+        Route::post('finance/documents/{document}/issue', [FinanceDocumentController::class, 'issue'])->whereNumber('document');
+        Route::post('finance/documents/{document}/correct', [FinanceDocumentController::class, 'correct'])->whereNumber('document');
+        Route::post('finance/documents/{document}/void', [FinanceDocumentController::class, 'void'])->whereNumber('document');
+
+        Route::get('finance/cash-movements', [CashMovementController::class, 'index']);
+        Route::post('finance/cash-movements', [CashMovementController::class, 'store']);
+        Route::get('finance/cash-movements/{movement}', [CashMovementController::class, 'show'])->whereNumber('movement');
+        Route::patch('finance/cash-movements/{movement}', [CashMovementController::class, 'update'])->whereNumber('movement');
+        Route::post('finance/cash-movements/{movement}/post', [CashMovementController::class, 'post'])->whereNumber('movement');
+        Route::post('finance/cash-movements/{movement}/reverse', [CashMovementController::class, 'reverse'])->whereNumber('movement');
+        Route::post('finance/cash-movements/{movement}/correct', [CashMovementController::class, 'correct'])->whereNumber('movement');
+        Route::patch('finance/cash-movements/{movement}/check-status', [CashMovementController::class, 'checkStatus'])->whereNumber('movement');
+
+        Route::get('finance/taxes', [TaxComplianceController::class, 'index']);
+        Route::post('finance/tax-rules', [TaxComplianceController::class, 'storeRule']);
+        Route::patch('finance/tax-rules/{taxRule}', [TaxComplianceController::class, 'updateRule'])->whereNumber('taxRule');
+        Route::post('finance/government-obligations', [TaxComplianceController::class, 'storeObligation']);
 
         Route::get(
             'workspace-roles',

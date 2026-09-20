@@ -10,10 +10,13 @@ import {
     usePage,
 } from '@inertiajs/react';
 import {
+    Banknote,
     Boxes,
     ContactRound,
     Factory,
     Gauge,
+    HandCoins,
+    Landmark,
     ListTodo,
     PanelLeftClose,
     PanelLeftOpen,
@@ -256,59 +259,137 @@ export function CommandRail({
         },
     ];
 
-    const canViewPayments =
+    const builtinFinanceAccess =
+        [
+            'owner',
+            'admin',
+            'manager',
+            'accountant',
+        ].includes(
+            activeOrganization
+                ?.role
+            ?? '',
+        );
+
+    const canViewSalesInvoices =
         customPermissions
             ? customPermissions.includes(
-                  'payments.view',
+                  'finance.sales.view',
               )
-            : [
-                  'owner',
-                  'admin',
-                  'manager',
-                  'accountant',
-              ].includes(
-                  activeOrganization
-                      ?.role
-                  ?? '',
-              );
+            : builtinFinanceAccess;
 
-    if (canViewPayments) {
+    const canViewPurchaseInvoices =
+        customPermissions
+            ? customPermissions.includes(
+                  'finance.purchases.view',
+              )
+            : builtinFinanceAccess;
+
+    const canViewCash =
+        customPermissions
+            ? customPermissions.includes(
+                  'finance.cash.view',
+              )
+            : builtinFinanceAccess;
+
+    if (
+        canViewSalesInvoices
+        || canViewPurchaseInvoices
+    ) {
         navigationItems.push({
             label:
-                t(
-                    'payments.title',
-                ),
+                locale ===
+                'ar'
+                    ? 'الفواتير'
+                    : 'Invoices',
 
             description:
-                t(
-                    'payments.navHelp',
-                ),
+                locale ===
+                'ar'
+                    ? 'فواتير البيع والشراء'
+                    : 'Sales & purchase invoices',
 
             href:
-                '/app/payments',
+                canViewSalesInvoices
+                    ? '/app/invoices'
+                    : '/app/invoices/purchases',
 
             icon:
                 ReceiptText,
         });
     }
 
-    navigationItems.push({
-        label:
-            t(
-                'ui.invoices',
-            ),
+    if (canViewCash) {
+        navigationItems.push(
+            {
+                label:
+                    locale ===
+                    'ar'
+                        ? 'المدفوعات'
+                        : 'Payments',
 
-        description:
-            t(
-                'ui.revenue',
-            ),
+                description:
+                    locale ===
+                    'ar'
+                        ? 'الصرف والمصاريف والسداد'
+                        : 'Outgoing cash & expenses',
 
-        icon:
-            ReceiptText,
+                href:
+                    '/app/payments',
 
-        disabled:
-            true,
-    });
+                icon:
+                    Banknote,
+            },
+            {
+                label:
+                    locale ===
+                    'ar'
+                        ? 'المقبوضات'
+                        : 'Receipts',
+
+                description:
+                    locale ===
+                    'ar'
+                        ? 'التحصيل والتدفقات الواردة'
+                        : 'Collections & incoming cash',
+
+                href:
+                    '/app/receipts',
+
+                icon:
+                    HandCoins,
+            },
+        );
+    }
+
+    const canViewTaxes =
+        customPermissions
+            ? customPermissions.includes(
+                  'finance.taxes.view',
+              )
+            : builtinFinanceAccess;
+
+    if (canViewTaxes) {
+        navigationItems.push({
+            label:
+                locale ===
+                'ar'
+                    ? 'الضرائب والمستحقات'
+                    : 'Taxes & Obligations',
+
+            description:
+                locale ===
+                'ar'
+                    ? 'القواعد الضريبية والجهات الحكومية'
+                    : 'Tax rules & government dues',
+
+            href:
+                '/app/finance/taxes',
+
+            icon:
+                Landmark,
+        });
+    }
 
     navigationItems.push({
         label:
@@ -390,6 +471,9 @@ export function CommandRail({
 
         '/app/inventory/production':
             'inventory.view',
+
+        '/app/finance/taxes':
+            'finance.taxes.view',
     };
 
     const visibleItems =

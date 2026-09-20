@@ -101,6 +101,18 @@ final class WorkspaceRoleCatalog
                     'payments.update',
                     'payments.record',
 
+                    'finance.sales.view',
+                    'finance.sales.manage',
+                    'finance.purchases.view',
+                    'finance.purchases.manage',
+                    'finance.cash.view',
+                    'finance.cash.receive',
+                    'finance.cash.pay',
+                    'finance.cash.correct',
+                    'finance.documents.correct',
+                    'finance.taxes.view',
+                    'finance.taxes.manage',
+
                     'staff.view',
                     'staff.manage',
                     'staff.attendance',
@@ -135,6 +147,15 @@ final class WorkspaceRoleCatalog
                     'payments.create',
                     'payments.update',
                     'payments.record',
+
+                    'finance.sales.view',
+                    'finance.sales.manage',
+                    'finance.purchases.view',
+                    'finance.purchases.manage',
+                    'finance.cash.view',
+                    'finance.cash.receive',
+                    'finance.cash.pay',
+                    'finance.taxes.view',
                 ],
             ],
 
@@ -154,6 +175,18 @@ final class WorkspaceRoleCatalog
                     'payments.update',
                     'payments.record',
 
+                    'finance.sales.view',
+                    'finance.sales.manage',
+                    'finance.purchases.view',
+                    'finance.purchases.manage',
+                    'finance.cash.view',
+                    'finance.cash.receive',
+                    'finance.cash.pay',
+                    'finance.cash.correct',
+                    'finance.documents.correct',
+                    'finance.taxes.view',
+                    'finance.taxes.manage',
+
                     'staff.view',
                     'staff.pay',
                 ],
@@ -172,6 +205,11 @@ final class WorkspaceRoleCatalog
                     'parties.view',
                     'parties.create',
                     'parties.update',
+
+                    'finance.sales.view',
+                    'finance.sales.manage',
+                    'finance.cash.view',
+                    'finance.cash.receive',
                 ],
             ],
 
@@ -190,6 +228,12 @@ final class WorkspaceRoleCatalog
                     'parties.view',
                     'parties.create',
                     'parties.update',
+
+                    'finance.sales.view',
+                    'finance.sales.manage',
+                    'finance.cash.view',
+                    'finance.cash.receive',
+                    'finance.documents.correct',
 
                     'staff.team_view',
                     'staff.team_manage',
@@ -437,6 +481,50 @@ final class WorkspaceRoleCatalog
             ) {
                 $normalized[] =
                     'payments.view';
+            }
+
+            if ($permission === 'finance.sales.manage') {
+                $normalized[] = 'finance.sales.view';
+                $normalized[] = 'parties.view';
+                $normalized[] = 'products.view';
+            }
+
+            if ($permission === 'finance.purchases.manage') {
+                $normalized[] = 'finance.purchases.view';
+                $normalized[] = 'parties.view';
+                $normalized[] = 'products.view';
+            }
+
+            if (
+                in_array(
+                    $permission,
+                    [
+                        'finance.cash.receive',
+                        'finance.cash.pay',
+                        'finance.cash.correct',
+                    ],
+                    true,
+                )
+            ) {
+                $normalized[] = 'finance.cash.view';
+                $normalized[] = 'parties.view';
+
+                if ($permission === 'finance.cash.receive') {
+                    $normalized[] = 'finance.sales.view';
+                }
+
+                if ($permission === 'finance.cash.pay') {
+                    $normalized[] = 'finance.purchases.view';
+                }
+            }
+
+            if ($permission === 'finance.documents.correct') {
+                $normalized[] = 'finance.sales.view';
+                $normalized[] = 'finance.purchases.view';
+            }
+
+            if ($permission === 'finance.taxes.manage') {
+                $normalized[] = 'finance.taxes.view';
             }
 
             if (

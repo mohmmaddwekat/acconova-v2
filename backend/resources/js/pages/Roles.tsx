@@ -279,6 +279,40 @@ const groups: PermissionGroup[] = [
 
     {
         key:
+            'finance',
+
+        titleAr:
+            'الفواتير والدفع والتحصيل والضرائب',
+
+        titleEn:
+            'Invoices, Cash & Taxes',
+
+        descriptionAr:
+            'فواتير البيع والشراء، المقبوضات والمدفوعات، التصحيحات والالتزامات الحكومية.',
+
+        descriptionEn:
+            'Sales and purchase invoices, receipts, payments, corrections and government obligations.',
+
+        icon:
+            BadgeDollarSign,
+
+        permissions: [
+            'finance.sales.view',
+            'finance.sales.manage',
+            'finance.purchases.view',
+            'finance.purchases.manage',
+            'finance.cash.view',
+            'finance.cash.receive',
+            'finance.cash.pay',
+            'finance.cash.correct',
+            'finance.documents.correct',
+            'finance.taxes.view',
+            'finance.taxes.manage',
+        ],
+    },
+
+    {
+        key:
             'staff',
 
         titleAr:
@@ -412,6 +446,61 @@ function permissionLabel(
         'payments.record': [
             'تسجيل دفعة أو قبض',
             'Record payment',
+        ],
+
+        'finance.sales.view': [
+            'عرض فواتير البيع',
+            'View sales invoices',
+        ],
+
+        'finance.sales.manage': [
+            'إنشاء وإدارة فواتير البيع',
+            'Create & manage sales invoices',
+        ],
+
+        'finance.purchases.view': [
+            'عرض فواتير الشراء',
+            'View purchase invoices',
+        ],
+
+        'finance.purchases.manage': [
+            'إنشاء وإدارة فواتير الشراء',
+            'Create & manage purchase invoices',
+        ],
+
+        'finance.cash.view': [
+            'عرض المدفوعات والمقبوضات',
+            'View payments & receipts',
+        ],
+
+        'finance.cash.receive': [
+            'تسجيل واعتماد المقبوضات',
+            'Record & post receipts',
+        ],
+
+        'finance.cash.pay': [
+            'تسجيل واعتماد المدفوعات',
+            'Record & post payments',
+        ],
+
+        'finance.cash.correct': [
+            'عكس وتصحيح الحركات النقدية',
+            'Reverse & correct cash movements',
+        ],
+
+        'finance.documents.correct': [
+            'تصحيح الفواتير بعد الإصدار',
+            'Correct issued invoices',
+        ],
+
+        'finance.taxes.view': [
+            'عرض الضرائب والمستحقات الحكومية',
+            'View taxes & government obligations',
+        ],
+
+        'finance.taxes.manage': [
+            'إدارة قواعد الضرائب والمستحقات',
+            'Manage tax rules & obligations',
         ],
 
         'staff.team_view': [
@@ -558,6 +647,98 @@ function normalizePermissions(
 
             permissions.add(
                 'products.view',
+            );
+        }
+
+        if (
+            permission ===
+            'finance.sales.manage'
+        ) {
+            permissions.add(
+                'finance.sales.view',
+            );
+
+            permissions.add(
+                'parties.view',
+            );
+
+            permissions.add(
+                'products.view',
+            );
+        }
+
+        if (
+            permission ===
+            'finance.purchases.manage'
+        ) {
+            permissions.add(
+                'finance.purchases.view',
+            );
+
+            permissions.add(
+                'parties.view',
+            );
+
+            permissions.add(
+                'products.view',
+            );
+        }
+
+        if (
+            [
+                'finance.cash.receive',
+                'finance.cash.pay',
+                'finance.cash.correct',
+            ].includes(
+                permission,
+            )
+        ) {
+            permissions.add(
+                'finance.cash.view',
+            );
+
+            permissions.add(
+                'parties.view',
+            );
+
+            if (
+                permission ===
+                'finance.cash.receive'
+            ) {
+                permissions.add(
+                    'finance.sales.view',
+                );
+            }
+
+            if (
+                permission ===
+                'finance.cash.pay'
+            ) {
+                permissions.add(
+                    'finance.purchases.view',
+                );
+            }
+        }
+
+        if (
+            permission ===
+            'finance.documents.correct'
+        ) {
+            permissions.add(
+                'finance.sales.view',
+            );
+
+            permissions.add(
+                'finance.purchases.view',
+            );
+        }
+
+        if (
+            permission ===
+            'finance.taxes.manage'
+        ) {
+            permissions.add(
+                'finance.taxes.view',
             );
         }
 
@@ -1465,6 +1646,9 @@ function RoleWorkspace() {
                         && ! permission.startsWith(
                             'staff.',
                         )
+                        && ! permission.startsWith(
+                            'finance.',
+                        )
                     ) {
                         const module =
                             permission
@@ -1476,6 +1660,69 @@ function RoleWorkspace() {
                                     ! item.startsWith(
                                         `${module}.`,
                                     ),
+                            );
+                    }
+
+                    if (
+                        permission ===
+                        'finance.sales.view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    ! [
+                                        'finance.sales.manage',
+                                        'finance.cash.receive',
+                                        'finance.documents.correct',
+                                    ].includes(
+                                        item,
+                                    ),
+                            );
+                    }
+
+                    if (
+                        permission ===
+                        'finance.purchases.view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    ! [
+                                        'finance.purchases.manage',
+                                        'finance.cash.pay',
+                                        'finance.documents.correct',
+                                    ].includes(
+                                        item,
+                                    ),
+                            );
+                    }
+
+                    if (
+                        permission ===
+                        'finance.cash.view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    ! [
+                                        'finance.cash.receive',
+                                        'finance.cash.pay',
+                                        'finance.cash.correct',
+                                    ].includes(
+                                        item,
+                                    ),
+                            );
+                    }
+
+                    if (
+                        permission ===
+                        'finance.taxes.view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    item !==
+                                    'finance.taxes.manage',
                             );
                     }
 
