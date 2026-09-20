@@ -1,6 +1,12 @@
 import {
     PermanentDeleteControl,
 } from '@/components/data/PermanentDeleteControl';
+import {
+    InlineEditValue,
+} from '@/components/data/InlineEditValue';
+import type {
+    ListDensity,
+} from '@/components/data/ListPreferences';
 import type {
     Party,
 } from '@/features/parties/types';
@@ -33,6 +39,17 @@ type PartyListItemProps = {
     canEdit: boolean;
 
     canArchive: boolean;
+
+    columnOrder?: string[];
+
+    hiddenColumns?: string[];
+
+    density?: ListDensity;
+
+    onInlineUpdate?: (
+        party: Party,
+        patch: Partial<Party>,
+    ) => void | Promise<void>;
 
     onSelectionChange: (
         party: Party,
@@ -109,6 +126,15 @@ export function PartyListItem({
     selectable,
     canEdit,
     canArchive,
+    columnOrder = [
+        'identity',
+        'contact',
+        'location',
+        'actions',
+    ],
+    hiddenColumns = [],
+    density = 'comfortable',
+    onInlineUpdate,
     onSelectionChange,
     onView,
     onEdit,
@@ -120,6 +146,30 @@ export function PartyListItem({
     const archived =
         party.deleted_at !==
         null;
+
+    const visibleColumn = (
+        key: string,
+    ): boolean =>
+        ! hiddenColumns.includes(
+            key,
+        );
+
+    const columnStyle = (
+        key: string,
+    ) => ({
+        order:
+            Math.max(
+                columnOrder.indexOf(
+                    key,
+                ),
+                0,
+            ),
+    });
+
+    const rowPadding =
+        density === 'compact'
+            ? 'p-3 sm:p-3 lg:p-3'
+            : 'p-4 sm:p-5 lg:p-5';
 
     const label =
         partyLabel(
@@ -178,10 +228,16 @@ export function PartyListItem({
             onDoubleClick={
                 handleRowDoubleClick
             }
-            className="ac-index-row group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] sm:mx-4 sm:p-5 lg:m-0 lg:grid-cols-[auto_minmax(220px,1.3fr)_minmax(180px,1fr)_minmax(160px,0.8fr)_auto] lg:items-center lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:p-5 lg:shadow-none xl:px-6"
+            className={[
+                'ac-index-row group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)] sm:mx-4 lg:m-0 lg:grid-cols-[auto_minmax(220px,1.3fr)_minmax(180px,1fr)_minmax(160px,0.8fr)_auto] lg:items-center lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none xl:px-6',
+                rowPadding,
+            ].join(' ')}
         >
             {selectable && (
-                <label className="flex items-center">
+                <label
+                    style={{ order: -1 }}
+                    className="flex items-center"
+                >
                     <input
                         type="checkbox"
                         checked={
@@ -209,7 +265,9 @@ export function PartyListItem({
                 </label>
             )}
 
+            {visibleColumn('identity') && (
             <button
+                style={columnStyle('identity')}
                 type="button"
                 onClick={() =>
                     onView(
@@ -273,8 +331,13 @@ export function PartyListItem({
                     </div>
                 </div>
             </button>
+            )}
 
-            <div className="grid min-w-0 gap-2 text-xs text-[var(--ac-text-soft)] sm:grid-cols-2 lg:grid-cols-1">
+            {visibleColumn('contact') && (
+            <div
+                style={columnStyle('contact')}
+                className="grid min-w-0 gap-2 text-xs text-[var(--ac-text-soft)] sm:grid-cols-2 lg:grid-cols-1"
+            >
                 <div className="flex min-w-0 items-center gap-2">
                     <Mail
                         size={
@@ -283,12 +346,20 @@ export function PartyListItem({
                         className="shrink-0 text-[var(--ac-text-muted)]"
                     />
 
-                    <span className="truncate">
-                        {party.email ??
-                            t(
-                                'ui.no_email',
+                    <InlineEditValue
+                        value={party.email ?? ''}
+                        display={party.email ?? t('ui.no_email')}
+                        type="email"
+                        inputMode="email"
+                        editable={! archived && canEdit && Boolean(onInlineUpdate)}
+                        onSave={(value) =>
+                            onInlineUpdate?.(
+                                party,
+                                {
+                                    email: value.trim() || null,
+                                },
                             )}
-                    </span>
+                    />
                 </div>
 
                 <div className="flex min-w-0 items-center gap-2">
@@ -299,16 +370,29 @@ export function PartyListItem({
                         className="shrink-0 text-[var(--ac-text-muted)]"
                     />
 
-                    <span className="truncate">
-                        {party.phone ??
-                            t(
-                                'ui.no_phone',
+                    <InlineEditValue
+                        value={party.phone ?? ''}
+                        display={party.phone ?? t('ui.no_phone')}
+                        type="tel"
+                        inputMode="tel"
+                        editable={! archived && canEdit && Boolean(onInlineUpdate)}
+                        onSave={(value) =>
+                            onInlineUpdate?.(
+                                party,
+                                {
+                                    phone: value.trim() || null,
+                                },
                             )}
-                    </span>
+                    />
                 </div>
             </div>
+            )}
 
-            <div className="flex min-w-0 items-center gap-2 text-xs text-[var(--ac-text-soft)]">
+            {visibleColumn('location') && (
+            <div
+                style={columnStyle('location')}
+                className="flex min-w-0 items-center gap-2 text-xs text-[var(--ac-text-soft)]"
+            >
                 <MapPin
                     size={
                         13
@@ -316,15 +400,26 @@ export function PartyListItem({
                     className="shrink-0 text-[var(--ac-text-muted)]"
                 />
 
-                <span className="truncate">
-                    {location ||
-                        t(
-                            'ui.no_location',
+                <InlineEditValue
+                    value={party.city ?? ''}
+                    display={location || t('ui.no_location')}
+                    editable={! archived && canEdit && Boolean(onInlineUpdate)}
+                    onSave={(value) =>
+                        onInlineUpdate?.(
+                            party,
+                            {
+                                city: value.trim() || null,
+                            },
                         )}
-                </span>
+                />
             </div>
+            )}
 
-            <div className="flex flex-wrap items-center gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0">
+            {visibleColumn('actions') && (
+            <div
+                style={columnStyle('actions')}
+                className="flex flex-wrap items-center gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0"
+            >
                 <button
                     type="button"
                     aria-label={t(
@@ -443,6 +538,7 @@ export function PartyListItem({
                     />
                 )}
             </div>
+            )}
         </article>
     );
 }
