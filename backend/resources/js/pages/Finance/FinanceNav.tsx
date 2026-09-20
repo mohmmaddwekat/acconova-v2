@@ -100,7 +100,7 @@ export function FinanceNav({
                 'التنقل المالي',
                 'Finance navigation',
             )}
-            className="flex flex-wrap gap-2 rounded-[16px] border border-[#dbe6f5] bg-white p-2 shadow-[0_8px_28px_rgba(30,75,140,.04)]"
+            className="flex flex-wrap gap-2 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2 shadow-[var(--ac-shadow-soft)]"
         >
             {items.map(
                 item => {
@@ -127,8 +127,8 @@ export function FinanceNav({
                             className={[
                                 'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
                                 selected
-                                    ? 'bg-[#1265d8] text-white shadow-[0_5px_14px_rgba(18,101,216,.16)]'
-                                    : 'text-[#52709a] hover:bg-blue-50 hover:text-[#1958a6]',
+                                    ? 'border border-[var(--ac-accent)] bg-[var(--ac-accent-solid)] text-[var(--ac-accent-solid-text)] shadow-[var(--ac-shadow-soft)]'
+                                    : 'border border-transparent text-[var(--ac-text-soft)] hover:border-[var(--ac-line)] hover:bg-[var(--ac-accent-soft)] hover:text-[var(--ac-accent)]',
                             ].join(
                                 ' ',
                             )}
@@ -150,7 +150,7 @@ export function FinanceNav({
             {canImport && (
                 <Link
                     href="/app/finance/import"
-                    className="ms-auto inline-flex min-h-9 items-center gap-2 rounded-[10px] border border-dashed border-[#b9d0ed] px-3.5 py-2 text-xs font-semibold text-[#52709a] transition hover:border-[#1265d8] hover:bg-blue-50 hover:text-[#1265d8]"
+                    className="ms-auto inline-flex min-h-9 items-center gap-2 rounded-[10px] border border-dashed border-[var(--ac-line-strong)] px-3.5 py-2 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)] hover:text-[var(--ac-accent)]"
                 >
                     <UploadCloud size={14} />
                     {text(
