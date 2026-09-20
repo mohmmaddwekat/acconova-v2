@@ -8,6 +8,15 @@ import {
     SavedViews,
 } from '@/components/data/SavedViews';
 import {
+    RecordHealth,
+} from '@/components/data/RecordHealth';
+import {
+    RecordQuickActions,
+} from '@/components/data/RecordQuickActions';
+import {
+    SmartEmptyState,
+} from '@/components/data/SmartEmptyState';
+import {
     AppShell,
 } from '@/layouts/AppShell';
 import {
@@ -20,6 +29,10 @@ import {
 import {
     staffCopy,
 } from '@/lib/staffCopy';
+import {
+    useGlobalSave,
+    useUnsavedChanges,
+} from '@/lib/editorSafety';
 import type {
     AppPageProps,
 } from '@/types/app';
@@ -49,6 +62,7 @@ import {
 import {
     useEffect,
     useMemo,
+    useRef,
     useState,
     type FormEvent,
 } from 'react';
@@ -528,6 +542,62 @@ function StaffWorkspace() {
             previousCompletedMonth(),
         );
 
+    const staffFormRef =
+        useRef<HTMLFormElement | null>(
+            null,
+        );
+
+    const [
+        staffFormDirty,
+        setStaffFormDirty,
+    ] =
+        useState(
+            false,
+        );
+
+    useUnsavedChanges(
+        staffFormDirty
+        && edit !== null
+        && ! busy,
+        ar,
+    );
+
+    useGlobalSave(
+        () =>
+            staffFormRef.current
+                ?.requestSubmit(),
+        edit !== null
+        && ! busy,
+    );
+
+    useEffect(() => {
+        setStaffFormDirty(
+            false,
+        );
+    }, [
+        edit,
+    ]);
+
+    function closeStaffEditor(): void {
+        if (
+            staffFormDirty
+            && ! window.confirm(
+                ar
+                    ? 'لديك تغييرات غير محفوظة. هل تريد إغلاق نموذج الموظف؟'
+                    : 'You have unsaved employee changes. Close the form?',
+            )
+        ) {
+            return;
+        }
+
+        setStaffFormDirty(
+            false,
+        );
+        setEdit(
+            null,
+        );
+    }
+
     /*
      * Quick-create and global-search deep links reuse the existing Staff
      * workspace. This keeps Ctrl+K and the global + button consistent with the
@@ -927,6 +997,9 @@ function StaffWorkspace() {
         if (
             success
         ) {
+            setStaffFormDirty(
+                false,
+            );
             setEdit(
                 null,
             );
@@ -1742,7 +1815,6 @@ function StaffWorkspace() {
                                     perPage,
                                 }}
                                 onApply={(saved) => {
-                                    setDraftSearch(saved.search);
                                     setSearch(saved.search);
                                     setDepartment(saved.department);
                                     setBasisFilter(saved.basisFilter);
@@ -1775,6 +1847,46 @@ function StaffWorkspace() {
                             <div className="p-12 text-center text-sm text-[var(--ac-text-muted)]">
                                 …
                             </div>
+                        ) : ! result?.data.data.length ? (
+                            <SmartEmptyState
+                                icon={Users}
+                                title={ar ? 'لا يوجد موظفون مطابقون' : 'No matching employees'}
+                                description={
+                                    search
+                                    || department
+                                    || basisFilter
+                                    || activeFilter
+                                        ? (
+                                            ar
+                                                ? 'غيّر البحث أو عوامل التصفية، أو أضف موظفاً جديداً.'
+                                                : 'Adjust the search or filters, or add a new employee.'
+                                        )
+                                        : (
+                                            ar
+                                                ? 'ابدأ بإضافة أول موظف إلى مساحة العمل، أو استورد ملف الموظفين.'
+                                                : 'Add the first employee to this workspace, or import your staff file.'
+                                        )
+                                }
+                                primary={result?.can_manage ? (
+                                    <button
+                                        type="button"
+                                        className={primaryButton}
+                                        onClick={() => setEdit('new')}
+                                    >
+                                        <Plus size={15} />
+                                        {c.new}
+                                    </button>
+                                ) : undefined}
+                                secondary={result?.can_import ? (
+                                    <Link
+                                        href="/app/staff/import"
+                                        className={button}
+                                    >
+                                        <FileSpreadsheet size={15} />
+                                        {ar ? 'استيراد الموظفين' : 'Import employees'}
+                                    </Link>
+                                ) : undefined}
+                            />
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[980px] text-start text-xs">
@@ -2071,8 +2183,8 @@ function StaffWorkspace() {
                             </div>
                         ) : (
                             <>
-                                <div className="mt-5 overflow-hidden rounded-[26px] border border-[var(--ac-line)] bg-white">
-                                    <div className="flex flex-col gap-5 bg-gradient-to-br from-white to-[var(--ac-accent-soft)] p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="mt-5 overflow-hidden rounded-[26px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
+                                    <div className="flex flex-col gap-5 bg-gradient-to-br from-[var(--ac-surface)] to-[var(--ac-accent-soft)] p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
                                         <div className="flex min-w-0 items-center gap-4">
                                             <div className="flex size-14 shrink-0 items-center justify-center rounded-[19px] bg-[var(--ac-text)] text-xl font-bold text-white">
                                                 {ledger.member.name
@@ -2138,6 +2250,18 @@ function StaffWorkspace() {
                                         </div>
 
                                         <div className="flex flex-wrap gap-2">
+                                            <RecordQuickActions
+                                                recordKey={'staff-' + String(ledger.member.id)}
+                                                kind="staff"
+                                                label={ledger.member.name}
+                                                detail={[
+                                                    ledger.member.job_title,
+                                                    ledger.member.email,
+                                                ].filter(Boolean).join(' · ')}
+                                                href={'/app/staff/directory?staff=' + String(ledger.member.id)}
+                                                ar={ar}
+                                            />
+
                                             {result?.can_manage && (
                                                 <button
                                                     type="button"
@@ -3156,9 +3280,17 @@ function StaffWorkspace() {
             {edit && (
                 <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/25 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
                     <form
+                        ref={
+                            staffFormRef
+                        }
                         key={
                             member?.id
                             ?? 'new'
+                        }
+                        onChange={() =>
+                            setStaffFormDirty(
+                                true,
+                            )
                         }
                         onSubmit={(
                             event,
@@ -3190,10 +3322,8 @@ function StaffWorkspace() {
 
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setEdit(
-                                        null,
-                                    )
+                                onClick={
+                                    closeStaffEditor
                                 }
                                 className="flex size-10 items-center justify-center rounded-xl bg-[var(--ac-bg-soft)]"
                             >
@@ -3557,10 +3687,8 @@ function StaffWorkspace() {
                                 className={
                                     button
                                 }
-                                onClick={() =>
-                                    setEdit(
-                                        null,
-                                    )
+                                onClick={
+                                    closeStaffEditor
                                 }
                             >
                                 {
