@@ -118,13 +118,13 @@ const teamPermissionLabels: Record<string, [string, string]> = {
 };
 
 const fieldClass =
-    'w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:bg-white focus:ring-4 focus:ring-[var(--ac-accent-soft)]';
+    'w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:bg-[var(--ac-surface)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]';
 
 const secondaryButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-white px-4 text-sm font-semibold transition hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-40';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] disabled:cursor-not-allowed disabled:opacity-40';
 
 const primaryButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-strong)] px-5 text-sm font-semibold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-solid)] px-5 text-sm font-semibold text-[var(--ac-accent-solid-text)] transition hover:bg-[var(--ac-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40';
 
 const groups: PermissionGroup[] = [
     {
@@ -2899,7 +2899,7 @@ function RoleWorkspace() {
                                                                                 'flex min-h-12 items-center gap-3 rounded-[13px] border px-3 py-2.5 text-start text-[10px] transition',
                                                                                 checked
                                                                                     ? 'border-[var(--ac-accent)] bg-white font-semibold text-[var(--ac-accent-strong)] shadow-sm'
-                                                                                    : 'border-[var(--ac-line)] bg-white/60 text-[var(--ac-text-soft)] hover:bg-white',
+                                                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)]/60 text-[var(--ac-text-soft)] hover:bg-white',
                                                                             ].join(
                                                                                 ' ',
                                                                             )}
