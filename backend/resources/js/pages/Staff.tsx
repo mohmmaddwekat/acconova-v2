@@ -3312,6 +3312,7 @@ function StaffWorkspace() {
             {edit && (
                 <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/25 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
                     <form
+                        data-ac-managed-dirty="true"
                         ref={
                             staffFormRef
                         }
