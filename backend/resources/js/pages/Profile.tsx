@@ -61,16 +61,16 @@ import {
 } from 'react';
 
 const cardClass =
-    'rounded-[22px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-soft)]';
+    'rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)]';
 
 const inputClass =
-    'w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:bg-white focus:ring-4 focus:ring-[var(--ac-accent-soft)]';
+    'w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:bg-[var(--ac-surface)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]';
 
 const primaryButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-strong)] px-4 text-sm font-semibold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-45';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-solid)] px-4 text-sm font-semibold text-[var(--ac-accent-solid-text)] transition hover:bg-[var(--ac-accent-hover)] disabled:cursor-not-allowed disabled:opacity-45';
 
 const secondaryButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-white px-4 text-sm font-semibold transition hover:bg-[var(--ac-surface-soft)] disabled:opacity-45';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] disabled:opacity-45';
 
 /**
  * Convert API failures into readable inline copy.
@@ -2278,7 +2278,7 @@ function ProfileHero({
                             : 'Edit profile'}
                     </Link>
 
-                    <Link href="/app/profile?view=settings" className="inline-flex min-h-10 items-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-white/80 px-4 text-sm font-semibold backdrop-blur hover:bg-teal-50">
+                    <Link href="/app/profile?view=settings" className="inline-flex min-h-10 items-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)]/80 px-4 text-sm font-semibold backdrop-blur hover:bg-teal-50">
                         <ShieldCheck
                             size={
                                 14
