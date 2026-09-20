@@ -90,7 +90,7 @@ export default function FinanceIndex({
 
             <main
                 dir={ar ? 'rtl' : 'ltr'}
-                className="min-h-[calc(100dvh-72px)] bg-[#f8fbff] px-3 py-5 sm:px-5 lg:px-8"
+                className="min-h-[calc(100dvh-72px)] bg-[var(--ac-bg)] px-3 py-5 text-[var(--ac-text)] sm:px-5 lg:px-8"
             >
                 <div className="mx-auto w-full max-w-[1680px]">
                     {error && (
@@ -103,7 +103,7 @@ export default function FinanceIndex({
                     )}
 
                     {! lookups && ! error && (
-                        <div className="rounded-[18px] border border-[#dbe6f5] bg-white p-12 text-center text-sm text-slate-400">
+                        <div className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-12 text-center text-sm text-[var(--ac-text-muted)]">
                             {ar ? 'جارٍ تحميل البيانات المالية...' : 'Loading finance data...'}
                         </div>
                     )}
