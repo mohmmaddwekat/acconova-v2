@@ -5,7 +5,9 @@ import {
     ArrowLeft,
     Building2,
     Check,
+    ChevronDown,
     FileText,
+    History,
     Package,
     Plus,
     Save,
@@ -33,6 +35,13 @@ import type {
 
 type EditableLine = DocumentLine & {
     client_id: string;
+};
+
+type PriceReference = {
+    source: 'party_history' | 'catalog';
+    unit_price: string;
+    document_number: string | null;
+    issue_date: string | null;
 };
 
 function emptyLine(
@@ -251,6 +260,11 @@ export function DocumentForm({
     );
 
     const [
+        priceReferences,
+        setPriceReferences,
+    ] = useState<Record<string, PriceReference>>({});
+
+    const [
         busy,
         setBusy,
     ] = useState(
@@ -320,6 +334,119 @@ export function DocumentForm({
                             }
                             : line,
                 ),
+        );
+    }
+
+    async function loadPartyPrice(
+        clientId: string,
+        productId: number,
+        selectedPartyId = partyId,
+    ): Promise<void> {
+        const product =
+            lookups.products.find(
+                item =>
+                    item.id ===
+                    productId,
+            );
+
+        if (! product) {
+            return;
+        }
+
+        if (! selectedPartyId) {
+            changeLine(
+                clientId,
+                {
+                    unit_price:
+                        sales
+                            ? product.unit_price
+                            : product.cost_price,
+                },
+            );
+
+            setPriceReferences(
+                current => {
+                    const next = {
+                        ...current,
+                    };
+
+                    delete next[
+                        clientId
+                    ];
+
+                    return next;
+                },
+            );
+
+            return;
+        }
+
+        try {
+            const result =
+                await apiRequest<PriceReference>(
+                    '/api/finance/reference-price?party_id='
+                    + encodeURIComponent(
+                        selectedPartyId,
+                    )
+                    + '&product_id='
+                    + String(
+                        productId,
+                    )
+                    + '&kind='
+                    + kind,
+                );
+
+            changeLine(
+                clientId,
+                {
+                    unit_price:
+                        result.unit_price,
+                },
+            );
+
+            setPriceReferences(
+                current => ({
+                    ...current,
+                    [clientId]:
+                        result,
+                }),
+            );
+        } catch {
+            changeLine(
+                clientId,
+                {
+                    unit_price:
+                        sales
+                            ? product.unit_price
+                            : product.cost_price,
+                },
+            );
+        }
+    }
+
+    function selectParty(
+        value: string,
+    ): void {
+        setPartyId(
+            value,
+        );
+
+        setPriceReferences(
+            {},
+        );
+
+        lines.forEach(
+            line => {
+                if (
+                    line.product_id
+                ) {
+                    void loadPartyPrice(
+                        line.client_id,
+                        line.product_id,
+                        value,
+                    );
+                }
+            },
         );
     }
 
@@ -416,6 +543,11 @@ export function DocumentForm({
                         )
                         : null,
             },
+        );
+
+        void loadPartyPrice(
+            line.client_id,
+            product.id,
         );
     }
 
@@ -1254,7 +1386,7 @@ export function DocumentForm({
                                     }
                                     onChange={
                                         event =>
-                                            setPartyId(
+                                            selectParty(
                                                 event
                                                     .target
                                                     .value,
