@@ -153,6 +153,14 @@ function ProductsWorkspace() {
         );
 
     const [
+        copyingProduct,
+        setCopyingProduct,
+    ] =
+        useState<Product | null>(
+            null,
+        );
+
+    const [
         detailProduct,
         setDetailProduct,
     ] =
@@ -333,6 +341,18 @@ function ProductsWorkspace() {
      */
     function create(): void {
         setEditingProduct(null);
+        setCopyingProduct(null);
+        setDetailProduct(null);
+        setEditorOpen(true);
+    }
+
+    function copy(
+        product: Product,
+    ): void {
+        setEditingProduct(null);
+        setCopyingProduct(
+            product,
+        );
         setDetailProduct(null);
         setEditorOpen(true);
     }
@@ -344,6 +364,7 @@ function ProductsWorkspace() {
         product: Product,
     ): void {
         setDetailProduct(null);
+        setCopyingProduct(null);
         setEditingProduct(
             product,
         );
@@ -368,8 +389,26 @@ function ProductsWorkspace() {
                         .product.id,
                 );
 
+                const archivedProduct =
+                    pendingAction.product;
+
                 showToast(
                     t('ui.catalog_item_archived'),
+                    'success',
+                    {
+                        label:
+                            ar
+                                ? 'تراجع'
+                                : 'Undo',
+                        run:
+                            async () => {
+                                await restoreProduct(
+                                    archivedProduct.id,
+                                );
+                                await loadProducts();
+                            },
+                    },
+                    8000,
                 );
             } else {
                 await restoreProduct(
@@ -615,21 +654,30 @@ function ProductsWorkspace() {
                         </div>
                     ) : products.length ===
                       0 ? (
-                        <div className="px-4 py-16 text-center">
-                            <div className="mx-auto flex size-12 items-center justify-center rounded-[18px] bg-[var(--ac-bg-soft)]">
-                                <Package
-                                    size={19}
-                                />
-                            </div>
-
-                            <h2 className="mt-5 text-xl font-semibold">
-                                {t('ui.your_catalog_is_ready_to_grow')}
-                            </h2>
-
-                            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ac-text-soft)]">
-                                {t('ui.add_reusable_products_and_services_now_then_pull_them_directly_into_future_quotes_and')}
-                            </p>
-                        </div>
+                        <SmartEmptyState
+                            icon={Package}
+                            title={t('ui.your_catalog_is_ready_to_grow')}
+                            description={t('ui.add_reusable_products_and_services_now_then_pull_them_directly_into_future_quotes_and')}
+                            primary={allowCreate ? (
+                                <button
+                                    type="button"
+                                    onClick={create}
+                                    className="inline-flex h-11 items-center gap-2 rounded-[14px] bg-[var(--ac-accent-solid)] px-5 text-sm font-semibold text-[var(--ac-accent-solid-text)]"
+                                >
+                                    <Plus size={15} />
+                                    {t('ui.new_item')}
+                                </button>
+                            ) : undefined}
+                            secondary={(allowEdit && allowCreate) ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setImportOpen(true)}
+                                    className="inline-flex h-11 items-center rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 text-sm font-semibold text-[var(--ac-text-soft)]"
+                                >
+                                    {ar ? 'استيراد Excel / CSV' : 'Import Excel / CSV'}
+                                </button>
+                            ) : undefined}
+                        />
                     ) : (
                         <div>
                             {products.map(
@@ -728,12 +776,18 @@ function ProductsWorkspace() {
                     product={
                         editingProduct
                     }
+                    copyFrom={
+                        copyingProduct
+                    }
                     onClose={() => {
                         setEditorOpen(
                             false,
                         );
 
                         setEditingProduct(
+                            null,
+                        );
+                        setCopyingProduct(
                             null,
                         );
                     }}
@@ -743,7 +797,13 @@ function ProductsWorkspace() {
                         showToast(
                             editingProduct
                                 ? t('ui.catalog_item_updated')
-                                : t('ui.catalog_item_created'),
+                                : copyingProduct
+                                    ? (
+                                        ar
+                                            ? 'تم إنشاء نسخة جديدة من العنصر.'
+                                            : 'A new copy of the item was created.'
+                                    )
+                                    : t('ui.catalog_item_created'),
                         );
 
                         setDetailProduct(
@@ -775,6 +835,9 @@ function ProductsWorkspace() {
                     }
                     onEdit={
                         edit
+                    }
+                    onCopy={
+                        copy
                     }
                     onArchive={(
                         value,
