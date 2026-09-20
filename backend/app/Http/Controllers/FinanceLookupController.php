@@ -242,6 +242,9 @@ class FinanceLookupController extends Controller
                     'city' => $preferences['city'] ?? '',
                     'address' => $preferences['address'] ?? '',
                     'invoice_footer' => $preferences['invoice_footer'] ?? '',
+                    'logo_url' => ! empty($preferences['logo_path'])
+                        ? '/api/workspace-settings/logo?v='.urlencode((string) $organization->updated_at?->timestamp)
+                        : null,
                 ],
                 'invoice' => [
                     'template' => $preferences['invoice_template'] ?? 'professional',
