@@ -107,6 +107,64 @@ class CashMovementService
 
             $this->validateAllocations($locked);
 
+            $source = null;
+
+            if ($locked->corrected_from_id) {
+                $source = CashMovement::query()
+                    ->with('allocations')
+                    ->lockForUpdate()
+                    ->findOrFail($locked->corrected_from_id);
+
+                if ($source->status !== 'posted') {
+                    throw ValidationException::withMessages([
+                        'correction' => ['The source cash movement can no longer be corrected.'],
+                    ]);
+                }
+
+                if ($source->direction !== $locked->direction) {
+                    throw ValidationException::withMessages([
+                        'direction' => ['A correction must keep the original cash direction.'],
+                    ]);
+                }
+
+                $sourceBefore = $this->snapshot($source);
+
+                $reversal = $this->createReversal(
+                    $source,
+                    $locked->correction_reason ?: 'Corrected cash movement',
+                    $actorId,
+                    'Correction reversal of ',
+                );
+
+                $source->status = 'reversed';
+                $source->correction_reason = $locked->correction_reason;
+                $source->updated_by = $actorId;
+                $source->save();
+
+                $this->refreshLinkedBalances($source);
+
+                $this->audit->record(
+                    $source,
+                    'correction_superseded',
+                    $actorId,
+                    $locked->correction_reason,
+                    $sourceBefore,
+                    [
+                        'replacement_movement_id' => $locked->id,
+                        'reversal_movement_id' => $reversal->id,
+                    ],
+                );
+
+                $this->audit->record(
+                    $reversal,
+                    'reversal_created',
+                    $actorId,
+                    $locked->correction_reason,
+                    null,
+                    $this->snapshot($reversal),
+                );
+            }
+
             $before = $this->snapshot($locked);
             $locked->status = 'posted';
             $locked->posted_at = now();
@@ -117,9 +175,9 @@ class CashMovementService
 
             $this->audit->record(
                 $locked,
-                'posted',
+                $source ? 'correction_posted' : 'posted',
                 $actorId,
-                null,
+                $locked->correction_reason,
                 $before,
                 $this->snapshot($locked),
             );
@@ -144,30 +202,11 @@ class CashMovementService
 
             $before = $this->snapshot($locked);
 
-            $reversal = CashMovement::create([
-                'party_id' => $locked->party_id,
-                'government_obligation_id' => null,
-                'department_id' => $locked->department_id,
-                'reversal_of_id' => $locked->id,
-                'number' => $this->numbers->next('cash_reversals', 'REV'),
-                'direction' => $locked->direction === 'incoming' ? 'outgoing' : 'incoming',
-                'status' => 'posted',
-                'category' => 'correction',
-                'amount' => $locked->amount,
-                'currency' => $locked->currency,
-                'movement_date' => now()->toDateString(),
-                'method' => $locked->method,
-                'account_label' => $locked->account_label,
-                'branch_label' => $locked->branch_label,
-                'cost_center' => $locked->cost_center,
-                'reference' => 'Reversal of '.$locked->number,
-                'method_details' => $locked->method_details,
-                'notes' => $reason,
-                'correction_reason' => $reason,
-                'posted_at' => now(),
-                'created_by' => $actorId,
-                'updated_by' => $actorId,
-            ]);
+            $reversal = $this->createReversal(
+                $locked,
+                $reason,
+                $actorId,
+            );
 
             $locked->status = 'reversed';
             $locked->correction_reason = $reason;
@@ -223,30 +262,6 @@ class CashMovementService
 
             $before = $this->snapshot($locked);
 
-            CashMovement::create([
-                'party_id' => $locked->party_id,
-                'department_id' => $locked->department_id,
-                'reversal_of_id' => $locked->id,
-                'number' => $this->numbers->next('cash_reversals', 'REV'),
-                'direction' => $locked->direction === 'incoming' ? 'outgoing' : 'incoming',
-                'status' => 'posted',
-                'category' => 'correction',
-                'amount' => $locked->amount,
-                'currency' => $locked->currency,
-                'movement_date' => now()->toDateString(),
-                'method' => $locked->method,
-                'account_label' => $locked->account_label,
-                'branch_label' => $locked->branch_label,
-                'cost_center' => $locked->cost_center,
-                'reference' => 'Correction reversal of '.$locked->number,
-                'method_details' => $locked->method_details,
-                'notes' => $reason,
-                'correction_reason' => $reason,
-                'posted_at' => now(),
-                'created_by' => $actorId,
-                'updated_by' => $actorId,
-            ]);
-
             $replacement = CashMovement::create([
                 'party_id' => $locked->party_id,
                 'government_obligation_id' => $locked->government_obligation_id,
@@ -285,13 +300,6 @@ class CashMovementService
                     'amount' => $allocation->amount,
                 ]);
             }
-
-            $locked->status = 'reversed';
-            $locked->correction_reason = $reason;
-            $locked->updated_by = $actorId;
-            $locked->save();
-
-            $this->refreshLinkedBalances($locked);
 
             $this->audit->record(
                 $locked,
@@ -338,6 +346,38 @@ class CashMovementService
 
             return $locked->fresh($this->relations());
         }, 3);
+    }
+
+    private function createReversal(
+        CashMovement $source,
+        string $reason,
+        int $actorId,
+        string $referencePrefix = 'Reversal of ',
+    ): CashMovement {
+        return CashMovement::create([
+            'party_id' => $source->party_id,
+            'government_obligation_id' => null,
+            'department_id' => $source->department_id,
+            'reversal_of_id' => $source->id,
+            'number' => $this->numbers->next('cash_reversals', 'REV'),
+            'direction' => $source->direction === 'incoming' ? 'outgoing' : 'incoming',
+            'status' => 'posted',
+            'category' => 'correction',
+            'amount' => $source->amount,
+            'currency' => $source->currency,
+            'movement_date' => now()->toDateString(),
+            'method' => $source->method,
+            'account_label' => $source->account_label,
+            'branch_label' => $source->branch_label,
+            'cost_center' => $source->cost_center,
+            'reference' => $referencePrefix.$source->number,
+            'method_details' => $source->method_details,
+            'notes' => $reason,
+            'correction_reason' => $reason,
+            'posted_at' => now(),
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+        ]);
     }
 
     private function syncAllocations(CashMovement $movement, array $allocations): void
