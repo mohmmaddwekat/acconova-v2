@@ -2,13 +2,13 @@ import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 export const financePanel =
-    'rounded-[18px] border border-[#dbe6f5] bg-white shadow-[0_8px_28px_rgba(30,75,140,.055)]';
+    'rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)]';
 
 export const financeInput =
-    'w-full rounded-[10px] border border-[#d8e4f4] bg-white px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-300 focus:border-[#2f80ed] focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50 disabled:text-slate-400';
+    'w-full rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2.5 text-sm text-[var(--ac-text)] outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[#2f80ed] focus:ring-4 focus:ring-blue-500/10 disabled:bg-[var(--ac-surface-strong)] disabled:text-[var(--ac-text-muted)]';
 
 export const financeButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[#d8e4f4] bg-white px-4 text-xs font-semibold text-[#1958a6] transition hover:border-[#8dbcf8] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-45';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-xs font-semibold text-[#4f92ff] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] disabled:cursor-not-allowed disabled:opacity-45';
 
 export const financePrimary =
     'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[#1265d8] bg-[#1265d8] px-4 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(18,101,216,.18)] transition hover:bg-[#0e57bd] disabled:cursor-not-allowed disabled:opacity-45';
@@ -29,8 +29,8 @@ export function FPanel({
     return (
         <section className={financePanel + ' ' + className}>
             {(title || action) && (
-                <header className="flex items-center justify-between gap-3 border-b border-[#edf3fa] px-4 py-3.5">
-                    <h2 className="flex items-center gap-2 text-sm font-bold text-[#102c62]">
+                <header className="flex items-center justify-between gap-3 border-b border-[var(--ac-line)] px-4 py-3.5">
+                    <h2 className="flex items-center gap-2 text-sm font-bold text-[var(--ac-text)]">
                         {Icon && <Icon size={17} className="text-[#1265d8]" />}
                         {title}
                     </h2>
@@ -69,9 +69,9 @@ export function SummaryCard({
                 <Icon size={21} />
             </span>
             <div className="min-w-0">
-                <p className="text-[10px] font-medium text-slate-500">{label}</p>
-                <strong className="mt-1 block truncate text-xl text-[#102c62]">{value}</strong>
-                {hint && <p className="mt-1 text-[9px] text-slate-400">{hint}</p>}
+                <p className="text-[10px] font-medium text-[var(--ac-text-muted)]">{label}</p>
+                <strong className="mt-1 block truncate text-xl text-[var(--ac-text)]">{value}</strong>
+                {hint && <p className="mt-1 text-[9px] text-[var(--ac-text-muted)]">{hint}</p>}
             </div>
         </div>
     );
@@ -161,10 +161,10 @@ export function FinanceHeader({
     return (
         <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-                <h1 className="text-2xl font-bold tracking-[-0.04em] text-[#0b2d67] sm:text-3xl">
+                <h1 className="text-2xl font-bold tracking-[-0.04em] text-[var(--ac-text)] sm:text-3xl">
                     {title}
                 </h1>
-                <p className="mt-2 max-w-4xl text-sm leading-6 text-[#7890b1]">
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--ac-text-muted)]">
                     {subtitle}
                 </p>
             </div>
