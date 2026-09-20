@@ -65,7 +65,7 @@ class FinanceDocumentService
         return DB::transaction(function () use ($document, $data, $actorId): FinancialDocument {
             $locked = FinancialDocument::query()->lockForUpdate()->findOrFail($document->id);
 
-            if (!$locked->isDraft()) {
+            if (! $locked->isDraft()) {
                 throw ValidationException::withMessages([
                     'status' => ['Issued financial documents are immutable. Start a correction instead.'],
                 ]);
@@ -110,7 +110,7 @@ class FinanceDocumentService
                 ->lockForUpdate()
                 ->findOrFail($document->id);
 
-            if (!$locked->isDraft()) {
+            if (! $locked->isDraft()) {
                 throw ValidationException::withMessages([
                     'status' => ['Only draft documents can be issued.'],
                 ]);
@@ -124,7 +124,7 @@ class FinanceDocumentService
 
             $warnings = $this->warnings($locked);
 
-            if ($warnings !== [] && !$acknowledgeWarnings) {
+            if ($warnings !== [] && ! $acknowledgeWarnings) {
                 throw ValidationException::withMessages([
                     'warnings' => $warnings,
                 ]);
@@ -138,7 +138,7 @@ class FinanceDocumentService
                     ->lockForUpdate()
                     ->findOrFail($locked->corrected_from_id);
 
-                if (!in_array($previous->status, ['issued', 'partially_paid', 'paid', 'overpaid'], true)) {
+                if (! in_array($previous->status, ['issued', 'partially_paid', 'paid', 'overpaid'], true)) {
                     throw ValidationException::withMessages([
                         'correction' => ['The source document can no longer be corrected.'],
                     ]);
@@ -206,7 +206,7 @@ class FinanceDocumentService
                 ->lockForUpdate()
                 ->findOrFail($document->id);
 
-            if (!in_array($locked->status, ['issued', 'partially_paid', 'paid', 'overpaid'], true)) {
+            if (! in_array($locked->status, ['issued', 'partially_paid', 'paid', 'overpaid'], true)) {
                 throw ValidationException::withMessages([
                     'status' => ['Only active issued documents can be corrected.'],
                 ]);
@@ -302,7 +302,7 @@ class FinanceDocumentService
                 ->lockForUpdate()
                 ->findOrFail($document->id);
 
-            if (!in_array($locked->status, ['issued', 'partially_paid'], true)) {
+            if (! in_array($locked->status, ['issued', 'partially_paid'], true)) {
                 throw ValidationException::withMessages([
                     'status' => ['This document cannot be voided.'],
                 ]);
@@ -395,7 +395,7 @@ class FinanceDocumentService
         foreach ($document->lines as $line) {
             $product = $line->product;
 
-            if (!$product) {
+            if (! $product) {
                 continue;
             }
 
@@ -460,8 +460,8 @@ class FinanceDocumentService
                 $requiredScope = $document->isSale() ? 'sales' : 'purchases';
 
                 if (
-                    !$taxRule->active
-                    || !in_array($taxRule->applies_to, ['both', $requiredScope], true)
+                    ! $taxRule->active
+                    || ! in_array($taxRule->applies_to, ['both', $requiredScope], true)
                     || ($taxRule->effective_from && $document->issue_date->lt($taxRule->effective_from))
                     || ($taxRule->effective_to && $document->issue_date->gt($taxRule->effective_to))
                 ) {
@@ -495,7 +495,7 @@ class FinanceDocumentService
 
             $affectsInventory = (bool) ($line['affects_inventory'] ?? false);
 
-            if ($affectsInventory && (!$product || !$product->tracksInventory() || !$warehouseId)) {
+            if ($affectsInventory && (! $product || ! $product->tracksInventory() || ! $warehouseId)) {
                 throw ValidationException::withMessages([
                     "lines.$index.affects_inventory" => ['Inventory impact requires a tracked product and warehouse.'],
                 ]);
@@ -568,7 +568,7 @@ class FinanceDocumentService
             ->whereHas('roles', fn ($query) => $query->where('role', $required))
             ->exists();
 
-        if (!$valid) {
+        if (! $valid) {
             throw ValidationException::withMessages([
                 'party_id' => ["The selected party must have the {$required} role."],
             ]);
