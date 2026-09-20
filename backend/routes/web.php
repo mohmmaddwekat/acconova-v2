@@ -270,33 +270,73 @@ Route::middleware([
     );
 
     Route::get(
+        '/app/finance',
+        function (Request $request) {
+            $view = $request->string('view')->toString();
+
+            $financeView = match ($view) {
+                'sales' => 'sales-list',
+                'sales-create' => 'sales-create',
+                'sales-detail' => 'sales-detail',
+                'purchases' => 'purchase-list',
+                'purchase-create' => 'purchase-create',
+                'purchase-detail' => 'purchase-detail',
+                'payments' => 'payment-list',
+                'payment-create' => 'payment-create',
+                'payment-detail' => 'payment-detail',
+                'receipts' => 'receipt-list',
+                'receipt-create' => 'receipt-create',
+                'receipt-detail' => 'receipt-detail',
+                'taxes' => 'taxes',
+                default => 'overview',
+            };
+
+            $recordId = $request->integer('id');
+
+            return Inertia::render(
+                'Finance/Index',
+                [
+                    'financeView' => $financeView,
+                    'recordId' => $recordId > 0
+                        ? $recordId
+                        : null,
+                ],
+            );
+        },
+    )->name('app.finance');
+
+    /*
+     * Preserve legacy finance URLs for bookmarks and old notifications while
+     * keeping the product experience inside one Finance Center page.
+     */
+    Route::get(
         '/app/invoices',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'sales-list']),
+        fn () => redirect('/app/finance?view=sales'),
     )->name('app.invoices');
 
     Route::get(
         '/app/invoices/sales/create',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'sales-create']),
+        fn () => redirect('/app/finance?view=sales-create'),
     )->name('app.invoices.sales.create');
 
     Route::get(
         '/app/invoices/sales/{document}',
-        fn (string $document) => Inertia::render('Finance/Index', ['financeView' => 'sales-detail', 'recordId' => (int) $document]),
+        fn (string $document) => redirect('/app/finance?view=sales-detail&id='.$document),
     )->whereNumber('document')->name('app.invoices.sales.show');
 
     Route::get(
         '/app/invoices/purchases',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'purchase-list']),
+        fn () => redirect('/app/finance?view=purchases'),
     )->name('app.invoices.purchases');
 
     Route::get(
         '/app/invoices/purchases/create',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'purchase-create']),
+        fn () => redirect('/app/finance?view=purchase-create'),
     )->name('app.invoices.purchases.create');
 
     Route::get(
         '/app/invoices/purchases/{document}',
-        fn (string $document) => Inertia::render('Finance/Index', ['financeView' => 'purchase-detail', 'recordId' => (int) $document]),
+        fn (string $document) => redirect('/app/finance?view=purchase-detail&id='.$document),
     )->whereNumber('document')->name('app.invoices.purchases.show');
 
     Route::get(
@@ -306,37 +346,37 @@ Route::middleware([
 
     Route::get(
         '/app/payments',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'payment-list']),
+        fn () => redirect('/app/finance?view=payments'),
     )->name('app.payments');
 
     Route::get(
         '/app/payments/create',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'payment-create']),
+        fn () => redirect('/app/finance?view=payment-create'),
     )->name('app.payments.create');
 
     Route::get(
         '/app/payments/{movement}',
-        fn (string $movement) => Inertia::render('Finance/Index', ['financeView' => 'payment-detail', 'recordId' => (int) $movement]),
+        fn (string $movement) => redirect('/app/finance?view=payment-detail&id='.$movement),
     )->whereNumber('movement')->name('app.payments.show');
 
     Route::get(
         '/app/receipts',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'receipt-list']),
+        fn () => redirect('/app/finance?view=receipts'),
     )->name('app.receipts');
 
     Route::get(
         '/app/receipts/create',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'receipt-create']),
+        fn () => redirect('/app/finance?view=receipt-create'),
     )->name('app.receipts.create');
 
     Route::get(
         '/app/receipts/{movement}',
-        fn (string $movement) => Inertia::render('Finance/Index', ['financeView' => 'receipt-detail', 'recordId' => (int) $movement]),
+        fn (string $movement) => redirect('/app/finance?view=receipt-detail&id='.$movement),
     )->whereNumber('movement')->name('app.receipts.show');
 
     Route::get(
         '/app/finance/taxes',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'taxes']),
+        fn () => redirect('/app/finance?view=taxes'),
     )->name('app.finance.taxes');
 
     Route::get(
