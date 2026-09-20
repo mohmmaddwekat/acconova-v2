@@ -16,6 +16,7 @@ import {
     Factory,
     Gauge,
     HandCoins,
+    Landmark,
     ListTodo,
     PanelLeftClose,
     PanelLeftOpen,
@@ -361,6 +362,35 @@ export function CommandRail({
         );
     }
 
+    const canViewTaxes =
+        customPermissions
+            ? customPermissions.includes(
+                  'finance.taxes.view',
+              )
+            : builtinFinanceAccess;
+
+    if (canViewTaxes) {
+        navigationItems.push({
+            label:
+                locale ===
+                'ar'
+                    ? 'الضرائب والمستحقات'
+                    : 'Taxes & Obligations',
+
+            description:
+                locale ===
+                'ar'
+                    ? 'القواعد الضريبية والجهات الحكومية'
+                    : 'Tax rules & government dues',
+
+            href:
+                '/app/finance/taxes',
+
+            icon:
+                Landmark,
+        });
+    }
+
     navigationItems.push({
         label:
             t(
@@ -441,6 +471,9 @@ export function CommandRail({
 
         '/app/inventory/production':
             'inventory.view',
+
+        '/app/finance/taxes':
+            'finance.taxes.view',
     };
 
     const visibleItems =
