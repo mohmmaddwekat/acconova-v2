@@ -61,6 +61,8 @@ function emptyLine(
         unit_price: '0',
         price_status: 'final',
         discount_percent: '0',
+        discount_type: 'percent',
+        discount_value: '0',
         tax_rate: '0',
         affects_inventory: false,
     };
@@ -243,6 +245,13 @@ export function DocumentForm({
                     index,
                 ) => ({
                     ...line,
+                    discount_type:
+                        line.discount_type
+                        ?? 'percent',
+                    discount_value:
+                        line.discount_value
+                        ?? line.discount_percent
+                        ?? '0',
                     client_id:
                         'existing-'
                         + String(
@@ -607,9 +616,10 @@ export function DocumentForm({
                                 )
                                 || 0;
 
-                            const discountPercent =
+                            const discountValue =
                                 Number(
-                                    line.discount_percent,
+                                    line.discount_value
+                                    ?? line.discount_percent,
                                 )
                                 || 0;
 
@@ -624,11 +634,26 @@ export function DocumentForm({
                                 * price;
 
                             const discount =
-                                subtotal
-                                * (
-                                    discountPercent
-                                    / 100
-                                );
+                                line.discount_type ===
+                                'fixed'
+                                    ? Math.min(
+                                        Math.max(
+                                            discountValue,
+                                            0,
+                                        ),
+                                        subtotal,
+                                    )
+                                    : subtotal
+                                        * (
+                                            Math.min(
+                                                Math.max(
+                                                    discountValue,
+                                                    0,
+                                                ),
+                                                100,
+                                            )
+                                            / 100
+                                        );
 
                             const taxable =
                                 Math.max(
@@ -892,7 +917,13 @@ export function DocumentForm({
                         price_status:
                             line.price_status,
                         discount_percent:
-                            line.discount_percent,
+                            line.discount_type === 'percent'
+                                ? line.discount_value
+                                : '0',
+                        discount_type:
+                            line.discount_type,
+                        discount_value:
+                            line.discount_value,
                         tax_rate:
                             line.tax_rate,
                         affects_inventory:
@@ -1922,7 +1953,7 @@ export function DocumentForm({
                                             </div>
 
                                             <div className="space-y-4 p-4 sm:p-5">
-                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(260px,2.2fr)_110px_120px_minmax(170px,1fr)]">
+                                                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(280px,2.2fr)_120px_140px_minmax(190px,1fr)]">
                                                     <label className="text-[11px] font-semibold text-[#58739a]">
                                                         {text(
                                                             'المنتج / الخدمة',
@@ -2052,39 +2083,36 @@ export function DocumentForm({
 
                                                     <label className="text-[11px] font-semibold text-[#58739a]">
                                                         {text(
-                                                            'سعر الوحدة *',
-                                                            'Unit price *',
+                                                            'سعر الوحدة',
+                                                            'Unit price',
                                                         )}
+                                                        {' ('}
+                                                        {currency}
+                                                        {') *'}
 
-                                                        <div className="relative mt-2">
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.0001"
-                                                                dir="ltr"
-                                                                className={
-                                                                    financeInput
-                                                                    + ' pe-14 text-start font-bold text-[#123d78]'
-                                                                }
-                                                                value={
-                                                                    line.unit_price
-                                                                }
-                                                                onChange={
-                                                                    event =>
-                                                                        changeLine(
-                                                                            line.client_id,
-                                                                            {
-                                                                                unit_price:
-                                                                                    event.target.value,
-                                                                            },
-                                                                        )
-                                                                }
-                                                            />
-
-                                                            <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[#7890b1]">
-                                                                {currency}
-                                                            </span>
-                                                        </div>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.0001"
+                                                            dir="ltr"
+                                                            className={
+                                                                financeInput
+                                                                + ' mt-2 text-start font-bold text-[#123d78]'
+                                                            }
+                                                            value={
+                                                                line.unit_price
+                                                            }
+                                                            onChange={
+                                                                event =>
+                                                                    changeLine(
+                                                                        line.client_id,
+                                                                        {
+                                                                            unit_price:
+                                                                                event.target.value,
+                                                                        },
+                                                                    )
+                                                            }
+                                                        />
                                                     </label>
                                                 </div>
 
@@ -2238,7 +2266,7 @@ export function DocumentForm({
                                                     </label>
                                                 )}
 
-                                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                                <div className="grid grid-cols-2 gap-2 2xl:grid-cols-4">
                                                     {[
                                                         [
                                                             text(
@@ -2327,37 +2355,125 @@ export function DocumentForm({
                                                         />
                                                     </summary>
 
-                                                    <div className="grid gap-4 border-t border-[#eaf0f8] p-4 md:grid-cols-2 xl:grid-cols-4">
-                                                        <label className="text-[11px] font-semibold text-[#58739a]">
-                                                            {text(
-                                                                'خصم % (اختياري)',
-                                                                'Discount % (optional)',
-                                                            )}
+                                                    <div className="grid gap-4 border-t border-[#eaf0f8] p-4 md:grid-cols-2 2xl:grid-cols-4">
+                                                        <div className="rounded-[13px] border border-[#e5edf7] bg-white p-3 md:col-span-2 2xl:col-span-1">
+                                                            <p className="text-[11px] font-semibold text-[#58739a]">
+                                                                {text(
+                                                                    'الخصم (اختياري)',
+                                                                    'Discount (optional)',
+                                                                )}
+                                                            </p>
 
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                max="100"
-                                                                step="0.01"
-                                                                className={
-                                                                    financeInput
-                                                                    + ' mt-2'
-                                                                }
-                                                                value={
-                                                                    line.discount_percent
-                                                                }
-                                                                onChange={
-                                                                    event =>
-                                                                        changeLine(
-                                                                            line.client_id,
-                                                                            {
-                                                                                discount_percent:
-                                                                                    event.target.value,
-                                                                            },
-                                                                        )
-                                                                }
-                                                            />
-                                                        </label>
+                                                            <div className="mt-2 grid grid-cols-2 gap-1 rounded-[10px] bg-[#f3f7fc] p-1">
+                                                                {(
+                                                                    [
+                                                                        [
+                                                                            'percent',
+                                                                            text(
+                                                                                'نسبة %',
+                                                                                'Percent %',
+                                                                            ),
+                                                                        ],
+                                                                        [
+                                                                            'fixed',
+                                                                            text(
+                                                                                'مبلغ ثابت',
+                                                                                'Fixed amount',
+                                                                            ),
+                                                                        ],
+                                                                    ] as const
+                                                                ).map(
+                                                                    ([value, label]) => (
+                                                                        <button
+                                                                            key={value}
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                changeLine(
+                                                                                    line.client_id,
+                                                                                    {
+                                                                                        discount_type:
+                                                                                            value,
+                                                                                        discount_value:
+                                                                                            '0',
+                                                                                        discount_percent:
+                                                                                            '0',
+                                                                                    },
+                                                                                )
+                                                                            }
+                                                                            className={[
+                                                                                'rounded-[8px] px-2.5 py-2 text-[10px] font-bold transition',
+                                                                                line.discount_type ===
+                                                                                value
+                                                                                    ? 'bg-white text-[#1265d8] shadow-sm'
+                                                                                    : 'text-[#7890b1] hover:text-[#49698f]',
+                                                                            ].join(' ')}
+                                                                        >
+                                                                            {label}
+                                                                        </button>
+                                                                    ),
+                                                                )}
+                                                            </div>
+
+                                                            <label className="mt-3 block text-[10px] font-semibold text-[#7890b1]">
+                                                                {line.discount_type ===
+                                                                'fixed'
+                                                                    ? text(
+                                                                        'قيمة الخصم',
+                                                                        'Discount amount',
+                                                                    )
+                                                                    : text(
+                                                                        'نسبة الخصم',
+                                                                        'Discount percent',
+                                                                    )}
+
+                                                                <div className="mt-1 flex items-stretch">
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        max={
+                                                                            line.discount_type ===
+                                                                            'percent'
+                                                                                ? 100
+                                                                                : (
+                                                                                    row?.subtotal
+                                                                                    ?? undefined
+                                                                                )
+                                                                        }
+                                                                        step="0.01"
+                                                                        dir="ltr"
+                                                                        className={
+                                                                            financeInput
+                                                                            + ' !mt-0 min-w-0 flex-1 rounded-e-none text-start'
+                                                                        }
+                                                                        value={
+                                                                            line.discount_value
+                                                                        }
+                                                                        onChange={
+                                                                            event =>
+                                                                                changeLine(
+                                                                                    line.client_id,
+                                                                                    {
+                                                                                        discount_value:
+                                                                                            event.target.value,
+                                                                                        discount_percent:
+                                                                                            line.discount_type ===
+                                                                                            'percent'
+                                                                                                ? event.target.value
+                                                                                                : '0',
+                                                                                    },
+                                                                                )
+                                                                        }
+                                                                    />
+
+                                                                    <span className="flex min-w-14 items-center justify-center rounded-e-[12px] border border-s-0 border-[#dbe6f5] bg-[#f8fbff] px-3 text-[10px] font-bold text-[#58739a]">
+                                                                        {line.discount_type ===
+                                                                        'fixed'
+                                                                            ? currency
+                                                                            : '%'}
+                                                                    </span>
+                                                                </div>
+                                                            </label>
+                                                        </div>
 
                                                         <label className="text-[11px] font-semibold text-[#58739a]">
                                                             {text(
