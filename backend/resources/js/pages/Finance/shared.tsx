@@ -130,10 +130,19 @@ export function Money({
     compact?: boolean;
 }) {
     const number = Number(value || 0);
+    const configuredDecimals =
+        typeof document !== 'undefined'
+            ? Number(document.documentElement.dataset.acFinanceDecimals)
+            : 2;
+    const decimals = Number.isInteger(configuredDecimals)
+        ? Math.min(Math.max(configuredDecimals, 1), 10)
+        : 2;
+
     return (
         <bdi className={compact ? 'text-xs' : undefined}>
             {new Intl.NumberFormat(undefined, {
-                maximumFractionDigits: 4,
+                minimumFractionDigits: 0,
+                maximumFractionDigits: decimals,
             }).format(number)}
             {currency ? ' ' + currency : ''}
         </bdi>
