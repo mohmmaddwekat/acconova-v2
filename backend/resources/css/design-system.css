@@ -1339,4 +1339,60 @@ html[data-ac-resolved-theme='dark'] .ac-settings-paper {
         * {
         color-scheme: light !important;
     }
+
+    /*
+     * Dark-mode compatibility rules also exist during print. Re-establish a
+     * real paper palette here so a dark application never prints pale text on
+     * white paper.
+     */
+    html[data-ac-resolved-theme='dark']
+        :is(.ac-invoice-print, .ac-voucher-print)
+        :is(
+            .text-slate-950,
+            .text-slate-900,
+            .text-slate-800,
+            .text-slate-700,
+            .text-slate-600,
+            .text-gray-950,
+            .text-gray-900,
+            .text-gray-800,
+            [class*="text-[#0"],
+            [class*="text-[#1"],
+            [class*="text-[#2"],
+            [class*="text-[#3"]
+        ) {
+        color: #1f2937 !important;
+    }
+
+    html[data-ac-resolved-theme='dark']
+        :is(.ac-invoice-print, .ac-voucher-print)
+        :is(
+            .text-slate-500,
+            .text-slate-400,
+            .text-slate-300,
+            .text-gray-500,
+            .text-gray-400,
+            .text-gray-300
+        ) {
+        color: #64748b !important;
+    }
+
+    html[data-ac-resolved-theme='dark']
+        :is(.ac-invoice-print, .ac-voucher-print)
+        :is(.bg-slate-50, .bg-slate-100, .bg-gray-50, .bg-gray-100) {
+        background-color: #f8fafc !important;
+    }
+
+    html[data-ac-resolved-theme='dark']
+        :is(.ac-invoice-print, .ac-voucher-print)
+        :is(
+            .border-slate-100,
+            .border-slate-200,
+            .border-slate-300,
+            .border-gray-100,
+            .border-gray-200,
+            .border-gray-300
+        ) {
+        border-color: #e2e8f0 !important;
+    }
 }
