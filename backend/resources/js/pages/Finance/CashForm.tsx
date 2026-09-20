@@ -354,6 +354,30 @@ export function CashForm({
             return;
         }
 
+        if (
+            post
+            && ! window.confirm(
+                text(
+                    (incoming ? 'تأكيد القبض: ' : 'تأكيد الدفع: ')
+                    + new Intl.NumberFormat().format(Number(amount) || 0)
+                    + ' '
+                    + currency
+                    + ' بطريقة '
+                    + method
+                    + '. بعد الاعتماد لن يتم تعديل الحركة بصمت؛ أي خطأ لاحق يحتاج عكساً أو تصحيحاً موثقاً. هل راجعت المبلغ؟',
+                    (incoming ? 'Confirm receipt: ' : 'Confirm payment: ')
+                    + new Intl.NumberFormat().format(Number(amount) || 0)
+                    + ' '
+                    + currency
+                    + ' via '
+                    + method
+                    + '. After posting, the movement cannot be silently edited; later mistakes require a documented reversal or correction. Did you review the amount?',
+                ),
+            )
+        ) {
+            return;
+        }
+
         setBusy(true);
         setError('');
 
