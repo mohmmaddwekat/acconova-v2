@@ -83,10 +83,10 @@ const field =
     'mt-2 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-sm outline-none transition focus:border-[var(--ac-accent)]';
 
 const button =
-    'inline-flex items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-white px-3.5 py-2.5 text-xs font-semibold transition hover:bg-[var(--ac-accent-soft)] disabled:opacity-50';
+    'inline-flex items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3.5 py-2.5 text-xs font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] disabled:opacity-50';
 
 const primaryButton =
-    'inline-flex items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-text)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50';
+    'inline-flex items-center justify-center gap-2 rounded-[13px] bg-[var(--ac-accent-solid)] px-4 py-2.5 text-sm font-semibold text-[var(--ac-accent-solid-text)] hover:bg-[var(--ac-accent-hover)] disabled:opacity-50';
 
 /**
  * Format a local date without UTC conversion.
