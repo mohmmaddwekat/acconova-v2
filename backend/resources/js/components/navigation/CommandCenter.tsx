@@ -10,6 +10,7 @@ import {
     Boxes,
     Command,
     HandCoins,
+    ListTodo,
     PackagePlus,
     Plus,
     ReceiptText,
@@ -44,6 +45,51 @@ type StaffSearchResponse = {
             name: string;
             job_title: string | null;
             email: string | null;
+        }>;
+    };
+};
+
+type FinanceSearchResponse = {
+    data: Array<{
+        id: number;
+        number: string;
+        kind: 'sale_invoice' | 'purchase_invoice';
+        status: string;
+        party: {
+            id: number;
+            name: string;
+        } | null;
+        total: string;
+        currency: string;
+    }>;
+};
+
+type CashSearchResponse = {
+    data: Array<{
+        id: number;
+        number: string;
+        direction: 'incoming' | 'outgoing';
+        status: string;
+        party: {
+            id: number;
+            name: string;
+        } | null;
+        amount: string;
+        currency: string;
+    }>;
+};
+
+type TaskSearchResponse = {
+    data: {
+        data: Array<{
+            id: number;
+            title: string;
+            status: string;
+            priority: string;
+            project: {
+                id: number;
+                name: string;
+            } | null;
         }>;
     };
 };
@@ -102,6 +148,14 @@ export function CommandCenter() {
             detail: text('فتح فواتير الموردين', 'Open supplier invoices'),
             href: '/app/invoices/purchases',
             icon: ShoppingCart,
+            kind: 'module',
+        },
+        {
+            key: 'tasks',
+            label: text('إدارة المهام', 'Task management'),
+            detail: text('المهام والمشاريع وعبء العمل', 'Tasks, projects and workload'),
+            href: '/app/task-management',
+            icon: ListTodo,
             kind: 'module',
         },
         {
@@ -169,6 +223,14 @@ export function CommandCenter() {
             detail: text('تحصيل عميل أو دفعة مقدمة', 'Customer collection or advance'),
             href: '/app/receipts/create',
             icon: HandCoins,
+            kind: 'module',
+        },
+        {
+            key: 'create-task',
+            label: text('مهمة جديدة', 'New task'),
+            detail: text('إنشاء مهمة وتعيين المسؤولين', 'Create a task and assign owners'),
+            href: '/app/task-management/create',
+            icon: ListTodo,
             kind: 'module',
         },
         {
@@ -254,6 +316,34 @@ export function CommandCenter() {
                         signal: controller.signal,
                     },
                 ),
+                apiRequest<FinanceSearchResponse>(
+                    '/api/finance/documents?kind=sale_invoice&per_page=10&search='
+                    + encodeURIComponent(query),
+                    {
+                        signal: controller.signal,
+                    },
+                ),
+                apiRequest<FinanceSearchResponse>(
+                    '/api/finance/documents?kind=purchase_invoice&per_page=10&search='
+                    + encodeURIComponent(query),
+                    {
+                        signal: controller.signal,
+                    },
+                ),
+                apiRequest<CashSearchResponse>(
+                    '/api/finance/cash-movements?per_page=10&search='
+                    + encodeURIComponent(query),
+                    {
+                        signal: controller.signal,
+                    },
+                ),
+                apiRequest<TaskSearchResponse>(
+                    '/api/task-management/search?per_page=10&search='
+                    + encodeURIComponent(query),
+                    {
+                        signal: controller.signal,
+                    },
+                ),
             ]).then((results) => {
                 if (controller.signal.aborted) {
                     return;
@@ -318,6 +408,84 @@ export function CommandCenter() {
                             href: '/app/staff/directory?staff=' + String(member.id),
                             icon: UserPlus,
                             kind: 'staff',
+                        });
+                    });
+                }
+
+                const salesDocuments = results[3];
+                if (salesDocuments.status === 'fulfilled') {
+                    salesDocuments.value.data.forEach((document) => {
+                        hits.push({
+                            key: 'sale-' + String(document.id),
+                            label: document.number,
+                            detail: [
+                                text('فاتورة بيع', 'Sales invoice'),
+                                document.party?.name,
+                                document.total + ' ' + document.currency,
+                            ].filter(Boolean).join(' · '),
+                            href: '/app/invoices/sales/' + String(document.id),
+                            icon: ReceiptText,
+                            kind: 'module',
+                        });
+                    });
+                }
+
+                const purchaseDocuments = results[4];
+                if (purchaseDocuments.status === 'fulfilled') {
+                    purchaseDocuments.value.data.forEach((document) => {
+                        hits.push({
+                            key: 'purchase-' + String(document.id),
+                            label: document.number,
+                            detail: [
+                                text('فاتورة شراء', 'Purchase invoice'),
+                                document.party?.name,
+                                document.total + ' ' + document.currency,
+                            ].filter(Boolean).join(' · '),
+                            href: '/app/invoices/purchases/' + String(document.id),
+                            icon: ShoppingCart,
+                            kind: 'module',
+                        });
+                    });
+                }
+
+                const cashMovements = results[5];
+                if (cashMovements.status === 'fulfilled') {
+                    cashMovements.value.data.forEach((movement) => {
+                        hits.push({
+                            key: 'cash-' + String(movement.id),
+                            label: movement.number,
+                            detail: [
+                                movement.direction === 'incoming'
+                                    ? text('مقبوض', 'Receipt')
+                                    : text('دفعة', 'Payment'),
+                                movement.party?.name,
+                                movement.amount + ' ' + movement.currency,
+                            ].filter(Boolean).join(' · '),
+                            href: movement.direction === 'incoming'
+                                ? '/app/receipts/' + String(movement.id)
+                                : '/app/payments/' + String(movement.id),
+                            icon: movement.direction === 'incoming'
+                                ? HandCoins
+                                : Banknote,
+                            kind: 'module',
+                        });
+                    });
+                }
+
+                const tasks = results[6];
+                if (tasks.status === 'fulfilled') {
+                    tasks.value.data.data.forEach((task) => {
+                        hits.push({
+                            key: 'task-' + String(task.id),
+                            label: task.title,
+                            detail: [
+                                text('مهمة', 'Task'),
+                                task.project?.name,
+                                task.status,
+                            ].filter(Boolean).join(' · '),
+                            href: '/app/task-management/' + String(task.id),
+                            icon: ListTodo,
+                            kind: 'module',
                         });
                     });
                 }
