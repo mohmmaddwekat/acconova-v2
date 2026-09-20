@@ -20,7 +20,6 @@ import {
     Building2,
     CalendarDays,
     Check,
-    ChevronRight,
     CircleDollarSign,
     Database,
     Eye,
@@ -32,7 +31,6 @@ import {
     LockKeyhole,
     Moon,
     Palette,
-    ReceiptText,
     Save,
     Settings2,
     ShieldCheck,
@@ -52,12 +50,8 @@ import {
 
 type WorkspacePreferences = {
     name: string;
-    country_code: string | null;
-    tax_number: string | null;
     currency: string;
     reminder_days: number;
-    default_payment_terms_days: number;
-    fiscal_year_start_month: number;
     can_manage: boolean;
 };
 
@@ -403,23 +397,10 @@ function SettingsWorkspace() {
                 {
                     method: 'PATCH',
                     body: JSON.stringify({
-                        name: String(data.name ?? '').trim(),
-                        country_code:
-                            String(data.country_code ?? '')
-                                .trim()
-                                .toUpperCase() || null,
-                        tax_number:
-                            String(data.tax_number ?? '').trim() || null,
                         currency: String(data.currency ?? '')
                             .trim()
                             .toUpperCase(),
                         reminder_days: Number(data.reminder_days),
-                        default_payment_terms_days: Number(
-                            data.default_payment_terms_days,
-                        ),
-                        fiscal_year_start_month: Number(
-                            data.fiscal_year_start_month,
-                        ),
                     }),
                 },
             );
@@ -427,8 +408,8 @@ function SettingsWorkspace() {
             setWorkspacePreferences(saved);
             setMessage(
                 text(
-                    'تم حفظ إعدادات المؤسسة.',
-                    'Organization settings saved.',
+                    'تم حفظ الإعدادات.',
+                    'Settings saved.',
                 ),
             );
 
@@ -440,8 +421,8 @@ function SettingsWorkspace() {
                 errorText(
                     failure,
                     text(
-                        'تعذر حفظ إعدادات المؤسسة.',
-                        'Could not save organization settings.',
+                        'تعذر حفظ الإعدادات.',
+                        'Could not save settings.',
                     ),
                 ),
             );
@@ -536,20 +517,7 @@ function SettingsWorkspace() {
         }
     }, []);
 
-    const fiscalMonths = [
-        text('يناير', 'January'),
-        text('فبراير', 'February'),
-        text('مارس', 'March'),
-        text('أبريل', 'April'),
-        text('مايو', 'May'),
-        text('يونيو', 'June'),
-        text('يوليو', 'July'),
-        text('أغسطس', 'August'),
-        text('سبتمبر', 'September'),
-        text('أكتوبر', 'October'),
-        text('نوفمبر', 'November'),
-        text('ديسمبر', 'December'),
-    ];
+
 
     return (
         <AppShell>
@@ -677,9 +645,15 @@ function SettingsWorkspace() {
                         </div>
                     )}
 
-                    <div className="grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-                        <aside className="lg:sticky lg:top-5">
-                            <nav className={panel + ' overflow-hidden p-2'}>
+                    <div className="space-y-4">
+                        <nav
+                            aria-label={text(
+                                'أقسام الإعدادات',
+                                'Settings sections',
+                            )}
+                            className="rounded-[18px] border border-[var(--ac-line)] bg-white p-2 shadow-[var(--ac-shadow-soft)]"
+                        >
+                            <div className="flex gap-2 overflow-x-auto pb-1">
                                 {sections.map(item => {
                                     const Icon = item.icon;
                                     const active = section === item.key;
@@ -693,62 +667,48 @@ function SettingsWorkspace() {
                                                 setError('');
                                                 setMessage('');
                                             }}
+                                            aria-pressed={active}
                                             className={[
-                                                'flex w-full items-center gap-3 rounded-[14px] px-3 py-3 text-start transition',
+                                                'group flex min-w-max items-center gap-2.5 rounded-[13px] px-3.5 py-2.5 text-start transition',
                                                 active
-                                                    ? 'bg-[var(--ac-surface-strong)] text-[var(--ac-text)]'
-                                                    : 'text-[var(--ac-text-soft)] hover:bg-[var(--ac-bg-soft)]',
+                                                    ? 'bg-[var(--ac-text)] text-white shadow-[var(--ac-shadow-soft)]'
+                                                    : 'text-[var(--ac-text-soft)] hover:bg-[var(--ac-surface-soft)]',
                                             ].join(' ')}
                                         >
                                             <span
                                                 className={[
-                                                    'flex size-9 shrink-0 items-center justify-center rounded-[12px]',
+                                                    'flex size-8 shrink-0 items-center justify-center rounded-[10px] transition',
                                                     active
-                                                        ? 'bg-white text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]'
-                                                        : 'bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]',
+                                                        ? 'bg-white/12 text-white'
+                                                        : 'bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)] group-hover:text-[var(--ac-accent-strong)]',
                                                 ].join(' ')}
                                             >
-                                                <Icon size={16} />
+                                                <Icon size={15} />
                                             </span>
 
-                                            <span className="min-w-0 flex-1">
-                                                <strong className="block text-xs">
+                                            <span>
+                                                <strong className="block text-[11px] font-semibold">
                                                     {item.title}
                                                 </strong>
-                                                <span className="mt-0.5 block truncate text-[10px] text-[var(--ac-text-muted)]">
+                                                <span
+                                                    className={[
+                                                        'mt-0.5 hidden text-[9px] sm:block',
+                                                        active
+                                                            ? 'text-white/60'
+                                                            : 'text-[var(--ac-text-muted)]',
+                                                    ].join(' ')}
+                                                >
                                                     {item.description}
                                                 </span>
                                             </span>
-
-                                            <ChevronRight
-                                                size={14}
-                                                className="shrink-0 rtl:rotate-180"
-                                            />
                                         </button>
                                     );
                                 })}
-                            </nav>
-
-                            <div className="mt-3 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-text)] p-4 text-white">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
-                                    AccoNova
-                                </p>
-                                <p className="mt-2 text-xs font-semibold">
-                                    {text(
-                                        'إعدادات قابلة للتوسع مع نمو الشركة.',
-                                        'Settings designed to scale with your company.',
-                                    )}
-                                </p>
-                                <p className="mt-2 text-[10px] leading-5 text-white/60">
-                                    {text(
-                                        'غيّر الإعداد مرة واحدة بدل تكراره في كل شاشة.',
-                                        'Configure once instead of repeating choices on every screen.',
-                                    )}
-                                </p>
                             </div>
-                        </aside>
+                        </nav>
 
                         <section className="min-w-0 space-y-4">
+
                             <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-end sm:justify-between">
                                 <div>
                                     <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
@@ -776,306 +736,158 @@ function SettingsWorkspace() {
                             </div>
 
                             {section === 'organization' && (
-                                <form onSubmit={saveWorkspace} className="space-y-4">
-                                    <Card
-                                        title={text(
-                                            'هوية المؤسسة',
-                                            'Organization profile',
-                                        )}
-                                        description={text(
-                                            'الاسم والبلد والرقم الضريبي تظهر كأساس للبيانات المالية والإدارية.',
-                                            'Core company identity used across financial and administrative workflows.',
-                                        )}
-                                        icon={Building2}
-                                    >
-                                        <div className="grid gap-4 sm:grid-cols-2">
-                                            <label className="text-xs font-semibold">
-                                                {text(
-                                                    'اسم المؤسسة *',
-                                                    'Organization name *',
-                                                )}
-                                                <input
-                                                    name="name"
-                                                    required
-                                                    maxLength={160}
-                                                    disabled={
-                                                        busy
-                                                        || !workspacePreferences?.can_manage
-                                                    }
-                                                    defaultValue={
-                                                        workspacePreferences?.name
-                                                        ?? ''
-                                                    }
-                                                    className={input}
-                                                />
-                                            </label>
+                                <div className="space-y-4">
+                                    <div className="rounded-[20px] border border-[var(--ac-line)] bg-white px-5 py-5 shadow-[var(--ac-shadow-soft)] sm:px-6">
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <span className="flex size-11 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
+                                                    <Building2 size={19} />
+                                                </span>
+                                                <div>
+                                                    <h3 className="text-sm font-bold">
+                                                        {text(
+                                                            'ملف المؤسسة',
+                                                            'Organization profile',
+                                                        )}
+                                                    </h3>
+                                                    <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
+                                                        {text(
+                                                            'هوية مساحة العمل ومعلومات الشركة الأساسية.',
+                                                            'Workspace identity and core company information.',
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
 
-                                            <label className="text-xs font-semibold">
+                                            <StatusPill>
                                                 {text(
-                                                    'رمز البلد ISO (اختياري)',
-                                                    'Country code ISO (optional)',
+                                                    'نشطة',
+                                                    'Active',
                                                 )}
-                                                <input
-                                                    name="country_code"
-                                                    maxLength={2}
-                                                    dir="ltr"
-                                                    placeholder="PS"
-                                                    disabled={
-                                                        busy
-                                                        || !workspacePreferences?.can_manage
-                                                    }
-                                                    defaultValue={
-                                                        workspacePreferences?.country_code
-                                                        ?? ''
-                                                    }
-                                                    className={input}
-                                                />
-                                            </label>
-
-                                            <label className="text-xs font-semibold sm:col-span-2">
-                                                {text(
-                                                    'الرقم الضريبي / رقم التسجيل (اختياري)',
-                                                    'Tax / registration number (optional)',
-                                                )}
-                                                <input
-                                                    name="tax_number"
-                                                    maxLength={80}
-                                                    dir="ltr"
-                                                    disabled={
-                                                        busy
-                                                        || !workspacePreferences?.can_manage
-                                                    }
-                                                    defaultValue={
-                                                        workspacePreferences?.tax_number
-                                                        ?? ''
-                                                    }
-                                                    className={input}
-                                                />
-                                            </label>
+                                            </StatusPill>
                                         </div>
-                                    </Card>
 
-                                    <Card
-                                        title={text(
-                                            'إدارة المؤسسة',
-                                            'Organization management',
-                                        )}
-                                        description={text(
-                                            'أدوات الإدارة اليومية منفصلة عن تفضيلات العرض الشخصية.',
-                                            'Operational administration stays separate from personal display preferences.',
-                                        )}
-                                        icon={UsersRound}
-                                    >
-                                        <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                            <div className="rounded-[15px] bg-[var(--ac-surface-soft)] p-4">
+                                                <p className="text-[10px] text-[var(--ac-text-muted)]">
+                                                    {text(
+                                                        'اسم المؤسسة',
+                                                        'Organization name',
+                                                    )}
+                                                </p>
+                                                <p className="mt-2 text-sm font-semibold">
+                                                    {workspacePreferences?.name
+                                                        ?? activeOrganization?.name
+                                                        ?? '—'}
+                                                </p>
+                                            </div>
+
+                                            <div className="rounded-[15px] bg-[var(--ac-surface-soft)] p-4">
+                                                <p className="text-[10px] text-[var(--ac-text-muted)]">
+                                                    {text(
+                                                        'الدور الحالي',
+                                                        'Current role',
+                                                    )}
+                                                </p>
+                                                <p className="mt-2 text-sm font-semibold capitalize">
+                                                    {activeOrganization?.role ?? '—'}
+                                                </p>
+                                            </div>
+
+                                            <div className="rounded-[15px] bg-[var(--ac-surface-soft)] p-4">
+                                                <p className="text-[10px] text-[var(--ac-text-muted)]">
+                                                    {text(
+                                                        'العملة',
+                                                        'Currency',
+                                                    )}
+                                                </p>
+                                                <p className="mt-2 text-sm font-semibold" dir="ltr">
+                                                    {workspacePreferences?.currency ?? '—'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-4 lg:grid-cols-2">
+                                        <Card
+                                            title={text(
+                                                'الفريق',
+                                                'Team',
+                                            )}
+                                            description={text(
+                                                'إدارة أعضاء المؤسسة والموظفين من مكانهم المخصص.',
+                                                'Manage organization members and staff in their dedicated workspace.',
+                                            )}
+                                            icon={UsersRound}
+                                        >
                                             <Link
                                                 href="/app/staff"
-                                                className="group rounded-[17px] border border-[var(--ac-line)] p-4 transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-surface-soft)]"
+                                                className={button}
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <span className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
-                                                        <UsersRound size={17} />
-                                                    </span>
-                                                    <div>
-                                                        <strong className="text-xs">
-                                                            {text(
-                                                                'الفريق',
-                                                                'Team',
-                                                            )}
-                                                        </strong>
-                                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
-                                                            {text(
-                                                                'الموظفون والحضور والرواتب',
-                                                                'Staff, attendance and payroll',
-                                                            )}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                                <UsersRound size={15} />
+                                                {text(
+                                                    'فتح إدارة الفريق',
+                                                    'Open team management',
+                                                )}
                                             </Link>
+                                        </Card>
 
+                                        <Card
+                                            title={text(
+                                                'الأدوار والصلاحيات',
+                                                'Roles & permissions',
+                                            )}
+                                            description={text(
+                                                'تحكم بمن يستطيع رؤية أو تعديل كل جزء من النظام.',
+                                                'Control who can view or change each part of the system.',
+                                            )}
+                                            icon={ShieldCheck}
+                                        >
                                             <Link
                                                 href="/app/roles"
-                                                className="group rounded-[17px] border border-[var(--ac-line)] p-4 transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-surface-soft)]"
+                                                className={button}
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <span className="flex size-10 items-center justify-center rounded-[13px] bg-violet-50 text-violet-700">
-                                                        <ShieldCheck size={17} />
-                                                    </span>
-                                                    <div>
-                                                        <strong className="text-xs">
-                                                            {text(
-                                                                'الأدوار والصلاحيات',
-                                                                'Roles & permissions',
-                                                            )}
-                                                        </strong>
-                                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
-                                                            {text(
-                                                                'تحكم بمن يستطيع رؤية أو تعديل كل قسم',
-                                                                'Control who can see or change each area',
-                                                            )}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </Link>
-                                        </div>
-                                    </Card>
-
-                                    {workspacePreferences?.can_manage ? (
-                                        <div className="sticky bottom-3 z-10 flex justify-end">
-                                            <button
-                                                type="submit"
-                                                disabled={busy || loading}
-                                                className={primary + ' shadow-lg'}
-                                            >
-                                                <Save size={15} />
+                                                <LockKeyhole size={15} />
                                                 {text(
-                                                    'حفظ إعدادات المؤسسة',
-                                                    'Save organization settings',
+                                                    'فتح الصلاحيات',
+                                                    'Open permissions',
                                                 )}
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="rounded-[15px] border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-800">
-                                            {text(
-                                                'هذه الإعدادات متاحة للعرض فقط. المالك أو المسؤول يستطيع تعديل إعدادات المؤسسة.',
-                                                'These settings are read-only. An owner or admin can update organization settings.',
-                                            )}
-                                        </div>
-                                    )}
-                                </form>
+                                            </Link>
+                                        </Card>
+                                    </div>
+                                </div>
                             )}
 
                             {section === 'finance' && workspacePreferences && (
                                 <form onSubmit={saveWorkspace} className="space-y-4">
-                                    <input
-                                        type="hidden"
-                                        name="name"
-                                        value={workspacePreferences.name}
-                                    />
-                                    <input
-                                        type="hidden"
-                                        name="country_code"
-                                        value={workspacePreferences.country_code ?? ''}
-                                    />
-                                    <input
-                                        type="hidden"
-                                        name="tax_number"
-                                        value={workspacePreferences.tax_number ?? ''}
-                                    />
-
-                                    <Card
-                                        title={text(
-                                            'العملة الأساسية',
-                                            'Base currency',
-                                        )}
-                                        description={text(
-                                            'هذه العملة تعتمد تلقائياً في الفواتير والدفعات والضرائب. لا يحتاج المستخدم لاختيارها كل مرة.',
-                                            'This currency is automatically used across invoices, cash movements and taxes.',
-                                        )}
-                                        icon={Wallet}
-                                    >
-                                        <CurrencyPicker
-                                            initial={
-                                                workspacePreferences.currency
-                                            }
-                                        />
-                                    </Card>
-
-                                    <div className="grid gap-4 xl:grid-cols-2">
+                                    <div className="grid gap-4 xl:grid-cols-[1.25fr_.75fr]">
                                         <Card
                                             title={text(
-                                                'شروط الدفع الافتراضية',
-                                                'Default payment terms',
+                                                'العملة الأساسية',
+                                                'Base currency',
                                             )}
                                             description={text(
-                                                'تحدد تلقائياً تاريخ استحقاق الفواتير الجديدة.',
-                                                'Automatically sets due dates on new invoices.',
+                                                'تُعتمد في الفواتير والمدفوعات والمقبوضات والضرائب.',
+                                                'Used across invoices, payments, receipts and taxes.',
                                             )}
-                                            icon={ReceiptText}
+                                            icon={Wallet}
                                         >
-                                            <label className="text-xs font-semibold">
-                                                {text(
-                                                    'عدد الأيام بعد تاريخ الفاتورة *',
-                                                    'Days after invoice date *',
-                                                )}
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    max={365}
-                                                    step={1}
-                                                    name="default_payment_terms_days"
-                                                    disabled={
-                                                        busy
-                                                        || !workspacePreferences.can_manage
-                                                    }
-                                                    defaultValue={
-                                                        workspacePreferences.default_payment_terms_days
-                                                    }
-                                                    className={input}
-                                                />
-                                            </label>
-
-                                            <p className="mt-3 text-[10px] leading-5 text-[var(--ac-text-muted)]">
-                                                {text(
-                                                    'مثال: 30 يعني أن الفاتورة الجديدة تستحق بعد 30 يوماً تلقائياً، ويمكن تغييرها داخل الفاتورة عند الحاجة.',
-                                                    'Example: 30 makes new invoices due in 30 days automatically; it can still be changed per invoice.',
-                                                )}
-                                            </p>
+                                            <CurrencyPicker
+                                                initial={workspacePreferences.currency}
+                                            />
                                         </Card>
 
                                         <Card
                                             title={text(
-                                                'السنة المالية',
-                                                'Fiscal year',
+                                                'التذكيرات المالية',
+                                                'Financial reminders',
                                             )}
                                             description={text(
-                                                'حدد الشهر الذي تبدأ فيه السنة المالية للمؤسسة.',
-                                                'Choose the month your organization fiscal year starts.',
+                                                'حدد متى يبدأ النظام بتنبيهك قبل الاستحقاق.',
+                                                'Choose when due-date reminders start appearing.',
                                             )}
-                                            icon={CalendarDays}
+                                            icon={Bell}
                                         >
-                                            <label className="text-xs font-semibold">
-                                                {text(
-                                                    'شهر البداية *',
-                                                    'Start month *',
-                                                )}
-                                                <select
-                                                    name="fiscal_year_start_month"
-                                                    disabled={
-                                                        busy
-                                                        || !workspacePreferences.can_manage
-                                                    }
-                                                    defaultValue={
-                                                        workspacePreferences.fiscal_year_start_month
-                                                    }
-                                                    className={input}
-                                                >
-                                                    {fiscalMonths.map(
-                                                        (month, index) => (
-                                                            <option
-                                                                key={month}
-                                                                value={index + 1}
-                                                            >
-                                                                {month}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                            </label>
-                                        </Card>
-                                    </div>
-
-                                    <Card
-                                        title={text(
-                                            'التذكيرات المالية',
-                                            'Financial reminders',
-                                        )}
-                                        description={text(
-                                            'عدد الأيام الافتراضي قبل موعد الاستحقاق لإظهار تنبيه.',
-                                            'Default lead time before due dates are flagged.',
-                                        )}
-                                        icon={Bell}
-                                    >
-                                        <div className="max-w-sm">
                                             <label className="text-xs font-semibold">
                                                 {text(
                                                     'التذكير قبل (أيام) *',
@@ -1097,15 +909,22 @@ function SettingsWorkspace() {
                                                     className={input}
                                                 />
                                             </label>
-                                        </div>
-                                    </Card>
 
-                                    {workspacePreferences.can_manage && (
-                                        <div className="sticky bottom-3 z-10 flex justify-end">
+                                            <div className="mt-4 rounded-[14px] bg-[var(--ac-surface-soft)] p-3 text-[10px] leading-5 text-[var(--ac-text-muted)]">
+                                                {text(
+                                                    'هذا الإعداد على مستوى المؤسسة، لذلك يطبّق على جميع المستخدمين.',
+                                                    'This is an organization-wide setting and applies to all users.',
+                                                )}
+                                            </div>
+                                        </Card>
+                                    </div>
+
+                                    {workspacePreferences.can_manage ? (
+                                        <div className="flex justify-end">
                                             <button
                                                 type="submit"
                                                 disabled={busy || loading}
-                                                className={primary + ' shadow-lg'}
+                                                className={primary}
                                             >
                                                 <Save size={15} />
                                                 {text(
@@ -1113,6 +932,13 @@ function SettingsWorkspace() {
                                                     'Save finance settings',
                                                 )}
                                             </button>
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                            {text(
+                                                'هذه الإعدادات للعرض فقط. المالك أو المسؤول يستطيع تعديلها.',
+                                                'These settings are read-only. An owner or admin can update them.',
+                                            )}
                                         </div>
                                     )}
                                 </form>
