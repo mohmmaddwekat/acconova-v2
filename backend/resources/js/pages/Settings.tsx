@@ -5,7 +5,7 @@ import {
     deviceSupported,
     showDeviceNotification,
 } from '@/lib/deviceNotifications';
-import { apiRequest } from '@/lib/http';
+import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import {
     applyProfilePreferences,
@@ -15,62 +15,32 @@ import {
 import type { AppPageProps } from '@/types/app';
 import { Head, Link, usePage } from '@inertiajs/react';
 import {
-    AlertTriangle,
-    AppWindow,
-    ArchiveRestore,
-    BadgeDollarSign,
     Banknote,
     Bell,
-    BookOpenCheck,
     Building2,
     CalendarDays,
     Check,
     CheckCircle2,
-    ChevronDown,
-    CircleDollarSign,
-    Cloud,
     CreditCard,
-    Database,
-    Download,
-    Eye,
-    FileCheck2,
     FileSpreadsheet,
     FileText,
-    Gauge,
     Globe2,
     Grid2X2,
-    HardDrive,
     Image,
-    KeyRound,
-    Languages,
-    LayoutDashboard,
     Link2,
-    ListChecks,
     LockKeyhole,
     Mail,
-    Monitor,
-    Moon,
-    MoreHorizontal,
     Palette,
-    PanelRight,
     Percent,
     Printer,
-    ReceiptText,
-    RefreshCw,
     Save,
-    Search,
     Settings2,
     ShieldCheck,
-    Smartphone,
-    Sparkles,
-    Sun,
+    Trash2,
     Upload,
     UserPlus,
-    UserRound,
     UsersRound,
     WalletCards,
-    Webhook,
-    Zap,
     type LucideIcon,
 } from 'lucide-react';
 import {
@@ -80,11 +50,63 @@ import {
     type ReactNode,
 } from 'react';
 
-type WorkspacePreferences = {
+type BankAccount = {
+    id: string;
+    bank_name: string;
+    account_name: string | null;
+    iban: string | null;
+    account_number: string | null;
+    is_primary: boolean;
+};
+
+type WorkspaceSettings = {
     name: string;
     currency: string;
     reminder_days: number;
     can_manage: boolean;
+    system_name: string;
+    system_description: string;
+    legal_name: string;
+    trade_name: string;
+    support_email: string;
+    phone: string;
+    commercial_registration: string;
+    vat_number: string;
+    website: string;
+    country: string;
+    city: string;
+    address: string;
+    invoice_footer: string;
+    fiscal_year_start_month: number;
+    decimal_places: number;
+    rounding_method: 'normal' | 'up' | 'down';
+    default_tax_rate: string;
+    tax_inclusive: boolean;
+    cost_method: 'moving_average' | 'fifo';
+    include_extra_costs: boolean;
+    include_shipping_cost: boolean;
+    payment_methods: string[];
+    validate_check_date: boolean;
+    post_dated_checks_pending: boolean;
+    bank_accounts: BankAccount[];
+    invoice_template: 'professional' | 'classic' | 'modern' | 'simple';
+    purchase_template: 'default';
+    receipt_template: 'default';
+    print_paper_size: 'a4' | 'letter';
+    print_margins: 'normal' | 'compact';
+    logo_position: 'start' | 'center' | 'end';
+    show_invoice_logo: boolean;
+    show_invoice_contact: boolean;
+    show_invoice_tax_number: boolean;
+    show_invoice_notes: boolean;
+    show_invoice_qr: boolean;
+    invoice_columns: string[];
+    invoice_prefix: string;
+    purchase_prefix: string;
+    receipt_prefix: string;
+    payment_prefix: string;
+    invoice_start_number: number;
+    purchase_start_number: number;
 };
 
 type SettingsSection =
@@ -109,44 +131,48 @@ const panel =
     'rounded-[18px] border border-[#dfe8f4] bg-white shadow-[0_10px_28px_rgba(30,75,140,.045)]';
 
 const input =
-    'mt-2 min-h-11 w-full rounded-[11px] border border-[#d9e5f2] bg-white px-3.5 text-sm text-[#19345f] outline-none transition placeholder:text-[#9badc5] focus:border-[#2f7df4] focus:ring-2 focus:ring-[#2f7df4]/10';
+    'mt-2 min-h-11 w-full rounded-[11px] border border-[#d9e5f2] bg-white px-3.5 text-sm text-[#19345f] outline-none transition placeholder:text-[#9badc5] focus:border-[#2f7df4] focus:ring-2 focus:ring-[#2f7df4]/10 disabled:bg-slate-50 disabled:text-slate-400';
 
 const secondaryButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[#cfe0f4] bg-white px-4 text-xs font-semibold text-[#2563c7] transition hover:bg-[#f5f9ff]';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[#cfe0f4] bg-white px-4 text-xs font-semibold text-[#2563c7] transition hover:bg-[#f5f9ff] disabled:cursor-not-allowed disabled:opacity-45';
 
 const primaryButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-[#1468ea] px-5 text-xs font-semibold text-white shadow-[0_8px_18px_rgba(20,104,234,.2)] transition hover:bg-[#0f5fd8]';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-[#1468ea] px-5 text-xs font-semibold text-white shadow-[0_8px_18px_rgba(20,104,234,.2)] transition hover:bg-[#0f5fd8] disabled:cursor-not-allowed disabled:opacity-45';
 
-const helper =
-    'mt-1 text-[10px] leading-5 text-[#8ba0bc]';
+function errorText(error: unknown, fallback: string): string {
+    if (error instanceof ApiError) {
+        return [
+            error.message,
+            ...Object.values(error.errors).flat(),
+        ].filter(Boolean).join(' ');
+    }
+
+    return error instanceof Error ? error.message : fallback;
+}
 
 function SettingsCard({
     title,
     description,
     icon: Icon,
     children,
-    className = '',
 }: {
     title: string;
     description?: string;
     icon: LucideIcon;
     children: ReactNode;
-    className?: string;
 }) {
     return (
-        <section className={panel + ' ' + className}>
-            <div className="flex items-start justify-between gap-3 border-b border-[#edf2f8] px-5 py-4">
-                <div>
-                    <h2 className="flex items-center gap-2 text-sm font-bold text-[#17386d]">
-                        <Icon size={17} className="text-[#1265d8]" />
-                        {title}
-                    </h2>
-                    {description && (
-                        <p className="mt-1 text-[10px] leading-5 text-[#899db7]">
-                            {description}
-                        </p>
-                    )}
-                </div>
+        <section className={panel}>
+            <div className="border-b border-[#edf2f8] px-5 py-4">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-[#17386d]">
+                    <Icon size={17} className="text-[#1265d8]" />
+                    {title}
+                </h2>
+                {description && (
+                    <p className="mt-1 text-[10px] leading-5 text-[#899db7]">
+                        {description}
+                    </p>
+                )}
             </div>
             <div className="p-4 sm:p-5">{children}</div>
         </section>
@@ -156,18 +182,21 @@ function SettingsCard({
 function Toggle({
     checked,
     onChange,
+    disabled = false,
 }: {
     checked: boolean;
     onChange: () => void;
+    disabled?: boolean;
 }) {
     return (
         <button
             type="button"
             role="switch"
             aria-checked={checked}
+            disabled={disabled}
             onClick={onChange}
             className={[
-                'relative h-6 w-11 shrink-0 rounded-full transition',
+                'relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40',
                 checked ? 'bg-[#1d73ec]' : 'bg-[#cbd5e1]',
             ].join(' ')}
         >
@@ -186,11 +215,13 @@ function SettingRow({
     description,
     checked,
     onChange,
+    disabled = false,
 }: {
     label: string;
     description?: string;
     checked: boolean;
     onChange: () => void;
+    disabled?: boolean;
 }) {
     return (
         <div className="flex items-center justify-between gap-4 border-b border-[#edf2f8] py-3 last:border-b-0">
@@ -202,118 +233,37 @@ function SettingRow({
                     </p>
                 )}
             </div>
-            <Toggle checked={checked} onChange={onChange} />
+            <Toggle checked={checked} onChange={onChange} disabled={disabled} />
         </div>
     );
 }
 
-function MiniSelect({
-    label,
-    children,
-    defaultValue,
-}: {
-    label: string;
-    children: ReactNode;
-    defaultValue?: string;
-}) {
-    return (
-        <label className="block text-[11px] font-semibold text-[#5e789e]">
-            {label}
-            <select defaultValue={defaultValue} className={input}>
-                {children}
-            </select>
-        </label>
-    );
-}
-
-function ThemePreview({
-    label,
-    active,
-    mode,
-    onClick,
-}: {
-    label: string;
-    active: boolean;
-    mode: 'light' | 'dark' | 'system';
-    onClick: () => void;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={[
-                'rounded-[14px] border p-2.5 text-start transition',
-                active
-                    ? 'border-[#2f7df4] bg-[#f5f9ff]'
-                    : 'border-[#dfe8f4] bg-white hover:border-[#b8cce7]',
-            ].join(' ')}
-        >
-            <div
-                className={[
-                    'h-24 overflow-hidden rounded-[9px] border',
-                    mode === 'dark'
-                        ? 'border-slate-700 bg-[#172033]'
-                        : mode === 'system'
-                            ? 'border-[#dbe5f2] bg-gradient-to-r from-white from-50% to-[#172033] to-50%'
-                            : 'border-[#dbe5f2] bg-white',
-                ].join(' ')}
-            >
-                <div className="mx-2 mt-3 h-3 rounded bg-[#dfe9f6]/70" />
-                <div className="mx-2 mt-2 grid grid-cols-3 gap-1.5">
-                    <span className="h-12 rounded bg-[#edf3fa]/80" />
-                    <span className="h-12 rounded bg-[#edf3fa]/70" />
-                    <span className="h-12 rounded bg-[#edf3fa]/60" />
-                </div>
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-                <span
-                    className={[
-                        'size-3 rounded-full border',
-                        active
-                            ? 'border-[#1265d8] bg-[#1265d8] shadow-[inset_0_0_0_2px_white]'
-                            : 'border-[#bdcbe0]',
-                    ].join(' ')}
-                />
-                <span className="text-[11px] font-semibold text-[#19345f]">
-                    {label}
-                </span>
-            </div>
-        </button>
-    );
-}
-
-function IntegrationCard({
+function SectionLink({
+    href,
+    icon: Icon,
     title,
     description,
-    icon,
-    connected = false,
 }: {
+    href: string;
+    icon: LucideIcon;
     title: string;
     description: string;
-    icon: ReactNode;
-    connected?: boolean;
 }) {
     return (
-        <div className="rounded-[15px] border border-[#dfe8f4] bg-white p-4 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-[14px] bg-[#f3f7fd]">
-                {icon}
-            </div>
-            <h3 className="mt-3 text-sm font-bold text-[#17386d]">{title}</h3>
-            <p className="mt-1 min-h-10 text-[10px] leading-5 text-[#8ba0bc]">
-                {description}
-            </p>
-            <button
-                type="button"
-                className={[
-                    'mt-3 w-full rounded-[9px] border px-3 py-2 text-[11px] font-semibold',
-                    connected
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-[#cfe0f4] bg-white text-[#1265d8]',
-                ].join(' ')}
-            >
-                {connected ? 'متصل ✓' : 'ربط +'}
-            </button>
-        </div>
+        <Link
+            href={href}
+            className="flex items-center gap-4 rounded-[14px] border border-[#dfe8f4] bg-white p-4 transition hover:border-[#bfd4ef] hover:bg-[#f8fbff]"
+        >
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-[#edf5ff] text-[#1265d8]">
+                <Icon size={19} />
+            </span>
+            <span className="min-w-0">
+                <strong className="block text-xs text-[#17386d]">{title}</strong>
+                <span className="mt-1 block text-[10px] leading-5 text-[#8ba0bc]">
+                    {description}
+                </span>
+            </span>
+        </Link>
     );
 }
 
@@ -353,79 +303,34 @@ function SettingsWorkspace() {
     );
 
     const [section, setSection] = useState<SettingsSection>('general');
-    const [workspacePreferences, setWorkspacePreferences] =
-        useState<WorkspacePreferences | null>(null);
+    const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
     const [profilePreferences, setProfilePreferences] =
         useState<ProfilePreferences>(defaultProfilePreferences());
-    const [currencyDraft, setCurrencyDraft] = useState('ILS');
-    const [reminderDraft, setReminderDraft] = useState(3);
-    const [savedMessage, setSavedMessage] = useState('');
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
-    const [flags, setFlags] = useState<Record<string, boolean>>({
-        inAppNotifications: true,
-        emailNotifications: true,
-        auditLog: true,
-        maintenance: false,
-        invoiceLogo: true,
-        invoiceContact: true,
-        invoiceTax: true,
-        invoiceNotes: true,
-        invoiceQr: false,
-        cashEnabled: true,
-        checkEnabled: true,
-        validateCheckDate: true,
-        postDatedChecks: false,
-        extraCosts: true,
-        shippingCost: true,
-        emailChannel: true,
-        appChannel: true,
-        smsChannel: false,
-        pushChannel: true,
-        dueInvoice: true,
-        overdueInvoice: true,
-        invoicePaid: true,
-        invoiceCancelled: false,
-        paymentReceived: true,
-        paymentFailed: true,
-        paymentRefund: true,
-        subscriptionAlerts: false,
-        newCustomer: true,
-        salesOpportunity: true,
-        salesStatus: true,
-        securityLogin: true,
-        securityPassword: true,
-        suspiciousLogin: true,
-        securityUpdates: true,
-        productUpdates: true,
-        hints: false,
-        offers: false,
-        maintenanceAlerts: true,
-        weeklySummary: true,
-        autoSync: true,
-        twoFactor: true,
-        loginEmail: true,
-        loginApp: true,
-        ipRestriction: false,
-        animations: true,
-        hoverMotion: true,
-        pageMotion: true,
-    });
+    const [error, setError] = useState('');
+    const [message, setMessage] = useState('');
+    const [addingBank, setAddingBank] = useState(false);
+    const [bankName, setBankName] = useState('');
+    const [bankAccountName, setBankAccountName] = useState('');
+    const [bankIban, setBankIban] = useState('');
+    const [bankNumber, setBankNumber] = useState('');
 
     const deviceStorageKey = deviceKey(
         auth.user?.id ?? 0,
         activeOrganization?.id ?? 0,
     );
-
-    const [deviceNotifications, setDeviceNotifications] = useState(
-        () => deviceEnabled(deviceStorageKey),
-    );
+    const [deviceNotifications, setDeviceNotifications] =
+        useState(() => deviceEnabled(deviceStorageKey));
 
     useEffect(() => {
         const controller = new AbortController();
 
+        setLoading(true);
+        setError('');
+
         Promise.all([
-            apiRequest<WorkspacePreferences>(
+            apiRequest<WorkspaceSettings>(
                 '/api/workspace-settings',
                 { signal: controller.signal },
             ),
@@ -434,67 +339,190 @@ function SettingsWorkspace() {
                 { signal: controller.signal },
             ),
         ])
-            .then(([workspaceData, profileData]) => {
+            .then(([workspaceSettings, profileData]) => {
                 if (controller.signal.aborted) return;
 
-                setWorkspacePreferences(workspaceData);
-                setCurrencyDraft(workspaceData.currency);
-                setReminderDraft(workspaceData.reminder_days);
+                setSettings(workspaceSettings);
 
-                const prefs = {
+                const nextProfile = {
                     ...defaultProfilePreferences(),
                     ...profileData.settings,
                 };
 
-                setProfilePreferences(prefs);
-                applyProfilePreferences(prefs);
+                setProfilePreferences(nextProfile);
+                applyProfilePreferences(nextProfile);
             })
-            .catch(() => undefined);
+            .catch((failure) => {
+                if (!controller.signal.aborted) {
+                    setError(
+                        errorText(
+                            failure,
+                            text('تعذر تحميل الإعدادات.', 'Could not load settings.'),
+                        ),
+                    );
+                }
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
+            });
 
         return () => controller.abort();
     }, [activeOrganization?.id]);
 
-    function flip(key: string): void {
-        setFlags(current => ({
-            ...current,
-            [key]: !current[key],
-        }));
+    function updateSetting<K extends keyof WorkspaceSettings>(
+        key: K,
+        value: WorkspaceSettings[K],
+    ): void {
+        setSettings(current =>
+            current
+                ? { ...current, [key]: value }
+                : current,
+        );
+        setMessage('');
+    }
+
+    function toggleArrayValue(
+        key: 'payment_methods' | 'invoice_columns',
+        value: string,
+    ): void {
+        if (!settings) return;
+
+        const current = settings[key];
+        const exists = current.includes(value);
+        const next = exists
+            ? current.filter(item => item !== value)
+            : [...current, value];
+
+        if (next.length === 0) {
+            return;
+        }
+
+        updateSetting(key, next);
+    }
+
+    function addBankAccount(): void {
+        if (!settings || !bankName.trim()) {
+            return;
+        }
+
+        const nextAccount: BankAccount = {
+            id:
+                typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                    ? crypto.randomUUID()
+                    : 'bank-' + Date.now(),
+            bank_name: bankName.trim(),
+            account_name: bankAccountName.trim() || null,
+            iban: bankIban.trim() || null,
+            account_number: bankNumber.trim() || null,
+            is_primary: settings.bank_accounts.length === 0,
+        };
+
+        updateSetting(
+            'bank_accounts',
+            [...settings.bank_accounts, nextAccount],
+        );
+
+        setBankName('');
+        setBankAccountName('');
+        setBankIban('');
+        setBankNumber('');
+        setAddingBank(false);
+    }
+
+    function removeBankAccount(id: string): void {
+        if (!settings) return;
+
+        const remaining = settings.bank_accounts.filter(item => item.id !== id);
+
+        if (remaining.length && !remaining.some(item => item.is_primary)) {
+            remaining[0] = { ...remaining[0], is_primary: true };
+        }
+
+        updateSetting('bank_accounts', remaining);
+    }
+
+    function makePrimaryBank(id: string): void {
+        if (!settings) return;
+
+        updateSetting(
+            'bank_accounts',
+            settings.bank_accounts.map(item => ({
+                ...item,
+                is_primary: item.id === id,
+            })),
+        );
     }
 
     async function saveChanges(): Promise<void> {
+        if (!settings || saving) {
+            return;
+        }
+
+        if (!/^[A-Z0-9]{3}$/.test(settings.currency.trim().toUpperCase())) {
+            setError(
+                text(
+                    'اكتب رمز العملة من 3 أحرف، مثل ILS أو USD أو JOD.',
+                    'Enter a 3-character currency code such as ILS, USD or JOD.',
+                ),
+            );
+            return;
+        }
+
+        if (
+            settings.decimal_places < 1
+            || settings.decimal_places > 10
+        ) {
+            setError(
+                text(
+                    'عدد الخانات العشرية يجب أن يكون من 1 إلى 10.',
+                    'Decimal places must be between 1 and 10.',
+                ),
+            );
+            return;
+        }
+
         setSaving(true);
-        setSavedMessage('');
+        setError('');
+        setMessage('');
 
         try {
+            const payload = {
+                ...settings,
+                currency: settings.currency.trim().toUpperCase(),
+            };
+
+            const saved = await apiRequest<WorkspaceSettings>(
+                '/api/workspace-settings',
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify(payload),
+                },
+            );
+
             await apiRequest('/api/profile/preferences', {
                 method: 'PUT',
                 body: JSON.stringify(profilePreferences),
             });
 
-            if (workspacePreferences?.can_manage) {
-                const response = await apiRequest<WorkspacePreferences>(
-                    '/api/workspace-settings',
-                    {
-                        method: 'PATCH',
-                        body: JSON.stringify({
-                            currency: currencyDraft,
-                            reminder_days: reminderDraft,
-                        }),
-                    },
-                );
-
-                setWorkspacePreferences(response);
-            }
-
+            setSettings(saved);
             applyProfilePreferences(profilePreferences);
-            localStorage.setItem(
-                'acconova.settings-ui',
-                JSON.stringify({ flags }),
-            );
-            setSavedMessage(
+
+            document.documentElement.dataset.acFinanceDecimals =
+                String(saved.decimal_places);
+
+            setMessage(
                 text(
-                    'تم حفظ التغييرات.',
-                    'Changes saved.',
+                    'تم حفظ الإعدادات وتطبيقها على النظام.',
+                    'Settings saved and applied to the system.',
+                ),
+            );
+        } catch (failure) {
+            setError(
+                errorText(
+                    failure,
+                    text('تعذر حفظ الإعدادات.', 'Could not save settings.'),
                 ),
             );
         } finally {
@@ -503,7 +531,15 @@ function SettingsWorkspace() {
     }
 
     async function toggleDeviceNotifications(): Promise<void> {
+        setError('');
+
         if (!deviceSupported()) {
+            setError(
+                text(
+                    'هذا المتصفح لا يدعم تنبيهات الجهاز هنا.',
+                    'This browser does not support device notifications here.',
+                ),
+            );
             return;
         }
 
@@ -522,10 +558,44 @@ function SettingsWorkspace() {
         }
     }
 
-    const workspaceName =
-        workspacePreferences?.name
-        ?? activeOrganization?.name
-        ?? 'AccoNova';
+    if (loading || !settings) {
+        return (
+            <AppShell>
+                <Head title={text('الإعدادات', 'Settings')} />
+                <main className="min-h-[calc(100dvh-72px)] bg-[#f8fbff] p-8">
+                    <div className="mx-auto max-w-[1540px] rounded-[18px] border border-[#dfe8f4] bg-white p-12 text-center text-sm text-[#8ba0bc]">
+                        {error || text('جارٍ تحميل الإعدادات...', 'Loading settings...')}
+                    </div>
+                </main>
+            </AppShell>
+        );
+    }
+
+    const workspaceName = settings.name || activeOrganization?.name || 'AccoNova';
+    const moneyPreview = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: settings.decimal_places,
+        maximumFractionDigits: settings.decimal_places,
+    }).format(1234.56);
+
+    const paymentMethods = [
+        ['bank_transfer', text('تحويل بنكي', 'Bank transfer')],
+        ['card', text('بطاقة ائتمان / خصم', 'Card')],
+        ['cash', text('نقدي', 'Cash')],
+        ['check', text('شيك', 'Check')],
+        ['electronic_wallet', text('محفظة إلكترونية', 'E-wallet')],
+        ['direct_debit', text('خصم مباشر', 'Direct debit')],
+        ['other', text('طريقة أخرى', 'Other')],
+    ];
+
+    const invoiceColumnOptions = [
+        ['sku', text('رقم الصنف', 'SKU')],
+        ['description', text('الوصف', 'Description')],
+        ['quantity', text('الكمية', 'Quantity')],
+        ['unit_price', text('سعر الوحدة', 'Unit price')],
+        ['discount', text('الخصم', 'Discount')],
+        ['tax', text('الضريبة', 'Tax')],
+        ['total', text('المجموع', 'Total')],
+    ];
 
     return (
         <AppShell>
@@ -543,134 +613,98 @@ function SettingsWorkspace() {
                             </h1>
                             <p className="mt-1 text-xs leading-6 text-[#7f93af]">
                                 {text(
-                                    'قم بإدارة إعدادات حسابك والمؤسسة وتخصيص تجربة استخدام AccoNova.',
-                                    'Manage account, workspace, and AccoNova experience settings.',
+                                    'إعدادات المؤسسة والمالية والطباعة متصلة فعلياً بالنظام وتحفظ على مستوى مساحة العمل.',
+                                    'Organization, finance and print settings are persisted and applied across the workspace.',
                                 )}
                             </p>
                         </div>
-
-                        {savedMessage && (
-                            <span className="hidden items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-semibold text-emerald-700 sm:inline-flex">
-                                <CheckCircle2 size={13} />
-                                {savedMessage}
-                            </span>
-                        )}
                     </div>
+
+                    {error && (
+                        <div className="mb-4 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+                            {error}
+                        </div>
+                    )}
 
                     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_230px]">
                         <section className="min-w-0 lg:col-start-1 lg:row-start-1">
                             {section === 'general' && (
                                 <div className="space-y-4">
-                                    <section className="overflow-hidden rounded-[18px] border border-[#d6e4f6] bg-gradient-to-l from-[#edf5ff] to-white p-5">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div>
-                                                <h2 className="text-xl font-extrabold text-[#17386d]">
-                                                    {text('مرحباً محمد 👋', 'Welcome')}
-                                                </h2>
-                                                <p className="mt-1 text-xs leading-6 text-[#6f86a8]">
-                                                    {text(
-                                                        'يمكنك من هنا تخصيص إعدادات النظام بما يناسب احتياجاتك.',
-                                                        'Customize AccoNova settings for your workflow.',
-                                                    )}
-                                                </p>
-                                            </div>
-                                            <span className="hidden size-20 items-center justify-center rounded-[22px] bg-white/75 text-[#1265d8] sm:flex">
-                                                <Settings2 size={36} />
-                                            </span>
-                                        </div>
+                                    <section className="rounded-[18px] border border-[#d6e4f6] bg-gradient-to-l from-[#edf5ff] to-white p-5">
+                                        <h2 className="text-xl font-extrabold text-[#17386d]">
+                                            {text(
+                                                'مرحباً ' + (auth.user?.name ?? '') + ' 👋',
+                                                'Welcome ' + (auth.user?.name ?? ''),
+                                            )}
+                                        </h2>
+                                        <p className="mt-1 text-xs leading-6 text-[#6f86a8]">
+                                            {text(
+                                                'هذه إعدادات إدارية لمساحة العمل، ولا تظهر للمستخدمين العاديين.',
+                                                'These are workspace administration settings and are hidden from regular users.',
+                                            )}
+                                        </p>
                                     </section>
 
                                     <div className="grid gap-4 xl:grid-cols-2">
                                         <SettingsCard
                                             title={text('الإعدادات العامة', 'General settings')}
-                                            description={text('إعدادات أساسية لعمل النظام.', 'Core workspace defaults.')}
+                                            description={text('اسم النظام والوصف الظاهر لإدارة مساحة العمل.', 'Workspace display identity.')}
                                             icon={Settings2}
                                         >
-                                            <div className="grid gap-4 sm:grid-cols-2">
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                    {text('اسم النظام', 'System name')}
-                                                    <input className={input} defaultValue="AccoNova" />
-                                                </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                    {text('الوصف', 'Description')}
-                                                    <input className={input} defaultValue={text('نظام متكامل لإدارة الأعمال والمحاسبة والمخزون', 'Business, accounting and inventory platform')} />
-                                                </label>
-                                                <MiniSelect label={text('اللغة الافتراضية', 'Default language')} defaultValue="ar">
-                                                    <option value="ar">العربية</option>
-                                                    <option value="en">English</option>
-                                                </MiniSelect>
-                                                <MiniSelect label={text('المنطقة الزمنية', 'Timezone')} defaultValue="Asia/Hebron">
-                                                    <option value="Asia/Hebron">القدس (GMT+03:00)</option>
-                                                    <option value="Asia/Riyadh">الرياض (GMT+03:00)</option>
-                                                    <option value="Asia/Dubai">دبي (GMT+04:00)</option>
-                                                </MiniSelect>
-                                            </div>
+                                            <label className="block text-[11px] font-semibold text-[#5e789e]">
+                                                {text('اسم النظام', 'System name')}
+                                                <input
+                                                    className={input}
+                                                    value={settings.system_name}
+                                                    onChange={event => updateSetting('system_name', event.target.value)}
+                                                />
+                                            </label>
+                                            <label className="mt-4 block text-[11px] font-semibold text-[#5e789e]">
+                                                {text('الوصف', 'Description')}
+                                                <textarea
+                                                    className={input + ' min-h-24 py-3'}
+                                                    value={settings.system_description}
+                                                    onChange={event => updateSetting('system_description', event.target.value)}
+                                                />
+                                            </label>
                                         </SettingsCard>
 
                                         <SettingsCard
-                                            title={text('خيارات النظام', 'System options')}
-                                            description={text('فعّل أو عطّل بعض المزايا العامة.', 'Enable or disable common capabilities.')}
-                                            icon={Gauge}
+                                            title={text('اللغة والمنطقة', 'Language & region')}
+                                            description={text('تفضيلات حسابك الشخصية وتحفظ لحسابك.', 'Personal account preferences.')}
+                                            icon={Globe2}
                                         >
-                                            <SettingRow
-                                                label={text('تفعيل الإشعارات داخل النظام', 'In-app notifications')}
-                                                description={text('عرض التنبيهات داخل AccoNova.', 'Show alerts inside AccoNova.')}
-                                                checked={flags.inAppNotifications}
-                                                onChange={() => flip('inAppNotifications')}
-                                            />
-                                            <SettingRow
-                                                label={text('تفعيل إشعارات البريد الإلكتروني', 'Email notifications')}
-                                                checked={flags.emailNotifications}
-                                                onChange={() => flip('emailNotifications')}
-                                            />
-                                            <SettingRow
-                                                label={text('تفعيل السجلات والتدقيق', 'Audit log')}
-                                                checked={flags.auditLog}
-                                                onChange={() => flip('auditLog')}
-                                            />
-                                            <SettingRow
-                                                label={text('وضع الصيانة', 'Maintenance mode')}
-                                                description={text('منع المستخدمين من الوصول مؤقتاً.', 'Temporarily restrict user access.')}
-                                                checked={flags.maintenance}
-                                                onChange={() => flip('maintenance')}
-                                            />
+                                            <label className="block text-[11px] font-semibold text-[#5e789e]">
+                                                {text('اللغة', 'Language')}
+                                                <select
+                                                    className={input}
+                                                    value={profilePreferences.locale}
+                                                    onChange={event =>
+                                                        setProfilePreferences(current => ({
+                                                            ...current,
+                                                            locale: event.target.value as ProfilePreferences['locale'],
+                                                        }))
+                                                    }
+                                                >
+                                                    <option value="ar">العربية</option>
+                                                    <option value="en">English</option>
+                                                </select>
+                                            </label>
+                                            <label className="mt-4 block text-[11px] font-semibold text-[#5e789e]">
+                                                {text('المنطقة الزمنية', 'Timezone')}
+                                                <input
+                                                    className={input}
+                                                    value={profilePreferences.timezone}
+                                                    onChange={event =>
+                                                        setProfilePreferences(current => ({
+                                                            ...current,
+                                                            timezone: event.target.value,
+                                                        }))
+                                                    }
+                                                />
+                                            </label>
                                         </SettingsCard>
                                     </div>
-
-                                    <SettingsCard
-                                        title={text('الشعار والهوية', 'Logo & identity')}
-                                        description={text('ارفع شعار المؤسسة واختر اللون الأساسي.', 'Upload your workspace logo and choose the primary color.')}
-                                        icon={Image}
-                                    >
-                                        <div className="grid gap-5 md:grid-cols-[260px_1fr]">
-                                            <div className="flex min-h-40 flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c8daf0] bg-[#fbfdff]">
-                                                <div className="flex size-16 items-center justify-center rounded-[18px] bg-[#edf5ff] text-2xl font-black text-[#1265d8]">
-                                                    A
-                                                </div>
-                                                <strong className="mt-2 text-lg text-[#102e61]">AccoNova</strong>
-                                                <button type="button" className={secondaryButton + ' mt-3'}>
-                                                    <Upload size={14} />
-                                                    {text('تغيير الشعار', 'Change logo')}
-                                                </button>
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] font-semibold text-[#5e789e]">
-                                                    {text('لون النظام الأساسي', 'Primary color')}
-                                                </p>
-                                                <div className="mt-3 flex flex-wrap gap-3">
-                                                    {['#2563EB','#8B5CF6','#EC4899','#EF4444','#10B981','#14B8A6','#334155'].map(color => (
-                                                        <button
-                                                            type="button"
-                                                            key={color}
-                                                            className="size-9 rounded-full border-4 border-white shadow-[0_0_0_1px_#dbe5f2]"
-                                                            style={{ backgroundColor: color }}
-                                                            aria-label={color}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </SettingsCard>
                                 </div>
                             )}
 
@@ -678,124 +712,97 @@ function SettingsWorkspace() {
                                 <div className="space-y-4">
                                     <SettingsCard
                                         title={text('معلومات المؤسسة', 'Organization information')}
-                                        description={text('قم بتحديث معلومات مؤسستك الأساسية التي ستظهر في الفواتير والتقارير والمستندات الرسمية.', 'Update legal and public workspace information.')}
+                                        description={text('هذه البيانات تحفظ فعلياً وتستخدم في الفواتير والطباعة.', 'Saved workspace information used by invoices and printing.')}
                                         icon={Building2}
                                     >
                                         <div className="grid gap-5 xl:grid-cols-[240px_1fr]">
                                             <div className="flex min-h-64 flex-col items-center justify-center rounded-[15px] border border-dashed border-[#c7d9ee] bg-[#fbfdff]">
-                                                <div className="flex size-24 items-center justify-center rounded-[24px] bg-[#edf5ff] text-4xl font-black text-[#1265d8]">A</div>
-                                                <strong className="mt-3 text-xl text-[#102e61]">AccoNova</strong>
-                                                <button type="button" className={secondaryButton + ' mt-4'}>
-                                                    <Upload size={14} />
-                                                    {text('تغيير الشعار', 'Change logo')}
-                                                </button>
-                                                <p className={helper}>PNG — 512×512</p>
+                                                <div className="flex size-24 items-center justify-center rounded-[24px] bg-[#edf5ff] text-4xl font-black text-[#1265d8]">
+                                                    {(settings.trade_name || settings.name).charAt(0).toUpperCase()}
+                                                </div>
+                                                <strong className="mt-3 text-xl text-[#102e61]">
+                                                    {settings.trade_name || settings.name}
+                                                </strong>
+                                                <p className="mt-3 max-w-[190px] text-center text-[10px] leading-5 text-[#8ba0bc]">
+                                                    {text(
+                                                        'رفع شعار المؤسسة سيضاف كميزة ملفات مستقلة. البيانات النصية هنا محفوظة ومستخدمة الآن.',
+                                                        'Workspace logo upload will use its own file storage. Text identity is saved and used now.',
+                                                    )}
+                                                </p>
                                             </div>
+
                                             <div className="grid gap-4 sm:grid-cols-2">
                                                 <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                    {text('الاسم القانوني للمؤسسة *', 'Legal organization name *')}
-                                                    <input className={input} defaultValue={workspaceName} />
+                                                    {text('اسم مساحة العمل *', 'Workspace name *')}
+                                                    <input className={input} value={settings.name} onChange={event => updateSetting('name', event.target.value)} />
                                                 </label>
                                                 <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                    {text('الاسم التجاري (المختصر) *', 'Trade name *')}
-                                                    <input className={input} defaultValue="AccoNova" />
+                                                    {text('الاسم القانوني للمؤسسة *', 'Legal name *')}
+                                                    <input className={input} value={settings.legal_name} onChange={event => updateSetting('legal_name', event.target.value)} />
                                                 </label>
                                                 <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                    {text('البريد الإلكتروني للدعم *', 'Support email *')}
-                                                    <input className={input} defaultValue="info@acconova.com" />
+                                                    {text('الاسم التجاري *', 'Trade name *')}
+                                                    <input className={input} value={settings.trade_name} onChange={event => updateSetting('trade_name', event.target.value)} />
                                                 </label>
                                                 <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                    {text('رقم الجوال *', 'Phone *')}
-                                                    <input className={input} dir="ltr" defaultValue="+970 59 123 4567" />
+                                                    {text('البريد الإلكتروني للدعم', 'Support email')}
+                                                    <input className={input} type="email" value={settings.support_email} onChange={event => updateSetting('support_email', event.target.value)} />
+                                                </label>
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('رقم الجوال', 'Phone')}
+                                                    <input className={input} dir="ltr" value={settings.phone} onChange={event => updateSetting('phone', event.target.value)} />
                                                 </label>
                                                 <label className="text-[11px] font-semibold text-[#5e789e]">
                                                     {text('رقم السجل التجاري', 'Commercial registration')}
-                                                    <input className={input} defaultValue="1010923456" />
+                                                    <input className={input} value={settings.commercial_registration} onChange={event => updateSetting('commercial_registration', event.target.value)} />
                                                 </label>
                                                 <label className="text-[11px] font-semibold text-[#5e789e]">
                                                     {text('الرقم الضريبي (VAT)', 'VAT number')}
-                                                    <input className={input} defaultValue="310123456700003" />
+                                                    <input className={input} value={settings.vat_number} onChange={event => updateSetting('vat_number', event.target.value)} />
                                                 </label>
-                                                <label className="text-[11px] font-semibold text-[#5e789e] sm:col-span-2">
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
                                                     {text('الموقع الإلكتروني', 'Website')}
-                                                    <input className={input} dir="ltr" defaultValue="https://www.acconova.com" />
+                                                    <input className={input} dir="ltr" value={settings.website} onChange={event => updateSetting('website', event.target.value)} />
                                                 </label>
                                             </div>
                                         </div>
                                     </SettingsCard>
 
                                     <div className="grid gap-4 xl:grid-cols-[1fr_300px]">
-                                        <div className="space-y-4">
-                                            <SettingsCard
-                                                title={text('عنوان المؤسسة', 'Organization address')}
-                                                description={text('سيتم استخدام هذا العنوان في الفواتير والمستندات الرسمية.', 'Used on invoices and official documents.')}
-                                                icon={Globe2}
-                                            >
-                                                <div className="grid gap-4 sm:grid-cols-3">
-                                                    <MiniSelect label={text('الدولة *', 'Country *')} defaultValue="ps">
-                                                        <option value="ps">فلسطين</option>
-                                                        <option value="sa">السعودية</option>
-                                                        <option value="ae">الإمارات</option>
-                                                    </MiniSelect>
-                                                    <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                        {text('المدينة *', 'City *')}
-                                                        <input className={input} defaultValue="نابلس" />
-                                                    </label>
-                                                    <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                        {text('العنوان التفصيلي *', 'Detailed address *')}
-                                                        <input className={input} defaultValue="شارع فيصل، نابلس" />
-                                                    </label>
-                                                </div>
-                                            </SettingsCard>
-
-                                            <SettingsCard
-                                                title={text('معلومات العلامة في الفواتير', 'Invoice brand information')}
-                                                description={text('هذه المعلومات ستظهر في رأس وتذييل الفواتير والمستندات.', 'Controls invoice branding details.')}
-                                                icon={FileText}
-                                            >
-                                                <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-                                                    <div className="rounded-[14px] border border-dashed border-[#c9d9ed] bg-white p-4 text-center">
-                                                        <div className="mx-auto flex size-12 items-center justify-center rounded-[13px] bg-[#edf5ff] text-xl font-black text-[#1265d8]">A</div>
-                                                        <strong className="mt-2 block text-xs text-[#17386d]">AccoNova</strong>
-                                                        <p className="mt-2 text-[9px] leading-5 text-[#657f9f]">
-                                                            {workspaceName}<br />
-                                                            نابلس، فلسطين<br />
-                                                            1010923456<br />
-                                                            310123456700003
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                            {text('نص تذييل الفاتورة', 'Invoice footer text')}
-                                                            <textarea className={input + ' min-h-24 py-3'} defaultValue={text('شكراً لثقتكم بنا\nمعاً نحو إدارة مالية أسهل.', 'Thank you for your business.')} />
-                                                        </label>
-                                                        <div className="mt-3">
-                                                            <SettingRow label={text('إظهار الشعار في الفواتير', 'Show logo on invoices')} checked={flags.invoiceLogo} onChange={() => flip('invoiceLogo')} />
-                                                            <SettingRow label={text('إظهار معلومات الاتصال', 'Show contact information')} checked={flags.invoiceContact} onChange={() => flip('invoiceContact')} />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </SettingsCard>
-                                        </div>
+                                        <SettingsCard
+                                            title={text('عنوان المؤسسة', 'Organization address')}
+                                            description={text('يظهر في مستندات الطباعة عند تفعيل معلومات التواصل.', 'Used on printed documents when contact details are enabled.')}
+                                            icon={Globe2}
+                                        >
+                                            <div className="grid gap-4 sm:grid-cols-3">
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('الدولة', 'Country')}
+                                                    <input className={input} value={settings.country} onChange={event => updateSetting('country', event.target.value)} />
+                                                </label>
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('المدينة', 'City')}
+                                                    <input className={input} value={settings.city} onChange={event => updateSetting('city', event.target.value)} />
+                                                </label>
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('العنوان التفصيلي', 'Detailed address')}
+                                                    <input className={input} value={settings.address} onChange={event => updateSetting('address', event.target.value)} />
+                                                </label>
+                                            </div>
+                                        </SettingsCard>
 
                                         <SettingsCard
-                                            title={text('معلومات الفروع', 'Branches')}
-                                            description={text('إدارة فروع المؤسسة (اختياري).', 'Manage optional branches.')}
+                                            title={text('الفروع', 'Branches')}
+                                            description={text('الفروع التشغيلية تدار من بيانات النظام الفعلية، وليس من بطاقة وهمية هنا.', 'Operational branches should be managed from real workspace data.')}
                                             icon={Grid2X2}
                                         >
-                                            <div className="flex min-h-64 flex-col items-center justify-center rounded-[14px] bg-[#f8fbff] p-5 text-center">
-                                                <span className="flex size-14 items-center justify-center rounded-full bg-[#eaf3ff] text-[#1265d8]">
-                                                    <Building2 size={24} />
-                                                </span>
-                                                <strong className="mt-3 text-sm text-[#17386d]">
-                                                    {text('لديك فرع واحد', 'You have one branch')}
-                                                </strong>
-                                                <p className="mt-2 text-[10px] leading-5 text-[#8ba0bc]">
-                                                    {text('يمكنك إدارة الفروع وإضافة فروع جديدة لتنظيم أعمالك بشكل أفضل.', 'Manage and add branches here.')}
+                                            <div className="rounded-[14px] bg-[#f8fbff] p-5 text-center">
+                                                <Building2 size={24} className="mx-auto text-[#1265d8]" />
+                                                <p className="mt-3 text-[10px] leading-5 text-[#8ba0bc]">
+                                                    {text(
+                                                        'لن ننشئ فروعاً تجريبية من الإعدادات. عند إضافة موديول الفروع سيظهر هنا بشكل مباشر.',
+                                                        'No fake branches are created here. Real branch management will appear when the branch module is available.',
+                                                    )}
                                                 </p>
-                                                <button type="button" className={secondaryButton + ' mt-4 w-full'}>
-                                                    {text('إدارة الفروع', 'Manage branches')}
-                                                </button>
                                             </div>
                                         </SettingsCard>
                                     </div>
@@ -804,592 +811,500 @@ function SettingsWorkspace() {
 
                             {section === 'finance' && (
                                 <div className="grid gap-4 xl:grid-cols-3">
-                                    <SettingsCard title={text('السنة المالية', 'Fiscal year')} description={text('حدد بداية ونهاية السنة المالية لمؤسستك.', 'Set the fiscal-year boundaries.')} icon={CalendarDays}>
-                                        <MiniSelect label={text('تبدأ السنة المالية في', 'Fiscal year starts')} defaultValue="1">
-                                            <option value="1">يناير</option><option value="7">يوليو</option>
-                                        </MiniSelect>
-                                        <div className="mt-4 rounded-[12px] bg-[#f7fbff] p-3 text-[11px] text-[#657f9f]">
-                                            <strong className="block text-[#17386d]">{text('السنة المالية الحالية', 'Current fiscal year')}</strong>
-                                            <span className="mt-1 block">1 يناير 2026 — 31 ديسمبر 2026</span>
-                                        </div>
-                                    </SettingsCard>
-
-                                    <SettingsCard title={text('الدقة والتقريب', 'Precision & rounding')} description={text('حدد عدد المنازل العشرية وطريقة التقريب للمبالغ.', 'Configure financial precision.')} icon={Gauge}>
-                                        <MiniSelect label={text('عدد المنازل العشرية', 'Decimal places')} defaultValue="2">
-                                            <option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                                        </MiniSelect>
-                                        <MiniSelect label={text('طريقة التقريب', 'Rounding method')} defaultValue="normal">
-                                            <option value="normal">{text('تقريب عادي', 'Standard')}</option>
-                                            <option value="up">{text('للأعلى', 'Round up')}</option>
-                                        </MiniSelect>
-                                        <div className="mt-4 rounded-[12px] bg-[#f7fbff] p-3 text-[11px] text-[#657f9f]">
-                                            1.234 → 1.23<br />1.235 → 1.24
-                                        </div>
-                                    </SettingsCard>
-
-                                    <SettingsCard title={text('العملة الافتراضية', 'Default currency')} description={text('اختر العملة الافتراضية لجميع المعاملات المالية.', 'Default currency for finance.')} icon={CircleDollarSign}>
+                                    <SettingsCard title={text('السنة المالية', 'Fiscal year')} description={text('بداية السنة المالية للمؤسسة.', 'Workspace fiscal-year start.')} icon={CalendarDays}>
                                         <label className="text-[11px] font-semibold text-[#5e789e]">
-                                            {text('العملة', 'Currency')}
+                                            {text('تبدأ السنة المالية في', 'Fiscal year starts in')}
                                             <select
-                                                value={currencyDraft}
-                                                onChange={event => setCurrencyDraft(event.target.value)}
                                                 className={input}
+                                                value={settings.fiscal_year_start_month}
+                                                onChange={event => updateSetting('fiscal_year_start_month', Number(event.target.value))}
                                             >
-                                                <option value="ILS">ILS — شيقل</option>
-                                                <option value="USD">USD — دولار</option>
-                                                <option value="EUR">EUR — يورو</option>
-                                                <option value="SAR">SAR — ريال سعودي</option>
+                                                {[
+                                                    'يناير','فبراير','مارس','أبريل','مايو','يونيو',
+                                                    'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر',
+                                                ].map((month, index) => (
+                                                    <option key={month} value={index + 1}>{month}</option>
+                                                ))}
                                             </select>
                                         </label>
-                                        <div className="mt-4 grid grid-cols-3 gap-2">
-                                            <div><p className={helper}>{text('رمز العملة', 'Code')}</p><div className={input + ' mt-1 flex items-center'}>{currencyDraft}</div></div>
-                                            <div><p className={helper}>{text('رمز العرض', 'Symbol')}</p><div className={input + ' mt-1 flex items-center'}>{currencyDraft === 'ILS' ? '₪' : currencyDraft}</div></div>
-                                            <div><p className={helper}>{text('موقع الرمز', 'Position')}</p><div className={input + ' mt-1 flex items-center'}>{text('بعد المبلغ', 'After')}</div></div>
-                                        </div>
-                                        <div className="mt-4 rounded-[12px] bg-[#f7fbff] p-3 text-lg font-bold text-[#17386d]">
-                                            1,234.56 {currencyDraft}
+                                    </SettingsCard>
+
+                                    <SettingsCard title={text('الدقة والتقريب', 'Precision & rounding')} description={text('الخانات العشرية للعرض من 1 إلى 10.', 'Display precision from 1 to 10 decimals.')} icon={Settings2}>
+                                        <label className="text-[11px] font-semibold text-[#5e789e]">
+                                            {text('عدد الخانات العشرية', 'Decimal places')}
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={10}
+                                                step={1}
+                                                className={input}
+                                                value={settings.decimal_places}
+                                                onChange={event => updateSetting('decimal_places', Math.min(10, Math.max(1, Number(event.target.value) || 1)))}
+                                            />
+                                        </label>
+                                        <label className="mt-4 block text-[11px] font-semibold text-[#5e789e]">
+                                            {text('طريقة التقريب', 'Rounding method')}
+                                            <select className={input} value={settings.rounding_method} onChange={event => updateSetting('rounding_method', event.target.value as WorkspaceSettings['rounding_method'])}>
+                                                <option value="normal">{text('تقريب عادي', 'Standard')}</option>
+                                                <option value="up">{text('للأعلى', 'Round up')}</option>
+                                                <option value="down">{text('للأسفل', 'Round down')}</option>
+                                            </select>
+                                        </label>
+                                    </SettingsCard>
+
+                                    <SettingsCard title={text('العملة الافتراضية', 'Default currency')} description={text('اكتب رمز العملة يدوياً. لا توجد قائمة محصورة.', 'Enter the currency code manually.')} icon={CreditCard}>
+                                        <label className="text-[11px] font-semibold text-[#5e789e]">
+                                            {text('رمز العملة', 'Currency code')}
+                                            <input
+                                                className={input}
+                                                maxLength={3}
+                                                value={settings.currency}
+                                                onChange={event => updateSetting('currency', event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3))}
+                                                placeholder="ILS"
+                                                dir="ltr"
+                                            />
+                                        </label>
+                                        <div className="mt-4 rounded-[12px] bg-[#f7fbff] p-4 text-center text-xl font-bold text-[#17386d]">
+                                            {settings.currency} {moneyPreview}
                                         </div>
                                     </SettingsCard>
 
-                                    <SettingsCard title={text('الحسابات البنكية', 'Bank accounts')} description={text('إدارة الحسابات البنكية للمؤسسة.', 'Manage organization bank accounts.')} icon={Banknote}>
-                                        {[
-                                            ['البنك العربي', 'PS12 1000 0000 1234 5678 9012'],
-                                            ['بنك فلسطين', 'PS98 8000 0000 9876 5432 1098'],
-                                        ].map(([name, iban], index) => (
-                                            <div key={iban} className="mb-2 flex items-center justify-between rounded-[11px] border border-[#e1eaf5] p-3">
-                                                <div>
-                                                    <div className="flex items-center gap-2"><strong className="text-xs text-[#17386d]">{name}</strong>{index === 0 && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">{text('الأساسي', 'Primary')}</span>}</div>
-                                                    <p className="mt-1 text-[10px] text-[#8ba0bc]">{iban}</p>
+                                    <SettingsCard title={text('الحسابات البنكية', 'Bank accounts')} description={text('لا يتم إنشاء أي حساب افتراضي. أضف حساباتك الحقيقية فقط.', 'No fake accounts are created. Add only real accounts.')} icon={Banknote}>
+                                        {settings.bank_accounts.length === 0 && !addingBank && (
+                                            <div className="rounded-[12px] border border-dashed border-[#cadcf1] bg-[#fbfdff] p-5 text-center">
+                                                <p className="text-xs font-semibold text-[#17386d]">{text('لا توجد حسابات بنكية', 'No bank accounts')}</p>
+                                                <p className="mt-1 text-[10px] text-[#8ba0bc]">{text('أضف حساباً فقط إذا كنت تستخدمه فعلياً.', 'Add an account only when you actually use one.')}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-2">
+                                            {settings.bank_accounts.map(account => (
+                                                <div key={account.id} className="rounded-[12px] border border-[#dfe8f4] p-3">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div>
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <strong className="text-xs text-[#17386d]">{account.bank_name}</strong>
+                                                                {account.is_primary && (
+                                                                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">
+                                                                        {text('الأساسي', 'Primary')}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            {account.account_name && <p className="mt-1 text-[10px] text-[#6f86a8]">{account.account_name}</p>}
+                                                            {(account.iban || account.account_number) && (
+                                                                <p className="mt-1 text-[9px] text-[#8ba0bc]" dir="ltr">
+                                                                    {account.iban || account.account_number}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <button type="button" onClick={() => removeBankAccount(account.id)} className="rounded-[9px] border border-red-100 bg-red-50 p-2 text-red-500">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                    {!account.is_primary && (
+                                                        <button type="button" onClick={() => makePrimaryBank(account.id)} className="mt-2 text-[10px] font-semibold text-[#1265d8]">
+                                                            {text('تعيين كأساسي', 'Make primary')}
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <MoreHorizontal size={16} className="text-[#7990ae]" />
+                                            ))}
+                                        </div>
+
+                                        {addingBank ? (
+                                            <div className="mt-3 rounded-[12px] border border-[#dfe8f4] bg-[#f9fbff] p-3">
+                                                <input className={input + ' !mt-0'} value={bankName} onChange={event => setBankName(event.target.value)} placeholder={text('اسم البنك *', 'Bank name *')} />
+                                                <input className={input} value={bankAccountName} onChange={event => setBankAccountName(event.target.value)} placeholder={text('اسم الحساب', 'Account name')} />
+                                                <input className={input} dir="ltr" value={bankIban} onChange={event => setBankIban(event.target.value)} placeholder="IBAN" />
+                                                <input className={input} dir="ltr" value={bankNumber} onChange={event => setBankNumber(event.target.value)} placeholder={text('رقم الحساب', 'Account number')} />
+                                                <div className="mt-3 flex gap-2">
+                                                    <button type="button" className={primaryButton} onClick={addBankAccount}>{text('إضافة', 'Add')}</button>
+                                                    <button type="button" className={secondaryButton} onClick={() => setAddingBank(false)}>{text('إلغاء', 'Cancel')}</button>
+                                                </div>
                                             </div>
-                                        ))}
-                                        <button type="button" className={secondaryButton + ' mt-1 w-full'}>
-                                            + {text('إضافة حساب بنكي جديد', 'Add bank account')}
-                                        </button>
+                                        ) : (
+                                            <button type="button" className={secondaryButton + ' mt-3 w-full'} onClick={() => setAddingBank(true)}>
+                                                + {text('إضافة حساب بنكي', 'Add bank account')}
+                                            </button>
+                                        )}
                                     </SettingsCard>
 
-                                    <SettingsCard title={text('طرق الدفع', 'Payment methods')} description={text('إدارة طرق الدفع المقبولة في فواتيرك.', 'Configure accepted payment methods.')} icon={CreditCard}>
-                                        {[
-                                            ['تحويل بنكي', true],
-                                            ['بطاقة ائتمان', true],
-                                            ['نقدي', true],
-                                            ['شيك', true],
-                                            ['دفع إلكتروني', false],
-                                        ].map(([label, enabled]) => (
-                                            <div key={String(label)} className="flex items-center justify-between py-2.5">
-                                                <span className="text-xs font-semibold text-[#19345f]">{String(label)}</span>
-                                                <span className={['size-4 rounded-[4px] border', enabled ? 'border-[#1265d8] bg-[#1265d8]' : 'border-[#cbd7e7]'].join(' ')} />
-                                            </div>
+                                    <SettingsCard title={text('طرق الدفع', 'Payment methods')} description={text('الطرق المفعلة هنا هي التي تظهر فعلياً في تسجيل الدفعات والمقبوضات.', 'Only enabled methods appear in payment and receipt entry.')} icon={CreditCard}>
+                                        {paymentMethods.map(([value, label]) => (
+                                            <label key={value} className="flex items-center justify-between border-b border-[#edf2f8] py-3 last:border-0">
+                                                <span className="text-xs font-semibold text-[#19345f]">{label}</span>
+                                                <input
+                                                    type="checkbox"
+                                                    className="size-4 accent-[#1265d8]"
+                                                    checked={settings.payment_methods.includes(value)}
+                                                    onChange={() => toggleArrayValue('payment_methods', value)}
+                                                />
+                                            </label>
                                         ))}
                                     </SettingsCard>
 
-                                    <SettingsCard title={text('إعدادات الضريبة', 'Tax settings')} description={text('تهيئة إعدادات الضرائب الافتراضية للفواتير والمعاملات.', 'Default tax behavior.')} icon={Percent}>
+                                    <SettingsCard title={text('إعدادات الضريبة', 'Tax settings')} description={text('إعدادات افتراضية تحفظ للمؤسسة.', 'Persisted organization tax defaults.')} icon={Percent}>
                                         <label className="text-[11px] font-semibold text-[#5e789e]">
                                             {text('نسبة الضريبة الافتراضية', 'Default tax rate')}
-                                            <div className="relative">
-                                                <input className={input + ' pe-10'} defaultValue="16" />
-                                                <span className="absolute end-3 top-[22px] text-xs text-[#6e85a5]">%</span>
-                                            </div>
+                                            <input type="number" min="0" max="100" step="0.01" className={input} value={settings.default_tax_rate} onChange={event => updateSetting('default_tax_rate', event.target.value)} />
                                         </label>
-                                        <MiniSelect label={text('نوع الضريبة', 'Tax type')} defaultValue="vat">
-                                            <option value="vat">{text('ضريبة القيمة المضافة', 'VAT')}</option>
-                                        </MiniSelect>
-                                        <SettingRow label={text('تضمين الضريبة في الأسعار', 'Tax-inclusive prices')} checked={flags.invoiceTax} onChange={() => flip('invoiceTax')} />
+                                        <SettingRow label={text('تضمين الضريبة في الأسعار', 'Tax-inclusive prices')} checked={settings.tax_inclusive} onChange={() => updateSetting('tax_inclusive', !settings.tax_inclusive)} />
                                     </SettingsCard>
 
-                                    <SettingsCard title={text('إعدادات النقد والشيكات', 'Cash & check settings')} description={text('تحديد إعدادات التعامل مع المدفوعات النقدية والشيكات.', 'Cash and check handling rules.')} icon={Banknote}>
-                                        <SettingRow label={text('تفعيل مدفوعات نقدية', 'Enable cash')} checked={flags.cashEnabled} onChange={() => flip('cashEnabled')} />
-                                        <SettingRow label={text('تفعيل الشيكات', 'Enable checks')} checked={flags.checkEnabled} onChange={() => flip('checkEnabled')} />
-                                        <SettingRow label={text('التحقق من تاريخ الشيك', 'Validate check date')} checked={flags.validateCheckDate} onChange={() => flip('validateCheckDate')} />
-                                        <SettingRow label={text('تسجيل الشيكات كمعلّقة', 'Post-dated checks pending')} checked={flags.postDatedChecks} onChange={() => flip('postDatedChecks')} />
-                                    </SettingsCard>
-
-                                    <SettingsCard title={text('تفاصيل التكلفة', 'Costing details')} description={text('حدد طريقة احتساب التكاليف في الشراء والقوائم المالية.', 'Choose costing behavior.')} icon={Database}>
-                                        <MiniSelect label={text('طريقة احتساب التكلفة', 'Cost method')} defaultValue="moving">
-                                            <option value="moving">{text('المتوسط المتحرك', 'Moving average')}</option>
-                                            <option value="fifo">FIFO</option>
-                                        </MiniSelect>
-                                        <SettingRow label={text('تضمين تكاليف إضافية', 'Include extra costs')} checked={flags.extraCosts} onChange={() => flip('extraCosts')} />
-                                        <SettingRow label={text('احتساب تكلفة الشحن', 'Include shipping')} checked={flags.shippingCost} onChange={() => flip('shippingCost')} />
-                                    </SettingsCard>
-
-                                    <SettingsCard title={text('ترقيم الفواتير', 'Invoice numbering')} description={text('إعداد نمط ترقيم الفواتير والمستندات المالية.', 'Configure numbering patterns.')} icon={FileText}>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                {text('بادئة الفاتورة', 'Prefix')}<input className={input} defaultValue="INV" />
-                                            </label>
-                                            <label className="text-[11px] font-semibold text-[#5e789e]">
-                                                {text('رقم البداية', 'Starting number')}<input className={input} defaultValue="1001" />
-                                            </label>
+                                    <SettingsCard title={text('إعدادات النقد والشيكات', 'Cash & checks')} description={text('تعطيل طريقة دفع يخفيها ويمنع استخدامها من الخادم أيضاً.', 'Disabled methods are hidden and rejected by the server.')} icon={Banknote}>
+                                        <SettingRow label={text('التحقق من تاريخ الشيك', 'Validate check date')} description={text('يمنع تاريخ استحقاق أقدم من تاريخ الحركة.', 'Prevents a due date earlier than the movement date.')} checked={settings.validate_check_date} onChange={() => updateSetting('validate_check_date', !settings.validate_check_date)} />
+                                        <div className="mt-3 rounded-[12px] bg-blue-50/70 p-3 text-[10px] leading-5 text-blue-700">
+                                            {text(
+                                                'حالة الشيك عند التسجيل تبقى قيد التحصيل تلقائياً كما اعتمدنا سابقاً، ولا تتحول لمحصل بمجرد وصول التاريخ.',
+                                                'New checks remain pending automatically and never clear only because the due date arrived.',
+                                            )}
                                         </div>
-                                        <div className="mt-4 rounded-[12px] bg-[#f7fbff] p-3">
-                                            <p className="text-[10px] text-[#8ba0bc]">{text('معاينة الرقم القادم', 'Next number preview')}</p>
-                                            <strong className="mt-1 block text-lg text-[#17386d]">INV-2026-1001</strong>
-                                        </div>
+                                    </SettingsCard>
+
+                                    <SettingsCard title={text('تفاصيل التكلفة', 'Costing details')} description={text('إعدادات تكلفة الشراء والمخزون.', 'Purchase and inventory costing defaults.')} icon={FileSpreadsheet}>
+                                        <label className="text-[11px] font-semibold text-[#5e789e]">
+                                            {text('طريقة احتساب التكلفة', 'Cost method')}
+                                            <select className={input} value={settings.cost_method} onChange={event => updateSetting('cost_method', event.target.value as WorkspaceSettings['cost_method'])}>
+                                                <option value="moving_average">{text('المتوسط المتحرك', 'Moving average')}</option>
+                                                <option value="fifo">FIFO</option>
+                                            </select>
+                                        </label>
+                                        <SettingRow label={text('تضمين تكاليف إضافية', 'Include extra costs')} checked={settings.include_extra_costs} onChange={() => updateSetting('include_extra_costs', !settings.include_extra_costs)} />
+                                        <SettingRow label={text('احتساب تكلفة الشحن', 'Include shipping')} checked={settings.include_shipping_cost} onChange={() => updateSetting('include_shipping_cost', !settings.include_shipping_cost)} />
                                     </SettingsCard>
                                 </div>
                             )}
 
                             {section === 'invoices' && (
                                 <div className="space-y-4">
-                                    <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
-                                        <SettingsCard title={text('قالب الفاتورة الحالي', 'Current invoice template')} description={text('معاينة شكل الفاتورة الحالية.', 'Preview the current invoice design.')} icon={ReceiptText}>
+                                    <div className="grid gap-4 xl:grid-cols-[340px_1fr]">
+                                        <SettingsCard title={text('قالب الفاتورة الحالي', 'Current invoice template')} description={text('المعاينة تتغير مباشرة حسب الإعدادات.', 'Preview updates directly from the saved settings.')} icon={FileText}>
                                             <div className="rounded-[12px] border border-[#dfe8f4] bg-[#fbfdff] p-4">
-                                                <div className="mx-auto max-w-[290px] bg-white p-4 shadow-sm">
-                                                    <div className="flex items-start justify-between"><strong className="text-[#1265d8]">AccoNova</strong><div className="text-end"><strong className="text-xs">{text('فاتورة ضريبية', 'Tax Invoice')}</strong><p className="text-[9px] text-slate-400">INV-2026-0001</p></div></div>
+                                                <div className="mx-auto max-w-[280px] bg-white p-4 shadow-sm">
+                                                    <div className={[
+                                                        'flex items-start gap-3',
+                                                        settings.logo_position === 'center' ? 'flex-col items-center text-center' : 'justify-between',
+                                                    ].join(' ')}>
+                                                        {settings.show_invoice_logo && (
+                                                            <strong className="text-[#1265d8]">{settings.trade_name || workspaceName}</strong>
+                                                        )}
+                                                        <div className={settings.logo_position === 'center' ? '' : 'text-end'}>
+                                                            <strong className="text-xs">{text('فاتورة ضريبية', 'Tax invoice')}</strong>
+                                                            <p className="text-[9px] text-slate-400">{settings.invoice_prefix}-2026-{String(settings.invoice_start_number).padStart(4, '0')}</p>
+                                                        </div>
+                                                    </div>
+                                                    {settings.show_invoice_contact && (
+                                                        <p className="mt-2 text-[8px] leading-4 text-[#8092aa]">
+                                                            {[settings.phone, settings.support_email, settings.city].filter(Boolean).join(' · ')}
+                                                        </p>
+                                                    )}
                                                     <div className="my-4 h-px bg-[#e7edf5]" />
-                                                    <div className="grid grid-cols-4 gap-1 text-[8px] text-[#6d82a0]"><span>#</span><span>{text('الوصف','Description')}</span><span>{text('الكمية','Qty')}</span><span>{text('المجموع','Total')}</span></div>
-                                                    {[1,2].map(row => <div key={row} className="mt-2 grid grid-cols-4 gap-1 border-b border-[#edf2f8] pb-2 text-[8px]"><span>{row}</span><span>{text('خدمة محاسبية','Service')}</span><span>1</span><span>200.00</span></div>)}
-                                                    <div className="mt-4 text-end text-[9px]"><p>{text('المجموع الفرعي','Subtotal')}: 300.00</p><p>{text('الضريبة','Tax')}: 48.00</p><strong>{text('الإجمالي','Total')}: 348.00</strong></div>
+                                                    <div className="grid grid-cols-3 gap-2 text-[8px] text-[#6d82a0]">
+                                                        <span>{text('الوصف','Description')}</span><span>{text('الكمية','Qty')}</span><span>{text('المجموع','Total')}</span>
+                                                    </div>
+                                                    <div className="mt-2 grid grid-cols-3 gap-2 border-b border-[#edf2f8] pb-2 text-[8px]"><span>{text('خدمة','Service')}</span><span>1</span><span>200.00</span></div>
+                                                    <div className="mt-4 text-end text-[9px]"><strong>{text('الإجمالي','Total')}: 200.00 {settings.currency}</strong></div>
                                                 </div>
                                             </div>
-                                            <button type="button" className={secondaryButton + ' mt-3 w-full'}>
-                                                <Eye size={14} />
-                                                {text('معاينة بحجم أكبر', 'Open full preview')}
-                                            </button>
                                         </SettingsCard>
 
-                                        <div className="space-y-4">
-                                            <SettingsCard title={text('اختر قالب الفاتورة', 'Choose invoice template')} description={text('اختر التصميم الذي يناسب هوية مؤسستك.', 'Choose your invoice layout.')} icon={FileCheck2}>
-                                                <div className="grid gap-3 sm:grid-cols-4">
-                                                    {['احترافي','كلاسيكي','مودرن','بسيط'].map((label,index) => (
-                                                        <button type="button" key={label} className={['rounded-[12px] border p-2', index === 0 ? 'border-[#2f7df4] bg-[#f4f8ff]' : 'border-[#dfe8f4]'].join(' ')}>
-                                                            <div className="h-20 rounded-[8px] border border-[#e4ebf4] bg-white p-2"><div className="h-2 w-10 rounded bg-[#1265d8]/70" /><div className="mt-3 h-1.5 rounded bg-slate-100" /><div className="mt-2 h-1.5 rounded bg-slate-100" /><div className="mt-2 h-5 rounded bg-blue-50" /></div>
-                                                            <span className="mt-2 block text-[10px] font-semibold text-[#17386d]">{label}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </SettingsCard>
-
-                                            <div className="grid gap-4 sm:grid-cols-2">
-                                                <SettingsCard title={text('قالب أمر الشراء', 'Purchase template')} description={text('قالب مستندات الشراء.', 'Purchase document template.')} icon={FileText}>
-                                                    <MiniSelect label={text('القالب', 'Template')} defaultValue="default"><option value="default">{text('افتراضي','Default')}</option></MiniSelect>
-                                                </SettingsCard>
-                                                <SettingsCard title={text('قالب الإيصال', 'Receipt template')} description={text('قالب إيصالات الدفع والقبض.', 'Payment/receipt layout.')} icon={ReceiptText}>
-                                                    <MiniSelect label={text('القالب', 'Template')} defaultValue="default"><option value="default">{text('افتراضي','Default')}</option></MiniSelect>
-                                                </SettingsCard>
+                                        <SettingsCard title={text('اختر قالب الفاتورة', 'Choose invoice template')} description={text('هذا الاختيار يستخدم فعلياً عند طباعة الفاتورة.', 'This selection is used by the actual invoice print view.')} icon={FileText}>
+                                            <div className="grid gap-3 sm:grid-cols-4">
+                                                {([
+                                                    ['professional', text('احترافي','Professional')],
+                                                    ['classic', text('كلاسيكي','Classic')],
+                                                    ['modern', text('مودرن','Modern')],
+                                                    ['simple', text('بسيط','Simple')],
+                                                ] as const).map(([value,label]) => (
+                                                    <button
+                                                        type="button"
+                                                        key={value}
+                                                        onClick={() => updateSetting('invoice_template', value)}
+                                                        className={[
+                                                            'rounded-[12px] border p-2',
+                                                            settings.invoice_template === value
+                                                                ? 'border-[#2f7df4] bg-[#f4f8ff]'
+                                                                : 'border-[#dfe8f4]',
+                                                        ].join(' ')}
+                                                    >
+                                                        <div className="h-20 rounded-[8px] border border-[#e4ebf4] bg-white p-2">
+                                                            <div className="h-2 w-10 rounded bg-[#1265d8]/70" />
+                                                            <div className="mt-3 h-1.5 rounded bg-slate-100" />
+                                                            <div className="mt-2 h-1.5 rounded bg-slate-100" />
+                                                            <div className="mt-2 h-5 rounded bg-blue-50" />
+                                                        </div>
+                                                        <span className="mt-2 block text-[10px] font-semibold text-[#17386d]">{label}</span>
+                                                    </button>
+                                                ))}
                                             </div>
-                                        </div>
+                                        </SettingsCard>
                                     </div>
 
                                     <div className="grid gap-4 xl:grid-cols-3">
-                                        <SettingsCard title={text('المحتوى والمظهر', 'Content & appearance')} description={text('تخصيص المعلومات الظاهرة في الفواتير والمستندات.', 'Choose visible invoice content.')} icon={Palette}>
-                                            <SettingRow label={text('إظهار شعار المؤسسة', 'Show logo')} checked={flags.invoiceLogo} onChange={() => flip('invoiceLogo')} />
-                                            <SettingRow label={text('إظهار معلومات التواصل', 'Show contact')} checked={flags.invoiceContact} onChange={() => flip('invoiceContact')} />
-                                            <SettingRow label={text('إظهار رقم السجل الضريبي', 'Show VAT number')} checked={flags.invoiceTax} onChange={() => flip('invoiceTax')} />
-                                            <SettingRow label={text('إظهار خانة ملاحظات', 'Show notes')} checked={flags.invoiceNotes} onChange={() => flip('invoiceNotes')} />
-                                            <SettingRow label={text('إظهار رمز QR للدفع', 'Show payment QR')} checked={flags.invoiceQr} onChange={() => flip('invoiceQr')} />
+                                        <SettingsCard title={text('المحتوى والمظهر', 'Content & appearance')} description={text('كل خيار يؤثر على نسخة الطباعة الفعلية.', 'Every option affects the real printed invoice.')} icon={Image}>
+                                            <SettingRow label={text('إظهار اسم/شعار المؤسسة', 'Show organization brand')} checked={settings.show_invoice_logo} onChange={() => updateSetting('show_invoice_logo', !settings.show_invoice_logo)} />
+                                            <SettingRow label={text('إظهار معلومات التواصل', 'Show contact information')} checked={settings.show_invoice_contact} onChange={() => updateSetting('show_invoice_contact', !settings.show_invoice_contact)} />
+                                            <SettingRow label={text('إظهار الرقم الضريبي', 'Show tax number')} checked={settings.show_invoice_tax_number} onChange={() => updateSetting('show_invoice_tax_number', !settings.show_invoice_tax_number)} />
+                                            <SettingRow label={text('إظهار الملاحظات', 'Show notes')} checked={settings.show_invoice_notes} onChange={() => updateSetting('show_invoice_notes', !settings.show_invoice_notes)} />
+                                            <SettingRow label={text('إظهار QR', 'Show QR')} checked={settings.show_invoice_qr} onChange={() => updateSetting('show_invoice_qr', !settings.show_invoice_qr)} />
                                         </SettingsCard>
 
-                                        <SettingsCard title={text('إعدادات الطباعة', 'Print settings')} description={text('تخصيص حجم الورق ومظهر الطباعة والمستندات.', 'Paper and print layout settings.')} icon={Printer}>
-                                            <MiniSelect label={text('حجم الورق', 'Paper size')} defaultValue="a4"><option value="a4">A4 (210 × 297 mm)</option><option value="letter">Letter</option></MiniSelect>
-                                            <MiniSelect label={text('هوامش الطباعة', 'Margins')} defaultValue="normal"><option value="normal">{text('عادية','Normal')}</option><option value="compact">{text('ضيقة','Compact')}</option></MiniSelect>
-                                            <p className="mt-4 text-[11px] font-semibold text-[#5e789e]">{text('موقع الشعار', 'Logo position')}</p>
+                                        <SettingsCard title={text('إعدادات الطباعة', 'Print settings')} description={text('الحجم والهوامش وموقع هوية المؤسسة.', 'Paper, margins and brand placement.')} icon={Printer}>
+                                            <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                {text('حجم الورق', 'Paper size')}
+                                                <select className={input} value={settings.print_paper_size} onChange={event => updateSetting('print_paper_size', event.target.value as WorkspaceSettings['print_paper_size'])}>
+                                                    <option value="a4">A4 (210 × 297 mm)</option>
+                                                    <option value="letter">Letter</option>
+                                                </select>
+                                            </label>
+                                            <label className="mt-4 block text-[11px] font-semibold text-[#5e789e]">
+                                                {text('هوامش الطباعة', 'Print margins')}
+                                                <select className={input} value={settings.print_margins} onChange={event => updateSetting('print_margins', event.target.value as WorkspaceSettings['print_margins'])}>
+                                                    <option value="normal">{text('عادية', 'Normal')}</option>
+                                                    <option value="compact">{text('ضيقة', 'Compact')}</option>
+                                                </select>
+                                            </label>
+                                            <p className="mt-4 text-[11px] font-semibold text-[#5e789e]">{text('موقع الهوية', 'Brand position')}</p>
                                             <div className="mt-2 grid grid-cols-3 gap-2">
-                                                {['يمين','وسط','يسار'].map((item,index) => <button key={item} type="button" className={['rounded-[10px] border p-3 text-[10px] font-semibold',index===1?'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]':'border-[#dfe8f4] text-[#6e85a5]'].join(' ')}>{item}</button>)}
+                                                {([
+                                                    ['start', text('بداية','Start')],
+                                                    ['center', text('وسط','Center')],
+                                                    ['end', text('نهاية','End')],
+                                                ] as const).map(([value,label]) => (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        onClick={() => updateSetting('logo_position', value)}
+                                                        className={[
+                                                            'rounded-[10px] border p-3 text-[10px] font-semibold',
+                                                            settings.logo_position === value
+                                                                ? 'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]'
+                                                                : 'border-[#dfe8f4] text-[#6e85a5]',
+                                                        ].join(' ')}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                ))}
                                             </div>
                                         </SettingsCard>
 
-                                        <SettingsCard title={text('ترقيم الفواتير والمستندات', 'Document numbering')} description={text('تخصيص طريقة ترقيم الفواتير والإيصالات وأوامر الشراء.', 'Document prefixes and starting numbers.')} icon={FileSpreadsheet}>
-                                            <label className="text-[11px] font-semibold text-[#5e789e]">{text('بادئة الفواتير','Invoice prefix')}<input className={input} defaultValue="INV-" /></label>
-                                            <label className="text-[11px] font-semibold text-[#5e789e]">{text('بادئة الإيصالات','Receipt prefix')}<input className={input} defaultValue="RCPT-" /></label>
-                                            <label className="text-[11px] font-semibold text-[#5e789e]">{text('بادئة أوامر الشراء','Purchase prefix')}<input className={input} defaultValue="PO-" /></label>
+                                        <SettingsCard title={text('ترقيم المستندات', 'Document numbering')} description={text('البادئات تستخدم في الأرقام الجديدة فعلياً.', 'Prefixes are used by newly created documents.')} icon={FileSpreadsheet}>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('بادئة البيع', 'Sales prefix')}
+                                                    <input className={input} value={settings.invoice_prefix} onChange={event => updateSetting('invoice_prefix', event.target.value.toUpperCase())} />
+                                                </label>
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('رقم البداية', 'Start number')}
+                                                    <input type="number" min={1} className={input} value={settings.invoice_start_number} onChange={event => updateSetting('invoice_start_number', Math.max(1, Number(event.target.value) || 1))} />
+                                                </label>
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('بادئة الشراء', 'Purchase prefix')}
+                                                    <input className={input} value={settings.purchase_prefix} onChange={event => updateSetting('purchase_prefix', event.target.value.toUpperCase())} />
+                                                </label>
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('رقم البداية', 'Start number')}
+                                                    <input type="number" min={1} className={input} value={settings.purchase_start_number} onChange={event => updateSetting('purchase_start_number', Math.max(1, Number(event.target.value) || 1))} />
+                                                </label>
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('بادئة المقبوض', 'Receipt prefix')}
+                                                    <input className={input} value={settings.receipt_prefix} onChange={event => updateSetting('receipt_prefix', event.target.value.toUpperCase())} />
+                                                </label>
+                                                <label className="text-[11px] font-semibold text-[#5e789e]">
+                                                    {text('بادئة الدفع', 'Payment prefix')}
+                                                    <input className={input} value={settings.payment_prefix} onChange={event => updateSetting('payment_prefix', event.target.value.toUpperCase())} />
+                                                </label>
+                                            </div>
                                         </SettingsCard>
                                     </div>
 
                                     <div className="grid gap-4 xl:grid-cols-2">
-                                        <SettingsCard title={text('الملاحظات والتذييل', 'Notes & footer')} description={text('نص الملاحظات الذي يظهر في أسفل الفواتير والمستندات.', 'Default invoice footer copy.')} icon={FileText}>
-                                            <textarea className={input + ' min-h-24 py-3'} defaultValue={text('شكراً لتعاملكم معنا، للاستفسار يرجى التواصل معنا في أي وقت.', 'Thank you for your business.')} />
+                                        <SettingsCard title={text('الأعمدة الظاهرة في الفاتورة', 'Visible invoice columns')} description={text('اختر الأعمدة التي تظهر عند الطباعة.', 'Choose columns included in printed invoices.')} icon={Grid2X2}>
+                                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                                {invoiceColumnOptions.map(([value,label]) => {
+                                                    const active = settings.invoice_columns.includes(value);
+                                                    return (
+                                                        <button
+                                                            key={value}
+                                                            type="button"
+                                                            onClick={() => toggleArrayValue('invoice_columns', value)}
+                                                            className={[
+                                                                'rounded-[10px] border px-3 py-2 text-[10px] font-semibold',
+                                                                active
+                                                                    ? 'border-[#bcd5f6] bg-[#f5f9ff] text-[#1265d8]'
+                                                                    : 'border-[#dfe8f4] text-[#8ba0bc]',
+                                                            ].join(' ')}
+                                                        >
+                                                            {active ? '✓ ' : ''}{label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </SettingsCard>
 
-                                        <SettingsCard title={text('الأعمدة الظاهرة في الفاتورة', 'Visible invoice columns')} description={text('اختر الأعمدة التي تريد إظهارها في جدول الأصناف.', 'Choose columns in invoice line tables.')} icon={Eye}>
-                                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                                                {['رقم الصنف','الوصف','الكمية','سعر الوحدة','الخصم','الضريبة','المجموع'].map((item,index) => (
-                                                    <button key={item} type="button" className={['rounded-[10px] border px-3 py-2 text-[10px] font-semibold',index === 0 ? 'border-[#dfe8f4] text-[#8ba0bc]' : 'border-[#bcd5f6] bg-[#f5f9ff] text-[#1265d8]'].join(' ')}>{item}</button>
-                                                ))}
-                                            </div>
+                                        <SettingsCard title={text('الملاحظات والتذييل', 'Notes & footer')} description={text('يظهر هذا النص أسفل نسخة الطباعة.', 'This text appears on the printed invoice.')} icon={FileText}>
+                                            <textarea className={input + ' min-h-28 py-3'} value={settings.invoice_footer} onChange={event => updateSetting('invoice_footer', event.target.value)} />
                                         </SettingsCard>
                                     </div>
                                 </div>
                             )}
 
                             {section === 'users' && (
-                                <div className="space-y-4">
-                                    <div className="flex flex-col gap-3 rounded-[16px] border border-[#dfe8f4] bg-white p-3 sm:flex-row sm:items-center">
-                                        <button type="button" className={primaryButton}><UserPlus size={14} />{text('دعوة مستخدم','Invite user')}</button>
-                                        <button type="button" className={secondaryButton}>{text('إدارة الأدوار','Manage roles')}<Settings2 size={14} /></button>
-                                        <div className="relative flex-1"><Search size={14} className="absolute end-3 top-3.5 text-[#8ba0bc]" /><input className={input + ' !mt-0 pe-9'} placeholder={text('ابحث عن مستخدم...','Search users...')} /></div>
-                                        <select className={input + ' !mt-0 sm:w-40'}><option>{text('جميع الأدوار','All roles')}</option></select>
-                                        <select className={input + ' !mt-0 sm:w-40'}><option>{text('جميع الحالات','All statuses')}</option></select>
-                                    </div>
-
-                                    <SettingsCard title={text('المستخدمون (6)', 'Users (6)')} description={text('إدارة جميع المستخدمين في مؤسستك.', 'Manage workspace users.')} icon={UsersRound}>
-                                        <div className="overflow-x-auto">
-                                            <table className="min-w-[760px] w-full text-xs">
-                                                <thead className="bg-[#f8fbff] text-[#7186a5]">
-                                                    <tr><th className="px-3 py-3 text-start">{text('المستخدم','User')}</th><th className="px-3 py-3 text-start">{text('البريد الإلكتروني','Email')}</th><th className="px-3 py-3 text-start">{text('الدور','Role')}</th><th className="px-3 py-3 text-start">{text('آخر نشاط','Last activity')}</th><th className="px-3 py-3 text-start">{text('الحالة','Status')}</th><th className="px-3 py-3"></th></tr>
-                                                </thead>
-                                                <tbody>
-                                                    {[
-                                                        ['أحمد محمد','ahmed@acconova.com','مدير النظام','متصل الآن','نشط'],
-                                                        ['سارة عبدالله','sarah@acconova.com','محاسب','منذ ساعتين','نشط'],
-                                                        ['محمد علي','mohammed@acconova.com','مبيعات','منذ يوم','نشط'],
-                                                        ['نورة خالد','noura@acconova.com','مخزون','منذ 3 ساعات','نشط'],
-                                                        ['خالد سالم','khalid@acconova.com','مبيعات','منذ 5 أيام','غير نشط'],
-                                                        ['ليلى حسن','layla@acconova.com','محاسب','منذ يوم','معلق'],
-                                                    ].map((user,index) => (
-                                                        <tr key={user[1]} className="border-t border-[#edf2f8]">
-                                                            <td className="px-3 py-3"><div className="flex items-center gap-2"><span className="flex size-8 items-center justify-center rounded-full bg-[#edf5ff] font-bold text-[#1265d8]">{user[0].charAt(0)}</span><div><strong className="block text-[#17386d]">{user[0]}</strong><span className="text-[9px] text-[#8ba0bc]">{index===0?'مدير الحساب':'عضو فريق'}</span></div></div></td>
-                                                            <td className="px-3 py-3 text-[#5f789c]">{user[1]}</td>
-                                                            <td className="px-3 py-3"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[9px] font-semibold text-[#1265d8]">{user[2]}</span></td>
-                                                            <td className="px-3 py-3 text-[#6f86a8]">{user[3]}</td>
-                                                            <td className="px-3 py-3"><span className={['rounded-full px-2.5 py-1 text-[9px] font-semibold',user[4]==='نشط'?'bg-emerald-50 text-emerald-700':user[4]==='معلق'?'bg-amber-50 text-amber-700':'bg-red-50 text-red-600'].join(' ')}>{user[4]}</span></td>
-                                                            <td className="px-3 py-3"><MoreHorizontal size={16} className="text-[#7990ae]" /></td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                <div className="grid gap-4 xl:grid-cols-2">
+                                    <SettingsCard title={text('المستخدمون', 'Users')} description={text('إدارة أعضاء مساحة العمل من المصدر الحقيقي للبيانات.', 'Manage real workspace members.')} icon={UsersRound}>
+                                        <SectionLink href="/app/staff" icon={UserPlus} title={text('إدارة المستخدمين والموظفين', 'Manage users & staff')} description={text('إضافة المستخدمين ومراجعة بياناتهم وحالتهم.', 'Add and manage real users and staff.')} />
                                     </SettingsCard>
-
-                                    <SettingsCard title={text('الأدوار', 'Roles')} description={text('إدارة الأدوار الخاصة بالنظام وتخصيص الصلاحيات لكل دور.', 'Manage workspace roles.')} icon={ShieldCheck}>
-                                        <div className="grid gap-3 md:grid-cols-4">
-                                            {[
-                                                ['مدير النظام','صلاحية كاملة على جميع أجزاء النظام.','1 مستخدم','blue'],
-                                                ['محاسب','الوصول إلى البيانات المالية والتقارير المحاسبية.','2 مستخدمين','green'],
-                                                ['مبيعات','إدارة المبيعات والعملاء والعروض.','2 مستخدمين','purple'],
-                                                ['مخزون','إدارة الأصناف والمستودعات وحركات المخزون.','1 مستخدم','orange'],
-                                            ].map(([role,desc,count,tone]) => (
-                                                <div key={role} className="rounded-[14px] border border-[#dfe8f4] p-4">
-                                                    <span className={['flex size-10 items-center justify-center rounded-[12px]',tone==='blue'?'bg-blue-50 text-blue-700':tone==='green'?'bg-emerald-50 text-emerald-700':tone==='purple'?'bg-violet-50 text-violet-700':'bg-orange-50 text-orange-700'].join(' ')}><ShieldCheck size={17} /></span>
-                                                    <strong className="mt-3 block text-sm text-[#17386d]">{role}</strong>
-                                                    <p className="mt-1 min-h-12 text-[10px] leading-5 text-[#8ba0bc]">{desc}</p>
-                                                    <div className="mt-3 flex items-center justify-between"><span className="text-[10px] text-[#6e85a5]">{count}</span><MoreHorizontal size={15} /></div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </SettingsCard>
-
-                                    <SettingsCard title={text('مصفوفة الصلاحيات', 'Permission matrix')} description={text('نظرة سريعة على أهم الصلاحيات لكل دور.', 'Quick permission overview by role.')} icon={ListChecks}>
-                                        <div className="overflow-x-auto">
-                                            <table className="min-w-[650px] w-full text-[10px]">
-                                                <thead><tr><th className="px-3 py-2 text-start">{text('الوظيفة','Capability')}</th>{['مدير النظام','محاسب','مبيعات','مخزون'].map(role=><th key={role} className="px-3 py-2 text-center">{role}</th>)}</tr></thead>
-                                                <tbody>
-                                                    {[
-                                                        ['إدارة المستخدمين',[1,0,0,0]],
-                                                        ['إعدادات النظام',[1,0,0,0]],
-                                                        ['البيانات المالية والتقارير',[1,1,0,0]],
-                                                        ['المبيعات والعملاء',[1,0,1,0]],
-                                                        ['المخزون والأصناف',[1,0,0,1]],
-                                                    ].map(([cap,vals]) => (
-                                                        <tr key={String(cap)} className="border-t border-[#edf2f8]"><td className="px-3 py-2 font-semibold text-[#5e789e]">{String(cap)}</td>{(vals as number[]).map((val,index)=><td key={index} className="px-3 py-2 text-center">{val?<CheckCircle2 size={14} className="mx-auto text-emerald-500" />:<span className="text-red-400">×</span>}</td>)}</tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    <SettingsCard title={text('الأدوار والصلاحيات', 'Roles & permissions')} description={text('صلاحيات النظام الفعلية وليست معاينة.', 'Real workspace permission management.')} icon={ShieldCheck}>
+                                        <SectionLink href="/app/roles" icon={ShieldCheck} title={text('فتح إدارة الصلاحيات', 'Open permissions')} description={text('تعديل الأدوار ومن يمكنه الوصول لكل جزء.', 'Control who can access each area.')} />
                                     </SettingsCard>
                                 </div>
                             )}
 
                             {section === 'notifications' && (
-                                <div className="space-y-4">
-                                    <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-                                        <SettingsCard title={text('قنوات الإشعارات', 'Notification channels')} description={text('اختر القنوات التي تفضل تلقي الإشعارات من خلالها.', 'Choose notification delivery channels.')} icon={Bell}>
-                                            <div className="grid gap-3 sm:grid-cols-4">
-                                                {[
-                                                    ['البريد الإلكتروني', Mail, 'emailChannel'],
-                                                    ['الإشعارات داخل التطبيق', AppWindow, 'appChannel'],
-                                                    ['الرسائل النصية (SMS)', Smartphone, 'smsChannel'],
-                                                    ['الإشعارات الفورية', Bell, 'devicePush'],
-                                                ].map(([label,Icon,key]) => (
-                                                    <div key={String(key)} className="rounded-[14px] border border-[#dfe8f4] p-4 text-center">
-                                                        <span className="mx-auto flex size-11 items-center justify-center rounded-[14px] bg-[#edf5ff] text-[#1265d8]"><Icon size={19} /></span>
-                                                        <strong className="mt-3 block text-xs text-[#17386d]">{String(label)}</strong>
-                                                        <div className="mt-3 flex justify-center">
-                                                            <Toggle
-                                                                checked={
-                                                                    String(key) === 'devicePush'
-                                                                        ? deviceNotifications
-                                                                        : flags[String(key)]
-                                                                }
-                                                                onChange={() => {
-                                                                    if (String(key) === 'devicePush') {
-                                                                        void toggleDeviceNotifications();
-                                                                        return;
-                                                                    }
-                                                                    flip(String(key));
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('إعدادات عامة', 'General settings')} description={text('تحكم في كيفية ووقت تلقي الإشعارات.', 'Control timing and localization.')} icon={Settings2}>
-                                            <MiniSelect label={text('اللغة المفضلة للإشعارات','Notification language')} defaultValue="ar"><option value="ar">العربية</option><option value="en">English</option></MiniSelect>
-                                            <MiniSelect label={text('المنطقة الزمنية','Timezone')} defaultValue="Asia/Hebron"><option value="Asia/Hebron">القدس (GMT+3)</option></MiniSelect>
-                                            <SettingRow label={text('ساعات الهدوء','Quiet hours')} checked={true} onChange={() => undefined} />
-                                            <div className="grid grid-cols-2 gap-2"><input className={input} defaultValue="10:00 م" /><input className={input} defaultValue="7:00 ص" /></div>
-                                        </SettingsCard>
-                                    </div>
-
-                                    <div className="grid gap-4 xl:grid-cols-3">
-                                        <SettingsCard title={text('إشعارات المدفوعات','Payment notifications')} description={text('تابع أنشطة المدفوعات والمعاملات المالية.','Payment and finance activity alerts.')} icon={CreditCard}>
-                                            <SettingRow label={text('تم استلام دفعة','Payment received')} checked={flags.paymentReceived} onChange={() => flip('paymentReceived')} />
-                                            <SettingRow label={text('فشل عملية الدفع','Payment failed')} checked={flags.paymentFailed} onChange={() => flip('paymentFailed')} />
-                                            <SettingRow label={text('استرداد مبلغ','Refund')} checked={flags.paymentRefund} onChange={() => flip('paymentRefund')} />
-                                            <SettingRow label={text('إشعارات الاشتراك','Subscription alerts')} checked={flags.subscriptionAlerts} onChange={() => flip('subscriptionAlerts')} />
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('إشعارات الفواتير','Invoice notifications')} description={text('إشعارات متعلقة بالفواتير والدفع.','Invoice status alerts.')} icon={FileText}>
-                                            <SettingRow label={text('فاتورة مستحقة','Invoice due')} checked={flags.dueInvoice} onChange={() => flip('dueInvoice')} />
-                                            <SettingRow label={text('فاتورة متأخرة','Invoice overdue')} checked={flags.overdueInvoice} onChange={() => flip('overdueInvoice')} />
-                                            <SettingRow label={text('تم دفع الفاتورة','Invoice paid')} checked={flags.invoicePaid} onChange={() => flip('invoicePaid')} />
-                                            <SettingRow label={text('إلغاء الفاتورة','Invoice cancelled')} checked={flags.invoiceCancelled} onChange={() => flip('invoiceCancelled')} />
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('إشعارات المبيعات','Sales notifications')} description={text('تنبيهات حول الأنشطة المتعلقة بالمبيعات والعملاء.','Sales and customer alerts.')} icon={BadgeDollarSign}>
-                                            <SettingRow label={text('عميل جديد','New customer')} checked={flags.newCustomer} onChange={() => flip('newCustomer')} />
-                                            <SettingRow label={text('فرصة بيع جديدة','New opportunity')} checked={flags.salesOpportunity} onChange={() => flip('salesOpportunity')} />
-                                            <SettingRow label={text('تحديث حالة فرصة البيع','Opportunity status')} checked={flags.salesStatus} onChange={() => flip('salesStatus')} />
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('أنواع الإشعارات الأخرى','Other notification types')} description={text('تفضيلات إضافية لإشعارات النظام.','Other platform notifications.')} icon={Bell}>
-                                            <SettingRow label={text('تحديثات المنتج','Product updates')} checked={flags.productUpdates} onChange={() => flip('productUpdates')} />
-                                            <SettingRow label={text('النصائح والإرشادات','Tips & guidance')} checked={flags.hints} onChange={() => flip('hints')} />
-                                            <SettingRow label={text('العروض الخاصة','Offers')} checked={flags.offers} onChange={() => flip('offers')} />
-                                            <SettingRow label={text('إشعارات الصيانة','Maintenance')} checked={flags.maintenanceAlerts} onChange={() => flip('maintenanceAlerts')} />
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('الملخص الأسبوعي','Weekly summary')} description={text('احصل على ملخص بأهم أنشطة حسابك.','Weekly account summary.')} icon={Mail}>
-                                            <SettingRow label={text('إرسال الملخص الأسبوعي','Send weekly summary')} checked={flags.weeklySummary} onChange={() => flip('weeklySummary')} />
-                                            <MiniSelect label={text('اليوم','Day')} defaultValue="monday"><option value="monday">{text('كل يوم اثنين','Every Monday')}</option></MiniSelect>
-                                            <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-[#5e789e]"><span>☑ {text('ملخص المبيعات','Sales')}</span><span>☑ {text('ملخص الفواتير','Invoices')}</span><span>☑ {text('ملخص المدفوعات','Payments')}</span><span>☐ {text('نشاط المستخدمين','Users')}</span></div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('الإشعارات الأمنية','Security notifications')} description={text('تنبيهات مهمة لحماية حسابك وبياناتك.','Important account security alerts.')} icon={ShieldCheck}>
-                                            <SettingRow label={text('تسجيل دخول جديد','New login')} checked={flags.securityLogin} onChange={() => flip('securityLogin')} />
-                                            <SettingRow label={text('تغيير كلمة المرور','Password changed')} checked={flags.securityPassword} onChange={() => flip('securityPassword')} />
-                                            <SettingRow label={text('محاولات تسجيل دخول مشبوهة','Suspicious sign-in')} checked={flags.suspiciousLogin} onChange={() => flip('suspiciousLogin')} />
-                                            <SettingRow label={text('تحديثات الأمان','Security updates')} checked={flags.securityUpdates} onChange={() => flip('securityUpdates')} />
-                                        </SettingsCard>
-                                    </div>
+                                <div className="grid gap-4 xl:grid-cols-2">
+                                    <SettingsCard title={text('تنبيهات هذا الجهاز', 'This device notifications')} description={text('إذن إشعارات المتصفح الحقيقي لهذا الجهاز.', 'Real browser notification permission for this device.')} icon={Bell}>
+                                        <SettingRow
+                                            label={deviceNotifications ? text('مفعلة', 'Enabled') : text('متوقفة', 'Disabled')}
+                                            description={text('هذا الإعداد خاص بالمتصفح والجهاز الحالي.', 'This setting is specific to the current browser/device.')}
+                                            checked={deviceNotifications}
+                                            onChange={() => void toggleDeviceNotifications()}
+                                        />
+                                    </SettingsCard>
+                                    <SettingsCard title={text('موعد تذكير الاستحقاقات', 'Due reminder timing')} description={text('عدد الأيام قبل الاستحقاق.', 'Days before due date.')} icon={CalendarDays}>
+                                        <label className="text-[11px] font-semibold text-[#5e789e]">
+                                            {text('الأيام', 'Days')}
+                                            <input type="number" min={0} max={30} className={input} value={settings.reminder_days} onChange={event => updateSetting('reminder_days', Math.min(30, Math.max(0, Number(event.target.value) || 0)))} />
+                                        </label>
+                                    </SettingsCard>
                                 </div>
                             )}
 
                             {section === 'integrations' && (
-                                <div className="space-y-4">
-                                    <SettingsCard title={text('التكاملات المتاحة','Available integrations')} description={text('قم بربط حسابك مع التطبيقات والخدمات الخارجية لتوسيع قدرات AccoNova وتحسين سير العمل.','Connect external tools and services.')} icon={Link2}>
-                                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                            <IntegrationCard title="Google Drive" description={text('حفظ الفواتير والمستندات في Google Drive.','Store documents in Drive.')} icon={<div className="text-2xl">▲</div>} />
-                                            <IntegrationCard title="WhatsApp" description={text('إرسال الإشعارات والفواتير عبر واتساب.','Send invoices via WhatsApp.')} icon={<div className="text-2xl">🟢</div>} />
-                                            <IntegrationCard title={text('البريد الإلكتروني / SMTP','Email / SMTP')} description={text('إرسال الفواتير والإشعارات عبر بريدك الإلكتروني.','Use your SMTP account.')} icon={<Mail size={24} className="text-[#1265d8]" />} connected />
-                                            <IntegrationCard title="Stripe" description={text('قبول المدفوعات عبر الإنترنت بشكل آمن وسهل.','Accept online payments.')} icon={<CreditCard size={24} className="text-[#6b4ee6]" />} />
-                                            <IntegrationCard title="Zapier" description={text('أتمتة المهام والربط مع آلاف التطبيقات.','Automation platform.')} icon={<Zap size={24} className="text-orange-500" />} />
-                                            <IntegrationCard title={text('مفاتيح API','API keys')} description={text('الوصول إلى واجهة برمجة التطبيقات لربط أنظمتك.','API access for custom integrations.')} icon={<KeyRound size={24} className="text-[#1265d8]" />} connected />
-                                            <IntegrationCard title="Webhooks" description={text('استقبال وإرسال البيانات بشكل فوري.','Real-time event delivery.')} icon={<Webhook size={24} className="text-pink-600" />} />
-                                            <IntegrationCard title="Google Calendar" description={text('مزامنة المواعيد والمهام مع تقويم جوجل.','Sync calendar events.')} icon={<CalendarDays size={24} className="text-[#1265d8]" />} />
-                                        </div>
-                                    </SettingsCard>
-
-                                    <div className="grid gap-4 xl:grid-cols-2">
-                                        <SettingsCard title={text('التطبيقات المتصلة','Connected apps')} description={text('التطبيقات والخدمات التي قمت بربطها مع حسابك حالياً.','Currently connected services.')} icon={Grid2X2}>
-                                            {[
-                                                ['البريد الإلكتروني / SMTP','info@acconova.com'],
-                                                ['Google Drive','acconova@company.com'],
-                                                ['API','تم إنشاء 2 مفتاح API'],
-                                            ].map(([name,meta]) => <div key={name} className="flex items-center justify-between border-b border-[#edf2f8] py-3 last:border-0"><div><strong className="text-xs text-[#17386d]">{name}</strong><p className="mt-1 text-[10px] text-[#8ba0bc]">{meta}</p></div><span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-semibold text-emerald-700">{text('متصل','Connected')}</span></div>)}
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('المزامنة والربط','Sync & linking')} description={text('إدارة إعدادات المزامنة التلقائية بين AccoNova والتطبيقات المتصلة.','Manage automatic synchronization.')} icon={RefreshCw}>
-                                            <SettingRow label={text('المزامنة التلقائية للبيانات','Automatic data sync')} checked={flags.autoSync} onChange={() => flip('autoSync')} />
-                                            <MiniSelect label={text('تكرار المزامنة','Sync frequency')} defaultValue="hourly"><option value="hourly">{text('كل ساعة','Hourly')}</option><option value="daily">{text('يومياً','Daily')}</option></MiniSelect>
-                                            <button type="button" className={secondaryButton + ' mt-4'}>{text('عرض سجل المزامنة','View sync log')}</button>
-                                        </SettingsCard>
+                                <SettingsCard title={text('التكاملات', 'Integrations')} description={text('لن نعرض اتصالات وهمية. هذه الصفحة تعرض فقط التكاملات المتاحة فعلياً في النظام.', 'No fake connections are shown here; only real available integrations are listed.')} icon={Link2}>
+                                    <div className="rounded-[14px] border border-dashed border-[#cadcf1] bg-[#fbfdff] p-8 text-center">
+                                        <Mail size={26} className="mx-auto text-[#1265d8]" />
+                                        <strong className="mt-3 block text-sm text-[#17386d]">
+                                            {text('لا توجد تكاملات قابلة للإدارة من هذه الصفحة حالياً', 'No integrations are managed from this page yet')}
+                                        </strong>
+                                        <p className="mx-auto mt-2 max-w-xl text-[10px] leading-5 text-[#8ba0bc]">
+                                            {text(
+                                                'لن نضع أزرار ربط شكلية. عندما نضيف تكامل فعلي مثل Stripe أو Google Drive سيظهر هنا بحالته الحقيقية.',
+                                                'We will not show decorative connect buttons. Real integrations will appear here with real connection state.',
+                                            )}
+                                        </p>
                                     </div>
-                                </div>
+                                </SettingsCard>
                             )}
 
                             {section === 'security' && (
-                                <div className="space-y-4">
-                                    <div className="grid gap-4 xl:grid-cols-2">
-                                        <SettingsCard title={text('سياسة كلمة المرور','Password policy')} description={text('قم بإعداد متطلبات كلمة المرور لحسابك.','Configure password requirements.')} icon={LockKeyhole}>
-                                            <ul className="space-y-2 text-[11px] text-[#5e789e]">
-                                                {['الحد الأدنى للطول 8 أحرف','يجب أن تحتوي على أحرف كبيرة وصغيرة','يجب أن تحتوي على أرقام ورموز خاصة','عدم استخدام كلمات المرور الشائعة'].map(item => <li key={item} className="flex items-center gap-2"><CheckCircle2 size={14} className="text-emerald-500" />{item}</li>)}
-                                            </ul>
-                                            <Link href="/app/profile" className={secondaryButton + ' mt-4 w-full'}>{text('تغيير كلمة المرور','Change password')}</Link>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('المصادقة الثنائية','Two-factor authentication')} description={text('أضف طبقة إضافية من الحماية لحسابك باستخدام المصادقة الثنائية.','Add a second authentication factor.')} icon={Smartphone}>
-                                            <div className="rounded-[12px] bg-emerald-50 p-4"><div className="flex items-center justify-between"><strong className="text-xs text-emerald-800">{text('المصادقة الثنائية مفعلة','2FA enabled')}</strong><span className="rounded-full bg-white px-2 py-1 text-[9px] font-semibold text-emerald-700">{text('مفعلة','Enabled')}</span></div><p className="mt-2 text-[10px] leading-5 text-emerald-700">{text('حسابك محمي باستخدام تطبيق المصادقة.','Your account is protected with an authenticator app.')}</p></div>
-                                            <button type="button" className={secondaryButton + ' mt-4 w-full'}>{text('إدارة المصادقة الثنائية','Manage 2FA')}</button>
-                                        </SettingsCard>
-                                    </div>
-
-                                    <div className="grid gap-4 xl:grid-cols-3">
-                                        <SettingsCard title={text('الجلسات النشطة','Active sessions')} description={text('قائمة الأجهزة النشطة حالياً على حسابك.','Currently active sessions.')} icon={Monitor}>
-                                            {['MacBook Pro','iPhone 15','Chrome - Windows'].map((device,index) => <div key={device} className="border-b border-[#edf2f8] py-3 last:border-0"><div className="flex items-center justify-between"><strong className="text-xs text-[#17386d]">{device}</strong>{index===0&&<span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-semibold text-emerald-700">{text('الجلسة الحالية','Current')}</span>}</div><p className="mt-1 text-[10px] text-[#8ba0bc]">فلسطين · Windows 11</p></div>)}
-                                            <button type="button" className="mt-4 w-full rounded-[10px] border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-600">{text('إنهاء كل الجلسات','End all sessions')}</button>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('الأجهزة الموثوقة','Trusted devices')} description={text('قم بإدارة الأجهزة الموثوقة التي لا تتطلب رمز تحقق متكرر.','Manage trusted devices.')} icon={Smartphone}>
-                                            {['MacBook Pro','iPhone 15','Windows PC'].map(device => <div key={device} className="flex items-center justify-between border-b border-[#edf2f8] py-3 last:border-0"><div><strong className="text-xs text-[#17386d]">{device}</strong><p className="mt-1 text-[10px] text-[#8ba0bc]">آخر استخدام حديث</p></div><span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-semibold text-emerald-700">{text('موثوق','Trusted')}</span></div>)}
-                                            <button type="button" className={secondaryButton + ' mt-4 w-full'}>{text('إدارة الأجهزة الموثوقة','Manage trusted devices')}</button>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('تنبيهات تسجيل الدخول','Login alerts')} description={text('احصل على إشعارات عند تسجيل الدخول إلى حسابك من أجهزة أو مواقع جديدة.','Login notification channels.')} icon={Bell}>
-                                            <SettingRow label={text('إشعارات البريد الإلكتروني','Email alerts')} checked={flags.loginEmail} onChange={() => flip('loginEmail')} />
-                                            <SettingRow label={text('إشعارات التطبيق','App alerts')} checked={flags.loginApp} onChange={() => flip('loginApp')} />
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('رموز النسخ الاحتياطي','Recovery codes')} description={text('استخدم رموز النسخ الاحتياطي للوصول إلى حسابك في حال فقدان جهاز المصادقة.','Backup recovery codes.')} icon={FileText}>
-                                            <div className="rounded-[12px] bg-[#f7fbff] p-4 text-center"><strong className="text-lg text-[#17386d]">8</strong><p className="mt-1 text-[10px] text-[#8ba0bc]">{text('رموز متاحة','codes available')}</p></div>
-                                            <button type="button" className={secondaryButton + ' mt-3 w-full'}>{text('عرض رموز النسخ الاحتياطي','View recovery codes')}</button>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('تقييد عناوين IP','IP restriction')} description={text('يمكنك تقييد الوصول إلى حسابك من عناوين IP محددة.','Restrict sign-in by IP.')} icon={Globe2}>
-                                            <SettingRow label={text('تفعيل تقييد عناوين IP','Enable IP restriction')} checked={flags.ipRestriction} onChange={() => flip('ipRestriction')} />
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('انتهاء الجلسة التلقائي','Automatic session timeout')} description={text('قم بتحديد مدة الخمول قبل تسجيل الخروج التلقائي.','Set inactivity timeout.')} icon={CalendarDays}>
-                                            <MiniSelect label={text('المدة','Timeout')} defaultValue="30"><option value="30">{text('30 دقيقة','30 minutes')}</option><option value="60">{text('ساعة','1 hour')}</option></MiniSelect>
-                                        </SettingsCard>
-                                    </div>
-
-                                    <section className="rounded-[16px] border border-red-200 bg-red-50/70 p-4">
-                                        <div className="flex items-center gap-2 text-red-700"><AlertTriangle size={17} /><strong className="text-sm">{text('منطقة الخطر','Danger zone')}</strong></div>
-                                        <p className="mt-1 text-[10px] leading-5 text-red-600">{text('هذه الإجراءات قد تؤدي إلى فقدان الوصول إلى حسابك بشكل دائم.','These actions may permanently affect your account.')}</p>
-                                        <button type="button" className="mt-3 rounded-[10px] border border-red-300 bg-white px-4 py-2.5 text-xs font-semibold text-red-600">{text('حذف الحساب نهائياً','Delete account permanently')}</button>
-                                    </section>
+                                <div className="grid gap-4 xl:grid-cols-2">
+                                    <SettingsCard title={text('أمان الحساب', 'Account security')} description={text('كلمة المرور والجلسات من مركز الحساب الحقيقي.', 'Password and sessions from the real account center.')} icon={LockKeyhole}>
+                                        <SectionLink href="/app/profile" icon={LockKeyhole} title={text('فتح أمان الحساب', 'Open account security')} description={text('تغيير كلمة المرور ومراجعة إعدادات الحساب.', 'Change password and manage account security.')} />
+                                    </SettingsCard>
+                                    <SettingsCard title={text('صلاحيات مساحة العمل', 'Workspace access')} description={text('منع المستخدم العادي من الوصول للإعدادات مطبق من الخادم والواجهة.', 'Regular users are blocked from settings at both UI and server.')} icon={ShieldCheck}>
+                                        <div className="rounded-[12px] bg-emerald-50 p-4 text-xs leading-6 text-emerald-800">
+                                            <CheckCircle2 size={17} className="mb-2" />
+                                            {text('صفحة الإعدادات متاحة فقط للمالك والمدير.', 'Settings are available only to workspace owners and admins.')}
+                                        </div>
+                                    </SettingsCard>
                                 </div>
                             )}
 
                             {section === 'billing' && (
-                                <div className="space-y-4">
-                                    <div className="grid gap-4 xl:grid-cols-3">
-                                        <SettingsCard title={text('خطة الاشتراك الحالية','Current plan')} description={text('باقة الاشتراك الحالية وتفاصيلها.','Current subscription plan.')} icon={Sparkles}>
-                                            <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-semibold text-emerald-700">{text('نشط','Active')}</span>
-                                            <h3 className="mt-3 text-xl font-extrabold text-[#17386d]">{text('خطة الأعمال','Business plan')}</h3>
-                                            <p className="mt-1 text-sm font-bold text-[#102e61]">$49 <span className="text-[10px] font-normal text-[#8ba0bc]">/ {text('شهرياً','month')}</span></p>
-                                            <ul className="mt-4 space-y-2 text-[10px] text-[#5e789e]">{['إدارة غير محدودة للعملاء','الفواتير والعروض التقديرية','التقارير المالية المتقدمة','دعم فني عبر البريد الإلكتروني'].map(item=><li key={item} className="flex items-center gap-2"><Check size={13} className="text-[#1265d8]" />{item}</li>)}</ul>
-                                            <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" className={secondaryButton}>{text('عرض تفاصيل الخطة','Plan details')}</button><button type="button" className={primaryButton}>{text('ترقية الخطة','Upgrade')}</button></div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('معلومات الاشتراك','Subscription information')} description={text('تفاصيل دورة الاشتراك الحالية.','Current billing cycle details.')} icon={CalendarDays}>
-                                            {[['تاريخ بداية الاشتراك','14 مايو 2026'],['تاريخ التجديد القادم','14 أكتوبر 2026'],['قيمة الاشتراك الشهري','$49.00'],['حالة الاشتراك','نشط'],['طريقة الدفع','**** 4242']].map(([label,value])=><div key={label} className="flex items-center justify-between border-b border-[#edf2f8] py-3 last:border-0"><span className="text-[10px] text-[#8ba0bc]">{label}</span><strong className="text-xs text-[#17386d]">{value}</strong></div>)}
-                                        </SettingsCard>
-
-                                        <div className="space-y-4">
-                                            <SettingsCard title={text('وسيلة الدفع','Payment method')} description={text('بطاقة الدفع المستخدمة للاشتراك.','Subscription payment card.')} icon={CreditCard}>
-                                                <div className="rounded-[12px] border border-[#dfe8f4] p-4"><strong className="text-xs text-[#17386d]">VISA **** 4242</strong><p className="mt-1 text-[10px] text-[#8ba0bc]">12/2027 · محمد أحمد</p></div>
-                                                <button type="button" className={secondaryButton + ' mt-3 w-full'}>{text('إدارة وسيلة الدفع','Manage payment method')}</button>
-                                            </SettingsCard>
-                                            <SettingsCard title={text('جهة الاتصال للفوترة','Billing contact')} description={text('بيانات المستلم لفواتير الاشتراك.','Billing recipient details.')} icon={UsersRound}>
-                                                <strong className="text-xs text-[#17386d]">أحمد محمد</strong><p className="mt-1 text-[10px] text-[#8ba0bc]">info@acconova.com<br />+970 50 123 4567</p>
-                                                <button type="button" className={secondaryButton + ' mt-3 w-full'}>{text('تعديل بيانات الفوترة','Edit billing contact')}</button>
-                                            </SettingsCard>
-                                        </div>
+                                <SettingsCard title={text('الفوترة والاشتراك', 'Billing & subscription')} description={text('لا نعرض مبالغ أو بطاقات تجريبية غير مرتبطة باشتراك حقيقي.', 'No fake plans, cards, or billing history are shown.')} icon={WalletCards}>
+                                    <div className="rounded-[14px] border border-dashed border-[#cadcf1] bg-[#fbfdff] p-8 text-center">
+                                        <WalletCards size={26} className="mx-auto text-[#1265d8]" />
+                                        <strong className="mt-3 block text-sm text-[#17386d]">
+                                            {text('إدارة الاشتراك غير مربوطة بعد بمصدر فوترة حقيقي', 'Subscription management is not connected to a real billing source yet')}
+                                        </strong>
+                                        <p className="mx-auto mt-2 max-w-xl text-[10px] leading-5 text-[#8ba0bc]">
+                                            {text('تم حذف البيانات التجريبية من هذه الصفحة حتى لا تظهر كمعلومات حقيقية.', 'Sample billing data was removed so it cannot be mistaken for real information.')}
+                                        </p>
                                     </div>
-
-                                    <div className="grid gap-4 xl:grid-cols-2">
-                                        <SettingsCard title={text('استخدام الاشتراك الحالي','Current usage')} description={text('متابعة استخدام حدود الخطة الحالية.','Monitor current plan limits.')} icon={Gauge}>
-                                            {[
-                                                ['العملاء','142 / غير محدود',72],
-                                                ['الفواتير الشهرية','320 / غير محدود',88],
-                                                ['المستخدمون','5 / غير محدود',46],
-                                                ['سعة التخزين','1.2 GB / 10 GB',12],
-                                            ].map(([label,value,percent]) => <div key={String(label)} className="mb-4"><div className="flex items-center justify-between text-[10px]"><strong className="text-[#17386d]">{String(label)}</strong><span className="text-[#8ba0bc]">{String(value)}</span></div><div className="mt-2 h-2 rounded-full bg-[#edf2f8]"><div className="h-2 rounded-full bg-[#1265d8]" style={{width: percent+'%'}} /></div></div>)}
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('الإضافات المتاحة','Available add-ons')} description={text('عزز تجربتك مع AccoNova من خلال الإضافات التالية.','Optional subscription add-ons.')} icon={Grid2X2}>
-                                            {[['وحدة المبيعات المتقدمة','$15 / الشهر'],['نسخ احتياطي تلقائي','$10 / الشهر']].map(([name,price]) => <div key={name} className="mb-3 flex items-center justify-between rounded-[12px] border border-[#dfe8f4] p-3"><div><strong className="text-xs text-[#17386d]">{name}</strong><p className="mt-1 text-[10px] text-[#8ba0bc]">{price}</p></div><button type="button" className={secondaryButton}>{text('إضافة','Add')} +</button></div>)}
-                                        </SettingsCard>
-                                    </div>
-
-                                    <SettingsCard title={text('سجل الفواتير','Billing history')} description={text('جميع الفواتير الصادرة لاشتراكك في AccoNova.','Subscription invoice history.')} icon={FileSpreadsheet}>
-                                        <div className="overflow-x-auto"><table className="min-w-[650px] w-full text-[10px]"><thead className="bg-[#f8fbff]"><tr><th className="px-3 py-2 text-start">{text('رقم الفاتورة','Invoice')}</th><th className="px-3 py-2 text-start">{text('التاريخ','Date')}</th><th className="px-3 py-2 text-start">{text('الفترة','Period')}</th><th className="px-3 py-2 text-start">{text('المبلغ','Amount')}</th><th className="px-3 py-2 text-start">{text('الحالة','Status')}</th><th></th></tr></thead><tbody>{['INV-2026-0074','INV-2026-0061','INV-2026-0048'].map((id,index)=><tr key={id} className="border-t border-[#edf2f8]"><td className="px-3 py-3 font-semibold text-[#17386d]">{id}</td><td className="px-3 py-3">14 {index===0?'سبتمبر':index===1?'أغسطس':'يوليو'} 2026</td><td className="px-3 py-3">{text('شهري','Monthly')}</td><td className="px-3 py-3">$49.00</td><td className="px-3 py-3"><span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">{text('مدفوع','Paid')}</span></td><td className="px-3 py-3"><button type="button" className={secondaryButton}><Download size={13} />{text('تحميل','Download')}</button></td></tr>)}</tbody></table></div>
-                                    </SettingsCard>
-                                </div>
+                                </SettingsCard>
                             )}
 
                             {section === 'appearance' && (
                                 <div className="space-y-4">
-                                    <div className="grid gap-4 xl:grid-cols-2">
-                                        <SettingsCard title={text('وضع المظهر','Theme mode')} description={text('اختر نمط المظهر العام لواجهة AccoNova.','Choose the interface theme.')} icon={Palette}>
-                                            <div className="grid grid-cols-3 gap-3">
-                                                <ThemePreview label={text('فاتح','Light')} mode="light" active={profilePreferences.theme === 'light'} onClick={() => setProfilePreferences(p => ({...p,theme:'light'}))} />
-                                                <ThemePreview label={text('داكن','Dark')} mode="dark" active={profilePreferences.theme === 'dark'} onClick={() => setProfilePreferences(p => ({...p,theme:'dark'}))} />
-                                                <ThemePreview label={text('تلقائي','System')} mode="system" active={profilePreferences.theme === 'system'} onClick={() => setProfilePreferences(p => ({...p,theme:'system'}))} />
-                                            </div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('اللون الرئيسي','Primary color')} description={text('اختر اللون الرئيسي الذي سيظهر في الأزرار والروابط والعناصر النشطة.','Choose the primary accent color.')} icon={Palette}>
-                                            <div className="flex flex-wrap items-center gap-3 pt-6">
-                                                {['#8B5CF6','#EC4899','#EF4444','#10B981','#14B8A6','#2563EB','#334155'].map((color,index)=><button type="button" key={color} className={['size-10 rounded-full border-4 border-white shadow-[0_0_0_1px_#dbe5f2]',index===5?'ring-2 ring-[#2563EB] ring-offset-2':''].join(' ')} style={{backgroundColor:color}} />)}
-                                                <input className={input + ' !mt-0 w-28'} defaultValue="#2563EB" />
-                                            </div>
-                                        </SettingsCard>
-                                    </div>
-
                                     <div className="grid gap-4 xl:grid-cols-3">
-                                        <SettingsCard title={text('كثافة العرض','Display density')} description={text('تحكم في المسافة بين العناصر في الواجهة.','Control spacing density.')} icon={Grid2X2}>
-                                            <div className="grid grid-cols-3 gap-2">{['مريح','عادي','مضغوط'].map((label,index)=><button type="button" key={label} className={['rounded-[12px] border p-4 text-[10px] font-semibold',index===1?'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]':'border-[#dfe8f4] text-[#6e85a5]'].join(' ')}>{label}</button>)}</div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('نصف قطر الحواف','Corner radius')} description={text('حدد درجة استدارة الزوايا للعناصر والبطاقات.','Control interface corner radius.')} icon={Grid2X2}>
-                                            <div className="grid grid-cols-3 gap-2">{['دائرية','متوسطة','مدببة'].map((label,index)=><button type="button" key={label} className={['border p-4 text-[10px] font-semibold',index===1?'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]':'border-[#dfe8f4] text-[#6e85a5]',index===0?'rounded-[20px]':index===1?'rounded-[10px]':'rounded-[4px]'].join(' ')}>{label}</button>)}</div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('حجم الخط','Font size')} description={text('تحكم في حجم الخط في جميع أجزاء النظام.','Adjust typography size.')} icon={Languages}>
-                                            <div className="grid grid-cols-3 gap-2">{['صغير','متوسط','كبير'].map((label,index)=><button type="button" key={label} className={['rounded-[12px] border p-4 font-semibold',index===1?'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]':'border-[#dfe8f4] text-[#6e85a5]',index===0?'text-[10px]':index===1?'text-xs':'text-base'].join(' ')}>Aa<br /><span className="text-[9px]">{label}</span></button>)}</div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('تخطيط الشريط الجانبي','Sidebar layout')} description={text('حدد طريقة عرض الشريط الجانبي للنظام.','Choose sidebar layout.')} icon={PanelRight}>
-                                            <div className="grid grid-cols-3 gap-2">{['موسع','مصغر','تلقائي'].map((label,index)=><button type="button" key={label} className={['rounded-[12px] border p-3 text-[10px] font-semibold',index===0?'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]':'border-[#dfe8f4] text-[#6e85a5]'].join(' ')}><div className="mx-auto mb-2 h-14 rounded bg-[#edf3fa] p-1"><div className={['h-full rounded bg-[#cfe0f4]',index===0?'w-2/5':index===1?'w-1/4':'w-1/3'].join(' ')} /></div>{label}</button>)}</div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('نمط الجداول','Table style')} description={text('اختر نمط عرض الجداول في جميع صفحات النظام.','Choose table presentation style.')} icon={FileSpreadsheet}>
-                                            <div className="grid grid-cols-3 gap-2">{['عادي','مخطط','مضغوط'].map((label,index)=><button type="button" key={label} className={['rounded-[12px] border p-3 text-[10px] font-semibold',index===0?'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]':'border-[#dfe8f4] text-[#6e85a5]'].join(' ')}><div className="space-y-1">{[1,2,3].map(x=><div key={x} className="h-2 rounded bg-[#dfe9f6]" />)}</div><span className="mt-2 block">{label}</span></button>)}</div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('نمط بطاقات لوحة التحكم','Dashboard card style')} description={text('اختر النمط المفضل لعرض بطاقات الإحصائيات.','Choose dashboard card presentation.')} icon={LayoutDashboard}>
-                                            <div className="grid grid-cols-3 gap-2">{['كلاسيكي','حدودية','مظلل'].map((label,index)=><button type="button" key={label} className={['rounded-[12px] border p-3 text-[10px] font-semibold',index===0?'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]':'border-[#dfe8f4] text-[#6e85a5]'].join(' ')}><div className="h-12 rounded-[8px] bg-[#eef4fb]" /><span className="mt-2 block">{label}</span></button>)}</div>
-                                        </SettingsCard>
+                                        {([
+                                            ['light', text('فاتح', 'Light')],
+                                            ['dark', text('داكن', 'Dark')],
+                                            ['system', text('تلقائي', 'System')],
+                                        ] as const).map(([value,label]) => (
+                                            <button
+                                                key={value}
+                                                type="button"
+                                                onClick={() => setProfilePreferences(current => ({ ...current, theme: value }))}
+                                                className={[
+                                                    panel,
+                                                    'p-4 text-start',
+                                                    profilePreferences.theme === value ? 'ring-2 ring-[#2f7df4]' : '',
+                                                ].join(' ')}
+                                            >
+                                                <div className={['h-28 rounded-[12px] border', value === 'dark' ? 'border-slate-700 bg-[#172033]' : value === 'system' ? 'bg-gradient-to-r from-white from-50% to-[#172033] to-50%' : 'bg-white'].join(' ')} />
+                                                <strong className="mt-3 block text-xs text-[#17386d]">{label}</strong>
+                                            </button>
+                                        ))}
                                     </div>
-
                                     <div className="grid gap-4 xl:grid-cols-2">
-                                        <SettingsCard title={text('الرسوم المتحركة','Animations')} description={text('تحكم في استخدام الحركات والانتقالات في الواجهة.','Control motion and transitions.')} icon={Zap}>
-                                            <SettingRow label={text('تفعيل الرسوم المتحركة','Enable animations')} checked={flags.animations} onChange={() => flip('animations')} />
-                                            <SettingRow label={text('حركات التفاعل','Interaction motion')} checked={flags.hoverMotion} onChange={() => flip('hoverMotion')} />
-                                            <SettingRow label={text('حركات المظهر','Page transitions')} checked={flags.pageMotion} onChange={() => flip('pageMotion')} />
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('شعار النظام','System logo')} description={text('قم برفع شعار مؤسستك وسيظهر في الشريط العلوي والقوائم.','Upload the system logo.')} icon={Image}>
-                                            <div className="grid gap-4 sm:grid-cols-[190px_1fr]">
-                                                <div className="flex min-h-40 flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c9d9ed] bg-[#fbfdff]"><div className="flex size-16 items-center justify-center rounded-[18px] bg-[#edf5ff] text-2xl font-black text-[#1265d8]">A</div><strong className="mt-2 text-lg text-[#102e61]">AccoNova</strong></div>
-                                                <div className="flex flex-col justify-center"><button type="button" className={secondaryButton}><Upload size={14} />{text('تغيير الشعار','Change logo')}</button><p className={helper}>PNG — 512×512</p></div>
+                                        <SettingsCard title={text('كثافة العرض', 'Display density')} description={text('تطبق على حسابك.', 'Saved to your account.')} icon={Grid2X2}>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {([
+                                                    ['comfortable', text('مريح', 'Comfortable')],
+                                                    ['compact', text('مضغوط', 'Compact')],
+                                                ] as const).map(([value,label]) => (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        onClick={() => setProfilePreferences(current => ({ ...current, density: value }))}
+                                                        className={[
+                                                            'rounded-[12px] border p-4 text-xs font-semibold',
+                                                            profilePreferences.density === value ? 'border-[#2f7df4] bg-[#f4f8ff] text-[#1265d8]' : 'border-[#dfe8f4] text-[#6e85a5]',
+                                                        ].join(' ')}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                ))}
                                             </div>
+                                        </SettingsCard>
+                                        <SettingsCard title={text('الحركة وحجم القوائم', 'Motion & list size')} description={text('تفضيلات عرض شخصية.', 'Personal display preferences.')} icon={Palette}>
+                                            <SettingRow label={text('تقليل الحركة', 'Reduce motion')} checked={profilePreferences.reduced_motion} onChange={() => setProfilePreferences(current => ({ ...current, reduced_motion: !current.reduced_motion }))} />
+                                            <label className="mt-3 block text-[11px] font-semibold text-[#5e789e]">
+                                                {text('عدد العناصر في الصفحة', 'Items per page')}
+                                                <select className={input} value={profilePreferences.page_size} onChange={event => setProfilePreferences(current => ({ ...current, page_size: Number(event.target.value) }))}>
+                                                    <option value={10}>10</option>
+                                                    <option value={25}>25</option>
+                                                    <option value={50}>50</option>
+                                                </select>
+                                            </label>
                                         </SettingsCard>
                                     </div>
                                 </div>
                             )}
 
-                            <div className="sticky bottom-0 z-20 mt-5 flex items-center justify-between border-t border-[#dfe8f4] bg-[#f8fbff]/95 py-3 backdrop-blur">
-                                <div className="flex items-center gap-2 text-[10px] text-[#8ba0bc]">
-                                    <CheckCircle2 size={14} className="text-emerald-500" />
-                                    {savedMessage || text('آخر حفظ للتغييرات: منذ 5 دقائق', 'Last saved 5 minutes ago')}
+                            <div className="sticky bottom-0 z-20 mt-5 flex items-center justify-between gap-3 border-t border-[#dfe8f4] bg-[#f8fbff]/95 py-3 backdrop-blur">
+                                <div className="min-w-0 text-[10px] text-[#8ba0bc]">
+                                    {message && (
+                                        <span className="inline-flex items-center gap-2 text-emerald-700">
+                                            <CheckCircle2 size={14} />
+                                            {message}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex gap-2">
-                                    <button type="button" className={secondaryButton}>
+                                    <button
+                                        type="button"
+                                        className={secondaryButton}
+                                        disabled={saving}
+                                        onClick={() => window.location.reload()}
+                                    >
                                         {text('إلغاء', 'Cancel')}
                                     </button>
                                     <button
                                         type="button"
+                                        className={primaryButton}
                                         disabled={saving}
                                         onClick={() => void saveChanges()}
-                                        className={primaryButton}
                                     >
                                         <Save size={14} />
                                         {saving ? text('جارٍ الحفظ...', 'Saving...') : text('حفظ التغييرات', 'Save changes')}
@@ -1405,7 +1320,6 @@ function SettingsWorkspace() {
                                         {text('إعدادات الحساب', 'Account settings')}
                                     </p>
                                 </div>
-
                                 <nav className="space-y-1">
                                     {navItems.map(item => {
                                         const Icon = item.icon;
@@ -1417,7 +1331,8 @@ function SettingsWorkspace() {
                                                 type="button"
                                                 onClick={() => {
                                                     setSection(item.key);
-                                                    setSavedMessage('');
+                                                    setMessage('');
+                                                    setError('');
                                                 }}
                                                 className={[
                                                     'flex w-full items-center gap-3 rounded-[11px] px-3 py-2.5 text-start text-xs font-semibold transition',
@@ -1432,21 +1347,6 @@ function SettingsWorkspace() {
                                         );
                                     })}
                                 </nav>
-
-                                <div className="mt-6 rounded-[14px] bg-gradient-to-b from-[#f5f9ff] to-white p-4 text-center">
-                                    <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-[#e9f3ff] text-[#1265d8]">
-                                        <Bell size={18} />
-                                    </span>
-                                    <strong className="mt-2 block text-xs text-[#17386d]">
-                                        {text('تحتاج إلى مساعدة؟', 'Need help?')}
-                                    </strong>
-                                    <p className="mt-1 text-[9px] leading-5 text-[#8ba0bc]">
-                                        {text('تواصل مع فريق الدعم للحصول على المساعدة.', 'Contact our support team.')}
-                                    </p>
-                                    <button type="button" className={secondaryButton + ' mt-3 w-full'}>
-                                        {text('مركز المساعدة', 'Help center')}
-                                    </button>
-                                </div>
                             </div>
                         </aside>
                     </div>
