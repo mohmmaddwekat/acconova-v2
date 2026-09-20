@@ -19,7 +19,7 @@ export type WorkspaceRecordLink = {
     key: string;
     kind: WorkspaceRecordKind;
     label: string;
-    detail?: string | null;
+    detail?: string | null | undefined;
     href: string;
     touchedAt: string;
 };
