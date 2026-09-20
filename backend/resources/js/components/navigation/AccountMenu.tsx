@@ -254,7 +254,7 @@ export function AccountMenu() {
                     )
                 }
                 className={[
-                    'group flex h-10 min-w-10 items-center justify-center gap-2 rounded-[14px] border bg-white px-1.5 shadow-[var(--ac-shadow-soft)] transition duration-200 hover:-translate-y-px sm:px-2',
+                    'group flex h-10 min-w-10 items-center justify-center gap-2 rounded-[14px] border bg-[var(--ac-surface)] px-1.5 shadow-[var(--ac-shadow-soft)] transition duration-200 hover:-translate-y-px sm:px-2',
                     open
                         ? 'border-[var(--ac-accent)] ring-4 ring-[var(--ac-accent-soft)]'
                         : 'border-[var(--ac-line)]',
@@ -294,7 +294,7 @@ export function AccountMenu() {
             {open && (
                 <div
                     role="menu"
-                    className="absolute end-0 top-[calc(100%+0.65rem)] z-[90] w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-[22px] border border-[var(--ac-line)] bg-white p-2 shadow-[var(--ac-shadow-panel)]"
+                    className="absolute end-0 top-[calc(100%+0.65rem)] z-[90] w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2 shadow-[var(--ac-shadow-panel)]"
                 >
                     <div className="rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3.5">
                         <div className="flex items-center gap-3">
