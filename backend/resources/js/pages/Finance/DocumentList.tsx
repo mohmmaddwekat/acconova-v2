@@ -58,6 +58,70 @@ type Response = {
     };
 };
 
+function dueDateTone(
+    dueDate: string | null,
+    status: string,
+): string {
+    if (! dueDate) {
+        return 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]';
+    }
+
+    if (
+        status === 'paid'
+        || status === 'overpaid'
+    ) {
+        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    }
+
+    const due =
+        new Date(
+            dueDate
+            + 'T12:00:00',
+        );
+    const current =
+        new Date();
+
+    current.setHours(
+        12,
+        0,
+        0,
+        0,
+    );
+
+    const days =
+        Math.ceil(
+            (
+                due.getTime()
+                - current.getTime()
+            )
+            / 86400000,
+        );
+
+    if (
+        days < 0
+        && ! [
+            'voided',
+            'reversed',
+            'draft',
+        ].includes(status)
+    ) {
+        return 'border-red-200 bg-red-50 text-red-700';
+    }
+
+    if (
+        days >= 0
+        && days <= 3
+        && ! [
+            'voided',
+            'reversed',
+        ].includes(status)
+    ) {
+        return 'border-amber-200 bg-amber-50 text-amber-700';
+    }
+
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+}
+
 export function DocumentList({
     kind,
     lookups,
@@ -677,7 +741,17 @@ export function DocumentList({
                                                 if (key === 'due_date') {
                                                     return (
                                                         <td key={key} className={cellClass}>
-                                                            {row.due_date ?? '—'}
+                                                            <span
+                                                                className={[
+                                                                    'inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold',
+                                                                    dueDateTone(
+                                                                        row.due_date,
+                                                                        row.status,
+                                                                    ),
+                                                                ].join(' ')}
+                                                            >
+                                                                {row.due_date ?? '—'}
+                                                            </span>
                                                         </td>
                                                     );
                                                 }
