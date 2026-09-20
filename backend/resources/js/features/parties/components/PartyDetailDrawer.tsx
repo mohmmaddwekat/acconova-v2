@@ -2,6 +2,9 @@ import {
     PermanentDeleteControl,
 } from '@/components/data/PermanentDeleteControl';
 import {
+    ActivityTimeline,
+} from '@/components/data/ActivityTimeline';
+import {
     useDialog,
 } from '@/components/feedback/useDialog';
 import {
@@ -159,7 +162,7 @@ export function PartyDetailDrawer({
     onArchive,
     onRestore,
 }: PartyDetailDrawerProps) {
-    useLocale();
+    const locale = useLocale();
 
     const {
         showToast,
@@ -707,6 +710,37 @@ export function PartyDetailDrawer({
                             />
                         </div>
                     </section>
+                    <div className="mt-6">
+                        <ActivityTimeline
+                            title={locale === 'ar' ? 'سجل النشاط' : 'Activity timeline'}
+                            locale={locale}
+                            items={[
+                                {
+                                    key: 'party-created',
+                                    label: locale === 'ar' ? 'تم إنشاء الجهة' : 'Party created',
+                                    detail: locale === 'ar' ? 'بداية سجل العلاقة داخل مساحة العمل.' : 'Relationship record added to this workspace.',
+                                    at: resolvedParty.created_at,
+                                    tone: 'created',
+                                },
+                                {
+                                    key: 'party-updated',
+                                    label: locale === 'ar' ? 'آخر تعديل' : 'Last updated',
+                                    detail: locale === 'ar' ? 'آخر وقت تم فيه تعديل بيانات الجهة.' : 'Most recent Party data update.',
+                                    at: resolvedParty.updated_at,
+                                    tone: 'updated',
+                                },
+                                ...(resolvedParty.deleted_at
+                                    ? [{
+                                        key: 'party-archived',
+                                        label: locale === 'ar' ? 'تمت الأرشفة' : 'Party archived',
+                                        detail: locale === 'ar' ? 'السجل محفوظ تاريخياً لكنه غير متاح للعمليات الجديدة.' : 'The record remains historical but is unavailable for new activity.',
+                                        at: resolvedParty.deleted_at,
+                                        tone: 'archived' as const,
+                                    }]
+                                    : []),
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 <footer className="shrink-0 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
