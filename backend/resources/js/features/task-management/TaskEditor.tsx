@@ -167,8 +167,7 @@ export function TaskEditor({
             { signal: controller.signal },
         )
             .then((detail: TaskDetail) => {
-                setRecord(detail.task);
-                setDraft({
+                const loadedDraft: TaskPayload = {
                     title: detail.task.title,
                     description: detail.task.description,
                     project_id: detail.task.project_id,
@@ -183,9 +182,20 @@ export function TaskEditor({
                     due_on: detail.task.due_on,
                     estimated_hours: detail.task.estimated_hours,
                     revision: detail.task.revision,
-                });
-                setTags(detail.task.tags.join(', '));
+                };
+                const loadedTags =
+                    detail.task.tags.join(', ');
+
+                setRecord(detail.task);
+                setDraft(loadedDraft);
+                setTags(loadedTags);
                 setAttachments(detail.attachments);
+
+                initialDraftRef.current =
+                    JSON.stringify({
+                        draft: loadedDraft,
+                        tags: loadedTags,
+                    });
             })
             .catch((failure: unknown) => {
                 if (! controller.signal.aborted) {
@@ -363,7 +373,9 @@ export function TaskEditor({
         || files.length > 0;
 
     useUnsavedChanges(
-        dirty && ! busy,
+        dirty
+        && ! busy
+        && ! loading,
         ar,
     );
 
@@ -371,13 +383,15 @@ export function TaskEditor({
         () =>
             formRef.current
                 ?.requestSubmit(),
-        ! busy,
+        ! busy
+        && ! loading,
     );
 
     useLocalDraft(
         localDraftKey,
         localDraftValue,
-        ! busy,
+        ! busy
+        && ! loading,
         900,
     );
 
