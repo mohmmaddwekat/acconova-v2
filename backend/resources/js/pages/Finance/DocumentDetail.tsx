@@ -120,6 +120,11 @@ export function DocumentDetail({
             ? lookups.permissions.cash_receive
             : lookups.permissions.cash_pay;
 
+    const canCopy =
+        sales
+            ? lookups.permissions.sales_manage
+            : lookups.permissions.purchases_manage;
+
     useEffect(
         () => {
             const controller =
@@ -650,18 +655,20 @@ export function DocumentDetail({
                             ar={ar}
                         />
 
-                        <Link
-                            href={
-                                (sales
-                                    ? '/app/invoices/sales/create?copy_from='
-                                    : '/app/invoices/purchases/create?copy_from=')
-                                + String(document.id)
-                            }
-                            className={financeButton}
-                        >
-                            <Copy size={15} />
-                            {text('نسخ الفاتورة', 'Copy invoice')}
-                        </Link>
+                        {canCopy && (
+                            <Link
+                                href={
+                                    (sales
+                                        ? '/app/invoices/sales/create?copy_from='
+                                        : '/app/invoices/purchases/create?copy_from=')
+                                    + String(document.id)
+                                }
+                                className={financeButton}
+                            >
+                                <Copy size={15} />
+                                {text('نسخ الفاتورة', 'Copy invoice')}
+                            </Link>
+                        )}
 
                         <button
                             type="button"
