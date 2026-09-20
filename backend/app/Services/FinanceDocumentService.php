@@ -724,6 +724,9 @@ class FinanceDocumentService
                 'description' => $line->description,
                 'quantity' => $line->quantity,
                 'unit_price' => $line->unit_price,
+                'discount_type' => $line->discount_type,
+                'discount_value' => $line->discount_value,
+                'line_discount' => $line->line_discount,
                 'line_total' => $line->line_total,
             ])->all(),
         ];
