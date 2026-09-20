@@ -714,7 +714,7 @@ export function Taxes({
                                         && (
                                             <Link
                                                 href={
-                                                    '/app/payments/create?government_obligation_id='
+                                                    '/app/finance?view=payment-create&government_obligation_id='
                                                     + obligation.id
                                                 }
                                                 className={financePrimary}
