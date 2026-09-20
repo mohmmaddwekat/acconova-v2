@@ -22,6 +22,19 @@ class ProfileCenterController extends Controller
         ]);
     }
 
+    public function preferenceSettings(Request $request): JsonResponse
+    {
+        $settings = DB::table('profile_preferences')
+            ->where('user_id', $request->user()->id)
+            ->value('settings');
+
+        return response()->json([
+            'settings' => $settings
+                ? json_decode($settings, true)
+                : null,
+        ]);
+    }
+
     public function preferences(Request $request): JsonResponse
     {
         $settings = $request->validate([
