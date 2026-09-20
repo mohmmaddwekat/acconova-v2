@@ -792,6 +792,30 @@ export function DocumentForm({
             return;
         }
 
+        if (
+            issue
+            && ! window.confirm(
+                text(
+                    'تأكيد الإصدار: إجمالي الفاتورة '
+                    + new Intl.NumberFormat().format(calculated.total)
+                    + ' '
+                    + currency
+                    + ' وعدد البنود '
+                    + String(lines.length)
+                    + '. بعد الإصدار لن يتم تعديل السجل بصمت؛ أي خطأ لاحق سيحتاج تصحيحاً موثقاً. هل راجعت المبلغ؟',
+                    'Issue confirmation: invoice total '
+                    + new Intl.NumberFormat().format(calculated.total)
+                    + ' '
+                    + currency
+                    + ' across '
+                    + String(lines.length)
+                    + ' line(s). After issue, the record cannot be silently edited; later mistakes require a documented correction. Did you review the amount?',
+                ),
+            )
+        ) {
+            return;
+        }
+
         setBusy(
             true,
         );
