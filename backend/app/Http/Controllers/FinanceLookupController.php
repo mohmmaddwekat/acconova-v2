@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Department;
+use App\Models\FinancialDocument;
 use App\Models\FinancialDocumentLine;
 use App\Models\GovernmentObligation;
 use App\Models\Party;
@@ -40,24 +41,29 @@ class FinanceLookupController extends Controller
             ->usableForNewBusiness()
             ->findOrFail((int) $data['product_id']);
 
-        $line = FinancialDocumentLine::query()
-            ->with('document:id,party_id,kind,number,issue_date,status')
-            ->where('product_id', $product->id)
-            ->whereHas('document', function ($query) use ($party, $data): void {
-                $query
-                    ->where('party_id', $party->id)
-                    ->where('kind', $data['kind'])
-                    ->whereIn('status', ['issued', 'partially_paid', 'paid', 'overpaid']);
-            })
-            ->latest('id')
+        $document = FinancialDocument::query()
+            ->where('party_id', $party->id)
+            ->where('kind', $data['kind'])
+            ->whereIn('status', ['issued', 'partially_paid', 'paid', 'overpaid'])
+            ->whereHas('lines', fn ($query) => $query->where('product_id', $product->id))
+            ->orderByDesc('issue_date')
+            ->orderByDesc('id')
             ->first();
+
+        $line = $document
+            ? FinancialDocumentLine::query()
+                ->where('financial_document_id', $document->id)
+                ->where('product_id', $product->id)
+                ->orderByDesc('id')
+                ->first()
+            : null;
 
         if ($line) {
             return response()->json([
                 'source' => 'party_history',
                 'unit_price' => $line->unit_price,
-                'document_number' => $line->document?->number,
-                'issue_date' => $line->document?->issue_date?->format('Y-m-d'),
+                'document_number' => $document?->number,
+                'issue_date' => $document?->issue_date?->format('Y-m-d'),
             ]);
         }
 
