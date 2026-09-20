@@ -270,6 +270,11 @@ Route::middleware([
     );
 
     Route::get(
+        '/app/finance',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'hub']),
+    )->name('app.finance');
+
+    Route::get(
         '/app/invoices',
         fn () => Inertia::render('Finance/Index', ['financeView' => 'sales-list']),
     )->name('app.invoices');
