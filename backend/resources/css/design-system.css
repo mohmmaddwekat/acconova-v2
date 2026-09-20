@@ -836,6 +836,220 @@ html[data-ac-resolved-theme='dark']
         var(--ac-line) !important;
 }
 
+
+/*
+ * Dark-mode compatibility layer for legacy/light utility classes.
+ *
+ * A number of older screens still use literal Tailwind light surfaces. Keep
+ * one product-wide mapping here so toggling appearance never produces white
+ * cards with white text or partially-light pages.
+ */
+html[data-ac-resolved-theme='dark'] {
+    color-scheme: dark;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .bg-white,
+        .bg-white\/95,
+        .bg-white\/90,
+        .bg-white\/80,
+        .bg-white\/70,
+        .bg-white\/60,
+        .bg-white\/50
+    ) {
+    background-color: var(--ac-surface) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .bg-slate-50,
+        .bg-slate-100,
+        .bg-gray-50,
+        .bg-gray-100,
+        .bg-zinc-50,
+        .bg-zinc-100
+    ) {
+    background-color: var(--ac-surface-soft) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .border-white,
+        .border-slate-100,
+        .border-slate-200,
+        .border-slate-300,
+        .border-gray-100,
+        .border-gray-200,
+        .border-gray-300
+    ) {
+    border-color: var(--ac-line) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .text-slate-950,
+        .text-slate-900,
+        .text-slate-800,
+        .text-gray-950,
+        .text-gray-900,
+        .text-gray-800
+    ) {
+    color: var(--ac-text) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .text-slate-700,
+        .text-slate-600,
+        .text-gray-700,
+        .text-gray-600
+    ) {
+    color: var(--ac-text-soft) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        .text-slate-500,
+        .text-slate-400,
+        .text-slate-300,
+        .text-gray-500,
+        .text-gray-400,
+        .text-gray-300
+    ) {
+    color: var(--ac-text-muted) !important;
+}
+
+/* Light gradients must resolve to dark surfaces too. */
+html[data-ac-resolved-theme='dark'] .from-white {
+    --tw-gradient-from: var(--ac-surface) var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: color-mix(in srgb, var(--ac-surface) 0%, transparent)
+        var(--tw-gradient-to-position) !important;
+}
+
+html[data-ac-resolved-theme='dark'] .via-white {
+    --tw-gradient-via: var(--ac-surface) var(--tw-gradient-via-position) !important;
+}
+
+html[data-ac-resolved-theme='dark'] .to-white {
+    --tw-gradient-to: var(--ac-surface) var(--tw-gradient-to-position) !important;
+}
+
+/*
+ * Finance and a few older admin screens use a fixed blue/light palette.
+ * Map only the exact legacy tokens; semantic colors such as success/warning
+ * remain untouched.
+ */
+html[data-ac-resolved-theme='dark']
+    :is(
+        [class~="bg-[#f8fbff]"],
+        [class~="bg-[#f7faff]"],
+        [class~="bg-[#fbfdff]"],
+        [class~="bg-[#f7f9fc]"],
+        [class~="bg-[#f5f8ff]"],
+        [class~="bg-[#f6faff]"],
+        [class~="bg-[#f3f7fc]"],
+        [class~="bg-[#eef5ff]"]
+    ) {
+    background-color: var(--ac-surface-soft) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        [class~="border-[#dbe6f5]"],
+        [class~="border-[#d8e4f4]"],
+        [class~="border-[#dfe9f6]"],
+        [class~="border-[#e1eaf5]"],
+        [class~="border-[#e2eaf5]"],
+        [class~="border-[#e4edf8]"],
+        [class~="border-[#e5edf7]"],
+        [class~="border-[#e6edf7]"],
+        [class~="border-[#e6eef8]"],
+        [class~="border-[#eaf0f8]"],
+        [class~="border-[#edf2f8]"],
+        [class~="border-[#edf3fa]"]
+    ) {
+    border-color: var(--ac-line) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        [class~="text-[#0b2d67]"],
+        [class~="text-[#102c62]"],
+        [class~="text-[#123d78]"],
+        [class~="text-[#153d76]"],
+        [class~="text-[#173f78]"],
+        [class~="text-[#1c2c50]"],
+        [class~="text-[#1d3f72]"]
+    ) {
+    color: var(--ac-text) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(
+        [class~="text-[#345b8f]"],
+        [class~="text-[#49698f]"],
+        [class~="text-[#52709a]"],
+        [class~="text-[#58739a]"],
+        [class~="text-[#6680a5]"],
+        [class~="text-[#6f86a8]"],
+        [class~="text-[#7188aa]"],
+        [class~="text-[#7890b1]"]
+    ) {
+    color: var(--ac-text-muted) !important;
+}
+
+/* Inputs/selects should inherit the active theme even when a browser paints native UI. */
+html[data-ac-resolved-theme='dark']
+    :is(input, select, textarea) {
+    color-scheme: dark;
+}
+
+html[data-ac-resolved-theme='dark']
+    :is(input, select, textarea)
+    ::placeholder {
+    color: var(--ac-text-faint);
+}
+
+/* Selected/hovered index rows were intentionally white in the light theme. */
+html[data-ac-resolved-theme='dark']
+    .ac-index-row[data-selected='true'] {
+    background:
+        linear-gradient(
+            135deg,
+            rgba(67, 201, 154, 0.13),
+            color-mix(in srgb, var(--ac-surface) 96%, transparent) 48%,
+            rgba(67, 201, 154, 0.05)
+        ) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    html[data-ac-resolved-theme='dark']
+        .ac-index-row:not([data-selected='true']):hover {
+        background-color: var(--ac-surface-soft) !important;
+    }
+}
+
+/*
+ * Paper previews and printable documents are intentionally light even while
+ * the application chrome is dark.
+ */
+html[data-ac-resolved-theme='dark']
+    :is(.ac-settings-paper, .ac-invoice-print, .ac-voucher-print) {
+    color-scheme: light;
+}
+
+html[data-ac-resolved-theme='dark']
+    .ac-settings-paper.bg-white,
+html[data-ac-resolved-theme='dark']
+    .ac-invoice-print.bg-white,
+html[data-ac-resolved-theme='dark']
+    .ac-voucher-print.bg-white,
+html[data-ac-resolved-theme='dark']
+    :is(.ac-invoice-print, .ac-voucher-print) .bg-white {
+    background-color: #ffffff !important;
+}
+
 html[data-ac-density='compact']
     main
     :is(.p-6, .p-5) {
