@@ -155,7 +155,6 @@ class FinanceLookupController extends Controller
 
         return response()->json([
             'currency' => $organization->preferences['currency'] ?? 'ILS',
-            'default_payment_terms_days' => $organization->preferences['default_payment_terms_days'] ?? 30,
             'parties' => $parties,
             'products' => $products,
             'warehouses' => $warehouses,
