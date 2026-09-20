@@ -11,6 +11,7 @@ import {
     XCircle,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { FinanceNav } from './FinanceNav';
 import {
     FinanceHeader,
     FPanel,
@@ -277,54 +278,11 @@ export function CashList({
                 />
             </div>
 
-            <div className="flex flex-wrap gap-2 rounded-[16px] border border-[#dbe6f5] bg-white p-2">
-                <Link
-                    href="/app/invoices"
-                    className="rounded-[10px] px-4 py-2 text-xs font-semibold text-[#52709a] hover:bg-blue-50"
-                >
-                    {text('فواتير البيع', 'Sales invoices')}
-                </Link>
-                <Link
-                    href="/app/invoices/purchases"
-                    className="rounded-[10px] px-4 py-2 text-xs font-semibold text-[#52709a] hover:bg-blue-50"
-                >
-                    {text('فواتير الشراء', 'Purchase invoices')}
-                </Link>
-                <Link
-                    href="/app/receipts"
-                    className={
-                        'rounded-[10px] px-4 py-2 text-xs font-semibold '
-                        + (incoming
-                            ? 'bg-[#1265d8] text-white'
-                            : 'text-[#52709a] hover:bg-blue-50')
-                    }
-                >
-                    {text('المقبوضات', 'Receipts')}
-                </Link>
-                <Link
-                    href="/app/payments"
-                    className={
-                        'rounded-[10px] px-4 py-2 text-xs font-semibold '
-                        + (! incoming
-                            ? 'bg-[#1265d8] text-white'
-                            : 'text-[#52709a] hover:bg-blue-50')
-                    }
-                >
-                    {text('المدفوعات', 'Payments')}
-                </Link>
-                <Link
-                    href="/app/payments/recurring"
-                    className="rounded-[10px] px-4 py-2 text-xs font-semibold text-[#52709a] hover:bg-blue-50"
-                >
-                    {text('الدفعات المتكررة', 'Recurring')}
-                </Link>
-                <Link
-                    href="/app/finance/taxes"
-                    className="rounded-[10px] px-4 py-2 text-xs font-semibold text-[#52709a] hover:bg-blue-50"
-                >
-                    {text('الضرائب والمستحقات', 'Taxes & obligations')}
-                </Link>
-            </div>
+            <FinanceNav
+                lookups={lookups}
+                ar={ar}
+                active={incoming ? 'receipts' : 'payments'}
+            />
 
             <FPanel title={text('عوامل التصفية والبحث', 'Filters & search')} icon={Search}>
                 <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
