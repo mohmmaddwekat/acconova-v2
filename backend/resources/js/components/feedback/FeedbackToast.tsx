@@ -14,9 +14,9 @@ type FeedbackToastProps = {
 
     tone?: FeedbackTone;
 
-    actionLabel?: string;
+    actionLabel?: string | undefined;
 
-    onAction?: () => void | Promise<void>;
+    onAction?: (() => void | Promise<void>) | undefined;
 
     onDismiss: () => void;
 };
