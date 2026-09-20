@@ -447,7 +447,30 @@ function ProductsWorkspace() {
             const result = await apiRequest<{ data: { affected: number } }>('/api/products/bulk-action', {
                 method: 'POST', body: JSON.stringify({ action: pendingBulk.action, product_ids: pendingBulk.ids }),
             });
-            showToast(t('products.bulkSuccess', { count: result.data.affected }));
+            if (pendingBulk.action === 'archive') {
+                const archivedIds = [...pendingBulk.ids];
+
+                showToast(
+                    t('products.bulkSuccess', { count: result.data.affected }),
+                    'success',
+                    {
+                        label: ar ? 'تراجع' : 'Undo',
+                        run: async () => {
+                            await apiRequest('/api/products/bulk-action', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    action: 'restore',
+                                    product_ids: archivedIds,
+                                }),
+                            });
+                            await loadProducts();
+                        },
+                    },
+                    8000,
+                );
+            } else {
+                showToast(t('products.bulkSuccess', { count: result.data.affected }));
+            }
             setPendingBulk(null);
             setSelectedIds(new Set());
             setDetailProduct(null);
