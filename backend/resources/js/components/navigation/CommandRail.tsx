@@ -137,6 +137,10 @@ export function CommandRail({
         activeOrganization
             ?.permissions;
 
+    const systemName =
+        activeOrganization?.system_name
+        ?? 'AccoNova';
+
     /*
      * Keep Task Management as one primary rail destination. Custom roles land
      * on the first task surface they are actually allowed to open.
@@ -518,7 +522,7 @@ export function CommandRail({
                             )}
                         >
                             <p className="whitespace-nowrap text-sm font-semibold tracking-[-0.03em] text-[var(--ac-text)]">
-                                AccoNova
+                                {systemName}
                             </p>
 
                             <p className="mt-0.5 whitespace-nowrap text-[8px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-text-muted)]">
@@ -683,7 +687,7 @@ export function CommandRail({
 
                         <div>
                             <p className="text-sm font-semibold tracking-[-0.03em]">
-                                AccoNova
+                                {systemName}
                             </p>
 
                             <p className="text-[8px] font-semibold uppercase tracking-[0.17em] text-[var(--ac-text-muted)]">
