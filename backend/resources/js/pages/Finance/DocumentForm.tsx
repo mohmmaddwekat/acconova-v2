@@ -1909,8 +1909,8 @@ export function DocumentForm({
 
                                             <label className="text-[10px] font-semibold text-[#6c84a6] xl:col-span-1">
                                                 {text(
-                                                    'خصم %',
-                                                    'Discount %',
+                                                    'خصم % (اختياري)',
+                                                    'Discount % (optional)',
                                                 )}
 
                                                 <input
