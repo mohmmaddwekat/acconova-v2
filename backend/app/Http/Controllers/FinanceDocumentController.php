@@ -228,7 +228,7 @@ class FinanceDocumentController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function row(string $document): array
+    private function row(FinancialDocument $document): array
     {
         return [
             'id' => $document->id,
@@ -254,7 +254,7 @@ class FinanceDocumentController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function detail(string $document, FinanceDocumentService $service): array
+    private function detail(FinancialDocument $document, FinanceDocumentService $service): array
     {
         return [
             ...$this->row($document),
