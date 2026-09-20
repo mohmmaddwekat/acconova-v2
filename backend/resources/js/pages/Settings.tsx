@@ -842,14 +842,6 @@ function SettingsWorkspace() {
                                                 onChange={event => updateSetting('decimal_places', Math.min(10, Math.max(1, Number(event.target.value) || 1)))}
                                             />
                                         </label>
-                                        <label className="mt-4 block text-[11px] font-semibold text-[#5e789e]">
-                                            {text('طريقة التقريب', 'Rounding method')}
-                                            <select className={input} value={settings.rounding_method} onChange={event => updateSetting('rounding_method', event.target.value as WorkspaceSettings['rounding_method'])}>
-                                                <option value="normal">{text('تقريب عادي', 'Standard')}</option>
-                                                <option value="up">{text('للأعلى', 'Round up')}</option>
-                                                <option value="down">{text('للأسفل', 'Round down')}</option>
-                                            </select>
-                                        </label>
                                     </SettingsCard>
 
                                     <SettingsCard title={text('العملة الافتراضية', 'Default currency')} description={text('اكتب رمز العملة يدوياً. لا توجد قائمة محصورة.', 'Enter the currency code manually.')} icon={CreditCard}>
@@ -942,12 +934,13 @@ function SettingsWorkspace() {
                                         ))}
                                     </SettingsCard>
 
-                                    <SettingsCard title={text('إعدادات الضريبة', 'Tax settings')} description={text('إعدادات افتراضية تحفظ للمؤسسة.', 'Persisted organization tax defaults.')} icon={Percent}>
-                                        <label className="text-[11px] font-semibold text-[#5e789e]">
-                                            {text('نسبة الضريبة الافتراضية', 'Default tax rate')}
-                                            <input type="number" min="0" max="100" step="0.01" className={input} value={settings.default_tax_rate} onChange={event => updateSetting('default_tax_rate', event.target.value)} />
-                                        </label>
-                                        <SettingRow label={text('تضمين الضريبة في الأسعار', 'Tax-inclusive prices')} checked={settings.tax_inclusive} onChange={() => updateSetting('tax_inclusive', !settings.tax_inclusive)} />
+                                    <SettingsCard title={text('إعدادات الضريبة', 'Tax settings')} description={text('القواعد الضريبية الفعلية تدار من موديول الضرائب حتى تنعكس على الفواتير والحسابات.', 'Real tax rules are managed in the tax module so they affect invoices and calculations.')} icon={Percent}>
+                                        <SectionLink
+                                            href="/app/finance/taxes"
+                                            icon={Percent}
+                                            title={text('فتح الضرائب والمستحقات', 'Open taxes & obligations')}
+                                            description={text('إضافة وتعديل نسب وقواعد الضرائب الفعلية.', 'Create and edit the actual tax rules used by finance.')}
+                                        />
                                     </SettingsCard>
 
                                     <SettingsCard title={text('إعدادات النقد والشيكات', 'Cash & checks')} description={text('تعطيل طريقة دفع يخفيها ويمنع استخدامها من الخادم أيضاً.', 'Disabled methods are hidden and rejected by the server.')} icon={Banknote}>
@@ -960,16 +953,13 @@ function SettingsWorkspace() {
                                         </div>
                                     </SettingsCard>
 
-                                    <SettingsCard title={text('تفاصيل التكلفة', 'Costing details')} description={text('إعدادات تكلفة الشراء والمخزون.', 'Purchase and inventory costing defaults.')} icon={FileSpreadsheet}>
-                                        <label className="text-[11px] font-semibold text-[#5e789e]">
-                                            {text('طريقة احتساب التكلفة', 'Cost method')}
-                                            <select className={input} value={settings.cost_method} onChange={event => updateSetting('cost_method', event.target.value as WorkspaceSettings['cost_method'])}>
-                                                <option value="moving_average">{text('المتوسط المتحرك', 'Moving average')}</option>
-                                                <option value="fifo">FIFO</option>
-                                            </select>
-                                        </label>
-                                        <SettingRow label={text('تضمين تكاليف إضافية', 'Include extra costs')} checked={settings.include_extra_costs} onChange={() => updateSetting('include_extra_costs', !settings.include_extra_costs)} />
-                                        <SettingRow label={text('احتساب تكلفة الشحن', 'Include shipping')} checked={settings.include_shipping_cost} onChange={() => updateSetting('include_shipping_cost', !settings.include_shipping_cost)} />
+                                    <SettingsCard title={text('المخزون والتكلفة', 'Inventory & costing')} description={text('إدارة المنتجات والمخزون من الموديول التشغيلي الفعلي بدلاً من مفاتيح شكلية هنا.', 'Manage products and inventory in the real operating module instead of decorative toggles.')} icon={FileSpreadsheet}>
+                                        <SectionLink
+                                            href="/app/inventory"
+                                            icon={FileSpreadsheet}
+                                            title={text('فتح المخزون', 'Open inventory')}
+                                            description={text('مراجعة الأصناف والمستودعات وحركات المخزون والتكاليف الحالية.', 'Review products, warehouses, stock movements and current costs.')}
+                                        />
                                     </SettingsCard>
                                 </div>
                             )}
@@ -1045,7 +1035,6 @@ function SettingsWorkspace() {
                                             <SettingRow label={text('إظهار معلومات التواصل', 'Show contact information')} checked={settings.show_invoice_contact} onChange={() => updateSetting('show_invoice_contact', !settings.show_invoice_contact)} />
                                             <SettingRow label={text('إظهار الرقم الضريبي', 'Show tax number')} checked={settings.show_invoice_tax_number} onChange={() => updateSetting('show_invoice_tax_number', !settings.show_invoice_tax_number)} />
                                             <SettingRow label={text('إظهار الملاحظات', 'Show notes')} checked={settings.show_invoice_notes} onChange={() => updateSetting('show_invoice_notes', !settings.show_invoice_notes)} />
-                                            <SettingRow label={text('إظهار QR', 'Show QR')} checked={settings.show_invoice_qr} onChange={() => updateSetting('show_invoice_qr', !settings.show_invoice_qr)} />
                                         </SettingsCard>
 
                                         <SettingsCard title={text('إعدادات الطباعة', 'Print settings')} description={text('الحجم والهوامش وموقع هوية المؤسسة.', 'Paper, margins and brand placement.')} icon={Printer}>
