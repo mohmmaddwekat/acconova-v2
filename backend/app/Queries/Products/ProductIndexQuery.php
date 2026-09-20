@@ -41,6 +41,11 @@ class ProductIndexQuery
             $filters,
         );
 
+        $this->applyAdvancedFilters(
+            $query,
+            $filters,
+        );
+
         $this->applySort(
             $query,
             $filters,
@@ -240,6 +245,40 @@ class ProductIndexQuery
 
             default => null,
         };
+    }
+
+    /**
+     * Apply optional price/unit conditions from the advanced filter builder.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyAdvancedFilters(
+        Builder $query,
+        array $filters,
+    ): void {
+        if (! empty($filters['unit'])) {
+            $query->where(
+                'unit',
+                'like',
+                '%'.$filters['unit'].'%',
+            );
+        }
+
+        if (isset($filters['min_price'])) {
+            $query->where(
+                'unit_price',
+                '>=',
+                $filters['min_price'],
+            );
+        }
+
+        if (isset($filters['max_price'])) {
+            $query->where(
+                'unit_price',
+                '<=',
+                $filters['max_price'],
+            );
+        }
     }
 
     /**
