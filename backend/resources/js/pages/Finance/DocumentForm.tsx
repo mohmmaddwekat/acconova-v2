@@ -134,9 +134,7 @@ export function DocumentForm({
     ] = useState(
         initial?.activity_type
         ?? (
-            sales
-                ? 'trade'
-                : 'goods_for_resale'
+            'trade'
         ),
     );
 
