@@ -114,6 +114,35 @@ export default function FinanceIndex({
     );
 }
 
+function canOpenFinanceView(
+    financeView: FinanceView,
+    permissions: FinanceLookups['permissions'],
+): boolean {
+    switch (financeView) {
+        case 'sales-list':
+        case 'sales-detail':
+            return permissions.sales_view;
+        case 'sales-create':
+            return permissions.sales_manage;
+        case 'purchase-list':
+        case 'purchase-detail':
+            return permissions.purchases_view;
+        case 'purchase-create':
+            return permissions.purchases_manage;
+        case 'payment-list':
+        case 'payment-detail':
+        case 'receipt-list':
+        case 'receipt-detail':
+            return permissions.cash_view;
+        case 'payment-create':
+            return permissions.cash_pay;
+        case 'receipt-create':
+            return permissions.cash_receive;
+        case 'taxes':
+            return permissions.taxes_view;
+    }
+}
+
 function FinanceViewRenderer({
     financeView,
     recordId,
@@ -125,6 +154,16 @@ function FinanceViewRenderer({
     lookups: FinanceLookups;
     ar: boolean;
 }) {
+    if (! canOpenFinanceView(financeView, lookups.permissions)) {
+        return (
+            <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-6 text-sm leading-6 text-amber-800">
+                {ar
+                    ? 'ليس لديك صلاحية لفتح هذا الجزء المالي. اطلب من مالك مساحة العمل تعديل دورك إذا كنت تحتاج الوصول.'
+                    : 'You do not have permission to open this finance area. Ask the workspace owner to update your role if you need access.'}
+            </div>
+        );
+    }
+
     switch (financeView) {
         case 'sales-list':
             return <DocumentList kind="sale_invoice" lookups={lookups} ar={ar} />;

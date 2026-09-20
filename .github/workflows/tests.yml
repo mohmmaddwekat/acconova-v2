@@ -38,12 +38,8 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npm run build
-      - name: Preview finance Pint fixes
-        run: |
-          vendor/bin/pint app/Services/CashMovementService.php app/Services/FinanceDocumentService.php tests/Feature/FinanceWorkflowTest.php
-          git diff -- app/Services/CashMovementService.php app/Services/FinanceDocumentService.php tests/Feature/FinanceWorkflowTest.php
       - name: Targeted finance workflow test
         run: php artisan test --filter=FinanceWorkflowTest
-      - run: vendor/bin/pint --test
       - run: php artisan test
       - run: vendor/bin/phpunit --configuration=phpunit.sqlite.xml
+      - run: vendor/bin/pint --test

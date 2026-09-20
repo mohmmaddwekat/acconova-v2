@@ -91,6 +91,7 @@ export type FinancePermissions = {
     documents_correct: boolean;
     taxes_view: boolean;
     taxes_manage: boolean;
+    recurring_payments_view: boolean;
 };
 
 export type FinanceLookups = {

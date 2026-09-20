@@ -19,8 +19,7 @@ class FinanceDocumentService
         private readonly FinanceNumberService $numbers,
         private readonly FinanceAuditService $audit,
         private readonly FinanceInventoryService $inventory,
-    ) {
-    }
+    ) {}
 
     public function createDraft(array $data, int $actorId): FinancialDocument
     {
