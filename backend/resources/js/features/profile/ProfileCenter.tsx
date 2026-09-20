@@ -1,5 +1,9 @@
 import { apiRequest, ApiError } from '@/lib/http';
 import { getLocale, setLocale } from '@/lib/locale';
+import {
+    applyProfilePreferences,
+    defaultProfilePreferences,
+} from '@/lib/profilePreferences';
 import type { AppPageProps } from '@/types/app';
 import { Link, usePage } from '@inertiajs/react';
 import { Activity, Bell, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Download, FileText, Filter, Folder, Globe2, Grid2X2, KeyRound, Laptop, Link2, LockKeyhole, Mail, Monitor, Moon, Palette, Pin, RotateCcw, Save, Search, Settings2, ShieldCheck, Star, Sun, UploadCloud, UserRound, UsersRound, X, type LucideIcon } from 'lucide-react';
@@ -21,7 +25,7 @@ const muted = 'text-[var(--ac-text-muted)]';
 const categories: [Category, string, string][] = [['personal', 'المستندات الشخصية', 'Personal documents'], ['work', 'مستندات العمل', 'Work documents'], ['policies', 'السياسات واللوائح', 'Policies'], ['certificates', 'الشهادات والدورات', 'Certificates'], ['financial', 'الملفات المالية', 'Financial files'], ['other', 'أخرى', 'Other']];
 
 function defaults(): Preferences {
-    return { locale: getLocale(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, date_format: 'numeric', hour_cycle: 'h12', week_start: 'sunday', density: 'comfortable', reduced_motion: false, page_size: 25, theme: 'light' };
+    return defaultProfilePreferences();
 }
 function errorText(error: unknown): string {
     return error instanceof ApiError ? [error.message, ...Object.values(error.errors).flat()].join(' ') : error instanceof Error ? error.message : 'Request failed';
@@ -61,7 +65,15 @@ export function ProfileCenter({ tab, profile, ar }: { tab: Exclude<ProfileTab, '
     useEffect(() => {
         const controller = new AbortController();
         setError('');
-        apiRequest<CenterData>('/api/profile/center', { signal: controller.signal }).then((response) => { setData(response); if (response.settings) { setLocale(response.settings.locale); } }).catch((failure) => { if (!controller.signal.aborted) { setError(errorText(failure)); } });
+        apiRequest<CenterData>('/api/profile/center', { signal: controller.signal }).then((response) => {
+            setData(response);
+            if (response.settings) {
+                applyProfilePreferences({
+                    ...defaults(),
+                    ...response.settings,
+                });
+            }
+        }).catch((failure) => { if (!controller.signal.aborted) { setError(errorText(failure)); } });
         return () => controller.abort();
     }, [profile.user.id, revision]);
     const preferences = { ...defaults(), ...data?.settings };
@@ -133,30 +145,815 @@ function FileBadge({ extension }: { extension: string }) {
     return <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${color}`}><FileText size={20} /></span>;
 }
 
-function SettingsPanel({ preferences, ar, onSaved }: { preferences: Preferences; ar: boolean; onSaved: (settings: Preferences) => void }) {
-    const [draft, setDraft] = useState(preferences);
-    const [busy, setBusy] = useState(false);
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
-    const text = (arabic: string, english: string) => ar ? arabic : english;
-    function field<K extends keyof Preferences>(key: K, value: Preferences[K]) { setDraft((current) => ({ ...current, [key]: value })); setMessage(''); }
-    async function save(event: FormEvent) {
-        event.preventDefault(); if (busy) { return; } setBusy(true); setError(''); setMessage('');
-        try { const response = await apiRequest<{ settings: Preferences }>('/api/profile/preferences', { method: 'PUT', body: JSON.stringify(draft) }); onSaved(response.settings); setLocale(response.settings.locale); setMessage(draft.locale === 'ar' ? 'تم حفظ التغييرات بنجاح.' : 'Preferences saved.'); }
-        catch (failure) { setError(errorText(failure)); } finally { setBusy(false); }
+function SettingsPanel({
+    preferences,
+    ar,
+    onSaved,
+}: {
+    preferences: Preferences;
+    ar: boolean;
+    onSaved: (settings: Preferences) => void;
+}) {
+    const [
+        draft,
+        setDraft,
+    ] =
+        useState(
+            preferences,
+        );
+
+    const [
+        busy,
+        setBusy,
+    ] =
+        useState(
+            false,
+        );
+
+    const [
+        message,
+        setMessage,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        error,
+        setError,
+    ] =
+        useState(
+            '',
+        );
+
+    const [
+        connectionNotice,
+        setConnectionNotice,
+    ] =
+        useState(
+            '',
+        );
+
+    const text =
+        (
+            arabic: string,
+            english: string,
+        ): string =>
+            ar
+                ? arabic
+                : english;
+
+    function field<
+        K extends keyof Preferences,
+    >(
+        key: K,
+        value: Preferences[K],
+    ): void {
+        setDraft(
+            (
+                current,
+            ) => {
+                const next = {
+                    ...current,
+                    [key]: value,
+                };
+
+                if (
+                    [
+                        'locale',
+                        'theme',
+                        'density',
+                        'reduced_motion',
+                    ].includes(
+                        key,
+                    )
+                ) {
+                    applyProfilePreferences(
+                        next,
+                    );
+                }
+
+                return next;
+            },
+        );
+
+        setMessage(
+            '',
+        );
+
+        setError(
+            '',
+        );
     }
-    const sections: [string, string, string, LucideIcon][] = [['region', 'اللغة والمنطقة', 'Language & region', Globe2], ['time', 'التاريخ والوقت', 'Date & time', CalendarDays], ['appearance', 'المظهر', 'Appearance', Palette], ['layout', 'تخطيط لوحة التحكم', 'Layout', Grid2X2], ['defaults', 'الإعدادات الافتراضية', 'Defaults', Settings2], ['accessibility', 'إمكانية الوصول', 'Accessibility', UserRound], ['connections', 'الأدوات المتصلة', 'Connected tools', Link2]];
-    return <form onSubmit={save}><div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_240px]"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <div id="profile-region"><Card title={text('اللغة والمنطقة', 'Language & region')} icon={Globe2}><div className="space-y-4"><label className="block text-xs">{text('لغة واجهة النظام', 'Interface language')}<select className={`${input} mt-2`} value={draft.locale} onChange={(e) => field('locale', e.target.value as 'ar' | 'en')}><option value="ar">العربية</option><option value="en">English</option></select></label><label className="block text-xs">{text('المنطقة الزمنية', 'Time zone')}<select className={`${input} mt-2`} value={draft.timezone} onChange={(e) => field('timezone', e.target.value)}>{Array.from(new Set([draft.timezone, 'Asia/Hebron', 'Asia/Jerusalem', 'Asia/Riyadh', 'Asia/Dubai', 'Africa/Cairo', 'Europe/London', 'America/New_York', 'UTC'])).map((zone) => <option key={zone}>{zone}</option>)}</select></label><p className={`text-[11px] leading-6 ${muted}`}>{text('تُستخدم هذه الإعدادات لعرض تواريخ وأوقات البروفايل.', 'These settings control dates and times in your profile.')}</p></div></Card></div>
-        <div id="profile-time"><Card title={text('التاريخ والوقت', 'Date & time')} icon={CalendarDays}><div className="space-y-3"><label className="block text-xs">{text('تنسيق التاريخ', 'Date format')}<select className={`${input} mt-2`} value={draft.date_format} onChange={(e) => field('date_format', e.target.value as Preferences['date_format'])}><option value="numeric">{text('أرقام — يوم / شهر / سنة', 'Numeric date')}</option><option value="long">{text('تاريخ كامل', 'Long date')}</option></select></label><label className="block text-xs">{text('تنسيق الوقت', 'Time format')}<select className={`${input} mt-2`} value={draft.hour_cycle} onChange={(e) => field('hour_cycle', e.target.value as Preferences['hour_cycle'])}><option value="h12">{text('12 ساعة', '12 hours')}</option><option value="h23">{text('24 ساعة', '24 hours')}</option></select></label><label className="block text-xs">{text('بداية الأسبوع', 'Week starts on')}<select className={`${input} mt-2`} value={draft.week_start} onChange={(e) => field('week_start', e.target.value as Preferences['week_start'])}><option value="sunday">{text('الأحد', 'Sunday')}</option><option value="monday">{text('الاثنين', 'Monday')}</option><option value="saturday">{text('السبت', 'Saturday')}</option></select></label></div></Card></div>
-        <Card title={text('التفضيلات العامة', 'General preferences')} icon={Settings2}><div className="space-y-4"><div className="flex gap-3 rounded-xl bg-teal-50 p-4"><CheckCircle2 size={20} className="shrink-0 text-teal-600" /><p className="text-xs leading-6 text-teal-800">{text('تُحفظ تفضيلاتك في حسابك لتبقى متاحة عند تسجيل الدخول من جهاز آخر.', 'Your preferences are saved to your account and available on other devices.')}</p></div><Link className={`${button} w-full`} href="/app/settings"><Bell size={15} />{text('إدارة إشعارات الجهاز', 'Device notifications')}</Link><Link className={`${button} w-full`} href="/app/profile?view=edit"><UserRound size={15} />{text('تعديل المعلومات الشخصية', 'Edit personal information')}</Link></div></Card>
-        <div id="profile-layout"><Card title={text('تخطيط لوحة التحكم', 'Layout density')} icon={Grid2X2}><p className={`mb-4 text-xs ${muted}`}>{text('طريقة عرض جدول ملفاتك', 'Choose how your files are displayed')}</p><div className="grid grid-cols-2 gap-3">{(['comfortable', 'compact'] as const).map((density) => <button key={density} type="button" aria-pressed={draft.density === density} onClick={() => field('density', density)} className={`rounded-xl border p-4 ${draft.density === density ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-[var(--ac-line)]'}`}><div className={`mx-auto mb-3 grid w-16 ${density === 'comfortable' ? 'gap-2' : 'gap-1'}`}>{[1, 2, 3].map((line) => <span key={line} className={`${density === 'comfortable' ? 'h-2' : 'h-1'} rounded bg-current opacity-25`} />)}</div><span className="text-xs">{density === 'comfortable' ? text('مريح', 'Comfortable') : text('مضغوط', 'Compact')}</span><span className={`mx-auto mt-3 block size-3 rounded-full border ${draft.density === density ? 'border-teal-600 bg-teal-600' : 'border-slate-300'}`} /></button>)}</div></Card></div>
-        <div id="profile-defaults"><Card title={text('الإعدادات الافتراضية', 'Defaults')} icon={Settings2}><label className="block text-xs">{text('عدد الملفات في الصفحة', 'Files per page')}<select className={`${input} mt-2`} value={draft.page_size} onChange={(e) => field('page_size', Number(e.target.value))}>{[10, 25, 50].map((count) => <option key={count} value={count}>{count}</option>)}</select></label><div className={`mt-5 rounded-lg bg-slate-50 p-3 text-xs leading-6 ${muted}`}>{text('معاينة التاريخ:', 'Date preview:')}<p className="mt-1 font-semibold text-[var(--ac-text)]">{dateLabel(new Date().toISOString(), draft)}</p></div></Card></div>
-        <div id="profile-accessibility"><Card title={text('إمكانية الوصول', 'Accessibility')} icon={UserRound}><label className="flex cursor-pointer items-center justify-between gap-4"><span><strong className="text-xs">{text('تقليل الحركة', 'Reduce motion')}</strong><span className={`mt-2 block text-[11px] leading-5 ${muted}`}>{text('إيقاف تأثيرات الحركة في تبويبات البروفايل', 'Disable animation in profile tabs')}</span></span><input className="size-5 accent-teal-600" type="checkbox" checked={draft.reduced_motion} onChange={(e) => field('reduced_motion', e.target.checked)} /></label><p className={`mt-6 text-xs leading-6 ${muted}`}>{text('يمكن التنقل بين عناصر الصفحة باستخدام لوحة المفاتيح، وتتكيف الواجهة مع حجم الشاشة.', 'Navigate with your keyboard. The layout adapts to your screen size.')}</p></Card></div>
-        <div id="profile-appearance"><Card title={text('المظهر', 'Appearance')} icon={Palette}><p className={`mb-4 text-xs ${muted}`}>{text('اختر مظهر محتوى البروفايل', 'Choose the appearance of profile content')}</p><div className="grid grid-cols-3 gap-2">{([['light', 'فاتح', 'Light', Sun], ['dark', 'داكن', 'Dark', Moon], ['system', 'تلقائي', 'System', Monitor]] as const).map(([value, arabic, english, Icon]) => <button type="button" key={value} aria-pressed={draft.theme === value} onClick={() => field('theme', value)} className={`flex flex-col items-center gap-3 rounded-xl border p-4 text-xs ${draft.theme === value ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-[var(--ac-line)]'}`}><Icon size={24} />{ar ? arabic : english}<span className={`size-3 rounded-full border ${draft.theme === value ? 'border-teal-600 bg-teal-600' : 'border-slate-300'}`} /></button>)}</div></Card></div>
-        <div id="profile-connections" className="md:col-span-2"><Card title={text('الأدوات المتصلة', 'Connected tools')} icon={Link2}><div className="grid gap-3 sm:grid-cols-3">{['Slack', 'Microsoft Teams', 'Google Drive'].map((service) => <div key={service} className="flex items-center gap-3 rounded-xl border border-[var(--ac-line)] p-4"><Link2 size={19} className="text-teal-500" /><div><strong className="text-xs">{service}</strong><p className={`mt-1 text-[10px] ${muted}`}>{text('الربط غير متاح حاليًا', 'Connection not available yet')}</p></div></div>)}</div></Card></div>
-    </div><aside className={`${panel} p-4`}><h2 className="text-lg font-bold">{text('الإعدادات', 'Settings')}</h2><p className={`mb-5 mt-2 text-xs leading-6 ${muted}`}>{text('إدارة تفضيلاتك الشخصية وحسابك', 'Manage your personal preferences')}</p><nav className="space-y-1">{sections.map(([id, arabic, english, Icon]) => <a key={id} href={`#profile-${id}`} className={`flex items-center gap-3 rounded-lg p-3 text-xs hover:bg-teal-50 hover:text-teal-700 ${muted}`}><Icon size={17} />{ar ? arabic : english}</a>)}</nav></aside></div>
-    <div className={`${panel} mt-4 flex flex-wrap items-center justify-between gap-3 p-4`}><div aria-live="polite" className="text-xs">{error ? <span role="alert" className="text-red-600">{error}</span> : <span className="text-teal-700">{message}</span>}</div><div className="flex gap-2"><button type="button" className={button} disabled={busy} onClick={() => { setDraft(defaults()); setMessage(text('تمت إعادة التعيين؛ احفظ التغييرات لتطبيقها.', 'Defaults restored. Save to apply.')); }}><RotateCcw size={14} />{text('إعادة تعيين الإعدادات', 'Reset settings')}</button><button className={primary} disabled={busy}><Save size={14} />{busy ? text('جارٍ الحفظ…', 'Saving…') : text('حفظ التغييرات', 'Save changes')}</button></div></div></form>;
+
+    function jump(
+        id: string,
+    ): void {
+        document
+            .getElementById(
+                `profile-${id}`,
+            )
+            ?.scrollIntoView({
+                behavior:
+                    draft.reduced_motion
+                        ? 'auto'
+                        : 'smooth',
+
+                block:
+                    'start',
+            });
+    }
+
+    async function save(
+        event: FormEvent,
+    ): Promise<void> {
+        event.preventDefault();
+
+        if (busy) {
+            return;
+        }
+
+        setBusy(
+            true,
+        );
+
+        setError(
+            '',
+        );
+
+        setMessage(
+            '',
+        );
+
+        try {
+            const response =
+                await apiRequest<{
+                    settings: Preferences;
+                }>(
+                    '/api/profile/preferences',
+                    {
+                        method:
+                            'PUT',
+
+                        body:
+                            JSON.stringify(
+                                draft,
+                            ),
+                    },
+                );
+
+            onSaved(
+                response.settings,
+            );
+
+            applyProfilePreferences(
+                response.settings,
+            );
+
+            setMessage(
+                response.settings.locale ===
+                    'ar'
+                    ? 'تم حفظ التغييرات وتطبيقها على الموقع.'
+                    : 'Preferences saved and applied across the app.',
+            );
+        } catch (
+            failure
+        ) {
+            setError(
+                errorText(
+                    failure,
+                ),
+            );
+        } finally {
+            setBusy(
+                false,
+            );
+        }
+    }
+
+    const sections:
+        [
+            string,
+            string,
+            string,
+            LucideIcon,
+        ][] = [
+        [
+            'region',
+            'اللغة والمنطقة',
+            'Language & region',
+            Globe2,
+        ],
+        [
+            'time',
+            'التاريخ والوقت',
+            'Date & time',
+            CalendarDays,
+        ],
+        [
+            'appearance',
+            'المظهر',
+            'Appearance',
+            Palette,
+        ],
+        [
+            'layout',
+            'تخطيط العرض',
+            'Layout',
+            Grid2X2,
+        ],
+        [
+            'defaults',
+            'الإعدادات الافتراضية',
+            'Defaults',
+            Settings2,
+        ],
+        [
+            'accessibility',
+            'إمكانية الوصول',
+            'Accessibility',
+            UserRound,
+        ],
+        [
+            'connections',
+            'الأدوات المتصلة',
+            'Connected tools',
+            Link2,
+        ],
+    ];
+
+    const tools = [
+        'Slack',
+        'Microsoft Teams',
+        'Google Drive',
+    ];
+
+    return (
+        <form onSubmit={save}>
+            <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <div
+                        id="profile-region"
+                        className="scroll-mt-28"
+                    >
+                        <Card
+                            title={text('اللغة والمنطقة', 'Language & region')}
+                            icon={Globe2}
+                        >
+                            <div className="space-y-4">
+                                <label className="block text-xs">
+                                    {text('لغة واجهة النظام', 'Interface language')}
+
+                                    <select
+                                        className={`${input} mt-2`}
+                                        value={draft.locale}
+                                        onChange={(event) =>
+                                            field(
+                                                'locale',
+                                                event.target.value as Preferences['locale'],
+                                            )
+                                        }
+                                    >
+                                        <option value="ar">العربية</option>
+                                        <option value="en">English</option>
+                                    </select>
+                                </label>
+
+                                <label className="block text-xs">
+                                    {text('المنطقة الزمنية', 'Time zone')}
+
+                                    <select
+                                        className={`${input} mt-2`}
+                                        value={draft.timezone}
+                                        onChange={(event) =>
+                                            field(
+                                                'timezone',
+                                                event.target.value,
+                                            )
+                                        }
+                                    >
+                                        {Array.from(
+                                            new Set([
+                                                draft.timezone,
+                                                'Asia/Hebron',
+                                                'Asia/Jerusalem',
+                                                'Asia/Riyadh',
+                                                'Asia/Dubai',
+                                                'Africa/Cairo',
+                                                'Europe/London',
+                                                'America/New_York',
+                                                'UTC',
+                                            ]),
+                                        ).map((zone) => (
+                                            <option key={zone}>
+                                                {zone}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <p className={`text-[11px] leading-6 ${muted}`}>
+                                    {text(
+                                        'تُستخدم هذه الإعدادات لعرض التواريخ والأوقات في النظام.',
+                                        'These settings control dates and times across the system.',
+                                    )}
+                                </p>
+                            </div>
+                        </Card>
+                    </div>
+
+                    <div
+                        id="profile-time"
+                        className="scroll-mt-28"
+                    >
+                        <Card
+                            title={text('التاريخ والوقت', 'Date & time')}
+                            icon={CalendarDays}
+                        >
+                            <div className="space-y-3">
+                                <label className="block text-xs">
+                                    {text('تنسيق التاريخ', 'Date format')}
+
+                                    <select
+                                        className={`${input} mt-2`}
+                                        value={draft.date_format}
+                                        onChange={(event) =>
+                                            field(
+                                                'date_format',
+                                                event.target.value as Preferences['date_format'],
+                                            )
+                                        }
+                                    >
+                                        <option value="numeric">
+                                            {text('أرقام — يوم / شهر / سنة', 'Numeric date')}
+                                        </option>
+                                        <option value="long">
+                                            {text('تاريخ كامل', 'Long date')}
+                                        </option>
+                                    </select>
+                                </label>
+
+                                <label className="block text-xs">
+                                    {text('تنسيق الوقت', 'Time format')}
+
+                                    <select
+                                        className={`${input} mt-2`}
+                                        value={draft.hour_cycle}
+                                        onChange={(event) =>
+                                            field(
+                                                'hour_cycle',
+                                                event.target.value as Preferences['hour_cycle'],
+                                            )
+                                        }
+                                    >
+                                        <option value="h12">
+                                            {text('12 ساعة', '12 hours')}
+                                        </option>
+                                        <option value="h23">
+                                            {text('24 ساعة', '24 hours')}
+                                        </option>
+                                    </select>
+                                </label>
+
+                                <label className="block text-xs">
+                                    {text('بداية الأسبوع', 'Week starts on')}
+
+                                    <select
+                                        className={`${input} mt-2`}
+                                        value={draft.week_start}
+                                        onChange={(event) =>
+                                            field(
+                                                'week_start',
+                                                event.target.value as Preferences['week_start'],
+                                            )
+                                        }
+                                    >
+                                        <option value="sunday">
+                                            {text('الأحد', 'Sunday')}
+                                        </option>
+                                        <option value="monday">
+                                            {text('الاثنين', 'Monday')}
+                                        </option>
+                                        <option value="saturday">
+                                            {text('السبت', 'Saturday')}
+                                        </option>
+                                    </select>
+                                </label>
+                            </div>
+                        </Card>
+                    </div>
+
+                    <Card
+                        title={text('التفضيلات العامة', 'General preferences')}
+                        icon={Settings2}
+                    >
+                        <div className="space-y-4">
+                            <div className="flex gap-3 rounded-xl bg-teal-50 p-4">
+                                <CheckCircle2
+                                    size={20}
+                                    className="shrink-0 text-teal-600"
+                                />
+
+                                <p className="text-xs leading-6 text-teal-800">
+                                    {text(
+                                        'تُحفظ تفضيلاتك في حسابك وتُطبّق على الموقع كاملًا عند تسجيل الدخول من أي جهاز.',
+                                        'Your preferences are saved to your account and applied across the full app on every device.',
+                                    )}
+                                </p>
+                            </div>
+
+                            <Link
+                                className={`${button} w-full`}
+                                href="/app/settings"
+                            >
+                                <Bell size={15} />
+                                {text('إدارة إشعارات الجهاز', 'Device notifications')}
+                            </Link>
+
+                            <Link
+                                className={`${button} w-full`}
+                                href="/app/profile?view=edit"
+                            >
+                                <UserRound size={15} />
+                                {text('تعديل المعلومات الشخصية', 'Edit personal information')}
+                            </Link>
+                        </div>
+                    </Card>
+
+                    <div
+                        id="profile-layout"
+                        className="scroll-mt-28"
+                    >
+                        <Card
+                            title={text('تخطيط العرض', 'Layout density')}
+                            icon={Grid2X2}
+                        >
+                            <p className={`mb-4 text-xs ${muted}`}>
+                                {text(
+                                    'غيّر كثافة عرض الواجهة. التغيير يظهر مباشرة ويمكنك حفظه أدناه.',
+                                    'Change interface density. The preview applies immediately and can be saved below.',
+                                )}
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                {(['comfortable', 'compact'] as const).map(
+                                    (
+                                        density,
+                                    ) => (
+                                        <button
+                                            key={density}
+                                            type="button"
+                                            aria-pressed={draft.density === density}
+                                            onClick={() =>
+                                                field(
+                                                    'density',
+                                                    density,
+                                                )
+                                            }
+                                            className={`rounded-xl border p-4 transition ${draft.density === density ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-[var(--ac-line)] hover:bg-[var(--ac-surface-soft)]'}`}
+                                        >
+                                            <div className={`mx-auto mb-3 grid w-16 ${density === 'comfortable' ? 'gap-2' : 'gap-1'}`}>
+                                                {[1, 2, 3].map(
+                                                    (
+                                                        line,
+                                                    ) => (
+                                                        <span
+                                                            key={line}
+                                                            className={`${density === 'comfortable' ? 'h-2' : 'h-1'} rounded bg-current opacity-25`}
+                                                        />
+                                                    ),
+                                                )}
+                                            </div>
+
+                                            <span className="text-xs">
+                                                {density === 'comfortable'
+                                                    ? text('مريح', 'Comfortable')
+                                                    : text('مضغوط', 'Compact')}
+                                            </span>
+
+                                            <span className={`mx-auto mt-3 block size-3 rounded-full border ${draft.density === density ? 'border-teal-600 bg-teal-600' : 'border-slate-300'}`} />
+                                        </button>
+                                    ),
+                                )}
+                            </div>
+                        </Card>
+                    </div>
+
+                    <div
+                        id="profile-defaults"
+                        className="scroll-mt-28"
+                    >
+                        <Card
+                            title={text('الإعدادات الافتراضية', 'Defaults')}
+                            icon={Settings2}
+                        >
+                            <label className="block text-xs">
+                                {text('عدد الملفات في الصفحة', 'Files per page')}
+
+                                <select
+                                    className={`${input} mt-2`}
+                                    value={draft.page_size}
+                                    onChange={(event) =>
+                                        field(
+                                            'page_size',
+                                            Number(
+                                                event.target.value,
+                                            ),
+                                        )
+                                    }
+                                >
+                                    {[10, 25, 50].map(
+                                        (
+                                            count,
+                                        ) => (
+                                            <option
+                                                key={count}
+                                                value={count}
+                                            >
+                                                {count}
+                                            </option>
+                                        ),
+                                    )}
+                                </select>
+                            </label>
+
+                            <div className={`mt-5 rounded-lg bg-slate-50 p-3 text-xs leading-6 ${muted}`}>
+                                {text('معاينة التاريخ:', 'Date preview:')}
+
+                                <p className="mt-1 font-semibold text-[var(--ac-text)]">
+                                    {dateLabel(
+                                        new Date().toISOString(),
+                                        draft,
+                                    )}
+                                </p>
+                            </div>
+                        </Card>
+                    </div>
+
+                    <div
+                        id="profile-accessibility"
+                        className="scroll-mt-28"
+                    >
+                        <Card
+                            title={text('إمكانية الوصول', 'Accessibility')}
+                            icon={UserRound}
+                        >
+                            <label className="flex cursor-pointer items-center justify-between gap-4">
+                                <span>
+                                    <strong className="text-xs">
+                                        {text('تقليل الحركة', 'Reduce motion')}
+                                    </strong>
+
+                                    <span className={`mt-2 block text-[11px] leading-5 ${muted}`}>
+                                        {text(
+                                            'يعطّل تأثيرات الحركة والانتقالات في الموقع كاملًا.',
+                                            'Disables motion and transitions across the full app.',
+                                        )}
+                                    </span>
+                                </span>
+
+                                <input
+                                    className="size-5 accent-teal-600"
+                                    type="checkbox"
+                                    checked={draft.reduced_motion}
+                                    onChange={(event) =>
+                                        field(
+                                            'reduced_motion',
+                                            event.target.checked,
+                                        )
+                                    }
+                                />
+                            </label>
+
+                            <p className={`mt-6 text-xs leading-6 ${muted}`}>
+                                {text(
+                                    'يمكن التنقل بلوحة المفاتيح، والواجهة تتكيف مع حجم الشاشة.',
+                                    'Keyboard navigation is supported and the layout adapts to screen size.',
+                                )}
+                            </p>
+                        </Card>
+                    </div>
+
+                    <div
+                        id="profile-appearance"
+                        className="scroll-mt-28"
+                    >
+                        <Card
+                            title={text('المظهر', 'Appearance')}
+                            icon={Palette}
+                        >
+                            <p className={`mb-4 text-xs ${muted}`}>
+                                {text(
+                                    'اختر مظهر الموقع كاملًا. التغيير يظهر مباشرة.',
+                                    'Choose the appearance for the full app. Changes preview immediately.',
+                                )}
+                            </p>
+
+                            <div className="grid grid-cols-3 gap-2">
+                                {([
+                                    ['light', 'فاتح', 'Light', Sun],
+                                    ['dark', 'داكن', 'Dark', Moon],
+                                    ['system', 'تلقائي', 'System', Monitor],
+                                ] as const).map(
+                                    ([
+                                        value,
+                                        arabic,
+                                        english,
+                                        Icon,
+                                    ]) => (
+                                        <button
+                                            type="button"
+                                            key={value}
+                                            aria-pressed={draft.theme === value}
+                                            onClick={() =>
+                                                field(
+                                                    'theme',
+                                                    value,
+                                                )
+                                            }
+                                            className={`flex flex-col items-center gap-3 rounded-xl border p-4 text-xs transition ${draft.theme === value ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-[var(--ac-line)] hover:bg-[var(--ac-surface-soft)]'}`}
+                                        >
+                                            <Icon size={24} />
+
+                                            {ar
+                                                ? arabic
+                                                : english}
+
+                                            <span className={`size-3 rounded-full border ${draft.theme === value ? 'border-teal-600 bg-teal-600' : 'border-slate-300'}`} />
+                                        </button>
+                                    ),
+                                )}
+                            </div>
+                        </Card>
+                    </div>
+
+                    <div
+                        id="profile-connections"
+                        className="scroll-mt-28 md:col-span-2"
+                    >
+                        <Card
+                            title={text('الأدوات المتصلة', 'Connected tools')}
+                            icon={Link2}
+                        >
+                            <div className="grid gap-3 sm:grid-cols-3">
+                                {tools.map(
+                                    (
+                                        service,
+                                    ) => (
+                                        <button
+                                            type="button"
+                                            key={service}
+                                            onClick={() =>
+                                                setConnectionNotice(
+                                                    text(
+                                                        `ربط ${service} يحتاج إعداد OAuth خاص بالخدمة (Client ID / Secret / Redirect URL). لم أفعّل اتصالًا وهميًا؛ بعد إضافة مفاتيح المزود يمكن تشغيل الربط الحقيقي.`,
+                                                        `Connecting ${service} requires provider OAuth configuration (Client ID / Secret / Redirect URL). No fake connection is shown; real OAuth can be enabled after provider credentials are configured.`,
+                                                    ),
+                                                )
+                                            }
+                                            className="flex items-center gap-3 rounded-xl border border-[var(--ac-line)] p-4 text-start transition hover:border-teal-300 hover:bg-teal-50"
+                                        >
+                                            <Link2
+                                                size={19}
+                                                className="text-teal-500"
+                                            />
+
+                                            <div>
+                                                <strong className="text-xs">
+                                                    {service}
+                                                </strong>
+
+                                                <p className={`mt-1 text-[10px] ${muted}`}>
+                                                    {text(
+                                                        'إعداد الربط',
+                                                        'Configure connection',
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </button>
+                                    ),
+                                )}
+                            </div>
+
+                            {connectionNotice && (
+                                <p
+                                    role="status"
+                                    className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-6 text-amber-800"
+                                >
+                                    {connectionNotice}
+                                </p>
+                            )}
+                        </Card>
+                    </div>
+                </div>
+
+                <aside className={`${panel} sticky top-24 p-4`}>
+                    <h2 className="text-lg font-bold">
+                        {text('الإعدادات', 'Settings')}
+                    </h2>
+
+                    <p className={`mb-5 mt-2 text-xs leading-6 ${muted}`}>
+                        {text(
+                            'إدارة تفضيلاتك الشخصية وحسابك',
+                            'Manage your personal preferences',
+                        )}
+                    </p>
+
+                    <nav className="space-y-1">
+                        {sections.map(
+                            ([
+                                id,
+                                arabic,
+                                english,
+                                Icon,
+                            ]) => (
+                                <button
+                                    type="button"
+                                    key={id}
+                                    onClick={() =>
+                                        jump(
+                                            id,
+                                        )
+                                    }
+                                    className={`flex w-full items-center gap-3 rounded-lg p-3 text-start text-xs transition hover:bg-teal-50 hover:text-teal-700 ${muted}`}
+                                >
+                                    <Icon size={17} />
+
+                                    {ar
+                                        ? arabic
+                                        : english}
+                                </button>
+                            ),
+                        )}
+                    </nav>
+                </aside>
+            </div>
+
+            <div className={`${panel} mt-4 flex flex-wrap items-center justify-between gap-3 p-4`}>
+                <div
+                    aria-live="polite"
+                    className="text-xs"
+                >
+                    {error
+                        ? (
+                            <span
+                                role="alert"
+                                className="text-red-600"
+                            >
+                                {error}
+                            </span>
+                        )
+                        : (
+                            <span className="text-teal-700">
+                                {message}
+                            </span>
+                        )}
+                </div>
+
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        className={button}
+                        disabled={busy}
+                        onClick={() => {
+                            const next =
+                                defaults();
+
+                            setDraft(
+                                next,
+                            );
+
+                            applyProfilePreferences(
+                                next,
+                            );
+
+                            setMessage(
+                                text(
+                                    'تمت معاينة الإعدادات الافتراضية؛ اضغط حفظ لاعتمادها.',
+                                    'Defaults are previewed. Save to persist them.',
+                                ),
+                            );
+                        }}
+                    >
+                        <RotateCcw size={14} />
+
+                        {text('إعادة تعيين الإعدادات', 'Reset settings')}
+                    </button>
+
+                    <button
+                        className={primary}
+                        disabled={busy}
+                    >
+                        <Save size={14} />
+
+                        {busy
+                            ? text('جارٍ الحفظ…', 'Saving…')
+                            : text('حفظ التغييرات', 'Save changes')}
+                    </button>
+                </div>
+            </div>
+        </form>
+    );
 }
 
 function SecurityPanel({ profile, ar, preferences }: { profile: ProfileResponse; ar: boolean; preferences: Preferences }) {
