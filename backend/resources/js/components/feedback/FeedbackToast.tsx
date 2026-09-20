@@ -14,6 +14,10 @@ type FeedbackToastProps = {
 
     tone?: FeedbackTone;
 
+    actionLabel?: string;
+
+    onAction?: () => void | Promise<void>;
+
     onDismiss: () => void;
 };
 
@@ -24,6 +28,8 @@ type FeedbackToastProps = {
 export function FeedbackToast({
     message,
     tone = 'success',
+    actionLabel,
+    onAction,
     onDismiss,
 }: FeedbackToastProps) {
     useLocale();
@@ -43,7 +49,7 @@ export function FeedbackToast({
                     'max(1rem, env(safe-area-inset-bottom))',
             }}
         >
-            <div className="flex items-start gap-3 rounded-[18px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-panel)]">
+            <div className="flex items-start gap-3 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-panel)]">
                 <div
                     className={[
                         'flex size-9 shrink-0 items-center justify-center rounded-[13px]',
@@ -63,9 +69,21 @@ export function FeedbackToast({
                     )}
                 </div>
 
-                <p className="min-w-0 flex-1 break-words pt-1 text-sm font-medium leading-5 text-[var(--ac-text)]">
-                    {message}
-                </p>
+                <div className="min-w-0 flex-1">
+                    <p className="break-words pt-1 text-sm font-medium leading-5 text-[var(--ac-text)]">
+                        {message}
+                    </p>
+
+                    {actionLabel && onAction && (
+                        <button
+                            type="button"
+                            onClick={() => void onAction()}
+                            className="mt-2 rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-1.5 text-xs font-bold text-[var(--ac-accent)] transition hover:border-[var(--ac-accent)]"
+                        >
+                            {actionLabel}
+                        </button>
+                    )}
+                </div>
 
                 <button
                     type="button"
