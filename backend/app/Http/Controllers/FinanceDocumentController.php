@@ -69,8 +69,9 @@ class FinanceDocumentController extends Controller
         ]);
     }
 
-    public function show(Request $request, FinancialDocument $document, FinanceDocumentService $service): JsonResponse
+    public function show(Request $request, string $document, FinanceDocumentService $service): JsonResponse
     {
+        $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, false);
 
         $document->load([
@@ -117,8 +118,9 @@ class FinanceDocumentController extends Controller
         return response()->json(['data' => $this->detail($document, $service)], 201);
     }
 
-    public function update(Request $request, FinancialDocument $document, FinanceDocumentService $service): JsonResponse
+    public function update(Request $request, string $document, FinanceDocumentService $service): JsonResponse
     {
+        $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
         $data = $this->validatedDocument($request, $document->kind);
         $document = $service->updateDraft($document, $data, $request->user()->id);
@@ -126,8 +128,9 @@ class FinanceDocumentController extends Controller
         return response()->json(['data' => $this->detail($document, $service)]);
     }
 
-    public function issue(Request $request, FinancialDocument $document, FinanceDocumentService $service): JsonResponse
+    public function issue(Request $request, string $document, FinanceDocumentService $service): JsonResponse
     {
+        $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
         $data = $request->validate([
             'acknowledge_warnings' => ['sometimes', 'boolean'],
@@ -142,8 +145,9 @@ class FinanceDocumentController extends Controller
         return response()->json(['data' => $this->detail($document, $service)]);
     }
 
-    public function correct(Request $request, FinancialDocument $document, FinanceDocumentService $service): JsonResponse
+    public function correct(Request $request, string $document, FinanceDocumentService $service): JsonResponse
     {
+        $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
         FinanceAuthorization::authorize($request->user(), 'finance.documents.correct');
         $data = $request->validate([
@@ -159,8 +163,9 @@ class FinanceDocumentController extends Controller
         return response()->json(['data' => $this->detail($replacement, $service)], 201);
     }
 
-    public function void(Request $request, FinancialDocument $document, FinanceDocumentService $service): JsonResponse
+    public function void(Request $request, string $document, FinanceDocumentService $service): JsonResponse
     {
+        $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
         FinanceAuthorization::authorize($request->user(), 'finance.documents.correct');
         $data = $request->validate([
