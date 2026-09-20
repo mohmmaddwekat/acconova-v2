@@ -78,6 +78,7 @@ export default function AnomalyCenter() {
             possible_duplicate_invoice: ['فاتورة قد تكون مكررة', 'Possible duplicate invoice'],
             unusual_price: ['سعر غير معتاد', 'Unusual price'],
             large_payment: ['دفعة كبيرة مقارنة بالمعتاد', 'Payment larger than usual'],
+            unusual_customer_balance: ['رصيد عميل أعلى من المعتاد', 'Customer balance above the usual range'],
         };
 
         return labels[kind]?.[ar ? 0 : 1]
