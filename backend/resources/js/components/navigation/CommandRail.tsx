@@ -76,8 +76,15 @@ function destinationIsActive(
     }
 
     if (
-        href ===
-        '/app/finance'
+        [
+            '/app/invoices',
+            '/app/invoices/purchases',
+            '/app/receipts',
+            '/app/payments',
+            '/app/finance/taxes',
+        ].includes(
+            href,
+        )
     ) {
         return currentUrl.startsWith(
             '/app/finance',
@@ -320,6 +327,15 @@ export function CommandRail({
         || canViewCash
         || canViewTaxes;
 
+    const financeHref =
+        canViewSalesInvoices
+            ? '/app/invoices'
+            : canViewPurchaseInvoices
+                ? '/app/invoices/purchases'
+                : canViewCash
+                    ? '/app/payments'
+                    : '/app/finance/taxes';
+
     if (canViewFinance) {
         navigationItems.push({
             label:
@@ -335,7 +351,7 @@ export function CommandRail({
                     : 'Invoices, cash & taxes',
 
             href:
-                '/app/finance',
+                financeHref,
 
             icon:
                 ReceiptText,
