@@ -1498,7 +1498,7 @@ export function DocumentForm({
                         }
                     >
                         <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-                            <label className="text-xs font-semibold text-[#49698f] md:col-span-2">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)] md:col-span-2">
                                 {sales
                                     ? text(
                                         'العميل *',
@@ -1557,7 +1557,7 @@ export function DocumentForm({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'تاريخ الإصدار *',
                                     'Issue date *',
@@ -1583,7 +1583,7 @@ export function DocumentForm({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'تاريخ الاستحقاق (اختياري)',
                                     'Due date (optional)',
@@ -1610,7 +1610,7 @@ export function DocumentForm({
                             </label>
 
                             {! sales && (
-                                <label className="text-xs font-semibold text-[#49698f]">
+                                <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {text(
                                         'رقم فاتورة المورد (اختياري)',
                                         'Supplier invoice number (optional)',
@@ -1636,7 +1636,7 @@ export function DocumentForm({
                                 </label>
                             )}
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'العملة',
                                     'Currency',
@@ -1662,7 +1662,7 @@ export function DocumentForm({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'سعر الصرف',
                                     'Exchange rate',
@@ -1688,7 +1688,7 @@ export function DocumentForm({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'السوق',
                                     'Market',
@@ -1732,7 +1732,7 @@ export function DocumentForm({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'نوع النشاط',
                                     'Business activity',
@@ -1777,7 +1777,7 @@ export function DocumentForm({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'المستودع الافتراضي (اختياري)',
                                     'Default warehouse (optional)',
@@ -1826,7 +1826,7 @@ export function DocumentForm({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'القسم (اختياري)',
                                     'Department (optional)',
@@ -1875,7 +1875,7 @@ export function DocumentForm({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'الفرع / الموقع (اختياري)',
                                     'Branch / location (optional)',
@@ -1900,7 +1900,7 @@ export function DocumentForm({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'شروط الدفع (اختياري)',
                                     'Payment terms (optional)',
@@ -1994,23 +1994,23 @@ export function DocumentForm({
                                             key={
                                                 line.client_id
                                             }
-                                            className="overflow-hidden rounded-[20px] border border-[#dbe6f5] bg-[var(--ac-surface)] shadow-[0_10px_30px_rgba(25,74,135,.055)]"
+                                            className="overflow-hidden rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[0_10px_30px_rgba(25,74,135,.055)]"
                                         >
-                                            <div className="flex items-center justify-between gap-3 border-b border-[#eaf0f8] bg-gradient-to-l from-[#f6faff] via-[var(--ac-surface)] to-[var(--ac-surface)] px-4 py-3 sm:px-5">
+                                            <div className="flex items-center justify-between gap-3 border-b border-[var(--ac-line)] bg-gradient-to-l from-[var(--ac-surface-soft)] via-[var(--ac-surface)] to-[var(--ac-surface)] px-4 py-3 sm:px-5">
                                                 <div className="flex min-w-0 items-center gap-3">
-                                                    <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[#1265d8] text-xs font-bold text-white">
+                                                    <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-accent-solid)] text-xs font-bold text-white">
                                                         {index + 1}
                                                     </span>
 
                                                     <div className="min-w-0">
-                                                        <p className="text-xs font-bold text-[#123d78]">
+                                                        <p className="text-xs font-bold text-[var(--ac-text)]">
                                                             {text(
                                                                 'بند الفاتورة',
                                                                 'Invoice line',
                                                             )}
                                                         </p>
 
-                                                        <p className="mt-0.5 truncate text-[10px] text-[#7890b1]">
+                                                        <p className="mt-0.5 truncate text-[10px] text-[var(--ac-text-muted)]">
                                                             {line.product_id
                                                                 ? (
                                                                     lookups.products.find(
@@ -2056,7 +2056,7 @@ export function DocumentForm({
 
                                             <div className="space-y-4 p-4 sm:p-5">
                                                 <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(280px,2.2fr)_120px_140px_minmax(190px,1fr)]">
-                                                    <label className="text-[11px] font-semibold text-[#58739a]">
+                                                    <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                                         {text(
                                                             'المنتج / الخدمة',
                                                             'Product / service',
@@ -2122,7 +2122,7 @@ export function DocumentForm({
                                                         </select>
                                                     </label>
 
-                                                    <label className="text-[11px] font-semibold text-[#58739a]">
+                                                    <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                                         {text(
                                                             'الكمية *',
                                                             'Quantity *',
@@ -2152,7 +2152,7 @@ export function DocumentForm({
                                                         />
                                                     </label>
 
-                                                    <label className="text-[11px] font-semibold text-[#58739a]">
+                                                    <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                                         {text(
                                                             'الوحدة',
                                                             'Unit',
@@ -2183,7 +2183,7 @@ export function DocumentForm({
                                                         />
                                                     </label>
 
-                                                    <label className="text-[11px] font-semibold text-[#58739a]">
+                                                    <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                                         {text(
                                                             'سعر الوحدة',
                                                             'Unit price',
@@ -2199,7 +2199,7 @@ export function DocumentForm({
                                                             dir="ltr"
                                                             className={
                                                                 financeInput
-                                                                + ' mt-2 text-start font-bold text-[#123d78]'
+                                                                + ' mt-2 text-start font-bold text-[var(--ac-text)]'
                                                             }
                                                             value={
                                                                 line.unit_price
@@ -2219,7 +2219,7 @@ export function DocumentForm({
                                                 </div>
 
                                                 {! line.product_id && (
-                                                    <label className="block text-[11px] font-semibold text-[#58739a]">
+                                                    <label className="block text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                                         {text(
                                                             'وصف البند اليدوي *',
                                                             'Manual line description *',
@@ -2258,7 +2258,7 @@ export function DocumentForm({
                                                             priceReference.source ===
                                                             'party_history'
                                                                 ? 'border-blue-100 bg-blue-50/70 text-blue-800'
-                                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-slate-600',
+                                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)]',
                                                         ].join(' ')}
                                                     >
                                                         <div className="flex items-center gap-2">
@@ -2321,7 +2321,7 @@ export function DocumentForm({
                                                             />
 
                                                             {priceReference.document_number && (
-                                                                <span className="text-[#7890b1]">
+                                                                <span className="text-[var(--ac-text-muted)]">
                                                                     {priceReference.document_number}
                                                                     {priceReference.issue_date
                                                                         ? ' · '
@@ -2330,7 +2330,7 @@ export function DocumentForm({
                                                                 </span>
                                                             )}
 
-                                                            <span className="font-normal text-[#7890b1]">
+                                                            <span className="font-normal text-[var(--ac-text-muted)]">
                                                                 {text(
                                                                     'يمكنك تعديل السعر الآن؛ بعد إصدار الفاتورة يصبح هو السعر الأحدث لهذا الطرف.',
                                                                     'You can override it now; once the invoice is issued, it becomes this party’s latest price.',
@@ -2347,7 +2347,7 @@ export function DocumentForm({
                                                             line.price_status ===
                                                             'estimated'
                                                                 ? 'border-amber-200 bg-amber-50'
-                                                                : 'border-[#e6edf7] bg-[#fbfdff]',
+                                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)]',
                                                         ].join(' ')}
                                                     >
                                                         <input
@@ -2372,14 +2372,14 @@ export function DocumentForm({
                                                         />
 
                                                         <span>
-                                                            <strong className="block text-[11px] text-[#123d78]">
+                                                            <strong className="block text-[11px] text-[var(--ac-text)]">
                                                                 {text(
                                                                     'السعر غير نهائي بعد',
                                                                     'Price is provisional',
                                                                 )}
                                                             </strong>
 
-                                                            <span className="mt-1 block text-[10px] leading-5 text-[#7890b1]">
+                                                            <span className="mt-1 block text-[10px] leading-5 text-[var(--ac-text-muted)]">
                                                                 {text(
                                                                     'فعّلها إذا سجلت سعر الشراء مؤقتاً وتنتظر السعر النهائي من المورد.',
                                                                     'Enable this when the purchase price is temporary and you are waiting for the supplier’s final price.',
@@ -2439,15 +2439,15 @@ export function DocumentForm({
                                                                     'rounded-[13px] border px-3 py-3',
                                                                     summaryIndex ===
                                                                     3
-                                                                        ? 'border-blue-100 bg-[#eef5ff]'
-                                                                        : 'border-[#edf2f8] bg-[#fbfdff]',
+                                                                        ? 'border-blue-100 bg-[var(--ac-accent-soft)]'
+                                                                        : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)]',
                                                                 ].join(' ')}
                                                             >
-                                                                <p className="text-[9px] font-semibold text-[#7890b1]">
+                                                                <p className="text-[9px] font-semibold text-[var(--ac-text-muted)]">
                                                                     {label}
                                                                 </p>
 
-                                                                <strong className="mt-1 block text-xs text-[#123d78]">
+                                                                <strong className="mt-1 block text-xs text-[var(--ac-text)]">
                                                                     <Money
                                                                         value={
                                                                             value
@@ -2463,8 +2463,8 @@ export function DocumentForm({
                                                     )}
                                                 </div>
 
-                                                <details className="group rounded-[15px] border border-[#e4edf8] bg-[#fbfdff]">
-                                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[11px] font-bold text-[#49698f] [&::-webkit-details-marker]:hidden">
+                                                <details className="group rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)]">
+                                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[11px] font-bold text-[var(--ac-text-soft)] [&::-webkit-details-marker]:hidden">
                                                         <span>
                                                             {text(
                                                                 'الخصم والضريبة والمخزون',
@@ -2478,16 +2478,16 @@ export function DocumentForm({
                                                         />
                                                     </summary>
 
-                                                    <div className="grid gap-4 border-t border-[#eaf0f8] p-4 md:grid-cols-2 2xl:grid-cols-4">
-                                                        <div className="rounded-[13px] border border-[#e5edf7] bg-[var(--ac-surface)] p-3 md:col-span-2 2xl:col-span-1">
-                                                            <p className="text-[11px] font-semibold text-[#58739a]">
+                                                    <div className="grid gap-4 border-t border-[var(--ac-line)] p-4 md:grid-cols-2 2xl:grid-cols-4">
+                                                        <div className="rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 md:col-span-2 2xl:col-span-1">
+                                                            <p className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                                                 {text(
                                                                     'الخصم (اختياري)',
                                                                     'Discount (optional)',
                                                                 )}
                                                             </p>
 
-                                                            <div className="mt-2 grid grid-cols-2 gap-1 rounded-[10px] bg-[#f3f7fc] p-1">
+                                                            <div className="mt-2 grid grid-cols-2 gap-1 rounded-[10px] bg-[var(--ac-surface-soft)] p-1">
                                                                 {(
                                                                     [
                                                                         [
@@ -2527,8 +2527,8 @@ export function DocumentForm({
                                                                                 'rounded-[8px] px-2.5 py-2 text-[10px] font-bold transition',
                                                                                 line.discount_type ===
                                                                                 value
-                                                                                    ? 'bg-[var(--ac-surface)] text-[#1265d8] shadow-sm'
-                                                                                    : 'text-[#7890b1] hover:text-[#49698f]',
+                                                                                    ? 'bg-[var(--ac-surface)] text-[var(--ac-accent)] shadow-sm'
+                                                                                    : 'text-[var(--ac-text-muted)] hover:text-[var(--ac-text-soft)]',
                                                                             ].join(' ')}
                                                                         >
                                                                             {label}
@@ -2537,7 +2537,7 @@ export function DocumentForm({
                                                                 )}
                                                             </div>
 
-                                                            <label className="mt-3 block text-[10px] font-semibold text-[#7890b1]">
+                                                            <label className="mt-3 block text-[10px] font-semibold text-[var(--ac-text-muted)]">
                                                                 {line.discount_type ===
                                                                 'fixed'
                                                                     ? text(
@@ -2588,7 +2588,7 @@ export function DocumentForm({
                                                                         }
                                                                     />
 
-                                                                    <span className="flex min-w-14 items-center justify-center rounded-e-[12px] border border-s-0 border-[#dbe6f5] bg-[#f8fbff] px-3 text-[10px] font-bold text-[#58739a]">
+                                                                    <span className="flex min-w-14 items-center justify-center rounded-e-[12px] border border-s-0 border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-[10px] font-bold text-[var(--ac-text-soft)]">
                                                                         {line.discount_type ===
                                                                         'fixed'
                                                                             ? currency
@@ -2598,7 +2598,7 @@ export function DocumentForm({
                                                             </label>
                                                         </div>
 
-                                                        <label className="text-[11px] font-semibold text-[#58739a]">
+                                                        <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                                             {text(
                                                                 'قاعدة الضريبة (اختياري)',
                                                                 'Tax rule (optional)',
@@ -2648,13 +2648,13 @@ export function DocumentForm({
                                                             </select>
                                                         </label>
 
-                                                        <div className="text-[11px] font-semibold text-[#58739a]">
+                                                        <div className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                                             {text(
                                                                 'تأثير المخزون',
                                                                 'Inventory impact',
                                                             )}
 
-                                                            <label className="mt-2 flex min-h-11 items-center gap-3 rounded-[12px] border border-[#dbe6f5] bg-[var(--ac-surface)] px-3">
+                                                            <label className="mt-2 flex min-h-11 items-center gap-3 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={
@@ -2698,7 +2698,7 @@ export function DocumentForm({
                                                         </div>
 
                                                         {line.affects_inventory ? (
-                                                            <label className="text-[11px] font-semibold text-[#58739a]">
+                                                            <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                                                 {text(
                                                                     'المستودع *',
                                                                     'Warehouse *',
@@ -2754,7 +2754,7 @@ export function DocumentForm({
                                                                 </select>
                                                             </label>
                                                         ) : (
-                                                            <div className="rounded-[12px] border border-dashed border-[#dbe6f5] bg-[var(--ac-surface)] px-3 py-3 text-[10px] leading-5 text-[#7890b1]">
+                                                            <div className="rounded-[12px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-3 text-[10px] leading-5 text-[var(--ac-text-muted)]">
                                                                 {text(
                                                                     'المستودع يظهر فقط عندما يكون للبند تأثير على المخزون.',
                                                                     'Warehouse selection appears only when this line affects inventory.',
@@ -2771,7 +2771,7 @@ export function DocumentForm({
 
                             <button
                                 type="button"
-                                className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[#a9c8ee] bg-[#f8fbff] px-4 py-4 text-xs font-bold text-[#1265d8] transition hover:border-[#1265d8] hover:bg-[#eef5ff]"
+                                className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--ac-line-strong)] bg-[var(--ac-bg)] px-4 py-4 text-xs font-bold text-[var(--ac-accent)] transition hover:border-[#1265d8] hover:bg-[var(--ac-accent-soft)]"
                                 onClick={() =>
                                     setLines(
                                         current => [
@@ -2871,7 +2871,7 @@ export function DocumentForm({
                             }
                         >
                             <div className="p-4">
-                                <label className="text-xs font-semibold text-[#49698f]">
+                                <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {text(
                                         'مصاريف الشحن',
                                         'Shipping amount',
@@ -2981,7 +2981,7 @@ export function DocumentForm({
                         }
                     >
                         <div className="space-y-2 p-4 text-xs">
-                            <strong className="block text-base text-[#123d78]">
+                            <strong className="block text-base text-[var(--ac-text)]">
                                 {selectedParty?.name
                                     ?? text(
                                         'لم يتم الاختيار',
@@ -2989,17 +2989,17 @@ export function DocumentForm({
                                     )}
                             </strong>
 
-                            <p className="text-slate-500">
+                            <p className="text-[var(--ac-text-muted)]">
                                 {selectedParty?.email
                                     ?? '—'}
                             </p>
 
-                            <p className="text-slate-500">
+                            <p className="text-[var(--ac-text-muted)]">
                                 {selectedParty?.phone
                                     ?? '—'}
                             </p>
 
-                            <p className="text-slate-500">
+                            <p className="text-[var(--ac-text-muted)]">
                                 {selectedParty?.country_code
                                     ?? '—'}
                                 {selectedParty?.region_code
@@ -3021,7 +3021,7 @@ export function DocumentForm({
                     >
                         <div className="space-y-3 p-4 text-xs">
                             <div className="flex justify-between gap-4">
-                                <span className="text-slate-500">
+                                <span className="text-[var(--ac-text-muted)]">
                                     {text(
                                         'المجموع الفرعي',
                                         'Subtotal',
@@ -3041,7 +3041,7 @@ export function DocumentForm({
                             </div>
 
                             <div className="flex justify-between gap-4">
-                                <span className="text-slate-500">
+                                <span className="text-[var(--ac-text-muted)]">
                                     {text(
                                         'إجمالي الخصم',
                                         'Discount',
@@ -3062,7 +3062,7 @@ export function DocumentForm({
                             </div>
 
                             <div className="flex justify-between gap-4">
-                                <span className="text-slate-500">
+                                <span className="text-[var(--ac-text-muted)]">
                                     {text(
                                         'الضريبة',
                                         'Tax',
@@ -3082,7 +3082,7 @@ export function DocumentForm({
                             </div>
 
                             <div className="flex justify-between gap-4">
-                                <span className="text-slate-500">
+                                <span className="text-[var(--ac-text-muted)]">
                                     {text(
                                         'الشحن',
                                         'Shipping',
@@ -3101,16 +3101,16 @@ export function DocumentForm({
                                 </strong>
                             </div>
 
-                            <div className="border-t border-[#e6eef8] pt-3">
+                            <div className="border-t border-[var(--ac-line)] pt-3">
                                 <div className="flex items-end justify-between gap-4">
-                                    <span className="font-bold text-[#123d78]">
+                                    <span className="font-bold text-[var(--ac-text)]">
                                         {text(
                                             'الإجمالي الكلي',
                                             'Grand total',
                                         )}
                                     </span>
 
-                                    <strong className="text-xl text-[#1265d8]">
+                                    <strong className="text-xl text-[var(--ac-accent)]">
                                         <Money
                                             value={
                                                 calculated.total
