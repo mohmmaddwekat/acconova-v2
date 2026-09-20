@@ -2402,9 +2402,29 @@ function MessagingWorkspace({
 
     const [loadedSettings, setLoadedSettings] = useState<{ id: number; data: ConversationSettings } | null>(null);
     const conversationSettings = loadedSettings?.id === selectedId ? loadedSettings.data : null;
-    const chatTheme = chatThemes[conversationSettings?.theme ?? 'green'] ?? chatThemes.green;
+    const selectedChatThemeKey = conversationSettings?.theme ?? 'green';
+    const selectedChatTheme = chatThemes[selectedChatThemeKey] ?? chatThemes.green;
+    const appDark =
+        typeof document !== 'undefined'
+        && document.documentElement.dataset.acResolvedTheme === 'dark';
+    const darkAccents: Record<string, { accent: string; accentText: string; bubble: string }> = {
+        green: { accent: '#287458', accentText: '#94e0bd', bubble: '#285849' },
+        blue: { accent: '#285c9f', accentText: '#93c5fd', bubble: '#244a73' },
+        purple: { accent: '#67409a', accentText: '#d8b4fe', bubble: '#493363' },
+        rose: { accent: '#8c405c', accentText: '#f9a8d4', bubble: '#5c3442' },
+        dark: { accent: '#287458', accentText: '#94e0bd', bubble: '#285849' },
+    };
+    const darkAccent = darkAccents[selectedChatThemeKey] ?? darkAccents.green;
+    const chatTheme = appDark && selectedChatThemeKey !== 'dark'
+        ? {
+              ...chatThemes.dark,
+              accent: darkAccent.accent,
+              accentText: darkAccent.accentText,
+              bubble: darkAccent.bubble,
+          }
+        : selectedChatTheme;
     const conversationThemeStyle = {
-        colorScheme: conversationSettings?.theme === 'dark' ? 'dark' : 'light',
+        colorScheme: appDark || selectedChatThemeKey === 'dark' ? 'dark' : 'light',
         color: chatTheme.text,
         '--ac-bg': chatTheme.background,
         '--ac-bg-soft': chatTheme.soft,
