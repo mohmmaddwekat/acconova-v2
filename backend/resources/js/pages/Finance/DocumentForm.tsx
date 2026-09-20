@@ -1,4 +1,13 @@
 import { apiRequest } from '@/lib/http';
+import {
+    useGlobalSave,
+    useUnsavedChanges,
+} from '@/lib/editorSafety';
+import {
+    clearLocalDraft,
+    readLocalDraft,
+    useLocalDraft,
+} from '@/lib/localDraft';
 import { Link } from '@inertiajs/react';
 import {
     AlertTriangle,
@@ -15,7 +24,12 @@ import {
     Trash2,
     Truck,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     FPanel,
     FinanceHeader,
@@ -293,6 +307,356 @@ export function DocumentForm({
     ] = useState(
         false,
     );
+
+    const localDraftKey =
+        'acconova:draft:finance:'
+        + kind
+        + ':'
+        + String(
+            initial?.id
+            ?? 'new',
+        );
+
+    const draftState = {
+        partyId,
+        externalNumber,
+        selectedIssueDate,
+        dueDate,
+        activityType,
+        marketType,
+        warehouseId,
+        departmentId,
+        branchLabel,
+        paymentTerms,
+        shippingTotal,
+        notes,
+        internalNotes,
+        lines,
+    };
+
+    const initialDraftRef =
+        useRef(
+            JSON.stringify(
+                draftState,
+            ),
+        );
+
+    const dirty =
+        JSON.stringify(
+            draftState,
+        ) !==
+            initialDraftRef.current;
+
+    useUnsavedChanges(
+        dirty && ! busy,
+        ar,
+    );
+
+    useGlobalSave(
+        () => {
+            if (
+                ! busy
+                && canManage
+            ) {
+                void save(
+                    false,
+                );
+            }
+        },
+        canManage,
+    );
+
+    useLocalDraft(
+        localDraftKey,
+        draftState,
+        canManage
+        && ! busy,
+        900,
+    );
+
+    useEffect(() => {
+        if (
+            initial
+            || typeof window === 'undefined'
+        ) {
+            return;
+        }
+
+        let cancelled =
+            false;
+
+        const applyDraft = (
+            draft: typeof draftState,
+        ): void => {
+            setPartyId(
+                draft.partyId
+                ?? '',
+            );
+            setExternalNumber(
+                draft.externalNumber
+                ?? '',
+            );
+            setSelectedIssueDate(
+                draft.selectedIssueDate
+                || todayValue(),
+            );
+            setDueDate(
+                draft.dueDate
+                || addDays(
+                    todayValue(),
+                    30,
+                ),
+            );
+            setActivityType(
+                draft.activityType
+                || 'trade',
+            );
+            setMarketType(
+                draft.marketType
+                || 'local',
+            );
+            setWarehouseId(
+                draft.warehouseId
+                ?? '',
+            );
+            setDepartmentId(
+                draft.departmentId
+                ?? '',
+            );
+            setBranchLabel(
+                draft.branchLabel
+                ?? '',
+            );
+            setPaymentTerms(
+                draft.paymentTerms
+                ?? '30',
+            );
+            setShippingTotal(
+                draft.shippingTotal
+                ?? '0',
+            );
+            setNotes(
+                draft.notes
+                ?? '',
+            );
+            setInternalNotes(
+                draft.internalNotes
+                ?? '',
+            );
+            setLines(
+                draft.lines?.length
+                    ? draft.lines
+                    : [
+                        emptyLine(
+                            defaultWarehouse?.id
+                            ?? null,
+                        ),
+                    ],
+            );
+        };
+
+        const params =
+            new URLSearchParams(
+                window.location.search,
+            );
+
+        const copyFrom =
+            Number(
+                params.get(
+                    'copy_from',
+                )
+                ?? 0,
+            );
+
+        if (
+            Number.isInteger(
+                copyFrom,
+            )
+            && copyFrom > 0
+        ) {
+            void apiRequest<{
+                data:
+                    DocumentDetail;
+            }>(
+                '/api/finance/documents/'
+                + String(
+                    copyFrom,
+                ),
+            )
+                .then(
+                    response => {
+                        if (
+                            cancelled
+                            || response
+                                .data
+                                .kind !==
+                                kind
+                        ) {
+                            return;
+                        }
+
+                        const source =
+                            response.data;
+
+                        const date =
+                            todayValue();
+
+                        applyDraft({
+                            partyId:
+                                source.party?.id
+                                    ? String(
+                                        source.party.id,
+                                    )
+                                    : '',
+                            externalNumber:
+                                '',
+                            selectedIssueDate:
+                                date,
+                            dueDate:
+                                addDays(
+                                    date,
+                                    30,
+                                ),
+                            activityType:
+                                source.activity_type
+                                ?? 'trade',
+                            marketType:
+                                source.market_type
+                                ?? 'local',
+                            warehouseId:
+                                source.warehouse_id
+                                    ? String(
+                                        source.warehouse_id,
+                                    )
+                                    : '',
+                            departmentId:
+                                source.department_id
+                                    ? String(
+                                        source.department_id,
+                                    )
+                                    : '',
+                            branchLabel:
+                                source.branch_label
+                                ?? '',
+                            paymentTerms:
+                                source.payment_terms
+                                ?? '30',
+                            shippingTotal:
+                                source.shipping_total
+                                ?? '0',
+                            notes:
+                                source.notes
+                                ?? '',
+                            internalNotes:
+                                source.internal_notes
+                                ?? '',
+                            lines:
+                                source.lines.map(
+                                    (
+                                        line,
+                                        index,
+                                    ) => ({
+                                        ...line,
+                                        id:
+                                            undefined,
+                                        client_id:
+                                            'copy-'
+                                            + String(
+                                                index,
+                                            )
+                                            + '-'
+                                            + String(
+                                                Date.now(),
+                                            ),
+                                    }),
+                                ),
+                        });
+
+                        params.delete(
+                            'copy_from',
+                        );
+
+                        window.history
+                            .replaceState(
+                                {},
+                                '',
+                                window.location.pathname
+                                + (
+                                    params.toString()
+                                        ? '?'
+                                            + params.toString()
+                                        : ''
+                                ),
+                            );
+                    },
+                )
+                .catch(
+                    () =>
+                        setError(
+                            text(
+                                'تعذر نسخ الفاتورة المطلوبة.',
+                                'The invoice could not be copied.',
+                            ),
+                        ),
+                );
+
+            return () => {
+                cancelled =
+                    true;
+            };
+        }
+
+        const stored =
+            readLocalDraft<
+                typeof draftState
+            >(
+                localDraftKey,
+            );
+
+        const meaningful =
+            stored
+            && (
+                stored.value
+                    .partyId
+                || stored.value
+                    .externalNumber
+                || stored.value
+                    .notes
+                || stored.value
+                    .lines
+                    ?.some(
+                        line =>
+                            Boolean(
+                                line.product_id
+                                || line.description
+                                    ?.trim(),
+                            ),
+                    )
+            );
+
+        if (
+            meaningful
+            && window.confirm(
+                text(
+                    'وجدت مسودة محفوظة تلقائياً لهذه الفاتورة. هل تريد استعادتها؟',
+                    'An autosaved invoice draft was found. Restore it?',
+                ),
+            )
+        ) {
+            applyDraft(
+                stored.value,
+            );
+        }
+
+        return () => {
+            cancelled =
+                true;
+        };
+    }, [
+        initial?.id,
+        kind,
+        localDraftKey,
+    ]);
 
     const availableParties =
         lookups.parties.filter(
@@ -1242,6 +1606,10 @@ export function DocumentForm({
                     issued.data;
             }
 
+            clearLocalDraft(
+                localDraftKey,
+            );
+
             window.location.assign(
                 sales
                     ? '/app/invoices/sales/'
@@ -1285,6 +1653,10 @@ export function DocumentForm({
             await apiRequest(
                 '/api/finance/documents/' + initial.id,
                 { method: 'DELETE' },
+            );
+
+            clearLocalDraft(
+                localDraftKey,
             );
 
             window.location.assign(
