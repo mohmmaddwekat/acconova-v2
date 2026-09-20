@@ -331,7 +331,7 @@ Route::middleware([
 
     Route::get(
         '/app/payments/recurring',
-        fn () => redirect()->route('app.payments'),
+        fn () => redirect('/app/payments?view=recurring'),
     )->name('app.payments.recurring');
 
     Route::get(
