@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
 import {
     Banknote,
-    CalendarClock,
     HandCoins,
     Landmark,
     ReceiptText,
@@ -12,11 +11,11 @@ import type {
 } from './types';
 
 type FinanceDestination =
+    | 'overview'
     | 'sales'
     | 'purchases'
     | 'receipts'
     | 'payments'
-    | 'recurring'
     | 'taxes';
 
 export function FinanceNav({
@@ -34,10 +33,17 @@ export function FinanceNav({
     ): string => ar ? arabic : english;
 
     const items = [
+        {
+            key: 'overview' as const,
+            href: '/app/finance',
+            label: text('نظرة عامة', 'Overview'),
+            icon: Landmark,
+        },
+
         lookups.permissions.sales_view
             ? {
                 key: 'sales' as const,
-                href: '/app/invoices',
+                href: '/app/finance?view=sales',
                 label: text('فواتير البيع', 'Sales invoices'),
                 icon: ReceiptText,
             }
@@ -46,7 +52,7 @@ export function FinanceNav({
         lookups.permissions.purchases_view
             ? {
                 key: 'purchases' as const,
-                href: '/app/invoices/purchases',
+                href: '/app/finance?view=purchases',
                 label: text('فواتير الشراء', 'Purchase invoices'),
                 icon: ShoppingCart,
             }
@@ -55,7 +61,7 @@ export function FinanceNav({
         lookups.permissions.cash_view
             ? {
                 key: 'receipts' as const,
-                href: '/app/receipts',
+                href: '/app/finance?view=receipts',
                 label: text('المقبوضات', 'Receipts'),
                 icon: HandCoins,
             }
@@ -64,25 +70,16 @@ export function FinanceNav({
         lookups.permissions.cash_view
             ? {
                 key: 'payments' as const,
-                href: '/app/payments',
+                href: '/app/finance?view=payments',
                 label: text('المدفوعات', 'Payments'),
                 icon: Banknote,
-            }
-            : null,
-
-        lookups.permissions.recurring_payments_view
-            ? {
-                key: 'recurring' as const,
-                href: '/app/payments/recurring',
-                label: text('الدفعات المتكررة', 'Recurring'),
-                icon: CalendarClock,
             }
             : null,
 
         lookups.permissions.taxes_view
             ? {
                 key: 'taxes' as const,
-                href: '/app/finance/taxes',
+                href: '/app/finance?view=taxes',
                 label: text('الضرائب والمستحقات', 'Taxes & obligations'),
                 icon: Landmark,
             }
