@@ -350,7 +350,16 @@ class FinanceDocumentService
 
         $paid = (float) CashAllocation::query()
             ->where('financial_document_id', $document->id)
-            ->whereHas('movement', fn ($query) => $query->where('status', 'posted'))
+            ->whereHas('movement', function ($query): void {
+                $query
+                    ->where('status', 'posted')
+                    ->where(function ($movement): void {
+                        $movement
+                            ->where('method', '!=', 'check')
+                            ->orWhereNull('check_status')
+                            ->orWhereNotIn('check_status', ['bounced', 'cancelled']);
+                    });
+            })
             ->sum('amount');
 
         $total = (float) $document->total;
@@ -443,6 +452,21 @@ class FinanceDocumentService
             $taxRule = isset($line['tax_rule_id']) && $line['tax_rule_id']
                 ? TaxRule::query()->findOrFail((int) $line['tax_rule_id'])
                 : null;
+
+            if ($taxRule) {
+                $requiredScope = $document->isSale() ? 'sales' : 'purchases';
+
+                if (
+                    ! $taxRule->active
+                    || ! in_array($taxRule->applies_to, ['both', $requiredScope], true)
+                    || ($taxRule->effective_from && $document->issue_date->lt($taxRule->effective_from))
+                    || ($taxRule->effective_to && $document->issue_date->gt($taxRule->effective_to))
+                ) {
+                    throw ValidationException::withMessages([
+                        "lines.$index.tax_rule_id" => ['The selected tax rule is not valid for this document date and transaction type.'],
+                    ]);
+                }
+            }
 
             $warehouseId = $line['warehouse_id'] ?? $document->warehouse_id;
 
