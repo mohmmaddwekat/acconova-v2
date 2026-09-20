@@ -47,6 +47,8 @@ type ProductDetailDrawerProps = {
 
     canEdit: boolean;
 
+    canCreate: boolean;
+
     canArchive: boolean;
 
     onClose: () => void;
@@ -78,6 +80,7 @@ export function ProductDetailDrawer({
     open,
     product,
     canEdit,
+    canCreate,
     canArchive,
     onClose,
     onEdit,
@@ -410,7 +413,7 @@ export function ProductDetailDrawer({
                 <footer className="shrink-0 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
                     <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
                         {! archived &&
-                            canEdit && (
+                            canCreate && (
                                 <button
                                     type="button"
                                     onClick={() =>
