@@ -97,6 +97,16 @@ export function applyProfilePreferences(
     } catch {
         // Storage can be unavailable in private browsing. The DOM state still applies.
     }
+
+    window.dispatchEvent(
+        new CustomEvent<ProfilePreferences>(
+            'acconova:profile-preferences',
+            {
+                detail:
+                    preferences,
+            },
+        ),
+    );
 }
 
 export function cachedProfilePreferences(): ProfilePreferences | null {
