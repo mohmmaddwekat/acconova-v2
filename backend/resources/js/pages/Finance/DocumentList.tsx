@@ -1,4 +1,13 @@
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
+import {
+    AdvancedFilterBuilder,
+    type AdvancedFilterCondition,
+} from '@/components/data/AdvancedFilterBuilder';
+import {
+    ListPreferencesControl,
+    useListPreferences,
+    type ListColumn,
+} from '@/components/data/ListPreferences';
 import { SavedViews } from '@/components/data/SavedViews';
 import { apiRequest } from '@/lib/http';
 import { Link } from '@inertiajs/react';
@@ -73,6 +82,11 @@ export function DocumentList({
     ] = useState('');
 
     const [
+        advancedConditions,
+        setAdvancedConditions,
+    ] = useState<AdvancedFilterCondition[]>([]);
+
+    const [
         page,
         setPage,
     ] = useState(1);
@@ -95,6 +109,101 @@ export function DocumentList({
     const text = (arabic: string, english: string): string =>
         ar ? arabic : english;
 
+    const invoiceColumns: ListColumn[] = [
+        {
+            key: 'number',
+            label: text('رقم الفاتورة', 'Invoice'),
+        },
+        {
+            key: 'party',
+            label: sales
+                ? text('العميل', 'Customer')
+                : text('المورد', 'Supplier'),
+        },
+        {
+            key: 'activity',
+            label: text('النشاط', 'Activity'),
+        },
+        {
+            key: 'issue_date',
+            label: text('تاريخ الإصدار', 'Issue date'),
+        },
+        {
+            key: 'due_date',
+            label: text('الاستحقاق', 'Due date'),
+        },
+        {
+            key: 'total',
+            label: text('الإجمالي', 'Total'),
+        },
+        {
+            key: 'paid',
+            label: text('المدفوع', 'Paid'),
+        },
+        {
+            key: 'outstanding',
+            label: text('المتبقي', 'Outstanding'),
+        },
+        {
+            key: 'status',
+            label: text('الحالة', 'Status'),
+        },
+        {
+            key: 'action',
+            label: text('إجراء', 'Action'),
+        },
+    ];
+
+    const listPreferences = useListPreferences(
+        `acconova:list-preferences:finance:${kind}`,
+        invoiceColumns,
+    );
+
+    const advancedFilterValues = advancedConditions.reduce(
+        (result, condition) => {
+            const value = condition.value.trim();
+
+            if (! value) {
+                return result;
+            }
+
+            if (condition.field === 'total') {
+                if (condition.operator === 'gte') {
+                    result.min_total = value;
+                }
+                if (condition.operator === 'lte') {
+                    result.max_total = value;
+                }
+                if (condition.operator === 'equals') {
+                    result.min_total = value;
+                    result.max_total = value;
+                }
+            }
+
+            if (condition.field === 'due_date') {
+                if (condition.operator === 'after') {
+                    result.due_after = value;
+                }
+                if (condition.operator === 'before') {
+                    result.due_before = value;
+                }
+                if (condition.operator === 'equals') {
+                    result.due_after = value;
+                    result.due_before = value;
+                }
+            }
+
+            return result;
+        },
+        {} as {
+            min_total?: string;
+            max_total?: string;
+            due_after?: string;
+            due_before?: string;
+        },
+    );
+
+
     useEffect(() => {
         const controller = new AbortController();
         const params = new URLSearchParams({
@@ -109,6 +218,19 @@ export function DocumentList({
 
         if (status) {
             params.set('status', status);
+        }
+
+        if (advancedFilterValues.min_total) {
+            params.set('min_total', advancedFilterValues.min_total);
+        }
+        if (advancedFilterValues.max_total) {
+            params.set('max_total', advancedFilterValues.max_total);
+        }
+        if (advancedFilterValues.due_after) {
+            params.set('due_after', advancedFilterValues.due_after);
+        }
+        if (advancedFilterValues.due_before) {
+            params.set('due_before', advancedFilterValues.due_before);
         }
 
         setLoading(true);
@@ -133,7 +255,16 @@ export function DocumentList({
             });
 
         return () => controller.abort();
-    }, [kind, page, search, status]);
+    }, [
+        kind,
+        page,
+        search,
+        status,
+        advancedFilterValues.min_total,
+        advancedFilterValues.max_total,
+        advancedFilterValues.due_after,
+        advancedFilterValues.due_before,
+    ]);
 
     const title = sales
         ? text('فواتير البيع', 'Sales invoices')
@@ -342,17 +473,55 @@ export function DocumentList({
                     </button>
                 </div>
 
-                <div className="border-t border-[var(--ac-line)] px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2 border-t border-[var(--ac-line)] px-4 py-3">
+                    <AdvancedFilterBuilder
+                        ar={ar}
+                        value={advancedConditions}
+                        onChange={(next) => {
+                            setAdvancedConditions(next);
+                            setPage(1);
+                        }}
+                        fields={[
+                            {
+                                key: 'total',
+                                label: text('إجمالي الفاتورة', 'Invoice total'),
+                                type: 'number',
+                                operators: ['gte', 'lte', 'equals'],
+                            },
+                            {
+                                key: 'due_date',
+                                label: text('تاريخ الاستحقاق', 'Due date'),
+                                type: 'date',
+                                operators: ['after', 'before', 'equals'],
+                            },
+                        ]}
+                    />
+
+                    <ListPreferencesControl
+                        columns={invoiceColumns}
+                        order={listPreferences.order}
+                        hidden={listPreferences.hidden}
+                        density={listPreferences.density}
+                        onOrderChange={listPreferences.setOrder}
+                        onToggleColumn={listPreferences.toggleColumn}
+                        onDensityChange={listPreferences.setDensity}
+                        ar={ar}
+                    />
+
                     <SavedViews
                         storageKey={`acconova:saved-views:finance-documents:${kind}`}
                         ar={ar}
                         value={{
                             search,
                             status,
+                            advancedConditions,
                         }}
                         onApply={(saved) => {
                             setSearch(saved.search);
                             setStatus(saved.status);
+                            setAdvancedConditions(
+                                saved.advancedConditions ?? [],
+                            );
                             setPage(1);
                         }}
                     />
@@ -428,88 +597,124 @@ export function DocumentList({
                 ) : (
                     <>
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[980px] text-xs">
-                                <thead className="bg-[#f7faff] text-[#6f86a8]">
+                            <table className="w-full min-w-[760px] text-xs">
+                                <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                     <tr>
-                                        {[
-                                            text('رقم الفاتورة', 'Invoice'),
-                                            sales
-                                                ? text('العميل', 'Customer')
-                                                : text('المورد', 'Supplier'),
-                                            text('النشاط', 'Activity'),
-                                            text('تاريخ الإصدار', 'Issue date'),
-                                            text('الاستحقاق', 'Due date'),
-                                            text('الإجمالي', 'Total'),
-                                            text('المدفوع', 'Paid'),
-                                            text('المتبقي', 'Outstanding'),
-                                            text('الحالة', 'Status'),
-                                            text('إجراء', 'Action'),
-                                        ].map((label) => (
-                                            <th
-                                                key={label}
-                                                className="px-3 py-3 text-start font-semibold"
-                                            >
-                                                {label}
-                                            </th>
-                                        ))}
+                                        {listPreferences.visibleKeys.map((key) => {
+                                            const column = invoiceColumns.find(
+                                                (item) => item.key === key,
+                                            );
+
+                                            return column ? (
+                                                <th
+                                                    key={key}
+                                                    className={[
+                                                        'px-3 text-start font-semibold',
+                                                        listPreferences.density === 'compact'
+                                                            ? 'py-2'
+                                                            : 'py-3',
+                                                    ].join(' ')}
+                                                >
+                                                    {column.label}
+                                                </th>
+                                            ) : null;
+                                        })}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {response.data.map((row) => (
                                         <tr
                                             key={row.id}
-                                            className="border-t border-[#edf3fa] text-[#1d3f72] hover:bg-blue-50/40"
+                                            className="border-t border-[var(--ac-line)] text-[var(--ac-text-soft)] hover:bg-[var(--ac-surface-soft)]"
                                         >
-                                            <td className="px-3 py-3 font-semibold text-[#1265d8]">
-                                                {row.number}
-                                            </td>
-                                            <td className="px-3 py-3">
-                                                {row.party?.name ?? '—'}
-                                            </td>
-                                            <td className="px-3 py-3">
-                                                {row.activity_type ?? '—'}
-                                            </td>
-                                            <td className="px-3 py-3">
-                                                {row.issue_date}
-                                            </td>
-                                            <td className="px-3 py-3">
-                                                {row.due_date ?? '—'}
-                                            </td>
-                                            <td className="px-3 py-3 font-semibold">
-                                                <Money
-                                                    value={row.total}
-                                                    currency={row.currency}
-                                                    compact
-                                                />
-                                            </td>
-                                            <td className="px-3 py-3 text-emerald-700">
-                                                <Money
-                                                    value={row.paid_total}
-                                                    currency={row.currency}
-                                                    compact
-                                                />
-                                            </td>
-                                            <td className="px-3 py-3 text-red-600">
-                                                <Money
-                                                    value={row.balance_due}
-                                                    currency={row.currency}
-                                                    compact
-                                                />
-                                            </td>
-                                            <td className="px-3 py-3">
-                                                <StatusBadge
-                                                    status={row.status}
-                                                    ar={ar}
-                                                />
-                                            </td>
-                                            <td className="px-3 py-3">
-                                                <Link
-                                                    href={showHref(row.id)}
-                                                    className={financeButton}
-                                                >
-                                                    {text('عرض', 'Open')}
-                                                </Link>
-                                            </td>
+                                            {listPreferences.visibleKeys.map((key) => {
+                                                const cellClass = [
+                                                    'px-3',
+                                                    listPreferences.density === 'compact'
+                                                        ? 'py-2'
+                                                        : 'py-3',
+                                                ].join(' ');
+
+                                                if (key === 'number') {
+                                                    return (
+                                                        <td key={key} className={cellClass + ' font-semibold text-[var(--ac-accent)]'}>
+                                                            {row.number}
+                                                        </td>
+                                                    );
+                                                }
+
+                                                if (key === 'party') {
+                                                    return (
+                                                        <td key={key} className={cellClass}>
+                                                            {row.party?.name ?? '—'}
+                                                        </td>
+                                                    );
+                                                }
+
+                                                if (key === 'activity') {
+                                                    return (
+                                                        <td key={key} className={cellClass}>
+                                                            {row.activity_type ?? '—'}
+                                                        </td>
+                                                    );
+                                                }
+
+                                                if (key === 'issue_date') {
+                                                    return (
+                                                        <td key={key} className={cellClass}>
+                                                            {row.issue_date}
+                                                        </td>
+                                                    );
+                                                }
+
+                                                if (key === 'due_date') {
+                                                    return (
+                                                        <td key={key} className={cellClass}>
+                                                            {row.due_date ?? '—'}
+                                                        </td>
+                                                    );
+                                                }
+
+                                                if (key === 'total') {
+                                                    return (
+                                                        <td key={key} className={cellClass + ' font-semibold'}>
+                                                            <Money value={row.total} currency={row.currency} compact />
+                                                        </td>
+                                                    );
+                                                }
+
+                                                if (key === 'paid') {
+                                                    return (
+                                                        <td key={key} className={cellClass + ' text-emerald-600'}>
+                                                            <Money value={row.paid_total} currency={row.currency} compact />
+                                                        </td>
+                                                    );
+                                                }
+
+                                                if (key === 'outstanding') {
+                                                    return (
+                                                        <td key={key} className={cellClass + ' text-red-600'}>
+                                                            <Money value={row.balance_due} currency={row.currency} compact />
+                                                        </td>
+                                                    );
+                                                }
+
+                                                if (key === 'status') {
+                                                    return (
+                                                        <td key={key} className={cellClass}>
+                                                            <StatusBadge status={row.status} ar={ar} />
+                                                        </td>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <td key={key} className={cellClass}>
+                                                        <Link href={showHref(row.id)} className={financeButton}>
+                                                            {text('عرض', 'Open')}
+                                                        </Link>
+                                                    </td>
+                                                );
+                                            })}
                                         </tr>
                                     ))}
                                 </tbody>
