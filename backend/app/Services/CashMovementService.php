@@ -29,7 +29,7 @@ class CashMovementService
                 'number' => $this->numbers->next(
                     $data['direction'] === 'incoming' ? 'cash_receipts' : 'cash_payments',
                     $data['direction'] === 'incoming'
-                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'REC')
+                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'RCV')
                         : (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['payment_prefix'] ?? 'PAY'),
                 ),
                 'status' => 'draft',
@@ -272,7 +272,7 @@ class CashMovementService
                 'number' => $this->numbers->next(
                     $locked->direction === 'incoming' ? 'cash_receipts' : 'cash_payments',
                     $locked->direction === 'incoming'
-                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'REC')
+                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'RCV')
                         : (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['payment_prefix'] ?? 'PAY'),
                 ),
                 'direction' => $locked->direction,
