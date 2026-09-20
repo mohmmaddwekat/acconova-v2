@@ -832,6 +832,46 @@ html[data-ac-resolved-theme='dark']
     background-color: var(--ac-surface) !important;
 }
 
+/*
+ * Variant safety net: legacy Tailwind hover/focus utilities must never flash a
+ * light surface while the resolved theme is dark. This keeps text and icons
+ * readable during interaction, not only at rest.
+ */
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        [class~="hover:bg-white"]:hover,
+        [class~="hover:bg-slate-50"]:hover,
+        [class~="hover:bg-slate-100"]:hover,
+        [class~="hover:bg-gray-50"]:hover,
+        [class~="hover:bg-gray-100"]:hover,
+        [class~="hover:bg-blue-50"]:hover,
+        [class~="hover:bg-neutral-50"]:hover,
+        [class~="hover:bg-neutral-100"]:hover,
+        [class~="hover:bg-stone-50"]:hover,
+        [class~="hover:bg-stone-100"]:hover,
+        [class~="focus:bg-white"]:focus,
+        [class~="focus:bg-slate-50"]:focus,
+        [class~="focus:bg-gray-50"]:focus,
+        [class~="focus:bg-blue-50"]:focus
+    ) {
+    background-color: var(--ac-surface-soft) !important;
+    color: var(--ac-text) !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    .group:hover
+    :is(
+        [class~="group-hover:bg-white"],
+        [class~="group-hover:bg-blue-50"],
+        [class~="group-hover:bg-slate-50"],
+        [class~="group-hover:bg-gray-50"]
+    ) {
+    background-color: var(--ac-surface-soft) !important;
+    color: var(--ac-text) !important;
+}
+
 html[data-ac-resolved-theme='dark']
     :is(
         .bg-slate-50,
