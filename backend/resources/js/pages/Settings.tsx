@@ -22,9 +22,11 @@ import {
     Check,
     CheckCircle2,
     CreditCard,
+    Eye,
     FileSpreadsheet,
     FileText,
     Globe2,
+    Hash,
     Grid2X2,
     Image,
     Link2,
@@ -33,9 +35,11 @@ import {
     Palette,
     Percent,
     Printer,
+    ReceiptText,
     Save,
     Settings2,
     ShieldCheck,
+    ShoppingCart,
     Trash2,
     Upload,
     UserPlus,
@@ -89,8 +93,9 @@ type WorkspaceSettings = {
     post_dated_checks_pending: boolean;
     bank_accounts: BankAccount[];
     invoice_template: 'professional' | 'classic' | 'modern' | 'simple';
-    purchase_template: 'default';
-    receipt_template: 'default';
+    purchase_template: 'professional' | 'classic' | 'modern' | 'simple';
+    receipt_template: 'professional' | 'classic' | 'modern' | 'simple';
+    invoice_accent_color: string;
     print_paper_size: 'a4' | 'letter';
     print_margins: 'normal' | 'compact';
     logo_position: 'start' | 'center' | 'end';
@@ -657,18 +662,34 @@ function SettingsWorkspace() {
                 className="ac-settings-page min-h-[calc(100dvh-72px)] bg-[var(--acs-bg)] px-3 py-4 text-[var(--acs-text)] sm:px-5 lg:px-6"
             >
                 <div className="mx-auto max-w-[1540px]">
-                    <div className="mb-4 flex items-end justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-[var(--acs-text-strong)] sm:text-3xl">
-                                {text('الإعدادات', 'Settings')}
-                            </h1>
-                            <p className="mt-1 text-xs leading-6 text-[var(--acs-text-muted)]">
-                                {text(
+                    <div className="mb-5">
+                        {section !== 'general' && (
+                            <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold text-[var(--acs-text-muted)]">
+                                <span>{text('الإعدادات', 'Settings')}</span>
+                                <span>›</span>
+                                <span>
+                                    {navItems.find(item => item.key === section)?.label}
+                                </span>
+                            </div>
+                        )}
+                        <h1 className="text-2xl font-extrabold tracking-[-0.03em] text-[var(--acs-text-strong)] sm:text-3xl">
+                            {section === 'invoices'
+                                ? text('الفواتير والطباعة', 'Invoices & printing')
+                                : section === 'general'
+                                    ? text('الإعدادات', 'Settings')
+                                    : navItems.find(item => item.key === section)?.label}
+                        </h1>
+                        <p className="mt-1 max-w-3xl text-xs leading-6 text-[var(--acs-text-muted)]">
+                            {section === 'invoices'
+                                ? text(
+                                    'خصص قوالب الفواتير والإيصالات والمستندات المطبوعة بما يناسب هوية مؤسستك، وتنعكس الإعدادات على الطباعة الفعلية.',
+                                    'Customize invoice, receipt and printed document templates. Saved changes are applied to actual printing.',
+                                )
+                                : text(
                                     'إعدادات المؤسسة والمالية والطباعة متصلة فعلياً بالنظام وتحفظ على مستوى مساحة العمل.',
                                     'Organization, finance and print settings are persisted and applied across the workspace.',
                                 )}
-                            </p>
-                        </div>
+                        </p>
                     </div>
 
                     {error && (
@@ -1033,83 +1054,335 @@ function SettingsWorkspace() {
 
                             {section === 'invoices' && (
                                 <div className="space-y-4">
-                                    <div className="grid gap-4 xl:grid-cols-[340px_1fr]">
-                                        <SettingsCard title={text('قالب الفاتورة الحالي', 'Current invoice template')} description={text('المعاينة تتغير مباشرة حسب الإعدادات.', 'Preview updates directly from the saved settings.')} icon={FileText}>
-                                            <div className="rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-4">
-                                                <div className="ac-settings-paper mx-auto max-w-[280px] bg-white p-4 text-[#17386d] shadow-sm">
-                                                    <div className={[
-                                                        'flex items-start gap-3',
-                                                        settings.logo_position === 'center' ? 'flex-col items-center text-center' : 'justify-between',
-                                                    ].join(' ')}>
-                                                        {settings.show_invoice_logo && (
-                                                            <strong className="text-[var(--acs-accent)]">{settings.trade_name || workspaceName}</strong>
-                                                        )}
-                                                        <div className={settings.logo_position === 'center' ? '' : 'text-end'}>
-                                                            <strong className="text-xs">{text('فاتورة ضريبية', 'Tax invoice')}</strong>
-                                                            <p className="text-[9px] text-slate-400">{settings.invoice_prefix}-2026-{String(settings.invoice_start_number).padStart(4, '0')}</p>
-                                                        </div>
-                                                    </div>
-                                                    {settings.show_invoice_contact && (
-                                                        <p className="mt-2 text-[8px] leading-4 text-[var(--acs-text-muted)]">
-                                                            {[settings.phone, settings.support_email, settings.city].filter(Boolean).join(' · ')}
-                                                        </p>
-                                                    )}
-                                                    <div className="my-4 h-px bg-[#e7edf5]" />
-                                                    <div className="grid grid-cols-3 gap-2 text-[8px] text-[var(--acs-text-soft)]">
-                                                        <span>{text('الوصف','Description')}</span><span>{text('الكمية','Qty')}</span><span>{text('المجموع','Total')}</span>
-                                                    </div>
-                                                    <div className="mt-2 grid grid-cols-3 gap-2 border-b border-[var(--acs-line-soft)] pb-2 text-[8px]"><span>{text('خدمة','Service')}</span><span>1</span><span>200.00</span></div>
-                                                    <div className="mt-4 text-end text-[9px]"><strong>{text('الإجمالي','Total')}: 200.00 {settings.currency}</strong></div>
-                                                </div>
-                                            </div>
-                                        </SettingsCard>
+                                    <div className="grid gap-4 xl:grid-cols-[1.42fr_1fr]">
+                                        <div className="space-y-4">
+                                            <SettingsCard
+                                                title={text('اختر قالب الفاتورة', 'Choose invoice template')}
+                                                description={text('اختر التصميم الأساسي لفواتير البيع. الاختيار يستخدم في الطباعة الفعلية.', 'Choose the sales invoice layout used by actual printing.')}
+                                                icon={FileText}
+                                            >
+                                                <div className="grid gap-3 sm:grid-cols-4">
+                                                    {([
+                                                        ['professional', text('احترافي', 'Professional')],
+                                                        ['classic', text('كلاسيكي', 'Classic')],
+                                                        ['modern', text('مودرن', 'Modern')],
+                                                        ['simple', text('بسيط', 'Simple')],
+                                                    ] as const).map(([value, label]) => {
+                                                        const active = settings.invoice_template === value;
 
-                                        <SettingsCard title={text('اختر قالب الفاتورة', 'Choose invoice template')} description={text('هذا الاختيار يستخدم فعلياً عند طباعة الفاتورة.', 'This selection is used by the actual invoice print view.')} icon={FileText}>
-                                            <div className="grid gap-3 sm:grid-cols-4">
-                                                {([
-                                                    ['professional', text('احترافي','Professional')],
-                                                    ['classic', text('كلاسيكي','Classic')],
-                                                    ['modern', text('مودرن','Modern')],
-                                                    ['simple', text('بسيط','Simple')],
-                                                ] as const).map(([value,label]) => (
-                                                    <button
-                                                        type="button"
-                                                        key={value}
-                                                        onClick={() => updateSetting('invoice_template', value)}
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                key={value}
+                                                                onClick={() => updateSetting('invoice_template', value)}
+                                                                className={[
+                                                                    'group rounded-[13px] border p-2.5 text-start transition',
+                                                                    active
+                                                                        ? 'border-[var(--acs-accent)] bg-[var(--acs-accent-soft)] shadow-[0_0_0_1px_var(--acs-accent)]'
+                                                                        : 'border-[var(--acs-line)] bg-[var(--acs-surface)] hover:border-[var(--acs-line-strong)]',
+                                                                ].join(' ')}
+                                                            >
+                                                                <div className="ac-settings-paper relative h-[92px] overflow-hidden rounded-[9px] border border-[#e4ebf4] bg-white p-2.5">
+                                                                    <div
+                                                                        className={[
+                                                                            'absolute inset-x-2.5 top-2 h-1.5 rounded-full',
+                                                                            value === 'classic' ? 'bg-slate-700' : '',
+                                                                        ].join(' ')}
+                                                                        style={{
+                                                                            backgroundColor: value === 'classic'
+                                                                                ? undefined
+                                                                                : settings.invoice_accent_color,
+                                                                        }}
+                                                                    />
+                                                                    <div className="mt-4 flex items-start justify-between gap-2">
+                                                                        <div
+                                                                            className="size-4 rounded-[4px]"
+                                                                            style={{ backgroundColor: settings.invoice_accent_color + '20' }}
+                                                                        />
+                                                                        <div className="w-10 space-y-1">
+                                                                            <div className="h-1 rounded bg-slate-200" />
+                                                                            <div className="h-1 rounded bg-slate-100" />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="mt-3 space-y-1.5">
+                                                                        <div className="h-1.5 rounded bg-slate-100" />
+                                                                        <div className="h-1.5 rounded bg-slate-100" />
+                                                                        <div
+                                                                            className="h-1.5 w-2/3 rounded"
+                                                                            style={{ backgroundColor: settings.invoice_accent_color + '25' }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-2 flex items-center justify-between">
+                                                                    <span className="text-[10px] font-semibold text-[var(--acs-text)]">{label}</span>
+                                                                    {active && (
+                                                                        <span
+                                                                            className="flex size-4 items-center justify-center rounded-full text-[9px] text-white"
+                                                                            style={{ backgroundColor: settings.invoice_accent_color }}
+                                                                        >
+                                                                            ✓
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </SettingsCard>
+
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <SettingsCard
+                                                    title={text('قالب أمر الشراء', 'Purchase document template')}
+                                                    description={text('قالب طباعة فواتير وأوامر الشراء.', 'Template for purchase invoices and purchase documents.')}
+                                                    icon={ShoppingCart}
+                                                >
+                                                    <div className="grid grid-cols-[96px_1fr] items-center gap-4">
+                                                        <div className="ac-settings-paper rounded-[10px] border border-[#e4ebf4] bg-white p-2 shadow-sm">
+                                                            <div
+                                                                className="h-1.5 w-12 rounded"
+                                                                style={{ backgroundColor: settings.invoice_accent_color }}
+                                                            />
+                                                            <div className="mt-3 space-y-1.5">
+                                                                <div className="h-1 rounded bg-slate-200" />
+                                                                <div className="h-1 rounded bg-slate-100" />
+                                                                <div className="h-1 rounded bg-slate-100" />
+                                                            </div>
+                                                        </div>
+                                                        <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                            {text('القالب', 'Template')}
+                                                            <select
+                                                                className={input}
+                                                                value={settings.purchase_template}
+                                                                onChange={event => updateSetting(
+                                                                    'purchase_template',
+                                                                    event.target.value as WorkspaceSettings['purchase_template'],
+                                                                )}
+                                                            >
+                                                                <option value="professional">{text('احترافي', 'Professional')}</option>
+                                                                <option value="classic">{text('كلاسيكي', 'Classic')}</option>
+                                                                <option value="modern">{text('مودرن', 'Modern')}</option>
+                                                                <option value="simple">{text('بسيط', 'Simple')}</option>
+                                                            </select>
+                                                        </label>
+                                                    </div>
+                                                </SettingsCard>
+
+                                                <SettingsCard
+                                                    title={text('قالب الإيصال', 'Receipt template')}
+                                                    description={text('قالب طباعة سندات القبض والصرف.', 'Template for receipt and payment vouchers.')}
+                                                    icon={ReceiptText}
+                                                >
+                                                    <div className="grid grid-cols-[96px_1fr] items-center gap-4">
+                                                        <div className="ac-settings-paper rounded-[10px] border border-[#e4ebf4] bg-white p-2 shadow-sm">
+                                                            <div
+                                                                className="mx-auto size-5 rounded-full"
+                                                                style={{ backgroundColor: settings.invoice_accent_color + '20' }}
+                                                            />
+                                                            <div className="mt-2 h-1.5 rounded bg-slate-200" />
+                                                            <div
+                                                                className="mx-auto mt-2 h-4 w-2/3 rounded"
+                                                                style={{ backgroundColor: settings.invoice_accent_color + '18' }}
+                                                            />
+                                                        </div>
+                                                        <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                            {text('القالب', 'Template')}
+                                                            <select
+                                                                className={input}
+                                                                value={settings.receipt_template}
+                                                                onChange={event => updateSetting(
+                                                                    'receipt_template',
+                                                                    event.target.value as WorkspaceSettings['receipt_template'],
+                                                                )}
+                                                            >
+                                                                <option value="professional">{text('احترافي', 'Professional')}</option>
+                                                                <option value="classic">{text('كلاسيكي', 'Classic')}</option>
+                                                                <option value="modern">{text('مودرن', 'Modern')}</option>
+                                                                <option value="simple">{text('بسيط', 'Simple')}</option>
+                                                            </select>
+                                                        </label>
+                                                    </div>
+                                                </SettingsCard>
+                                            </div>
+                                        </div>
+
+                                        <SettingsCard
+                                            title={text('قالب الفاتورة الحالي', 'Current invoice template')}
+                                            description={text('معاينة مباشرة قريبة من شكل الطباعة النهائي.', 'Live preview close to the final printed output.')}
+                                            icon={Eye}
+                                        >
+                                            <div className="rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-3 sm:p-4">
+                                                <div className="ac-settings-paper mx-auto min-h-[455px] max-w-[390px] bg-white p-5 text-[#17386d] shadow-[0_8px_30px_rgba(24,50,90,.09)]">
+                                                    <div
                                                         className={[
-                                                            'rounded-[12px] border p-2',
-                                                            settings.invoice_template === value
-                                                                ? 'border-[var(--acs-accent)] bg-[var(--acs-accent-soft)]'
-                                                                : 'border-[var(--acs-line)]',
+                                                            'flex gap-4',
+                                                            settings.logo_position === 'center'
+                                                                ? 'flex-col items-center text-center'
+                                                                : settings.logo_position === 'end'
+                                                                    ? 'flex-row-reverse items-start justify-between text-end'
+                                                                    : 'items-start justify-between',
                                                         ].join(' ')}
                                                     >
-                                                        <div className="h-20 rounded-[8px] border border-[var(--acs-line)] bg-white p-2">
-                                                            <div className="h-2 w-10 rounded bg-[#1265d8]/70" />
-                                                            <div className="mt-3 h-1.5 rounded bg-slate-100" />
-                                                            <div className="mt-2 h-1.5 rounded bg-slate-100" />
-                                                            <div className="mt-2 h-5 rounded bg-blue-50" />
+                                                        <div>
+                                                            {settings.show_invoice_logo && (
+                                                                settings.logo_url
+                                                                    ? (
+                                                                        <img
+                                                                            src={settings.logo_url}
+                                                                            alt={settings.trade_name || workspaceName}
+                                                                            className="mb-2 max-h-12 max-w-[130px] object-contain"
+                                                                        />
+                                                                    )
+                                                                    : (
+                                                                        <div
+                                                                            className="mb-2 flex size-10 items-center justify-center rounded-[11px] text-lg font-extrabold text-white"
+                                                                            style={{ backgroundColor: settings.invoice_accent_color }}
+                                                                        >
+                                                                            {(settings.trade_name || workspaceName).charAt(0).toUpperCase()}
+                                                                        </div>
+                                                                    )
+                                                            )}
+                                                            <strong
+                                                                className="block text-sm font-extrabold"
+                                                                style={{ color: settings.invoice_accent_color }}
+                                                            >
+                                                                {settings.trade_name || workspaceName}
+                                                            </strong>
+                                                            {settings.show_invoice_contact && (
+                                                                <p className="mt-1 text-[7px] leading-3 text-slate-500">
+                                                                    {[settings.phone, settings.support_email].filter(Boolean).join(' · ')}
+                                                                </p>
+                                                            )}
                                                         </div>
-                                                        <span className="mt-2 block text-[10px] font-semibold text-[var(--acs-text)]">{label}</span>
-                                                    </button>
-                                                ))}
+                                                        <div>
+                                                            <strong className="text-[11px]">{text('فاتورة ضريبية', 'Tax invoice')}</strong>
+                                                            <p className="mt-1 text-[7px] text-slate-400">
+                                                                {settings.invoice_prefix}-2026-{String(settings.invoice_start_number).padStart(4, '0')}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="my-4 grid grid-cols-2 gap-3 rounded-[8px] bg-slate-50 p-2.5 text-[7px]">
+                                                        <div>
+                                                            <span className="text-slate-400">{text('التاريخ', 'Date')}</span>
+                                                            <strong className="mt-0.5 block">20/09/2026</strong>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-slate-400">{text('العميل', 'Customer')}</span>
+                                                            <strong className="mt-0.5 block">{text('عميل تجريبي', 'Sample customer')}</strong>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="overflow-hidden rounded-[7px] border border-slate-200">
+                                                        <div className="grid grid-cols-[30px_1.6fr_.55fr_.8fr_.8fr] bg-slate-50 px-2 py-2 text-[6px] font-semibold text-slate-500">
+                                                            <span>#</span>
+                                                            <span>{text('الوصف', 'Description')}</span>
+                                                            <span>{text('الكمية', 'Qty')}</span>
+                                                            <span>{text('سعر الوحدة', 'Unit price')}</span>
+                                                            <span>{text('المجموع', 'Total')}</span>
+                                                        </div>
+                                                        {[
+                                                            [text('خدمة محاسبية شهرية', 'Monthly accounting service'), '1', '200.00', '200.00'],
+                                                            [text('دعم فني', 'Technical support'), '1', '100.00', '100.00'],
+                                                        ].map((row, index) => (
+                                                            <div key={index} className="grid grid-cols-[30px_1.6fr_.55fr_.8fr_.8fr] border-t border-slate-100 px-2 py-2 text-[6px]">
+                                                                <span>{index + 1}</span>
+                                                                <span>{row[0]}</span>
+                                                                <span>{row[1]}</span>
+                                                                <span>{row[2]}</span>
+                                                                <span>{row[3]}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="mt-4 ms-auto w-[190px] space-y-1.5 text-[7px]">
+                                                        <div className="flex justify-between"><span>{text('المجموع الفرعي', 'Subtotal')}</span><strong>300.00</strong></div>
+                                                        <div className="flex justify-between"><span>{text('الخصم', 'Discount')}</span><strong>0.00</strong></div>
+                                                        <div className="flex justify-between"><span>{text('الضريبة', 'Tax')}</span><strong>45.00</strong></div>
+                                                        <div className="border-t border-slate-200 pt-1.5">
+                                                            <div className="flex justify-between text-[8px]">
+                                                                <strong>{text('الإجمالي', 'Total')}</strong>
+                                                                <strong style={{ color: settings.invoice_accent_color }}>
+                                                                    345.00 {settings.currency}
+                                                                </strong>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {settings.show_invoice_tax_number && settings.vat_number && (
+                                                        <p className="mt-5 text-[6px] text-slate-400">
+                                                            {text('الرقم الضريبي', 'VAT')}: {settings.vat_number}
+                                                        </p>
+                                                    )}
+
+                                                    {settings.show_invoice_notes && settings.invoice_footer && (
+                                                        <div className="mt-5 border-t border-slate-100 pt-3 text-center text-[6px] leading-3 text-slate-400">
+                                                            {settings.invoice_footer}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="mt-3 flex items-center justify-between gap-3">
+                                                <span className="text-[10px] text-[var(--acs-text-muted)]">
+                                                    {text('المعاينة تتحدث فوراً قبل الحفظ.', 'Preview updates instantly before saving.')}
+                                                </span>
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--acs-accent)]">
+                                                    <Eye size={13} />
+                                                    {text('معاينة مباشرة', 'Live preview')}
+                                                </span>
                                             </div>
                                         </SettingsCard>
                                     </div>
 
                                     <div className="grid gap-4 xl:grid-cols-3">
-                                        <SettingsCard title={text('المحتوى والمظهر', 'Content & appearance')} description={text('كل خيار يؤثر على نسخة الطباعة الفعلية.', 'Every option affects the real printed invoice.')} icon={Image}>
-                                            <SettingRow label={text('إظهار اسم/شعار المؤسسة', 'Show organization brand')} checked={settings.show_invoice_logo} onChange={() => updateSetting('show_invoice_logo', !settings.show_invoice_logo)} />
-                                            <SettingRow label={text('إظهار معلومات التواصل', 'Show contact information')} checked={settings.show_invoice_contact} onChange={() => updateSetting('show_invoice_contact', !settings.show_invoice_contact)} />
-                                            <SettingRow label={text('إظهار الرقم الضريبي', 'Show tax number')} checked={settings.show_invoice_tax_number} onChange={() => updateSetting('show_invoice_tax_number', !settings.show_invoice_tax_number)} />
-                                            <SettingRow label={text('إظهار الملاحظات', 'Show notes')} checked={settings.show_invoice_notes} onChange={() => updateSetting('show_invoice_notes', !settings.show_invoice_notes)} />
+                                        <SettingsCard
+                                            title={text('ترقيم الفواتير والمستندات', 'Invoice & document numbering')}
+                                            description={text('هذه البادئات والأرقام تستخدم فعلياً عند إنشاء مستندات جديدة.', 'These prefixes and counters are used for new documents.')}
+                                            icon={Hash}
+                                        >
+                                            <div className="space-y-3">
+                                                <div className="grid grid-cols-[1fr_110px] gap-3">
+                                                    <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                        {text('بادئة فواتير البيع', 'Sales prefix')}
+                                                        <input className={input} value={settings.invoice_prefix} onChange={event => updateSetting('invoice_prefix', event.target.value.toUpperCase())} />
+                                                    </label>
+                                                    <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                        {text('رقم البداية', 'Start')}
+                                                        <input type="number" min={1} className={input} value={settings.invoice_start_number} onChange={event => updateSetting('invoice_start_number', Math.max(1, Number(event.target.value) || 1))} />
+                                                    </label>
+                                                </div>
+                                                <div className="grid grid-cols-[1fr_110px] gap-3">
+                                                    <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                        {text('بادئة الشراء', 'Purchase prefix')}
+                                                        <input className={input} value={settings.purchase_prefix} onChange={event => updateSetting('purchase_prefix', event.target.value.toUpperCase())} />
+                                                    </label>
+                                                    <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                        {text('رقم البداية', 'Start')}
+                                                        <input type="number" min={1} className={input} value={settings.purchase_start_number} onChange={event => updateSetting('purchase_start_number', Math.max(1, Number(event.target.value) || 1))} />
+                                                    </label>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                        {text('بادئة المقبوض', 'Receipt prefix')}
+                                                        <input className={input} value={settings.receipt_prefix} onChange={event => updateSetting('receipt_prefix', event.target.value.toUpperCase())} />
+                                                    </label>
+                                                    <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                        {text('بادئة الدفع', 'Payment prefix')}
+                                                        <input className={input} value={settings.payment_prefix} onChange={event => updateSetting('payment_prefix', event.target.value.toUpperCase())} />
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </SettingsCard>
 
-                                        <SettingsCard title={text('إعدادات الطباعة', 'Print settings')} description={text('الحجم والهوامش وموقع هوية المؤسسة.', 'Paper, margins and brand placement.')} icon={Printer}>
+                                        <SettingsCard
+                                            title={text('إعدادات الطباعة', 'Print settings')}
+                                            description={text('حجم الورق والهوامش وموقع هوية المؤسسة في المستند.', 'Paper size, margins and organization identity position.')}
+                                            icon={Printer}
+                                        >
                                             <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('حجم الورق', 'Paper size')}
                                                 <select className={input} value={settings.print_paper_size} onChange={event => updateSetting('print_paper_size', event.target.value as WorkspaceSettings['print_paper_size'])}>
                                                     <option value="a4">A4 (210 × 297 mm)</option>
-                                                    <option value="letter">Letter</option>
+                                                    <option value="letter">Letter (216 × 279 mm)</option>
                                                 </select>
                                             </label>
                                             <label className="mt-4 block text-[11px] font-semibold text-[var(--acs-text-soft)]">
@@ -1119,22 +1392,24 @@ function SettingsWorkspace() {
                                                     <option value="compact">{text('ضيقة', 'Compact')}</option>
                                                 </select>
                                             </label>
-                                            <p className="mt-4 text-[11px] font-semibold text-[var(--acs-text-soft)]">{text('موقع الهوية', 'Brand position')}</p>
+                                            <p className="mt-4 text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                {text('موقع الهوية', 'Brand position')}
+                                            </p>
                                             <div className="mt-2 grid grid-cols-3 gap-2">
                                                 {([
-                                                    ['start', text('بداية','Start')],
-                                                    ['center', text('وسط','Center')],
-                                                    ['end', text('نهاية','End')],
-                                                ] as const).map(([value,label]) => (
+                                                    ['start', text('بداية', 'Start')],
+                                                    ['center', text('وسط', 'Center')],
+                                                    ['end', text('نهاية', 'End')],
+                                                ] as const).map(([value, label]) => (
                                                     <button
                                                         key={value}
                                                         type="button"
                                                         onClick={() => updateSetting('logo_position', value)}
                                                         className={[
-                                                            'rounded-[10px] border p-3 text-[10px] font-semibold',
+                                                            'rounded-[10px] border p-3 text-[10px] font-semibold transition',
                                                             settings.logo_position === value
                                                                 ? 'border-[var(--acs-accent)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]'
-                                                                : 'border-[var(--acs-line)] text-[var(--acs-text-soft)]',
+                                                                : 'border-[var(--acs-line)] bg-[var(--acs-surface)] text-[var(--acs-text-soft)]',
                                                         ].join(' ')}
                                                     >
                                                         {label}
@@ -1143,51 +1418,96 @@ function SettingsWorkspace() {
                                             </div>
                                         </SettingsCard>
 
-                                        <SettingsCard title={text('ترقيم المستندات', 'Document numbering')} description={text('البادئات تستخدم في الأرقام الجديدة فعلياً.', 'Prefixes are used by newly created documents.')} icon={FileSpreadsheet}>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
-                                                    {text('بادئة البيع', 'Sales prefix')}
-                                                    <input className={input} value={settings.invoice_prefix} onChange={event => updateSetting('invoice_prefix', event.target.value.toUpperCase())} />
-                                                </label>
-                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
-                                                    {text('رقم البداية', 'Start number')}
-                                                    <input type="number" min={1} className={input} value={settings.invoice_start_number} onChange={event => updateSetting('invoice_start_number', Math.max(1, Number(event.target.value) || 1))} />
-                                                </label>
-                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
-                                                    {text('بادئة الشراء', 'Purchase prefix')}
-                                                    <input className={input} value={settings.purchase_prefix} onChange={event => updateSetting('purchase_prefix', event.target.value.toUpperCase())} />
-                                                </label>
-                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
-                                                    {text('رقم البداية', 'Start number')}
-                                                    <input type="number" min={1} className={input} value={settings.purchase_start_number} onChange={event => updateSetting('purchase_start_number', Math.max(1, Number(event.target.value) || 1))} />
-                                                </label>
-                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
-                                                    {text('بادئة المقبوض', 'Receipt prefix')}
-                                                    <input className={input} value={settings.receipt_prefix} onChange={event => updateSetting('receipt_prefix', event.target.value.toUpperCase())} />
-                                                </label>
-                                                <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
-                                                    {text('بادئة الدفع', 'Payment prefix')}
-                                                    <input className={input} value={settings.payment_prefix} onChange={event => updateSetting('payment_prefix', event.target.value.toUpperCase())} />
-                                                </label>
+                                        <SettingsCard
+                                            title={text('المحتوى والمظهر', 'Content & appearance')}
+                                            description={text('الخيارات التالية تتحكم فعلياً بما يظهر في المستند المطبوعة.', 'These options control what is actually rendered on printed documents.')}
+                                            icon={Image}
+                                        >
+                                            <SettingRow label={text('إظهار اسم/شعار المؤسسة', 'Show organization brand')} checked={settings.show_invoice_logo} onChange={() => updateSetting('show_invoice_logo', !settings.show_invoice_logo)} />
+                                            <SettingRow label={text('إظهار معلومات التواصل', 'Show contact information')} checked={settings.show_invoice_contact} onChange={() => updateSetting('show_invoice_contact', !settings.show_invoice_contact)} />
+                                            <SettingRow label={text('إظهار الرقم الضريبي', 'Show tax number')} checked={settings.show_invoice_tax_number} onChange={() => updateSetting('show_invoice_tax_number', !settings.show_invoice_tax_number)} />
+                                            <SettingRow label={text('إظهار خانة الملاحظات', 'Show notes')} checked={settings.show_invoice_notes} onChange={() => updateSetting('show_invoice_notes', !settings.show_invoice_notes)} />
+
+                                            <div className="mt-4 border-t border-[var(--acs-line-soft)] pt-4">
+                                                <p className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                    {text('لون هوية المستند', 'Document accent color')}
+                                                </p>
+                                                <div className="mt-3 flex flex-wrap items-center gap-2.5">
+                                                    {['#7C3AED','#EC407A','#EF4444','#10B981','#14B8A6','#2563EB','#334155'].map(color => (
+                                                        <button
+                                                            key={color}
+                                                            type="button"
+                                                            aria-label={color}
+                                                            onClick={() => updateSetting('invoice_accent_color', color)}
+                                                            className={[
+                                                                'size-7 rounded-full border-2 border-[var(--acs-surface)] shadow-[0_0_0_1px_var(--acs-line-strong)] transition',
+                                                                settings.invoice_accent_color.toUpperCase() === color
+                                                                    ? 'ring-2 ring-[var(--acs-accent)] ring-offset-2 ring-offset-[var(--acs-surface)]'
+                                                                    : '',
+                                                            ].join(' ')}
+                                                            style={{ backgroundColor: color }}
+                                                        />
+                                                    ))}
+                                                    <input
+                                                        type="color"
+                                                        value={settings.invoice_accent_color}
+                                                        onChange={event => updateSetting('invoice_accent_color', event.target.value.toUpperCase())}
+                                                        className="size-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                                                        title={text('لون مخصص', 'Custom color')}
+                                                    />
+                                                    <input
+                                                        value={settings.invoice_accent_color}
+                                                        onChange={event => {
+                                                            const value = event.target.value.toUpperCase();
+                                                            if (/^#[0-9A-F]{0,6}$/.test(value)) {
+                                                                updateSetting('invoice_accent_color', value);
+                                                            }
+                                                        }}
+                                                        className="h-9 w-24 rounded-[9px] border border-[var(--acs-line)] bg-[var(--acs-control)] px-2 text-center text-[10px] font-semibold text-[var(--acs-text)] outline-none"
+                                                        dir="ltr"
+                                                    />
+                                                </div>
                                             </div>
                                         </SettingsCard>
                                     </div>
 
                                     <div className="grid gap-4 xl:grid-cols-2">
-                                        <SettingsCard title={text('الأعمدة الظاهرة في الفاتورة', 'Visible invoice columns')} description={text('اختر الأعمدة التي تظهر عند الطباعة.', 'Choose columns included in printed invoices.')} icon={Grid2X2}>
+                                        <SettingsCard
+                                            title={text('الملاحظات والتذييل', 'Notes & footer')}
+                                            description={text('النص الافتراضي الذي يظهر أسفل الفواتير والمستندات.', 'Default text rendered at the bottom of invoices and documents.')}
+                                            icon={FileText}
+                                        >
+                                            <textarea
+                                                className={input + ' min-h-28 resize-y py-3'}
+                                                maxLength={1200}
+                                                value={settings.invoice_footer}
+                                                onChange={event => updateSetting('invoice_footer', event.target.value)}
+                                            />
+                                            <div className="mt-2 flex items-center justify-between text-[9px] text-[var(--acs-text-muted)]">
+                                                <span>{text('يظهر فقط عند وجود نص.', 'Rendered only when text is present.')}</span>
+                                                <span>{settings.invoice_footer.length}/1200</span>
+                                            </div>
+                                        </SettingsCard>
+
+                                        <SettingsCard
+                                            title={text('الأعمدة الظاهرة في الفاتورة', 'Visible invoice columns')}
+                                            description={text('اختر الأعمدة التي ستظهر فعلياً في جدول بنود الفاتورة عند الطباعة.', 'Choose the columns rendered in the printed invoice lines table.')}
+                                            icon={Eye}
+                                        >
                                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                                                {invoiceColumnOptions.map(([value,label]) => {
+                                                {invoiceColumnOptions.map(([value, label]) => {
                                                     const active = settings.invoice_columns.includes(value);
+
                                                     return (
                                                         <button
                                                             key={value}
                                                             type="button"
                                                             onClick={() => toggleArrayValue('invoice_columns', value)}
                                                             className={[
-                                                                'rounded-[10px] border px-3 py-2 text-[10px] font-semibold',
+                                                                'rounded-[10px] border px-3 py-2.5 text-[10px] font-semibold transition',
                                                                 active
-                                                                    ? 'border-[var(--acs-accent)] bg-[var(--acs-control-hover)] text-[var(--acs-accent)]'
-                                                                    : 'border-[var(--acs-line)] text-[var(--acs-text-muted)]',
+                                                                    ? 'border-[var(--acs-accent)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]'
+                                                                    : 'border-[var(--acs-line)] bg-[var(--acs-surface)] text-[var(--acs-text-muted)]',
                                                             ].join(' ')}
                                                         >
                                                             {active ? '✓ ' : ''}{label}
@@ -1195,10 +1515,6 @@ function SettingsWorkspace() {
                                                     );
                                                 })}
                                             </div>
-                                        </SettingsCard>
-
-                                        <SettingsCard title={text('الملاحظات والتذييل', 'Notes & footer')} description={text('يظهر هذا النص أسفل نسخة الطباعة.', 'This text appears on the printed invoice.')} icon={FileText}>
-                                            <textarea className={input + ' min-h-28 py-3'} value={settings.invoice_footer} onChange={event => updateSetting('invoice_footer', event.target.value)} />
                                         </SettingsCard>
                                     </div>
                                 </div>
