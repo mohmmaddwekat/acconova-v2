@@ -25,6 +25,9 @@ import {
 import {
     Party360Panel,
 } from '@/features/parties/components/Party360Panel';
+import {
+    PartyPricingPanel,
+} from '@/features/parties/components/PartyPricingPanel';
 import type {
     Party,
 } from '@/features/parties/types';
