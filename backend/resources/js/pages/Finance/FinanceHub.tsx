@@ -68,7 +68,8 @@ export function FinanceHub({
             ),
             href: '/app/payments',
             icon: Banknote,
-            visible: lookups.permissions.cash_view,
+            visible: lookups.permissions.cash_view
+                || lookups.permissions.recurring_payments_view,
         },
         {
             title: text('نقل البيانات القديمة', 'Import legacy data'),
