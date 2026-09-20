@@ -58,6 +58,28 @@
         0 18px 54px rgba(23, 35, 30, 0.07);
 
     /*
+     * Settings workspace palette.
+     * Kept separate because Settings uses a blue SaaS visual language.
+     */
+    --acs-bg: #f8fbff;
+    --acs-surface: #ffffff;
+    --acs-surface-soft: #fbfdff;
+    --acs-surface-strong: #edf5ff;
+    --acs-line: #dfe8f4;
+    --acs-line-soft: #edf2f8;
+    --acs-line-strong: #cfe0f4;
+    --acs-text: #17386d;
+    --acs-text-strong: #122b55;
+    --acs-text-soft: #5e789e;
+    --acs-text-muted: #8ba0bc;
+    --acs-accent: #1265d8;
+    --acs-accent-hover: #0f5fd8;
+    --acs-accent-soft: #eaf3ff;
+    --acs-control: #ffffff;
+    --acs-control-hover: #f5f9ff;
+    --acs-toggle-off: #cbd5e1;
+
+    /*
      * Motion
      */
     --ac-transition-fast: 140ms;
@@ -719,6 +741,23 @@ html[data-ac-resolved-theme='dark'] {
     --ac-shadow-panel:
         0 1px 2px rgba(0, 0, 0, 0.2),
         0 18px 54px rgba(0, 0, 0, 0.22);
+    --acs-bg: #0e1623;
+    --acs-surface: #151f2f;
+    --acs-surface-soft: #192538;
+    --acs-surface-strong: #21314a;
+    --acs-line: rgba(184, 204, 231, 0.14);
+    --acs-line-soft: rgba(184, 204, 231, 0.09);
+    --acs-line-strong: rgba(184, 204, 231, 0.22);
+    --acs-text: #e6effd;
+    --acs-text-strong: #f5f8ff;
+    --acs-text-soft: #afc1db;
+    --acs-text-muted: #7f96b6;
+    --acs-accent: #6aa6ff;
+    --acs-accent-hover: #83b5ff;
+    --acs-accent-soft: rgba(74, 137, 232, 0.16);
+    --acs-control: #111b2a;
+    --acs-control-hover: #1b2a40;
+    --acs-toggle-off: #44536a;
 }
 
 html[data-ac-resolved-theme='dark'] body {
@@ -852,4 +891,22 @@ html[data-ac-reduced-motion='true']
 
     transition-duration:
         0.001ms !important;
+}
+
+
+.ac-settings-paper {
+    --acs-bg: #f8fbff;
+    --acs-surface: #ffffff;
+    --acs-surface-soft: #fbfdff;
+    --acs-surface-strong: #edf5ff;
+    --acs-line: #dfe8f4;
+    --acs-line-soft: #edf2f8;
+    --acs-line-strong: #cfe0f4;
+    --acs-text: #17386d;
+    --acs-text-strong: #122b55;
+    --acs-text-soft: #5e789e;
+    --acs-text-muted: #8ba0bc;
+    --acs-accent: #1265d8;
+    --acs-accent-soft: #eaf3ff;
+    color-scheme: light;
 }
