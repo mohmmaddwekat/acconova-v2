@@ -257,7 +257,8 @@ export function CashDetail({
     }
 
     return (
-        <div className="space-y-4">
+        <>
+            <div className="space-y-4 print:hidden">
             <FinanceHeader
                 title={
                     (incoming
@@ -659,6 +660,151 @@ function Detail({
         <div>
             <p className="text-[10px] text-slate-400">{label}</p>
             <div className="mt-1 break-words text-sm font-semibold text-[#163d77]">{value}</div>
+        </div>
+
+            <CashVoucherPrintView
+                movement={movement}
+                lookups={lookups}
+                ar={ar}
+                incoming={incoming}
+            />
+        </>
+    );
+}
+
+function CashVoucherPrintView({
+    movement,
+    lookups,
+    ar,
+    incoming,
+}: {
+    movement: CashDetailType;
+    lookups: FinanceLookups;
+    ar: boolean;
+    incoming: boolean;
+}) {
+    const text = (arabic: string, english: string): string =>
+        ar ? arabic : english;
+    const invoice = lookups.settings.invoice;
+    const organization = lookups.settings.organization;
+    const paperSize = invoice.paper_size === 'letter' ? 'Letter' : 'A4';
+    const margin = invoice.margins === 'compact' ? '8mm' : '14mm';
+
+    return (
+        <div
+            dir={ar ? 'rtl' : 'ltr'}
+            className="ac-voucher-print hidden bg-white text-[#172b4d] print:block"
+        >
+            <style>
+                {[
+                    '@media print {',
+                    '@page { size: ' + paperSize + '; margin: ' + margin + '; }',
+                    'html, body { background: white !important; }',
+                    'body * { visibility: hidden !important; }',
+                    '.ac-voucher-print, .ac-voucher-print * { visibility: visible !important; }',
+                    '.ac-voucher-print { display: block !important; position: absolute !important; inset: 0 !important; width: 100% !important; }',
+                    '}',
+                ].join(' ')}
+            </style>
+
+            <article className="mx-auto bg-white p-2">
+                <header className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+                    <div>
+                        {invoice.show_logo && organization.logo_url && (
+                            <img
+                                src={organization.logo_url}
+                                alt={organization.trade_name || organization.name}
+                                className="mb-2 max-h-14 max-w-[160px] object-contain"
+                            />
+                        )}
+                        {invoice.show_logo && (
+                            <h1 className="text-xl font-extrabold text-[#1265d8]">
+                                {organization.trade_name || organization.name}
+                            </h1>
+                        )}
+                        {invoice.show_contact && (
+                            <p className="mt-2 text-[9px] leading-4 text-slate-500">
+                                {[organization.address, organization.city, organization.country]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                {(organization.phone || organization.support_email) && <br />}
+                                {[organization.phone, organization.support_email]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="text-end">
+                        <h2 className="text-lg font-bold">
+                            {incoming
+                                ? text('سند قبض', 'Receipt voucher')
+                                : text('سند صرف', 'Payment voucher')}
+                        </h2>
+                        <p className="mt-1 text-xs text-slate-500">{movement.number}</p>
+                    </div>
+                </header>
+
+                <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-4 text-xs">
+                    <div>
+                        <span className="block text-[9px] text-slate-400">{text('التاريخ', 'Date')}</span>
+                        <strong>{movement.movement_date}</strong>
+                    </div>
+                    <div>
+                        <span className="block text-[9px] text-slate-400">{text('الطرف', 'Party')}</span>
+                        <strong>{movement.party?.name ?? '—'}</strong>
+                    </div>
+                    <div>
+                        <span className="block text-[9px] text-slate-400">{text('طريقة الدفع', 'Payment method')}</span>
+                        <strong>{movement.method}</strong>
+                    </div>
+                    <div>
+                        <span className="block text-[9px] text-slate-400">{text('الحساب / الصندوق', 'Account / cash box')}</span>
+                        <strong>{movement.account_label || '—'}</strong>
+                    </div>
+                    <div>
+                        <span className="block text-[9px] text-slate-400">{text('المرجع', 'Reference')}</span>
+                        <strong>{movement.reference || '—'}</strong>
+                    </div>
+                    <div>
+                        <span className="block text-[9px] text-slate-400">{text('الحالة', 'Status')}</span>
+                        <strong>{movement.status}</strong>
+                    </div>
+                </div>
+
+                <div className="my-7 rounded-xl border border-[#cfe0f4] bg-[#f5f9ff] p-5 text-center">
+                    <p className="text-[10px] text-[#6f86a8]">
+                        {incoming ? text('المبلغ المقبوض', 'Amount received') : text('المبلغ المدفوع', 'Amount paid')}
+                    </p>
+                    <div className="mt-2 text-2xl font-extrabold text-[#1265d8]">
+                        <Money value={movement.amount} currency={movement.currency} />
+                    </div>
+                </div>
+
+                {movement.method === 'check' && (
+                    <div className="mb-5 rounded-lg border border-slate-200 p-3 text-[10px] leading-5">
+                        <strong>{text('بيانات الشيك', 'Check details')}</strong>
+                        <p className="mt-1 text-slate-600">
+                            {text('رقم الشيك', 'Check number')}: {movement.check_number || '—'} ·
+                            {' '}{text('البنك', 'Bank')}: {movement.check_bank || '—'} ·
+                            {' '}{text('الاستحقاق', 'Due')}: {movement.check_due_date || '—'}
+                        </p>
+                    </div>
+                )}
+
+                {invoice.show_notes && movement.notes && (
+                    <div className="rounded-lg border border-slate-200 p-3 text-[10px] leading-5">
+                        <strong>{text('ملاحظات', 'Notes')}</strong>
+                        <p className="mt-1 whitespace-pre-wrap text-slate-600">{movement.notes}</p>
+                    </div>
+                )}
+
+                {organization.invoice_footer && (
+                    <footer className="mt-8 border-t border-slate-200 pt-4 text-center text-[9px] leading-5 text-slate-500">
+                        {organization.invoice_footer}
+                    </footer>
+                )}
+            </article>
         </div>
     );
 }
