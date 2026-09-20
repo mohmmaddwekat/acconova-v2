@@ -9,11 +9,26 @@ import { Bell, Check, CheckCheck, CalendarClock, Package, CircleCheck, ArrowUpRi
 import { useEffect, useState } from 'react';
 
 type Notice = {
-    id: number; kind: 'low_stock' | 'out_of_stock' | 'production' | 'service' | 'payment_due' | 'payment_soon' | 'payment_recorded' | 'message' | 'conversation_report';
+    id: number; kind: 'low_stock' | 'out_of_stock' | 'production' | 'service' | 'payment_due' | 'payment_soon' | 'payment_recorded' | 'message' | 'conversation_report' | 'mention' | 'follow_up_due';
     category: 'stock' | 'payments' | 'activity' | 'messages'; data: { name: string; detail?: string; amount?: string };
     url: string; read_at: string | null; created_at: string;
 };
 const button = 'rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-2 text-xs text-[var(--ac-text)] transition hover:bg-[var(--ac-surface-soft)] focus-visible:outline-2 focus-visible:outline-[var(--ac-accent)] disabled:opacity-50';
+
+function noticeTitle(
+    notice: Notice,
+    ar: boolean,
+): string {
+    if (notice.kind === 'mention') {
+        return ar ? 'تم ذكرك في سجل داخلي' : 'You were mentioned';
+    }
+
+    if (notice.kind === 'follow_up_due') {
+        return ar ? 'موعد متابعة مستحق' : 'Follow-up reminder due';
+    }
+
+    return t(`notifications.kind.${notice.kind}`);
+}
 export default function Notifications() {
     const { workspace } = usePage<AppPageProps>().props;
     return <NotificationWorkspace key={workspace.activeOrganization?.id ?? 'none'} />;
@@ -57,7 +72,7 @@ function NotificationWorkspace() {
             secondary={(unread || category) ? <button type="button" className={button} onClick={() => { setUnread(false); setCategory(''); setPage(1); }}>{ar ? 'عرض كل الإشعارات' : 'Show all notifications'}</button> : undefined}
         /> : <ul className="space-y-3">{result.data.map((notice) => {
             const Icon = notice.category === 'stock' ? Package : notice.category === 'payments' ? CalendarClock : CircleCheck;
-            return <li key={notice.id} className={`rounded-2xl border bg-[var(--ac-surface)] p-5 transition hover:bg-[var(--ac-surface-soft)] hover:shadow-md sm:p-6 ${notice.read_at ? 'border-[var(--ac-line)]' : 'border-[var(--ac-accent)]/35 shadow-sm'}`}><div className="flex items-start gap-3 sm:gap-4"><span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${notice.category === 'stock' ? 'bg-amber-50 text-amber-700' : 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'}`}><Icon size={19} /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="flex items-center gap-2 text-sm font-semibold">{!notice.read_at && <span className="size-2 shrink-0 rounded-full bg-[var(--ac-accent)]" />}{t(`notifications.kind.${notice.kind}`)}</h2><time dateTime={notice.created_at} className="text-[11px] text-[var(--ac-text-muted)]">{new Date(notice.created_at).toLocaleString(getLocale())}</time></div><p className="mt-2 break-words text-sm">{notice.data.name}</p>{notice.data.detail && <p className="mt-1 break-words text-xs text-[var(--ac-text-muted)]">{notice.data.detail}</p>}{notice.data.amount && <p className="mt-2 text-sm font-medium"><bdi>{notice.data.amount}</bdi></p>}<div className="mt-4 flex flex-wrap gap-2"><button disabled={busy} className={`${button} flex items-center gap-1`} onClick={() => void read(notice, true)}>{t('notifications.open')}<ArrowUpRight size={14} /></button>{!notice.read_at && <button disabled={busy} className={`${button} flex items-center gap-1`} onClick={() => void read(notice)}><Check size={14} />{t('notifications.read')}</button>}</div></div></div></li>;
+            return <li key={notice.id} className={`rounded-2xl border bg-[var(--ac-surface)] p-5 transition hover:bg-[var(--ac-surface-soft)] hover:shadow-md sm:p-6 ${notice.read_at ? 'border-[var(--ac-line)]' : 'border-[var(--ac-accent)]/35 shadow-sm'}`}><div className="flex items-start gap-3 sm:gap-4"><span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${notice.category === 'stock' ? 'bg-amber-50 text-amber-700' : 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'}`}><Icon size={19} /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="flex items-center gap-2 text-sm font-semibold">{!notice.read_at && <span className="size-2 shrink-0 rounded-full bg-[var(--ac-accent)]" />}{noticeTitle(notice, ar)}</h2><time dateTime={notice.created_at} className="text-[11px] text-[var(--ac-text-muted)]">{new Date(notice.created_at).toLocaleString(getLocale())}</time></div><p className="mt-2 break-words text-sm">{notice.data.name}</p>{notice.data.detail && <p className="mt-1 break-words text-xs text-[var(--ac-text-muted)]">{notice.data.detail}</p>}{notice.data.amount && <p className="mt-2 text-sm font-medium"><bdi>{notice.data.amount}</bdi></p>}<div className="mt-4 flex flex-wrap gap-2"><button disabled={busy} className={`${button} flex items-center gap-1`} onClick={() => void read(notice, true)}>{t('notifications.open')}<ArrowUpRight size={14} /></button>{!notice.read_at && <button disabled={busy} className={`${button} flex items-center gap-1`} onClick={() => void read(notice)}><Check size={14} />{t('notifications.read')}</button>}</div></div></div></li>;
         })}</ul>}
         {!error && result && result.meta.last_page > 1 && <div className="mt-6 flex items-center justify-between"><button className={button} disabled={loading || page <= 1} onClick={() => setPage((value) => value - 1)}>{t('catalog.operations.previous')}</button><span className="text-xs">{page} / {result.meta.last_page}</span><button className={button} disabled={loading || page >= result.meta.last_page} onClick={() => setPage((value) => value + 1)}>{t('catalog.operations.next')}</button></div>}
     </main></AppShell>;
