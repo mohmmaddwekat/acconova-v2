@@ -27,10 +27,6 @@ class WorkspaceSettingsController extends Controller
             'reminder_days' => (int) ($preferences['reminder_days'] ?? 3),
             'can_manage' => true,
 
-            'system_name' => $preferences['system_name'] ?? 'AccoNova',
-            'system_description' => $preferences['system_description']
-                ?? 'نظام متكامل لإدارة الأعمال والمحاسبة والمخزون',
-
             'legal_name' => $preferences['legal_name'] ?? $organization->name,
             'trade_name' => $preferences['trade_name'] ?? $organization->name,
             'support_email' => $preferences['support_email'] ?? '',
@@ -104,9 +100,6 @@ class WorkspaceSettingsController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:160'],
             'currency' => ['sometimes', 'required', 'regex:/^[A-Z0-9]{3}$/'],
             'reminder_days' => ['sometimes', 'required', 'integer', 'between:0,30'],
-
-            'system_name' => ['sometimes', 'required', 'string', 'max:80'],
-            'system_description' => ['sometimes', 'nullable', 'string', 'max:300'],
 
             'legal_name' => ['sometimes', 'required', 'string', 'max:180'],
             'trade_name' => ['sometimes', 'required', 'string', 'max:180'],
