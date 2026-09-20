@@ -886,7 +886,7 @@ export function CashForm({
                                         {text('حالة الشيك', 'Check status')}
                                     </p>
 
-                                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-bold text-[#1265d8]">
+                                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-[var(--ac-surface)] px-3 py-1.5 text-[11px] font-bold text-[#1265d8]">
                                         <span className="size-2 rounded-full bg-[#1265d8]" />
                                         {text('قيد التحصيل تلقائياً', 'Pending automatically')}
                                     </div>
