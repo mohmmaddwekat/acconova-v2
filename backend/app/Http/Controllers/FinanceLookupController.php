@@ -248,6 +248,9 @@ class FinanceLookupController extends Controller
                 ],
                 'invoice' => [
                     'template' => $preferences['invoice_template'] ?? 'professional',
+                    'purchase_template' => $preferences['purchase_template'] ?? 'professional',
+                    'receipt_template' => $preferences['receipt_template'] ?? 'professional',
+                    'accent_color' => $preferences['invoice_accent_color'] ?? '#2563EB',
                     'paper_size' => $preferences['print_paper_size'] ?? 'a4',
                     'margins' => $preferences['print_margins'] ?? 'normal',
                     'logo_position' => $preferences['logo_position'] ?? 'center',
