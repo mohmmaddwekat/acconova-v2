@@ -112,6 +112,21 @@ class FinanceImportController extends Controller
         abort_if($rows === [], 422, 'The uploaded file contains no data rows.');
         abort_if($missing !== [], 422, 'Missing required columns: '.implode(', ', $missing));
 
+        if ($data['type'] === 'cash_movements') {
+            $directions = collect($rows)
+                ->pluck('direction')
+                ->map(fn ($value): string => strtolower(trim((string) $value)))
+                ->unique();
+
+            if ($directions->contains('incoming')) {
+                FinanceAuthorization::authorize($request->user(), 'finance.cash.receive');
+            }
+
+            if ($directions->contains('outgoing')) {
+                FinanceAuthorization::authorize($request->user(), 'finance.cash.pay');
+            }
+        }
+
         $result = $data['type'] === 'cash_movements'
             ? $this->importCash($rows, $request->user()->id, $cash)
             : $this->importInvoices(
