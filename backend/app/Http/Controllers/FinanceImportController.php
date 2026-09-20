@@ -45,7 +45,7 @@ class FinanceImportController extends Controller
             ['Important', 'Do not change the column names in the Data sheet.'],
             ['Historical invoices', 'Imported invoice lines do not affect current inventory quantities.'],
             ['Duplicate protection', 'Existing external numbers / movement references are skipped where possible.'],
-            ['Payments linked to invoices', 'Use invoice_external_number. Any amount above the invoice balance remains party advance credit.'],
+            ['Payments linked to invoices', 'Use invoice_external_number. For multiple invoices, separate numbers with ;. Allocation follows the listed order and any remainder becomes party advance credit.'],
             ['Allowed directions', 'incoming, outgoing'],
             ['Allowed methods', 'cash, bank_transfer, check, card, electronic_wallet, direct_debit, other'],
             ['Common outgoing categories', 'supplier_payment, raw_material, goods_for_resale, packaging, operating_expense, rent, utilities, shipping_customs, maintenance, marketing, tax_payment, government_fee, asset_purchase, other_expense, other'],
@@ -347,9 +347,13 @@ class FinanceImportController extends Controller
                     }
 
                     $allocations = [];
-                    $invoiceReference = trim((string) ($row['invoice_external_number'] ?? ''));
+                    $invoiceReferences = array_values(array_filter(array_map(
+                        'trim',
+                        preg_split('/[;|,]+/', (string) ($row['invoice_external_number'] ?? '')) ?: [],
+                    )));
+                    $remainingToAllocate = (float) $amount;
 
-                    if ($invoiceReference !== '') {
+                    foreach ($invoiceReferences as $invoiceReference) {
                         $requiredKind = $direction === 'incoming' ? 'sale_invoice' : 'purchase_invoice';
                         $invoice = FinancialDocument::query()
                             ->where('kind', $requiredKind)
@@ -363,15 +367,22 @@ class FinanceImportController extends Controller
                             ->first();
 
                         if (! $invoice) {
-                            throw new RuntimeException('invoice_external_number could not be matched to an active invoice.');
+                            throw new RuntimeException(
+                                'Invoice '.$invoiceReference.' could not be matched to an active invoice.'
+                            );
                         }
 
-                        $allocated = min((float) $amount, (float) $invoice->balance_due);
+                        $allocated = min($remainingToAllocate, (float) $invoice->balance_due);
                         if ($allocated > 0) {
                             $allocations[] = [
                                 'financial_document_id' => $invoice->id,
                                 'amount' => number_format($allocated, 4, '.', ''),
                             ];
+                            $remainingToAllocate -= $allocated;
+                        }
+
+                        if ($remainingToAllocate <= 0.00005) {
+                            break;
                         }
                     }
 
