@@ -102,7 +102,7 @@ class WorkspaceSettingsController extends Controller
 
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:160'],
-            'currency' => ['sometimes', 'required', 'regex:/^[A-Z0-9]{2,8}$/'],
+            'currency' => ['sometimes', 'required', 'regex:/^[A-Z0-9]{3}$/'],
             'reminder_days' => ['sometimes', 'required', 'integer', 'between:0,30'],
 
             'system_name' => ['sometimes', 'required', 'string', 'max:80'],
