@@ -1,7 +1,7 @@
 import { AppShell } from '@/layouts/AppShell';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -139,10 +139,21 @@ export default function FinanceImport() {
                             </p>
                         </div>
 
-                        <Link href="/app/finance" className={button}>
+                        <button
+                            type="button"
+                            className={button}
+                            onClick={() => {
+                                if (window.history.length > 1) {
+                                    window.history.back();
+                                    return;
+                                }
+
+                                window.location.assign('/app/invoices');
+                            }}
+                        >
                             <ArrowLeft size={15} className="rtl:rotate-180" />
-                            {text('رجوع للمالية', 'Back to finance')}
-                        </Link>
+                            {text('رجوع للخلف', 'Go back')}
+                        </button>
                     </header>
 
                     <section className={panel}>
