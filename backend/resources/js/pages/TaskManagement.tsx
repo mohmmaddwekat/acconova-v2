@@ -1,4 +1,5 @@
 import { AppShell } from '@/layouts/AppShell';
+import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import type { AppPageProps } from '@/types/app';
@@ -1501,7 +1502,53 @@ function TaskTable({
                     </table>
                 </div>
             ) : (
-                <Empty ar={ar} />
+                <SmartEmptyState
+                    icon={ListTodo}
+                    title={
+                        status
+                            ? (
+                                ar
+                                    ? 'لا توجد مهام بهذه الحالة'
+                                    : 'No tasks in this status'
+                            )
+                            : (
+                                ar
+                                    ? 'لا توجد مهام بعد'
+                                    : 'No tasks yet'
+                            )
+                    }
+                    description={
+                        status
+                            ? (
+                                ar
+                                    ? 'غيّر الحالة أو أنشئ مهمة جديدة.'
+                                    : 'Change the status filter or create a new task.'
+                            )
+                            : (
+                                ar
+                                    ? 'ابدأ بإنشاء أول مهمة وتعيين المسؤولين وتاريخ الاستحقاق.'
+                                    : 'Create the first task and assign owners and a due date.'
+                            )
+                    }
+                    primary={data.permissions.includes('tasks.create') ? (
+                        <Link
+                            href={`${base}/create`}
+                            className={primary}
+                        >
+                            <Plus size={14} />
+                            {ar ? 'مهمة جديدة' : 'New task'}
+                        </Link>
+                    ) : undefined}
+                    secondary={status ? (
+                        <button
+                            type="button"
+                            className={button}
+                            onClick={() => onStatus('')}
+                        >
+                            {ar ? 'عرض كل المهام' : 'Show all tasks'}
+                        </button>
+                    ) : undefined}
+                />
             )}
 
             <div className="mt-4 flex items-center justify-between gap-3 text-[10px] text-slate-400">
