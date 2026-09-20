@@ -225,3 +225,19 @@ export async function restoreProduct(
 
     return response.data;
 }
+
+/**
+ * Load one catalog item by id for deep links such as global search results.
+ */
+export async function fetchProduct(
+    productId: number,
+): Promise<Product> {
+    const response =
+        await apiRequest<{
+            data: Product;
+        }>(
+            `/api/products/${productId}`,
+        );
+
+    return response.data;
+}
