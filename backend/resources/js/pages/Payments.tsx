@@ -10,8 +10,8 @@ type Frequency = 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 type Plan = { id: number; title: string; direction: 'incoming' | 'outgoing'; amount: string; currency: string; frequency: Frequency; interval_count: number; next_due_on: string; counterparty: string | null; active: boolean; completed: boolean; due: boolean; reminder: boolean };
 type Payment = { id: number; title: string; direction: 'incoming' | 'outgoing'; amount: string; currency: string; due_on: string; paid_on: string; counterparty: string | null; method: 'cash' | 'bank' | 'electronic'; notes: string | null };
 type Result<T> = { data: T[]; meta: { last_page: number } };
-const field = 'mt-2 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-3 text-sm transition focus:bg-white focus:outline-2 focus:outline-[var(--ac-accent)]';
-const button = 'rounded-xl border border-[var(--ac-line)] bg-white px-4 py-2 text-sm font-medium transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)] focus-visible:outline-2 focus-visible:outline-[var(--ac-accent)] disabled:opacity-50';
+const field = 'mt-2 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-3 text-sm text-[var(--ac-text)] transition focus:bg-[var(--ac-surface)] focus:outline-2 focus:outline-[var(--ac-accent)]';
+const button = 'rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-2 text-sm font-medium text-[var(--ac-text)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)] focus-visible:outline-2 focus-visible:outline-[var(--ac-accent)] disabled:opacity-50';
 function localDate(): string {
     const date = new Date();
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -27,7 +27,7 @@ export default function Payments() {
             <Head title={ar ? 'المدفوعات المتكررة' : 'Recurring payments'} />
             <main
                 dir={ar ? 'rtl' : 'ltr'}
-                className="min-h-[calc(100dvh-72px)] bg-[#f8fbff] px-3 py-5 sm:px-5 lg:px-8"
+                className="min-h-[calc(100dvh-72px)] bg-[var(--ac-bg)] px-3 py-5 text-[var(--ac-text)] sm:px-5 lg:px-8"
             >
                 <div className="mx-auto w-full max-w-[1680px]">
                     <RecurringPaymentsPanel
