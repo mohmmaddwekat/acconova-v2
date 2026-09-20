@@ -48,7 +48,25 @@ class CashMovementController extends Controller
             ->latest('movement_date')
             ->latest('id');
 
-        $summaryRows = (clone $query)->get(['direction', 'status', 'amount']);
+        $summaryRows = (clone $query)->get([
+            'direction',
+            'status',
+            'amount',
+            'method',
+            'check_status',
+            'reversal_of_id',
+        ]);
+
+        $effectivePostedRows = $summaryRows
+            ->where('status', 'posted')
+            ->filter(
+                fn (CashMovement $movement): bool => $movement->reversal_of_id === null
+                    && (
+                        $movement->method !== 'check'
+                        || ! in_array($movement->check_status, ['bounced', 'cancelled'], true)
+                    ),
+            );
+
         $paginator = $query->paginate($data['per_page'] ?? 20);
 
         return response()->json([
@@ -61,8 +79,22 @@ class CashMovementController extends Controller
             ],
             'summary' => [
                 'count' => $summaryRows->count(),
-                'posted_incoming' => number_format((float) $summaryRows->where('direction', 'incoming')->where('status', 'posted')->sum(fn ($row) => (float) $row->amount), 4, '.', ''),
-                'posted_outgoing' => number_format((float) $summaryRows->where('direction', 'outgoing')->where('status', 'posted')->sum(fn ($row) => (float) $row->amount), 4, '.', ''),
+                'posted_incoming' => number_format(
+                    (float) $effectivePostedRows
+                        ->where('direction', 'incoming')
+                        ->sum(fn (CashMovement $row): float => (float) $row->amount),
+                    4,
+                    '.',
+                    '',
+                ),
+                'posted_outgoing' => number_format(
+                    (float) $effectivePostedRows
+                        ->where('direction', 'outgoing')
+                        ->sum(fn (CashMovement $row): float => (float) $row->amount),
+                    4,
+                    '.',
+                    '',
+                ),
                 'drafts' => $summaryRows->where('status', 'draft')->count(),
                 'reversed' => $summaryRows->where('status', 'reversed')->count(),
             ],
