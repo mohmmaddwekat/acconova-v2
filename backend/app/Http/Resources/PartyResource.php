@@ -32,6 +32,8 @@ class PartyResource extends JsonResource
 
             'tax_number' => $this->tax_number,
 
+            'credit_limit' => $this->credit_limit,
+
             'address_line_1' => $this->address_line_1,
 
             'address_line_2' => $this->address_line_2,
