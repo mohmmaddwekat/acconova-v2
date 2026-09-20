@@ -6,6 +6,9 @@ import {
     AccountMenu,
 } from '@/components/navigation/AccountMenu';
 import {
+    CommandCenter,
+} from '@/components/navigation/CommandCenter';
+import {
     LanguageSwitcher,
 } from '@/components/navigation/LanguageSwitcher';
 import {
@@ -63,6 +66,8 @@ export function ContextBar({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                    <CommandCenter />
+
                     <LanguageSwitcher />
 
                     <NotificationBell />
