@@ -661,9 +661,12 @@ class FinanceWorkflowTest extends TestCase
         [$owner, $organization] = $this->workspace('owner', 'Finance import');
         $this->actingInWorkspace($owner, $organization);
 
+        $customerId = $this->party('customer', 'Legacy Customer');
+        $productId = $this->product('Legacy Catalog Item', '100.0000', '70.0000');
+
         $csv = implode("\n", [
-            'document_key,external_number,party_name,issue_date,due_date,line_description,unit,quantity,unit_price,discount_percent,tax_rate,shipping_total,notes',
-            'LEG-1,SAL-LEG-1,Legacy Customer,2025-01-10,2025-02-10,Old service,service,2,125,10,0,0,Imported legacy invoice',
+            'document_key,external_number,party_name,issue_date,due_date,product_name,line_description,unit,quantity,unit_price,discount_percent,tax_rate,shipping_total,notes',
+            'LEG-1,SAL-LEG-1,Legacy Customer,2025-01-10,2025-02-10,Legacy Catalog Item,Old service,unit,2,125,10,0,0,Imported legacy invoice',
         ]);
 
         $file = UploadedFile::fake()->createWithContent('legacy-sales.csv', $csv);
@@ -687,6 +690,24 @@ class FinanceWorkflowTest extends TestCase
         $this->assertDatabaseHas('parties', [
             'company_name' => 'Legacy Customer',
         ]);
+
+        $this->assertDatabaseHas('financial_document_lines', [
+            'product_id' => $productId,
+            'unit_price' => '125.0000',
+            'affects_inventory' => false,
+        ]);
+
+        $this->getJson(
+            '/api/finance/reference-price?party_id='
+            .$customerId
+            .'&product_id='
+            .$productId
+            .'&kind=sale_invoice',
+        )
+            ->assertOk()
+            ->assertJsonPath('source', 'party_history')
+            ->assertJsonPath('unit_price', '125.0000')
+            ->assertJsonPath('document_number', 'SAL-000001');
     }
 
     public function test_draft_invoice_can_be_deleted_but_issued_invoice_requires_void_or_correction(): void
