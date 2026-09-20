@@ -17,6 +17,16 @@ import {
 } from 'react';
 
 import { DataPagination } from '@/components/data/DataPagination';
+import {
+    AdvancedFilterBuilder,
+    type AdvancedFilterCondition,
+} from '@/components/data/AdvancedFilterBuilder';
+import { BulkEditDialog } from '@/components/data/BulkEditDialog';
+import {
+    ListPreferencesControl,
+    useListPreferences,
+    type ListColumn,
+} from '@/components/data/ListPreferences';
 import { SavedViews } from '@/components/data/SavedViews';
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
@@ -27,6 +37,7 @@ import {
     fetchParties,
     fetchParty,
     restoreParty,
+    updateParty,
     type PartyBulkAction,
     type PartyFilters,
 } from '@/features/parties/api';
@@ -149,6 +160,14 @@ function PartiesWorkspace() {
             sort: 'name_asc',
         });
 
+    const [
+        advancedConditions,
+        setAdvancedConditions,
+    ] = useState<AdvancedFilterCondition[]>([]);
+
+    const [bulkEditOpen, setBulkEditOpen] =
+        useState(false);
+
     const [page, setPage] =
         useState(1);
 
@@ -258,6 +277,51 @@ function PartiesWorkspace() {
         ar,
     ]);
 
+    const partyColumns: ListColumn[] = [
+        {
+            key: 'identity',
+            label: ar ? 'الجهة' : 'Party',
+        },
+        {
+            key: 'contact',
+            label: ar ? 'التواصل' : 'Contact',
+        },
+        {
+            key: 'location',
+            label: ar ? 'الموقع' : 'Location',
+        },
+        {
+            key: 'actions',
+            label: ar ? 'الإجراءات' : 'Actions',
+        },
+    ];
+
+    const listPreferences = useListPreferences(
+        `acconova:list-preferences:parties:${activeOrganization?.id ?? 'none'}`,
+        partyColumns,
+    );
+
+    const advancedFilterValues = advancedConditions.reduce(
+        (result, condition) => {
+            const value = condition.value.trim();
+
+            if (! value) {
+                return result;
+            }
+
+            if (condition.field === 'city') {
+                result.city = value;
+            }
+
+            if (condition.field === 'country_code') {
+                result.country_code = value;
+            }
+
+            return result;
+        },
+        {} as Pick<PartyFilters, 'city' | 'country_code'>,
+    );
+
     const partyFilters:
         PartyFilters = {
         search,
@@ -276,6 +340,8 @@ function PartiesWorkspace() {
 
         sort:
             filters.sort,
+
+        ...advancedFilterValues,
 
         page,
 
@@ -336,6 +402,8 @@ function PartiesWorkspace() {
                 page,
                 perPage,
                 search,
+                advancedFilterValues.city,
+                advancedFilterValues.country_code,
             ],
         );
 
@@ -506,6 +574,176 @@ function PartiesWorkspace() {
                 return next;
             },
         );
+    }
+
+    function partyPayload(
+        party: Party,
+        patch: Partial<Party> = {},
+    ) {
+        return {
+            type: party.type,
+            ...(party.type === 'company'
+                ? {
+                    company_name:
+                        patch.company_name
+                        ?? party.company_name
+                        ?? '',
+                }
+                : {
+                    name:
+                        patch.name
+                        ?? party.name
+                        ?? '',
+                }),
+            email:
+                patch.email !== undefined
+                    ? patch.email
+                    : party.email,
+            phone:
+                patch.phone !== undefined
+                    ? patch.phone
+                    : party.phone,
+            tax_number:
+                patch.tax_number !== undefined
+                    ? patch.tax_number
+                    : party.tax_number,
+            address_line_1:
+                patch.address_line_1 !== undefined
+                    ? patch.address_line_1
+                    : party.address_line_1,
+            address_line_2:
+                patch.address_line_2 !== undefined
+                    ? patch.address_line_2
+                    : party.address_line_2,
+            city:
+                patch.city !== undefined
+                    ? patch.city
+                    : party.city,
+            state:
+                patch.state !== undefined
+                    ? patch.state
+                    : party.state,
+            postal_code:
+                patch.postal_code !== undefined
+                    ? patch.postal_code
+                    : party.postal_code,
+            country_code:
+                patch.country_code !== undefined
+                    ? patch.country_code
+                    : party.country_code,
+            roles: party.roles,
+        };
+    }
+
+    async function inlineUpdateParty(
+        party: Party,
+        patch: Partial<Party>,
+    ): Promise<void> {
+        if (! allowEdit) {
+            return;
+        }
+
+        try {
+            const updated = await updateParty(
+                party.id,
+                partyPayload(
+                    party,
+                    patch,
+                ),
+            );
+
+            setResponse((current) =>
+                current
+                    ? {
+                        ...current,
+                        data: current.data.map((item) =>
+                            item.id === updated.id
+                                ? updated
+                                : item,
+                        ),
+                    }
+                    : current,
+            );
+
+            if (detailParty?.id === updated.id) {
+                setDetailParty(updated);
+            }
+
+            showToast(
+                ar
+                    ? 'تم تحديث الجهة مباشرة.'
+                    : 'Party updated inline.',
+            );
+        } catch (exception) {
+            showToast(
+                exception instanceof ApiError
+                    ? exception.message
+                    : t('errors.unexpected'),
+                'error',
+            );
+            throw exception;
+        }
+    }
+
+    async function applyBulkEdit(
+        patch: Record<string, string>,
+    ): Promise<void> {
+        if (! allowEdit || actionBusy) {
+            return;
+        }
+
+        const selected = (response?.data ?? []).filter(
+            (party) => selectedIds.has(party.id),
+        );
+
+        if (! selected.length) {
+            return;
+        }
+
+        setActionBusy(true);
+
+        try {
+            await Promise.all(
+                selected.map((party) =>
+                    updateParty(
+                        party.id,
+                        partyPayload(
+                            party,
+                            {
+                                city:
+                                    patch.city
+                                    ?? party.city,
+                                state:
+                                    patch.state
+                                    ?? party.state,
+                                country_code:
+                                    patch.country_code
+                                    ?? party.country_code,
+                            },
+                        ),
+                    ),
+                ),
+            );
+
+            setBulkEditOpen(false);
+            setSelectedIds(new Set());
+            await loadParties();
+
+            showToast(
+                ar
+                    ? `تم تعديل ${selected.length} جهة.`
+                    : `Updated ${selected.length} Parties.`,
+            );
+        } catch (exception) {
+            showToast(
+                exception instanceof ApiError
+                    ? exception.message
+                    : t('errors.unexpected'),
+                'error',
+            );
+        } finally {
+            setActionBusy(false);
+        }
     }
 
     const parties =
@@ -896,6 +1134,41 @@ function PartiesWorkspace() {
                                         }
                                     />
 
+                                    <AdvancedFilterBuilder
+                                        ar={ar}
+                                        value={advancedConditions}
+                                        onChange={(next) => {
+                                            setAdvancedConditions(next);
+                                            setPage(1);
+                                        }}
+                                        fields={[
+                                            {
+                                                key: 'city',
+                                                label: ar ? 'المدينة' : 'City',
+                                                type: 'text',
+                                                operators: ['contains', 'equals'],
+                                            },
+                                            {
+                                                key: 'country_code',
+                                                label: ar ? 'رمز الدولة' : 'Country code',
+                                                type: 'text',
+                                                operators: ['equals'],
+                                                placeholder: 'PS / JO / US',
+                                            },
+                                        ]}
+                                    />
+
+                                    <ListPreferencesControl
+                                        columns={partyColumns}
+                                        order={listPreferences.order}
+                                        hidden={listPreferences.hidden}
+                                        density={listPreferences.density}
+                                        onOrderChange={listPreferences.setOrder}
+                                        onToggleColumn={listPreferences.toggleColumn}
+                                        onDensityChange={listPreferences.setDensity}
+                                        ar={ar}
+                                    />
+
                                     <SavedViews
                                         storageKey={`acconova:saved-views:parties:${activeOrganization?.id ?? 'none'}`}
                                         ar={ar}
@@ -903,15 +1176,31 @@ function PartiesWorkspace() {
                                             search,
                                             filters,
                                             perPage,
+                                            advancedConditions,
                                         }}
                                         onApply={(saved) => {
                                             setDraftSearch(saved.search);
                                             setSearch(saved.search);
                                             setFilters(saved.filters);
                                             setPerPage(saved.perPage);
+                                            setAdvancedConditions(
+                                                saved.advancedConditions ?? [],
+                                            );
                                             setPage(1);
                                         }}
                                     />
+
+                                    {allowEdit && selectedIds.size > 0 && filters.status !== 'deleted' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setBulkEditOpen(true)}
+                                            className="inline-flex h-10 items-center rounded-[12px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-3 text-[11px] font-semibold text-[var(--ac-accent)]"
+                                        >
+                                            {ar
+                                                ? `تعديل جماعي (${selectedIds.size})`
+                                                : `Bulk edit (${selectedIds.size})`}
+                                        </button>
+                                    )}
 
                                     <PartyDataActions
                                         filters={
@@ -1044,6 +1333,18 @@ function PartiesWorkspace() {
                                             canArchive={
                                                 allowArchive
                                             }
+                                            columnOrder={
+                                                listPreferences.order
+                                            }
+                                            hiddenColumns={
+                                                listPreferences.hidden
+                                            }
+                                            density={
+                                                listPreferences.density
+                                            }
+                                            onInlineUpdate={
+                                                inlineUpdateParty
+                                            }
                                             onSelectionChange={
                                                 handleSelectionChange
                                             }
@@ -1149,6 +1450,39 @@ function PartiesWorkspace() {
 
                         void loadParties();
                     }}
+                />
+
+                <BulkEditDialog
+                    open={bulkEditOpen}
+                    title={
+                        ar
+                            ? 'تعديل الجهات المحددة'
+                            : 'Edit selected Parties'
+                    }
+                    description={
+                        ar
+                            ? 'اكتب فقط بيانات الموقع التي تريد توحيدها على السجلات المحددة.'
+                            : 'Fill only the location fields you want to apply to the selected records.'
+                    }
+                    fields={[
+                        {
+                            key: 'city',
+                            label: ar ? 'المدينة' : 'City',
+                        },
+                        {
+                            key: 'state',
+                            label: ar ? 'المحافظة / الولاية' : 'State / region',
+                        },
+                        {
+                            key: 'country_code',
+                            label: ar ? 'رمز الدولة' : 'Country code',
+                            placeholder: 'PS / JO / US',
+                        },
+                    ]}
+                    busy={actionBusy}
+                    ar={ar}
+                    onClose={() => setBulkEditOpen(false)}
+                    onApply={applyBulkEdit}
                 />
 
                 <PartyImportDialog
