@@ -880,68 +880,6 @@ html[data-ac-resolved-theme='dark'] body {
     background: #0e1623;
 }
 
-html[data-ac-resolved-theme='dark']
-    :is(.bg-white, .bg-white\/95, .bg-white\/90) {
-    background-color:
-        var(--ac-surface) !important;
-}
-
-html[data-ac-resolved-theme='dark']
-    :is(
-        .bg-slate-50,
-        .bg-slate-100,
-        .bg-gray-50,
-        .bg-gray-100
-    ) {
-    background-color:
-        var(--ac-surface-soft) !important;
-}
-
-html[data-ac-resolved-theme='dark']
-    :is(
-        .text-slate-900,
-        .text-slate-800,
-        .text-gray-900,
-        .text-gray-800
-    ) {
-    color:
-        var(--ac-text) !important;
-}
-
-html[data-ac-resolved-theme='dark']
-    :is(
-        .text-slate-700,
-        .text-slate-600,
-        .text-gray-700,
-        .text-gray-600
-    ) {
-    color:
-        var(--ac-text-soft) !important;
-}
-
-html[data-ac-resolved-theme='dark']
-    :is(
-        .text-slate-500,
-        .text-slate-400,
-        .text-gray-500,
-        .text-gray-400
-    ) {
-    color:
-        var(--ac-text-muted) !important;
-}
-
-html[data-ac-resolved-theme='dark']
-    :is(
-        .border-slate-100,
-        .border-slate-200,
-        .border-gray-100,
-        .border-gray-200
-    ) {
-    border-color:
-        var(--ac-line) !important;
-}
-
-
 /*
  * Dark-mode compatibility layer for legacy/light utility classes.
  *
@@ -1268,6 +1206,12 @@ html[data-ac-resolved-theme='dark']
     .ac-index-row[data-selected='true'] {
     border-color: #6aa6ff !important;
     background: #1b2a40 !important;
+    box-shadow: none !important;
+}
+
+html[data-ac-resolved-theme='dark']
+    .ac-index-row[data-selected='true']::before {
+    background: #6aa6ff !important;
     box-shadow: none !important;
 }
 
