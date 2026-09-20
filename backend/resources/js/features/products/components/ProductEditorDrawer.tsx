@@ -3,6 +3,7 @@ import {
 } from '@/components/feedback/useDialog';
 import {
     createProduct,
+    fetchProducts,
     updateProduct,
     type ProductPayload,
 } from '@/features/products/api';
@@ -294,7 +295,7 @@ export function ProductEditorDrawer({
     onClose,
     onSaved,
 }: ProductEditorDrawerProps) {
-    useLocale();
+    const ar = useLocale() === 'ar';
 
     const [
         form,
@@ -322,6 +323,11 @@ export function ProductEditorDrawer({
                 string[]
             >
         >({});
+
+    const [
+        possibleDuplicates,
+        setPossibleDuplicates,
+    ] = useState<Product[]>([]);
 
     const [
         error,
@@ -365,6 +371,47 @@ export function ProductEditorDrawer({
     }, [
         open,
         product,
+    ]);
+
+    /*
+     * Detect likely duplicate catalog names before submit. The server remains
+     * authoritative; this warning simply catches accidental repeated entries.
+     */
+    useEffect(() => {
+        if (! open || form.name.trim().length < 3) {
+            setPossibleDuplicates([]);
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            void fetchProducts({
+                search: form.name,
+                status: 'active',
+                page: 1,
+                perPage: 8,
+            })
+                .then((response) => {
+                    const normalized =
+                        form.name.trim().toLocaleLowerCase();
+
+                    setPossibleDuplicates(
+                        response.data.filter((candidate) =>
+                            candidate.id !== product?.id
+                            && candidate.name.trim().toLocaleLowerCase()
+                                === normalized,
+                        ).slice(0, 4),
+                    );
+                })
+                .catch(() => {
+                    setPossibleDuplicates([]);
+                });
+        }, 300);
+
+        return () => window.clearTimeout(timer);
+    }, [
+        open,
+        product?.id,
+        form.name,
     ]);
 
     /**
@@ -705,6 +752,35 @@ export function ProductEditorDrawer({
                                 service
                             }
                         />
+
+                        {possibleDuplicates.length > 0 && (
+                            <div className="mt-3 flex gap-3 rounded-[16px] border border-amber-300 bg-amber-50 p-4 text-amber-900">
+                                <TriangleAlert
+                                    size={17}
+                                    className="mt-0.5 shrink-0"
+                                />
+                                <div>
+                                    <strong className="text-sm">
+                                        {ar
+                                            ? 'يوجد عنصر بنفس الاسم'
+                                            : 'An item with this name already exists'}
+                                    </strong>
+                                    <p className="mt-1 text-xs leading-5">
+                                        {ar
+                                            ? 'تأكد أن هذا ليس تكراراً قبل الحفظ.'
+                                            : 'Confirm this is intentional before saving another catalog item.'}
+                                    </p>
+                                    <ul className="mt-2 space-y-1 text-xs">
+                                        {possibleDuplicates.map((candidate) => (
+                                            <li key={candidate.id}>
+                                                • {candidate.name}
+                                                {candidate.sku ? ' · ' + candidate.sku : ''}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
 
                         {convertingProductToService && (
                             <div className="mt-3 flex gap-3 rounded-[16px] border border-amber-200 bg-amber-50 p-4 text-amber-900">
