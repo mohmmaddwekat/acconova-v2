@@ -61,6 +61,14 @@ type Product360Data = {
         quantity: string;
         total: string;
     }>;
+    custom_prices: Array<{
+        party_id: number;
+        party_name: string;
+        unit_price: string;
+        currency: string | null;
+        note: string | null;
+        updated_at: string;
+    }>;
     price_history: Array<{
         date: string;
         kind: 'sale_invoice' | 'purchase_invoice';
@@ -264,6 +272,46 @@ export function Product360Panel({
             </div>
 
             <div className="grid gap-3 lg:grid-cols-2">
+                <div className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
+                    <div className="flex items-center gap-2">
+                        <UsersRound size={14} className="text-[var(--ac-accent)]" />
+                        <h4 className="text-xs font-bold">
+                            {ar ? 'أسعار العملاء الخاصة' : 'Customer-specific prices'}
+                        </h4>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                        {data.custom_prices.length ? (
+                            data.custom_prices.map((item) => (
+                                <Link
+                                    key={item.party_id}
+                                    href={'/app/parties?focus=' + String(item.party_id)}
+                                    className="flex items-center justify-between gap-3 rounded-[12px] bg-[var(--ac-surface-soft)] px-3 py-2 hover:bg-[var(--ac-accent-soft)]"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-[11px] font-semibold">
+                                            {item.party_name}
+                                        </p>
+                                        {item.note && (
+                                            <p className="mt-0.5 truncate text-[9px] text-[var(--ac-text-muted)]">
+                                                {item.note}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <strong className="text-[11px] text-[var(--ac-accent)]">
+                                        {number(item.unit_price)}
+                                        {item.currency ? ' ' + item.currency : ''}
+                                    </strong>
+                                </Link>
+                            ))
+                        ) : (
+                            <p className="py-6 text-center text-xs text-[var(--ac-text-muted)]">
+                                {ar ? 'لا توجد أسعار عملاء خاصة.' : 'No customer-specific prices.'}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
                 <div className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
                     <div className="flex items-center gap-2">
                         <UsersRound size={14} className="text-[var(--ac-accent)]" />
