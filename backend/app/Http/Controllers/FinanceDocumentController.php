@@ -49,7 +49,7 @@ class FinanceDocumentController extends Controller
         $paginator = $query->paginate($data['per_page'] ?? 20);
 
         return response()->json([
-            'data' => collect($paginator->items())->map(fn (string $document) => $this->row($document))->values(),
+            'data' => collect($paginator->items())->map(fn (FinancialDocument $document) => $this->row($document))->values(),
             'meta' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),
