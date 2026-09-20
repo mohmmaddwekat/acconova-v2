@@ -609,6 +609,10 @@ function PartiesWorkspace() {
                 patch.tax_number !== undefined
                     ? patch.tax_number
                     : party.tax_number,
+            credit_limit:
+                patch.credit_limit !== undefined
+                    ? patch.credit_limit
+                    : party.credit_limit,
             address_line_1:
                 patch.address_line_1 !== undefined
                     ? patch.address_line_1
