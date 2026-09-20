@@ -22,8 +22,21 @@ class FinanceAuthorization
             return in_array($permission, $custom->permissions, true);
         }
 
-        if (in_array($role, ['manager', 'accountant'], true)) {
+        if ($role === 'manager') {
             return str_starts_with($permission, 'finance.');
+        }
+
+        if ($role === 'accountant') {
+            return in_array($permission, [
+                'finance.sales.view',
+                'finance.sales.manage',
+                'finance.purchases.view',
+                'finance.purchases.manage',
+                'finance.cash.view',
+                'finance.cash.receive',
+                'finance.cash.pay',
+                'finance.taxes.view',
+            ], true);
         }
 
         return false;
