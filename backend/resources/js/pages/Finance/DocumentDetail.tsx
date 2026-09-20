@@ -33,6 +33,17 @@ import type {
     FinanceLookups,
 } from './types';
 
+type AvailableCredit = {
+    id: number;
+    number: string;
+    movement_date: string;
+    method: string;
+    amount: string;
+    allocated: string;
+    available: string;
+    currency: string;
+};
+
 export function DocumentDetail({
     id,
     kind,
@@ -95,6 +106,18 @@ export function DocumentDetail({
         0,
     );
 
+    const [
+        availableCredits,
+        setAvailableCredits,
+    ] = useState<AvailableCredit[]>(
+        [],
+    );
+
+    const canCashPermission =
+        sales
+            ? lookups.permissions.cash_receive
+            : lookups.permissions.cash_pay;
+
     useEffect(
         () => {
             const controller =
@@ -130,6 +153,44 @@ export function DocumentDetail({
                         setAudit(
                             response.audit,
                         );
+
+                        if (
+                            canCashPermission
+                            && Number(
+                                response.data.balance_due,
+                            ) > 0
+                            && [
+                                'issued',
+                                'partially_paid',
+                            ].includes(
+                                response.data.status,
+                            )
+                        ) {
+                            void apiRequest<{
+                                data:
+                                    AvailableCredit[];
+                            }>(
+                                '/api/finance/documents/'
+                                + response.data.id
+                                + '/available-credits',
+                            )
+                                .then(
+                                    credits =>
+                                        setAvailableCredits(
+                                            credits.data,
+                                        ),
+                                )
+                                .catch(
+                                    () =>
+                                        setAvailableCredits(
+                                            [],
+                                        ),
+                                );
+                        } else {
+                            setAvailableCredits(
+                                [],
+                            );
+                        }
                     },
                 )
                 .catch(
@@ -167,6 +228,7 @@ export function DocumentDetail({
         [
             id,
             revision,
+            canCashPermission,
         ],
     );
 
@@ -227,11 +289,115 @@ export function DocumentDetail({
         );
 
     const canCash =
-        sales
-            ? lookups.permissions.cash_receive
-            : lookups.permissions.cash_pay;
+        canCashPermission;
 
-    async function correct(): Promise<void> {
+    const hasEstimatedPrices =
+        ! sales
+        && document.lines.some(
+            line =>
+                line.price_status ===
+                'estimated',
+        );
+
+    async function applyCredit(
+        credit: AvailableCredit,
+    ): Promise<void> {
+        if (
+            busy
+            || ! canCash
+        ) {
+            return;
+        }
+
+        const amount =
+            Math.min(
+                Number(
+                    credit.available,
+                ) || 0,
+                Number(
+                    document.balance_due,
+                ) || 0,
+            );
+
+        if (amount <= 0) {
+            return;
+        }
+
+        if (
+            ! window.confirm(
+                text(
+                    'استخدام '
+                    + new Intl.NumberFormat().format(
+                        amount,
+                    )
+                    + ' '
+                    + document.currency
+                    + ' من الرصيد المقدم '
+                    + credit.number
+                    + ' على هذه الفاتورة؟',
+                    'Apply '
+                    + new Intl.NumberFormat().format(
+                        amount,
+                    )
+                    + ' '
+                    + document.currency
+                    + ' from advance '
+                    + credit.number
+                    + ' to this invoice?',
+                ),
+            )
+        ) {
+            return;
+        }
+
+        setBusy(
+            true,
+        );
+        setError(
+            '',
+        );
+
+        try {
+            await apiRequest(
+                '/api/finance/documents/'
+                + document.id
+                + '/apply-credit',
+                {
+                    method:
+                        'POST',
+
+                    body:
+                        JSON.stringify({
+                            movement_id:
+                                credit.id,
+                            amount,
+                        }),
+                },
+            );
+
+            setRevision(
+                value =>
+                    value
+                    + 1,
+            );
+        } catch (
+            failure
+        ) {
+            setError(
+                apiErrorText(
+                    failure,
+                ),
+            );
+        } finally {
+            setBusy(
+                false,
+            );
+        }
+    }
+
+    async function correct(
+        presetReason?: string,
+    ): Promise<void> {
         if (
             busy
             || ! canCorrect
@@ -240,7 +406,8 @@ export function DocumentDetail({
         }
 
         const reason =
-            window.prompt(
+            presetReason
+            ?? window.prompt(
                 text(
                     'اكتب سبب التصحيح بوضوح. لن يتم حذف الفاتورة القديمة، وسيتم إنشاء مسودة تصحيح مرتبطة بها.',
                     'Enter a clear correction reason. The old invoice will remain and a linked correction draft will be created.',
@@ -497,6 +664,41 @@ export function DocumentDetail({
                                 'Print',
                             )}
                         </button>
+
+                        {hasEstimatedPrices
+                            && canCorrect
+                            && inActiveStatus(
+                                document.status,
+                            ) && (
+                            <button
+                                type="button"
+                                className={
+                                    financePrimary
+                                }
+                                disabled={
+                                    busy
+                                }
+                                onClick={() =>
+                                    void correct(
+                                        text(
+                                            'تثبيت الأسعار النهائية لبنود الشراء التي سُجلت بسعر مبدئي.',
+                                            'Finalize purchase lines that were recorded with provisional prices.',
+                                        ),
+                                    )
+                                }
+                            >
+                                <Pencil
+                                    size={
+                                        15
+                                    }
+                                />
+
+                                {text(
+                                    'تثبيت أسعار الشراء',
+                                    'Finalize purchase prices',
+                                )}
+                            </button>
+                        )}
 
                         {canCorrect
                             && inActiveStatus(
@@ -876,6 +1078,99 @@ export function DocumentDetail({
                             </table>
                         </div>
                     </FPanel>
+
+                    {availableCredits.length > 0 && (
+                        <FPanel
+                            title={
+                                sales
+                                    ? text(
+                                        'رصيد مقدم متاح للعميل',
+                                        'Available customer advance',
+                                    )
+                                    : text(
+                                        'دفعة مقدمة متاحة للمورد',
+                                        'Available supplier advance',
+                                    )
+                            }
+                            icon={
+                                Wallet
+                            }
+                        >
+                            <div className="space-y-2 p-4">
+                                <p className="text-xs leading-5 text-slate-500">
+                                    {text(
+                                        'هذه مبالغ دُفعت سابقاً ولم تُخصص بالكامل. يمكنك استخدامها على هذه الفاتورة بدون تسجيل قبض أو دفع جديد.',
+                                        'These are previously posted amounts that were not fully allocated. Apply them here without recording new cash.',
+                                    )}
+                                </p>
+
+                                {availableCredits.map(
+                                    credit => (
+                                        <div
+                                            key={
+                                                credit.id
+                                            }
+                                            className="flex flex-col gap-3 rounded-[12px] border border-emerald-100 bg-emerald-50/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                                        >
+                                            <div className="text-xs">
+                                                <strong className="text-[#123d78]">
+                                                    {
+                                                        credit.number
+                                                    }
+                                                </strong>
+
+                                                <p className="mt-1 text-[10px] text-slate-500">
+                                                    {
+                                                        credit.movement_date
+                                                    }
+                                                    {' · '}
+                                                    {
+                                                        credit.method
+                                                    }
+                                                </p>
+
+                                                <p className="mt-1 font-semibold text-emerald-700">
+                                                    {text(
+                                                        'المتاح: ',
+                                                        'Available: ',
+                                                    )}
+                                                    <Money
+                                                        value={
+                                                            credit.available
+                                                        }
+                                                        currency={
+                                                            credit.currency
+                                                        }
+                                                        compact
+                                                    />
+                                                </p>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                className={
+                                                    financePrimary
+                                                }
+                                                disabled={
+                                                    busy
+                                                }
+                                                onClick={() =>
+                                                    void applyCredit(
+                                                        credit,
+                                                    )
+                                                }
+                                            >
+                                                {text(
+                                                    'استخدام الرصيد',
+                                                    'Apply credit',
+                                                )}
+                                            </button>
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+                        </FPanel>
+                    )}
 
                     <div className="grid gap-4 lg:grid-cols-2">
                         <FPanel
