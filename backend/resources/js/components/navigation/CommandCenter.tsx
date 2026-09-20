@@ -409,6 +409,14 @@ export function CommandCenter() {
                 return;
             }
 
+            if (! typing && key === 's') {
+                event.preventDefault();
+                window.dispatchEvent(
+                    new CustomEvent('acconova:save'),
+                );
+                return;
+            }
+
             if (! typing && event.key === '?') {
                 event.preventDefault();
                 setMode('shortcuts');
@@ -1052,7 +1060,7 @@ function ShortcutList({
         ['Ctrl / ⌘ + K', ar ? 'فتح البحث الشامل' : 'Open global search'],
         ['/', ar ? 'فتح البحث من أي صفحة' : 'Open search from any page'],
         ['N', ar ? 'فتح الإنشاء السريع' : 'Open quick create'],
-        ['Ctrl / ⌘ + S', ar ? 'حفظ النموذج النشط' : 'Save the active form'],
+        ['S / Ctrl / ⌘ + S', ar ? 'حفظ النموذج النشط' : 'Save the active form'],
         ['Esc', ar ? 'إغلاق النافذة أو البحث' : 'Close the active dialog/search'],
         ['Ctrl / ⌘ + /', ar ? 'عرض هذه الاختصارات' : 'Show keyboard shortcuts'],
         ['?', ar ? 'عرض الاختصارات عندما لا تكون تكتب' : 'Show shortcuts when not typing'],
