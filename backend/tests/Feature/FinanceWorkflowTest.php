@@ -710,6 +710,48 @@ class FinanceWorkflowTest extends TestCase
             ->assertJsonPath('document_number', 'SAL-000001');
     }
 
+    public function test_invoice_line_supports_fixed_amount_discount(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance fixed discount');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Fixed Discount Customer');
+
+        $response = $this->postJson('/api/finance/documents', [
+            'kind' => 'sale_invoice',
+            'party_id' => $customerId,
+            'issue_date' => '2026-09-20',
+            'currency' => 'ILS',
+            'lines' => [[
+                'description' => 'Discounted service',
+                'quantity' => '2',
+                'unit_price' => '100',
+                'discount_type' => 'fixed',
+                'discount_value' => '30',
+                'discount_percent' => '0',
+                'tax_rate' => '0',
+                'affects_inventory' => false,
+            ]],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.subtotal', '200.0000')
+            ->assertJsonPath('data.discount_total', '30.0000')
+            ->assertJsonPath('data.total', '170.0000')
+            ->assertJsonPath('data.lines.0.discount_type', 'fixed')
+            ->assertJsonPath('data.lines.0.discount_value', '30.0000')
+            ->assertJsonPath('data.lines.0.discount_percent', '0.0000');
+
+        $documentId = (int) $response->json('data.id');
+
+        $this->assertDatabaseHas('financial_document_lines', [
+            'financial_document_id' => $documentId,
+            'discount_type' => 'fixed',
+            'discount_value' => '30.0000',
+            'line_discount' => '30.0000',
+            'line_total' => '170.0000',
+        ]);
+    }
+
     public function test_draft_invoice_can_be_deleted_but_issued_invoice_requires_void_or_correction(): void
     {
         [$owner, $organization] = $this->workspace('owner', 'Finance delete safety');
