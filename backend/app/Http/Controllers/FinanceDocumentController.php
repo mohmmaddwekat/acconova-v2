@@ -231,6 +231,15 @@ class FinanceDocumentController extends Controller
         return response()->json(['data' => $this->detail($document, $service)]);
     }
 
+    public function destroy(Request $request, string $document, FinanceDocumentService $service): \Illuminate\Http\Response
+    {
+        $document = FinancialDocument::query()->findOrFail($document);
+        $this->authorizeKind($request, $document->kind, true);
+        $service->deleteDraft($document, $request->user()->id);
+
+        return response()->noContent();
+    }
+
     public function issue(Request $request, string $document, FinanceDocumentService $service): JsonResponse
     {
         $document = FinancialDocument::query()->findOrFail($document);
