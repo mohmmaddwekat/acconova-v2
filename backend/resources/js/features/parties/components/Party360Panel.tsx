@@ -1,6 +1,10 @@
 import { apiRequest } from '@/lib/http';
 import type { Party } from '@/features/parties/types';
-import { Link } from '@inertiajs/react';
+import type { AppPageProps } from '@/types/app';
+import {
+    Link,
+    usePage,
+} from '@inertiajs/react';
 import {
     Banknote,
     Package,
@@ -69,6 +73,14 @@ export function Party360Panel({
     party: Party;
     ar: boolean;
 }) {
+    const currency =
+        usePage<AppPageProps>().props.workspace.activeOrganization?.currency
+        ?? '';
+
+    const money = (value: string): string =>
+        number(value)
+        + (currency ? ' ' + currency : '');
+
     const [data, setData] = useState<Party360Data | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -156,15 +168,15 @@ export function Party360Panel({
                         />
                         <Metric
                             label={ar ? 'إجمالي المبيعات' : 'Sales total'}
-                            value={number(data.customer.sales_total)}
+                            value={money(data.customer.sales_total)}
                         />
                         <Metric
                             label={ar ? 'الرصيد المستحق' : 'Outstanding'}
-                            value={number(data.customer.outstanding)}
+                            value={money(data.customer.outstanding)}
                         />
                         <Metric
                             label={ar ? 'المقبوضات' : 'Receipts'}
-                            value={number(data.customer.receipts_total)}
+                            value={money(data.customer.receipts_total)}
                         />
                     </div>
                 </div>
@@ -182,15 +194,15 @@ export function Party360Panel({
                         />
                         <Metric
                             label={ar ? 'إجمالي المشتريات' : 'Purchases total'}
-                            value={number(data.supplier.purchase_total)}
+                            value={money(data.supplier.purchase_total)}
                         />
                         <Metric
                             label={ar ? 'المستحق للمورد' : 'Supplier balance'}
-                            value={number(data.supplier.outstanding)}
+                            value={money(data.supplier.outstanding)}
                         />
                         <Metric
                             label={ar ? 'المدفوعات' : 'Payments'}
-                            value={number(data.supplier.payments_total)}
+                            value={money(data.supplier.payments_total)}
                         />
                     </div>
                 </div>
