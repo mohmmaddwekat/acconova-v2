@@ -3,6 +3,10 @@ import {
     useState,
     type PropsWithChildren,
 } from 'react';
+import {
+    router,
+    usePage,
+} from '@inertiajs/react';
 
 import { CommandRail } from '@/components/navigation/CommandRail';
 import { ContextBar } from '@/components/navigation/ContextBar';
@@ -36,6 +40,192 @@ export function AppShell({
         mobileNavigationOpen,
         setMobileNavigationOpen,
     ] = useState(false);
+
+    const page =
+        usePage();
+
+    /*
+     * Global fallback form guard.
+     *
+     * Feature-rich editors use their own precise dirty-state hooks. This
+     * delegated guard covers every other authenticated HTML form so smaller
+     * modules cannot silently discard typed values. Auto-save Settings is
+     * intentionally excluded.
+     */
+    useEffect(() => {
+        if (
+            page.url.split('?')[0]
+                === '/app/settings'
+        ) {
+            return;
+        }
+
+        const dirtyForms =
+            new Set<HTMLFormElement>();
+
+        const resolveForm = (
+            event: Event,
+        ): HTMLFormElement | null => {
+            const target =
+                event.target;
+
+            if (! (
+                target instanceof
+                    HTMLElement
+            )) {
+                return null;
+            }
+
+            const form =
+                target.closest(
+                    'form',
+                );
+
+            if (
+                ! form
+                || form.dataset
+                    .acManagedDirty ===
+                    'true'
+                || form.dataset
+                    .acUnsavedGuard ===
+                    'off'
+            ) {
+                return null;
+            }
+
+            return form;
+        };
+
+        const markDirty = (
+            event: Event,
+        ): void => {
+            const form =
+                resolveForm(
+                    event,
+                );
+
+            if (form) {
+                dirtyForms.add(
+                    form,
+                );
+            }
+        };
+
+        const clearForm = (
+            event: Event,
+        ): void => {
+            const form =
+                event.target instanceof
+                    HTMLFormElement
+                    ? event.target
+                    : resolveForm(
+                        event,
+                    );
+
+            if (form) {
+                dirtyForms.delete(
+                    form,
+                );
+            }
+        };
+
+        const beforeUnload = (
+            event: BeforeUnloadEvent,
+        ): void => {
+            if (
+                dirtyForms.size ===
+                0
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+            event.returnValue =
+                '';
+        };
+
+        const removeBefore =
+            router.on(
+                'before',
+                (
+                    event,
+                ) => {
+                    if (
+                        dirtyForms.size ===
+                        0
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        ! window.confirm(
+                            document.documentElement
+                                .lang ===
+                                'ar'
+                                ? 'لديك تغييرات غير محفوظة. هل تريد المغادرة بدون حفظ؟'
+                                : 'You have unsaved changes. Leave without saving?',
+                        )
+                    ) {
+                        event.preventDefault();
+                    }
+                },
+            );
+
+        document.addEventListener(
+            'input',
+            markDirty,
+            true,
+        );
+        document.addEventListener(
+            'change',
+            markDirty,
+            true,
+        );
+        document.addEventListener(
+            'submit',
+            clearForm,
+            true,
+        );
+        document.addEventListener(
+            'reset',
+            clearForm,
+            true,
+        );
+        window.addEventListener(
+            'beforeunload',
+            beforeUnload,
+        );
+
+        return () => {
+            document.removeEventListener(
+                'input',
+                markDirty,
+                true,
+            );
+            document.removeEventListener(
+                'change',
+                markDirty,
+                true,
+            );
+            document.removeEventListener(
+                'submit',
+                clearForm,
+                true,
+            );
+            document.removeEventListener(
+                'reset',
+                clearForm,
+                true,
+            );
+            window.removeEventListener(
+                'beforeunload',
+                beforeUnload,
+            );
+            removeBefore();
+        };
+    }, [
+        page.url,
+    ]);
 
     useEffect(
         () => {
