@@ -10,8 +10,8 @@ type Toast = {
     id: number;
     message: string;
     tone: FeedbackTone;
-    action?: ToastAction;
-    duration?: number;
+    action?: ToastAction | undefined;
+    duration?: number | undefined;
 };
 
 type ToastApi = {
