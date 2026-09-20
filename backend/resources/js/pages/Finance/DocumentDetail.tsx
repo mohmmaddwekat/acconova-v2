@@ -1013,6 +1013,21 @@ export function DocumentDetail({
                                                         }
                                                         compact
                                                     />
+
+                                                    {! sales && (
+                                                        <span
+                                                            className={[
+                                                                'mt-1 inline-flex rounded-full px-2 py-0.5 text-[9px] font-semibold',
+                                                                line.price_status === 'estimated'
+                                                                    ? 'bg-amber-50 text-amber-700'
+                                                                    : 'bg-emerald-50 text-emerald-700',
+                                                            ].join(' ')}
+                                                        >
+                                                            {line.price_status === 'estimated'
+                                                                ? text('سعر مبدئي', 'Provisional')
+                                                                : text('سعر نهائي', 'Final')}
+                                                        </span>
+                                                    )}
                                                 </td>
 
                                                 <td className="px-3 py-3 text-red-500">
