@@ -823,6 +823,8 @@ class FinanceWorkflowTest extends TestCase
 
         $this->actingInWorkspace($owner, $organization);
 
+        $this->get('/app/settings')->assertOk();
+
         $this->patchJson('/api/workspace-settings', [
             'name' => 'Updated Workspace',
             'currency' => 'JOD',
