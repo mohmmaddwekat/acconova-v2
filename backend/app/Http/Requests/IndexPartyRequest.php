@@ -68,6 +68,18 @@ class IndexPartyRequest extends FormRequest
                 ]),
             ],
 
+            'city' => [
+                'nullable',
+                'string',
+                'max:120',
+            ],
+
+            'country_code' => [
+                'nullable',
+                'string',
+                'max:3',
+            ],
+
             'sort' => [
                 'nullable',
                 Rule::in([
@@ -149,6 +161,13 @@ class IndexPartyRequest extends FormRequest
                             ),
                         ),
                     );
+            }
+        }
+
+        foreach (['city', 'country_code'] as $field) {
+            if ($this->has($field)) {
+                $value = trim((string) $this->input($field));
+                $data[$field] = $value === '' ? null : $value;
             }
         }
 
