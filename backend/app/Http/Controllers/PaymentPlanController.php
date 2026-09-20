@@ -101,6 +101,6 @@ class PaymentPlanController extends Controller
         $items = PaymentPlan::where('active', true)->whereDate('next_due_on', '<=', today()->addDays(30))
             ->get()->filter(fn (PaymentPlan $plan): bool => $plan->next_due_on->lte(today()->addDays($plan->reminder_days)));
 
-        return response()->json(['count' => $items->count(), 'url' => route('app.payments')]);
+        return response()->json(['count' => $items->count(), 'url' => route('app.payments.recurring')]);
     }
 }
