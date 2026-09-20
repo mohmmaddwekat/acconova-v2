@@ -131,6 +131,14 @@ class UpdatePartyRequest extends FormRequest
                 'max:100',
             ],
 
+            'credit_limit' => [
+                'sometimes',
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:999999999999',
+            ],
+
             'address_line_1' => [
                 'sometimes',
                 'nullable',
