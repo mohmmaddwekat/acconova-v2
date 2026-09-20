@@ -255,6 +255,9 @@ class CashMovementController extends Controller
 
         $organization = app(TenantContext::class)->organization();
         $data['currency'] = strtoupper((string) ($organization->preferences['currency'] ?? 'ILS'));
+        $data['check_status'] = ($data['method'] ?? null) === 'check'
+            ? 'pending'
+            : null;
 
         if (in_array($data['category'], ['customer_receipt', 'supplier_payment'], true) && empty($data['party_id'])) {
             throw \Illuminate\Validation\ValidationException::withMessages([
