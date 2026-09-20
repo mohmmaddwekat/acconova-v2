@@ -631,6 +631,14 @@ export function CashDetail({
                 </aside>
             </div>
         </div>
+
+            <CashVoucherPrintView
+                movement={movement}
+                lookups={lookups}
+                ar={ar}
+                incoming={incoming}
+            />
+        </>
     );
 }
 
@@ -661,14 +669,6 @@ function Detail({
             <p className="text-[10px] text-slate-400">{label}</p>
             <div className="mt-1 break-words text-sm font-semibold text-[#163d77]">{value}</div>
         </div>
-
-            <CashVoucherPrintView
-                movement={movement}
-                lookups={lookups}
-                ar={ar}
-                incoming={incoming}
-            />
-        </>
     );
 }
 
