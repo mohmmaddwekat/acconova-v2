@@ -223,12 +223,35 @@ class FinanceImportController extends Controller
                             throw new RuntimeException('discount_percent and tax_rate must be between 0 and 100.');
                         }
 
+                        $unit = trim((string) ($row['unit'] ?? '')) ?: null;
+                        $lineKey = mb_strtolower($description).'|'.$unit.'|'.$unitPrice.'|'.$discount.'|'.$taxRate;
+                        $existingIndex = null;
+
+                        foreach ($lines as $lineIndex => $existingLine) {
+                            if (($existingLine['_import_key'] ?? null) === $lineKey) {
+                                $existingIndex = $lineIndex;
+                                break;
+                            }
+                        }
+
+                        if ($existingIndex !== null) {
+                            $lines[$existingIndex]['quantity'] = number_format(
+                                (float) $lines[$existingIndex]['quantity'] + (float) $quantity,
+                                4,
+                                '.',
+                                '',
+                            );
+
+                            continue;
+                        }
+
                         $lines[] = [
+                            '_import_key' => $lineKey,
                             'product_id' => null,
                             'warehouse_id' => null,
                             'tax_rule_id' => null,
                             'description' => $description,
-                            'unit' => trim((string) ($row['unit'] ?? '')) ?: null,
+                            'unit' => $unit,
                             'quantity' => $quantity,
                             'unit_price' => $unitPrice,
                             'price_status' => 'final',
@@ -237,6 +260,12 @@ class FinanceImportController extends Controller
                             'affects_inventory' => false,
                         ];
                     }
+
+                    $lines = array_map(function (array $line): array {
+                        unset($line['_import_key']);
+
+                        return $line;
+                    }, $lines);
 
                     $draft = $documents->createDraft([
                         'kind' => $kind,
