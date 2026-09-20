@@ -25,6 +25,15 @@ import {
 } from 'react';
 import { apiRequest } from '@/lib/http';
 import {
+    useGlobalSave,
+    useUnsavedChanges,
+} from '@/lib/editorSafety';
+import {
+    clearLocalDraft,
+    readLocalDraft,
+    useLocalDraft,
+} from '@/lib/localDraft';
+import {
     api,
     base,
     Avatar,
@@ -68,9 +77,17 @@ export function TaskEditor({
 }) {
     const page = usePage();
     const initial = data.tasks.find((task: Task) => task.id === taskId);
-    const requestedStatus = new URLSearchParams(
+    const queryParams = new URLSearchParams(
         page.url.split('?')[1] ?? '',
-    ).get('status');
+    );
+    const requestedStatus = queryParams.get('status');
+    const copyFromId =
+        Number(
+            queryParams.get(
+                'copy_from',
+            )
+            ?? 0,
+        );
     const initialStatus: TaskStatus =
         requestedStatus
         && Object.prototype.hasOwnProperty.call(statusMeta, requestedStatus)
@@ -125,6 +142,7 @@ export function TaskEditor({
     const [loading, setLoading] = useState(taskId !== null);
     const [retry, setRetry] = useState(0);
     const fileInput = useRef<HTMLInputElement>(null);
+    const formRef = useRef<HTMLFormElement>(null);
     const canAssign = data.permissions.includes('tasks.assign');
     const canUpload = data.permissions.includes('tasks.update');
 
@@ -182,6 +200,242 @@ export function TaskEditor({
 
         return () => controller.abort();
     }, [taskId, retry]);
+
+    /**
+     * Load a source task into a new copy without binding the editor to the
+     * original id. Saving therefore creates a fresh task.
+     */
+    useEffect(() => {
+        if (
+            taskId
+            || ! Number.isInteger(copyFromId)
+            || copyFromId <= 0
+        ) {
+            return;
+        }
+
+        const controller =
+            new AbortController();
+
+        setLoading(
+            true,
+        );
+        setError(
+            '',
+        );
+
+        apiRequest<TaskDetail>(
+            `${api}/tasks/${copyFromId}`,
+            {
+                signal:
+                    controller.signal,
+            },
+        )
+            .then(
+                (
+                    detail:
+                        TaskDetail,
+                ) => {
+                    const source =
+                        detail.task;
+
+                    setRecord(
+                        null,
+                    );
+                    setDraft({
+                        title:
+                            source.title
+                            + (
+                                ar
+                                    ? ' - نسخة'
+                                    : ' - Copy'
+                            ),
+                        description:
+                            source.description,
+                        project_id:
+                            source.project_id,
+                        status:
+                            'idea',
+                        priority:
+                            source.priority,
+                        visibility:
+                            source.visibility,
+                        assignees:
+                            [
+                                ...source
+                                    .assignees,
+                            ],
+                        checklist:
+                            source.checklist.map(
+                                (
+                                    item:
+                                        ChecklistItem,
+                                ) => ({
+                                    ...item,
+                                    done:
+                                        false,
+                                }),
+                            ),
+                        tags:
+                            [
+                                ...source.tags,
+                            ],
+                        progress:
+                            0,
+                        starts_on:
+                            source.starts_on,
+                        due_on:
+                            source.due_on,
+                        estimated_hours:
+                            source.estimated_hours,
+                    });
+                    setTags(
+                        source.tags.join(
+                            ', ',
+                        ),
+                    );
+                },
+            )
+            .catch(
+                (
+                    failure:
+                        unknown,
+                ) => {
+                    if (
+                        ! controller
+                            .signal
+                            .aborted
+                    ) {
+                        setError(
+                            errorText(
+                                failure,
+                            ),
+                        );
+                    }
+                },
+            )
+            .finally(
+                () => {
+                    if (
+                        ! controller
+                            .signal
+                            .aborted
+                    ) {
+                        setLoading(
+                            false,
+                        );
+                    }
+                },
+            );
+
+        return () =>
+            controller.abort();
+    }, [
+        taskId,
+        copyFromId,
+        ar,
+    ]);
+
+    const localDraftKey =
+        'acconova:draft:task:'
+        + String(
+            taskId
+            ?? 'new',
+        );
+
+    const localDraftValue = {
+        draft,
+        tags,
+    };
+
+    const initialDraftRef =
+        useRef(
+            JSON.stringify(
+                localDraftValue,
+            ),
+        );
+
+    const dirty =
+        JSON.stringify(
+            localDraftValue,
+        ) !==
+            initialDraftRef.current
+        || files.length > 0;
+
+    useUnsavedChanges(
+        dirty && ! busy,
+        ar,
+    );
+
+    useGlobalSave(
+        () =>
+            formRef.current
+                ?.requestSubmit(),
+        ! busy,
+    );
+
+    useLocalDraft(
+        localDraftKey,
+        localDraftValue,
+        ! busy,
+        900,
+    );
+
+    useEffect(() => {
+        if (
+            taskId
+            || copyFromId > 0
+            || typeof window ===
+                'undefined'
+        ) {
+            return;
+        }
+
+        const stored =
+            readLocalDraft<
+                typeof localDraftValue
+            >(
+                localDraftKey,
+            );
+
+        if (
+            ! stored
+            || (
+                ! stored.value
+                    .draft.title
+                    .trim()
+                && ! stored.value
+                    .draft.description
+                    ?.trim()
+                && ! stored.value
+                    .tags.trim()
+            )
+        ) {
+            return;
+        }
+
+        if (
+            window.confirm(
+                text(
+                    'وجدت مسودة مهمة محفوظة تلقائياً. هل تريد استعادتها؟',
+                    'An autosaved task draft was found. Restore it?',
+                ),
+            )
+        ) {
+            setDraft(
+                stored.value
+                    .draft,
+            );
+            setTags(
+                stored.value
+                    .tags,
+            );
+        }
+    }, [
+        taskId,
+        copyFromId,
+        localDraftKey,
+    ]);
 
     /**
      * Update one strongly typed task payload field.
@@ -312,6 +566,10 @@ export function TaskEditor({
                 }
             }
 
+            clearLocalDraft(
+                localDraftKey,
+            );
+
             router.visit(`${base}/${result.task.id}`);
         } catch (failure) {
             setError(errorText(failure));
@@ -361,7 +619,10 @@ export function TaskEditor({
     }
 
     return (
-        <form onSubmit={submit}>
+        <form
+            ref={formRef}
+            onSubmit={submit}
+        >
             <div className="mb-4 grid gap-3 sm:grid-cols-3">
                 <Stat
                     title={text('المهام قيد التنفيذ', 'Tasks in progress')}
