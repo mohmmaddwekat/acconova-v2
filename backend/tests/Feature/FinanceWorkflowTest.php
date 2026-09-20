@@ -274,7 +274,11 @@ class FinanceWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('cash_movements', [
             'id' => $receiptId,
-            'status' => 'reversed',
+            'status' => 'posted',
+        ]);
+
+        $this->assertDatabaseMissing('cash_movements', [
+            'reversal_of_id' => $receiptId,
         ]);
 
         $this->assertDatabaseHas('financial_documents', [
@@ -301,7 +305,19 @@ class FinanceWorkflowTest extends TestCase
         ])->assertOk();
 
         $this->postJson("/api/finance/cash-movements/{$replacementId}/post")
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonPath('data.status', 'posted');
+
+        $this->assertDatabaseHas('cash_movements', [
+            'id' => $receiptId,
+            'status' => 'reversed',
+        ]);
+
+        $this->assertDatabaseHas('cash_movements', [
+            'reversal_of_id' => $receiptId,
+            'status' => 'posted',
+            'category' => 'correction',
+        ]);
 
         $this->assertDatabaseHas('financial_documents', [
             'id' => $invoiceId,
@@ -313,6 +329,12 @@ class FinanceWorkflowTest extends TestCase
             'auditable_type' => 'CashMovement',
             'auditable_id' => $receiptId,
             'action' => 'correction_started',
+        ]);
+
+        $this->assertDatabaseHas('finance_audit_events', [
+            'auditable_type' => 'CashMovement',
+            'auditable_id' => $receiptId,
+            'action' => 'correction_superseded',
         ]);
     }
 
