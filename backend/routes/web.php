@@ -15,6 +15,7 @@ use App\Http\Controllers\StaffImportController;
 use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\StaffWorkforceController;
 use App\Http\Controllers\TaxComplianceController;
+use App\Services\FinanceAuthorization;
 use App\Http\Controllers\WorkspaceConversationController;
 use App\Http\Controllers\WorkspaceConversationSettingsController;
 use App\Http\Controllers\WorkspaceMessageMemberController;
@@ -272,7 +273,25 @@ Route::middleware([
 
     Route::get(
         '/app/finance',
-        fn () => Inertia::render('Finance/Index', ['financeView' => 'hub']),
+        function (\Illuminate\Http\Request $request) {
+            if (FinanceAuthorization::allows($request->user(), 'finance.sales.view')) {
+                return redirect()->route('app.invoices');
+            }
+
+            if (FinanceAuthorization::allows($request->user(), 'finance.purchases.view')) {
+                return redirect()->route('app.invoices.purchases');
+            }
+
+            if (FinanceAuthorization::allows($request->user(), 'finance.cash.view')) {
+                return redirect()->route('app.payments');
+            }
+
+            if (FinanceAuthorization::allows($request->user(), 'finance.taxes.view')) {
+                return redirect()->route('app.finance.taxes');
+            }
+
+            abort(403);
+        },
     )->name('app.finance');
 
     Route::get(
