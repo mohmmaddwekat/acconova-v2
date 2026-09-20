@@ -207,7 +207,7 @@ export function ConfirmDialog({
                 aria-busy={
                     busy
                 }
-                className="relative max-h-[90dvh] w-full overflow-y-auto rounded-t-[28px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-panel)] sm:max-w-[460px] sm:rounded-[26px] sm:p-6"
+                className="relative max-h-[90dvh] w-full overflow-y-auto rounded-t-[28px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-panel)] sm:max-w-[460px] sm:rounded-[26px] sm:p-6"
             >
                 <div className="flex items-center justify-between">
                     <div
@@ -231,7 +231,7 @@ export function ConfirmDialog({
                         onClick={
                             onCancel
                         }
-                        className="flex size-11 items-center justify-center rounded-xl hover:bg-slate-50"
+                        className="flex size-11 items-center justify-center rounded-xl hover:bg-[var(--ac-surface-soft)]"
                     >
                         <X
                             size={
@@ -268,7 +268,7 @@ export function ConfirmDialog({
                         onClick={
                             onCancel
                         }
-                        className="min-h-11 rounded-xl px-4 py-2 text-sm font-semibold hover:bg-slate-50"
+                        className="min-h-11 rounded-xl px-4 py-2 text-sm font-semibold hover:bg-[var(--ac-surface-soft)]"
                     >
                         {t(
                             'common.cancel',
