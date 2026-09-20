@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProductBulkActionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductDataTransferController;
+use App\Http\Controllers\ProductInsightsController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductionRecipeController;
 use App\Http\Controllers\ProductPermanentDeletionController;
@@ -152,6 +153,13 @@ Route::middleware([
             ProductController::class,
             'store',
         ],
+    );
+
+    Route::get(
+        'products/{product}/360',
+        ProductInsightsController::class,
+    )->whereNumber(
+        'product',
     );
 
     Route::get(
