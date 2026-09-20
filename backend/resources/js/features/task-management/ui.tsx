@@ -472,9 +472,51 @@ export function DueDate({
     task: Task;
     ar: boolean;
 }) {
+    let tone =
+        'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]';
+
+    if (task.due_on) {
+        const due =
+            new Date(
+                task.due_on
+                + 'T12:00:00',
+            );
+        const current =
+            new Date();
+        current.setHours(
+            12,
+            0,
+            0,
+            0,
+        );
+
+        const days =
+            Math.ceil(
+                (
+                    due.getTime()
+                    - current.getTime()
+                )
+                / 86400000,
+            );
+
+        if (task.status === 'completed') {
+            tone =
+                'border-emerald-200 bg-emerald-50 text-emerald-700';
+        } else if (days < 0) {
+            tone =
+                'border-red-200 bg-red-50 text-red-700';
+        } else if (days <= 3) {
+            tone =
+                'border-amber-200 bg-amber-50 text-amber-700';
+        } else {
+            tone =
+                'border-emerald-200 bg-emerald-50 text-emerald-700';
+        }
+    }
+
     return (
         <span
-            className={`inline-flex items-center gap-1 text-[10px] ${overdue(task) ? 'text-red-500' : 'text-slate-400'}`}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${tone}`}
         >
             <CalendarDays size={12} />
             {dateLabel(task.due_on, ar)}
