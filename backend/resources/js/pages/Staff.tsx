@@ -517,6 +517,51 @@ function StaffWorkspace() {
             previousCompletedMonth(),
         );
 
+    /*
+     * Quick-create and global-search deep links reuse the existing Staff
+     * workspace. This keeps Ctrl+K and the global + button consistent with the
+     * normal directory UI instead of introducing a second editor.
+     */
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const url = new URL(window.location.href);
+        const staffId =
+            Number(url.searchParams.get('staff') ?? 0);
+        const createRequested =
+            url.searchParams.get('create') === '1';
+
+        let changed = false;
+
+        if (
+            Number.isInteger(staffId)
+            && staffId > 0
+        ) {
+            setSelected(staffId);
+            setLedgerPage(1);
+            setTab('overview');
+            url.searchParams.delete('staff');
+            changed = true;
+        }
+
+        if (
+            createRequested
+            && result?.can_manage
+        ) {
+            setEdit('new');
+            url.searchParams.delete('create');
+            changed = true;
+        }
+
+        if (changed) {
+            window.history.replaceState({}, '', url);
+        }
+    }, [
+        result?.can_manage,
+    ]);
+
     const isEditing =
         edit !==
         null;
