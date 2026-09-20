@@ -52,7 +52,7 @@ type EditableLine = DocumentLine & {
 };
 
 type PriceReference = {
-    source: 'party_history' | 'catalog';
+    source: 'party_override' | 'party_history' | 'catalog';
     unit_price: string;
     document_number: string | null;
     issue_date: string | null;
@@ -1262,15 +1262,20 @@ export function DocumentForm({
                                 || ratio <= (1 / 3)
                             ) {
                                 const referenceLabel =
-                                    reference?.source === 'party_history'
+                                    reference?.source === 'party_override'
                                         ? text(
-                                            'آخر سعر لهذه الجهة',
-                                            'the last price for this Party',
+                                            'السعر الخاص لهذا العميل',
+                                            'the customer-specific price',
                                         )
-                                        : text(
-                                            'سعر الكتالوج',
-                                            'the catalog price',
-                                        );
+                                        : reference?.source === 'party_history'
+                                            ? text(
+                                                'آخر سعر لهذه الجهة',
+                                                'the last price for this Party',
+                                            )
+                                            : text(
+                                                'سعر الكتالوج',
+                                                'the catalog price',
+                                            );
 
                                 lineWarnings.push(
                                     text(
@@ -1407,6 +1412,81 @@ export function DocumentForm({
                 ar,
             ],
         );
+
+    const creditWarnings =
+        useMemo(
+            () => {
+                if (
+                    ! sales
+                    || ! partyId
+                ) {
+                    return [] as string[];
+                }
+
+                const party =
+                    lookups.parties.find(
+                        item =>
+                            String(item.id)
+                            === partyId,
+                    );
+
+                const limit =
+                    Number(
+                        party?.credit_limit
+                        ?? 0,
+                    );
+                const used =
+                    Number(
+                        party?.credit_used
+                        ?? 0,
+                    );
+
+                if (
+                    ! party
+                    || limit <= 0
+                ) {
+                    return [] as string[];
+                }
+
+                const projected =
+                    used
+                    + calculated.total;
+
+                if (
+                    projected
+                    <= limit
+                ) {
+                    return [] as string[];
+                }
+
+                return [
+                    text(
+                        'هذه الفاتورة سترفع رصيد العميل الائتماني المتوقع إلى '
+                        + projected.toFixed(2)
+                        + ' بينما الحد المسجل هو '
+                        + limit.toFixed(2)
+                        + '. راجع الائتمان قبل الإصدار.',
+                        'This invoice would raise the customer’s projected credit exposure to '
+                        + projected.toFixed(2)
+                        + ' while the recorded limit is '
+                        + limit.toFixed(2)
+                        + '. Review credit before issuing.',
+                    ),
+                ];
+            },
+            [
+                sales,
+                partyId,
+                lookups.parties,
+                calculated.total,
+                ar,
+            ],
+        );
+
+    const reviewWarnings = [
+        ...warnings,
+        ...creditWarnings,
+    ];
 
     function payload() {
         return {
@@ -1603,7 +1683,7 @@ export function DocumentForm({
 
         if (
             issue
-            && warnings.length
+            && reviewWarnings.length
             && ! acknowledgeWarnings
         ) {
             setError(
@@ -3305,7 +3385,7 @@ export function DocumentForm({
                         </div>
                     </FPanel>
 
-                    {warnings.length > 0 && (
+                    {reviewWarnings.length > 0 && (
                         <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-4">
                             <div className="flex items-start gap-3">
                                 <AlertTriangle
@@ -3324,7 +3404,7 @@ export function DocumentForm({
                                     </h3>
 
                                     <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-800">
-                                        {warnings.map(
+                                        {reviewWarnings.map(
                                             (
                                                 warning,
                                                 index,
@@ -3360,8 +3440,8 @@ export function DocumentForm({
                                         />
 
                                         {text(
-                                            'راجعت الأسعار غير المعتادة وأؤكد أنها صحيحة.',
-                                            'I reviewed the unusual prices and confirm they are correct.',
+                                            'راجعت الأسعار والتنبيهات الائتمانية وأؤكد أنها صحيحة.',
+                                            'I reviewed the pricing and credit warnings and confirm they are correct.',
                                         )}
                                     </label>
                                 </div>
