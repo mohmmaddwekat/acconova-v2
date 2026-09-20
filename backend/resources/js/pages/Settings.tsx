@@ -506,6 +506,55 @@ function SettingsWorkspace() {
         }
     }
 
+    async function changeProfilePreferences(
+        patch: Partial<ProfilePreferences>,
+    ): Promise<void> {
+        const next = {
+            ...profilePreferences,
+            ...patch,
+        };
+
+        setProfilePreferences(next);
+        applyProfilePreferences(next);
+        setError('');
+        setMessage('');
+
+        try {
+            const response = await apiRequest<{ settings: ProfilePreferences }>(
+                '/api/profile/preferences',
+                {
+                    method: 'PUT',
+                    body: JSON.stringify(next),
+                },
+            );
+
+            const saved = {
+                ...next,
+                ...response.settings,
+            };
+
+            setProfilePreferences(saved);
+            applyProfilePreferences(saved);
+
+            setMessage(
+                text(
+                    'تم تطبيق تفضيلات المظهر.',
+                    'Appearance preferences applied.',
+                ),
+            );
+        } catch (failure) {
+            setError(
+                errorText(
+                    failure,
+                    text(
+                        'تعذر حفظ تفضيلات المظهر.',
+                        'Could not save appearance preferences.',
+                    ),
+                ),
+            );
+        }
+    }
+
     async function saveChanges(): Promise<void> {
         if (!settings || saving) {
             return;
@@ -1615,7 +1664,7 @@ function SettingsWorkspace() {
                                             <button
                                                 key={value}
                                                 type="button"
-                                                onClick={() => setProfilePreferences(current => ({ ...current, theme: value }))}
+                                                onClick={() => void changeProfilePreferences({ theme: value })}
                                                 className={[
                                                     panel,
                                                     'p-4 text-start',
@@ -1637,7 +1686,7 @@ function SettingsWorkspace() {
                                                     <button
                                                         key={value}
                                                         type="button"
-                                                        onClick={() => setProfilePreferences(current => ({ ...current, density: value }))}
+                                                        onClick={() => void changeProfilePreferences({ density: value })}
                                                         className={[
                                                             'rounded-[12px] border p-4 text-xs font-semibold',
                                                             profilePreferences.density === value ? 'border-[var(--acs-accent)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]' : 'border-[var(--acs-line)] text-[var(--acs-text-soft)]',
@@ -1649,10 +1698,10 @@ function SettingsWorkspace() {
                                             </div>
                                         </SettingsCard>
                                         <SettingsCard title={text('الحركة وحجم القوائم', 'Motion & list size')} description={text('تفضيلات عرض شخصية.', 'Personal display preferences.')} icon={Palette}>
-                                            <SettingRow label={text('تقليل الحركة', 'Reduce motion')} checked={profilePreferences.reduced_motion} onChange={() => setProfilePreferences(current => ({ ...current, reduced_motion: !current.reduced_motion }))} />
+                                            <SettingRow label={text('تقليل الحركة', 'Reduce motion')} checked={profilePreferences.reduced_motion} onChange={() => void changeProfilePreferences({ reduced_motion: !profilePreferences.reduced_motion })} />
                                             <label className="mt-3 block text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('عدد العناصر في الصفحة', 'Items per page')}
-                                                <select className={input} value={profilePreferences.page_size} onChange={event => setProfilePreferences(current => ({ ...current, page_size: Number(event.target.value) }))}>
+                                                <select className={input} value={profilePreferences.page_size} onChange={event => void changeProfilePreferences({ page_size: Number(event.target.value) })}>
                                                     <option value={10}>10</option>
                                                     <option value={25}>25</option>
                                                     <option value={50}>50</option>
