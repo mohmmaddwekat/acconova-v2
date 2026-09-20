@@ -538,7 +538,7 @@ export function RecurringPaymentsPanel() {
                     icon={Plus}
                 >
                     <details className="group">
-                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 text-sm font-semibold text-[#123d78] [&::-webkit-details-marker]:hidden">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 text-sm font-semibold text-[var(--ac-text)] [&::-webkit-details-marker]:hidden">
                             <span>
                                 {text(
                                     'أنشئ التزاماً يتكرر تلقائياً',
@@ -548,19 +548,19 @@ export function RecurringPaymentsPanel() {
 
                             <ChevronDown
                                 size={17}
-                                className="text-[#7890b1] transition group-open:rotate-180"
+                                className="text-[var(--ac-text-muted)] transition group-open:rotate-180"
                             />
                         </summary>
 
                         <form
                             onSubmit={create}
-                            className="border-t border-[#edf3fa] p-4"
+                            className="border-t border-[var(--ac-line)] p-4"
                         >
                             <fieldset
                                 disabled={busy}
                                 className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
                             >
-                                <label className="text-[11px] font-semibold text-[#58739a] md:col-span-2 xl:col-span-1">
+                                <label className="text-[11px] font-semibold text-[var(--ac-text-soft)] md:col-span-2 xl:col-span-1">
                                     {text(
                                         'اسم الالتزام *',
                                         'Name *',
@@ -658,7 +658,7 @@ export function RecurringPaymentsPanel() {
                                     ]}
                                 />
 
-                                <label className="text-[11px] font-semibold text-[#58739a]">
+                                <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                     {text(
                                         'المبلغ *',
                                         'Amount *',
@@ -675,7 +675,7 @@ export function RecurringPaymentsPanel() {
                                     />
                                 </label>
 
-                                <label className="text-[11px] font-semibold text-[#58739a]">
+                                <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                     {text(
                                         'كل كم فترة *',
                                         'Every *',
@@ -695,7 +695,7 @@ export function RecurringPaymentsPanel() {
                                     />
                                 </label>
 
-                                <label className="text-[11px] font-semibold text-[#58739a]">
+                                <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                     {text(
                                         'أول استحقاق *',
                                         'First due date *',
@@ -709,19 +709,19 @@ export function RecurringPaymentsPanel() {
                                     />
                                 </label>
 
-                                <div className="text-[11px] font-semibold text-[#58739a]">
+                                <div className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                     {text(
                                         'العملة',
                                         'Currency',
                                     )}
-                                    <div className={financeInput + ' mt-2 bg-[var(--ac-surface-soft)] font-bold text-[#123d78]'}>
+                                    <div className={financeInput + ' mt-2 bg-[var(--ac-surface-soft)] font-bold text-[var(--ac-text)]'}>
                                         {defaults?.currency
                                             ?? workspace.activeOrganization?.currency
                                             ?? 'ILS'}
                                     </div>
                                 </div>
 
-                                <label className="text-[11px] font-semibold text-[#58739a]">
+                                <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                     {text(
                                         'التذكير قبل (أيام) *',
                                         'Reminder days *',
@@ -740,7 +740,7 @@ export function RecurringPaymentsPanel() {
                                     />
                                 </label>
 
-                                <label className="text-[11px] font-semibold text-[#58739a] md:col-span-2 xl:col-span-1">
+                                <label className="text-[11px] font-semibold text-[var(--ac-text-soft)] md:col-span-2 xl:col-span-1">
                                     {text(
                                         'الطرف (اختياري)',
                                         'Party (optional)',
@@ -780,9 +780,9 @@ export function RecurringPaymentsPanel() {
             {selected && (
                 <section
                     ref={recordSection}
-                    className="rounded-[18px] border border-[#8dbcf8] bg-[var(--ac-surface)] p-5 shadow-[0_8px_28px_rgba(30,75,140,.055)]"
+                    className="rounded-[18px] border border-[var(--ac-line-strong)] bg-[var(--ac-surface)] p-5 shadow-[0_8px_28px_rgba(30,75,140,.055)]"
                 >
-                    <h3 className="text-sm font-bold text-[#123d78]">
+                    <h3 className="text-sm font-bold text-[var(--ac-text)]">
                         {text(
                             'تسجيل حركة',
                             'Record movement',
@@ -799,7 +799,7 @@ export function RecurringPaymentsPanel() {
                             disabled={busy}
                             className="grid gap-4 md:grid-cols-2"
                         >
-                            <label className="text-[11px] font-semibold text-[#58739a]">
+                            <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'المبلغ الفعلي *',
                                     'Actual amount *',
@@ -819,7 +819,7 @@ export function RecurringPaymentsPanel() {
                                 />
                             </label>
 
-                            <label className="text-[11px] font-semibold text-[#58739a]">
+                            <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'تاريخ الحركة *',
                                     'Movement date *',
@@ -834,7 +834,7 @@ export function RecurringPaymentsPanel() {
                                 />
                             </label>
 
-                            <label className="text-[11px] font-semibold text-[#58739a]">
+                            <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                                 {text(
                                     'الطرف (اختياري)',
                                     'Party (optional)',
@@ -888,7 +888,7 @@ export function RecurringPaymentsPanel() {
                                 ]}
                             />
 
-                            <label className="text-[11px] font-semibold text-[#58739a] md:col-span-2">
+                            <label className="text-[11px] font-semibold text-[var(--ac-text-soft)] md:col-span-2">
                                 {text(
                                     'ملاحظات (اختياري)',
                                     'Notes (optional)',
@@ -993,8 +993,8 @@ export function RecurringPaymentsPanel() {
                                     className={[
                                         'rounded-[9px] px-3 py-2 text-[10px] font-semibold transition',
                                         tab === value
-                                            ? 'bg-[#123d78] text-white'
-                                            : 'text-[#58739a] hover:bg-blue-50',
+                                            ? 'bg-[var(--ac-accent-solid)] text-white'
+                                            : 'text-[var(--ac-text-soft)] hover:bg-blue-50',
                                     ].join(' ')}
                                 >
                                     {label}
@@ -1005,7 +1005,7 @@ export function RecurringPaymentsPanel() {
                 }
             >
                 {tab !== 'history' && (
-                    <div className="flex flex-wrap gap-2 border-b border-[#edf3fa] p-4">
+                    <div className="flex flex-wrap gap-2 border-b border-[var(--ac-line)] p-4">
                         {(
                             [
                                 [
@@ -1045,8 +1045,8 @@ export function RecurringPaymentsPanel() {
                                     className={[
                                         'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-semibold transition',
                                         direction === value
-                                            ? 'border-[#8dbcf8] bg-blue-50 text-[#1265d8]'
-                                            : 'border-[#edf3fa] bg-[var(--ac-surface)] text-[#7890b1] hover:bg-[var(--ac-surface-soft)]',
+                                            ? 'border-[var(--ac-line-strong)] bg-blue-50 text-[var(--ac-accent)]'
+                                            : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)]',
                                     ].join(' ')}
                                 >
                                     <Icon size={13} />
@@ -1058,7 +1058,7 @@ export function RecurringPaymentsPanel() {
                 )}
 
                 {loading ? (
-                    <div className="p-12 text-center text-sm text-slate-400">
+                    <div className="p-12 text-center text-sm text-[var(--ac-text-muted)]">
                         {text(
                             'جارٍ تحميل المدفوعات المتكررة...',
                             'Loading recurring payments...',
@@ -1097,10 +1097,10 @@ export function RecurringPaymentsPanel() {
                                     className="grid gap-3 p-4 text-xs md:grid-cols-[1.4fr_1fr_1fr_1fr]"
                                 >
                                     <div>
-                                        <strong className="text-[#123d78]">
+                                        <strong className="text-[var(--ac-text)]">
                                             {record.title}
                                         </strong>
-                                        <p className="mt-1 text-[10px] text-slate-400">
+                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
                                             {record.counterparty
                                                 ?? '—'}
                                         </p>
@@ -1114,7 +1114,7 @@ export function RecurringPaymentsPanel() {
                                         {record.method}
                                     </span>
 
-                                    <strong className="text-[#123d78]">
+                                    <strong className="text-[var(--ac-text)]">
                                         <Money
                                             value={record.amount}
                                             currency={record.currency}
@@ -1132,14 +1132,14 @@ export function RecurringPaymentsPanel() {
                         {plans.map(plan => (
                             <article
                                 key={plan.id}
-                                className="rounded-[16px] border border-[#e4edf8] bg-[var(--ac-surface)] p-4 transition hover:border-[#b8d3f5] hover:shadow-[0_8px_24px_rgba(18,101,216,.06)]"
+                                className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 transition hover:border-[var(--ac-line-strong)] hover:shadow-[0_8px_24px_rgba(18,101,216,.06)]"
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <h3 className="font-bold text-[#123d78]">
+                                        <h3 className="font-bold text-[var(--ac-text)]">
                                             {plan.title}
                                         </h3>
-                                        <p className="mt-1 text-[10px] text-slate-400">
+                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
                                             {plan.counterparty
                                                 ?? text(
                                                     'بدون طرف محدد',
@@ -1170,13 +1170,13 @@ export function RecurringPaymentsPanel() {
 
                                 <div className="mt-4 flex items-end justify-between gap-4">
                                     <div>
-                                        <p className="text-[10px] text-slate-400">
+                                        <p className="text-[10px] text-[var(--ac-text-muted)]">
                                             {text(
                                                 'المبلغ',
                                                 'Amount',
                                             )}
                                         </p>
-                                        <strong className="mt-1 block text-xl text-[#102c62]">
+                                        <strong className="mt-1 block text-xl text-[var(--ac-text)]">
                                             <Money
                                                 value={plan.amount}
                                                 currency={plan.currency}
@@ -1185,13 +1185,13 @@ export function RecurringPaymentsPanel() {
                                     </div>
 
                                     <div className="text-end">
-                                        <p className="text-[10px] text-slate-400">
+                                        <p className="text-[10px] text-[var(--ac-text-muted)]">
                                             {text(
                                                 'الاستحقاق القادم',
                                                 'Next due',
                                             )}
                                         </p>
-                                        <strong className="mt-1 block text-xs text-[#123d78]">
+                                        <strong className="mt-1 block text-xs text-[var(--ac-text)]">
                                             {plan.next_due_on}
                                         </strong>
                                     </div>
@@ -1211,7 +1211,7 @@ export function RecurringPaymentsPanel() {
                                     </div>
                                 )}
 
-                                <div className="mt-4 flex flex-wrap gap-2 border-t border-[#edf3fa] pt-3">
+                                <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--ac-line)] pt-3">
                                     {canRecord && plan.active && (
                                         <button
                                             type="button"
@@ -1272,7 +1272,7 @@ export function RecurringPaymentsPanel() {
                 {!loading
                     && !loadError
                     && lastPage > 1 && (
-                    <div className="flex items-center justify-between border-t border-[#edf3fa] p-4 text-xs text-slate-500">
+                    <div className="flex items-center justify-between border-t border-[var(--ac-line)] p-4 text-xs text-[var(--ac-text-muted)]">
                         <button
                             type="button"
                             className={financeButton}
@@ -1326,13 +1326,13 @@ function EmptyState({
 }) {
     return (
         <div className="p-14 text-center">
-            <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-blue-50 text-[#1265d8]">
+            <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-blue-50 text-[var(--ac-accent)]">
                 {history
                     ? <ReceiptText size={22} />
                     : <CalendarClock size={22} />}
             </span>
 
-            <h3 className="mt-4 text-sm font-bold text-[#123d78]">
+            <h3 className="mt-4 text-sm font-bold text-[var(--ac-text)]">
                 {ar
                     ? (
                         history
@@ -1346,7 +1346,7 @@ function EmptyState({
                     )}
             </h3>
 
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-[var(--ac-text-muted)]">
                 {ar
                     ? (
                         history
@@ -1383,7 +1383,7 @@ function ChoiceField({
 }) {
     return (
         <fieldset className="min-w-0">
-            <legend className="text-[11px] font-semibold text-[#58739a]">
+            <legend className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
                 {label}
             </legend>
 
@@ -1409,7 +1409,7 @@ function ChoiceField({
                             className="peer sr-only"
                         />
 
-                        <span className="block rounded-[10px] border border-[#dbe6f5] bg-[var(--ac-surface)] px-3.5 py-2.5 text-[10px] font-semibold text-[#58739a] transition peer-checked:border-[#8dbcf8] peer-checked:bg-blue-50 peer-checked:text-[#1265d8]">
+                        <span className="block rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3.5 py-2.5 text-[10px] font-semibold text-[var(--ac-text-soft)] transition peer-checked:border-[var(--ac-line-strong)] peer-checked:bg-blue-50 peer-checked:text-[var(--ac-accent)]">
                             {option.label}
                         </span>
                     </label>
