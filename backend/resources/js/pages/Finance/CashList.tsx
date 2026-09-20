@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { FinanceNav } from './FinanceNav';
+import { RecurringPaymentsPanel } from '../Payments';
 import {
     FinanceHeader,
     FPanel,
@@ -72,6 +73,7 @@ export function CashList({
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [paymentView, setPaymentView] = useState<'transactions' | 'recurring'>('transactions');
 
     useEffect(() => {
         const controller = new AbortController();
@@ -285,26 +287,45 @@ export function CashList({
             />
 
             {! incoming && lookups.permissions.recurring_payments_view && (
-                <div className="flex flex-wrap gap-2 rounded-[14px] border border-[#dbe6f5] bg-white p-2">
-                    <Link
-                        href="/app/payments"
-                        aria-current="page"
-                        className="inline-flex min-h-9 items-center gap-2 rounded-[10px] bg-[#123d78] px-3.5 py-2 text-xs font-semibold text-white"
-                    >
-                        <WalletCards size={14} />
-                        {text('الحركات', 'Transactions')}
-                    </Link>
+                <div className="rounded-[16px] border border-[#dbe6f5] bg-white p-2 shadow-[0_8px_28px_rgba(30,75,140,.04)]">
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            aria-pressed={paymentView === 'transactions'}
+                            onClick={() => setPaymentView('transactions')}
+                            className={[
+                                'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
+                                paymentView === 'transactions'
+                                    ? 'bg-[#123d78] text-white shadow-[0_5px_14px_rgba(18,101,216,.14)]'
+                                    : 'text-[#52709a] hover:bg-blue-50 hover:text-[#1958a6]',
+                            ].join(' ')}
+                        >
+                            <WalletCards size={14} />
+                            {text('الحركات', 'Transactions')}
+                        </button>
 
-                    <Link
-                        href="/app/payments/recurring"
-                        className="inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold text-[#52709a] transition hover:bg-blue-50 hover:text-[#1958a6]"
-                    >
-                        <CalendarClock size={14} />
-                        {text('المدفوعات المتكررة', 'Recurring payments')}
-                    </Link>
+                        <button
+                            type="button"
+                            aria-pressed={paymentView === 'recurring'}
+                            onClick={() => setPaymentView('recurring')}
+                            className={[
+                                'inline-flex min-h-9 items-center gap-2 rounded-[10px] px-3.5 py-2 text-xs font-semibold transition',
+                                paymentView === 'recurring'
+                                    ? 'bg-[#123d78] text-white shadow-[0_5px_14px_rgba(18,101,216,.14)]'
+                                    : 'text-[#52709a] hover:bg-blue-50 hover:text-[#1958a6]',
+                            ].join(' ')}
+                        >
+                            <CalendarClock size={14} />
+                            {text('المدفوعات المتكررة', 'Recurring payments')}
+                        </button>
+                    </div>
                 </div>
             )}
 
+            {! incoming && paymentView === 'recurring' ? (
+                <RecurringPaymentsPanel />
+            ) : (
+            <>
             <FPanel title={text('عوامل التصفية والبحث', 'Filters & search')} icon={Search}>
                 <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
                     <label className="relative xl:col-span-2">
@@ -467,6 +488,8 @@ export function CashList({
                     </>
                 )}
             </FPanel>
+            </>
+            )}
         </div>
     );
 }
