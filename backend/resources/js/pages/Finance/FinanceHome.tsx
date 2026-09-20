@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
 import {
     Banknote,
-    CalendarClock,
     HandCoins,
     Landmark,
     ReceiptText,
@@ -124,27 +123,7 @@ export function FinanceHome({
                 icon:
                     Landmark,
             }
-            : null,
-
-        lookups.permissions.recurring_payments_view
-            ? {
-                href:
-                    '/app/payments/recurring',
-                title:
-                    text(
-                        'الدفعات المتكررة',
-                        'Recurring payments',
-                    ),
-                description:
-                    text(
-                        'تذكيرات وجدولة الدفعات المتكررة القديمة الموجودة بالنظام.',
-                        'Existing recurring payment plans and reminders.',
-                    ),
-                icon:
-                    CalendarClock,
-            }
-            : null,
-    ].filter(
+            : null,    ].filter(
         (
             item,
         ): item is NonNullable<typeof item> =>
