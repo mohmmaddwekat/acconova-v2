@@ -8,25 +8,25 @@
 
 .profile-center[data-theme='dark'] {
     color-scheme: dark;
-    --ac-text: #e5edf9;
-    --ac-text-muted: #a1b3cd;
-    --ac-surface-soft: #1b293e;
-    --ac-line: #30425b;
-    --profile-surface: #142237;
-    --profile-tint: #203747;
-    --profile-accent: #5eead4;
+    --ac-text: #e6effd;
+    --ac-text-muted: #e6effd;
+    --ac-surface-soft: #0e1623;
+    --ac-line: #1b2a40;
+    --profile-surface: #0e1623;
+    --profile-tint: #0e1623;
+    --profile-accent: #6aa6ff;
 }
 
 @media (prefers-color-scheme: dark) {
     .profile-center[data-theme='system'] {
         color-scheme: dark;
-        --ac-text: #e5edf9;
-        --ac-text-muted: #a1b3cd;
-        --ac-surface-soft: #1b293e;
-        --ac-line: #30425b;
-        --profile-surface: #142237;
-        --profile-tint: #203747;
-        --profile-accent: #5eead4;
+        --ac-text: #e6effd;
+        --ac-text-muted: #e6effd;
+        --ac-surface-soft: #0e1623;
+        --ac-line: #1b2a40;
+        --profile-surface: #0e1623;
+        --profile-tint: #0e1623;
+        --profile-accent: #6aa6ff;
     }
 }
 
@@ -47,6 +47,6 @@
 }
 
 .profile-center :is(button, a):focus-visible {
-    outline: 2px solid #0d9488;
+    outline: 2px solid #6aa6ff;
     outline-offset: 3px;
 }
