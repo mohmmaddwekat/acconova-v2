@@ -87,7 +87,6 @@ export function CashForm({
     const [checkNumber, setCheckNumber] = useState(initial?.check_number ?? '');
     const [checkBank, setCheckBank] = useState(initial?.check_bank ?? '');
     const [checkDueDate, setCheckDueDate] = useState(initial?.check_due_date ?? '');
-    const [checkStatus, setCheckStatus] = useState(initial?.check_status ?? 'pending');
     const [allocations, setAllocations] = useState<AllocationDraft[]>(
         initial?.allocations.map((allocation) => ({
             financial_document_id: allocation.financial_document_id,
@@ -312,7 +311,7 @@ export function CashForm({
             check_number: method === 'check' ? checkNumber : null,
             check_bank: method === 'check' ? checkBank : null,
             check_due_date: method === 'check' ? checkDueDate : null,
-            check_status: method === 'check' ? checkStatus : null,
+            check_status: method === 'check' ? 'pending' : null,
             notes: notes || null,
             allocations: allocations
                 .filter((allocation) => Number(allocation.amount) > 0)
@@ -811,19 +810,23 @@ export function CashForm({
                                     />
                                 </label>
 
-                                <label className="text-xs font-semibold text-[#49698f]">
-                                    {text('حالة الشيك', 'Check status')}
-                                    <select
-                                        className={financeInput + ' mt-2'}
-                                        value={checkStatus}
-                                        onChange={(event) => setCheckStatus(event.target.value)}
-                                    >
-                                        <option value="pending">{text('قيد التحصيل', 'Pending')}</option>
-                                        <option value="cleared">{text('محصل', 'Cleared')}</option>
-                                        <option value="bounced">{text('مرتجع', 'Bounced')}</option>
-                                        <option value="cancelled">{text('ملغي', 'Cancelled')}</option>
-                                    </select>
-                                </label>
+                                <div className="rounded-[13px] border border-blue-100 bg-blue-50/70 p-3">
+                                    <p className="text-[10px] font-semibold text-[#6b82a5]">
+                                        {text('حالة الشيك', 'Check status')}
+                                    </p>
+
+                                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-bold text-[#1265d8]">
+                                        <span className="size-2 rounded-full bg-[#1265d8]" />
+                                        {text('قيد التحصيل تلقائياً', 'Pending automatically')}
+                                    </div>
+
+                                    <p className="mt-2 text-[10px] leading-5 text-[#6f86a8]">
+                                        {text(
+                                            'عند تسجيل الشيك لا تحتاج لاختيار حالته. بعد اعتماد الحركة غيّر الحالة من صفحة تفاصيل الشيك إلى محصل أو مرتجع أو ملغي.',
+                                            'You do not choose the check status while recording it. After posting, update it from the check details page to cleared, bounced or cancelled.',
+                                        )}
+                                    </p>
+                                </div>
                             </div>
                         </FPanel>
                     )}
