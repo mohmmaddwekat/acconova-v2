@@ -11,7 +11,6 @@ import {
     XCircle,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { FinanceNav } from './FinanceNav';
 import {
     FinanceHeader,
     FPanel,
@@ -277,12 +276,6 @@ export function CashList({
                     tone="red"
                 />
             </div>
-
-            <FinanceNav
-                lookups={lookups}
-                ar={ar}
-                active={incoming ? 'receipts' : 'payments'}
-            />
 
             <FPanel title={text('عوامل التصفية والبحث', 'Filters & search')} icon={Search}>
                 <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
