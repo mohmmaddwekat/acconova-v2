@@ -16,6 +16,7 @@ import {
 import {
     useEffect,
     useState,
+    type ReactNode,
 } from 'react';
 
 type FollowUpData = {
@@ -225,7 +226,7 @@ function QueueSection({
     title: string;
     icon: typeof AlertCircle;
     empty: string;
-    children: React.ReactNode;
+    children: ReactNode;
 }) {
     const items = Array.isArray(children)
         ? children
