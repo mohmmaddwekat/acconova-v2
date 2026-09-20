@@ -1301,7 +1301,7 @@ export default function ProductionIndex() {
                     )}
                 </div>
 
-                <div className="mb-5 grid gap-3 rounded-[24px] border border-[var(--ac-line)] bg-white p-3 shadow-[var(--ac-shadow-soft)] md:grid-cols-[1fr_220px]">
+                <div className="mb-5 grid gap-3 rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 shadow-[var(--ac-shadow-soft)] md:grid-cols-[1fr_220px]">
                     <label className="relative">
                         <Search
                             size={
@@ -1395,7 +1395,7 @@ export default function ProductionIndex() {
                     </div>
                 )}
 
-                <section className="overflow-hidden rounded-[26px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-soft)]">
+                <section className="overflow-hidden rounded-[26px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)]">
                     {loading ? (
                         <div className="flex min-h-64 items-center justify-center text-sm text-[var(--ac-text-muted)]">
                             {
@@ -1571,7 +1571,7 @@ export default function ProductionIndex() {
                                         ),
                                 )
                             }
-                            className="inline-flex h-10 items-center gap-1 rounded-xl border border-[var(--ac-line)] bg-white px-3 text-xs font-semibold disabled:opacity-40"
+                            className="inline-flex h-10 items-center gap-1 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold disabled:opacity-40"
                         >
                             <ChevronLeft
                                 size={
@@ -1609,7 +1609,7 @@ export default function ProductionIndex() {
                                         ),
                                 )
                             }
-                            className="inline-flex h-10 items-center gap-1 rounded-xl border border-[var(--ac-line)] bg-white px-3 text-xs font-semibold disabled:opacity-40"
+                            className="inline-flex h-10 items-center gap-1 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold disabled:opacity-40"
                         >
                             {
                                 copy.next
@@ -2572,7 +2572,7 @@ function ProductionEditor({
     return (
         <div className="fixed inset-0 z-[120] flex justify-end bg-[var(--ac-text)]/25 backdrop-blur-[2px]">
             <section className="flex h-dvh w-full max-w-[980px] flex-col bg-[var(--ac-bg)] shadow-[-30px_0_80px_rgba(20,35,30,0.16)]">
-                <header className="flex shrink-0 items-center justify-between border-b border-[var(--ac-line)] bg-white px-4 py-4 sm:px-6">
+                <header className="flex shrink-0 items-center justify-between border-b border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-4 sm:px-6">
                     <div>
                         <div className="flex items-center gap-2">
                             <Factory
@@ -2624,7 +2624,7 @@ function ProductionEditor({
                         </div>
                     )}
 
-                    <div className="mb-5 grid gap-4 rounded-[22px] border border-[var(--ac-line)] bg-white p-4 sm:grid-cols-2">
+                    <div className="mb-5 grid gap-4 rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 sm:grid-cols-2">
                         <label className="text-xs font-semibold">
                             {
                                 copy.date
@@ -2649,7 +2649,7 @@ function ProductionEditor({
 
                                     markDirty();
                                 }}
-                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-white px-3 text-sm outline-none"
+                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-sm outline-none"
                             />
                         </label>
 
@@ -2673,7 +2673,7 @@ function ProductionEditor({
 
                                     markDirty();
                                 }}
-                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-white px-3 text-sm outline-none"
+                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-sm outline-none"
                             />
                         </label>
                     </div>
@@ -2688,7 +2688,7 @@ function ProductionEditor({
                                     key={
                                         output.key
                                     }
-                                    className="rounded-[24px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] sm:p-5"
+                                    className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)] sm:p-5"
                                 >
                                     <div className="mb-4 flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-2">
@@ -2761,7 +2761,7 @@ function ProductionEditor({
                                                             .value,
                                                     );
                                                 }}
-                                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-white px-3 text-sm"
+                                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-sm"
                                             >
                                                 <option value="">
                                                     —
@@ -2819,7 +2819,7 @@ function ProductionEditor({
                                                         }),
                                                     )
                                                 }
-                                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-white px-3 text-sm"
+                                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-sm"
                                             />
                                         </label>
 
@@ -2849,7 +2849,7 @@ function ProductionEditor({
                                                         }),
                                                     )
                                                 }
-                                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-white px-3 text-sm"
+                                                className="mt-2 h-11 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-sm"
                                             >
                                                 <option value="">
                                                     —
@@ -2915,7 +2915,7 @@ function ProductionEditor({
                                                                 output.key,
                                                             )
                                                         }
-                                                        className="rounded-xl border border-[var(--ac-line)] bg-white px-3 py-2 text-xs font-semibold"
+                                                        className="rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-2 text-xs font-semibold"
                                                     >
                                                         {
                                                             copy.copySuggestions
@@ -2929,7 +2929,7 @@ function ProductionEditor({
                                                                 output.key,
                                                             )
                                                         }
-                                                        className="rounded-xl border border-[var(--ac-line)] bg-white px-3 py-2 text-xs font-semibold"
+                                                        className="rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-2 text-xs font-semibold"
                                                     >
                                                         {
                                                             copy.noRecipe
@@ -2947,7 +2947,7 @@ function ProductionEditor({
                                                             output,
                                                         )
                                                     }
-                                                    className="rounded-xl border border-[var(--ac-line)] bg-white px-3 py-2 text-xs font-semibold disabled:opacity-40"
+                                                    className="rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-2 text-xs font-semibold disabled:opacity-40"
                                                 >
                                                     {
                                                         copy.useActiveRecipe
@@ -3110,7 +3110,7 @@ function ProductionEditor({
                                                                             }),
                                                                         )
                                                                     }
-                                                                    className="mt-1 h-10 w-full rounded-xl border border-[var(--ac-line)] bg-white px-2 text-xs normal-case tracking-normal text-[var(--ac-text)]"
+                                                                    className="mt-1 h-10 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2 text-xs normal-case tracking-normal text-[var(--ac-text)]"
                                                                 >
                                                                     <option value="">
                                                                         —
@@ -3180,7 +3180,7 @@ function ProductionEditor({
                                                                             }),
                                                                         )
                                                                     }
-                                                                    className="mt-1 h-10 w-full rounded-xl border border-[var(--ac-line)] bg-white px-2 text-xs normal-case tracking-normal text-[var(--ac-text)]"
+                                                                    className="mt-1 h-10 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2 text-xs normal-case tracking-normal text-[var(--ac-text)]"
                                                                 >
                                                                     <option value="">
                                                                         —
@@ -3345,7 +3345,7 @@ function ProductionEditor({
                                 ],
                             );
                         }}
-                        className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-dashed border-[var(--ac-line)] bg-white px-4 py-3 text-sm font-semibold"
+                        className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-3 text-sm font-semibold"
                     >
                         <Plus
                             size={
@@ -3370,7 +3370,7 @@ function ProductionEditor({
                     )}
                 </div>
 
-                <footer className="shrink-0 border-t border-[var(--ac-line)] bg-white px-4 py-4 sm:px-6">
+                <footer className="shrink-0 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-4 sm:px-6">
                     {dirty &&
                         savedRun && (
                             <p className="mb-3 text-xs font-medium text-amber-700">
@@ -3401,7 +3401,7 @@ function ProductionEditor({
                             onClick={() =>
                                 void saveDraft()
                             }
-                            className="h-11 rounded-xl border border-[var(--ac-line)] bg-white px-4 text-sm font-semibold disabled:opacity-50"
+                            className="h-11 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm font-semibold disabled:opacity-50"
                         >
                             {busy
                                 ? copy.saving
@@ -3448,7 +3448,7 @@ function PreviewPanel({
     copy: Copy;
 }) {
     return (
-        <section className="mt-6 rounded-[24px] border border-[var(--ac-line)] bg-white p-4 sm:p-5">
+        <section className="mt-6 rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 sm:p-5">
             <div className="flex items-center justify-between gap-3">
                 <div>
                     <h3 className="font-semibold">
@@ -3913,7 +3913,7 @@ function ProductionDetail({
     return (
         <div className="fixed inset-0 z-[115] flex justify-end bg-[var(--ac-text)]/25 backdrop-blur-[2px]">
             <section className="flex h-dvh w-full max-w-[760px] flex-col bg-[var(--ac-bg)] shadow-[-30px_0_80px_rgba(20,35,30,0.16)]">
-                <header className="flex items-center justify-between border-b border-[var(--ac-line)] bg-white px-5 py-4">
+                <header className="flex items-center justify-between border-b border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 py-4">
                     <div>
                         <div className="flex items-center gap-3">
                             <h2 className="font-semibold">
@@ -3964,7 +3964,7 @@ function ProductionDetail({
                     )}
 
                     {current.note && (
-                        <div className="mb-4 rounded-2xl bg-white p-4 text-sm text-[var(--ac-text-soft)]">
+                        <div className="mb-4 rounded-2xl bg-[var(--ac-surface)] p-4 text-sm text-[var(--ac-text-soft)]">
                             {
                                 current.note
                             }
@@ -3980,7 +3980,7 @@ function ProductionDetail({
                                     key={
                                         output.id
                                     }
-                                    className="rounded-[22px] border border-[var(--ac-line)] bg-white p-4"
+                                    className="rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4"
                                 >
                                     <div className="flex flex-wrap items-start justify-between gap-3">
                                         <div>
@@ -4139,7 +4139,7 @@ function ProductionDetail({
                                         rows={
                                             3
                                         }
-                                        className="mt-2 w-full resize-none rounded-xl border border-orange-200 bg-white p-3 text-sm text-[var(--ac-text)] outline-none"
+                                        className="mt-2 w-full resize-none rounded-xl border border-orange-200 bg-[var(--ac-surface)] p-3 text-sm text-[var(--ac-text)] outline-none"
                                     />
                                 </label>
 
@@ -4171,7 +4171,7 @@ function ProductionDetail({
                         )}
                 </div>
 
-                <footer className="flex justify-end gap-2 border-t border-[var(--ac-line)] bg-white p-4">
+                <footer className="flex justify-end gap-2 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
                     {canManage &&
                         current.status ===
                             'draft' && (
