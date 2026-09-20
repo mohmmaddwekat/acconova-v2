@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { RecordQuickActions } from '@/components/data/RecordQuickActions';
+import { RecordTagsPanel } from '@/components/data/RecordTagsPanel';
 import {
     Activity,
     Check,
@@ -478,6 +479,14 @@ export function TaskDrawer({
                                 </span>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="mb-4">
+                        <RecordTagsPanel
+                            type="task"
+                            recordId={task.id}
+                            ar={ar}
+                        />
                     </div>
 
                     <div className="mb-5 grid grid-cols-2 gap-3 rounded-xl border border-slate-100 p-4 sm:grid-cols-4">
