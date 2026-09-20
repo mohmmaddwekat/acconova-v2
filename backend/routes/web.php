@@ -9,6 +9,7 @@ use App\Http\Controllers\FinanceLookupController;
 use App\Http\Controllers\PaymentPlanController;
 use App\Http\Controllers\ProfileCenterController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RecordCollaborationController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StaffCorrectionController;
 use App\Http\Controllers\StaffImportController;
@@ -604,6 +605,68 @@ Route::prefix(
         )->whereNumber(
             'staff',
         );
+
+        Route::get(
+            'records/{type}/{record}/collaboration',
+            [RecordCollaborationController::class, 'index'],
+        )->whereNumber('record');
+
+        Route::post(
+            'records/{type}/{record}/tags',
+            [RecordCollaborationController::class, 'addTag'],
+        )->whereNumber('record');
+
+        Route::delete(
+            'records/{type}/{record}/tags/{tag}',
+            [RecordCollaborationController::class, 'removeTag'],
+        )->whereNumber(['record', 'tag']);
+
+        Route::post(
+            'records/{type}/{record}/comments',
+            [RecordCollaborationController::class, 'comment'],
+        )->whereNumber('record');
+
+        Route::post(
+            'records/{type}/{record}/attachments',
+            [RecordCollaborationController::class, 'upload'],
+        )->whereNumber('record');
+
+        Route::get(
+            'records/{type}/{record}/attachments/{attachment}/preview',
+            [RecordCollaborationController::class, 'preview'],
+        )
+            ->whereNumber(['record', 'attachment'])
+            ->name('record-collaboration.attachment.preview');
+
+        Route::delete(
+            'records/{type}/{record}/attachments/{attachment}',
+            [RecordCollaborationController::class, 'deleteAttachment'],
+        )->whereNumber(['record', 'attachment']);
+
+        Route::post(
+            'records/{type}/{record}/reminders',
+            [RecordCollaborationController::class, 'reminder'],
+        )->whereNumber('record');
+
+        Route::patch(
+            'records/{type}/{record}/reminders/{reminder}/complete',
+            [RecordCollaborationController::class, 'completeReminder'],
+        )->whereNumber(['record', 'reminder']);
+
+        Route::get(
+            'records/party/{record}/relationship-options',
+            [RecordCollaborationController::class, 'relationshipOptions'],
+        )->whereNumber('record');
+
+        Route::post(
+            'records/party/{record}/relationships',
+            [RecordCollaborationController::class, 'addRelationship'],
+        )->whereNumber('record');
+
+        Route::delete(
+            'records/party/{record}/relationships/{relationship}',
+            [RecordCollaborationController::class, 'deleteRelationship'],
+        )->whereNumber(['record', 'relationship']);
 
         Route::get('finance/lookups', FinanceLookupController::class);
         Route::get('finance/reference-price', [FinanceLookupController::class, 'referencePrice']);
