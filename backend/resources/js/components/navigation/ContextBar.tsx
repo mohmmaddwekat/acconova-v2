@@ -123,23 +123,25 @@ export function ContextBar({
     };
 
     const pageLabel =
-        pageLabels[
-            pathname
-        ]?.[
-            locale ===
-                'ar'
-                ? 0
-                : 1
-        ]
-        ?? (
-            typeof document !==
-                'undefined'
-                ? document.title
-                    .replace(
-                        /\s*[|·-]\s*AccoNova.*$/i,
-                        '',
-                    )
-                : pathname
+        (
+            pageLabels[
+                pathname
+            ]?.[
+                locale ===
+                    'ar'
+                    ? 0
+                    : 1
+            ]
+            ?? (
+                typeof document !==
+                    'undefined'
+                    ? document.title
+                        .replace(
+                            /\s*[|·-]\s*AccoNova.*$/i,
+                            '',
+                        )
+                    : pathname
+            )
         )
         || pathname;
 
