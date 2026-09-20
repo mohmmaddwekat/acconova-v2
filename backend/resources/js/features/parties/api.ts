@@ -33,6 +33,10 @@ export type PartyFilters = {
 
     contact?: PartyContactQuality;
 
+    city?: string;
+
+    country_code?: string;
+
     sort?: PartySort;
 
     page?: number;
@@ -177,6 +181,14 @@ export function buildPartyQuery(
             'contact',
             filters.contact,
         );
+    }
+
+    if (filters.city?.trim()) {
+        query.set('city', filters.city.trim());
+    }
+
+    if (filters.country_code?.trim()) {
+        query.set('country_code', filters.country_code.trim());
     }
 
     query.set(
