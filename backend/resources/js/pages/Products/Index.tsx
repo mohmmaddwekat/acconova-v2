@@ -1,6 +1,8 @@
 import { ProductDataActions } from '@/features/products/components/ProductDataActions';
 import { ProductImportDialog } from '@/features/products/components/ProductImportDialog';
 import { BulkActionBar } from '@/components/data/BulkActionBar';
+import { SavedViews } from '@/components/data/SavedViews';
+import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
