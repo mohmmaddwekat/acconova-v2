@@ -5,6 +5,12 @@ import {
     ActivityTimeline,
 } from '@/components/data/ActivityTimeline';
 import {
+    RecordHealth,
+} from '@/components/data/RecordHealth';
+import {
+    RecordQuickActions,
+} from '@/components/data/RecordQuickActions';
+import {
     useDialog,
 } from '@/components/feedback/useDialog';
 import {
@@ -409,6 +415,19 @@ export function PartyDetailDrawer({
                             </div>
                         </div>
 
+                        <div className="flex shrink-0 items-center gap-2">
+                            <RecordQuickActions
+                                recordKey={'party-' + String(resolvedParty.id)}
+                                kind="party"
+                                label={label}
+                                detail={[
+                                    resolvedParty.email,
+                                    resolvedParty.phone,
+                                ].filter(Boolean).join(' · ')}
+                                href={'/app/parties?focus=' + String(resolvedParty.id)}
+                                ar={locale === 'ar'}
+                            />
+
                         <button
                             type="button"
                             aria-label={t(
@@ -425,6 +444,7 @@ export function PartyDetailDrawer({
                                 }
                             />
                         </button>
+                        </div>
                     </div>
                 </header>
 
