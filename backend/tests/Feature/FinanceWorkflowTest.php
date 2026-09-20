@@ -3,8 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\OrganizationRole;
-use App\Models\CashMovement;
-use App\Models\FinancialDocument;
 use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
