@@ -737,67 +737,67 @@ aside[role='dialog']
  */
 html[data-ac-resolved-theme='dark'] {
     /*
-     * Approved dark palette
-     * 1  #0E1623 — every application/page surface
-     * 2  #6AA6FF — buttons, accents and button text
-     * 3  #1B2A40 — hover / interactive emphasis
-     * 4  #E6EFFD — normal interface text
-     * chrome #162235 — global navbar and header only
+     * Unified AccoNova dark theme.
+     * Pages stay dark everywhere, while cards/controls get just enough
+     * elevation to keep the interface readable instead of becoming one flat
+     * black sheet.
      */
     --ac-bg: #0e1623;
-    --ac-bg-soft: #0e1623;
-    --ac-surface: #0e1623;
-    --ac-surface-soft: #0e1623;
-    --ac-surface-strong: #0e1623;
+    --ac-bg-soft: #111b2a;
+    --ac-surface: #131f30;
+    --ac-surface-soft: #17253a;
+    --ac-surface-strong: #1b2a40;
 
-    --ac-line: #1b2a40;
-    --ac-line-strong: #6aa6ff;
+    --ac-line: #26384f;
+    --ac-line-strong: #3a5576;
 
     --ac-text: #e6effd;
-    --ac-text-soft: #e6effd;
-    --ac-text-muted: #e6effd;
-    --ac-text-faint: #e6effd;
+    --ac-text-soft: #b9c8dc;
+    --ac-text-muted: #8fa1bb;
+    --ac-text-faint: #6d8099;
 
-    --ac-inverse-bg: #0e1623;
-    --ac-inverse-text: #6aa6ff;
-    --ac-accent-solid: transparent;
-    --ac-accent-solid-text: #6aa6ff;
+    --ac-inverse-bg: #e6effd;
+    --ac-inverse-text: #0e1623;
+    --ac-accent-solid: #4d92f2;
+    --ac-accent-solid-text: #08111e;
 
     --ac-accent: #6aa6ff;
-    --ac-accent-hover: #1b2a40;
-    --ac-accent-soft: #1b2a40;
-    --ac-accent-strong: #6aa6ff;
+    --ac-accent-hover: #80b4ff;
+    --ac-accent-soft: rgba(106, 166, 255, 0.14);
+    --ac-accent-strong: #4d92f2;
 
     --ac-chrome: #162235;
 
     --ac-success: #43c99a;
-    --ac-warning: #d9a34f;
-    --ac-danger: #df6b70;
+    --ac-warning: #e0ad55;
+    --ac-danger: #f07d84;
     --ac-info: #6aa6ff;
 
-    --ac-shadow-soft: none;
-    --ac-shadow-panel: none;
+    --ac-shadow-soft:
+        0 1px 2px rgba(0, 0, 0, 0.20),
+        0 12px 30px rgba(0, 0, 0, 0.16);
+    --ac-shadow-panel:
+        0 1px 2px rgba(0, 0, 0, 0.24),
+        0 20px 52px rgba(0, 0, 0, 0.20);
 
-    /*
-     * Settings uses the same dark palette instead of a separate dark skin.
-     */
+    /* Settings follows the same global dark hierarchy. */
     --acs-bg: #0e1623;
-    --acs-surface: #0e1623;
-    --acs-surface-soft: #0e1623;
-    --acs-surface-strong: #0e1623;
-    --acs-line: #1b2a40;
-    --acs-line-soft: #1b2a40;
-    --acs-line-strong: #6aa6ff;
+    --acs-surface: #131f30;
+    --acs-surface-soft: #17253a;
+    --acs-surface-strong: #1b2a40;
+    --acs-line: #26384f;
+    --acs-line-soft: #22334a;
+    --acs-line-strong: #3a5576;
     --acs-text: #e6effd;
-    --acs-text-strong: #e6effd;
-    --acs-text-soft: #e6effd;
-    --acs-text-muted: #e6effd;
+    --acs-text-strong: #f3f7ff;
+    --acs-text-soft: #b9c8dc;
+    --acs-text-muted: #8fa1bb;
     --acs-accent: #6aa6ff;
-    --acs-accent-hover: #1b2a40;
-    --acs-accent-soft: #1b2a40;
-    --acs-control: #0e1623;
+    --acs-accent-hover: #80b4ff;
+    --acs-accent-soft: rgba(106, 166, 255, 0.14);
+    --acs-control: #111c2c;
     --acs-control-hover: #1b2a40;
-    --acs-toggle-off: #1b2a40;
+    --acs-toggle-off: #40536d;
 
     color-scheme: dark;
 }
@@ -827,7 +827,7 @@ html[data-ac-resolved-theme='dark']
         .bg-white\/60,
         .bg-white\/50
     ) {
-    background-color: #0e1623 !important;
+    background-color: var(--ac-surface) !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -839,7 +839,7 @@ html[data-ac-resolved-theme='dark']
         .bg-zinc-50,
         .bg-zinc-100
     ) {
-    background-color: #0e1623 !important;
+    background-color: var(--ac-surface-soft) !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -954,7 +954,7 @@ html[data-ac-resolved-theme='dark']
         [class~="bg-[#f3f7fc]"],
         [class~="bg-[#eef5ff]"]
     ) {
-    background-color: #0e1623 !important;
+    background-color: var(--ac-surface-soft) !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -1035,36 +1035,33 @@ html[data-ac-resolved-theme='dark']
         [class~="bg-[#0e57bd]"],
         [class~="bg-[#0f58bf]"]
     ) {
-    background-color: #0e1623 !important;
-}
-
-/*
- * Approved dark pages are flat: remove arbitrary decorative gradients from
- * page content so every page/card surface resolves to #0E1623.
- */
-html[data-ac-resolved-theme='dark']
-    .ac-app-shell
-    :is(
-        main,
-        section,
-        article,
-        aside:not(.ac-app-nav),
-        dialog
-    )[class*="bg-[radial-gradient"],
-html[data-ac-resolved-theme='dark']
-    .ac-app-shell
-    :is(
-        main,
-        section,
-        article,
-        aside:not(.ac-app-nav),
-        dialog
-    )[class*="bg-[linear-gradient"] {
-    background-image: none !important;
-    background-color: #0e1623 !important;
+    background-color: var(--ac-accent-solid) !important;
 }
 
 /* Inputs/selects should inherit the active theme even when a browser paints native UI. */
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        input:not([type='checkbox']):not([type='radio']):not([type='color']),
+        select,
+        textarea
+    ) {
+    background-color: var(--ac-surface-soft);
+    border-color: var(--ac-line);
+    color: var(--ac-text);
+    color-scheme: dark;
+}
+
+html[data-ac-resolved-theme='dark']
+    .ac-app-shell
+    :is(
+        input:not([type='checkbox']):not([type='radio']):not([type='color']),
+        select,
+        textarea
+    ):focus {
+    border-color: var(--ac-line-strong);
+}
+
 html[data-ac-resolved-theme='dark']
     :is(input, select, textarea) {
     color-scheme: dark;
@@ -1081,21 +1078,24 @@ html[data-ac-resolved-theme='dark']
  * meaning remains in text/icon color.
  */
 html[data-ac-resolved-theme='dark']
-    :is(
-        .bg-blue-50,
-        .bg-blue-100,
-        .bg-emerald-50,
-        .bg-emerald-100,
-        .bg-amber-50,
-        .bg-amber-100,
-        .bg-red-50,
-        .bg-red-100,
-        .bg-violet-50,
-        .bg-violet-100,
-        .bg-purple-50,
-        .bg-purple-100
-    ) {
-    background-color: #0e1623 !important;
+    :is(.bg-blue-50, .bg-blue-100) {
+    background-color: color-mix(in srgb, #3b82f6 14%, var(--ac-surface)) !important;
+}
+html[data-ac-resolved-theme='dark']
+    :is(.bg-emerald-50, .bg-emerald-100) {
+    background-color: color-mix(in srgb, #10b981 13%, var(--ac-surface)) !important;
+}
+html[data-ac-resolved-theme='dark']
+    :is(.bg-amber-50, .bg-amber-100) {
+    background-color: color-mix(in srgb, #f59e0b 13%, var(--ac-surface)) !important;
+}
+html[data-ac-resolved-theme='dark']
+    :is(.bg-red-50, .bg-red-100) {
+    background-color: color-mix(in srgb, #ef4444 13%, var(--ac-surface)) !important;
+}
+html[data-ac-resolved-theme='dark']
+    :is(.bg-violet-50, .bg-violet-100, .bg-purple-50, .bg-purple-100) {
+    background-color: color-mix(in srgb, #8b5cf6 13%, var(--ac-surface)) !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -1140,9 +1140,9 @@ html[data-ac-resolved-theme='dark']
 /* Selected/hovered index rows were intentionally white in the light theme. */
 html[data-ac-resolved-theme='dark']
     .ac-index-row[data-selected='true'] {
-    border-color: #6aa6ff !important;
-    background: #1b2a40 !important;
-    box-shadow: none !important;
+    border-color: var(--ac-line-strong) !important;
+    background: var(--ac-surface-strong) !important;
+    box-shadow: var(--ac-shadow-soft) !important;
 }
 
 html[data-ac-resolved-theme='dark']
@@ -1154,7 +1154,7 @@ html[data-ac-resolved-theme='dark']
 @media (hover: hover) and (pointer: fine) {
     html[data-ac-resolved-theme='dark']
         .ac-index-row:not([data-selected='true']):hover {
-        background-color: #1b2a40 !important;
+        background-color: var(--ac-surface-soft) !important;
     }
 }
 
@@ -1235,18 +1235,18 @@ html[data-ac-reduced-motion='true']
 
 html[data-ac-resolved-theme='dark'] .ac-settings-paper {
     --acs-bg: #0e1623;
-    --acs-surface: #0e1623;
-    --acs-surface-soft: #0e1623;
-    --acs-surface-strong: #0e1623;
-    --acs-line: #1b2a40;
-    --acs-line-soft: #1b2a40;
-    --acs-line-strong: #6aa6ff;
+    --acs-surface: #131f30;
+    --acs-surface-soft: #17253a;
+    --acs-surface-strong: #1b2a40;
+    --acs-line: #26384f;
+    --acs-line-soft: #22334a;
+    --acs-line-strong: #3a5576;
     --acs-text: #e6effd;
-    --acs-text-strong: #e6effd;
-    --acs-text-soft: #e6effd;
-    --acs-text-muted: #e6effd;
+    --acs-text-strong: #f3f7ff;
+    --acs-text-soft: #b9c8dc;
+    --acs-text-muted: #8fa1bb;
     --acs-accent: #6aa6ff;
-    --acs-accent-soft: #0e1623;
+    --acs-accent-soft: rgba(106, 166, 255, 0.14);
     color-scheme: dark;
 }
 
