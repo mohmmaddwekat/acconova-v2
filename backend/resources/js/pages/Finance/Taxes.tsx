@@ -338,7 +338,7 @@ export function Taxes({
                 >
                     <form onSubmit={(event) => void saveRule(event)}>
                         <fieldset disabled={busy} className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('اسم القاعدة', 'Rule name')}
                                 <input
                                     required
@@ -348,7 +348,7 @@ export function Taxes({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('رمز القاعدة', 'Rule code')}
                                 <input
                                     required
@@ -359,7 +359,7 @@ export function Taxes({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('نوع الضريبة', 'Tax type')}
                                 <select
                                     className={financeInput + ' mt-2'}
@@ -383,7 +383,7 @@ export function Taxes({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('النسبة %', 'Rate %')}
                                 <input
                                     required
@@ -397,7 +397,7 @@ export function Taxes({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('رمز الدولة ISO', 'Country ISO code')}
                                 <input
                                     required
@@ -412,7 +412,7 @@ export function Taxes({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('الولاية / المنطقة', 'State / region')}
                                 <input
                                     className={financeInput + ' mt-2'}
@@ -422,7 +422,7 @@ export function Taxes({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('تطبق على', 'Applies to')}
                                 <select
                                     className={financeInput + ' mt-2'}
@@ -438,7 +438,7 @@ export function Taxes({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('من تاريخ', 'Effective from')}
                                 <input
                                     type="date"
@@ -448,7 +448,7 @@ export function Taxes({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('إلى تاريخ', 'Effective to')}
                                 <input
                                     type="date"
@@ -458,7 +458,7 @@ export function Taxes({
                                 />
                             </label>
 
-                            <label className="flex items-center gap-2 rounded-[12px] border border-[#e2eaf5] p-3 text-xs font-semibold text-[#49698f]">
+                            <label className="flex items-center gap-2 rounded-[12px] border border-[var(--ac-line)] p-3 text-xs font-semibold text-[var(--ac-text-soft)]">
                                 <input
                                     type="checkbox"
                                     checked={ruleDraft.inclusive}
@@ -467,7 +467,7 @@ export function Taxes({
                                 {text('السعر شامل الضريبة', 'Tax inclusive')}
                             </label>
 
-                            <label className="flex items-center gap-2 rounded-[12px] border border-[#e2eaf5] p-3 text-xs font-semibold text-[#49698f]">
+                            <label className="flex items-center gap-2 rounded-[12px] border border-[var(--ac-line)] p-3 text-xs font-semibold text-[var(--ac-text-soft)]">
                                 <input
                                     type="checkbox"
                                     checked={ruleDraft.recoverable}
@@ -476,7 +476,7 @@ export function Taxes({
                                 {text('ضريبة مشتريات قابلة للاسترداد', 'Recoverable input tax')}
                             </label>
 
-                            <label className="flex items-center gap-2 rounded-[12px] border border-[#e2eaf5] p-3 text-xs font-semibold text-[#49698f]">
+                            <label className="flex items-center gap-2 rounded-[12px] border border-[var(--ac-line)] p-3 text-xs font-semibold text-[var(--ac-text-soft)]">
                                 <input
                                     type="checkbox"
                                     checked={ruleDraft.active}
@@ -485,7 +485,7 @@ export function Taxes({
                                 {text('القاعدة فعالة', 'Rule active')}
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f] md:col-span-2 xl:col-span-4">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)] md:col-span-2 xl:col-span-4">
                                 {text('ملاحظات', 'Notes')}
                                 <textarea
                                     className={financeInput + ' mt-2 min-h-24'}
@@ -519,17 +519,17 @@ export function Taxes({
                 <FPanel title={text('إضافة مستحق حكومي', 'Add government obligation')} icon={Landmark}>
                     <form onSubmit={(event) => void saveObligation(event)}>
                         <fieldset disabled={busy} className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('الجهة الحكومية', 'Authority')}
                                 <input required name="authority_name" className={financeInput + ' mt-2'} />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('اسم المستحق', 'Obligation title')}
                                 <input required name="title" className={financeInput + ' mt-2'} />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('النوع', 'Type')}
                                 <select name="obligation_type" className={financeInput + ' mt-2'} defaultValue="vat">
                                     {[
@@ -550,7 +550,7 @@ export function Taxes({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('قاعدة مرتبطة', 'Linked tax rule')}
                                 <select name="tax_rule_id" className={financeInput + ' mt-2'} defaultValue="">
                                     <option value="">{text('بدون قاعدة', 'No rule')}</option>
@@ -562,37 +562,37 @@ export function Taxes({
                                 </select>
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('الدولة', 'Country')}
                                 <input required maxLength={2} name="country_code" className={financeInput + ' mt-2'} />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('الولاية / المنطقة', 'State / region')}
                                 <input name="region_code" className={financeInput + ' mt-2'} />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('بداية الفترة', 'Period start')}
                                 <input type="date" name="period_start" className={financeInput + ' mt-2'} />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('نهاية الفترة', 'Period end')}
                                 <input type="date" name="period_end" className={financeInput + ' mt-2'} />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('تاريخ الاستحقاق', 'Due date')}
                                 <input required type="date" name="due_date" defaultValue={todayValue()} className={financeInput + ' mt-2'} />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('المبلغ', 'Amount')}
                                 <input required type="number" min="0.0001" step="0.0001" name="amount" className={financeInput + ' mt-2'} />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f]">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('العملة', 'Currency')}
                                 <input
                                     required
@@ -609,7 +609,7 @@ export function Taxes({
                                 />
                             </label>
 
-                            <label className="text-xs font-semibold text-[#49698f] md:col-span-2 xl:col-span-4">
+                            <label className="text-xs font-semibold text-[var(--ac-text-soft)] md:col-span-2 xl:col-span-4">
                                 {text('ملاحظات', 'Notes')}
                                 <textarea name="notes" className={financeInput + ' mt-2 min-h-24'} />
                             </label>
@@ -633,7 +633,7 @@ export function Taxes({
                     {rules.length ? (
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[900px] text-xs">
-                                <thead className="bg-[#f7faff] text-[#7188aa]">
+                                <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                     <tr>
                                         {[
                                             text('القاعدة', 'Rule'),
@@ -651,10 +651,10 @@ export function Taxes({
                                 </thead>
                                 <tbody>
                                     {rules.map((rule) => (
-                                        <tr key={rule.id} className="border-t border-[#edf3fa]">
+                                        <tr key={rule.id} className="border-t border-[var(--ac-line)]">
                                             <td className="px-3 py-3">
-                                                <strong className="text-[#173f78]">{rule.name}</strong>
-                                                <p className="mt-1 text-[9px] text-slate-400">{rule.code}</p>
+                                                <strong className="text-[var(--ac-text)]">{rule.name}</strong>
+                                                <p className="mt-1 text-[9px] text-[var(--ac-text-muted)]">{rule.code}</p>
                                             </td>
                                             <td className="px-3 py-3">
                                                 {rule.country_code}{rule.region_code ? ' / ' + rule.region_code : ''}
@@ -682,7 +682,7 @@ export function Taxes({
                             </table>
                         </div>
                     ) : (
-                        <p className="p-8 text-center text-xs text-slate-400">
+                        <p className="p-8 text-center text-xs text-[var(--ac-text-muted)]">
                             {text('لم تتم إضافة قواعد ضريبية بعد.', 'No tax rules configured yet.')}
                         </p>
                     )}
@@ -691,11 +691,11 @@ export function Taxes({
                 <FPanel title={text('المستحقات الحكومية', 'Government obligations')} icon={Landmark}>
                     <div className="space-y-3 p-4">
                         {obligations.length ? obligations.map((obligation) => (
-                            <div key={obligation.id} className="rounded-[14px] border border-[#e2eaf5] p-4">
+                            <div key={obligation.id} className="rounded-[14px] border border-[var(--ac-line)] p-4">
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <strong className="text-sm text-[#153d76]">{obligation.title}</strong>
-                                        <p className="mt-1 text-[10px] text-slate-400">
+                                        <strong className="text-sm text-[var(--ac-text)]">{obligation.title}</strong>
+                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
                                             {obligation.authority_name} · {obligation.country_code}
                                             {obligation.region_code ? ' / ' + obligation.region_code : ''}
                                         </p>
@@ -705,24 +705,24 @@ export function Taxes({
 
                                 <div className="mt-4 grid grid-cols-3 gap-2 text-[10px]">
                                     <div>
-                                        <p className="text-slate-400">{text('الإجمالي', 'Total')}</p>
+                                        <p className="text-[var(--ac-text-muted)]">{text('الإجمالي', 'Total')}</p>
                                         <strong><Money value={obligation.amount} currency={obligation.currency} compact /></strong>
                                     </div>
                                     <div>
-                                        <p className="text-slate-400">{text('المدفوع', 'Paid')}</p>
+                                        <p className="text-[var(--ac-text-muted)]">{text('المدفوع', 'Paid')}</p>
                                         <strong className="text-emerald-600">
                                             <Money value={obligation.paid_total} currency={obligation.currency} compact />
                                         </strong>
                                     </div>
                                     <div>
-                                        <p className="text-slate-400">{text('المتبقي', 'Balance')}</p>
+                                        <p className="text-[var(--ac-text-muted)]">{text('المتبقي', 'Balance')}</p>
                                         <strong className="text-red-600">
                                             <Money value={obligation.balance_due} currency={obligation.currency} compact />
                                         </strong>
                                     </div>
                                 </div>
 
-                                <div className="mt-3 flex items-center justify-between gap-3 text-[10px] text-slate-400">
+                                <div className="mt-3 flex items-center justify-between gap-3 text-[10px] text-[var(--ac-text-muted)]">
                                     <span>
                                         <CalendarDays size={12} className="me-1 inline" />
                                         {obligation.due_date}
@@ -744,7 +744,7 @@ export function Taxes({
                                 </div>
                             </div>
                         )) : (
-                            <p className="py-8 text-center text-xs text-slate-400">
+                            <p className="py-8 text-center text-xs text-[var(--ac-text-muted)]">
                                 {text('لا توجد مستحقات حكومية.', 'No government obligations.')}
                             </p>
                         )}
