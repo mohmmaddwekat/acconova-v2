@@ -176,7 +176,7 @@ const primaryButton =
  * Create an idempotency/request token in both secure production origins and
  * local HTTP development hosts such as acconova.test.
  *
- * requestToken() is unavailable in some non-secure browser contexts and
+ * crypto.randomUUID() is unavailable in some non-secure browser contexts and
  * calling it during the initial React render makes the whole Staff page blank.
  */
 function requestToken(): string {
