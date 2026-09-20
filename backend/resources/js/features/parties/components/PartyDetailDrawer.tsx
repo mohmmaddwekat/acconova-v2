@@ -449,6 +449,38 @@ export function PartyDetailDrawer({
                 </header>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 sm:py-6">
+                    <div className="mb-6">
+                        <RecordHealth
+                            ar={locale === 'ar'}
+                            fields={[
+                                {
+                                    label: locale === 'ar' ? 'الاسم' : 'Name',
+                                    complete: Boolean(label.trim()),
+                                },
+                                {
+                                    label: locale === 'ar' ? 'البريد الإلكتروني' : 'Email',
+                                    complete: Boolean(resolvedParty.email?.trim()),
+                                },
+                                {
+                                    label: locale === 'ar' ? 'الهاتف' : 'Phone',
+                                    complete: Boolean(resolvedParty.phone?.trim()),
+                                },
+                                {
+                                    label: locale === 'ar' ? 'الرقم الضريبي' : 'Tax number',
+                                    complete: Boolean(resolvedParty.tax_number?.trim()),
+                                },
+                                {
+                                    label: locale === 'ar' ? 'العنوان' : 'Address',
+                                    complete: Boolean(
+                                        resolvedParty.address_line_1?.trim()
+                                        || resolvedParty.city?.trim()
+                                        || resolvedParty.country_code?.trim(),
+                                    ),
+                                },
+                            ]}
+                        />
+                    </div>
+
                     <section>
                         <SectionHeading>
                             {t(
