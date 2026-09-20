@@ -1,5 +1,6 @@
 import {
     BookmarkPlus,
+    Sparkles,
     Trash2,
 } from 'lucide-react';
 import {
@@ -27,6 +28,7 @@ export function SavedViews<T>({
     ar: boolean;
 }) {
     const [views, setViews] = useState<SavedView<T>[]>([]);
+    const [suggested, setSuggested] = useState(false);
 
     const text = (arabic: string, english: string): string =>
         ar ? arabic : english;
@@ -50,6 +52,54 @@ export function SavedViews<T>({
         () => JSON.stringify(value),
         [value],
     );
+
+    /*
+     * Learn repeated filter combinations locally. A signature is counted once
+     * per browser session so ordinary rerenders do not inflate usage. After
+     * three separate sessions/usages, suggest turning it into a Saved View.
+     */
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const exactSaved = views.some(
+            (view) => JSON.stringify(view.value) === serializedValue,
+        );
+
+        if (exactSaved) {
+            setSuggested(false);
+            return;
+        }
+
+        const usageKey = storageKey + ':usage';
+        const sessionKey = storageKey + ':seen:' + serializedValue;
+
+        try {
+            const seen = window.sessionStorage.getItem(sessionKey);
+            const raw = window.localStorage.getItem(usageKey);
+            const usage = raw
+                ? JSON.parse(raw) as Record<string, number>
+                : {};
+
+            if (! seen) {
+                usage[serializedValue] = (usage[serializedValue] ?? 0) + 1;
+                window.localStorage.setItem(
+                    usageKey,
+                    JSON.stringify(usage),
+                );
+                window.sessionStorage.setItem(sessionKey, '1');
+            }
+
+            setSuggested((usage[serializedValue] ?? 0) >= 3);
+        } catch {
+            setSuggested(false);
+        }
+    }, [
+        storageKey,
+        serializedValue,
+        views,
+    ]);
 
     function persist(next: SavedView<T>[]): void {
         setViews(next);
@@ -101,6 +151,20 @@ export function SavedViews<T>({
 
     return (
         <div className="flex flex-wrap items-center gap-2">
+            {suggested && (
+                <button
+                    type="button"
+                    onClick={saveCurrent}
+                    className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-3 text-[11px] font-semibold text-[var(--ac-accent)]"
+                >
+                    <Sparkles size={14} />
+                    {text(
+                        'تستخدم هذا العرض كثيراً — احفظه',
+                        'You use this view often — save it',
+                    )}
+                </button>
+            )}
+
             <button
                 type="button"
                 onClick={saveCurrent}
