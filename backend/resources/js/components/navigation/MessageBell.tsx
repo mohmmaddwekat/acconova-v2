@@ -287,7 +287,7 @@ export function MessageBell() {
                     }
                 }}
                 className={[
-                    'relative flex size-10 items-center justify-center rounded-[13px] border bg-white transition',
+                    'relative flex size-10 items-center justify-center rounded-[13px] border bg-[var(--ac-surface)] transition',
                     open
                         ? 'border-[var(--ac-accent)] text-[var(--ac-accent-strong)] ring-4 ring-[var(--ac-accent-soft)]'
                         : 'border-[var(--ac-line)] text-[var(--ac-text-soft)] hover:bg-[var(--ac-accent-soft)]',
@@ -313,7 +313,7 @@ export function MessageBell() {
             </button>
 
             {open && (
-                <div className="fixed inset-x-3 top-[4.6rem] z-[120] overflow-hidden rounded-[24px] border border-[var(--ac-line)] bg-white shadow-[0_24px_70px_rgba(15,35,30,.18)] sm:absolute sm:inset-x-auto sm:end-0 sm:top-[calc(100%+0.75rem)] sm:w-[410px]">
+                <div className="fixed inset-x-3 top-[4.6rem] z-[120] overflow-hidden rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[0_24px_70px_rgba(15,35,30,.18)] sm:absolute sm:inset-x-auto sm:end-0 sm:top-[calc(100%+0.75rem)] sm:w-[410px]">
                     <div className="flex items-center justify-between gap-4 border-b border-[var(--ac-line)] p-4">
                         <div className="flex items-center gap-3">
                             <div className="flex size-10 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
