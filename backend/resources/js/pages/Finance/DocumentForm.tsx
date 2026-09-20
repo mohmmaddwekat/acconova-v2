@@ -1,6 +1,8 @@
 import { apiRequest } from '@/lib/http';
+import { Link } from '@inertiajs/react';
 import {
     AlertTriangle,
+    ArrowLeft,
     Building2,
     Check,
     FileText,
@@ -48,6 +50,7 @@ function emptyLine(
         unit: '',
         quantity: '1',
         unit_price: '0',
+        price_status: 'final',
         discount_percent: '0',
         tax_rate: '0',
         affects_inventory: false,
@@ -182,21 +185,11 @@ export function DocumentForm({
         ?? '',
     );
 
-    const [
-        currency,
-        setCurrency,
-    ] = useState(
-        initial?.currency
-        ?? lookups.currency,
-    );
+    const currency =
+        lookups.currency;
 
-    const [
-        exchangeRate,
-        setExchangeRate,
-    ] = useState(
-        initial?.exchange_rate
-        ?? '1',
-    );
+    const exchangeRate =
+        '1';
 
     const [
         paymentTerms,
@@ -358,13 +351,35 @@ export function DocumentForm({
             return;
         }
 
+        const numericValue =
+            Number(
+                value,
+            );
+
+        if (
+            lines.some(
+                item =>
+                    item.client_id !==
+                        line.client_id
+                    && item.product_id ===
+                        numericValue,
+            )
+        ) {
+            setError(
+                text(
+                    'هذا المنتج مضاف بالفعل في الفاتورة. عدّل الكمية في البند الموجود بدلاً من تكراره.',
+                    'This product is already on the invoice. Update the existing line quantity instead of adding it twice.',
+                ),
+            );
+
+            return;
+        }
+
         const product =
             lookups.products.find(
                 item =>
                     item.id ===
-                    Number(
-                        value,
-                    ),
+                    numericValue,
             );
 
         if (! product) {
@@ -740,6 +755,8 @@ export function DocumentForm({
                             line.quantity,
                         unit_price:
                             line.unit_price,
+                        price_status:
+                            line.price_status,
                         discount_percent:
                             line.discount_percent,
                         tax_rate:
@@ -750,6 +767,15 @@ export function DocumentForm({
                 ),
         };
     }
+
+    const estimatedPriceCount =
+        sales
+            ? 0
+            : lines.filter(
+                line =>
+                    line.price_status ===
+                    'estimated',
+            ).length;
 
     async function save(
         issue: boolean,
@@ -802,6 +828,9 @@ export function DocumentForm({
                     + currency
                     + ' وعدد البنود '
                     + String(lines.length)
+                    + (estimatedPriceCount > 0
+                        ? ' ويوجد ' + String(estimatedPriceCount) + ' بند بسعر مبدئي سيحتاج تثبيتاً لاحقاً.'
+                        : '')
                     + '. بعد الإصدار لن يتم تعديل السجل بصمت؛ أي خطأ لاحق سيحتاج تصحيحاً موثقاً. هل راجعت المبلغ؟',
                     'Issue confirmation: invoice total '
                     + new Intl.NumberFormat().format(calculated.total)
@@ -809,7 +838,11 @@ export function DocumentForm({
                     + currency
                     + ' across '
                     + String(lines.length)
-                    + ' line(s). After issue, the record cannot be silently edited; later mistakes require a documented correction. Did you review the amount?',
+                    + ' line(s)'
+                    + (estimatedPriceCount > 0
+                        ? ' and ' + String(estimatedPriceCount) + ' provisional-price line(s) that must be finalized later'
+                        : '')
+                    + '. After issue, the record cannot be silently edited; later mistakes require a documented correction. Did you review the amount?',
                 ),
             )
         ) {
@@ -987,6 +1020,32 @@ export function DocumentForm({
                 }
                 actions={
                     <>
+                        <Link
+                            href={
+                                sales
+                                    ? '/app/invoices'
+                                    : '/app/invoices/purchases'
+                            }
+                            aria-label={text(
+                                'رجوع',
+                                'Back',
+                            )}
+                            className={
+                                financeButton
+                            }
+                        >
+                            <ArrowLeft
+                                size={
+                                    15
+                                }
+                                className="rtl:rotate-180"
+                            />
+                            {text(
+                                'رجوع',
+                                'Back',
+                            )}
+                        </Link>
+
                         <button
                             type="button"
                             className={
@@ -1051,6 +1110,13 @@ export function DocumentForm({
                 </div>
             )}
 
+            <div className="rounded-[14px] border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-blue-700">
+                {text(
+                    'الحقول التي تحمل علامة * مطلوبة. أي حقل آخر اختياري ما لم يظهر شرط مرتبط بطريقة الدفع أو المخزون.',
+                    'Fields marked * are required. Other fields are optional unless a payment or inventory condition says otherwise.',
+                )}
+            </div>
+
             {initial?.correction_reason && (
                 <div className="rounded-[14px] border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
                     <strong>
@@ -1091,12 +1157,12 @@ export function DocumentForm({
                             <label className="text-xs font-semibold text-[#49698f] md:col-span-2">
                                 {sales
                                     ? text(
-                                        'العميل',
-                                        'Customer',
+                                        'العميل *',
+                                        'Customer *',
                                     )
                                     : text(
-                                        'المورد',
-                                        'Supplier',
+                                        'المورد *',
+                                        'Supplier *',
                                     )}
 
                                 <select
@@ -1149,8 +1215,8 @@ export function DocumentForm({
 
                             <label className="text-xs font-semibold text-[#49698f]">
                                 {text(
-                                    'تاريخ الإصدار',
-                                    'Issue date',
+                                    'تاريخ الإصدار *',
+                                    'Issue date *',
                                 )}
 
                                 <input
@@ -1243,15 +1309,12 @@ export function DocumentForm({
                                     maxLength={
                                         3
                                     }
-                                    onChange={
-                                        event =>
-                                            setCurrency(
-                                                event
-                                                    .target
-                                                    .value
-                                                    .toUpperCase(),
-                                            )
-                                    }
+                                    readOnly
+                                    aria-readonly="true"
+                                    title={text(
+                                        'تُحدد العملة من إعدادات مساحة العمل',
+                                        'Currency is controlled by workspace settings',
+                                    )}
                                 />
                             </label>
 
@@ -1272,14 +1335,12 @@ export function DocumentForm({
                                     value={
                                         exchangeRate
                                     }
-                                    onChange={
-                                        event =>
-                                            setExchangeRate(
-                                                event
-                                                    .target
-                                                    .value,
-                                            )
-                                    }
+                                    readOnly
+                                    aria-readonly="true"
+                                    title={text(
+                                        'سعر الصرف ثابت لأن العملة موحدة من الإعدادات',
+                                        'Exchange rate is fixed because the workspace uses one configured currency',
+                                    )}
                                 />
                             </label>
 
@@ -1620,7 +1681,20 @@ export function DocumentForm({
                                                         )}
                                                     </option>
 
-                                                    {lookups.products.map(
+                                                    {lookups.products
+                                                        .filter(
+                                                            product =>
+                                                                product.id ===
+                                                                            line.product_id
+                                                                || ! lines.some(
+                                                                    item =>
+                                                                        item.client_id !==
+                                                                            line.client_id
+                                                                        && item.product_id ===
+                                                                            product.id,
+                                                                ),
+                                                        )
+                                                        .map(
                                                         product => (
                                                             <option
                                                                 key={
@@ -1642,37 +1716,39 @@ export function DocumentForm({
                                                     )}
                                                 </select>
 
-                                                <input
-                                                    className={
-                                                        financeInput
-                                                        + ' mt-2'
-                                                    }
-                                                    value={
-                                                        line.description
-                                                    }
-                                                    onChange={
-                                                        event =>
-                                                            changeLine(
-                                                                line.client_id,
-                                                                {
-                                                                    description:
-                                                                        event
-                                                                            .target
-                                                                            .value,
-                                                                },
-                                                            )
-                                                    }
-                                                    placeholder={text(
-                                                        'وصف البند',
-                                                        'Line description',
-                                                    )}
-                                                />
+                                                {! line.product_id && (
+                                                    <input
+                                                        className={
+                                                            financeInput
+                                                            + ' mt-2'
+                                                        }
+                                                        value={
+                                                            line.description
+                                                        }
+                                                        onChange={
+                                                            event =>
+                                                                changeLine(
+                                                                    line.client_id,
+                                                                    {
+                                                                        description:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    },
+                                                                )
+                                                        }
+                                                        placeholder={text(
+                                                            'وصف البند اليدوي *',
+                                                            'Manual line description *',
+                                                        )}
+                                                    />
+                                                )}
                                             </div>
 
                                             <label className="text-[10px] font-semibold text-[#6c84a6]">
                                                 {text(
-                                                    'الكمية',
-                                                    'Quantity',
+                                                    'الكمية *',
+                                                    'Quantity *',
                                                 )}
 
                                                 <input
@@ -1732,8 +1808,8 @@ export function DocumentForm({
 
                                             <label className="text-[10px] font-semibold text-[#6c84a6]">
                                                 {text(
-                                                    'سعر الوحدة',
-                                                    'Unit price',
+                                                    'سعر الوحدة *',
+                                                    'Unit price *',
                                                 )}
 
                                                 <input
@@ -1760,6 +1836,34 @@ export function DocumentForm({
                                                             )
                                                     }
                                                 />
+
+                                                {! sales && (
+                                                    <label className="mt-2 flex items-center gap-2 text-[10px] font-semibold text-amber-700">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={
+                                                                line.price_status ===
+                                                                'estimated'
+                                                            }
+                                                            onChange={
+                                                                event =>
+                                                                    changeLine(
+                                                                        line.client_id,
+                                                                        {
+                                                                            price_status:
+                                                                                event.target.checked
+                                                                                    ? 'estimated'
+                                                                                    : 'final',
+                                                                        },
+                                                                    )
+                                                            }
+                                                        />
+                                                        {text(
+                                                            'السعر مبدئي — سأثبته لاحقاً',
+                                                            'Provisional price — finalize later',
+                                                        )}
+                                                    </label>
+                                                )}
                                             </label>
 
                                             <label className="text-[10px] font-semibold text-[#6c84a6]">
