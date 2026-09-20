@@ -31,6 +31,10 @@ export type Party = {
         | string
         | null;
 
+    credit_limit:
+        | string
+        | null;
+
     address_line_1:
         | string
         | null;
