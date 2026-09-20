@@ -28,7 +28,9 @@ class CashMovementService
                 ...$this->payload($data),
                 'number' => $this->numbers->next(
                     $data['direction'] === 'incoming' ? 'cash_receipts' : 'cash_payments',
-                    $data['direction'] === 'incoming' ? 'RCV' : 'PAY',
+                    $data['direction'] === 'incoming'
+                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'REC')
+                        : (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['payment_prefix'] ?? 'PAY'),
                 ),
                 'status' => 'draft',
                 'created_by' => $actorId,
@@ -269,7 +271,9 @@ class CashMovementService
                 'corrected_from_id' => $locked->id,
                 'number' => $this->numbers->next(
                     $locked->direction === 'incoming' ? 'cash_receipts' : 'cash_payments',
-                    $locked->direction === 'incoming' ? 'RCV' : 'PAY',
+                    $locked->direction === 'incoming'
+                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'REC')
+                        : (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['payment_prefix'] ?? 'PAY'),
                 ),
                 'direction' => $locked->direction,
                 'status' => 'draft',
