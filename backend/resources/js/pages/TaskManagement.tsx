@@ -619,7 +619,7 @@ function TaskWorkspace({
         <AppShell>
             <Head title={pageTitle[ar ? 0 : 1]} />
 
-            <main className="task-module mx-auto min-h-[calc(100dvh-72px)] max-w-[1800px] bg-[#f5f8ff] px-3 py-5 sm:px-5 lg:px-7">
+            <main className="task-module mx-auto min-h-[calc(100dvh-72px)] max-w-[1800px] bg-[var(--ac-bg)] px-3 py-5 text-[var(--ac-text)] sm:px-5 lg:px-7">
                 <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <h1 className="flex items-center gap-2 text-xl font-bold">
@@ -1632,7 +1632,7 @@ function Board({
                                         draggable={canEdit && ! busy}
                                         onDragStart={() => setDragged(task.id)}
                                         onDragEnd={() => setDragged(null)}
-                                        className={`tm-board-card text-[#1c2c50] ${dragged === task.id ? 'opacity-40' : ''}`}
+                                        className={`tm-board-card text-[var(--ac-text)] ${dragged === task.id ? 'opacity-40' : ''}`}
                                     >
                                         <button
                                             type="button"
