@@ -1646,6 +1646,9 @@ function RoleWorkspace() {
                         && ! permission.startsWith(
                             'staff.',
                         )
+                        && ! permission.startsWith(
+                            'finance.',
+                        )
                     ) {
                         const module =
                             permission
@@ -1657,6 +1660,69 @@ function RoleWorkspace() {
                                     ! item.startsWith(
                                         `${module}.`,
                                     ),
+                            );
+                    }
+
+                    if (
+                        permission ===
+                        'finance.sales.view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    ! [
+                                        'finance.sales.manage',
+                                        'finance.cash.receive',
+                                        'finance.documents.correct',
+                                    ].includes(
+                                        item,
+                                    ),
+                            );
+                    }
+
+                    if (
+                        permission ===
+                        'finance.purchases.view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    ! [
+                                        'finance.purchases.manage',
+                                        'finance.cash.pay',
+                                        'finance.documents.correct',
+                                    ].includes(
+                                        item,
+                                    ),
+                            );
+                    }
+
+                    if (
+                        permission ===
+                        'finance.cash.view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    ! [
+                                        'finance.cash.receive',
+                                        'finance.cash.pay',
+                                        'finance.cash.correct',
+                                    ].includes(
+                                        item,
+                                    ),
+                            );
+                    }
+
+                    if (
+                        permission ===
+                        'finance.taxes.view'
+                    ) {
+                        next =
+                            next.filter(
+                                item =>
+                                    item !==
+                                    'finance.taxes.manage',
                             );
                     }
 
