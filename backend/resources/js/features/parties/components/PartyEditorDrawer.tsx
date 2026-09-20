@@ -968,6 +968,8 @@ export function PartyEditorDrawer({
                             <PartyField
                                 label={ar ? 'الحد الائتماني' : 'Credit limit'}
                                 type="number"
+                                min="0"
+                                step="0.0001"
                                 value={
                                     form.creditLimit
                                 }
@@ -1373,6 +1375,10 @@ type PartyFieldProps = {
 
     type?: string;
 
+    min?: string;
+
+    step?: string;
+
     maxLength?: number;
 
     required?: boolean;
@@ -1388,6 +1394,8 @@ function PartyField({
     onChange,
     error,
     type = 'text',
+    min,
+    step,
     maxLength,
     required = false,
 }: PartyFieldProps) {
@@ -1414,6 +1422,8 @@ function PartyField({
                 type={
                     type
                 }
+                min={min}
+                step={step}
                 dir={
                     [
                         'email',
