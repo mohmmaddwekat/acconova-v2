@@ -369,7 +369,7 @@ class CashMovementService
         foreach ($movement->allocations as $allocation) {
             $document = $allocation->document;
 
-            if (! $document || in_array($document->status, ['draft', 'superseded', 'voided'], true)) {
+            if (!$document || in_array($document->status, ['draft', 'superseded', 'voided'], true)) {
                 throw ValidationException::withMessages([
                     'allocations' => ['Payments can only be allocated to active issued invoices.'],
                 ]);
