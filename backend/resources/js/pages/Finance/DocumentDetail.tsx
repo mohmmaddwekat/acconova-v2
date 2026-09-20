@@ -23,6 +23,7 @@ import {
 import { useEffect, useState } from 'react';
 import { DocumentForm } from './DocumentForm';
 import { InvoiceAutomationActions } from './InvoiceAutomationActions';
+import { FulfillmentPanel } from './FulfillmentPanel';
 import {
     FPanel,
     FinanceHeader,
@@ -1642,6 +1643,12 @@ export function DocumentDetail({
                     )}
                 </aside>
             </div>
+
+            <FulfillmentPanel
+                documentId={document.id}
+                canManage={canCopy}
+                ar={ar}
+            />
 
             <RecordCollaborationPanel
                 type="document"
