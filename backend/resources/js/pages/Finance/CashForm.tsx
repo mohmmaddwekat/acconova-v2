@@ -453,7 +453,7 @@ export function CashForm({
     }
 
     const incomingCategories = [
-        ['customer_receipt', text('تحصيل فواتير بيع', 'Sales invoice collection')],
+        ['customer_receipt', text('دفعة عميل / تحصيل / دفعة مقدمة', 'Customer payment / collection / advance')],
         ['capital', text('تمويل أو رأس مال', 'Capital / funding')],
         ['loan', text('قرض مستلم', 'Loan received')],
         ['asset_sale', text('بيع أصل', 'Asset sale')],
@@ -463,7 +463,7 @@ export function CashForm({
     ];
 
     const outgoingCategories = [
-        ['supplier_payment', text('دفعة مورد', 'Supplier payment')],
+        ['supplier_payment', text('دفعة مورد / دفعة مقدمة', 'Supplier payment / advance')],
         ['raw_material', text('مواد خام', 'Raw materials')],
         ['goods_for_resale', text('بضائع لإعادة البيع', 'Goods for resale')],
         ['packaging', text('تعبئة وتغليف', 'Packaging')],
@@ -1004,7 +1004,7 @@ export function CashForm({
                             />
                             <SummaryLine
                                 label={
-                                    incoming && selectedParty
+                                    incoming && selectedParty && category === 'customer_receipt'
                                         ? text('رصيد مقدم للعميل', 'Customer advance credit')
                                         : ! incoming && selectedParty && category === 'supplier_payment'
                                           ? text('دفعة مقدمة للمورد', 'Supplier advance credit')
@@ -1018,7 +1018,12 @@ export function CashForm({
                         </div>
                     </FPanel>
 
-                    {unallocated > 0 && selectedParty && (
+                    {unallocated > 0
+                        && selectedParty
+                        && (
+                            (incoming && category === 'customer_receipt')
+                            || (! incoming && category === 'supplier_payment')
+                        ) && (
                         <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4 text-xs leading-6 text-emerald-800">
                             <strong>
                                 {incoming
