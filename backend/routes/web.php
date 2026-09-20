@@ -579,6 +579,8 @@ Route::prefix(
         Route::post('finance/documents/{document}/issue', [FinanceDocumentController::class, 'issue'])->whereNumber('document');
         Route::post('finance/documents/{document}/correct', [FinanceDocumentController::class, 'correct'])->whereNumber('document');
         Route::post('finance/documents/{document}/void', [FinanceDocumentController::class, 'void'])->whereNumber('document');
+        Route::get('finance/documents/{document}/available-credits', [FinanceDocumentController::class, 'availableCredits'])->whereNumber('document');
+        Route::post('finance/documents/{document}/apply-credit', [FinanceDocumentController::class, 'applyCredit'])->whereNumber('document');
 
         Route::get('finance/cash-movements', [CashMovementController::class, 'index']);
         Route::post('finance/cash-movements', [CashMovementController::class, 'store']);
