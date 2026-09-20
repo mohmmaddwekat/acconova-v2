@@ -2038,7 +2038,7 @@ function RoleWorkspace() {
             />
 
             <main className="mx-auto w-full max-w-[1680px] space-y-5 px-3 py-5 sm:px-5 lg:px-8">
-                <header className="relative overflow-hidden rounded-[28px] border border-[var(--ac-line)] bg-white p-6 shadow-[var(--ac-shadow-soft)] sm:p-8">
+                <header className="relative overflow-hidden rounded-[28px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-6 shadow-[var(--ac-shadow-soft)] sm:p-8">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(93,205,168,.18),transparent_28%),radial-gradient(circle_at_92%_15%,rgba(42,132,105,.10),transparent_30%)]" />
 
                     <div className="relative flex flex-wrap items-center justify-between gap-5">
@@ -2173,7 +2173,7 @@ function RoleWorkspace() {
                         </div>
 
                         <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-                            <section className="rounded-[24px] border border-amber-200 bg-white p-5 shadow-[var(--ac-shadow-soft)]">
+                            <section className="rounded-[24px] border border-amber-200 bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
                                 <div className="flex items-center gap-3">
                                     <span className="flex size-12 items-center justify-center rounded-[15px] bg-amber-50 text-amber-700">
                                         <Crown
@@ -2246,7 +2246,7 @@ function RoleWorkspace() {
                                 </div>
                             </section>
 
-                            <section className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)] sm:p-6">
+                            <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)] sm:p-6">
                                 <div className="flex items-start gap-3">
                                     <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
                                         <UserCog
@@ -2453,7 +2453,7 @@ function RoleWorkspace() {
                                         </div>
 
                                         {selectedRole && (
-                                            <span className="rounded-full bg-white px-3 py-1.5 text-[9px] font-bold text-[var(--ac-accent-strong)]">
+                                            <span className="rounded-full bg-[var(--ac-surface)] px-3 py-1.5 text-[9px] font-bold text-[var(--ac-accent)]">
                                                 {
                                                     selectedRole.permissions
                                                         .length
@@ -2474,7 +2474,7 @@ function RoleWorkspace() {
                                                         key={
                                                             permission
                                                         }
-                                                        className="rounded-[10px] border border-[var(--ac-line)] bg-white px-2.5 py-1.5 text-[9px] font-medium"
+                                                        className="rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2.5 py-1.5 text-[9px] font-medium"
                                                     >
                                                         {
                                                             permissionLabel(
@@ -2529,7 +2529,7 @@ function RoleWorkspace() {
                             </section>
                         </div>
 
-                        <section className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)]">
+                        <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
                             <div className="flex flex-wrap items-end justify-between gap-4">
                                 <div>
                                     <h2 className="text-lg font-semibold">
@@ -2594,7 +2594,7 @@ function RoleWorkspace() {
                                                 selectedPreset ===
                                                 key
                                                     ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
-                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] hover:-translate-y-0.5 hover:bg-white hover:shadow-md',
+                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] hover:-translate-y-0.5 hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface)] hover:text-[var(--ac-text)] hover:shadow-md',
                                             ].join(
                                                 ' ',
                                             )}
@@ -2606,7 +2606,7 @@ function RoleWorkspace() {
                                                     }
                                                 />
 
-                                                <span className="rounded-full bg-white px-2 py-1 text-[8px] font-bold text-[var(--ac-text-muted)]">
+                                                <span className="rounded-full bg-[var(--ac-surface)] px-2 py-1 text-[8px] font-bold text-[var(--ac-text-muted)]">
                                                     {
                                                         preset.permissions.length
                                                     }
@@ -2637,7 +2637,7 @@ function RoleWorkspace() {
                                     onClick={
                                         resetDesigner
                                     }
-                                    className="flex min-h-[150px] flex-col items-center justify-center rounded-[18px] border border-dashed border-[var(--ac-line)] bg-white p-4 text-center transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)]"
+                                    className="flex min-h-[150px] flex-col items-center justify-center rounded-[18px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 text-center text-[var(--ac-text)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)]"
                                 >
                                     <div className="flex size-11 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)]">
                                         <UserCog
@@ -2663,7 +2663,7 @@ function RoleWorkspace() {
                                         event,
                                     )
                                 }
-                                className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)] sm:p-6"
+                                className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)] sm:p-6"
                             >
                                 <fieldset
                                     disabled={
@@ -2898,8 +2898,8 @@ function RoleWorkspace() {
                                                                             className={[
                                                                                 'flex min-h-12 items-center gap-3 rounded-[13px] border px-3 py-2.5 text-start text-[10px] transition',
                                                                                 checked
-                                                                                    ? 'border-[var(--ac-accent)] bg-white font-semibold text-[var(--ac-accent-strong)] shadow-sm'
-                                                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)]/60 text-[var(--ac-text-soft)] hover:bg-white',
+                                                                                    ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] font-semibold text-[var(--ac-accent)] shadow-sm'
+                                                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)]/60 text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)]',
                                                                             ].join(
                                                                                 ' ',
                                                                             )}
@@ -2991,7 +2991,7 @@ function RoleWorkspace() {
                             </form>
 
                             <aside className="space-y-5">
-                                <section className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)]">
+                                <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
                                     <h2 className="font-semibold">
                                         {
                                             copy.roleLibrary
@@ -3060,7 +3060,7 @@ function RoleWorkspace() {
                             </aside>
                         </div>
 
-                        <section className="rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)] sm:p-6">
+                        <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)] sm:p-6">
                             <div className="flex items-center gap-3">
                                 <span className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)]">
                                     <Users
