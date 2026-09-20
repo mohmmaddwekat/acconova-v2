@@ -8,6 +8,7 @@ use App\Models\FinancialDocument;
 use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
+use App\Services\MentionNotifier;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -213,7 +214,11 @@ class FinanceDocumentController extends Controller
         ]);
     }
 
-    public function store(Request $request, FinanceDocumentService $service): JsonResponse
+    public function store(
+        Request $request,
+        FinanceDocumentService $service,
+        MentionNotifier $mentions,
+    ): JsonResponse
     {
         abort_unless(
             FinanceAuthorization::allows($request->user(), 'finance.sales.manage')
@@ -226,15 +231,40 @@ class FinanceDocumentController extends Controller
 
         $document = $service->createDraft($data, $request->user()->id);
 
+        $mentions->notify(
+            app(TenantContext::class)->id(),
+            $request->user(),
+            (string) ($data['internal_notes'] ?? ''),
+            'finance-notes:create:'.$document->id,
+            $document->isSale()
+                ? '/app/invoices/sales/'.$document->id
+                : '/app/invoices/purchases/'.$document->id,
+        );
+
         return response()->json(['data' => $this->detail($document, $service)], 201);
     }
 
-    public function update(Request $request, string $document, FinanceDocumentService $service): JsonResponse
+    public function update(
+        Request $request,
+        string $document,
+        FinanceDocumentService $service,
+        MentionNotifier $mentions,
+    ): JsonResponse
     {
         $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
         $data = $this->validatedDocument($request, $document->kind);
         $document = $service->updateDraft($document, $data, $request->user()->id);
+
+        $mentions->notify(
+            app(TenantContext::class)->id(),
+            $request->user(),
+            (string) ($data['internal_notes'] ?? ''),
+            'finance-notes:update:'.$document->id.':'.$document->updated_at?->getTimestamp(),
+            $document->isSale()
+                ? '/app/invoices/sales/'.$document->id
+                : '/app/invoices/purchases/'.$document->id,
+        );
 
         return response()->json(['data' => $this->detail($document, $service)]);
     }
