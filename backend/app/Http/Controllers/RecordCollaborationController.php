@@ -703,7 +703,21 @@ class RecordCollaborationController extends Controller
             return $record;
         }
 
-        return StaffMember::query()->findOrFail($recordId);
+        $record = StaffMember::query()->findOrFail($recordId);
+
+        abort_unless(
+            StaffController::canView($record),
+            403,
+        );
+
+        if ($write) {
+            abort_unless(
+                StaffController::canManage($record),
+                403,
+            );
+        }
+
+        return $record;
     }
 
     /**
