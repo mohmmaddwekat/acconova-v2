@@ -289,6 +289,22 @@ class FinanceImportController extends Controller
                         throw new RuntimeException('Unsupported category: '.$category);
                     }
 
+                    $incomingOnly = ['customer_receipt', 'capital', 'loan', 'asset_sale', 'refund', 'other_income'];
+                    $outgoingOnly = [
+                        'supplier_payment', 'raw_material', 'goods_for_resale', 'packaging',
+                        'operating_expense', 'rent', 'utilities', 'shipping_customs',
+                        'maintenance', 'marketing', 'tax_payment', 'government_fee',
+                        'asset_purchase', 'other_expense',
+                    ];
+
+                    if ($direction === 'incoming' && in_array($category, $outgoingOnly, true)) {
+                        throw new RuntimeException('Incoming movements cannot use an outgoing-only category.');
+                    }
+
+                    if ($direction === 'outgoing' && in_array($category, $incomingOnly, true)) {
+                        throw new RuntimeException('Outgoing movements cannot use an incoming-only category.');
+                    }
+
                     $reference = trim((string) ($row['reference'] ?? '')) ?: 'LEGACY-'.$movementKey;
                     $duplicate = \App\Models\CashMovement::query()
                         ->where('reference', $reference)
