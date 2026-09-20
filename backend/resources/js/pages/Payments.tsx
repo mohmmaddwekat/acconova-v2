@@ -23,7 +23,7 @@ export default function Payments() {
 }
 
 function PaymentsWorkspace() {
-    useLocale();
+    const locale = useLocale();
     const { workspace } = usePage<AppPageProps>().props;
     const permissions = workspace.activeOrganization?.permissions;
     const allowed = permissions ? permissions.includes('payments.view') : ['owner', 'admin', 'manager', 'accountant'].includes(workspace.activeOrganization?.role ?? '');
@@ -90,7 +90,7 @@ function PaymentsWorkspace() {
         if (await mutate(`/api/payment-plans/${selected.id}/record`, { ...data, due_on: selected.next_due_on })) { setSelected(null); }
     }
 
-    const ar = document.documentElement.lang === 'ar';
+    const ar = locale === 'ar';
 
     return <AppShell><Head title={ar ? 'المدفوعات المتكررة' : 'Recurring payments'} /><main dir={ar ? 'rtl' : 'ltr'} className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-8">
         <header className="rounded-[24px] border border-[var(--ac-line)] bg-gradient-to-br from-white via-white to-[var(--ac-accent-soft)] p-6 shadow-sm sm:p-8">
