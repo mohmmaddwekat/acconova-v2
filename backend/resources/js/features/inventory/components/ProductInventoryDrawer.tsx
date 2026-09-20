@@ -599,9 +599,9 @@ export function ProductInventoryDrawer({
                 }
                 role="dialog"
                 aria-modal="true"
-                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-50px_0_120px_rgba(20,35,30,0.18)] sm:max-w-[660px]"
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[-50px_0_120px_rgba(20,35,30,0.18)] sm:max-w-[660px]"
             >
-                <header className="shrink-0 border-b border-[var(--ac-line)] bg-white p-5 sm:p-6">
+                <header className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 items-start gap-3">
                             <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
@@ -892,7 +892,7 @@ export function ProductInventoryDrawer({
                                                                     .value,
                                                             )
                                                         }
-                                                        className="h-11 w-full rounded-[13px] border border-[var(--ac-line)] bg-white px-3 text-sm"
+                                                        className="h-11 w-full rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-sm"
                                                     >
                                                         {detail.warehouses.map(
                                                             (
@@ -942,7 +942,7 @@ export function ProductInventoryDrawer({
                                                                         .value,
                                                                 )
                                                             }
-                                                            className="h-11 w-full rounded-[13px] border border-[var(--ac-line)] bg-white px-3 text-sm"
+                                                            className="h-11 w-full rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-sm"
                                                         >
                                                             {detail.warehouses
                                                                 .filter(
@@ -1012,7 +1012,7 @@ export function ProductInventoryDrawer({
                                                                 ? '-2 or 5'
                                                                 : '10'
                                                         }
-                                                        className="h-11 w-full rounded-[13px] border border-[var(--ac-line)] bg-white px-3 text-sm"
+                                                        className="h-11 w-full rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-sm"
                                                     />
                                                 </label>
 
@@ -1039,7 +1039,7 @@ export function ProductInventoryDrawer({
                                                                     .value,
                                                             )
                                                         }
-                                                        className="w-full resize-none rounded-[13px] border border-[var(--ac-line)] bg-white p-3 text-sm"
+                                                        className="w-full resize-none rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-sm"
                                                     />
                                                 </label>
 
@@ -1321,7 +1321,7 @@ function ActionButton({
                 'flex min-h-20 flex-col items-center justify-center gap-2 rounded-[16px] border px-2 text-center text-[10px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-35',
                 active
                     ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
-                    : 'border-[var(--ac-line)] bg-white text-[var(--ac-text-soft)]',
+                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)]',
             ].join(
                 ' ',
             )}
