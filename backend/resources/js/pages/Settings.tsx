@@ -13,7 +13,7 @@ import {
     type ProfilePreferences,
 } from '@/lib/profilePreferences';
 import type { AppPageProps } from '@/types/app';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Banknote,
     Bell,
@@ -559,6 +559,11 @@ function SettingsWorkspace() {
 
             document.documentElement.dataset.acFinanceDecimals =
                 String(saved.decimal_places);
+
+            router.reload({
+                only: ['workspace'],
+                preserveScroll: true,
+            });
 
             setMessage(
                 text(
