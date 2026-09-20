@@ -9,6 +9,7 @@ use App\Http\Controllers\FinanceImportController;
 use App\Http\Controllers\FinanceLookupController;
 use App\Http\Controllers\InvoiceAutomationController;
 use App\Http\Controllers\PaymentPlanController;
+use App\Http\Controllers\PartyPricingController;
 use App\Http\Controllers\ProfileCenterController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecordCollaborationController;
@@ -685,6 +686,21 @@ Route::prefix(
             'records/party/{record}/relationships/{relationship}',
             [RecordCollaborationController::class, 'deleteRelationship'],
         )->whereNumber(['record', 'relationship']);
+
+        Route::get(
+            'parties/{party}/prices',
+            [PartyPricingController::class, 'index'],
+        )->whereNumber('party');
+
+        Route::post(
+            'parties/{party}/prices',
+            [PartyPricingController::class, 'store'],
+        )->whereNumber('party');
+
+        Route::delete(
+            'parties/{party}/prices/{product}',
+            [PartyPricingController::class, 'destroy'],
+        )->whereNumber(['party', 'product']);
 
         Route::get(
             'finance/invoice-automation',
