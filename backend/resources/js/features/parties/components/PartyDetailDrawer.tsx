@@ -342,9 +342,9 @@ export function PartyDetailDrawer({
                 aria-label={t(
                     'ui.relationship_context',
                 )}
-                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-white shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[600px]"
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[600px]"
             >
-                <header className="shrink-0 border-b border-[var(--ac-line)] bg-white px-4 py-5 sm:px-6 sm:py-6">
+                <header className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-5 sm:px-6 sm:py-6">
                     <div className="flex items-start justify-between gap-5">
                         <div className="flex min-w-0 items-start gap-3.5">
                             <div className="flex size-12 shrink-0 items-center justify-center rounded-[17px] bg-[var(--ac-surface-strong)]">
@@ -485,7 +485,7 @@ export function PartyDetailDrawer({
 
                         <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
                             <div className="flex items-start gap-3">
-                                <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-white text-[var(--ac-text-muted)] shadow-[var(--ac-shadow-soft)]">
+                                <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] shadow-[var(--ac-shadow-soft)]">
                                     <NotebookPen
                                         size={
                                             16
@@ -534,7 +534,7 @@ export function PartyDetailDrawer({
                                 placeholder={t(
                                     'ui.add_useful_context_preferences_follow_up_information_or_internal_reminders',
                                 )}
-                                className="mt-4 w-full resize-y rounded-[15px] border border-[var(--ac-line)] bg-white px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)] disabled:bg-[var(--ac-bg-soft)] disabled:text-[var(--ac-text-muted)]"
+                                className="mt-4 w-full resize-y rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)] disabled:bg-[var(--ac-bg-soft)] disabled:text-[var(--ac-text-muted)]"
                             />
 
                             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -648,7 +648,7 @@ export function PartyDetailDrawer({
 
                         <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
                             <div className="flex items-start gap-3">
-                                <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-white text-[var(--ac-text-muted)]">
+                                <div className="flex size-9 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-surface)] text-[var(--ac-text-muted)]">
                                     <MapPin
                                         size={
                                             16
@@ -709,7 +709,7 @@ export function PartyDetailDrawer({
                     </section>
                 </div>
 
-                <footer className="shrink-0 border-t border-[var(--ac-line)] bg-white p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
+                <footer className="shrink-0 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
                     <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
                         {! archived &&
                             canEdit && (
@@ -720,7 +720,7 @@ export function PartyDetailDrawer({
                                             resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-white px-5 text-sm font-semibold transition hover:border-[var(--ac-line-strong)]"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 text-sm font-semibold transition hover:border-[var(--ac-line-strong)]"
                                 >
                                     <Edit3
                                         size={
@@ -875,7 +875,7 @@ function ContactAction({
         ! href
     ) {
         return (
-            <div className="flex min-w-0 items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-white p-3">
+            <div className="flex min-w-0 items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3">
                 {
                     content
                 }
@@ -888,7 +888,7 @@ function ContactAction({
             href={
                 href
             }
-            className="flex min-w-0 items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-soft)] motion-reduce:transform-none"
+            className="flex min-w-0 items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 transition hover:-translate-y-0.5 hover:shadow-[var(--ac-shadow-soft)] motion-reduce:transform-none"
         >
             {
                 content
@@ -945,7 +945,7 @@ function LifecycleCard({
     value,
 }: LifecycleCardProps) {
     return (
-        <div className="rounded-[17px] border border-[var(--ac-line)] bg-white p-4">
+        <div className="rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
             <Icon
                 size={
                     15
