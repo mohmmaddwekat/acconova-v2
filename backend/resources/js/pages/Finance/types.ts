@@ -129,6 +129,9 @@ export type FinanceLookups = {
         };
         invoice: {
             template: 'professional' | 'classic' | 'modern' | 'simple';
+            purchase_template: 'professional' | 'classic' | 'modern' | 'simple';
+            receipt_template: 'professional' | 'classic' | 'modern' | 'simple';
+            accent_color: string;
             paper_size: 'a4' | 'letter';
             margins: 'normal' | 'compact';
             logo_position: 'start' | 'center' | 'end';
