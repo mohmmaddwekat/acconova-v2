@@ -508,6 +508,14 @@ final class WorkspaceRoleCatalog
             ) {
                 $normalized[] = 'finance.cash.view';
                 $normalized[] = 'parties.view';
+
+                if ($permission === 'finance.cash.receive') {
+                    $normalized[] = 'finance.sales.view';
+                }
+
+                if ($permission === 'finance.cash.pay') {
+                    $normalized[] = 'finance.purchases.view';
+                }
             }
 
             if ($permission === 'finance.documents.correct') {
