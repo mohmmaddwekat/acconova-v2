@@ -1,3 +1,4 @@
+import { SavedViews } from '@/components/data/SavedViews';
 import { apiRequest } from '@/lib/http';
 import { Link } from '@inertiajs/react';
 import {
@@ -412,6 +413,26 @@ export function CashList({
                         <option value="posted">{text('مؤكدة', 'Posted')}</option>
                         <option value="reversed">{text('معكوسة', 'Reversed')}</option>
                     </select>
+                </div>
+
+                <div className="border-t border-[var(--ac-line)] px-4 py-3">
+                    <SavedViews
+                        storageKey={`acconova:saved-views:cash:${direction}`}
+                        ar={ar}
+                        value={{
+                            search,
+                            category,
+                            method,
+                            status,
+                        }}
+                        onApply={(saved) => {
+                            setSearch(saved.search);
+                            setCategory(saved.category);
+                            setMethod(saved.method);
+                            setStatus(saved.status);
+                            setPage(1);
+                        }}
+                    />
                 </div>
             </FPanel>
 
