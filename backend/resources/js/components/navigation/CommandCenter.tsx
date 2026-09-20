@@ -342,6 +342,13 @@ export function CommandCenter() {
             href: '/app/staff/directory?create=1',
             icon: UserPlus,
             kind: 'module',
+            aliases: [
+                'موظف جديد',
+                'اضف موظف',
+                'أضف موظف',
+                'new employee',
+                'add employee',
+            ],
         },
     ], [ar]);
 
