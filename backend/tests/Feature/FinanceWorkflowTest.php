@@ -234,12 +234,22 @@ class FinanceWorkflowTest extends TestCase
             'check_number' => 'CHK-500',
             'check_bank' => 'Local Bank',
             'check_due_date' => '2026-09-25',
-            'check_status' => 'pending',
+            'check_status' => 'cleared',
             'allocations' => [[
                 'financial_document_id' => $invoiceId,
                 'amount' => '100',
             ]],
-        ])->assertCreated()->json('data.id');
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.check_status', 'pending')
+            ->json('data.id');
+
+        $this->patchJson(
+            "/api/finance/cash-movements/{$receiptId}/check-status",
+            ['status' => 'cleared'],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
 
         $this->postJson("/api/finance/cash-movements/{$receiptId}/post")
             ->assertOk()
