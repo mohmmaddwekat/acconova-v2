@@ -254,7 +254,33 @@ class CashMovementController extends Controller
         }
 
         $organization = app(TenantContext::class)->organization();
-        $data['currency'] = strtoupper((string) ($organization->preferences['currency'] ?? 'ILS'));
+        $preferences = $organization->preferences ?? [];
+        $allowedMethods = array_values($preferences['payment_methods'] ?? [
+            'bank_transfer',
+            'card',
+            'cash',
+            'check',
+        ]);
+
+        if (! in_array($data['method'], $allowedMethods, true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'method' => ['This payment method is disabled in workspace settings.'],
+            ]);
+        }
+
+        if (
+            $data['method'] === 'check'
+            && ($preferences['validate_check_date'] ?? true)
+            && ! empty($data['check_due_date'])
+            && ! empty($data['movement_date'])
+            && $data['check_due_date'] < $data['movement_date']
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'check_due_date' => ['Check due date cannot be earlier than the movement date.'],
+            ]);
+        }
+
+        $data['currency'] = strtoupper((string) ($preferences['currency'] ?? 'ILS'));
         $data['check_status'] = ($data['method'] ?? null) === 'check'
             ? 'pending'
             : null;
