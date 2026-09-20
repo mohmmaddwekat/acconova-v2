@@ -669,7 +669,7 @@ export function CommandCenter() {
                     setOpen(true);
                 }}
                 aria-label={text('بحث شامل', 'Global search')}
-                className="hidden h-10 items-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] sm:flex"
+                className="flex size-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] sm:h-10 sm:w-auto sm:px-3"
             >
                 <Search size={15} />
                 <span className="hidden lg:inline">
