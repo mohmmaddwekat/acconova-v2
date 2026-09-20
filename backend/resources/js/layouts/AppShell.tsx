@@ -73,16 +73,9 @@ export function AppShell({
                             ...response.settings,
                         };
 
-                        unbindSystemTheme();
-
                         applyProfilePreferences(
                             preferences,
                         );
-
-                        unbindSystemTheme =
-                            bindSystemTheme(
-                                preferences,
-                            );
                     },
                 )
                 .catch(
