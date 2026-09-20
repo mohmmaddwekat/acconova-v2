@@ -789,6 +789,36 @@ export function DocumentForm({
             return;
         }
 
+        const manualLineNames =
+            lines
+                .filter(
+                    line =>
+                        ! line.product_id
+                        && line.description.trim(),
+                )
+                .map(
+                    line =>
+                        line.description
+                            .trim()
+                            .toLocaleLowerCase(),
+                );
+
+        if (
+            new Set(
+                manualLineNames,
+            ).size !==
+            manualLineNames.length
+        ) {
+            setError(
+                text(
+                    'يوجد بند يدوي مكرر. عدّل الكمية في البند الموجود أو غيّر الوصف بدل تكراره.',
+                    'A manual line is duplicated. Update the existing line quantity or change its description instead of repeating it.',
+                ),
+            );
+
+            return;
+        }
+
         if (! partyId) {
             setError(
                 sales
