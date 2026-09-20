@@ -110,6 +110,16 @@ class FinanceLookupController extends Controller
 
         $canPartyData = $canSalesView || $canPurchasesView || $canCashView;
         $canProductData = $canSalesView || $canPurchasesView;
+
+        $creditUsage = $canSalesView
+            ? FinancialDocument::query()
+                ->where('kind', 'sale_invoice')
+                ->whereIn('status', ['issued', 'partially_paid'])
+                ->whereNotNull('party_id')
+                ->selectRaw('party_id, SUM(balance_due) as amount')
+                ->groupBy('party_id')
+                ->pluck('amount', 'party_id')
+            : collect();
         $canOperationalData = $canSalesManage || $canPurchasesManage || $canCashPay || $canCashReceive;
         $canTaxRules = $canSalesManage || $canPurchasesManage || $canTaxesView;
         $canObligations = $canTaxesView || $canCashPay;
@@ -127,6 +137,8 @@ class FinanceLookupController extends Controller
                     'email' => $party->email,
                     'phone' => $party->phone,
                     'tax_number' => $party->tax_number,
+                    'credit_limit' => $party->credit_limit,
+                    'credit_used' => (string) ($creditUsage[$party->id] ?? '0'),
                     'country_code' => $party->country_code,
                     'region_code' => $party->state,
                     'roles' => $party->roles->pluck('role')->map(fn ($role) => $role->value)->values()->all(),
