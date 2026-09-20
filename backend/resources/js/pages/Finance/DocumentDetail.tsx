@@ -1624,12 +1624,25 @@ function InvoicePrintView({
         ? '8mm'
         : '14mm';
 
+    const template =
+        document.kind === 'purchase_invoice'
+            ? invoice.purchase_template
+            : invoice.template;
+    const accentColor = invoice.accent_color || '#2563EB';
+
     const templateClass = {
-        professional: 'border-t-[6px] border-[#1265d8]',
+        professional: 'border-t-[6px]',
         classic: 'border-t-2 border-slate-800',
-        modern: 'border-s-8 border-[#1265d8]',
+        modern: 'border-s-8',
         simple: '',
-    }[invoice.template];
+    }[template];
+
+    const templateStyle =
+        template === 'professional'
+            ? { borderTopColor: accentColor }
+            : template === 'modern'
+                ? { borderInlineStartColor: accentColor }
+                : undefined;
 
     const headerAlignment = invoice.logo_position === 'center'
         ? 'items-center text-center'
@@ -1654,7 +1667,10 @@ function InvoicePrintView({
                 ].join(' ')}
             </style>
 
-            <article className={['mx-auto bg-white p-2', templateClass].join(' ')}>
+            <article
+                className={['mx-auto bg-white p-2', templateClass].join(' ')}
+                style={templateStyle}
+            >
                 <header className={['flex flex-col gap-3', headerAlignment].join(' ')}>
                     {invoice.show_logo && (
                         <div>
@@ -1665,7 +1681,10 @@ function InvoicePrintView({
                                     className="mb-2 max-h-16 max-w-[180px] object-contain"
                                 />
                             )}
-                            <div className="text-2xl font-extrabold text-[#1265d8]">
+                            <div
+                                className="text-2xl font-extrabold"
+                                style={{ color: accentColor }}
+                            >
                                 {organization.trade_name || organization.name}
                             </div>
                             <div className="mt-1 text-xs text-slate-500">
