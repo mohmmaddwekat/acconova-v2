@@ -32,7 +32,9 @@ class FinanceDocumentService
                 ...$this->headerPayload($data),
                 'number' => $this->numbers->next(
                     $kind === 'sale_invoice' ? 'sales_invoice' : 'purchase_invoice',
-                    $kind === 'sale_invoice' ? 'SAL' : 'PUR',
+                    $kind === 'sale_invoice'
+                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['invoice_prefix'] ?? 'SAL')
+                        : (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['purchase_prefix'] ?? 'PUR'),
                 ),
                 'revision' => 1,
                 'status' => 'draft',
