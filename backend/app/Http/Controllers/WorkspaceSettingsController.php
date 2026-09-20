@@ -87,7 +87,7 @@ class WorkspaceSettingsController extends Controller
             ]),
             'invoice_prefix' => $preferences['invoice_prefix'] ?? 'SAL',
             'purchase_prefix' => $preferences['purchase_prefix'] ?? 'PUR',
-            'receipt_prefix' => $preferences['receipt_prefix'] ?? 'REC',
+            'receipt_prefix' => $preferences['receipt_prefix'] ?? 'RCV',
             'payment_prefix' => $preferences['payment_prefix'] ?? 'PAY',
             'invoice_start_number' => max(1, (int) ($preferences['invoice_start_number'] ?? 1)),
             'purchase_start_number' => max(1, (int) ($preferences['purchase_start_number'] ?? 1)),
