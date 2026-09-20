@@ -1,0 +1,1026 @@
+import { apiRequest } from '@/lib/http';
+import {
+    Banknote,
+    Building2,
+    CalendarDays,
+    CheckCircle2,
+    FileText,
+    Landmark,
+    Link2,
+    Save,
+    Send,
+    ShieldCheck,
+    Wallet,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+    FPanel,
+    FinanceHeader,
+    Money,
+    apiErrorText,
+    financeButton,
+    financeInput,
+    financePrimary,
+    todayValue,
+} from './shared';
+import type {
+    CashDetail,
+    DocumentDetail,
+    FinanceLookups,
+} from './types';
+
+type AllocationDraft = {
+    financial_document_id: number;
+    document_number: string;
+    document_total: string;
+    document_balance_due: string;
+    amount: string;
+};
+
+export function CashForm({
+    direction,
+    lookups,
+    ar,
+    initial,
+}: {
+    direction: 'incoming' | 'outgoing';
+    lookups: FinanceLookups;
+    ar: boolean;
+    initial?: CashDetail | null;
+}) {
+    const text = (arabic: string, english: string): string =>
+        ar ? arabic : english;
+
+    const incoming = direction === 'incoming';
+    const canManage = incoming
+        ? lookups.permissions.cash_receive
+        : lookups.permissions.cash_pay;
+
+    const [partyId, setPartyId] = useState(
+        initial?.party_id ? String(initial.party_id) : '',
+    );
+    const [governmentObligationId, setGovernmentObligationId] = useState(
+        initial?.government_obligation_id
+            ? String(initial.government_obligation_id)
+            : '',
+    );
+    const [category, setCategory] = useState(
+        initial?.category
+            ?? (incoming ? 'customer_receipt' : 'supplier_payment'),
+    );
+    const [amount, setAmount] = useState(initial?.amount ?? '0');
+    const [currency, setCurrency] = useState(initial?.currency ?? lookups.currency);
+    const [movementDate, setMovementDate] = useState(
+        initial?.movement_date ?? todayValue(),
+    );
+    const [method, setMethod] = useState(initial?.method ?? 'bank_transfer');
+    const [accountLabel, setAccountLabel] = useState(initial?.account_label ?? '');
+    const [branchLabel, setBranchLabel] = useState(initial?.branch_label ?? '');
+    const [costCenter, setCostCenter] = useState(initial?.cost_center ?? '');
+    const [departmentId, setDepartmentId] = useState(
+        initial?.department_id ? String(initial.department_id) : '',
+    );
+    const [reference, setReference] = useState(initial?.reference ?? '');
+    const [notes, setNotes] = useState(initial?.notes ?? '');
+    const [checkNumber, setCheckNumber] = useState(initial?.check_number ?? '');
+    const [checkBank, setCheckBank] = useState(initial?.check_bank ?? '');
+    const [checkDueDate, setCheckDueDate] = useState(initial?.check_due_date ?? '');
+    const [checkStatus, setCheckStatus] = useState(initial?.check_status ?? 'pending');
+    const [allocations, setAllocations] = useState<AllocationDraft[]>(
+        initial?.allocations.map((allocation) => ({
+            financial_document_id: allocation.financial_document_id,
+            document_number: allocation.document_number ?? String(allocation.financial_document_id),
+            document_total: allocation.document_total ?? '0',
+            document_balance_due: allocation.document_balance_due ?? '0',
+            amount: allocation.amount,
+        })) ?? [],
+    );
+    const [allocationSearch, setAllocationSearch] = useState('');
+    const [invoiceOptions, setInvoiceOptions] = useState<DocumentDetail[]>([]);
+    const [loadingInvoices, setLoadingInvoices] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const [prefilled, setPrefilled] = useState(false);
+
+    const parties = lookups.parties.filter((party) =>
+        party.roles.includes(incoming ? 'customer' : 'supplier'),
+    );
+
+    const selectedParty = lookups.parties.find(
+        (party) => String(party.id) === partyId,
+    ) ?? null;
+
+    const selectedObligation = lookups.government_obligations.find(
+        (obligation) => String(obligation.id) === governmentObligationId,
+    ) ?? null;
+
+    useEffect(() => {
+        if (prefilled || initial) {
+            return;
+        }
+
+        setPrefilled(true);
+
+        const params = new URLSearchParams(window.location.search);
+        const documentId = params.get('document_id');
+        const obligationId = params.get('government_obligation_id');
+
+        if (documentId) {
+            apiRequest<{ data: DocumentDetail }>(
+                '/api/finance/documents/' + documentId,
+            )
+                .then((response) => {
+                    const document = response.data;
+                    const expectedKind = incoming ? 'sale_invoice' : 'purchase_invoice';
+
+                    if (document.kind !== expectedKind) {
+                        return;
+                    }
+
+                    setPartyId(document.party?.id ? String(document.party.id) : '');
+                    setCurrency(document.currency);
+                    setAmount(document.balance_due);
+                    setCategory(incoming ? 'customer_receipt' : 'supplier_payment');
+                    setAllocations([
+                        {
+                            financial_document_id: document.id,
+                            document_number: document.number,
+                            document_total: document.total,
+                            document_balance_due: document.balance_due,
+                            amount: document.balance_due,
+                        },
+                    ]);
+                })
+                .catch(() => undefined);
+        }
+
+        if (! incoming && obligationId) {
+            const obligation = lookups.government_obligations.find(
+                (item) => String(item.id) === obligationId,
+            );
+
+            if (obligation) {
+                setGovernmentObligationId(String(obligation.id));
+                setCategory(
+                    obligation.title.toLowerCase().includes('tax')
+                        ? 'tax_payment'
+                        : 'government_fee',
+                );
+                setAmount(obligation.balance_due);
+                setCurrency(obligation.currency);
+                setReference(obligation.authority_name);
+            }
+        }
+    }, [prefilled, initial, incoming, lookups.government_obligations]);
+
+    const allocated = useMemo(
+        () => allocations.reduce(
+            (sum, allocation) => sum + (Number(allocation.amount) || 0),
+            0,
+        ),
+        [allocations],
+    );
+
+    const unallocated = Math.max((Number(amount) || 0) - allocated, 0);
+
+    async function searchInvoices(): Promise<void> {
+        setLoadingInvoices(true);
+        setError('');
+
+        try {
+            const params = new URLSearchParams({
+                kind: incoming ? 'sale_invoice' : 'purchase_invoice',
+                per_page: '100',
+            });
+
+            if (partyId) {
+                params.set('party_id', partyId);
+            }
+
+            if (allocationSearch.trim()) {
+                params.set('search', allocationSearch.trim());
+            }
+
+            const response = await apiRequest<{
+                data: {
+                    id: number;
+                    number: string;
+                    status: string;
+                    party: { id: number; name: string } | null;
+                    total: string;
+                    balance_due: string;
+                    currency: string;
+                }[];
+            }>('/api/finance/documents?' + params.toString());
+
+            const details = await Promise.all(
+                response.data
+                    .filter((row) =>
+                        ['issued', 'partially_paid', 'overpaid', 'paid'].includes(row.status),
+                    )
+                    .filter((row) => Number(row.balance_due) > 0)
+                    .slice(0, 20)
+                    .map((row) =>
+                        apiRequest<{ data: DocumentDetail }>(
+                            '/api/finance/documents/' + row.id,
+                        ).then((detail) => detail.data),
+                    ),
+            );
+
+            setInvoiceOptions(details);
+        } catch (failure) {
+            setError(apiErrorText(failure));
+        } finally {
+            setLoadingInvoices(false);
+        }
+    }
+
+    function addAllocation(document: DocumentDetail): void {
+        if (allocations.some((item) => item.financial_document_id === document.id)) {
+            return;
+        }
+
+        if (partyId && document.party?.id && String(document.party.id) !== partyId) {
+            setError(
+                text(
+                    'لا يمكن توزيع حركة واحدة على فواتير لأطراف مختلفة.',
+                    'One cash movement cannot be allocated across different counterparties.',
+                ),
+            );
+            return;
+        }
+
+        if (! partyId && document.party?.id) {
+            setPartyId(String(document.party.id));
+        }
+
+        if (document.currency !== currency && allocations.length > 0) {
+            setError(
+                text(
+                    'يجب أن تكون كل الفواتير المخصصة بنفس عملة الحركة.',
+                    'All allocated invoices must use the cash movement currency.',
+                ),
+            );
+            return;
+        }
+
+        if (! allocations.length) {
+            setCurrency(document.currency);
+        }
+
+        const remainingAmount = Math.max(
+            (Number(amount) || 0) - allocated,
+            0,
+        );
+
+        setAllocations((current) => [
+            ...current,
+            {
+                financial_document_id: document.id,
+                document_number: document.number,
+                document_total: document.total,
+                document_balance_due: document.balance_due,
+                amount: String(
+                    Math.min(
+                        Number(document.balance_due) || 0,
+                        remainingAmount > 0
+                            ? remainingAmount
+                            : Number(document.balance_due) || 0,
+                    ),
+                ),
+            },
+        ]);
+    }
+
+    function payload() {
+        return {
+            direction,
+            party_id: partyId ? Number(partyId) : null,
+            government_obligation_id:
+                ! incoming && governmentObligationId
+                    ? Number(governmentObligationId)
+                    : null,
+            department_id: departmentId ? Number(departmentId) : null,
+            category,
+            amount,
+            currency,
+            movement_date: movementDate,
+            method,
+            account_label: accountLabel || null,
+            branch_label: branchLabel || null,
+            cost_center: costCenter || null,
+            reference: reference || null,
+            check_number: method === 'check' ? checkNumber : null,
+            check_bank: method === 'check' ? checkBank : null,
+            check_due_date: method === 'check' ? checkDueDate : null,
+            check_status: method === 'check' ? checkStatus : null,
+            notes: notes || null,
+            allocations: allocations
+                .filter((allocation) => Number(allocation.amount) > 0)
+                .map((allocation) => ({
+                    financial_document_id: allocation.financial_document_id,
+                    amount: allocation.amount,
+                })),
+        };
+    }
+
+    async function save(post: boolean): Promise<void> {
+        if (busy || ! canManage) {
+            return;
+        }
+
+        if ((Number(amount) || 0) <= 0) {
+            setError(text('أدخل مبلغاً صحيحاً.', 'Enter a valid amount.'));
+            return;
+        }
+
+        if (allocated > (Number(amount) || 0) + 0.00005) {
+            setError(
+                text(
+                    'إجمالي المبالغ المخصصة للفواتير أكبر من مبلغ الحركة.',
+                    'Invoice allocations exceed the cash movement amount.',
+                ),
+            );
+            return;
+        }
+
+        if (method === 'check' && (! checkNumber || ! checkBank || ! checkDueDate)) {
+            setError(
+                text(
+                    'رقم الشيك والبنك وتاريخ الاستحقاق مطلوبة عند اختيار طريقة الدفع شيك.',
+                    'Check number, bank and due date are required for check payments.',
+                ),
+            );
+            return;
+        }
+
+        setBusy(true);
+        setError('');
+
+        try {
+            const response = await apiRequest<{ data: CashDetail }>(
+                initial?.id
+                    ? '/api/finance/cash-movements/' + initial.id
+                    : '/api/finance/cash-movements',
+                {
+                    method: initial?.id ? 'PATCH' : 'POST',
+                    body: JSON.stringify(payload()),
+                },
+            );
+
+            let movement = response.data;
+
+            if (post) {
+                const posted = await apiRequest<{ data: CashDetail }>(
+                    '/api/finance/cash-movements/' + movement.id + '/post',
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({}),
+                    },
+                );
+
+                movement = posted.data;
+            }
+
+            window.location.assign(
+                incoming
+                    ? '/app/receipts/' + movement.id
+                    : '/app/payments/' + movement.id,
+            );
+        } catch (failure) {
+            setError(apiErrorText(failure));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    const incomingCategories = [
+        ['customer_receipt', text('تحصيل فواتير بيع', 'Sales invoice collection')],
+        ['capital', text('تمويل أو رأس مال', 'Capital / funding')],
+        ['loan', text('قرض مستلم', 'Loan received')],
+        ['asset_sale', text('بيع أصل', 'Asset sale')],
+        ['refund', text('مرتجع / تسوية', 'Refund / settlement')],
+        ['other_income', text('دخل آخر', 'Other income')],
+        ['other', text('أخرى', 'Other')],
+    ];
+
+    const outgoingCategories = [
+        ['supplier_payment', text('دفعة مورد', 'Supplier payment')],
+        ['raw_material', text('مواد خام', 'Raw materials')],
+        ['goods_for_resale', text('بضائع لإعادة البيع', 'Goods for resale')],
+        ['packaging', text('تعبئة وتغليف', 'Packaging')],
+        ['operating_expense', text('مصروف تشغيلي', 'Operating expense')],
+        ['payroll', text('رواتب', 'Payroll')],
+        ['rent', text('إيجار', 'Rent')],
+        ['utilities', text('كهرباء ومياه', 'Utilities')],
+        ['shipping_customs', text('شحن وجمارك', 'Freight & customs')],
+        ['maintenance', text('صيانة', 'Maintenance')],
+        ['marketing', text('تسويق', 'Marketing')],
+        ['tax_payment', text('دفع ضريبة', 'Tax payment')],
+        ['government_fee', text('رسوم حكومية', 'Government fee')],
+        ['asset_purchase', text('شراء أصل', 'Asset purchase')],
+        ['other_expense', text('مصروف آخر', 'Other expense')],
+        ['other', text('أخرى', 'Other')],
+    ];
+
+    const methods = [
+        ['cash', text('نقدي', 'Cash')],
+        ['bank_transfer', text('تحويل بنكي', 'Bank transfer')],
+        ['check', text('شيك', 'Check')],
+        ['card', text('بطاقة ائتمان / خصم', 'Card')],
+        ['electronic_wallet', text('محفظة إلكترونية', 'E-wallet')],
+        ['direct_debit', text('خصم مباشر', 'Direct debit')],
+        ['other', text('طريقة أخرى', 'Other')],
+    ];
+
+    return (
+        <div className="space-y-4">
+            <FinanceHeader
+                title={
+                    initial
+                        ? incoming
+                            ? text('تعديل مسودة مقبوض', 'Edit receipt draft')
+                            : text('تعديل مسودة دفعة', 'Edit payment draft')
+                        : incoming
+                          ? text('تسجيل مقبوض', 'Record receipt')
+                          : text('تسجيل دفعة', 'Record payment')
+                }
+                subtitle={
+                    incoming
+                        ? text(
+                            'سجل المقبوضات سواء كانت مرتبطة بفواتير بيع أو دفعات مقدمة أو تمويلاً أو دخلاً آخر.',
+                            'Record incoming cash whether linked to sales invoices, advances, funding or other income.',
+                        )
+                        : text(
+                            'سجل أي دفع: موردين، مواد خام، مصاريف تشغيل، ضرائب، رسوم حكومية أو أي مصروف غير مرتبط بالمخزون.',
+                            'Record any outgoing payment: suppliers, raw materials, operating expenses, taxes, government fees or non-inventory costs.',
+                        )
+                }
+                actions={
+                    <>
+                        <button
+                            type="button"
+                            className={financeButton}
+                            disabled={busy || ! canManage}
+                            onClick={() => void save(false)}
+                        >
+                            <Save size={15} />
+                            {text('حفظ كمسودة', 'Save draft')}
+                        </button>
+                        <button
+                            type="button"
+                            className={financePrimary}
+                            disabled={busy || ! canManage}
+                            onClick={() => void save(true)}
+                        >
+                            <Send size={15} />
+                            {incoming
+                                ? text('اعتماد القبض', 'Post receipt')
+                                : text('اعتماد الصرف', 'Post payment')}
+                        </button>
+                    </>
+                }
+            />
+
+            {! canManage && (
+                <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    {text(
+                        'دورك الحالي يسمح بالعرض فقط.',
+                        'Your current role is read-only.',
+                    )}
+                </div>
+            )}
+
+            {initial?.correction_reason && (
+                <div className="rounded-[14px] border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
+                    <strong>{text('مسودة تصحيح:', 'Correction draft:')}</strong>{' '}
+                    {initial.correction_reason}
+                </div>
+            )}
+
+            {error && (
+                <div role="alert" className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    {error}
+                </div>
+            )}
+
+            <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
+                <div className="space-y-4">
+                    <FPanel
+                        title={text('معلومات الحركة', 'Movement information')}
+                        icon={Banknote}
+                    >
+                        <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {incoming
+                                    ? text('مصدر المقبوض', 'Receipt source')
+                                    : text('فئة الدفع', 'Payment category')}
+                                <select
+                                    className={financeInput + ' mt-2'}
+                                    value={category}
+                                    onChange={(event) => {
+                                        setCategory(event.target.value);
+                                        if (! incoming && ! ['tax_payment', 'government_fee'].includes(event.target.value)) {
+                                            setGovernmentObligationId('');
+                                        }
+                                    }}
+                                >
+                                    {(incoming ? incomingCategories : outgoingCategories)
+                                        .map(([value, label]) => (
+                                            <option key={value} value={value}>{label}</option>
+                                        ))}
+                                </select>
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {incoming
+                                    ? text('العميل / المصدر', 'Customer / source')
+                                    : text('المستفيد / المورد', 'Beneficiary / supplier')}
+                                <select
+                                    className={financeInput + ' mt-2'}
+                                    value={partyId}
+                                    onChange={(event) => setPartyId(event.target.value)}
+                                >
+                                    <option value="">
+                                        {text('بدون طرف مسجل', 'No saved party')}
+                                    </option>
+                                    {parties.map((party) => (
+                                        <option key={party.id} value={party.id}>
+                                            {party.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {text('المبلغ', 'Amount')}
+                                <input
+                                    type="number"
+                                    min="0.0001"
+                                    step="0.0001"
+                                    className={financeInput + ' mt-2'}
+                                    value={amount}
+                                    onChange={(event) => setAmount(event.target.value)}
+                                />
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {text('العملة', 'Currency')}
+                                <input
+                                    className={financeInput + ' mt-2'}
+                                    maxLength={3}
+                                    value={currency}
+                                    onChange={(event) => setCurrency(event.target.value.toUpperCase())}
+                                />
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {text('تاريخ الحركة', 'Movement date')}
+                                <input
+                                    type="date"
+                                    className={financeInput + ' mt-2'}
+                                    value={movementDate}
+                                    onChange={(event) => setMovementDate(event.target.value)}
+                                />
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {text('طريقة الدفع / القبض', 'Payment method')}
+                                <select
+                                    className={financeInput + ' mt-2'}
+                                    value={method}
+                                    onChange={(event) => setMethod(event.target.value)}
+                                >
+                                    {methods.map(([value, label]) => (
+                                        <option key={value} value={value}>{label}</option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {text('الحساب / الصندوق', 'Account / cash box')}
+                                <input
+                                    className={financeInput + ' mt-2'}
+                                    value={accountLabel}
+                                    onChange={(event) => setAccountLabel(event.target.value)}
+                                    placeholder={text('مثال: البنك الأهلي - 0123', 'Example: Main bank - 0123')}
+                                />
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {text('رقم المرجع', 'Reference')}
+                                <input
+                                    className={financeInput + ' mt-2'}
+                                    value={reference}
+                                    onChange={(event) => setReference(event.target.value)}
+                                />
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {text('القسم', 'Department')}
+                                <select
+                                    className={financeInput + ' mt-2'}
+                                    value={departmentId}
+                                    onChange={(event) => setDepartmentId(event.target.value)}
+                                >
+                                    <option value="">{text('بدون قسم', 'No department')}</option>
+                                    {lookups.departments.map((department) => (
+                                        <option key={department.id} value={department.id}>
+                                            {department.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {text('الفرع / الموقع', 'Branch / location')}
+                                <input
+                                    className={financeInput + ' mt-2'}
+                                    value={branchLabel}
+                                    onChange={(event) => setBranchLabel(event.target.value)}
+                                />
+                            </label>
+
+                            <label className="text-xs font-semibold text-[#49698f]">
+                                {text('مركز التكلفة', 'Cost center')}
+                                <input
+                                    className={financeInput + ' mt-2'}
+                                    value={costCenter}
+                                    onChange={(event) => setCostCenter(event.target.value)}
+                                />
+                            </label>
+
+                            {! incoming && (
+                                <label className="text-xs font-semibold text-[#49698f]">
+                                    {text('مستحق حكومي مرتبط', 'Government obligation')}
+                                    <select
+                                        className={financeInput + ' mt-2'}
+                                        value={governmentObligationId}
+                                        onChange={(event) => {
+                                            const value = event.target.value;
+                                            setGovernmentObligationId(value);
+                                            const obligation = lookups.government_obligations.find(
+                                                (item) => String(item.id) === value,
+                                            );
+
+                                            if (obligation) {
+                                                setAmount(obligation.balance_due);
+                                                setCurrency(obligation.currency);
+                                                setCategory('tax_payment');
+                                                setReference(obligation.authority_name);
+                                            }
+                                        }}
+                                    >
+                                        <option value="">
+                                            {text('بدون مستحق حكومي', 'No government obligation')}
+                                        </option>
+                                        {lookups.government_obligations.map((obligation) => (
+                                            <option key={obligation.id} value={obligation.id}>
+                                                {obligation.title} · {obligation.authority_name} · {obligation.balance_due} {obligation.currency}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            )}
+                        </div>
+                    </FPanel>
+
+                    {method === 'check' && (
+                        <FPanel
+                            title={text('بيانات الشيك', 'Check details')}
+                            icon={Landmark}
+                        >
+                            <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
+                                <label className="text-xs font-semibold text-[#49698f]">
+                                    {text('رقم الشيك', 'Check number')}
+                                    <input
+                                        className={financeInput + ' mt-2'}
+                                        value={checkNumber}
+                                        onChange={(event) => setCheckNumber(event.target.value)}
+                                    />
+                                </label>
+
+                                <label className="text-xs font-semibold text-[#49698f]">
+                                    {text('البنك', 'Bank')}
+                                    <input
+                                        className={financeInput + ' mt-2'}
+                                        value={checkBank}
+                                        onChange={(event) => setCheckBank(event.target.value)}
+                                    />
+                                </label>
+
+                                <label className="text-xs font-semibold text-[#49698f]">
+                                    {text('تاريخ الاستحقاق', 'Due date')}
+                                    <input
+                                        type="date"
+                                        className={financeInput + ' mt-2'}
+                                        value={checkDueDate}
+                                        onChange={(event) => setCheckDueDate(event.target.value)}
+                                    />
+                                </label>
+
+                                <label className="text-xs font-semibold text-[#49698f]">
+                                    {text('حالة الشيك', 'Check status')}
+                                    <select
+                                        className={financeInput + ' mt-2'}
+                                        value={checkStatus}
+                                        onChange={(event) => setCheckStatus(event.target.value)}
+                                    >
+                                        <option value="pending">{text('قيد التحصيل', 'Pending')}</option>
+                                        <option value="cleared">{text('محصل', 'Cleared')}</option>
+                                        <option value="bounced">{text('مرتجع', 'Bounced')}</option>
+                                        <option value="cancelled">{text('ملغي', 'Cancelled')}</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </FPanel>
+                    )}
+
+                    <FPanel
+                        title={
+                            incoming
+                                ? text('توزيع المقبوض على فواتير البيع', 'Allocate receipt to sales invoices')
+                                : text('توزيع الدفع على فواتير الشراء', 'Allocate payment to purchase invoices')
+                        }
+                        icon={Link2}
+                        action={
+                            <button
+                                type="button"
+                                className={financeButton}
+                                disabled={loadingInvoices}
+                                onClick={() => void searchInvoices()}
+                            >
+                                {text('بحث عن فواتير', 'Find invoices')}
+                            </button>
+                        }
+                    >
+                        <div className="space-y-4 p-4">
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <input
+                                    className={financeInput}
+                                    value={allocationSearch}
+                                    onChange={(event) => setAllocationSearch(event.target.value)}
+                                    placeholder={text('رقم الفاتورة أو اسم الطرف...', 'Invoice number or party...')}
+                                />
+                                <button
+                                    type="button"
+                                    className={financeButton}
+                                    disabled={loadingInvoices}
+                                    onClick={() => void searchInvoices()}
+                                >
+                                    {loadingInvoices
+                                        ? text('جارٍ البحث...', 'Searching...')
+                                        : text('بحث', 'Search')}
+                                </button>
+                            </div>
+
+                            {invoiceOptions.length > 0 && (
+                                <div className="grid gap-2 md:grid-cols-2">
+                                    {invoiceOptions.map((document) => (
+                                        <button
+                                            type="button"
+                                            key={document.id}
+                                            onClick={() => addAllocation(document)}
+                                            className="flex items-center justify-between gap-3 rounded-[12px] border border-[#e3ebf6] p-3 text-start text-xs hover:bg-blue-50"
+                                        >
+                                            <div>
+                                                <strong className="text-[#1265d8]">{document.number}</strong>
+                                                <p className="mt-1 text-[10px] text-slate-400">
+                                                    {document.party?.name ?? '—'}
+                                                </p>
+                                            </div>
+                                            <Money
+                                                value={document.balance_due}
+                                                currency={document.currency}
+                                                compact
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {allocations.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[620px] text-xs">
+                                        <thead className="bg-[#f7faff] text-[#7188aa]">
+                                            <tr>
+                                                <th className="px-3 py-3 text-start">{text('الفاتورة', 'Invoice')}</th>
+                                                <th className="px-3 py-3 text-start">{text('إجمالي الفاتورة', 'Invoice total')}</th>
+                                                <th className="px-3 py-3 text-start">{text('المتبقي', 'Outstanding')}</th>
+                                                <th className="px-3 py-3 text-start">{text('المبلغ المخصص', 'Allocated')}</th>
+                                                <th className="px-3 py-3 text-start">{text('إجراء', 'Action')}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {allocations.map((allocation) => (
+                                                <tr
+                                                    key={allocation.financial_document_id}
+                                                    className="border-t border-[#edf3fa]"
+                                                >
+                                                    <td className="px-3 py-3 font-semibold text-[#1265d8]">
+                                                        {allocation.document_number}
+                                                    </td>
+                                                    <td className="px-3 py-3">
+                                                        <Money value={allocation.document_total} currency={currency} compact />
+                                                    </td>
+                                                    <td className="px-3 py-3">
+                                                        <Money value={allocation.document_balance_due} currency={currency} compact />
+                                                    </td>
+                                                    <td className="px-3 py-3">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.0001"
+                                                            className={financeInput + ' max-w-36'}
+                                                            value={allocation.amount}
+                                                            onChange={(event) =>
+                                                                setAllocations((current) =>
+                                                                    current.map((item) =>
+                                                                        item.financial_document_id === allocation.financial_document_id
+                                                                            ? { ...item, amount: event.target.value }
+                                                                            : item,
+                                                                    ),
+                                                                )
+                                                            }
+                                                        />
+                                                    </td>
+                                                    <td className="px-3 py-3">
+                                                        <button
+                                                            type="button"
+                                                            className={financeButton}
+                                                            onClick={() =>
+                                                                setAllocations((current) =>
+                                                                    current.filter(
+                                                                        (item) =>
+                                                                            item.financial_document_id !== allocation.financial_document_id,
+                                                                    ),
+                                                                )
+                                                            }
+                                                        >
+                                                            {text('إزالة', 'Remove')}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-xs leading-6 text-slate-400">
+                                    {incoming
+                                        ? text(
+                                            'ربط المقبوض بالفواتير اختياري. يمكنك تسجيل دخل أو دفعة مقدمة بدون فاتورة.',
+                                            'Invoice allocation is optional. You can record income or an advance without an invoice.',
+                                        )
+                                        : text(
+                                            'ربط الدفع بفاتورة شراء اختياري. مصروف الصيانة أو الإيجار أو الضرائب مثلاً يمكن تسجيله بدون فاتورة مخزون.',
+                                            'Purchase-invoice allocation is optional. Maintenance, rent or tax payments can be recorded without an inventory invoice.',
+                                        )}
+                                </p>
+                            )}
+                        </div>
+                    </FPanel>
+
+                    <FPanel title={text('ملاحظات', 'Notes')} icon={FileText}>
+                        <div className="p-4">
+                            <textarea
+                                className={financeInput + ' min-h-28'}
+                                value={notes}
+                                onChange={(event) => setNotes(event.target.value)}
+                            />
+                        </div>
+                    </FPanel>
+                </div>
+
+                <aside className="space-y-4 xl:sticky xl:top-24">
+                    <FPanel
+                        title={incoming ? text('ملخص المقبوض', 'Receipt summary') : text('ملخص الدفعة', 'Payment summary')}
+                        icon={Wallet}
+                    >
+                        <div className="space-y-3 p-4 text-xs">
+                            <SummaryLine
+                                label={text('المبلغ الإجمالي', 'Total amount')}
+                                value={amount}
+                                currency={currency}
+                            />
+                            <SummaryLine
+                                label={text('المخصص للفواتير', 'Allocated')}
+                                value={String(allocated)}
+                                currency={currency}
+                                className="text-emerald-600"
+                            />
+                            <SummaryLine
+                                label={text('غير المخصص', 'Unallocated')}
+                                value={String(unallocated)}
+                                currency={currency}
+                                className={unallocated > 0 ? 'text-amber-600' : 'text-emerald-600'}
+                                strong
+                            />
+                        </div>
+                    </FPanel>
+
+                    <FPanel
+                        title={incoming ? text('معلومات المصدر', 'Source information') : text('معلومات المستفيد', 'Beneficiary information')}
+                        icon={Building2}
+                    >
+                        <div className="space-y-2 p-4 text-xs">
+                            <strong className="block text-base text-[#123d78]">
+                                {selectedParty?.name ?? text('طرف غير مسجل', 'Unsaved party')}
+                            </strong>
+                            <p className="text-slate-500">{selectedParty?.phone ?? '—'}</p>
+                            <p className="text-slate-500">{selectedParty?.email ?? '—'}</p>
+                        </div>
+                    </FPanel>
+
+                    {selectedObligation && (
+                        <FPanel
+                            title={text('المستحق الحكومي', 'Government obligation')}
+                            icon={Landmark}
+                        >
+                            <div className="space-y-2 p-4 text-xs">
+                                <strong className="block text-[#123d78]">{selectedObligation.title}</strong>
+                                <p className="text-slate-500">{selectedObligation.authority_name}</p>
+                                <p className="text-slate-500">
+                                    {selectedObligation.country_code}
+                                    {selectedObligation.region_code
+                                        ? ' / ' + selectedObligation.region_code
+                                        : ''}
+                                </p>
+                                <p className="font-semibold">
+                                    <Money
+                                        value={selectedObligation.balance_due}
+                                        currency={selectedObligation.currency}
+                                    />
+                                </p>
+                            </div>
+                        </FPanel>
+                    )}
+
+                    <div className="rounded-[18px] border border-blue-200 bg-blue-50 p-4 text-xs leading-6 text-blue-800">
+                        <div className="flex items-center gap-2 font-bold">
+                            <ShieldCheck size={16} />
+                            {text('تصحيح آمن', 'Safe correction')}
+                        </div>
+                        <p className="mt-2">
+                            {text(
+                                'بعد اعتماد الحركة لا يتم تعديل المبلغ أو الطريقة بصمت. التصحيح يعكس الحركة القديمة ويحفظ نسخة جديدة مع السبب والسجل.',
+                                'After posting, amount or method is never silently overwritten. Corrections reverse the original and create a new traceable draft.',
+                            )}
+                        </p>
+                    </div>
+
+                    {method === 'check' && (
+                        <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-800">
+                            <div className="flex items-center gap-2 font-bold">
+                                <CalendarDays size={16} />
+                                {text('متابعة الشيك', 'Check tracking')}
+                            </div>
+                            <p className="mt-2">
+                                {text(
+                                    'حالة الشيك مستقلة: قيد التحصيل، محصل، مرتجع أو ملغي. الشيك المرتجع لا يمحو السجل؛ يمكن عكس الحركة أو تصحيحها.',
+                                    'Check status is tracked separately: pending, cleared, bounced or cancelled. A bounced check never erases history; reverse or correct it explicitly.',
+                                )}
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4 text-xs leading-6 text-emerald-800">
+                        <div className="flex items-center gap-2 font-bold">
+                            <CheckCircle2 size={16} />
+                            {text('الحركة لا تتطلب مخزوناً', 'No inventory required')}
+                        </div>
+                        <p className="mt-2">
+                            {text(
+                                'تسجيل الدفع أو القبض هنا حركة مالية مستقلة. لا تتغير كميات المخزون إلا من فواتير بيع/شراء مفعّل عليها أثر المخزون.',
+                                'Cash movements are independent financial records. Inventory changes only through invoice lines explicitly marked to affect stock.',
+                            )}
+                        </p>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    );
+}
+
+function SummaryLine({
+    label,
+    value,
+    currency,
+    className = '',
+    strong = false,
+}: {
+    label: string;
+    value: string;
+    currency: string;
+    className?: string;
+    strong?: boolean;
+}) {
+    return (
+        <div className="flex items-center justify-between gap-4">
+            <span className="text-slate-500">{label}</span>
+            <span className={(strong ? 'text-base font-bold ' : 'font-semibold ') + className}>
+                <Money value={value} currency={currency} />
+            </span>
+        </div>
+    );
+}
