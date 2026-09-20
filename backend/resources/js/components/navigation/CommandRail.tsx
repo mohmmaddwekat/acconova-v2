@@ -77,6 +77,24 @@ function destinationIsActive(
 
     if (
         href ===
+        '/app/finance'
+    ) {
+        return currentUrl.startsWith(
+            '/app/finance',
+        )
+            || currentUrl.startsWith(
+                '/app/invoices',
+            )
+            || currentUrl.startsWith(
+                '/app/payments',
+            )
+            || currentUrl.startsWith(
+                '/app/receipts',
+            );
+    }
+
+    if (
+        href ===
         '/app/inventory'
     ) {
         return currentUrl ===
