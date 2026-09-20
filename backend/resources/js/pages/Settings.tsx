@@ -1209,7 +1209,16 @@ function SettingsWorkspace() {
                                         <SectionLink href="/app/staff" icon={UserPlus} title={text('إدارة المستخدمين والموظفين', 'Manage users & staff')} description={text('إضافة المستخدمين ومراجعة بياناتهم وحالتهم.', 'Add and manage real users and staff.')} />
                                     </SettingsCard>
                                     <SettingsCard title={text('الأدوار والصلاحيات', 'Roles & permissions')} description={text('صلاحيات النظام الفعلية وليست معاينة.', 'Real workspace permission management.')} icon={ShieldCheck}>
-                                        <SectionLink href="/app/roles" icon={ShieldCheck} title={text('فتح إدارة الصلاحيات', 'Open permissions')} description={text('تعديل الأدوار ومن يمكنه الوصول لكل جزء.', 'Control who can access each area.')} />
+                                        {activeOrganization?.role === 'owner' ? (
+                                            <SectionLink href="/app/roles" icon={ShieldCheck} title={text('فتح إدارة الصلاحيات', 'Open permissions')} description={text('تعديل الأدوار ومن يمكنه الوصول لكل جزء.', 'Control who can access each area.')} />
+                                        ) : (
+                                            <div className="rounded-[12px] bg-[#f8fbff] p-4 text-[10px] leading-5 text-[#6f86a8]">
+                                                {text(
+                                                    'إدارة الأدوار محصورة بمالك مساحة العمل. يمكنك كمدير إدارة الإعدادات والمستخدمين ضمن صلاحياتك الحالية.',
+                                                    'Role management is restricted to the workspace owner. Admins can manage settings and users within their current permissions.',
+                                                )}
+                                            </div>
+                                        )}
                                     </SettingsCard>
                                 </div>
                             )}
