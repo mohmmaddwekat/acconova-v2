@@ -16,10 +16,10 @@ type Category = 'personal' | 'work' | 'policies' | 'certificates' | 'financial' 
 type ProfileFile = { id: number; name: string; category: Category; extension: string; size: number; favorite: boolean; pinned: boolean; created_at: string; updated_at: string; download_url: string };
 type Preferences = { locale: 'ar' | 'en'; timezone: string; date_format: 'numeric' | 'long'; hour_cycle: 'h12' | 'h23'; week_start: 'sunday' | 'monday' | 'saturday'; density: 'comfortable' | 'compact'; reduced_motion: boolean; page_size: number; theme: 'light' | 'dark' | 'system' };
 type CenterData = { settings: Preferences | null; files: ProfileFile[] };
-const panel = 'rounded-2xl border border-[var(--ac-line)] bg-white shadow-[0_3px_16px_rgba(25,65,85,.025)]';
+const panel = 'rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)]';
 const input = 'w-full rounded-lg border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2.5 text-xs outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100';
-const button = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[var(--ac-line)] bg-white px-3 py-2 text-xs font-semibold hover:bg-teal-50 focus-visible:outline-2 focus-visible:outline-teal-500 disabled:cursor-not-allowed disabled:opacity-50';
-const primary = `${button} !border-teal-600 !bg-teal-600 !text-white hover:!bg-teal-700`;
+const button = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-2 text-xs font-semibold text-[var(--ac-text)] hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] focus-visible:outline-2 focus-visible:outline-[var(--ac-accent)] disabled:cursor-not-allowed disabled:opacity-50';
+const primary = `${button} !border-[var(--ac-accent-solid)] !bg-[var(--ac-accent-solid)] !text-[var(--ac-accent-solid-text)] hover:!bg-[var(--ac-accent-hover)]`;
 const muted = 'text-[var(--ac-text-muted)]';
 const categories: [Category, string, string][] = [['personal', 'المستندات الشخصية', 'Personal documents'], ['work', 'مستندات العمل', 'Work documents'], ['policies', 'السياسات واللوائح', 'Policies'], ['certificates', 'الشهادات والدورات', 'Certificates'], ['financial', 'الملفات المالية', 'Financial files'], ['other', 'أخرى', 'Other']];
 
