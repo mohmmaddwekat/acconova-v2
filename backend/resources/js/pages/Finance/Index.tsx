@@ -36,7 +36,12 @@ export default function FinanceIndex({
         apiRequest<FinanceLookups>('/api/finance/lookups', {
             signal: controller.signal,
         })
-            .then(setLookups)
+            .then((response) => {
+                setLookups(response);
+
+                document.documentElement.dataset.acFinanceDecimals =
+                    String(response.settings.decimal_places);
+            })
             .catch((failure) => {
                 if (! controller.signal.aborted) {
                     setError(apiErrorText(failure));
