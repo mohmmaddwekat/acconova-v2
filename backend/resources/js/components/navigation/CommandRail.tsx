@@ -400,23 +400,28 @@ export function CommandRail({
         });
     }
 
-    navigationItems.push({
-        label:
-            t(
-                'settings.title',
-            ),
+    if (
+        activeOrganization?.role === 'owner'
+        || activeOrganization?.role === 'admin'
+    ) {
+        navigationItems.push({
+            label:
+                t(
+                    'settings.title',
+                ),
 
-        description:
-            t(
-                'settings.subtitle',
-            ),
+            description:
+                t(
+                    'settings.subtitle',
+                ),
 
-        href:
-            '/app/settings',
+            href:
+                '/app/settings',
 
-        icon:
-            Settings,
-    });
+            icon:
+                Settings,
+        });
+    }
 
     /*
      * Custom workspace roles receive only destinations their explicit
