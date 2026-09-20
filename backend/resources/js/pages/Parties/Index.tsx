@@ -720,12 +720,39 @@ function PartiesWorkspace() {
                     pendingBulk.ids,
                 );
 
-            showToast(
+            if (
                 pendingBulk.action ===
-                'restore'
-                    ? t('parties.bulkRestored', { count: result.affected })
-                    : t('parties.bulkArchived', { count: result.affected }),
-            );
+                'archive'
+            ) {
+                const archivedIds =
+                    [
+                        ...pendingBulk.ids,
+                    ];
+
+                showToast(
+                    t('parties.bulkArchived', { count: result.affected }),
+                    'success',
+                    {
+                        label:
+                            ar
+                                ? 'تراجع'
+                                : 'Undo',
+                        run:
+                            async () => {
+                                await bulkPartyAction(
+                                    'restore',
+                                    archivedIds,
+                                );
+                                await loadParties();
+                            },
+                    },
+                    8000,
+                );
+            } else {
+                showToast(
+                    t('parties.bulkRestored', { count: result.affected }),
+                );
+            }
 
             setSelectedIds(
                 new Set(),
