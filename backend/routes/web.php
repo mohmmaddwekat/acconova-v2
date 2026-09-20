@@ -693,6 +693,22 @@ Route::prefix(
             ],
         );
 
+        Route::post(
+            'workspace-settings/logo',
+            [
+                WorkspaceSettingsController::class,
+                'uploadLogo',
+            ],
+        );
+
+        Route::get(
+            'workspace-settings/logo',
+            [
+                WorkspaceSettingsController::class,
+                'logo',
+            ],
+        );
+
         Route::get(
             'notifications',
             [
