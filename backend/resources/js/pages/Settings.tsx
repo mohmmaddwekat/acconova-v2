@@ -560,6 +560,56 @@ function SettingsWorkspace() {
             return;
         }
 
+        /*
+         * Appearance is a personal preference. Saving it must not revalidate
+         * unrelated organization fields (website, invoice data, banking, etc).
+         * This also makes switching light/dark mode reliable even when another
+         * settings section still contains unfinished data.
+         */
+        if (section === 'appearance') {
+            setSaving(true);
+            setError('');
+            setMessage('');
+
+            try {
+                const response = await apiRequest<{ settings: ProfilePreferences }>(
+                    '/api/profile/preferences',
+                    {
+                        method: 'PUT',
+                        body: JSON.stringify(profilePreferences),
+                    },
+                );
+
+                const savedPreferences = {
+                    ...defaultProfilePreferences(),
+                    ...response.settings,
+                };
+
+                setProfilePreferences(savedPreferences);
+                applyProfilePreferences(savedPreferences);
+                setMessage(
+                    text(
+                        'تم حفظ إعدادات المظهر وتطبيقها.',
+                        'Appearance settings saved and applied.',
+                    ),
+                );
+            } catch (failure) {
+                setError(
+                    errorText(
+                        failure,
+                        text(
+                            'تعذر حفظ إعدادات المظهر.',
+                            'Could not save appearance settings.',
+                        ),
+                    ),
+                );
+            } finally {
+                setSaving(false);
+            }
+
+            return;
+        }
+
         if (!/^[A-Z0-9]{3}$/.test(settings.currency.trim().toUpperCase())) {
             setError(
                 text(
