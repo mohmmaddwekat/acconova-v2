@@ -15,6 +15,8 @@ use App\Http\Requests\UpdatePartyNotesRequest;
 use App\Http\Requests\UpdatePartyRequest;
 use App\Http\Resources\PartyResource;
 use App\Queries\Parties\PartyIndexQuery;
+use App\Services\MentionNotifier;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
@@ -84,6 +86,16 @@ class PartyController extends Controller
                 $request->validated(),
             );
 
+        $notes = (string) ($request->validated()['notes'] ?? '');
+
+        $mentions->notify(
+            app(TenantContext::class)->id(),
+            $request->user(),
+            $notes,
+            'party-notes:'.$party->id.':'.$party->updated_at?->getTimestamp(),
+            '/app/parties?focus='.$party->id,
+        );
+
         return (
             new PartyResource(
                 $party,
@@ -98,6 +110,7 @@ class PartyController extends Controller
     public function updateNotes(
         UpdatePartyNotesRequest $request,
         UpdateParty $updateParty,
+        MentionNotifier $mentions,
     ): JsonResponse {
         $party =
             $updateParty->execute(
