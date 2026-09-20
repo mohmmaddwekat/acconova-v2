@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\BusinessPulseController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\DocumentFulfillmentController;
 use App\Http\Controllers\FinanceDocumentController;
 use App\Http\Controllers\FinanceImportController;
 use App\Http\Controllers\FinanceLookupController;
@@ -774,6 +775,21 @@ Route::prefix(
         Route::post('finance/documents/{document}/void', [FinanceDocumentController::class, 'void'])->whereNumber('document');
         Route::get('finance/documents/{document}/available-credits', [FinanceDocumentController::class, 'availableCredits'])->whereNumber('document');
         Route::post('finance/documents/{document}/apply-credit', [FinanceDocumentController::class, 'applyCredit'])->whereNumber('document');
+
+        Route::get(
+            'finance/documents/{document}/fulfillments',
+            [DocumentFulfillmentController::class, 'index'],
+        )->whereNumber('document');
+
+        Route::post(
+            'finance/documents/{document}/fulfillments',
+            [DocumentFulfillmentController::class, 'store'],
+        )->whereNumber('document');
+
+        Route::delete(
+            'finance/documents/{document}/fulfillments/{fulfillment}',
+            [DocumentFulfillmentController::class, 'destroy'],
+        )->whereNumber(['document', 'fulfillment']);
 
         Route::get('finance/cash-movements', [CashMovementController::class, 'index']);
         Route::post('finance/cash-movements', [CashMovementController::class, 'store']);
