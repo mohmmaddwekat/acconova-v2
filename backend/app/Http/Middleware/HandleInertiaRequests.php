@@ -99,7 +99,6 @@ class HandleInertiaRequests extends Middleware
                             'id' => $organization->id,
 
                             'name' => $organization->name,
-                            'system_name' => $organization->preferences['system_name'] ?? 'AccoNova',
                             'currency' => $organization->preferences['currency'] ?? 'ILS',
                             'permissions' => WorkspacePermissions::custom((int) auth()->id(), $organization->id)?->permissions,
                             'task_permissions' => TaskAccess::permissions((int) auth()->id(), $organization->id, (string) $organization->pivot->getAttribute('role')),
