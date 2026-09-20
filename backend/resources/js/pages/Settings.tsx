@@ -77,6 +77,7 @@ type WorkspaceSettings = {
     city: string;
     address: string;
     invoice_footer: string;
+    logo_url: string | null;
     fiscal_year_start_month: number;
     decimal_places: number;
     rounding_method: 'normal' | 'up' | 'down';
@@ -315,6 +316,7 @@ function SettingsWorkspace() {
     const [bankAccountName, setBankAccountName] = useState('');
     const [bankIban, setBankIban] = useState('');
     const [bankNumber, setBankNumber] = useState('');
+    const [logoUploading, setLogoUploading] = useState(false);
 
     const deviceStorageKey = deviceKey(
         auth.user?.id ?? 0,
@@ -453,6 +455,52 @@ function SettingsWorkspace() {
                 is_primary: item.id === id,
             })),
         );
+    }
+
+    async function uploadLogo(file: File | null): Promise<void> {
+        if (!file || logoUploading) {
+            return;
+        }
+
+        const form = new FormData();
+        form.append('logo', file);
+
+        setLogoUploading(true);
+        setError('');
+
+        try {
+            const response = await apiRequest<{ logo_url: string }>(
+                '/api/workspace-settings/logo',
+                {
+                    method: 'POST',
+                    body: form,
+                },
+            );
+
+            setSettings(current =>
+                current
+                    ? { ...current, logo_url: response.logo_url }
+                    : current,
+            );
+            setMessage(
+                text(
+                    'تم تحديث شعار المؤسسة.',
+                    'Workspace logo updated.',
+                ),
+            );
+        } catch (failure) {
+            setError(
+                errorText(
+                    failure,
+                    text(
+                        'تعذر رفع الشعار.',
+                        'Could not upload the logo.',
+                    ),
+                ),
+            );
+        } finally {
+            setLogoUploading(false);
+        }
     }
 
     async function saveChanges(): Promise<void> {
@@ -716,18 +764,36 @@ function SettingsWorkspace() {
                                         icon={Building2}
                                     >
                                         <div className="grid gap-5 xl:grid-cols-[240px_1fr]">
-                                            <div className="flex min-h-64 flex-col items-center justify-center rounded-[15px] border border-dashed border-[#c7d9ee] bg-[#fbfdff]">
-                                                <div className="flex size-24 items-center justify-center rounded-[24px] bg-[#edf5ff] text-4xl font-black text-[#1265d8]">
-                                                    {(settings.trade_name || settings.name).charAt(0).toUpperCase()}
-                                                </div>
+                                            <div className="flex min-h-64 flex-col items-center justify-center rounded-[15px] border border-dashed border-[#c7d9ee] bg-[#fbfdff] p-4">
+                                                {settings.logo_url ? (
+                                                    <img
+                                                        src={settings.logo_url}
+                                                        alt={settings.trade_name || settings.name}
+                                                        className="max-h-24 max-w-[180px] object-contain"
+                                                    />
+                                                ) : (
+                                                    <div className="flex size-24 items-center justify-center rounded-[24px] bg-[#edf5ff] text-4xl font-black text-[#1265d8]">
+                                                        {(settings.trade_name || settings.name).charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
                                                 <strong className="mt-3 text-xl text-[#102e61]">
                                                     {settings.trade_name || settings.name}
                                                 </strong>
-                                                <p className="mt-3 max-w-[190px] text-center text-[10px] leading-5 text-[#8ba0bc]">
-                                                    {text(
-                                                        'رفع شعار المؤسسة سيضاف كميزة ملفات مستقلة. البيانات النصية هنا محفوظة ومستخدمة الآن.',
-                                                        'Workspace logo upload will use its own file storage. Text identity is saved and used now.',
-                                                    )}
+                                                <label className={secondaryButton + ' mt-4 cursor-pointer'}>
+                                                    <Upload size={14} />
+                                                    {logoUploading
+                                                        ? text('جارٍ الرفع...', 'Uploading...')
+                                                        : text('تغيير الشعار', 'Change logo')}
+                                                    <input
+                                                        type="file"
+                                                        className="hidden"
+                                                        accept="image/png,image/jpeg,image/webp"
+                                                        disabled={logoUploading}
+                                                        onChange={event => void uploadLogo(event.target.files?.[0] ?? null)}
+                                                    />
+                                                </label>
+                                                <p className="mt-2 text-[9px] text-[#8ba0bc]">
+                                                    PNG / JPG / WEBP · 2MB max
                                                 </p>
                                             </div>
 
