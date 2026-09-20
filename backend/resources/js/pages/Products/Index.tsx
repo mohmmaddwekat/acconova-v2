@@ -766,8 +766,8 @@ function ProductsWorkspace() {
 
                 <section className="mt-7 overflow-visible rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] shadow-[var(--ac-shadow-soft)] lg:mt-10 lg:rounded-[28px]">
                     <div className="rounded-t-[22px] border-b border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 sm:p-5 lg:rounded-t-[28px] lg:p-6">
-                        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-                            <div className="relative min-w-0">
+                        <div className="grid gap-3 xl:grid-cols-[minmax(420px,680px)_auto] xl:items-center xl:justify-between">
+                            <div className="relative min-w-0 w-full">
                                 <Search
                                     size={15}
                                     className="absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
