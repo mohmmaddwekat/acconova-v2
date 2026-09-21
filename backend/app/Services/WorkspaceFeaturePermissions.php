@@ -1966,34 +1966,50 @@ final class WorkspaceFeaturePermissions
     }
 
     /**
-     * Determine whether the current user has one granular feature permission.
+     * Resolve the effective feature permissions represented by one built-in or
+     * custom workspace role without relying on the currently authenticated
+     * user's role.
      *
-     * Existing custom roles keep their previous broad access until the role is
-     * edited with granular permissions. Once any granular sibling exists for a
-     * legacy umbrella, exact feature permissions become authoritative.
+     * @param  list<string>|null  $customPermissions
+     * @return list<string>
      */
-    public static function allows(User $user, string $permission): bool
-    {
+    public static function effectiveForRole(
+        string $baseRole,
+        ?array $customPermissions = null,
+    ): array {
+        return array_values(array_filter(
+            self::keys(),
+            fn (string $permission): bool =>
+                self::allowsForRole(
+                    $baseRole,
+                    $customPermissions,
+                    $permission,
+                ),
+        ));
+    }
+
+    /**
+     * Evaluate one permission for an arbitrary membership role.
+     *
+     * @param  list<string>|null  $customPermissions
+     */
+    public static function allowsForRole(
+        string $baseRole,
+        ?array $customPermissions,
+        string $permission,
+    ): bool {
         $meta = self::permissions()[$permission] ?? null;
 
         if (! $meta) {
             return false;
         }
 
-        $context = app(TenantContext::class);
-        $role = $context->role()->value;
-
-        if ($role === 'owner') {
+        if ($baseRole === 'owner') {
             return true;
         }
 
-        $custom = WorkspacePermissions::custom(
-            $user->id,
-            $context->id(),
-        );
-
-        if ($custom) {
-            $granted = array_values(array_unique($custom->permissions ?? []));
+        if ($customPermissions !== null) {
+            $granted = array_values(array_unique($customPermissions));
 
             if (in_array($permission, $granted, true)) {
                 return true;
@@ -2005,10 +2021,9 @@ final class WorkspaceFeaturePermissions
                 return false;
             }
 
-            $catalog = self::permissions();
             $hasGranularSibling = false;
 
-            foreach ($catalog as $candidateKey => $candidate) {
+            foreach (self::permissions() as $candidateKey => $candidate) {
                 if ($candidateKey === $permission) {
                     continue;
                 }
@@ -2035,7 +2050,7 @@ final class WorkspaceFeaturePermissions
         $builtin = $meta['builtin'] ?? [];
 
         if ($builtin !== []) {
-            return in_array($role, $builtin, true);
+            return in_array($baseRole, $builtin, true);
         }
 
         $legacy = $meta['legacy'] ?? [];
@@ -2044,9 +2059,42 @@ final class WorkspaceFeaturePermissions
             return false;
         }
 
-        $base = WorkspaceRoleCatalog::builtInPermissions($role);
+        return array_intersect(
+            $legacy,
+            WorkspaceRoleCatalog::builtInPermissions($baseRole),
+        ) !== [];
+    }
 
-        return array_intersect($legacy, $base) !== [];
+    /**
+     * Determine whether the current user has one granular feature permission.
+     *
+     * Existing custom roles keep their previous broad access until the role is
+     * edited with granular permissions. Once any granular sibling exists for a
+     * legacy umbrella, exact feature permissions become authoritative.
+     */
+    public static function allows(User $user, string $permission): bool
+    {
+        $meta = self::permissions()[$permission] ?? null;
+
+        if (! $meta) {
+            return false;
+        }
+
+        $context = app(TenantContext::class);
+        $role = $context->role()->value;
+
+        $custom = WorkspacePermissions::custom(
+            $user->id,
+            $context->id(),
+        );
+
+        return self::allowsForRole(
+            $role,
+            $custom
+                ? ($custom->permissions ?? [])
+                : null,
+            $permission,
+        );
     }
 
     public static function authorize(User $user, string $permission): void
