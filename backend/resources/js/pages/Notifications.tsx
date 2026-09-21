@@ -427,8 +427,8 @@ function NotificationWorkspace() {
                                 </h2>
                                 <p className="mt-1 text-[10px] leading-5 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'ملخص آخر 7 أيام غير المقروءة حسب المجال والنوع.'
-                                        : 'A digest of unread notifications from the last 7 days, grouped by category and kind.'}
+                                        ? 'ملخص كل الإشعارات غير المقروءة حسب المجال والنوع.'
+                                        : 'A digest of all unread notifications, grouped by category and kind.'}
                                 </p>
                             </div>
 
