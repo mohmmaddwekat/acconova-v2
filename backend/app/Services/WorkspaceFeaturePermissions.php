@@ -2004,7 +2004,16 @@ final class WorkspaceFeaturePermissions
             return false;
         }
 
-        if ($baseRole === 'owner') {
+        if (
+            in_array(
+                $baseRole,
+                [
+                    'owner',
+                    'admin',
+                ],
+                true,
+            )
+        ) {
             return true;
         }
 
