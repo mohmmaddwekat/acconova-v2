@@ -995,46 +995,270 @@ class ReportStudioController extends Controller
         return ['columns' => ['dimension', 'revenue', 'cost', 'discounts', 'gross_profit', 'margin_percent', 'leakage_reasons'], 'rows' => $rows];
     }
 
-    private function movementReport(Carbon $from, Carbon $to, string $kind): array
-    {
+    private function movementReport(
+        Carbon $from,
+        Carbon $to,
+        string $kind,
+    ): array {
         $org = app(TenantContext::class)->id();
-        $opening = (float) DB::table('financial_documents')->where('organization_id', $org)->where('kind', $kind)
-            ->where('issue_date', '<', $from)->where('status', '!=', 'void')->sum('balance_due');
-        $new = (float) DB::table('financial_documents')->where('organization_id', $org)->where('kind', $kind)
-            ->whereBetween('issue_date', [$from, $to])->where('status', '!=', 'void')->sum('total');
-        $direction = $kind === 'sale_invoice' ? 'in' : 'out';
-        $paid = (float) DB::table('cash_movements')->where('organization_id', $org)->where('direction', $direction)
-            ->whereBetween('movement_date', [$from, $to])->where('status', 'posted')->sum('amount');
-        $credits = (float) DB::table('financial_documents')->where('organization_id', $org)
-            ->where('kind', $kind === 'sale_invoice' ? 'sale_credit_note' : 'purchase_credit_note')
-            ->whereBetween('issue_date', [$from, $to])->where('status', '!=', 'void')->sum('total');
+        $openingDate = $from->copy()->subDay()->endOfDay();
+
+        $opening = (float) $this
+            ->historicalOutstandingDocuments(
+                $kind,
+                $openingDate,
+            )
+            ->sum('historical_balance');
+
+        $newDocuments = (float) DB::table('financial_documents')
+            ->where('organization_id', $org)
+            ->where('kind', $kind)
+            ->where('status', '!=', 'void')
+            ->whereBetween('issue_date', [$from, $to])
+            ->sum('total');
+
+        $cash = (float) DB::table('cash_allocations as allocation')
+            ->join(
+                'cash_movements as movement',
+                'movement.id',
+                '=',
+                'allocation.cash_movement_id',
+            )
+            ->join(
+                'financial_documents as document',
+                'document.id',
+                '=',
+                'allocation.financial_document_id',
+            )
+            ->where('allocation.organization_id', $org)
+            ->where('document.kind', $kind)
+            ->where('movement.status', 'posted')
+            ->whereBetween('movement.movement_date', [$from, $to])
+            ->sum('allocation.amount');
+
+        $creditKind = $kind === 'sale_invoice'
+            ? 'sale_credit_note'
+            : 'purchase_credit_note';
+
+        $credits = (float) DB::table('financial_documents')
+            ->where('organization_id', $org)
+            ->where('kind', $creditKind)
+            ->where('status', '!=', 'void')
+            ->whereBetween('issue_date', [$from, $to])
+            ->sum('total');
+
+        $closing = (float) $this
+            ->historicalOutstandingDocuments(
+                $kind,
+                $to,
+            )
+            ->sum('historical_balance');
+
         return [
-            'columns' => ['opening', 'new_documents', 'cash', 'credits', 'closing'],
+            'columns' => [
+                'opening',
+                'new_documents',
+                'cash',
+                'credits',
+                'closing',
+            ],
             'rows' => [[
                 'opening' => $opening,
-                'new_documents' => $new,
-                'cash' => $paid,
+                'new_documents' => $newDocuments,
+                'cash' => $cash,
                 'credits' => $credits,
-                'closing' => $opening + $new - $paid - $credits,
+                'closing' => $closing,
             ]],
+            'meta' => [
+                'reconciled_closing' => $opening
+                    + $newDocuments
+                    - $cash
+                    - $credits,
+            ],
         ];
     }
 
     private function agingTrend(Carbon $from, Carbon $to): array
     {
-        $org = app(TenantContext::class)->id();
         $cursor = $from->copy()->startOfMonth();
         $rows = [];
-        while ($cursor <= $to && count($rows) < 24) {
-            $end = $cursor->copy()->endOfMonth()->min($to);
-            $cut90 = $end->copy()->subDays(90)->toDateString();
-            $amount = (float) DB::table('financial_documents')->where('organization_id', $org)
-                ->where('kind', 'sale_invoice')->where('status', '!=', 'void')->where('balance_due', '>', 0)
-                ->whereDate('due_date', '<=', $cut90)->whereDate('issue_date', '<=', $end)->sum('balance_due');
-            $rows[] = ['month' => $end->format('Y-m'), 'over_90' => $amount];
+
+        while (
+            $cursor <= $to
+            && count($rows) < 24
+        ) {
+            $end = $cursor
+                ->copy()
+                ->endOfMonth()
+                ->min($to)
+                ->endOfDay();
+
+            $buckets = [
+                'current_0_30' => 0.0,
+                'days_31_60' => 0.0,
+                'days_61_90' => 0.0,
+                'over_90' => 0.0,
+            ];
+
+            foreach (
+                $this->historicalOutstandingDocuments(
+                    'sale_invoice',
+                    $end,
+                )
+                as $document
+            ) {
+                $balance =
+                    (float) $document['historical_balance'];
+
+                if (
+                    empty($document['due_date'])
+                    || Carbon::parse($document['due_date'])->greaterThan($end)
+                ) {
+                    $buckets['current_0_30'] += $balance;
+                    continue;
+                }
+
+                $overdueDays =
+                    Carbon::parse($document['due_date'])
+                        ->startOfDay()
+                        ->diffInDays(
+                            $end->copy()->startOfDay(),
+                        );
+
+                if ($overdueDays <= 30) {
+                    $buckets['current_0_30'] += $balance;
+                } elseif ($overdueDays <= 60) {
+                    $buckets['days_31_60'] += $balance;
+                } elseif ($overdueDays <= 90) {
+                    $buckets['days_61_90'] += $balance;
+                } else {
+                    $buckets['over_90'] += $balance;
+                }
+            }
+
+            $rows[] = [
+                'month' => $end->format('Y-m'),
+                ...$buckets,
+                'total_outstanding' => array_sum($buckets),
+            ];
+
             $cursor->addMonth();
         }
-        return ['columns' => ['month', 'over_90'], 'rows' => $rows];
+
+        return [
+            'columns' => [
+                'month',
+                'current_0_30',
+                'days_31_60',
+                'days_61_90',
+                'over_90',
+                'total_outstanding',
+            ],
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * Reconstruct invoice balances as they actually stood at a historical date.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function historicalOutstandingDocuments(
+        string $kind,
+        Carbon $asOf,
+    ) {
+        $organizationId = app(TenantContext::class)->id();
+
+        $documents = DB::table('financial_documents')
+            ->where('organization_id', $organizationId)
+            ->where('kind', $kind)
+            ->where('status', '!=', 'void')
+            ->whereDate('issue_date', '<=', $asOf)
+            ->get([
+                'id',
+                'party_id',
+                'number',
+                'issue_date',
+                'due_date',
+                'total',
+                'currency',
+            ]);
+
+        if ($documents->isEmpty()) {
+            return collect();
+        }
+
+        $documentIds = $documents
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $allocations = DB::table('cash_allocations as allocation')
+            ->join(
+                'cash_movements as movement',
+                'movement.id',
+                '=',
+                'allocation.cash_movement_id',
+            )
+            ->where('allocation.organization_id', $organizationId)
+            ->whereIn('allocation.financial_document_id', $documentIds)
+            ->where('movement.status', 'posted')
+            ->whereDate('movement.movement_date', '<=', $asOf)
+            ->groupBy('allocation.financial_document_id')
+            ->selectRaw(
+                'allocation.financial_document_id, SUM(allocation.amount) as allocated_total',
+            )
+            ->pluck(
+                'allocated_total',
+                'allocation.financial_document_id',
+            );
+
+        $creditKind = $kind === 'sale_invoice'
+            ? 'sale_credit_note'
+            : 'purchase_credit_note';
+
+        $credits = DB::table('financial_documents')
+            ->where('organization_id', $organizationId)
+            ->where('kind', $creditKind)
+            ->where('status', '!=', 'void')
+            ->whereIn('root_document_id', $documentIds)
+            ->whereDate('issue_date', '<=', $asOf)
+            ->groupBy('root_document_id')
+            ->selectRaw(
+                'root_document_id, SUM(total) as credit_total',
+            )
+            ->pluck(
+                'credit_total',
+                'root_document_id',
+            );
+
+        return $documents
+            ->map(function ($document) use ($allocations, $credits): array {
+                $allocated = (float) (
+                    $allocations[$document->id]
+                    ?? 0
+                );
+
+                $credit = (float) (
+                    $credits[$document->id]
+                    ?? 0
+                );
+
+                return [
+                    ...((array) $document),
+                    'historical_balance' => max(
+                        0,
+                        (float) $document->total
+                        - $allocated
+                        - $credit,
+                    ),
+                ];
+            })
+            ->filter(
+                fn (array $document): bool =>
+                    $document['historical_balance'] > 0.0001,
+            )
+            ->values();
     }
 
     private function paymentBehavior(Carbon $from, Carbon $to): array
