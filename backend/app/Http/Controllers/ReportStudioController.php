@@ -103,6 +103,13 @@ class ReportStudioController extends Controller
                     'user.id',
                     'user.name',
                 ]),
+            'targets' => Schema::hasTable('report_dimension_targets')
+                ? DB::table('report_dimension_targets')
+                    ->where('organization_id', $org)
+                    ->latest('id')
+                    ->limit(200)
+                    ->get()
+                : [],
         ]);
     }
 
@@ -623,6 +630,52 @@ class ReportStudioController extends Controller
                 'status' => $data['status'],
                 'note' => $data['note'] ?? null,
                 'reviewed_at' => $data['status'] === 'pending' ? null : now(),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ],
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function saveTarget(Request $request): JsonResponse
+    {
+        abort_unless($this->canViewReports($request), 403);
+
+        $data = $request->validate([
+            'dimension_type' => ['required', Rule::in(['employee'])],
+            'dimension_id' => ['required', 'integer'],
+            'metric' => ['required', Rule::in(['sales'])],
+            'period_start' => ['required', 'date'],
+            'period_end' => ['required', 'date', 'after_or_equal:period_start'],
+            'target_value' => ['required', 'numeric', 'min:0'],
+            'currency' => ['nullable', 'string', 'size:3'],
+        ]);
+
+        $organizationId = app(TenantContext::class)->id();
+
+        $isMember = DB::table('memberships')
+            ->where('organization_id', $organizationId)
+            ->where('user_id', $data['dimension_id'])
+            ->exists();
+
+        abort_unless($isMember, 422);
+
+        DB::table('report_dimension_targets')->updateOrInsert(
+            [
+                'organization_id' => $organizationId,
+                'dimension_type' => $data['dimension_type'],
+                'dimension_id' => $data['dimension_id'],
+                'metric' => $data['metric'],
+                'period_start' => $data['period_start'],
+                'period_end' => $data['period_end'],
+            ],
+            [
+                'target_value' => $data['target_value'],
+                'currency' => isset($data['currency'])
+                    ? strtoupper($data['currency'])
+                    : null,
+                'created_by' => $request->user()->id,
                 'updated_at' => now(),
                 'created_at' => now(),
             ],
@@ -1497,11 +1550,29 @@ class ReportStudioController extends Controller
                     ->whereBetween('issue_date', [$from, $to])
                     ->sum('total');
 
-                $target = (float) (DB::table('kpi_targets')
-                    ->where('organization_id', $org)
-                    ->where('metric', 'sales')
-                    ->where('active', true)
-                    ->value('target_value') ?? 0);
+                $target = 0.0;
+
+                if (
+                    Schema::hasTable('report_dimension_targets')
+                    && $row->employee_id
+                ) {
+                    $target = (float) (DB::table('report_dimension_targets')
+                        ->where('organization_id', $org)
+                        ->where('dimension_type', 'employee')
+                        ->where('dimension_id', $row->employee_id)
+                        ->where('metric', 'sales')
+                        ->whereDate('period_start', '<=', $to)
+                        ->whereDate('period_end', '>=', $from)
+                        ->sum('target_value'));
+                }
+
+                if ($target == 0.0) {
+                    $target = (float) (DB::table('kpi_targets')
+                        ->where('organization_id', $org)
+                        ->where('metric', 'sales')
+                        ->where('active', true)
+                        ->value('target_value') ?? 0);
+                }
 
                 $sales = (float) $row->sales;
 
