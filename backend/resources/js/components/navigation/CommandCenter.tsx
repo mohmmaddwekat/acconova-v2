@@ -11,6 +11,7 @@ import {
 import type { AppPageProps } from '@/types/app';
 import { router, usePage } from '@inertiajs/react';
 import {
+    ArchiveRestore,
     ArrowRightLeft,
     Banknote,
     Bell,
