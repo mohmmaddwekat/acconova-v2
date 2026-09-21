@@ -7,6 +7,7 @@ use App\Http\Controllers\BankReconciliationController;
 use App\Http\Controllers\ApprovalWorkflowController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\BusinessPulseController;
+use App\Http\Controllers\BusinessControlController;
 use App\Http\Controllers\CommercialOperationsController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentFulfillmentController;
@@ -504,6 +505,61 @@ Route::middleware([
     )->name('app.inventory.batches');
 
     Route::get(
+        '/app/inventory/expiry',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'expiry-alerts']),
+    )->name('app.inventory.expiry');
+
+    Route::get(
+        '/app/purchases/landed-costs',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'landed-costs']),
+    )->name('app.purchases.landed-costs');
+
+    Route::get(
+        '/app/finance/exchange-rates',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'exchange-rates']),
+    )->name('app.finance.exchange-rates');
+
+    Route::get(
+        '/app/finance/budgets',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'budgets']),
+    )->name('app.finance.budgets');
+
+    Route::get(
+        '/app/departments/spending-limits',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'spending-limits']),
+    )->name('app.departments.spending-limits');
+
+    Route::get(
+        '/app/staff/expense-claims',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'expense-claims']),
+    )->name('app.staff.expense-claims');
+
+    Route::get(
+        '/app/finance/petty-cash',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'petty-cash']),
+    )->name('app.finance.petty-cash');
+
+    Route::get(
+        '/app/finance/recurring-expenses',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'recurring-expenses']),
+    )->name('app.finance.recurring-expenses');
+
+    Route::get(
+        '/app/parties/contracts',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'contracts']),
+    )->name('app.parties.contracts');
+
+    Route::get(
+        '/app/documents/expiry',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'document-expiry']),
+    )->name('app.documents.expiry');
+
+    Route::get(
+        '/app/data-quality',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'data-quality']),
+    )->name('app.data-quality');
+
+    Route::get(
         '/app/finance/approvals',
         fn () => Inertia::render('Finance/Approvals'),
     )->name('app.finance.approvals');
@@ -884,6 +940,26 @@ Route::prefix(
             'finance/recurring-invoices/{profile}',
             [InvoiceAutomationController::class, 'deleteRecurring'],
         )->whereNumber('profile');
+
+        Route::get(
+            'control/{feature}',
+            [BusinessControlController::class, 'index'],
+        );
+
+        Route::post(
+            'control/{feature}',
+            [BusinessControlController::class, 'store'],
+        );
+
+        Route::patch(
+            'control/{feature}/{record}',
+            [BusinessControlController::class, 'update'],
+        )->whereNumber('record');
+
+        Route::post(
+            'control/petty-cash/{fund}/transactions',
+            [BusinessControlController::class, 'pettyCashTransaction'],
+        )->whereNumber('fund');
 
         Route::get(
             'operations/{feature}',
