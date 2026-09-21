@@ -1,6 +1,7 @@
 import {
     RecordCollaborationPanel,
 } from '@/components/data/RecordCollaborationPanel';
+import { RecordCustomizationPanel } from '@/components/data/RecordCustomizationPanel';
 import {
     PermanentDeleteControl,
 } from '@/components/data/PermanentDeleteControl';
@@ -787,6 +788,12 @@ export function PartyDetailDrawer({
                                 ? 'العلاقة الداخلية والمتابعة'
                                 : 'Internal relationship & follow-up'
                         }
+                    />
+
+                    <RecordCustomizationPanel
+                        type="party"
+                        recordId={resolvedParty.id}
+                        ar={locale === 'ar'}
                     />
 
                     <div className="mt-6">
