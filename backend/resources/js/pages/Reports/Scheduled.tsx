@@ -24,6 +24,7 @@ import {
     useMemo,
     useState,
     type FormEvent,
+    type ReactNode,
 } from 'react';
 
 type Schedule = {
@@ -1123,7 +1124,7 @@ function FieldLabel({
 }: {
     label: string;
     required?: boolean;
-    children: React.ReactNode;
+    children: ReactNode;
 }) {
     return (
         <label className="block space-y-2">
@@ -1149,7 +1150,7 @@ function EmptyState({
     icon: 'calendar' | 'file';
     title: string;
     description: string;
-    action?: React.ReactNode;
+    action?: ReactNode;
 }) {
     const Icon =
         icon === 'calendar'
