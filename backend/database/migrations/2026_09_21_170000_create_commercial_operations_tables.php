@@ -72,6 +72,7 @@ return new class extends Migration
             $table->decimal('quantity', 18, 4);
             $table->decimal('unit_price', 18, 4);
             $table->decimal('fulfilled_quantity', 18, 4)->default(0);
+            $table->decimal('invoiced_quantity', 18, 4)->default(0);
             $table->boolean('affects_inventory')->default(true);
             $table->timestamps();
 
