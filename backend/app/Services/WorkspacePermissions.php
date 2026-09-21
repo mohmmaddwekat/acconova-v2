@@ -15,6 +15,18 @@ use Illuminate\Database\Eloquent\Model;
 class WorkspacePermissions
 {
     /**
+     * Return the complete permission catalog. KEYS is retained as the legacy
+     * baseline for older code, while new features are sourced from the central
+     * feature catalog.
+     *
+     * @return list<string>
+     */
+    public static function keys(): array
+    {
+        return WorkspaceFeaturePermissions::keys();
+    }
+
+    /**
      * Every explicit permission available to custom workspace roles.
      *
      * @var list<string>
