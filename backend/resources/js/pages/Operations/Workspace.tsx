@@ -49,6 +49,7 @@ type Row = Record<string, any>;
 type Option = {
     value: string;
     label: string;
+    tracksInventory?: boolean;
 };
 
 type Field = {
@@ -67,6 +68,7 @@ type TradeLineDraft = {
     description: string;
     quantity: string;
     unit_price: string;
+    affects_inventory: boolean;
 };
 
 const emptyTradeLine = (): TradeLineDraft => ({
@@ -75,6 +77,7 @@ const emptyTradeLine = (): TradeLineDraft => ({
     description: '',
     quantity: '1',
     unit_price: '',
+    affects_inventory: false,
 });
 
 const tradeFeatures: Feature[] = [
@@ -517,6 +520,8 @@ export default function OperationsWorkspace({
                     productResult.value.data.map((product) => ({
                         value: String(product.id),
                         label: product.name,
+                        tracksInventory:
+                            product.track_inventory,
                     })),
                 );
             }
@@ -1276,7 +1281,8 @@ function buildPayload(
                 description: line.description.trim(),
                 quantity: line.quantity,
                 unit_price: line.unit_price,
-                affects_inventory: true,
+                affects_inventory:
+                    line.affects_inventory,
             })),
         };
     }
@@ -1299,10 +1305,6 @@ function TradeLinesEditor({
     lines: TradeLineDraft[];
     onChange: (lines: TradeLineDraft[]) => void;
 }) {
-    const showWarehouse =
-        feature === 'sales-orders'
-        || feature === 'purchase-orders';
-
     function updateLine(
         index: number,
         patch: Partial<TradeLineDraft>,
@@ -1352,23 +1354,31 @@ function TradeLinesEditor({
                 {lines.map((line, index) => (
                     <div
                         key={index}
-                        className="grid gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.6fr_.7fr_.8fr_auto]"
+                        className="grid gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.6fr_.7fr_.8fr_auto_auto]"
                     >
                         <select
                             value={line.product_id}
-                            onChange={event =>
+                            onChange={event => {
+                                const selected =
+                                    products.find(
+                                        option =>
+                                            option.value
+                                            === event.target.value,
+                                    );
+
                                 updateLine(index, {
                                     product_id:
                                         event.target.value,
                                     description:
                                         line.description
-                                        || products.find(
-                                            option =>
-                                                option.value
-                                                === event.target.value,
-                                        )?.label
+                                        || selected?.label
                                         || '',
-                                })
+                                    affects_inventory:
+                                        Boolean(
+                                            selected?.tracksInventory
+                                            && line.warehouse_id,
+                                        ),
+                                });
                             }
                             className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
                         >
@@ -1387,34 +1397,42 @@ function TradeLinesEditor({
                             ))}
                         </select>
 
-                        {showWarehouse ? (
-                            <select
-                                value={line.warehouse_id}
-                                onChange={event =>
-                                    updateLine(index, {
-                                        warehouse_id:
-                                            event.target.value,
-                                    })
-                                }
-                                className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
-                            >
-                                <option value="">
-                                    {ar
-                                        ? 'بدون مستودع'
-                                        : 'No warehouse'}
+                        <select
+                            value={line.warehouse_id}
+                            onChange={event => {
+                                const selectedProduct =
+                                    products.find(
+                                        option =>
+                                            option.value
+                                            === line.product_id,
+                                    );
+
+                                updateLine(index, {
+                                    warehouse_id:
+                                        event.target.value,
+                                    affects_inventory:
+                                        Boolean(
+                                            selectedProduct?.tracksInventory
+                                            && event.target.value,
+                                        ),
+                                });
+                            }}
+                            className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                        >
+                            <option value="">
+                                {ar
+                                    ? 'بدون مستودع'
+                                    : 'No warehouse'}
+                            </option>
+                            {warehouses.map(option => (
+                                <option
+                                    key={option.value}
+                                    value={option.value}
+                                >
+                                    {option.label}
                                 </option>
-                                {warehouses.map(option => (
-                                    <option
-                                        key={option.value}
-                                        value={option.value}
-                                    >
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
-                        ) : (
-                            <div className="hidden xl:block" />
-                        )}
+                            ))}
+                        </select>
 
                         <input
                             required
@@ -1460,6 +1478,28 @@ function TradeLinesEditor({
                             placeholder={ar ? 'سعر الوحدة' : 'Unit price'}
                             className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
                         />
+
+                        <label className="flex h-9 items-center gap-2 rounded-[11px] border border-[var(--ac-line)] px-2 text-[9px] font-semibold text-[var(--ac-text-muted)]">
+                            <input
+                                type="checkbox"
+                                checked={line.affects_inventory}
+                                disabled={
+                                    ! products.find(
+                                        option =>
+                                            option.value
+                                            === line.product_id,
+                                    )?.tracksInventory
+                                    || ! line.warehouse_id
+                                }
+                                onChange={event =>
+                                    updateLine(index, {
+                                        affects_inventory:
+                                            event.target.checked,
+                                    })
+                                }
+                            />
+                            {ar ? 'مخزون' : 'Inventory'}
+                        </label>
 
                         <button
                             type="button"
