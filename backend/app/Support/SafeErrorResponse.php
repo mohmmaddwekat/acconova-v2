@@ -4,6 +4,8 @@ namespace App\Support;
 
 use App\Exceptions\SafeValidationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -46,6 +48,8 @@ class SafeErrorResponse
 
                 429 => 'throttled',
 
+                500, 501, 502, 503, 504 => 'server',
+
                 default => 'unexpected',
             };
 
@@ -56,6 +60,31 @@ class SafeErrorResponse
 
             'code' => $code,
         ];
+
+        if (
+            $status >= 500
+        ) {
+            $errorId =
+                Str::upper(
+                    Str::random(10),
+                );
+
+            $payload['error_id'] =
+                $errorId;
+
+            Log::error(
+                'AccoNova request failed',
+                [
+                    'error_id' => $errorId,
+                    'status' => $status,
+                    'method' => $request->method(),
+                    'path' => $request->path(),
+                    'route' => $request->route()?->getName(),
+                    'user_id' => $request->user()?->id,
+                    'exception' => $exception::class,
+                ],
+            );
+        }
 
         if (
             $exception instanceof ValidationException
