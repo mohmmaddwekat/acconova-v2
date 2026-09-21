@@ -98,6 +98,19 @@ const readonlyFeatures: Feature[] = [
     'backorders',
 ];
 
+const summaryFeatures: Feature[] = [
+    ...readonlyFeatures,
+    'promises',
+    'quotations',
+    'proformas',
+    'sales-orders',
+    'purchase-orders',
+    'returns',
+    'warranties',
+    'serials',
+    'batches',
+];
+
 function meta(
     feature: Feature,
     ar: boolean,
@@ -988,7 +1001,7 @@ export default function OperationsWorkspace({
 
                 {! loading
                     && rows.length > 0
-                    && readonlyFeatures.includes(feature)
+                    && summaryFeatures.includes(feature)
                     && (
                         <OperationalSummary
                             feature={feature}
@@ -1815,7 +1828,416 @@ function OperationalSummary({
                                     ),
                         },
                     ]
-                    : [];
+                    : feature === 'promises'
+                        ? [
+                            {
+                                label:
+                                    ar
+                                        ? 'وعود مفتوحة'
+                                        : 'Open promises',
+                                value: String(
+                                    rows.filter(
+                                        row =>
+                                            row.status
+                                            === 'open',
+                                    ).length,
+                                ),
+                            },
+                            {
+                                label:
+                                    ar
+                                        ? 'وعود فائتة'
+                                        : 'Missed promises',
+                                value: String(
+                                    rows.filter(
+                                        row =>
+                                            row.status
+                                            === 'missed',
+                                    ).length,
+                                ),
+                            },
+                            {
+                                label:
+                                    ar
+                                        ? 'إجمالي الموعود'
+                                        : 'Promised total',
+                                value:
+                                    amount('amount')
+                                        .toLocaleString(
+                                            undefined,
+                                            {
+                                                maximumFractionDigits: 4,
+                                            },
+                                        ),
+                            },
+                            {
+                                label:
+                                    ar
+                                        ? 'المتبقي من الوعود'
+                                        : 'Promise remaining',
+                                value:
+                                    amount('promise_remaining')
+                                        .toLocaleString(
+                                            undefined,
+                                            {
+                                                maximumFractionDigits: 4,
+                                            },
+                                        ),
+                            },
+                        ]
+                        : feature === 'quotations'
+                            || feature === 'proformas'
+                            ? [
+                                {
+                                    label:
+                                        ar
+                                            ? 'مسودات'
+                                            : 'Draft',
+                                    value: String(
+                                        rows.filter(
+                                            row =>
+                                                row.status
+                                                === 'draft',
+                                        ).length,
+                                    ),
+                                },
+                                {
+                                    label:
+                                        ar
+                                            ? 'مرسلة'
+                                            : 'Sent',
+                                    value: String(
+                                        rows.filter(
+                                            row =>
+                                                row.status
+                                                === 'sent',
+                                        ).length,
+                                    ),
+                                },
+                                {
+                                    label:
+                                        ar
+                                            ? 'مقبولة'
+                                            : 'Accepted',
+                                    value: String(
+                                        rows.filter(
+                                            row =>
+                                                row.status
+                                                === 'accepted',
+                                        ).length,
+                                    ),
+                                },
+                                {
+                                    label:
+                                        ar
+                                            ? 'تم تحويلها'
+                                            : 'Converted',
+                                    value: String(
+                                        rows.filter(
+                                            row =>
+                                                row.status
+                                                === 'converted',
+                                        ).length,
+                                    ),
+                                },
+                                {
+                                    label:
+                                        ar
+                                            ? 'القيمة الإجمالية'
+                                            : 'Total value',
+                                    value:
+                                        amount('total')
+                                            .toLocaleString(
+                                                undefined,
+                                                {
+                                                    maximumFractionDigits: 4,
+                                                },
+                                            ),
+                                },
+                            ]
+                            : feature === 'sales-orders'
+                                || feature === 'purchase-orders'
+                                ? [
+                                    {
+                                        label:
+                                            ar
+                                                ? 'طلبات مفتوحة'
+                                                : 'Open orders',
+                                        value: String(
+                                            rows.filter(
+                                                row =>
+                                                    ! [
+                                                        'cancelled',
+                                                        'invoiced',
+                                                    ].includes(
+                                                        row.status,
+                                                    ),
+                                            ).length,
+                                        ),
+                                    },
+                                    {
+                                        label:
+                                            ar
+                                                ? 'كمية متبقية للتنفيذ'
+                                                : 'Qty to fulfill',
+                                        value:
+                                            amount('remaining_quantity')
+                                                .toLocaleString(
+                                                    undefined,
+                                                    {
+                                                        maximumFractionDigits: 4,
+                                                    },
+                                                ),
+                                    },
+                                    {
+                                        label:
+                                            ar
+                                                ? 'جاهز للفوترة'
+                                                : 'Ready to invoice',
+                                        value:
+                                            rows.reduce(
+                                                (sum, row) =>
+                                                    sum
+                                                    + Math.max(
+                                                        Number(
+                                                            row.fulfilled_quantity
+                                                            ?? 0,
+                                                        )
+                                                        - Number(
+                                                            row.invoiced_quantity
+                                                            ?? 0,
+                                                        ),
+                                                        0,
+                                                    ),
+                                                0,
+                                            )
+                                                .toLocaleString(
+                                                    undefined,
+                                                    {
+                                                        maximumFractionDigits: 4,
+                                                    },
+                                                ),
+                                    },
+                                    {
+                                        label:
+                                            ar
+                                                ? 'القيمة الإجمالية'
+                                                : 'Total value',
+                                        value:
+                                            amount('total')
+                                                .toLocaleString(
+                                                    undefined,
+                                                    {
+                                                        maximumFractionDigits: 4,
+                                                    },
+                                                ),
+                                    },
+                                ]
+                                : feature === 'returns'
+                                    ? [
+                                        {
+                                            label:
+                                                ar
+                                                    ? 'طلبات جديدة'
+                                                    : 'Requested',
+                                            value: String(
+                                                rows.filter(
+                                                    row =>
+                                                        row.status
+                                                        === 'requested',
+                                                ).length,
+                                            ),
+                                        },
+                                        {
+                                            label:
+                                                ar
+                                                    ? 'قيد المعالجة'
+                                                    : 'In progress',
+                                            value: String(
+                                                rows.filter(
+                                                    row =>
+                                                        [
+                                                            'approved',
+                                                            'received',
+                                                        ].includes(
+                                                            row.status,
+                                                        ),
+                                                ).length,
+                                            ),
+                                        },
+                                        {
+                                            label:
+                                                ar
+                                                    ? 'مكتملة'
+                                                    : 'Completed',
+                                            value: String(
+                                                rows.filter(
+                                                    row =>
+                                                        row.status
+                                                        === 'completed',
+                                                ).length,
+                                            ),
+                                        },
+                                        {
+                                            label:
+                                                ar
+                                                    ? 'إجمالي الكمية'
+                                                    : 'Return quantity',
+                                            value:
+                                                amount('total_quantity')
+                                                    .toLocaleString(
+                                                        undefined,
+                                                        {
+                                                            maximumFractionDigits: 4,
+                                                        },
+                                                    ),
+                                        },
+                                    ]
+                                    : feature === 'warranties'
+                                        ? [
+                                            {
+                                                label:
+                                                    ar
+                                                        ? 'ضمانات نشطة'
+                                                        : 'Active warranties',
+                                                value: String(
+                                                    rows.filter(
+                                                        row =>
+                                                            row.status
+                                                            === 'active',
+                                                    ).length,
+                                                ),
+                                            },
+                                            {
+                                                label:
+                                                    ar
+                                                        ? 'مطالبات مفتوحة'
+                                                        : 'Open claims',
+                                                value:
+                                                    amount('open_claim_count')
+                                                        .toLocaleString(),
+                                            },
+                                            {
+                                                label:
+                                                    ar
+                                                        ? 'ضمانات منتهية'
+                                                        : 'Expired warranties',
+                                                value: String(
+                                                    rows.filter(
+                                                        row =>
+                                                            row.status
+                                                            === 'expired',
+                                                    ).length,
+                                                ),
+                                            },
+                                        ]
+                                        : feature === 'serials'
+                                            ? [
+                                                {
+                                                    label:
+                                                        ar
+                                                            ? 'في المخزون'
+                                                            : 'In stock',
+                                                    value: String(
+                                                        rows.filter(
+                                                            row =>
+                                                                row.status
+                                                                === 'in_stock',
+                                                        ).length,
+                                                    ),
+                                                },
+                                                {
+                                                    label:
+                                                        ar
+                                                            ? 'مباعة'
+                                                            : 'Sold',
+                                                    value: String(
+                                                        rows.filter(
+                                                            row =>
+                                                                row.status
+                                                                === 'sold',
+                                                        ).length,
+                                                    ),
+                                                },
+                                                {
+                                                    label:
+                                                        ar
+                                                            ? 'صيانة / مرتجع'
+                                                            : 'Service / returned',
+                                                    value: String(
+                                                        rows.filter(
+                                                            row =>
+                                                                [
+                                                                    'service',
+                                                                    'returned',
+                                                                ].includes(
+                                                                    row.status,
+                                                                ),
+                                                        ).length,
+                                                    ),
+                                                },
+                                            ]
+                                            : feature === 'batches'
+                                                ? [
+                                                    {
+                                                        label:
+                                                            ar
+                                                                ? 'دفعات متاحة'
+                                                                : 'Available lots',
+                                                        value: String(
+                                                            rows.filter(
+                                                                row =>
+                                                                    row.status
+                                                                    === 'available',
+                                                            ).length,
+                                                        ),
+                                                    },
+                                                    {
+                                                        label:
+                                                            ar
+                                                                ? 'في الحجر'
+                                                                : 'Quarantine',
+                                                        value: String(
+                                                            rows.filter(
+                                                                row =>
+                                                                    row.status
+                                                                    === 'quarantine',
+                                                            ).length,
+                                                        ),
+                                                    },
+                                                    {
+                                                        label:
+                                                            ar
+                                                                ? 'منتهية / مسحوبة'
+                                                                : 'Expired / recalled',
+                                                        value: String(
+                                                            rows.filter(
+                                                                row =>
+                                                                    [
+                                                                        'expired',
+                                                                        'recalled',
+                                                                    ].includes(
+                                                                        row.status,
+                                                                    ),
+                                                            ).length,
+                                                        ),
+                                                    },
+                                                    {
+                                                        label:
+                                                            ar
+                                                                ? 'إجمالي الكمية'
+                                                                : 'Total quantity',
+                                                        value:
+                                                            amount('quantity')
+                                                                .toLocaleString(
+                                                                    undefined,
+                                                                    {
+                                                                        maximumFractionDigits: 4,
+                                                                    },
+                                                                ),
+                                                    },
+                                                ]
+                                                : [];
 
     if (metrics.length === 0) {
         return null;
