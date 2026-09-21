@@ -59,10 +59,10 @@ class BankReconciliationController extends Controller
                     ->where('status', 'posted')
                     ->where('direction', $direction)
                     ->whereBetween('movement_date', [
-                        now()->parse($line->transaction_date)
+                        \Carbon\Carbon::parse($line->transaction_date)
                             ->subDays(3)
                             ->toDateString(),
-                        now()->parse($line->transaction_date)
+                        \Carbon\Carbon::parse($line->transaction_date)
                             ->addDays(3)
                             ->toDateString(),
                     ])
