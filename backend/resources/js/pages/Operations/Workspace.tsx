@@ -1355,6 +1355,9 @@ export default function OperationsWorkspace({
                                         ?? ''
                                     }
                                     parties={parties}
+                                    financeDocuments={
+                                        financeDocuments
+                                    }
                                     onFulfillmentChange={(key, value) =>
                                         setFulfillment((current) => ({
                                             ...current,
@@ -2924,6 +2927,7 @@ function RowActions({
     serialCustomer,
     serialSaleInvoice,
     parties,
+    financeDocuments,
     onFulfillmentChange,
     onClaimReasonChange,
     onSerialCustomerChange,
@@ -2945,6 +2949,7 @@ function RowActions({
     serialCustomer: string;
     serialSaleInvoice: string;
     parties: Option[];
+    financeDocuments: FinanceDocumentOption[];
     onFulfillmentChange: (
         key: string,
         value: string,
@@ -3511,16 +3516,19 @@ function RowActions({
                 )}
 
             {feature === 'serials'
-                && row.status !== 'sold'
+                && ['in_stock', 'reserved'].includes(
+                    row.status,
+                )
                 && (
                     <div className="flex flex-wrap items-center gap-2">
                         <select
                             value={serialCustomer}
-                            onChange={event =>
+                            onChange={event => {
                                 onSerialCustomerChange(
                                     event.target.value,
-                                )
-                            }
+                                );
+                                onSerialSaleInvoiceChange('');
+                            }}
                             className="h-9 min-w-40 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-[10px] text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
                         >
                             <option value="">
@@ -3540,22 +3548,59 @@ function RowActions({
                                 ))}
                         </select>
 
-                        <input
-                            type="number"
-                            min="1"
+                        <select
                             value={serialSaleInvoice}
                             onChange={event =>
                                 onSerialSaleInvoiceChange(
                                     event.target.value,
                                 )
                             }
-                            placeholder={
-                                ar
-                                    ? 'ID فاتورة البيع (اختياري)'
-                                    : 'Sales invoice ID (optional)'
-                            }
-                            className="h-9 w-44 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-[10px] text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
-                        />
+                            className="h-9 min-w-48 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-[10px] text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                        >
+                            <option value="">
+                                {ar
+                                    ? '— فاتورة البيع اختيارية —'
+                                    : '— Sales invoice optional —'}
+                            </option>
+                            {financeDocuments
+                                .filter(document =>
+                                    document.kind
+                                    === 'sale_invoice',
+                                )
+                                .filter(document =>
+                                    [
+                                        'issued',
+                                        'partially_paid',
+                                        'paid',
+                                        'overpaid',
+                                    ].includes(
+                                        document.status,
+                                    ),
+                                )
+                                .filter(document =>
+                                    ! serialCustomer
+                                    || String(
+                                        document.party?.id
+                                        ?? '',
+                                    ) === serialCustomer,
+                                )
+                                .map(document => (
+                                    <option
+                                        key={document.id}
+                                        value={document.id}
+                                    >
+                                        {[
+                                            document.number,
+                                            document.party?.name,
+                                            document.total
+                                                + ' '
+                                                + document.currency,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </option>
+                                ))}
+                        </select>
 
                         <button
                             type="button"
@@ -3575,23 +3620,118 @@ function RowActions({
                         >
                             {ar ? 'تسجيل البيع' : 'Mark sold'}
                         </button>
+
+                        {row.status === 'in_stock' && (
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                    onPatch({
+                                        status: 'reserved',
+                                    })
+                                }
+                                className="h-9 rounded-[11px] border border-amber-500/50 px-3 text-[10px] font-semibold text-amber-400"
+                            >
+                                {ar ? 'حجز' : 'Reserve'}
+                            </button>
+                        )}
+
+                        {row.status === 'reserved' && (
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                    onPatch({
+                                        status: 'in_stock',
+                                    })
+                                }
+                                className="h-9 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)]"
+                            >
+                                {ar ? 'إلغاء الحجز' : 'Release'}
+                            </button>
+                        )}
                     </div>
                 )}
 
             {feature === 'serials'
                 && row.status === 'sold'
                 && (
+                    <>
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                                onPatch({
+                                    status: 'returned',
+                                })
+                            }
+                            className="h-9 rounded-[11px] border border-amber-500/50 px-3 text-[10px] font-semibold text-amber-400"
+                        >
+                            {ar ? 'تسجيل مرتجع' : 'Mark returned'}
+                        </button>
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                                onPatch({
+                                    status: 'service',
+                                })
+                            }
+                            className="h-9 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)]"
+                        >
+                            {ar ? 'إرسال للصيانة' : 'Send to service'}
+                        </button>
+                    </>
+                )}
+
+            {feature === 'serials'
+                && ['returned', 'service'].includes(
+                    row.status,
+                )
+                && (
                     <button
                         type="button"
                         disabled={busy}
                         onClick={() =>
                             onPatch({
-                                status: 'returned',
+                                status: 'in_stock',
                             })
                         }
-                        className="h-9 rounded-[11px] border border-amber-500/50 px-3 text-[10px] font-semibold text-amber-400"
+                        className="h-9 rounded-[11px] border border-emerald-500/50 px-3 text-[10px] font-semibold text-emerald-400"
                     >
-                        {ar ? 'تسجيل مرتجع' : 'Mark returned'}
+                        {ar ? 'إعادة للمخزون' : 'Return to stock'}
+                    </button>
+                )}
+
+            {feature === 'serials'
+                && [
+                    'in_stock',
+                    'reserved',
+                    'returned',
+                    'service',
+                ].includes(row.status)
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                            if (
+                                ! window.confirm(
+                                    ar
+                                        ? 'شطب هذا الرقم التسلسلي نهائياً من دورة التشغيل؟'
+                                        : 'Scrap this serial number from the operating lifecycle?',
+                                )
+                            ) {
+                                return;
+                            }
+
+                            onPatch({
+                                status: 'scrapped',
+                            });
+                        }}
+                        className="h-9 rounded-[11px] border border-red-400/50 px-3 text-[10px] font-semibold text-red-400"
+                    >
+                        {ar ? 'شطب' : 'Scrap'}
                     </button>
                 )}
 
@@ -3624,6 +3764,20 @@ function RowActions({
                         >
                             {ar ? 'سحب الدفعة' : 'Recall'}
                         </button>
+
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                                onPatch({
+                                    status: 'depleted',
+                                    quantity: 0,
+                                })
+                            }
+                            className="h-9 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)]"
+                        >
+                            {ar ? 'نفدت الكمية' : 'Mark depleted'}
+                        </button>
                     </>
                 )}
 
@@ -3641,6 +3795,38 @@ function RowActions({
                         className="h-9 rounded-[11px] border border-emerald-500/50 px-3 text-[10px] font-semibold text-emerald-400"
                     >
                         {ar ? 'إعادة للإتاحة' : 'Make available'}
+                    </button>
+                )}
+
+            {feature === 'batches'
+                && row.status === 'depleted'
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                            const quantity =
+                                window.prompt(
+                                    ar
+                                        ? 'أدخل الكمية الجديدة لإعادة الدفعة للإتاحة.'
+                                        : 'Enter the new quantity to make this batch available again.',
+                                );
+
+                            if (
+                                quantity === null
+                                || Number(quantity) <= 0
+                            ) {
+                                return;
+                            }
+
+                            onPatch({
+                                status: 'available',
+                                quantity,
+                            });
+                        }}
+                        className="h-9 rounded-[11px] border border-emerald-500/50 px-3 text-[10px] font-semibold text-emerald-400"
+                    >
+                        {ar ? 'إعادة تعبئة الكمية' : 'Replenish batch'}
                     </button>
                 )}
 
