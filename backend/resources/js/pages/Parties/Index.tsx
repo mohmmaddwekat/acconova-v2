@@ -315,11 +315,36 @@ function PartiesWorkspace() {
             url.searchParams.get('create') === '1';
         const focusId =
             Number(url.searchParams.get('focus') ?? 0);
+        const editId =
+            Number(url.searchParams.get('edit') ?? 0);
 
         if (createRequested && allowCreate) {
             openCreate();
             url.searchParams.delete('create');
             window.history.replaceState({}, '', url);
+        }
+
+        if (
+            Number.isInteger(editId)
+            && editId > 0
+            && allowEdit
+        ) {
+            url.searchParams.delete('edit');
+            window.history.replaceState({}, '', url);
+
+            void fetchParty(editId)
+                .then((party) => {
+                    openEdit(party);
+                })
+                .catch(() => {
+                    setError(
+                        ar
+                            ? 'تعذر فتح الجهة للتعديل.'
+                            : 'The Party could not be opened for editing.',
+                    );
+                });
+
+            return;
         }
 
         if (Number.isInteger(focusId) && focusId > 0) {
@@ -344,6 +369,7 @@ function PartiesWorkspace() {
     }, [
         activeOrganization?.id,
         allowCreate,
+        allowEdit,
         ar,
         splitView,
     ]);
