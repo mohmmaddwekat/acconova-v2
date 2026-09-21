@@ -66,15 +66,23 @@ export default function InventoryTransfers() {
     const {
         workspace,
     } = usePage<AppPageProps>().props;
+    const activeOrganization =
+        workspace.activeOrganization;
     const role =
-        workspace.activeOrganization?.role
+        activeOrganization?.role
         ?? '';
+    const canManage =
+        activeOrganization?.permissions
+            ? activeOrganization.permissions.includes(
+                'inventory.manage',
+            )
+            : [
+                'owner',
+                'admin',
+                'manager',
+            ].includes(role);
     const canApprove =
-        [
-            'owner',
-            'admin',
-            'manager',
-        ].includes(role);
+        canManage;
 
     const [
         response,
@@ -391,7 +399,8 @@ export default function InventoryTransfers() {
                     </select>
                 </div>
 
-                <section className="mt-6 rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)]">
+                {canManage && (
+                    <section className="mt-6 rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)]">
                     <h2 className="text-sm font-bold">
                         {text(
                             'طلب تحويل جديد',
@@ -591,7 +600,8 @@ export default function InventoryTransfers() {
                             )}
                         </button>
                     </div>
-                </section>
+                    </section>
+                )}
 
                 {error && (
                     <div className="mt-4 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
@@ -770,7 +780,8 @@ export default function InventoryTransfers() {
                                                             )}
 
                                                         {row.status ===
-                                                            'approved' && (
+                                                            'approved'
+                                                            && canManage && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={() =>
@@ -794,7 +805,8 @@ export default function InventoryTransfers() {
                                                             )}
 
                                                         {row.status ===
-                                                            'shipped' && (
+                                                            'shipped'
+                                                            && canManage && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={() =>
