@@ -368,6 +368,7 @@ function visibleKeys(feature: Feature): string[] {
             'party',
             'document_number',
             'amount',
+            'currency',
             'received_since_promise',
             'promise_remaining',
             'promised_on',
