@@ -51,6 +51,7 @@ class WorkspacePermissions
         'finance.cash.pay',
         'finance.cash.correct',
         'finance.documents.correct',
+        'finance.approvals.review',
         'finance.taxes.view',
         'finance.taxes.manage',
 
