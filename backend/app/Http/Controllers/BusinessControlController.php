@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Party;
 use App\Models\Product;
 use App\Services\FinanceAuthorization;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -3081,6 +3082,40 @@ class BusinessControlController extends Controller
         string $feature,
         bool $manage,
     ): void {
+        $slug = [
+            'expiry-alerts' => 'expiry_alerts',
+            'landed-costs' => 'landed_costs',
+            'exchange-rates' => 'exchange_rates',
+            'spending-limits' => 'spending_limits',
+            'expense-claims' => 'expense_claims',
+            'petty-cash' => 'petty_cash',
+            'recurring-expenses' => 'recurring_expenses',
+            'document-expiry' => 'document_expiry',
+            'data-quality' => 'data_quality',
+        ][$feature] ?? $feature;
+
+        $permission =
+            'controls.'
+            .$slug
+            .(
+                $manage
+                    ? (
+                        $feature === 'expense-claims'
+                            ? '.manage'
+                            : '.manage'
+                    )
+                    : '.view'
+            );
+
+        if (
+            WorkspaceFeaturePermissions::allows(
+                $request->user(),
+                $permission,
+            )
+        ) {
+            return;
+        }
+
         if ($feature === 'expiry-alerts') {
             abort_unless(
                 $request->user()?->can(
