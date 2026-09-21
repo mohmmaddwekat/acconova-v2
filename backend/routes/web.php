@@ -8,10 +8,12 @@ use App\Http\Controllers\ApprovalWorkflowController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\AuditCenterController;
 use App\Http\Controllers\BusinessPulseController;
+use App\Http\Controllers\DashboardIntelligenceController;
 use App\Http\Controllers\BulkActionHistoryController;
 use App\Http\Controllers\BusinessControlController;
 use App\Http\Controllers\CommercialOperationsController;
 use App\Http\Controllers\RestoreCenterController;
+use App\Http\Controllers\ReportBuilderController;
 use App\Http\Controllers\ScheduledReportController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentFulfillmentController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\FinanceImportController;
 use App\Http\Controllers\FinanceLookupController;
 use App\Http\Controllers\InvoiceAutomationController;
 use App\Http\Controllers\PaymentPlanController;
+use App\Http\Controllers\NotificationRuleController;
 use App\Http\Controllers\PartyPricingController;
 use App\Http\Controllers\ProfileCenterController;
 use App\Http\Controllers\ProfileController;
@@ -466,6 +469,11 @@ Route::middleware([
         '/app/reports',
         fn () => Inertia::render('Reports/Index'),
     )->name('app.reports');
+
+    Route::get(
+        '/app/reports/builder',
+        fn () => Inertia::render('Reports/Builder'),
+    )->name('app.reports.builder');
 
     Route::get(
         '/app/reports/scheduled',
@@ -1103,6 +1111,56 @@ Route::prefix(
         ]);
 
         Route::get(
+            'dashboard-intelligence',
+            [DashboardIntelligenceController::class, 'index'],
+        );
+
+        Route::patch(
+            'dashboard-intelligence/preferences',
+            [DashboardIntelligenceController::class, 'updatePreferences'],
+        );
+
+        Route::post(
+            'dashboard-intelligence/kpi-targets',
+            [DashboardIntelligenceController::class, 'storeTarget'],
+        );
+
+        Route::patch(
+            'dashboard-intelligence/kpi-targets/{target}',
+            [DashboardIntelligenceController::class, 'updateTarget'],
+        )->whereNumber('target');
+
+        Route::delete(
+            'dashboard-intelligence/kpi-targets/{target}',
+            [DashboardIntelligenceController::class, 'deleteTarget'],
+        )->whereNumber('target');
+
+        Route::get(
+            'report-builder',
+            [ReportBuilderController::class, 'index'],
+        );
+
+        Route::post(
+            'report-builder',
+            [ReportBuilderController::class, 'store'],
+        );
+
+        Route::patch(
+            'report-builder/{report}',
+            [ReportBuilderController::class, 'update'],
+        )->whereNumber('report');
+
+        Route::delete(
+            'report-builder/{report}',
+            [ReportBuilderController::class, 'destroy'],
+        )->whereNumber('report');
+
+        Route::post(
+            'report-builder/run',
+            [ReportBuilderController::class, 'run'],
+        );
+
+        Route::get(
             'business-pulse/brief',
             [BusinessPulseController::class, 'brief'],
         );
@@ -1380,6 +1438,46 @@ Route::prefix(
                 'index',
             ],
         );
+
+        Route::get(
+            'notifications/digest',
+            [
+                WorkspaceNotificationController::class,
+                'digest',
+            ],
+        );
+
+        Route::get(
+            'notification-rules',
+            [
+                NotificationRuleController::class,
+                'index',
+            ],
+        );
+
+        Route::post(
+            'notification-rules',
+            [
+                NotificationRuleController::class,
+                'store',
+            ],
+        );
+
+        Route::patch(
+            'notification-rules/{rule}',
+            [
+                NotificationRuleController::class,
+                'update',
+            ],
+        )->whereNumber('rule');
+
+        Route::delete(
+            'notification-rules/{rule}',
+            [
+                NotificationRuleController::class,
+                'destroy',
+            ],
+        )->whereNumber('rule');
 
         Route::get(
             'notifications/count',
