@@ -132,6 +132,33 @@ function PartiesWorkspace() {
     const activeRole =
         activeOrganization?.role;
 
+    const customPermissions =
+        activeOrganization?.permissions;
+
+    const builtInFinanceAccess = [
+        'owner',
+        'admin',
+        'manager',
+        'accountant',
+    ].includes(
+        activeRole
+        ?? '',
+    );
+
+    const canViewSalesFinance =
+        customPermissions
+            ? customPermissions.includes(
+                'finance.sales.view',
+            )
+            : builtInFinanceAccess;
+
+    const canViewPipeline =
+        customPermissions
+            ? customPermissions.includes(
+                'parties.view',
+            )
+            : Boolean(activeOrganization);
+
     const allowCreate = activeOrganization?.permissions ? activeOrganization.permissions.some(p=>['parties.manage','parties.create'].includes(p)) : canEditParties(activeRole);
     const allowEdit = activeOrganization?.permissions ? activeOrganization.permissions.some(p=>['parties.manage','parties.update'].includes(p)) : canEditParties(activeRole);
 
@@ -1113,29 +1140,35 @@ function PartiesWorkspace() {
                             {ar ? 'طابور المتابعة' : 'Follow-up queue'}
                         </Link>
 
-                        <Link
-                            href="/app/crm/pipeline"
-                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
-                        >
-                            <TrendingUp size={14} />
-                            {ar ? 'مسار المبيعات' : 'Sales pipeline'}
-                        </Link>
+                        {canViewPipeline && (
+                            <Link
+                                href="/app/crm/pipeline"
+                                className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                            >
+                                <TrendingUp size={14} />
+                                {ar ? 'مسار المبيعات' : 'Sales pipeline'}
+                            </Link>
+                        )}
 
-                        <Link
-                            href="/app/parties/payment-promises"
-                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
-                        >
-                            <CalendarClock size={14} />
-                            {ar ? 'وعود الدفع' : 'Payment promises'}
-                        </Link>
+                        {canViewSalesFinance && (
+                            <>
+                                <Link
+                                    href="/app/parties/payment-promises"
+                                    className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                                >
+                                    <CalendarClock size={14} />
+                                    {ar ? 'وعود الدفع' : 'Payment promises'}
+                                </Link>
 
-                        <Link
-                            href="/app/finance/collections"
-                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
-                        >
-                            <HandCoins size={14} />
-                            {ar ? 'التحصيل' : 'Collections'}
-                        </Link>
+                                <Link
+                                    href="/app/finance/collections"
+                                    className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                                >
+                                    <HandCoins size={14} />
+                                    {ar ? 'التحصيل' : 'Collections'}
+                                </Link>
+                            </>
+                        )}
                     </div>
                 )}
 
