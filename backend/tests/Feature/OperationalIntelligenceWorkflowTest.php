@@ -432,6 +432,8 @@ class OperationalIntelligenceWorkflowTest extends TestCase
                     $sourceId,
                 'on_hand' =>
                     '10.0000',
+                'reserved' =>
+                    '4.0000',
             ],
         );
 
@@ -457,6 +459,8 @@ class OperationalIntelligenceWorkflowTest extends TestCase
                     $sourceId,
                 'on_hand' =>
                     '6.0000',
+                'reserved' =>
+                    '0.0000',
             ],
         );
 
@@ -673,6 +677,68 @@ class OperationalIntelligenceWorkflowTest extends TestCase
                     $movementId,
             ],
         );
+
+        $this->postJson(
+            '/api/bank-reconciliation/import',
+            [
+                'lines' => [
+                    [
+                        'bank_account_label' =>
+                            'Main bank',
+                        'transaction_date' =>
+                            '2026-09-22',
+                        'description' =>
+                            'Second deposit row',
+                        'reference' =>
+                            'DEP-250-B',
+                        'amount' =>
+                            '250',
+                        'currency' =>
+                            'ILS',
+                    ],
+                ],
+            ],
+        )
+            ->assertCreated()
+            ->assertJsonPath(
+                'data.inserted',
+                1,
+            );
+
+        $secondLine = $this->getJson(
+            '/api/bank-reconciliation?status=unmatched',
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.0.suggested_match',
+                null,
+            )
+            ->json('data.0');
+
+        $this->getJson(
+            '/api/bank-reconciliation/'
+            .$secondLine['id']
+            .'/candidates',
+        )
+            ->assertOk()
+            ->assertJsonMissing([
+                'id' =>
+                    $movementId,
+            ]);
+
+        $this->postJson(
+            '/api/bank-reconciliation/'
+            .$secondLine['id']
+            .'/match',
+            [
+                'cash_movement_id' =>
+                    $movementId,
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(
+                'cash_movement_id',
+            );
     }
 
     public function test_duplicate_payment_detector_finds_similar_movements(): void
