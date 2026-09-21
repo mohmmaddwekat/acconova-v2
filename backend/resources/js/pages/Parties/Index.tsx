@@ -70,7 +70,7 @@ import type {
     Party,
     PartyIndexResponse,
 } from '@/features/parties/types';
-import { ApiError } from '@/lib/http';
+import { ApiError, apiRequest } from '@/lib/http';
 import { AppShell } from '@/layouts/AppShell';
 import type {
     AppPageProps,
@@ -729,41 +729,33 @@ function PartiesWorkspace() {
     async function applyBulkEdit(
         patch: Record<string, string>,
     ): Promise<void> {
-        if (! allowEdit || actionBusy) {
-            return;
-        }
-
-        const selected = (response?.data ?? []).filter(
-            (party) => selectedIds.has(party.id),
-        );
-
-        if (! selected.length) {
+        if (
+            ! allowEdit
+            || actionBusy
+            || selectedIds.size === 0
+        ) {
             return;
         }
 
         setActionBusy(true);
 
         try {
-            await Promise.all(
-                selected.map((party) =>
-                    updateParty(
-                        party.id,
-                        partyPayload(
-                            party,
-                            {
-                                city:
-                                    patch.city
-                                    ?? party.city,
-                                state:
-                                    patch.state
-                                    ?? party.state,
-                                country_code:
-                                    patch.country_code
-                                    ?? party.country_code,
-                            },
-                        ),
-                    ),
-                ),
+            const result = await apiRequest<{
+                data: {
+                    affected: number;
+                };
+            }>(
+                '/api/parties/bulk-edit',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        party_ids:
+                            Array.from(
+                                selectedIds,
+                            ),
+                        changes: patch,
+                    }),
+                },
             );
 
             setBulkEditOpen(false);
@@ -772,8 +764,8 @@ function PartiesWorkspace() {
 
             showToast(
                 ar
-                    ? `تم تعديل ${selected.length} جهة.`
-                    : `Updated ${selected.length} Parties.`,
+                    ? `تم تعديل ${result.data.affected} جهة.`
+                    : `Updated ${result.data.affected} Parties.`,
             );
         } catch (exception) {
             showToast(
