@@ -1,6 +1,7 @@
 import {
     RecordCollaborationPanel,
 } from '@/components/data/RecordCollaborationPanel';
+import { RecordCustomizationPanel } from '@/components/data/RecordCustomizationPanel';
 import {
     PermanentDeleteControl,
 } from '@/components/data/PermanentDeleteControl';
@@ -397,6 +398,12 @@ export function ProductDetailDrawer({
                                 ? 'وسوم وتعليقات ومرفقات المنتج'
                                 : 'Product tags, comments & attachments'
                         }
+                    />
+
+                    <RecordCustomizationPanel
+                        type="product"
+                        recordId={resolvedProduct.id}
+                        ar={locale === 'ar'}
                     />
 
                     <div className="mt-6">
