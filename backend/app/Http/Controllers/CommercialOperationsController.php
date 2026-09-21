@@ -856,49 +856,70 @@ class CommercialOperationsController extends Controller
         Request $request,
         int $organizationId,
     ): array {
-        $fulfilledPromiseIds = DB::table(
-            'payment_promises as promise',
+        $openPromises = DB::table(
+            'payment_promises',
         )
-            ->join(
-                'financial_documents as document',
-                'document.id',
-                '=',
-                'promise.financial_document_id',
-            )
             ->where(
-                'promise.organization_id',
+                'organization_id',
                 $organizationId,
             )
-            ->where(
-                'document.organization_id',
-                $organizationId,
-            )
-            ->where('promise.status', 'open')
-            ->whereNotNull(
-                'promise.financial_document_id',
-            )
-            ->where(
-                'document.balance_due',
-                '<=',
-                0,
-            )
-            ->pluck('promise.id');
+            ->where('status', 'open')
+            ->get();
 
-        if ($fulfilledPromiseIds->isNotEmpty()) {
-            DB::table('payment_promises')
-                ->where(
-                    'organization_id',
-                    $organizationId,
-                )
-                ->whereIn(
-                    'id',
-                    $fulfilledPromiseIds,
-                )
-                ->update([
-                    'status' => 'fulfilled',
-                    'fulfilled_at' => now(),
-                    'updated_at' => now(),
-                ]);
+        foreach ($openPromises as $promise) {
+            $currentReceived =
+                $promise->financial_document_id
+                    ? $this->activeInvoiceReceiptTotal(
+                        $organizationId,
+                        (int) $promise->financial_document_id,
+                    )
+                    : $this->activePartyReceiptTotal(
+                        $organizationId,
+                        (int) $promise->party_id,
+                    );
+
+            $baseline =
+                $promise->baseline_received_total;
+
+            if ($baseline === null) {
+                DB::table('payment_promises')
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->where('id', $promise->id)
+                    ->update([
+                        'baseline_received_total' =>
+                            number_format(
+                                $currentReceived,
+                                4,
+                                '.',
+                                '',
+                            ),
+                        'updated_at' => now(),
+                    ]);
+
+                continue;
+            }
+
+            if (
+                $currentReceived
+                - (float) $baseline
+                + 0.00005
+                >= (float) $promise->amount
+            ) {
+                DB::table('payment_promises')
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->where('id', $promise->id)
+                    ->update([
+                        'status' => 'fulfilled',
+                        'fulfilled_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
         }
 
         DB::table('payment_promises')
@@ -1540,6 +1561,8 @@ class CommercialOperationsController extends Controller
             'customer',
         );
 
+        $document = null;
+
         if (! empty($data['financial_document_id'])) {
             $document = DB::table('financial_documents')
                 ->where('organization_id', $organizationId)
@@ -1570,9 +1593,28 @@ class CommercialOperationsController extends Controller
             }
         }
 
+        $baselineReceived = $document
+            ? $this->activeInvoiceReceiptTotal(
+                $organizationId,
+                (int) $document->id,
+            )
+            : $this->activePartyReceiptTotal(
+                $organizationId,
+                (int) $data['party_id'],
+            );
+
         $id = DB::table('payment_promises')->insertGetId([
             'organization_id' => $organizationId,
             ...$data,
+            'baseline_balance' => $document
+                ? $document->balance_due
+                : null,
+            'baseline_received_total' => number_format(
+                $baselineReceived,
+                4,
+                '.',
+                '',
+            ),
             'status' => 'open',
             'fulfilled_at' => null,
             'created_at' => now(),
@@ -2579,6 +2621,72 @@ class CommercialOperationsController extends Controller
             ->where('organization_id', $organizationId)
             ->where('id', $record)
             ->first();
+    }
+
+    private function activeInvoiceReceiptTotal(
+        int $organizationId,
+        int $documentId,
+    ): float {
+        return (float) DB::table(
+            'cash_allocations as allocation',
+        )
+            ->join(
+                'cash_movements as movement',
+                'movement.id',
+                '=',
+                'allocation.cash_movement_id',
+            )
+            ->where(
+                'movement.organization_id',
+                $organizationId,
+            )
+            ->where(
+                'allocation.financial_document_id',
+                $documentId,
+            )
+            ->where('movement.status', 'posted')
+            ->where('movement.direction', 'incoming')
+            ->where(
+                'movement.category',
+                'customer_receipt',
+            )
+            ->whereNull('movement.reversal_of_id')
+            ->where(function ($query): void {
+                $query
+                    ->where('movement.method', '!=', 'check')
+                    ->orWhereNull('movement.check_status')
+                    ->orWhereNotIn(
+                        'movement.check_status',
+                        ['bounced', 'cancelled'],
+                    );
+            })
+            ->sum('allocation.amount');
+    }
+
+    private function activePartyReceiptTotal(
+        int $organizationId,
+        int $partyId,
+    ): float {
+        return (float) DB::table('cash_movements')
+            ->where(
+                'organization_id',
+                $organizationId,
+            )
+            ->where('party_id', $partyId)
+            ->where('status', 'posted')
+            ->where('direction', 'incoming')
+            ->where('category', 'customer_receipt')
+            ->whereNull('reversal_of_id')
+            ->where(function ($query): void {
+                $query
+                    ->where('method', '!=', 'check')
+                    ->orWhereNull('check_status')
+                    ->orWhereNotIn(
+                        'check_status',
+                        ['bounced', 'cancelled'],
+                    );
+            })
+            ->sum('amount');
     }
 
     private function stageProbability(string $stage): int
