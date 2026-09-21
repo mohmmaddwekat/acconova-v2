@@ -952,7 +952,41 @@ class CommercialOperationsController extends Controller
                 'party.company_name',
                 'document.number as document_number',
             ])
-            ->map(fn ($row): array => [
+            ->map(function ($row) use ($linesByDocument): array {
+                $lines = $linesByDocument
+                    ->get($row->id, collect())
+                    ->map(fn ($line): array => [
+                        'id' => $line->id,
+                        'product_id' => $line->product_id,
+                        'product' =>
+                            $line->product_name
+                            ?: $line->description,
+                        'warehouse_id' => $line->warehouse_id,
+                        'warehouse' => $line->warehouse_name,
+                        'description' => $line->description,
+                        'quantity' => (string) $line->quantity,
+                        'unit_price' => (string) $line->unit_price,
+                        'fulfilled_quantity' =>
+                            (string) $line->fulfilled_quantity,
+                        'invoiced_quantity' =>
+                            (string) $line->invoiced_quantity,
+                        'remaining_quantity' => number_format(
+                            max(
+                                (float) $line->quantity
+                                - (float) $line->fulfilled_quantity,
+                                0,
+                            ),
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'affects_inventory' =>
+                            (bool) $line->affects_inventory,
+                    ])
+                    ->values()
+                    ->all();
+
+                return [
                 'id' => $row->id,
                 'party_id' => $row->party_id,
                 'party' => $row->company_name ?: $row->name,
@@ -1046,6 +1080,42 @@ class CommercialOperationsController extends Controller
             ->where('organization_id', $organizationId)
             ->groupBy('trade_document_id');
 
+        $linesByDocument = DB::table(
+            'trade_document_lines as line',
+        )
+            ->leftJoin(
+                'products as product',
+                'product.id',
+                '=',
+                'line.product_id',
+            )
+            ->leftJoin(
+                'warehouses as warehouse',
+                'warehouse.id',
+                '=',
+                'line.warehouse_id',
+            )
+            ->where(
+                'line.organization_id',
+                $organizationId,
+            )
+            ->orderBy('line.id')
+            ->get([
+                'line.id',
+                'line.trade_document_id',
+                'line.product_id',
+                'line.warehouse_id',
+                'line.description',
+                'line.quantity',
+                'line.unit_price',
+                'line.fulfilled_quantity',
+                'line.invoiced_quantity',
+                'line.affects_inventory',
+                'product.name as product_name',
+                'warehouse.name as warehouse_name',
+            ])
+            ->groupBy('trade_document_id');
+
         return DB::table('trade_documents as document')
             ->leftJoinSub(
                 $lineTotals,
@@ -1120,7 +1190,9 @@ class CommercialOperationsController extends Controller
                     '',
                 ),
                 'first_line_id' => $row->first_line_id,
-            ])
+                'lines' => $lines,
+                ];
+            })
             ->all();
     }
 
