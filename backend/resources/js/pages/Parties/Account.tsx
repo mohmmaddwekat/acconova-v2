@@ -39,6 +39,7 @@ import {
 } from 'react';
 
 type Scope = 'all' | 'customer' | 'supplier';
+type AccountTab = 'overview' | 'statement' | 'invoices' | 'payments' | 'aging';
 type TransactionType =
     | 'all'
     | 'invoice'
@@ -408,8 +409,10 @@ function paymentMethodLabel(
 
 export default function PartyAccount({
     partyId,
+    initialTab = 'overview',
 }: {
     partyId: number;
+    initialTab?: AccountTab;
 }) {
     const locale =
         useLocale();
@@ -481,7 +484,11 @@ export default function PartyAccount({
     ] = useState<
         TransactionType
     >(
-        'all',
+        initialTab === 'invoices'
+            ? 'invoice'
+            : initialTab === 'payments'
+                ? 'cash'
+                : 'all',
     );
 
     const [
@@ -615,6 +622,30 @@ export default function PartyAccount({
             dateTo,
         ],
     );
+
+    useEffect(() => {
+        setTransactionType(
+            initialTab === 'invoices'
+                ? 'invoice'
+                : initialTab === 'payments'
+                    ? 'cash'
+                    : 'all',
+        );
+
+        if (
+            initialTab === 'aging'
+            && typeof window !== 'undefined'
+        ) {
+            window.requestAnimationFrame(() => {
+                document
+                    .getElementById('party-aging')
+                    ?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                    });
+            });
+        }
+    }, [initialTab]);
 
     const filtered =
         useMemo(
