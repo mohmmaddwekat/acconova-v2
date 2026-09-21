@@ -1,6 +1,10 @@
 <?php
 
 use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\PurchaseRequisitionController;
+use App\Http\Controllers\CustomerIntelligenceController;
+use App\Http\Controllers\BankReconciliationController;
+use App\Http\Controllers\ApprovalWorkflowController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\BusinessPulseController;
 use App\Http\Controllers\DepartmentController;
@@ -395,6 +399,26 @@ Route::middleware([
     )->name('app.finance.anomalies');
 
     Route::get(
+        '/app/finance/approvals',
+        fn () => Inertia::render('Finance/Approvals'),
+    )->name('app.finance.approvals');
+
+    Route::get(
+        '/app/finance/bank-reconciliation',
+        fn () => Inertia::render('Finance/BankReconciliation'),
+    )->name('app.finance.bank-reconciliation');
+
+    Route::get(
+        '/app/purchases/requisitions',
+        fn () => Inertia::render('Finance/PurchaseRequisitions'),
+    )->name('app.purchases.requisitions');
+
+    Route::get(
+        '/app/parties/intelligence',
+        fn () => Inertia::render('Parties/CustomerIntelligence'),
+    )->name('app.parties.intelligence');
+
+    Route::get(
         '/app/follow-ups',
         fn () => Inertia::render('FollowUpQueue'),
     )->name('app.follow-ups');
@@ -758,6 +782,61 @@ Route::prefix(
             [BusinessPulseController::class, 'anomalies'],
         );
 
+        Route::get(
+            'customer-intelligence',
+            [CustomerIntelligenceController::class, 'index'],
+        );
+
+        Route::get(
+            'approval-requests',
+            [ApprovalWorkflowController::class, 'index'],
+        );
+
+        Route::patch(
+            'approval-requests/{approval}',
+            [ApprovalWorkflowController::class, 'review'],
+        )->whereNumber('approval');
+
+        Route::get(
+            'purchase-requisitions',
+            [PurchaseRequisitionController::class, 'index'],
+        );
+
+        Route::post(
+            'purchase-requisitions',
+            [PurchaseRequisitionController::class, 'store'],
+        );
+
+        Route::patch(
+            'purchase-requisitions/{requisition}/review',
+            [PurchaseRequisitionController::class, 'review'],
+        )->whereNumber('requisition');
+
+        Route::post(
+            'purchase-requisitions/{requisition}/convert',
+            [PurchaseRequisitionController::class, 'convert'],
+        )->whereNumber('requisition');
+
+        Route::get(
+            'bank-reconciliation',
+            [BankReconciliationController::class, 'index'],
+        );
+
+        Route::post(
+            'bank-reconciliation/import',
+            [BankReconciliationController::class, 'import'],
+        );
+
+        Route::post(
+            'bank-reconciliation/{line}/match',
+            [BankReconciliationController::class, 'match'],
+        )->whereNumber('line');
+
+        Route::post(
+            'bank-reconciliation/{line}/ignore',
+            [BankReconciliationController::class, 'ignore'],
+        )->whereNumber('line');
+
         Route::get('finance/lookups', FinanceLookupController::class);
         Route::get('finance/reference-price', [FinanceLookupController::class, 'referencePrice']);
 
@@ -791,6 +870,10 @@ Route::prefix(
             [DocumentFulfillmentController::class, 'destroy'],
         )->whereNumber(['document', 'fulfillment']);
 
+        Route::post(
+            'finance/cash-movements/duplicate-check',
+            [CashMovementController::class, 'duplicateCheck'],
+        );
         Route::get('finance/cash-movements', [CashMovementController::class, 'index']);
         Route::post('finance/cash-movements', [CashMovementController::class, 'store']);
         Route::get('finance/cash-movements/{movement}', [CashMovementController::class, 'show'])->whereNumber('movement');
