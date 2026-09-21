@@ -2636,23 +2636,57 @@ function RoleWorkspace() {
                                     </div>
 
                                     {selectedRole ? (
-                                        <div className="mt-4 flex flex-wrap gap-2">
-                                            {selectedRole.permissions.map(
-                                                permission => (
-                                                    <span
-                                                        key={
-                                                            permission
-                                                        }
-                                                        className="rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2.5 py-1.5 text-[9px] font-medium"
-                                                    >
-                                                        {
-                                                            permissionLabel(
-                                                                permission,
-                                                                ar,
-                                                            )
-                                                        }
-                                                    </span>
-                                                ),
+                                        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                            {groups.map(
+                                                group => {
+                                                    const granted =
+                                                        group.permissions.filter(
+                                                            permission =>
+                                                                selectedRole.permissions.includes(
+                                                                    permission,
+                                                                ),
+                                                        );
+
+                                                    if (
+                                                        granted.length ===
+                                                        0
+                                                    ) {
+                                                        return null;
+                                                    }
+
+                                                    const Icon =
+                                                        group.icon;
+
+                                                    return (
+                                                        <div
+                                                            key={group.key}
+                                                            className="flex items-center gap-2.5 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 py-2.5"
+                                                        >
+                                                            <span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-[var(--ac-surface-soft)] text-[var(--ac-accent)]">
+                                                                <Icon size={13} />
+                                                            </span>
+
+                                                            <span className="min-w-0 flex-1">
+                                                                <strong className="block truncate text-[9px] text-[var(--ac-text)]">
+                                                                    {ar
+                                                                        ? group.titleAr
+                                                                        : group.titleEn}
+                                                                </strong>
+
+                                                                <span className="mt-0.5 block text-[8px] text-[var(--ac-text-muted)]">
+                                                                    {granted.length}
+                                                                    {' / '}
+                                                                    {group.permissions.length}
+                                                                </span>
+                                                            </span>
+
+                                                            <Check
+                                                                size={12}
+                                                                className="shrink-0 text-emerald-500"
+                                                            />
+                                                        </div>
+                                                    );
+                                                },
                                             )}
                                         </div>
                                     ) : (
