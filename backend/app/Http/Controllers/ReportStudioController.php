@@ -301,6 +301,11 @@ class ReportStudioController extends Controller
 
         abort_unless($updated > 0, 404);
 
+        $this->saveReportVersion(
+            (int) $data['report_id'],
+            (int) $request->user()->id,
+        );
+
         return response()->json(['ok' => true]);
     }
 
@@ -326,6 +331,11 @@ class ReportStudioController extends Controller
             ]);
 
         abort_unless($updated > 0, 404);
+
+        $this->saveReportVersion(
+            (int) $data['report_id'],
+            (int) $request->user()->id,
+        );
 
         return response()->json(['ok' => true]);
     }
@@ -2118,6 +2128,52 @@ class ReportStudioController extends Controller
         return ['columns' => ['dso', 'dpo', 'inventory_days', 'cash_conversion_cycle'], 'rows' => [[
             'dso' => $dso, 'dpo' => $dpo, 'inventory_days' => $inventoryDays, 'cash_conversion_cycle' => $dso + $inventoryDays - $dpo,
         ]]];
+    }
+
+    private function saveReportVersion(
+        int $reportId,
+        int $userId,
+    ): void {
+        if (! Schema::hasTable('report_versions')) {
+            return;
+        }
+
+        $organizationId = app(TenantContext::class)->id();
+
+        $report = DB::table('custom_reports')
+            ->where('organization_id', $organizationId)
+            ->where('id', $reportId)
+            ->first();
+
+        if (! $report) {
+            return;
+        }
+
+        $version = ((int) DB::table('report_versions')
+            ->where('report_id', $reportId)
+            ->max('version')) + 1;
+
+        $definition = [
+            ...((array) $report),
+            'columns' => json_decode($report->columns ?: '[]', true) ?: [],
+            'filters' => json_decode($report->filters ?: '[]', true) ?: [],
+            'configuration' => $report->configuration
+                ? (json_decode($report->configuration, true) ?: null)
+                : null,
+            'visualization' => $report->visualization
+                ? (json_decode($report->visualization, true) ?: null)
+                : null,
+        ];
+
+        DB::table('report_versions')->insert([
+            'organization_id' => $organizationId,
+            'report_id' => $reportId,
+            'created_by' => $userId,
+            'version' => $version,
+            'definition' => json_encode($definition, JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function salesTotal(Carbon $from, Carbon $to): float
