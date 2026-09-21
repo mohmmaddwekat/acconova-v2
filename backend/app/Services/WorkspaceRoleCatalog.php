@@ -358,6 +358,128 @@ final class WorkspaceRoleCatalog
     }
 
     /**
+     * Return the permission matrix represented by one built-in membership role.
+     *
+     * Custom roles remain the source of truth whenever a membership has a
+     * workspace_role_id. These values describe the legacy/system roles still
+     * supported by policies and authorization services.
+     *
+     * @return list<string>
+     */
+    public static function builtInPermissions(
+        string $role,
+    ): array {
+        if (
+            in_array(
+                $role,
+                [
+                    'owner',
+                    'admin',
+                ],
+                true,
+            )
+        ) {
+            return WorkspacePermissions::KEYS;
+        }
+
+        if ($role === 'manager') {
+            return self::normalizePermissions([
+                'products.view',
+                'products.create',
+                'products.update',
+                'products.service',
+                'products.archive',
+
+                'parties.view',
+                'parties.create',
+                'parties.update',
+                'parties.archive',
+
+                'inventory.view',
+                'inventory.manage',
+
+                'production.view',
+                'production.manage',
+
+                'payments.view',
+                'payments.create',
+                'payments.update',
+                'payments.record',
+
+                'finance.sales.view',
+                'finance.sales.manage',
+                'finance.purchases.view',
+                'finance.purchases.manage',
+                'finance.cash.view',
+                'finance.cash.receive',
+                'finance.cash.pay',
+                'finance.cash.correct',
+                'finance.documents.correct',
+                'finance.approvals.review',
+                'finance.taxes.view',
+                'finance.taxes.manage',
+
+                'tasks.create',
+                'tasks.view_team',
+                'tasks.view_all',
+                'tasks.assign_team',
+                'tasks.assign_all',
+                'tasks.update_team',
+                'tasks.update_all',
+                'tasks.archive',
+                'tasks.reports',
+                'tasks.projects_manage',
+
+                'teams.view',
+                'teams.create',
+                'teams.update',
+                'teams.archive',
+                'teams.members.manage',
+                'teams.lead.manage',
+                'teams.projects.manage',
+                'teams.subteams.create',
+                'teams.subteams.manage',
+                'teams.move',
+                'teams.view_workload',
+            ]);
+        }
+
+        if ($role === 'accountant') {
+            return self::normalizePermissions([
+                'products.view',
+                'products.create',
+                'products.update',
+
+                'parties.view',
+                'parties.create',
+                'parties.update',
+
+                'production.view',
+
+                'payments.view',
+                'payments.create',
+                'payments.update',
+                'payments.record',
+
+                'finance.sales.view',
+                'finance.sales.manage',
+                'finance.purchases.view',
+                'finance.purchases.manage',
+                'finance.cash.view',
+                'finance.cash.receive',
+                'finance.cash.pay',
+                'finance.taxes.view',
+            ]);
+        }
+
+        return [
+            'products.view',
+            'parties.view',
+            'production.view',
+        ];
+    }
+
+    /**
      * Resolve one role preset.
      *
      * @return array<string, mixed>|null
