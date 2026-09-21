@@ -482,6 +482,12 @@ export default function OperationsWorkspace({
         )
         : builtInFinanceManage;
 
+    const cashReceive = customPermissions
+        ? customPermissions.includes(
+            'finance.cash.receive',
+        )
+        : builtInFinanceManage;
+
     const partyManage = customPermissions
         ? customPermissions.some(permission =>
             [
@@ -581,6 +587,47 @@ export default function OperationsWorkspace({
 
     useEffect(() => {
         void load();
+    }, [feature]);
+
+    useEffect(() => {
+        if (
+            feature !== 'promises'
+            || typeof window === 'undefined'
+        ) {
+            return;
+        }
+
+        const params = new URLSearchParams(
+            window.location.search,
+        );
+        const partyIdParam =
+            params.get('party_id');
+        const amountParam =
+            params.get('amount');
+
+        if (
+            ! partyIdParam
+            && ! amountParam
+        ) {
+            return;
+        }
+
+        setForm((current) => ({
+            ...current,
+            ...(partyIdParam
+                ? {
+                    party_id:
+                        partyIdParam,
+                }
+                : {}),
+            ...(amountParam
+                && Number(amountParam) > 0
+                ? {
+                    amount:
+                        amountParam,
+                }
+                : {}),
+        }));
     }, [feature]);
 
     useEffect(() => {
@@ -1117,6 +1164,8 @@ export default function OperationsWorkspace({
                                     onPrepareAllocation={() =>
                                         void prepareAllocation(row)
                                     }
+                                    canReceiveCash={cashReceive}
+                                    canCreatePromise={salesManage}
                                 />
                             </article>
                         ))
@@ -2115,6 +2164,8 @@ function RowActions({
     onClaim,
     onUpdateClaim,
     onPrepareAllocation,
+    canReceiveCash,
+    canCreatePromise,
 }: {
     feature: Feature;
     row: Row;
@@ -2140,6 +2191,8 @@ function RowActions({
         payload: Row,
     ) => void;
     onPrepareAllocation: () => void;
+    canReceiveCash: boolean;
+    canCreatePromise: boolean;
 }) {
     const stages = [
         'prospect',
@@ -2189,6 +2242,62 @@ function RowActions({
                             </Link>
                         ))}
                     </div>
+                )}
+
+            {feature === 'collections'
+                && row.party_id
+                && canReceiveCash
+                && (
+                    <Link
+                        href={
+                            '/app/receipts/create?party_id='
+                            + encodeURIComponent(
+                                String(row.party_id),
+                            )
+                            + '&amount='
+                            + encodeURIComponent(
+                                String(
+                                    row.expected_collection
+                                    || row.outstanding
+                                    || '',
+                                ),
+                            )
+                        }
+                        className="inline-flex h-9 items-center gap-1.5 rounded-[11px] border border-emerald-500/50 px-3 text-[10px] font-semibold text-emerald-400"
+                    >
+                        <Check size={12} />
+                        {ar
+                            ? 'تسجيل قبض'
+                            : 'Record receipt'}
+                    </Link>
+                )}
+
+            {feature === 'collections'
+                && row.party_id
+                && canCreatePromise
+                && ! row.promise_on
+                && (
+                    <Link
+                        href={
+                            '/app/parties/payment-promises?party_id='
+                            + encodeURIComponent(
+                                String(row.party_id),
+                            )
+                            + '&amount='
+                            + encodeURIComponent(
+                                String(
+                                    row.outstanding
+                                    || '',
+                                ),
+                            )
+                        }
+                        className="inline-flex h-9 items-center gap-1.5 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                    >
+                        <FilePlus2 size={12} />
+                        {ar
+                            ? 'إنشاء وعد دفع'
+                            : 'Create promise'}
+                    </Link>
                 )}
 
             {feature === 'collections' && row.phone && (
