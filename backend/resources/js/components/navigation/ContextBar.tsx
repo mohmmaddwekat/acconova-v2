@@ -239,6 +239,14 @@ export function ContextBar({
             'مركز الاسترجاع',
             'Restore center',
         ],
+        '/app/reports/scheduled': [
+            'التقارير المجدولة',
+            'Scheduled reports',
+        ],
+        '/app/settings/customization': [
+            'تخصيص النظام',
+            'Workspace customization',
+        ],
     };
 
     const pageLabel =
