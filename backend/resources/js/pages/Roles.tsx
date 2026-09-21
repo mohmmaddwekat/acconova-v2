@@ -306,6 +306,7 @@ const groups: PermissionGroup[] = [
             'finance.cash.pay',
             'finance.cash.correct',
             'finance.documents.correct',
+            'finance.approvals.review',
             'finance.taxes.view',
             'finance.taxes.manage',
         ],
@@ -491,6 +492,11 @@ function permissionLabel(
         'finance.documents.correct': [
             'تصحيح الفواتير بعد الإصدار',
             'Correct issued invoices',
+        ],
+
+        'finance.approvals.review': [
+            'مراجعة واعتماد الموافقات المالية',
+            'Review finance approvals',
         ],
 
         'finance.taxes.view': [
