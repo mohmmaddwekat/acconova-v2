@@ -76,6 +76,59 @@ const control =
 const outline =
     'inline-flex h-10 items-center justify-center gap-2 rounded-[11px] border border-[var(--ac-line)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)] disabled:opacity-40';
 
+const datasetLabels: Record<string, [string, string]> = {
+    sales_invoices: ['فواتير المبيعات', 'Sales invoices'],
+    purchase_invoices: ['فواتير المشتريات', 'Purchase invoices'],
+    cash_movements: ['الحركات النقدية', 'Cash movements'],
+    parties: ['العملاء والموردون', 'Customers & suppliers'],
+    products: ['المنتجات', 'Products'],
+};
+
+const builderColumnLabels: Record<string, [string, string]> = {
+    number: ['رقم المستند', 'Document number'],
+    party: ['العميل / المورد', 'Customer / supplier'],
+    issue_date: ['تاريخ الإصدار', 'Issue date'],
+    due_date: ['تاريخ الاستحقاق', 'Due date'],
+    status: ['الحالة', 'Status'],
+    subtotal: ['المجموع قبل الضريبة', 'Subtotal'],
+    discount_total: ['الخصم', 'Discount'],
+    tax_total: ['الضريبة', 'Tax'],
+    total: ['الإجمالي', 'Total'],
+    paid_total: ['المدفوع', 'Paid'],
+    balance_due: ['الرصيد المستحق', 'Balance due'],
+    currency: ['العملة', 'Currency'],
+    movement_date: ['التاريخ', 'Date'],
+    direction: ['الاتجاه', 'Direction'],
+    category: ['التصنيف', 'Category'],
+    amount: ['القيمة', 'Amount'],
+    method: ['طريقة الدفع', 'Method'],
+    reference: ['المرجع', 'Reference'],
+    name: ['الاسم', 'Name'],
+    type: ['النوع', 'Type'],
+    email: ['البريد الإلكتروني', 'Email'],
+    phone: ['الهاتف', 'Phone'],
+    city: ['المدينة', 'City'],
+    country_code: ['الدولة', 'Country'],
+    credit_limit: ['الحد الائتماني', 'Credit limit'],
+    created_at: ['تاريخ الإنشاء', 'Created at'],
+    sku: ['رمز SKU', 'SKU'],
+    unit: ['الوحدة', 'Unit'],
+    unit_price: ['سعر البيع', 'Selling price'],
+    cost_price: ['سعر التكلفة', 'Cost price'],
+    tax_rate: ['نسبة الضريبة', 'Tax rate'],
+    track_inventory: ['تتبع المخزون', 'Tracks inventory'],
+};
+
+function datasetLabel(key: string, fallback: string, ar: boolean): string {
+    const label = datasetLabels[key];
+    return label ? (ar ? label[0] : label[1]) : fallback;
+}
+
+function builderColumnLabel(key: string, fallback: string, ar: boolean): string {
+    const label = builderColumnLabels[key];
+    return label ? (ar ? label[0] : label[1]) : fallback;
+}
+
 export default function ReportBuilder() {
     const ar = useLocale() === 'ar';
     const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -128,7 +181,7 @@ export default function ReportBuilder() {
                 failure instanceof ApiError
                     ? failure.message
                     : text(
-                        'تعذر تحميل Report Builder.',
+                        'تعذر تحميل منشئ التقارير.',
                         'Could not load Report Builder.',
                     ),
             );
@@ -382,10 +435,10 @@ export default function ReportBuilder() {
                         </span>
                         <div>
                             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ac-accent)]">
-                                Reports
+                                {text('التقارير', 'Reports')}
                             </p>
                             <h1 className="mt-1 text-2xl font-bold text-[var(--ac-text)]">
-                                {text('Report Builder', 'Report Builder')}
+                                {text('منشئ التقارير', 'Report Builder')}
                             </h1>
                             <p className="mt-2 max-w-4xl text-xs leading-6 text-[var(--ac-text-muted)]">
                                 {text(
@@ -417,7 +470,7 @@ export default function ReportBuilder() {
                             >
                                 {datasets.map(item => (
                                     <option key={item.key} value={item.key}>
-                                        {item.label}
+                                        {datasetLabel(item.key, item.label, ar)}
                                     </option>
                                 ))}
                             </select>
@@ -443,7 +496,7 @@ export default function ReportBuilder() {
                                                     : 'border-[var(--ac-line)] text-[var(--ac-text-soft)]',
                                             ].join(' ')}
                                         >
-                                            <span>{column.label}</span>
+                                            <span>{builderColumnLabel(column.key, column.label, ar)}</span>
                                             <span>{active ? '✓' : '+'}</span>
                                         </button>
                                     );
@@ -583,7 +636,7 @@ export default function ReportBuilder() {
                                         >
                                             <div>
                                                 <p className="text-[10px] font-semibold text-[var(--ac-text)]">
-                                                    Version {version.version}
+                                                    {text('النسخة', 'Version')} {version.version}
                                                 </p>
                                                 <p className="text-[8px] text-[var(--ac-text-muted)]">
                                                     {version.created_at}
@@ -609,7 +662,7 @@ export default function ReportBuilder() {
                             <div className="flex items-center gap-2">
                                 <Filter size={14} className="text-[var(--ac-accent)]" />
                                 <h2 className="text-xs font-bold text-[var(--ac-text)]">
-                                    {text('Filters + Grouping + Sort', 'Filters + Grouping + Sort')}
+                                    {text('الفلاتر + التجميع + الترتيب', 'Filters + Grouping + Sort')}
                                 </h2>
                             </div>
 
@@ -637,7 +690,7 @@ export default function ReportBuilder() {
                                             </option>
                                             {dataset?.columns.map(column => (
                                                 <option key={column.key} value={column.key}>
-                                                    {column.label}
+                                                    {builderColumnLabel(column.key, column.label, ar)}
                                                 </option>
                                             ))}
                                         </select>
@@ -751,8 +804,8 @@ export default function ReportBuilder() {
                                             setSortDirection(event.target.value as 'asc' | 'desc')
                                         }
                                     >
-                                        <option value="asc">ASC</option>
-                                        <option value="desc">DESC</option>
+                                        <option value="asc">{text('تصاعدي', 'ASC')}</option>
+                                        <option value="desc">{text('تنازلي', 'DESC')}</option>
                                     </select>
                                 </label>
                             </div>
@@ -814,19 +867,19 @@ export default function ReportBuilder() {
                                                                 key={key}
                                                                 className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 py-1 text-[8px] text-[var(--ac-text-soft)]"
                                                             >
-                                                                {column?.label ?? key}: {value}
+                                                                {builderColumnLabel(key, column?.label ?? key, ar)}: {value}
                                                             </span>
                                                         );
                                                     })}
                                                 </div>
                                             </div>
-                                            <ResultTable columns={result.columns} rows={group.rows} />
+                                            <ResultTable columns={result.columns} rows={group.rows} ar={ar} />
                                         </div>
                                     ))}
                                 </div>
                             ) : (
                                 <div className="mt-4 overflow-hidden rounded-[14px] border border-[var(--ac-line)]">
-                                    <ResultTable columns={result.columns} rows={result.rows} />
+                                    <ResultTable columns={result.columns} rows={result.rows} ar={ar} />
                                 </div>
                             )}
                         </div>
@@ -840,9 +893,11 @@ export default function ReportBuilder() {
 function ResultTable({
     columns,
     rows,
+    ar,
 }: {
     columns: Column[];
     rows: Array<Record<string, unknown>>;
+    ar: boolean;
 }) {
     return (
         <div className="max-h-[560px] overflow-auto">
@@ -854,7 +909,7 @@ function ResultTable({
                                 key={column.key}
                                 className="border-b border-[var(--ac-line)] px-3 py-2 text-start font-semibold"
                             >
-                                {column.label}
+                                {builderColumnLabel(column.key, column.label, ar)}
                             </th>
                         ))}
                     </tr>
