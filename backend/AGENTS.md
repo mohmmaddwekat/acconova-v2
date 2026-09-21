@@ -83,6 +83,8 @@ Before relying on a package's API, confirm its installed version:
 # Test Enforcement
 
 - Add or update tests for behavior and logic changes when a test provides meaningful regression coverage.
+- If the changed behavior needs coverage and no suitable test file exists, create the test inside the repository's existing `tests/` structure; do not rely on temporary or external verification scripts.
+- Keep tests in the filesystem with the feature they protect so future changes continue to run against the same regression coverage.
 - Pure copy, styling, and layout-only changes do not require new or updated tests.
 - When test coverage applies, run the affected tests and ensure they pass.
 - Test the changed behavior and its important failure modes, but do not add tests beyond them.
