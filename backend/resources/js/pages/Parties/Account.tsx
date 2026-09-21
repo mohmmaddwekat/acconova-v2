@@ -797,6 +797,83 @@ export default function PartyAccount({
         );
     }
 
+    async function clearOpeningBalance(
+        side: 'customer' | 'supplier',
+    ): Promise<void> {
+        if (
+            ! data
+            || busy
+        ) {
+            return;
+        }
+
+        const current =
+            data.opening_balances[
+                side
+            ];
+
+        if (
+            ! current
+        ) {
+            return;
+        }
+
+        const confirmed =
+            window.confirm(
+                ar
+                    ? 'إزالة الرصيد المدور لهذا الجانب؟ بعد الإزالة سيعود كشف الحساب لاستخدام الحركات التاريخية الموجودة قبل هذا التاريخ.'
+                    : 'Remove this opening balance? The statement will then use historical transactions before that date again.',
+            );
+
+        if (
+            ! confirmed
+        ) {
+            return;
+        }
+
+        setBusy(
+            true,
+        );
+
+        try {
+            await apiRequest(
+                '/api/parties/'
+                + String(
+                    partyId,
+                )
+                + '/opening-balances/'
+                + side,
+                {
+                    method:
+                        'DELETE',
+                },
+            );
+
+            setOpeningOpen(
+                false,
+            );
+
+            await load();
+        } catch (
+            failure
+        ) {
+            setError(
+                failure instanceof
+                ApiError
+                    ? failure.message
+                    : (
+                        ar
+                            ? 'تعذر إزالة الرصيد المدور.'
+                            : 'Could not remove the opening balance.'
+                    ),
+            );
+        } finally {
+            setBusy(
+                false,
+            );
+        }
+    }
+
     async function saveOpeningBalances(): Promise<void> {
         if (
             ! data
@@ -1913,6 +1990,8 @@ export default function PartyAccount({
                                     setOpeningOpen(false)}
                                 onSave={() =>
                                     void saveOpeningBalances()}
+                                onClear={side =>
+                                    void clearOpeningBalance(side)}
                             />
                         )}
                     </>
@@ -2731,6 +2810,7 @@ function OpeningBalanceDialog({
     ar,
     onClose,
     onSave,
+    onClear,
 }: {
     data:
         PartyAccountResponse;
@@ -2744,6 +2824,9 @@ function OpeningBalanceDialog({
     ar: boolean;
     onClose: () => void;
     onSave: () => void;
+    onClear: (
+        side: 'customer' | 'supplier',
+    ) => void;
 }) {
     return (
         <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/45 p-3">
@@ -2865,6 +2948,11 @@ function OpeningBalanceDialog({
                                             value,
                                     })
                             }
+                            onClear={
+                                data.opening_balances.customer
+                                    ? () => onClear('customer')
+                                    : undefined
+                            }
                         />
                     )}
 
@@ -2947,6 +3035,11 @@ function OpeningBalanceDialog({
                                             value,
                                     })
                             }
+                            onClear={
+                                data.opening_balances.supplier
+                                    ? () => onClear('supplier')
+                                    : undefined
+                            }
                         />
                     )}
                 </div>
@@ -3010,6 +3103,7 @@ function OpeningSideEditor({
     onDirection,
     onDate,
     onNotes,
+    onClear,
 }: {
     title: string;
     amount: string;
@@ -3032,6 +3126,7 @@ function OpeningSideEditor({
     onNotes: (
         value: string,
     ) => void;
+    onClear?: () => void;
 }) {
     return (
         <section className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-4">
@@ -3170,6 +3265,19 @@ function OpeningSideEditor({
                     }
                 />
             </label>
+
+            {onClear
+                && ! disabled && (
+                <button
+                    type="button"
+                    onClick={onClear}
+                    className="mt-3 text-[9px] font-semibold text-[var(--ac-danger)] hover:underline"
+                >
+                    {ar
+                        ? 'إزالة الرصيد المدور لهذا الجانب'
+                        : 'Remove this opening balance'}
+                </button>
+            )}
         </section>
     );
 }
