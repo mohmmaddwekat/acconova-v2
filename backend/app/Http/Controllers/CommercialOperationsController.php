@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CashMovement;
 use App\Models\Party;
 use App\Models\Product;
+use App\Models\Warehouse;
 use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
@@ -2669,17 +2670,29 @@ class CommercialOperationsController extends Controller
             return;
         }
 
+        if ($feature === 'warranties') {
+            abort_unless(
+                $request->user()?->can(
+                    $manage ? 'create' : 'viewAny',
+                    Product::class,
+                ),
+                403,
+            );
+
+            return;
+        }
+
         if (
             in_array(
                 $feature,
-                ['warranties', 'serials', 'batches'],
+                ['serials', 'batches'],
                 true,
             )
         ) {
             abort_unless(
                 $request->user()?->can(
                     $manage ? 'create' : 'viewAny',
-                    Product::class,
+                    Warehouse::class,
                 ),
                 403,
             );
