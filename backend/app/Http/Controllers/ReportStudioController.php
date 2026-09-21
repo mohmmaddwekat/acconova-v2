@@ -35,6 +35,11 @@ class ReportStudioController extends Controller
                         return $row;
                     })
                 : [],
+            'reports' => DB::table('custom_reports')
+                ->where('organization_id', $org)
+                ->where(fn ($q) => $q->where('created_by', $user->id)->orWhere('shared', true))
+                ->orderBy('name')
+                ->get(['id', 'name', 'dataset', 'created_by', 'shared']),
         ]);
     }
 
@@ -254,7 +259,7 @@ class ReportStudioController extends Controller
         abort_unless($this->canViewReports($request), 403);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:160'],
-            'layout' => ['required', 'array', 'min:1', 'max:8'],
+            'layout' => ['required', 'array', 'min:4', 'max:8'],
             'shared' => ['nullable', 'boolean'],
         ]);
 
