@@ -380,7 +380,7 @@ export function PartyDetailDrawer({
                                     resolvedParty.email,
                                     resolvedParty.phone,
                                 ].filter(Boolean).join(' · ')}
-                                href={'/app/parties?focus=' + String(resolvedParty.id)}
+                                href={'/app/parties/' + String(resolvedParty.id)}
                                 ar={locale === 'ar'}
                             />
 
