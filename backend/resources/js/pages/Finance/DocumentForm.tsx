@@ -182,6 +182,246 @@ function partyTaxSnapshot(
 }
 
 
+function TaxSnapshotEditor({
+    title,
+    value,
+    onChange,
+    ar,
+}: {
+    title: string;
+    value: TaxPartySnapshot;
+    onChange: (
+        value: TaxPartySnapshot,
+    ) => void;
+    ar: boolean;
+}) {
+    const text = (
+        arabic: string,
+        english: string,
+    ): string => ar ? arabic : english;
+
+    const update = (
+        key: keyof TaxPartySnapshot,
+        next: string,
+    ): void => {
+        onChange({
+            ...value,
+            [key]: next,
+        });
+    };
+
+    return (
+        <div className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-4">
+            <h3 className="text-xs font-bold text-[var(--ac-text)]">
+                {title}
+            </h3>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)] md:col-span-2">
+                    {text(
+                        'الاسم القانوني / اسم الجهة',
+                        'Legal / entity name',
+                    )}
+                    <input
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.name}
+                        onChange={event =>
+                            update(
+                                'name',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
+                    {text(
+                        'الرقم الضريبي',
+                        'Tax / VAT number',
+                    )}
+                    <input
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.tax_number}
+                        onChange={event =>
+                            update(
+                                'tax_number',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
+                    {text(
+                        'رقم التسجيل',
+                        'Registration number',
+                    )}
+                    <input
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.registration_number}
+                        onChange={event =>
+                            update(
+                                'registration_number',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)] md:col-span-2">
+                    {text(
+                        'العنوان',
+                        'Address',
+                    )}
+                    <input
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.address}
+                        onChange={event =>
+                            update(
+                                'address',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
+                    {text(
+                        'المدينة',
+                        'City',
+                    )}
+                    <input
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.city}
+                        onChange={event =>
+                            update(
+                                'city',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
+                    {text(
+                        'المحافظة / المنطقة',
+                        'State / region',
+                    )}
+                    <input
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.region}
+                        onChange={event =>
+                            update(
+                                'region',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
+                    {text(
+                        'الدولة',
+                        'Country',
+                    )}
+                    <input
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.country}
+                        onChange={event =>
+                            update(
+                                'country',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
+                    {text(
+                        'الهاتف',
+                        'Phone',
+                    )}
+                    <input
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.phone}
+                        onChange={event =>
+                            update(
+                                'phone',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
+                    {text(
+                        'البريد الإلكتروني',
+                        'Email',
+                    )}
+                    <input
+                        type="email"
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.email}
+                        onChange={event =>
+                            update(
+                                'email',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+
+                <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
+                    {text(
+                        'الموقع الإلكتروني',
+                        'Website',
+                    )}
+                    <input
+                        className={
+                            financeInput
+                            + ' mt-2'
+                        }
+                        value={value.website}
+                        onChange={event =>
+                            update(
+                                'website',
+                                event.target.value,
+                            )
+                        }
+                    />
+                </label>
+            </div>
+        </div>
+    );
+}
+
 export function DocumentForm({
     kind,
     lookups,
@@ -2855,6 +3095,59 @@ export function DocumentForm({
                                     )}
                                 />
                             </label>
+                        </div>
+                    </FPanel>
+
+                    <FPanel
+                        title={text(
+                            'بيانات الفاتورة الضريبية',
+                            'Tax invoice details',
+                        )}
+                        icon={FileText}
+                    >
+                        <div className="p-4">
+                            <div className="mb-4 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] px-4 py-3 text-[10px] leading-5 text-[var(--ac-text-soft)]">
+                                {text(
+                                    'تُعبّأ بيانات البائع والمشتري تلقائياً من إعدادات الشركة والعميل، ويمكن تعديل نسخة هذه الفاتورة قبل الإصدار. عند الإصدار تُحفظ هذه البيانات كلقطة ثابتة مع الفاتورة.',
+                                    'Seller and buyer details are prefilled from workspace and customer data. You can edit this invoice copy before issue; issuing freezes these details as an invoice snapshot.',
+                                )}
+                            </div>
+
+                            <div className="grid gap-4 xl:grid-cols-2">
+                                <TaxSnapshotEditor
+                                    title={
+                                        sales
+                                            ? text(
+                                                'بيانات البائع — شركتك',
+                                                'Seller — your company',
+                                            )
+                                            : text(
+                                                'بيانات البائع — المورد',
+                                                'Seller — supplier',
+                                            )
+                                    }
+                                    value={sellerTax}
+                                    onChange={setSellerTax}
+                                    ar={ar}
+                                />
+
+                                <TaxSnapshotEditor
+                                    title={
+                                        sales
+                                            ? text(
+                                                'بيانات المشتري — العميل',
+                                                'Buyer — customer',
+                                            )
+                                            : text(
+                                                'بيانات المشتري — شركتك',
+                                                'Buyer — your company',
+                                            )
+                                    }
+                                    value={buyerTax}
+                                    onChange={setBuyerTax}
+                                    ar={ar}
+                                />
+                            </div>
                         </div>
                     </FPanel>
 
