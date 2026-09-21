@@ -11,6 +11,7 @@ use App\Http\Controllers\BusinessPulseController;
 use App\Http\Controllers\BusinessControlController;
 use App\Http\Controllers\CommercialOperationsController;
 use App\Http\Controllers\RestoreCenterController;
+use App\Http\Controllers\ScheduledReportController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentFulfillmentController;
 use App\Http\Controllers\FinanceDocumentController;
@@ -464,6 +465,11 @@ Route::middleware([
         '/app/reports',
         fn () => Inertia::render('Reports/Index'),
     )->name('app.reports');
+
+    Route::get(
+        '/app/reports/scheduled',
+        fn () => Inertia::render('Reports/Scheduled'),
+    )->name('app.reports.scheduled');
 
     Route::get(
         '/app/reports/ar-aging',
@@ -976,6 +982,26 @@ Route::prefix(
             'finance/recurring-invoices/{profile}',
             [InvoiceAutomationController::class, 'deleteRecurring'],
         )->whereNumber('profile');
+
+        Route::get(
+            'scheduled-reports',
+            [ScheduledReportController::class, 'index'],
+        );
+
+        Route::post(
+            'scheduled-reports',
+            [ScheduledReportController::class, 'store'],
+        );
+
+        Route::patch(
+            'scheduled-reports/{schedule}',
+            [ScheduledReportController::class, 'update'],
+        )->whereNumber('schedule');
+
+        Route::post(
+            'scheduled-reports/{schedule}/run',
+            [ScheduledReportController::class, 'run'],
+        )->whereNumber('schedule');
 
         Route::get(
             'audit-center',
