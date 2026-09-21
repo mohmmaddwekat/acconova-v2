@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrganizationRole;
 use App\Models\FinancialDocument;
+use App\Models\Party;
 use App\Models\PaymentPlan;
 use App\Models\Product;
 use App\Models\Task;
@@ -108,6 +109,7 @@ class DashboardIntelligenceController extends Controller
                 $profitability,
             'changed_today' =>
                 $this->changedSince(
+                    $request,
                     $organizationId,
                     $since,
                 ),
@@ -773,25 +775,32 @@ class DashboardIntelligenceController extends Controller
                                     )
                                 : 0,
                         'new_customers' =>
-                            (float) DB::table(
-                                'parties',
+                            Gate::forUser(
+                                $request->user(),
+                            )->allows(
+                                'viewAny',
+                                Party::class,
                             )
-                                ->where(
-                                    'organization_id',
-                                    $organizationId,
+                                ? (float) DB::table(
+                                    'parties',
                                 )
-                                ->whereNull(
-                                    'deleted_at',
-                                )
-                                ->whereBetween(
-                                    'created_at',
-                                    [
-                                        $monthStart,
-                                        $monthStart
-                                            ->endOfMonth(),
-                                    ],
-                                )
-                                ->count(),
+                                    ->where(
+                                        'organization_id',
+                                        $organizationId,
+                                    )
+                                    ->whereNull(
+                                        'deleted_at',
+                                    )
+                                    ->whereBetween(
+                                        'created_at',
+                                        [
+                                            $monthStart,
+                                            $monthStart
+                                                ->endOfMonth(),
+                                        ],
+                                    )
+                                    ->count()
+                                : 0,
                         default =>
                             0,
                     };
@@ -1131,10 +1140,27 @@ class DashboardIntelligenceController extends Controller
      * @return list<array<string, mixed>>
      */
     private function changedSince(
+        Request $request,
         int $organizationId,
         CarbonImmutable $since,
     ): array {
-        $finance = DB::table(
+        $canViewFinance =
+            FinanceAuthorization::allows(
+                $request->user(),
+                'finance.sales.view',
+            )
+            || FinanceAuthorization::allows(
+                $request->user(),
+                'finance.purchases.view',
+            )
+            || FinanceAuthorization::allows(
+                $request->user(),
+                'finance.cash.view',
+            );
+
+        $finance =
+            $canViewFinance
+                ? DB::table(
             'finance_audit_events as audit',
         )
             ->leftJoin(
@@ -1190,8 +1216,24 @@ class DashboardIntelligenceController extends Controller
                         '/app/audit',
                 ],
             );
+                : collect();
 
-        $bulk = DB::table(
+        $canViewBulkAudit =
+            in_array(
+                app(
+                    TenantContext::class,
+                )->role(),
+                [
+                    OrganizationRole::Owner,
+                    OrganizationRole::Admin,
+                    OrganizationRole::Manager,
+                ],
+                true,
+            );
+
+        $bulk =
+            $canViewBulkAudit
+                ? DB::table(
             'bulk_action_history as history',
         )
             ->leftJoin(
@@ -1245,50 +1287,52 @@ class DashboardIntelligenceController extends Controller
                     'url' =>
                         '/app/audit/bulk-actions',
                 ],
-            );
+            )
+                : collect();
 
-        $tasks = DB::table(
-            'tasks',
-        )
-            ->where(
-                'organization_id',
-                $organizationId,
+        $tasks =
+            TaskAccess::applyVisible(
+                Task::query()
+                    ->operational(),
+                $request->user(),
             )
-            ->where(
-                'updated_at',
-                '>',
-                $since,
-            )
-            ->latest(
-                'updated_at',
-            )
-            ->limit(8)
-            ->get([
-                'id',
-                'title',
-                'status',
-                'updated_at',
-            ])
-            ->map(
-                fn ($row): array => [
-                    'key' =>
-                        'task-'
-                        .$row->id,
-                    'kind' =>
-                        'task',
-                    'title' =>
-                        $row->title,
-                    'detail' =>
-                        $row->status,
-                    'actor' =>
-                        null,
-                    'created_at' =>
-                        $row->updated_at,
-                    'url' =>
-                        '/app/task-management/'
-                        .$row->id,
-                ],
-            );
+                ->where(
+                    'updated_at',
+                    '>',
+                    $since,
+                )
+                ->latest(
+                    'updated_at',
+                )
+                ->limit(8)
+                ->get([
+                    'id',
+                    'title',
+                    'status',
+                    'updated_at',
+                ])
+                ->map(
+                    fn (
+                        Task $row,
+                    ): array => [
+                        'key' =>
+                            'task-'
+                            .$row->id,
+                        'kind' =>
+                            'task',
+                        'title' =>
+                            $row->title,
+                        'detail' =>
+                            $row->status,
+                        'actor' =>
+                            null,
+                        'created_at' =>
+                            $row->updated_at,
+                        'url' =>
+                            '/app/task-management/'
+                            .$row->id,
+                    ],
+                );
 
         return $finance
             ->concat($bulk)
@@ -1508,18 +1552,23 @@ class DashboardIntelligenceController extends Controller
         }
 
         $approvals =
-            (int) DB::table(
-                'approval_requests',
+            FinanceAuthorization::allows(
+                $request->user(),
+                'finance.approvals.review',
             )
-                ->where(
-                    'organization_id',
-                    $organizationId,
+                ? (int) DB::table(
+                    'approval_requests',
                 )
-                ->where(
-                    'status',
-                    'pending',
-                )
-                ->count();
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->where(
+                        'status',
+                        'pending',
+                    )
+                    ->count()
+                : 0;
 
         if (
             $approvals > 0
@@ -1602,18 +1651,23 @@ class DashboardIntelligenceController extends Controller
         }
 
         $approvals =
-            (int) DB::table(
-                'approval_requests',
+            FinanceAuthorization::allows(
+                $request->user(),
+                'finance.approvals.review',
             )
-                ->where(
-                    'organization_id',
-                    $organizationId,
+                ? (int) DB::table(
+                    'approval_requests',
                 )
-                ->where(
-                    'status',
-                    'pending',
-                )
-                ->count();
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->where(
+                        'status',
+                        'pending',
+                    )
+                    ->count()
+                : 0;
 
         if ($approvals) {
             $items->push([
@@ -1730,7 +1784,11 @@ class DashboardIntelligenceController extends Controller
     private function lowStockCount(
         int $organizationId,
     ): int {
-        return Product::query()
+        return Product::withoutGlobalScopes()
+            ->where(
+                'organization_id',
+                $organizationId,
+            )
             ->where(
                 'track_inventory',
                 true,
