@@ -1,0 +1,2031 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Party;
+use App\Models\Product;
+use App\Services\FinanceAuthorization;
+use App\Services\FinanceDocumentService;
+use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+
+class CommercialOperationsController extends Controller
+{
+    private const TRADE_KINDS = [
+        'quotations' => 'quotation',
+        'proformas' => 'proforma',
+        'sales-orders' => 'sales_order',
+        'purchase-orders' => 'purchase_order',
+    ];
+
+    public function index(Request $request, string $feature): JsonResponse
+    {
+        $this->authorizeFeature($request, $feature, false);
+
+        $organizationId = app(TenantContext::class)->id();
+
+        $data = match ($feature) {
+            'unallocated' => $this->unallocated($organizationId),
+            'collections' => $this->collections($organizationId),
+            'ar-aging' => $this->aging($organizationId, 'sale_invoice'),
+            'ap-aging' => $this->aging($organizationId, 'purchase_invoice'),
+            'promises' => $this->promises($request, $organizationId),
+            'pipeline' => $this->pipeline($organizationId),
+            'backorders' => $this->backorders($organizationId),
+            'returns' => $this->returns($organizationId),
+            'warranties' => $this->warranties($organizationId),
+            'serials' => $this->serials($organizationId),
+            'batches' => $this->batches($organizationId),
+            'quotations', 'proformas', 'sales-orders', 'purchase-orders' =>
+                $this->tradeDocuments(
+                    $organizationId,
+                    self::TRADE_KINDS[$feature],
+                ),
+            default => abort(404),
+        };
+
+        return response()->json([
+            'data' => $data,
+        ]);
+    }
+
+    public function store(Request $request, string $feature): JsonResponse
+    {
+        $this->authorizeFeature($request, $feature, true);
+
+        $organizationId = app(TenantContext::class)->id();
+
+        $record = match ($feature) {
+            'promises' => $this->storePromise($request, $organizationId),
+            'pipeline' => $this->storeOpportunity($request, $organizationId),
+            'returns' => $this->storeReturn($request, $organizationId),
+            'warranties' => $this->storeWarranty($request, $organizationId),
+            'serials' => $this->storeSerial($request, $organizationId),
+            'batches' => $this->storeBatch($request, $organizationId),
+            'quotations', 'proformas', 'sales-orders', 'purchase-orders' =>
+                $this->storeTradeDocument(
+                    $request,
+                    $organizationId,
+                    self::TRADE_KINDS[$feature],
+                ),
+            default => abort(404),
+        };
+
+        return response()->json([
+            'data' => $record,
+        ], 201);
+    }
+
+    public function update(
+        Request $request,
+        string $feature,
+        string $record,
+    ): JsonResponse {
+        $this->authorizeFeature($request, $feature, true);
+
+        $organizationId = app(TenantContext::class)->id();
+
+        $result = match ($feature) {
+            'promises' => $this->updatePromise(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'pipeline' => $this->updateOpportunity(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'returns' => $this->updateSimpleStatus(
+                $request,
+                $organizationId,
+                'return_requests',
+                (int) $record,
+                ['requested', 'approved', 'received', 'completed', 'rejected', 'cancelled'],
+            ),
+            'warranties' => $this->updateSimpleStatus(
+                $request,
+                $organizationId,
+                'warranty_records',
+                (int) $record,
+                ['active', 'expired', 'void'],
+            ),
+            'serials' => $this->updateSerial(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'batches' => $this->updateBatch(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'quotations', 'proformas', 'sales-orders', 'purchase-orders' =>
+                $this->updateTradeDocument(
+                    $request,
+                    $organizationId,
+                    (int) $record,
+                    self::TRADE_KINDS[$feature],
+                ),
+            default => abort(404),
+        };
+
+        return response()->json([
+            'data' => $result,
+        ]);
+    }
+
+    public function convert(
+        Request $request,
+        string $feature,
+        string $record,
+        FinanceDocumentService $financeDocuments,
+    ): JsonResponse {
+        abort_unless(
+            array_key_exists($feature, self::TRADE_KINDS),
+            404,
+        );
+
+        $this->authorizeFeature($request, $feature, true);
+
+        $organizationId = app(TenantContext::class)->id();
+        $kind = self::TRADE_KINDS[$feature];
+
+        $document = DB::table('trade_documents')
+            ->where('organization_id', $organizationId)
+            ->where('id', (int) $record)
+            ->where('kind', $kind)
+            ->first();
+
+        abort_unless($document, 404);
+
+        $lines = DB::table('trade_document_lines')
+            ->where('organization_id', $organizationId)
+            ->where('trade_document_id', $document->id)
+            ->orderBy('id')
+            ->get();
+
+        if ($lines->isEmpty()) {
+            throw ValidationException::withMessages([
+                'lines' => ['At least one document line is required.'],
+            ]);
+        }
+
+        $isOrder = in_array(
+            $kind,
+            ['sales_order', 'purchase_order'],
+            true,
+        );
+
+        if (! $isOrder && $document->converted_financial_document_id) {
+            throw ValidationException::withMessages([
+                'status' => ['This document was already converted.'],
+            ]);
+        }
+
+        $convertible = $lines
+            ->map(function ($line) use ($isOrder): array {
+                $quantity = $isOrder
+                    ? max(
+                        (float) $line->fulfilled_quantity
+                        - (float) $line->invoiced_quantity,
+                        0,
+                    )
+                    : (float) $line->quantity;
+
+                return [
+                    'line' => $line,
+                    'quantity' => $quantity,
+                ];
+            })
+            ->filter(
+                fn (array $item): bool =>
+                    $item['quantity'] > 0.00005,
+            )
+            ->values();
+
+        if ($convertible->isEmpty()) {
+            throw ValidationException::withMessages([
+                'status' => [
+                    $isOrder
+                        ? 'Record delivered or received quantities before creating an invoice.'
+                        : 'Nothing is available to convert.',
+                ],
+            ]);
+        }
+
+        $invoiceKind =
+            $kind === 'purchase_order'
+                ? 'purchase_invoice'
+                : 'sale_invoice';
+
+        $invoice = $financeDocuments->createDraft([
+            'kind' => $invoiceKind,
+            'party_id' => (int) $document->party_id,
+            'warehouse_id' => null,
+            'department_id' => null,
+            'external_number' => $document->number,
+            'issue_date' => now()->toDateString(),
+            'due_date' => null,
+            'activity_type' => null,
+            'market_type' => null,
+            'branch_label' => null,
+            'currency' => $document->currency,
+            'exchange_rate' => '1',
+            'shipping_total' => '0',
+            'payment_terms' => null,
+            'notes' => 'Converted from '.$document->number,
+            'internal_notes' => null,
+            'lines' => $convertible
+                ->map(fn (array $item): array => [
+                    'product_id' => $item['line']->product_id,
+                    'warehouse_id' => null,
+                    'tax_rule_id' => null,
+                    'description' => $item['line']->description,
+                    'unit' => null,
+                    'quantity' => (string) $item['quantity'],
+                    'unit_price' => (string) $item['line']->unit_price,
+                    'price_status' => 'final',
+                    'discount_percent' => '0',
+                    'discount_type' => 'percent',
+                    'discount_value' => '0',
+                    'tax_rate' => '0',
+                    'affects_inventory' => (bool) $item['line']->affects_inventory,
+                ])
+                ->all(),
+        ], $request->user()->id);
+
+        DB::transaction(function () use (
+            $organizationId,
+            $document,
+            $invoice,
+            $convertible,
+            $isOrder,
+        ): void {
+            if ($isOrder) {
+                foreach ($convertible as $item) {
+                    DB::table('trade_document_lines')
+                        ->where('organization_id', $organizationId)
+                        ->where('id', $item['line']->id)
+                        ->update([
+                            'invoiced_quantity' =>
+                                (float) $item['line']->invoiced_quantity
+                                + $item['quantity'],
+                            'updated_at' => now(),
+                        ]);
+                }
+            }
+
+            $remaining = DB::table('trade_document_lines')
+                ->where('organization_id', $organizationId)
+                ->where('trade_document_id', $document->id)
+                ->get()
+                ->sum(
+                    fn ($line): float => max(
+                        (float) $line->fulfilled_quantity
+                        - (float) $line->invoiced_quantity,
+                        0,
+                    ),
+                );
+
+            DB::table('trade_documents')
+                ->where('organization_id', $organizationId)
+                ->where('id', $document->id)
+                ->update([
+                    'converted_financial_document_id' => $invoice->id,
+                    'status' => $isOrder
+                        ? ($remaining > 0.00005 ? 'partial_invoiced' : 'invoiced')
+                        : 'converted',
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return response()->json([
+            'data' => [
+                'financial_document_id' => $invoice->id,
+                'kind' => $invoice->kind,
+                'url' => $invoice->kind === 'sale_invoice'
+                    ? '/app/invoices/sales/'.$invoice->id
+                    : '/app/invoices/purchases/'.$invoice->id,
+            ],
+        ], 201);
+    }
+
+    public function claim(
+        Request $request,
+        string $record,
+    ): JsonResponse {
+        $this->authorizeFeature($request, 'warranties', true);
+
+        $organizationId = app(TenantContext::class)->id();
+
+        abort_unless(
+            DB::table('warranty_records')
+                ->where('organization_id', $organizationId)
+                ->where('id', (int) $record)
+                ->exists(),
+            404,
+        );
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:180'],
+            'claimed_on' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $id = DB::table('warranty_claims')->insertGetId([
+            'organization_id' => $organizationId,
+            'warranty_record_id' => (int) $record,
+            'claimed_on' => $data['claimed_on'] ?? now()->toDateString(),
+            'status' => 'open',
+            'reason' => $data['reason'],
+            'resolution' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'data' => DB::table('warranty_claims')
+                ->where('organization_id', $organizationId)
+                ->where('id', $id)
+                ->first(),
+        ], 201);
+    }
+
+    private function unallocated(int $organizationId): array
+    {
+        $allocations = DB::table('cash_allocations')
+            ->selectRaw(
+                'cash_movement_id, SUM(amount) as allocated',
+            )
+            ->groupBy('cash_movement_id');
+
+        return DB::table('cash_movements as movement')
+            ->leftJoinSub(
+                $allocations,
+                'allocation_totals',
+                'allocation_totals.cash_movement_id',
+                '=',
+                'movement.id',
+            )
+            ->leftJoin(
+                'parties as party',
+                'party.id',
+                '=',
+                'movement.party_id',
+            )
+            ->where('movement.organization_id', $organizationId)
+            ->where('movement.status', 'posted')
+            ->whereNull('movement.reversal_of_id')
+            ->where(function ($query): void {
+                $query
+                    ->where('movement.method', '!=', 'check')
+                    ->orWhereNull('movement.check_status')
+                    ->orWhereNotIn(
+                        'movement.check_status',
+                        ['bounced', 'cancelled'],
+                    );
+            })
+            ->orderByDesc('movement.movement_date')
+            ->get([
+                'movement.id',
+                'movement.number',
+                'movement.direction',
+                'movement.movement_date',
+                'movement.amount',
+                'movement.currency',
+                'movement.method',
+                'party.name',
+                'party.company_name',
+                DB::raw('COALESCE(allocation_totals.allocated, 0) as allocated'),
+            ])
+            ->map(function ($row): ?array {
+                $unallocated =
+                    (float) $row->amount
+                    - (float) $row->allocated;
+
+                if ($unallocated <= 0.00005) {
+                    return null;
+                }
+
+                return [
+                    'id' => $row->id,
+                    'number' => $row->number,
+                    'direction' => $row->direction,
+                    'date' => $row->movement_date,
+                    'party' => $row->company_name ?: $row->name,
+                    'amount' => (string) $row->amount,
+                    'allocated' => (string) $row->allocated,
+                    'unallocated' => number_format(
+                        $unallocated,
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'currency' => $row->currency,
+                    'method' => $row->method,
+                    'url' => $row->direction === 'incoming'
+                        ? '/app/receipts/'.$row->id
+                        : '/app/payments/'.$row->id,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function collections(int $organizationId): array
+    {
+        $rows = DB::table('financial_documents as document')
+            ->leftJoin(
+                'parties as party',
+                'party.id',
+                '=',
+                'document.party_id',
+            )
+            ->where('document.organization_id', $organizationId)
+            ->where('document.kind', 'sale_invoice')
+            ->whereIn(
+                'document.status',
+                ['issued', 'partially_paid'],
+            )
+            ->where('document.balance_due', '>', 0)
+            ->orderBy('document.due_date')
+            ->get([
+                'document.id',
+                'document.party_id',
+                'document.number',
+                'document.due_date',
+                'document.balance_due',
+                'document.currency',
+                'party.name',
+                'party.company_name',
+                'party.phone',
+                'party.email',
+            ]);
+
+        $promiseRows = DB::table('payment_promises')
+            ->where('organization_id', $organizationId)
+            ->whereIn('status', ['open', 'missed'])
+            ->orderBy('promised_on')
+            ->get()
+            ->groupBy('party_id');
+
+        return $rows
+            ->groupBy('party_id')
+            ->map(function ($partyRows, $partyId) use ($promiseRows): array {
+                $first = $partyRows->first();
+                $promises = $promiseRows->get($partyId, collect());
+                $nextPromise = $promises->first();
+                $oldestDue = $partyRows
+                    ->pluck('due_date')
+                    ->filter()
+                    ->min();
+
+                $overdueDays = $oldestDue
+                    ? max(
+                        0,
+                        CarbonImmutable::parse($oldestDue)
+                            ->diffInDays(
+                                CarbonImmutable::today(),
+                                false,
+                            ),
+                    )
+                    : 0;
+
+                $needsContact =
+                    $overdueDays > 0
+                    || (
+                        $nextPromise
+                        && $nextPromise->promised_on
+                            <= now()->toDateString()
+                    );
+
+                return [
+                    'party_id' => (int) $partyId,
+                    'party' => $first->company_name ?: $first->name,
+                    'phone' => $first->phone,
+                    'email' => $first->email,
+                    'invoice_count' => $partyRows->count(),
+                    'outstanding' => number_format(
+                        (float) $partyRows->sum(
+                            fn ($row): float =>
+                                (float) $row->balance_due,
+                        ),
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'currency' => $first->currency,
+                    'oldest_due' => $oldestDue,
+                    'overdue_days' => $overdueDays,
+                    'promise_on' => $nextPromise?->promised_on,
+                    'promise_amount' => $nextPromise?->amount,
+                    'promise_status' => $nextPromise?->status,
+                    'contact_today' => $needsContact,
+                    'url' => '/app/parties?focus='.$partyId,
+                ];
+            })
+            ->sortByDesc(
+                fn (array $row): array => [
+                    $row['contact_today'] ? 1 : 0,
+                    $row['overdue_days'],
+                    (float) $row['outstanding'],
+                ],
+            )
+            ->values()
+            ->all();
+    }
+
+    private function aging(
+        int $organizationId,
+        string $kind,
+    ): array {
+        $rows = DB::table('financial_documents as document')
+            ->leftJoin(
+                'parties as party',
+                'party.id',
+                '=',
+                'document.party_id',
+            )
+            ->where('document.organization_id', $organizationId)
+            ->where('document.kind', $kind)
+            ->whereIn(
+                'document.status',
+                ['issued', 'partially_paid'],
+            )
+            ->where('document.balance_due', '>', 0)
+            ->get([
+                'document.party_id',
+                'document.due_date',
+                'document.balance_due',
+                'document.currency',
+                'party.name',
+                'party.company_name',
+            ]);
+
+        return $rows
+            ->groupBy('party_id')
+            ->map(function ($partyRows, $partyId): array {
+                $first = $partyRows->first();
+                $buckets = [
+                    '0_30' => 0.0,
+                    '31_60' => 0.0,
+                    '61_90' => 0.0,
+                    '90_plus' => 0.0,
+                ];
+
+                foreach ($partyRows as $row) {
+                    $days = $row->due_date
+                        ? max(
+                            0,
+                            CarbonImmutable::parse($row->due_date)
+                                ->diffInDays(
+                                    CarbonImmutable::today(),
+                                    false,
+                                ),
+                        )
+                        : 0;
+
+                    $bucket = match (true) {
+                        $days <= 30 => '0_30',
+                        $days <= 60 => '31_60',
+                        $days <= 90 => '61_90',
+                        default => '90_plus',
+                    };
+
+                    $buckets[$bucket] +=
+                        (float) $row->balance_due;
+                }
+
+                return [
+                    'party_id' => (int) $partyId,
+                    'party' => $first->company_name ?: $first->name,
+                    'currency' => $first->currency,
+                    '0_30' => number_format($buckets['0_30'], 4, '.', ''),
+                    '31_60' => number_format($buckets['31_60'], 4, '.', ''),
+                    '61_90' => number_format($buckets['61_90'], 4, '.', ''),
+                    '90_plus' => number_format($buckets['90_plus'], 4, '.', ''),
+                    'total' => number_format(
+                        array_sum($buckets),
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'url' => '/app/parties?focus='.$partyId,
+                ];
+            })
+            ->sortByDesc(
+                fn (array $row): float =>
+                    (float) $row['total'],
+            )
+            ->values()
+            ->all();
+    }
+
+    private function promises(
+        Request $request,
+        int $organizationId,
+    ): array {
+        DB::table('payment_promises')
+            ->where('organization_id', $organizationId)
+            ->where('status', 'open')
+            ->whereDate(
+                'promised_on',
+                '<',
+                now()->toDateString(),
+            )
+            ->update([
+                'status' => 'missed',
+                'updated_at' => now(),
+            ]);
+
+        $query = DB::table('payment_promises as promise')
+            ->leftJoin(
+                'parties as party',
+                'party.id',
+                '=',
+                'promise.party_id',
+            )
+            ->leftJoin(
+                'financial_documents as document',
+                'document.id',
+                '=',
+                'promise.financial_document_id',
+            )
+            ->where('promise.organization_id', $organizationId)
+            ->orderBy('promise.promised_on')
+            ->orderByDesc('promise.id');
+
+        if ($request->filled('party_id')) {
+            $query->where(
+                'promise.party_id',
+                (int) $request->input('party_id'),
+            );
+        }
+
+        return $query
+            ->get([
+                'promise.id',
+                'promise.party_id',
+                'promise.financial_document_id',
+                'promise.amount',
+                'promise.promised_on',
+                'promise.status',
+                'promise.note',
+                'promise.fulfilled_at',
+                'party.name',
+                'party.company_name',
+                'document.number as document_number',
+            ])
+            ->map(fn ($row): array => [
+                'id' => $row->id,
+                'party_id' => $row->party_id,
+                'party' => $row->company_name ?: $row->name,
+                'financial_document_id' => $row->financial_document_id,
+                'document_number' => $row->document_number,
+                'amount' => (string) $row->amount,
+                'promised_on' => $row->promised_on,
+                'status' => $row->status,
+                'note' => $row->note,
+                'fulfilled_at' => $row->fulfilled_at,
+            ])
+            ->all();
+    }
+
+    private function pipeline(int $organizationId): array
+    {
+        return DB::table('sales_opportunities as opportunity')
+            ->leftJoin(
+                'parties as party',
+                'party.id',
+                '=',
+                'opportunity.party_id',
+            )
+            ->where('opportunity.organization_id', $organizationId)
+            ->orderByRaw(
+                "FIELD(opportunity.stage, 'prospect', 'contacted', 'quoted', 'negotiating', 'won', 'lost')",
+            )
+            ->orderBy('opportunity.next_action_on')
+            ->orderByDesc('opportunity.id')
+            ->get([
+                'opportunity.id',
+                'opportunity.party_id',
+                'opportunity.title',
+                'opportunity.stage',
+                'opportunity.expected_value',
+                'opportunity.probability',
+                'opportunity.expected_close_on',
+                'opportunity.next_action_on',
+                'opportunity.notes',
+                'opportunity.lost_reason',
+                'party.name',
+                'party.company_name',
+            ])
+            ->map(fn ($row): array => [
+                ...((array) $row),
+                'party' => $row->company_name ?: $row->name,
+            ])
+            ->all();
+    }
+
+    private function tradeDocuments(
+        int $organizationId,
+        string $kind,
+    ): array {
+        $lineTotals = DB::table('trade_document_lines')
+            ->selectRaw(
+                'trade_document_id,
+                 SUM(quantity) as quantity,
+                 SUM(fulfilled_quantity) as fulfilled_quantity,
+                 SUM(invoiced_quantity) as invoiced_quantity,
+                 MIN(id) as first_line_id',
+            )
+            ->where('organization_id', $organizationId)
+            ->groupBy('trade_document_id');
+
+        return DB::table('trade_documents as document')
+            ->leftJoinSub(
+                $lineTotals,
+                'line_totals',
+                'line_totals.trade_document_id',
+                '=',
+                'document.id',
+            )
+            ->leftJoin(
+                'parties as party',
+                'party.id',
+                '=',
+                'document.party_id',
+            )
+            ->where('document.organization_id', $organizationId)
+            ->where('document.kind', $kind)
+            ->orderByDesc('document.issue_date')
+            ->orderByDesc('document.id')
+            ->get([
+                'document.id',
+                'document.number',
+                'document.party_id',
+                'document.status',
+                'document.issue_date',
+                'document.valid_until',
+                'document.expected_on',
+                'document.currency',
+                'document.total',
+                'document.notes',
+                'document.converted_financial_document_id',
+                'party.name',
+                'party.company_name',
+                DB::raw('COALESCE(line_totals.quantity, 0) as quantity'),
+                DB::raw('COALESCE(line_totals.fulfilled_quantity, 0) as fulfilled_quantity'),
+                DB::raw('COALESCE(line_totals.invoiced_quantity, 0) as invoiced_quantity'),
+                'line_totals.first_line_id',
+            ])
+            ->map(fn ($row): array => [
+                'id' => $row->id,
+                'number' => $row->number,
+                'party_id' => $row->party_id,
+                'party' => $row->company_name ?: $row->name,
+                'status' => $row->status,
+                'issue_date' => $row->issue_date,
+                'valid_until' => $row->valid_until,
+                'expected_on' => $row->expected_on,
+                'currency' => $row->currency,
+                'total' => (string) $row->total,
+                'notes' => $row->notes,
+                'converted_financial_document_id' =>
+                    $row->converted_financial_document_id,
+                'quantity' => (string) $row->quantity,
+                'fulfilled_quantity' => (string) $row->fulfilled_quantity,
+                'invoiced_quantity' => (string) $row->invoiced_quantity,
+                'remaining_quantity' => number_format(
+                    max(
+                        (float) $row->quantity
+                        - (float) $row->fulfilled_quantity,
+                        0,
+                    ),
+                    4,
+                    '.',
+                    '',
+                ),
+                'first_line_id' => $row->first_line_id,
+            ])
+            ->all();
+    }
+
+    private function backorders(int $organizationId): array
+    {
+        return DB::table('trade_document_lines as line')
+            ->join(
+                'trade_documents as document',
+                'document.id',
+                '=',
+                'line.trade_document_id',
+            )
+            ->leftJoin(
+                'parties as party',
+                'party.id',
+                '=',
+                'document.party_id',
+            )
+            ->leftJoin(
+                'products as product',
+                'product.id',
+                '=',
+                'line.product_id',
+            )
+            ->where('document.organization_id', $organizationId)
+            ->where('line.organization_id', $organizationId)
+            ->where('document.kind', 'sales_order')
+            ->whereNotIn(
+                'document.status',
+                ['cancelled', 'converted', 'invoiced'],
+            )
+            ->whereRaw(
+                'line.quantity > line.fulfilled_quantity',
+            )
+            ->orderBy('document.expected_on')
+            ->get([
+                'document.id as order_id',
+                'document.number',
+                'document.expected_on',
+                'document.currency',
+                'line.id as line_id',
+                'line.product_id',
+                'line.description',
+                'line.quantity',
+                'line.fulfilled_quantity',
+                'party.name',
+                'party.company_name',
+                'product.name as product_name',
+            ])
+            ->map(fn ($row): array => [
+                'order_id' => $row->order_id,
+                'number' => $row->number,
+                'party' => $row->company_name ?: $row->name,
+                'product' => $row->product_name ?: $row->description,
+                'ordered' => (string) $row->quantity,
+                'fulfilled' => (string) $row->fulfilled_quantity,
+                'backorder' => number_format(
+                    max(
+                        (float) $row->quantity
+                        - (float) $row->fulfilled_quantity,
+                        0,
+                    ),
+                    4,
+                    '.',
+                    '',
+                ),
+                'expected_on' => $row->expected_on,
+                'currency' => $row->currency,
+            ])
+            ->all();
+    }
+
+    private function returns(int $organizationId): array
+    {
+        return DB::table('return_requests as request')
+            ->leftJoin(
+                'financial_documents as document',
+                'document.id',
+                '=',
+                'request.financial_document_id',
+            )
+            ->leftJoin(
+                'parties as party',
+                'party.id',
+                '=',
+                'request.party_id',
+            )
+            ->where('request.organization_id', $organizationId)
+            ->orderByDesc('request.id')
+            ->get([
+                'request.id',
+                'request.kind',
+                'request.status',
+                'request.reason',
+                'request.total_quantity',
+                'request.notes',
+                'request.created_at',
+                'document.number as document_number',
+                'party.name',
+                'party.company_name',
+            ])
+            ->map(fn ($row): array => [
+                ...((array) $row),
+                'party' => $row->company_name ?: $row->name,
+            ])
+            ->all();
+    }
+
+    private function warranties(int $organizationId): array
+    {
+        return DB::table('warranty_records as warranty')
+            ->leftJoin(
+                'products as product',
+                'product.id',
+                '=',
+                'warranty.product_id',
+            )
+            ->leftJoin(
+                'parties as party',
+                'party.id',
+                '=',
+                'warranty.party_id',
+            )
+            ->leftJoin(
+                'financial_documents as document',
+                'document.id',
+                '=',
+                'warranty.financial_document_id',
+            )
+            ->leftJoinSub(
+                DB::table('warranty_claims')
+                    ->where('organization_id', $organizationId)
+                    ->selectRaw(
+                        'warranty_record_id, COUNT(*) as claim_count',
+                    )
+                    ->groupBy('warranty_record_id'),
+                'claims',
+                'claims.warranty_record_id',
+                '=',
+                'warranty.id',
+            )
+            ->where('warranty.organization_id', $organizationId)
+            ->orderBy('warranty.ends_on')
+            ->get([
+                'warranty.id',
+                'warranty.party_id',
+                'warranty.product_id',
+                'warranty.financial_document_id',
+                'warranty.serial_number',
+                'warranty.starts_on',
+                'warranty.ends_on',
+                'warranty.status',
+                'warranty.notes',
+                'product.name as product',
+                'party.name',
+                'party.company_name',
+                'document.number as document_number',
+                DB::raw('COALESCE(claims.claim_count, 0) as claim_count'),
+            ])
+            ->map(fn ($row): array => [
+                ...((array) $row),
+                'party' => $row->company_name ?: $row->name,
+                'expired' => $row->ends_on < now()->toDateString(),
+            ])
+            ->all();
+    }
+
+    private function serials(int $organizationId): array
+    {
+        return DB::table('inventory_serials as serial')
+            ->leftJoin(
+                'products as product',
+                'product.id',
+                '=',
+                'serial.product_id',
+            )
+            ->leftJoin(
+                'warehouses as warehouse',
+                'warehouse.id',
+                '=',
+                'serial.warehouse_id',
+            )
+            ->leftJoin(
+                'parties as customer',
+                'customer.id',
+                '=',
+                'serial.customer_party_id',
+            )
+            ->where('serial.organization_id', $organizationId)
+            ->orderByDesc('serial.id')
+            ->get([
+                'serial.id',
+                'serial.product_id',
+                'serial.serial_number',
+                'serial.status',
+                'serial.received_on',
+                'serial.sold_on',
+                'serial.customer_party_id',
+                'serial.notes',
+                'product.name as product',
+                'warehouse.name as warehouse',
+                'customer.name as customer_name',
+                'customer.company_name as customer_company',
+            ])
+            ->map(fn ($row): array => [
+                ...((array) $row),
+                'customer' =>
+                    $row->customer_company
+                    ?: $row->customer_name,
+            ])
+            ->all();
+    }
+
+    private function batches(int $organizationId): array
+    {
+        return DB::table('inventory_batches as batch')
+            ->leftJoin(
+                'products as product',
+                'product.id',
+                '=',
+                'batch.product_id',
+            )
+            ->leftJoin(
+                'warehouses as warehouse',
+                'warehouse.id',
+                '=',
+                'batch.warehouse_id',
+            )
+            ->where('batch.organization_id', $organizationId)
+            ->orderBy('batch.expiry_date')
+            ->orderByDesc('batch.id')
+            ->get([
+                'batch.id',
+                'batch.product_id',
+                'batch.lot_code',
+                'batch.quantity',
+                'batch.manufactured_on',
+                'batch.expiry_date',
+                'batch.status',
+                'batch.notes',
+                'product.name as product',
+                'warehouse.name as warehouse',
+            ])
+            ->map(fn ($row): array => [
+                ...((array) $row),
+                'expired' =>
+                    $row->expiry_date !== null
+                    && $row->expiry_date < now()->toDateString(),
+            ])
+            ->all();
+    }
+
+    private function storePromise(
+        Request $request,
+        int $organizationId,
+    ): object {
+        $data = $request->validate([
+            'party_id' => ['required', 'integer'],
+            'financial_document_id' => ['nullable', 'integer'],
+            'amount' => ['required', 'numeric', 'gt:0'],
+            'promised_on' => ['required', 'date_format:Y-m-d'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $this->assertTenantRecord(
+            'parties',
+            (int) $data['party_id'],
+            $organizationId,
+        );
+
+        if (! empty($data['financial_document_id'])) {
+            $this->assertTenantRecord(
+                'financial_documents',
+                (int) $data['financial_document_id'],
+                $organizationId,
+            );
+        }
+
+        $id = DB::table('payment_promises')->insertGetId([
+            'organization_id' => $organizationId,
+            ...$data,
+            'status' => 'open',
+            'fulfilled_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('payment_promises')
+            ->where('organization_id', $organizationId)
+            ->where('id', $id)
+            ->first();
+    }
+
+    private function storeOpportunity(
+        Request $request,
+        int $organizationId,
+    ): object {
+        $data = $request->validate([
+            'party_id' => ['nullable', 'integer'],
+            'title' => ['required', 'string', 'max:180'],
+            'stage' => [
+                'nullable',
+                Rule::in([
+                    'prospect',
+                    'contacted',
+                    'quoted',
+                    'negotiating',
+                    'won',
+                    'lost',
+                ]),
+            ],
+            'expected_value' => ['nullable', 'numeric', 'min:0'],
+            'probability' => ['nullable', 'integer', 'between:0,100'],
+            'expected_close_on' => ['nullable', 'date_format:Y-m-d'],
+            'next_action_on' => ['nullable', 'date_format:Y-m-d'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        if (! empty($data['party_id'])) {
+            $this->assertTenantRecord(
+                'parties',
+                (int) $data['party_id'],
+                $organizationId,
+            );
+        }
+
+        $stage = $data['stage'] ?? 'prospect';
+
+        $id = DB::table('sales_opportunities')->insertGetId([
+            'organization_id' => $organizationId,
+            'party_id' => $data['party_id'] ?? null,
+            'title' => $data['title'],
+            'stage' => $stage,
+            'expected_value' => $data['expected_value'] ?? 0,
+            'probability' => $data['probability']
+                ?? $this->stageProbability($stage),
+            'expected_close_on' => $data['expected_close_on'] ?? null,
+            'next_action_on' => $data['next_action_on'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'lost_reason' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('sales_opportunities')
+            ->where('organization_id', $organizationId)
+            ->where('id', $id)
+            ->first();
+    }
+
+    private function storeTradeDocument(
+        Request $request,
+        int $organizationId,
+        string $kind,
+    ): object {
+        $data = $request->validate([
+            'party_id' => ['required', 'integer'],
+            'issue_date' => ['nullable', 'date_format:Y-m-d'],
+            'valid_until' => ['nullable', 'date_format:Y-m-d'],
+            'expected_on' => ['nullable', 'date_format:Y-m-d'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+            'lines' => ['required', 'array', 'min:1', 'max:250'],
+            'lines.*.product_id' => ['nullable', 'integer'],
+            'lines.*.description' => ['required', 'string', 'max:255'],
+            'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'lines.*.affects_inventory' => ['sometimes', 'boolean'],
+        ]);
+
+        $this->assertTenantRecord(
+            'parties',
+            (int) $data['party_id'],
+            $organizationId,
+        );
+
+        foreach ($data['lines'] as $line) {
+            if (! empty($line['product_id'])) {
+                $this->assertTenantRecord(
+                    'products',
+                    (int) $line['product_id'],
+                    $organizationId,
+                );
+            }
+        }
+
+        $currency = strtoupper(
+            (string) (
+                app(TenantContext::class)
+                    ->organization()
+                    ->preferences['currency']
+                ?? 'ILS'
+            ),
+        );
+
+        $total = collect($data['lines'])
+            ->sum(
+                fn (array $line): float =>
+                    (float) $line['quantity']
+                    * (float) $line['unit_price'],
+            );
+
+        return DB::transaction(function () use (
+            $data,
+            $organizationId,
+            $kind,
+            $currency,
+            $total,
+        ): object {
+            $id = DB::table('trade_documents')->insertGetId([
+                'organization_id' => $organizationId,
+                'party_id' => (int) $data['party_id'],
+                'kind' => $kind,
+                'number' => 'PENDING-'.uniqid(),
+                'status' => 'draft',
+                'issue_date' => $data['issue_date']
+                    ?? now()->toDateString(),
+                'valid_until' => $data['valid_until'] ?? null,
+                'expected_on' => $data['expected_on'] ?? null,
+                'currency' => $currency,
+                'total' => number_format($total, 4, '.', ''),
+                'notes' => $data['notes'] ?? null,
+                'converted_financial_document_id' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $prefix = match ($kind) {
+                'quotation' => 'QUO',
+                'proforma' => 'PRO',
+                'sales_order' => 'SO',
+                'purchase_order' => 'PO',
+                default => 'DOC',
+            };
+
+            DB::table('trade_documents')
+                ->where('id', $id)
+                ->where('organization_id', $organizationId)
+                ->update([
+                    'number' => $prefix
+                        .'-'
+                        .now()->format('Y')
+                        .'-'
+                        .str_pad((string) $id, 5, '0', STR_PAD_LEFT),
+                ]);
+
+            foreach ($data['lines'] as $line) {
+                DB::table('trade_document_lines')->insert([
+                    'organization_id' => $organizationId,
+                    'trade_document_id' => $id,
+                    'product_id' => $line['product_id'] ?? null,
+                    'description' => $line['description'],
+                    'quantity' => $line['quantity'],
+                    'unit_price' => $line['unit_price'],
+                    'fulfilled_quantity' => 0,
+                    'invoiced_quantity' => 0,
+                    'affects_inventory' =>
+                        (bool) ($line['affects_inventory'] ?? true),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return DB::table('trade_documents')
+                ->where('organization_id', $organizationId)
+                ->where('id', $id)
+                ->first();
+        });
+    }
+
+    private function storeReturn(
+        Request $request,
+        int $organizationId,
+    ): object {
+        $data = $request->validate([
+            'financial_document_id' => ['required', 'integer'],
+            'reason' => ['required', 'string', 'max:160'],
+            'total_quantity' => ['required', 'numeric', 'gt:0'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $document = DB::table('financial_documents')
+            ->where('organization_id', $organizationId)
+            ->where('id', (int) $data['financial_document_id'])
+            ->whereIn(
+                'kind',
+                ['sale_invoice', 'purchase_invoice'],
+            )
+            ->first();
+
+        abort_unless($document, 404);
+
+        $id = DB::table('return_requests')->insertGetId([
+            'organization_id' => $organizationId,
+            'financial_document_id' => $document->id,
+            'party_id' => $document->party_id,
+            'kind' => $document->kind === 'sale_invoice'
+                ? 'sale_return'
+                : 'purchase_return',
+            'status' => 'requested',
+            'reason' => $data['reason'],
+            'total_quantity' => $data['total_quantity'],
+            'items' => null,
+            'notes' => $data['notes'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('return_requests')
+            ->where('organization_id', $organizationId)
+            ->where('id', $id)
+            ->first();
+    }
+
+    private function storeWarranty(
+        Request $request,
+        int $organizationId,
+    ): object {
+        $data = $request->validate([
+            'party_id' => ['nullable', 'integer'],
+            'product_id' => ['required', 'integer'],
+            'financial_document_id' => ['nullable', 'integer'],
+            'serial_number' => ['nullable', 'string', 'max:160'],
+            'starts_on' => ['required', 'date_format:Y-m-d'],
+            'ends_on' => ['required', 'date_format:Y-m-d', 'after_or_equal:starts_on'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $this->assertTenantRecord(
+            'products',
+            (int) $data['product_id'],
+            $organizationId,
+        );
+
+        foreach (
+            [
+                ['parties', 'party_id'],
+                ['financial_documents', 'financial_document_id'],
+            ] as [$table, $field]
+        ) {
+            if (! empty($data[$field])) {
+                $this->assertTenantRecord(
+                    $table,
+                    (int) $data[$field],
+                    $organizationId,
+                );
+            }
+        }
+
+        $id = DB::table('warranty_records')->insertGetId([
+            'organization_id' => $organizationId,
+            ...$data,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('warranty_records')
+            ->where('organization_id', $organizationId)
+            ->where('id', $id)
+            ->first();
+    }
+
+    private function storeSerial(
+        Request $request,
+        int $organizationId,
+    ): object {
+        $data = $request->validate([
+            'product_id' => ['required', 'integer'],
+            'warehouse_id' => ['nullable', 'integer'],
+            'supplier_party_id' => ['nullable', 'integer'],
+            'customer_party_id' => ['nullable', 'integer'],
+            'source_purchase_document_id' => ['nullable', 'integer'],
+            'source_sale_document_id' => ['nullable', 'integer'],
+            'serial_number' => [
+                'required',
+                'string',
+                'max:180',
+                Rule::unique('inventory_serials', 'serial_number')
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    ),
+            ],
+            'status' => [
+                'nullable',
+                Rule::in([
+                    'in_stock',
+                    'reserved',
+                    'sold',
+                    'returned',
+                    'service',
+                    'scrapped',
+                ]),
+            ],
+            'received_on' => ['nullable', 'date_format:Y-m-d'],
+            'sold_on' => ['nullable', 'date_format:Y-m-d'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $this->assertTenantRecord(
+            'products',
+            (int) $data['product_id'],
+            $organizationId,
+        );
+
+        foreach (
+            [
+                ['warehouses', 'warehouse_id'],
+                ['parties', 'supplier_party_id'],
+                ['parties', 'customer_party_id'],
+                ['financial_documents', 'source_purchase_document_id'],
+                ['financial_documents', 'source_sale_document_id'],
+            ] as [$table, $field]
+        ) {
+            if (! empty($data[$field])) {
+                $this->assertTenantRecord(
+                    $table,
+                    (int) $data[$field],
+                    $organizationId,
+                );
+            }
+        }
+
+        $id = DB::table('inventory_serials')->insertGetId([
+            'organization_id' => $organizationId,
+            ...$data,
+            'status' => $data['status'] ?? 'in_stock',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('inventory_serials')
+            ->where('organization_id', $organizationId)
+            ->where('id', $id)
+            ->first();
+    }
+
+    private function storeBatch(
+        Request $request,
+        int $organizationId,
+    ): object {
+        $data = $request->validate([
+            'product_id' => ['required', 'integer'],
+            'warehouse_id' => ['nullable', 'integer'],
+            'supplier_party_id' => ['nullable', 'integer'],
+            'lot_code' => ['required', 'string', 'max:160'],
+            'quantity' => ['required', 'numeric', 'gt:0'],
+            'manufactured_on' => ['nullable', 'date_format:Y-m-d'],
+            'expiry_date' => ['nullable', 'date_format:Y-m-d'],
+            'status' => [
+                'nullable',
+                Rule::in([
+                    'available',
+                    'quarantine',
+                    'depleted',
+                    'expired',
+                    'recalled',
+                ]),
+            ],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $this->assertTenantRecord(
+            'products',
+            (int) $data['product_id'],
+            $organizationId,
+        );
+
+        if (! empty($data['warehouse_id'])) {
+            $this->assertTenantRecord(
+                'warehouses',
+                (int) $data['warehouse_id'],
+                $organizationId,
+            );
+        }
+
+        if (! empty($data['supplier_party_id'])) {
+            $this->assertTenantRecord(
+                'parties',
+                (int) $data['supplier_party_id'],
+                $organizationId,
+            );
+        }
+
+        $duplicate = DB::table('inventory_batches')
+            ->where('organization_id', $organizationId)
+            ->where('product_id', (int) $data['product_id'])
+            ->where('lot_code', $data['lot_code'])
+            ->exists();
+
+        if ($duplicate) {
+            throw ValidationException::withMessages([
+                'lot_code' => [
+                    'This lot code already exists for the selected product.',
+                ],
+            ]);
+        }
+
+        $id = DB::table('inventory_batches')->insertGetId([
+            'organization_id' => $organizationId,
+            ...$data,
+            'status' => $data['status'] ?? 'available',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('inventory_batches')
+            ->where('organization_id', $organizationId)
+            ->where('id', $id)
+            ->first();
+    }
+
+    private function updatePromise(
+        Request $request,
+        int $organizationId,
+        int $record,
+    ): object {
+        $data = $request->validate([
+            'status' => [
+                'required',
+                Rule::in([
+                    'open',
+                    'fulfilled',
+                    'missed',
+                    'cancelled',
+                ]),
+            ],
+        ]);
+
+        $this->assertTenantRecord(
+            'payment_promises',
+            $record,
+            $organizationId,
+        );
+
+        DB::table('payment_promises')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->update([
+                'status' => $data['status'],
+                'fulfilled_at' =>
+                    $data['status'] === 'fulfilled'
+                        ? now()
+                        : null,
+                'updated_at' => now(),
+            ]);
+
+        return DB::table('payment_promises')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+    }
+
+    private function updateOpportunity(
+        Request $request,
+        int $organizationId,
+        int $record,
+    ): object {
+        $data = $request->validate([
+            'stage' => [
+                'required',
+                Rule::in([
+                    'prospect',
+                    'contacted',
+                    'quoted',
+                    'negotiating',
+                    'won',
+                    'lost',
+                ]),
+            ],
+            'lost_reason' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $this->assertTenantRecord(
+            'sales_opportunities',
+            $record,
+            $organizationId,
+        );
+
+        DB::table('sales_opportunities')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->update([
+                'stage' => $data['stage'],
+                'probability' => $this->stageProbability(
+                    $data['stage'],
+                ),
+                'lost_reason' => $data['stage'] === 'lost'
+                    ? ($data['lost_reason'] ?? null)
+                    : null,
+                'updated_at' => now(),
+            ]);
+
+        return DB::table('sales_opportunities')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+    }
+
+    private function updateTradeDocument(
+        Request $request,
+        int $organizationId,
+        int $record,
+        string $kind,
+    ): object {
+        $document = DB::table('trade_documents')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->where('kind', $kind)
+            ->first();
+
+        abort_unless($document, 404);
+
+        if (
+            in_array(
+                $kind,
+                ['sales_order', 'purchase_order'],
+                true,
+            )
+            && $request->has('fulfilled_quantity')
+        ) {
+            $data = $request->validate([
+                'line_id' => ['required', 'integer'],
+                'fulfilled_quantity' => [
+                    'required',
+                    'numeric',
+                    'min:0',
+                ],
+            ]);
+
+            $line = DB::table('trade_document_lines')
+                ->where('organization_id', $organizationId)
+                ->where('trade_document_id', $record)
+                ->where('id', (int) $data['line_id'])
+                ->first();
+
+            abort_unless($line, 404);
+
+            if (
+                (float) $data['fulfilled_quantity']
+                > (float) $line->quantity
+            ) {
+                throw ValidationException::withMessages([
+                    'fulfilled_quantity' => [
+                        'Fulfilled quantity cannot exceed ordered quantity.',
+                    ],
+                ]);
+            }
+
+            DB::table('trade_document_lines')
+                ->where('organization_id', $organizationId)
+                ->where('id', $line->id)
+                ->update([
+                    'fulfilled_quantity' =>
+                        $data['fulfilled_quantity'],
+                    'updated_at' => now(),
+                ]);
+
+            $totals = DB::table('trade_document_lines')
+                ->where('organization_id', $organizationId)
+                ->where('trade_document_id', $record)
+                ->selectRaw(
+                    'SUM(quantity) as quantity,
+                     SUM(fulfilled_quantity) as fulfilled',
+                )
+                ->first();
+
+            $status = (float) $totals->fulfilled <= 0.00005
+                ? 'draft'
+                : (
+                    (float) $totals->fulfilled
+                    + 0.00005
+                    >= (float) $totals->quantity
+                        ? 'fulfilled'
+                        : 'partial'
+                );
+
+            DB::table('trade_documents')
+                ->where('organization_id', $organizationId)
+                ->where('id', $record)
+                ->update([
+                    'status' => $status,
+                    'updated_at' => now(),
+                ]);
+        } else {
+            $allowed = match ($kind) {
+                'quotation' => [
+                    'draft',
+                    'sent',
+                    'accepted',
+                    'rejected',
+                    'expired',
+                    'converted',
+                ],
+                'proforma' => [
+                    'draft',
+                    'sent',
+                    'accepted',
+                    'cancelled',
+                    'converted',
+                ],
+                default => [
+                    'draft',
+                    'confirmed',
+                    'cancelled',
+                    'partial',
+                    'fulfilled',
+                    'partial_invoiced',
+                    'invoiced',
+                ],
+            };
+
+            $data = $request->validate([
+                'status' => [
+                    'required',
+                    Rule::in($allowed),
+                ],
+            ]);
+
+            DB::table('trade_documents')
+                ->where('organization_id', $organizationId)
+                ->where('id', $record)
+                ->update([
+                    'status' => $data['status'],
+                    'updated_at' => now(),
+                ]);
+        }
+
+        return DB::table('trade_documents')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+    }
+
+    private function updateSimpleStatus(
+        Request $request,
+        int $organizationId,
+        string $table,
+        int $record,
+        array $allowed,
+    ): object {
+        $data = $request->validate([
+            'status' => [
+                'required',
+                Rule::in($allowed),
+            ],
+        ]);
+
+        $this->assertTenantRecord(
+            $table,
+            $record,
+            $organizationId,
+        );
+
+        DB::table($table)
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->update([
+                'status' => $data['status'],
+                'updated_at' => now(),
+            ]);
+
+        return DB::table($table)
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+    }
+
+    private function updateSerial(
+        Request $request,
+        int $organizationId,
+        int $record,
+    ): object {
+        $data = $request->validate([
+            'status' => [
+                'required',
+                Rule::in([
+                    'in_stock',
+                    'reserved',
+                    'sold',
+                    'returned',
+                    'service',
+                    'scrapped',
+                ]),
+            ],
+            'customer_party_id' => ['nullable', 'integer'],
+            'source_sale_document_id' => ['nullable', 'integer'],
+            'sold_on' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $this->assertTenantRecord(
+            'inventory_serials',
+            $record,
+            $organizationId,
+        );
+
+        foreach (
+            [
+                ['parties', 'customer_party_id'],
+                ['financial_documents', 'source_sale_document_id'],
+            ] as [$table, $field]
+        ) {
+            if (! empty($data[$field])) {
+                $this->assertTenantRecord(
+                    $table,
+                    (int) $data[$field],
+                    $organizationId,
+                );
+            }
+        }
+
+        DB::table('inventory_serials')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->update([
+                'status' => $data['status'],
+                'customer_party_id' =>
+                    $data['customer_party_id'] ?? null,
+                'source_sale_document_id' =>
+                    $data['source_sale_document_id'] ?? null,
+                'sold_on' => $data['status'] === 'sold'
+                    ? ($data['sold_on'] ?? now()->toDateString())
+                    : null,
+                'updated_at' => now(),
+            ]);
+
+        return DB::table('inventory_serials')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+    }
+
+    private function updateBatch(
+        Request $request,
+        int $organizationId,
+        int $record,
+    ): object {
+        $data = $request->validate([
+            'status' => [
+                'required',
+                Rule::in([
+                    'available',
+                    'quarantine',
+                    'depleted',
+                    'expired',
+                    'recalled',
+                ]),
+            ],
+            'quantity' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $this->assertTenantRecord(
+            'inventory_batches',
+            $record,
+            $organizationId,
+        );
+
+        DB::table('inventory_batches')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->update([
+                'status' => $data['status'],
+                ...(
+                    array_key_exists('quantity', $data)
+                        ? ['quantity' => $data['quantity']]
+                        : []
+                ),
+                'updated_at' => now(),
+            ]);
+
+        return DB::table('inventory_batches')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+    }
+
+    private function stageProbability(string $stage): int
+    {
+        return match ($stage) {
+            'prospect' => 10,
+            'contacted' => 25,
+            'quoted' => 50,
+            'negotiating' => 75,
+            'won' => 100,
+            'lost' => 0,
+            default => 10,
+        };
+    }
+
+    private function assertTenantRecord(
+        string $table,
+        int $id,
+        int $organizationId,
+    ): void {
+        abort_unless(
+            DB::table($table)
+                ->where('organization_id', $organizationId)
+                ->where('id', $id)
+                ->exists(),
+            404,
+        );
+    }
+
+    private function authorizeFeature(
+        Request $request,
+        string $feature,
+        bool $manage,
+    ): void {
+        if (
+            in_array(
+                $feature,
+                [
+                    'collections',
+                    'ar-aging',
+                    'promises',
+                    'quotations',
+                    'proformas',
+                    'sales-orders',
+                    'backorders',
+                ],
+                true,
+            )
+        ) {
+            FinanceAuthorization::authorize(
+                $request->user(),
+                $manage
+                    ? 'finance.sales.manage'
+                    : 'finance.sales.view',
+            );
+
+            return;
+        }
+
+        if (
+            in_array(
+                $feature,
+                [
+                    'ap-aging',
+                    'purchase-orders',
+                ],
+                true,
+            )
+        ) {
+            FinanceAuthorization::authorize(
+                $request->user(),
+                $manage
+                    ? 'finance.purchases.manage'
+                    : 'finance.purchases.view',
+            );
+
+            return;
+        }
+
+        if ($feature === 'unallocated') {
+            FinanceAuthorization::authorize(
+                $request->user(),
+                'finance.cash.view',
+            );
+
+            return;
+        }
+
+        if ($feature === 'returns') {
+            abort_unless(
+                FinanceAuthorization::allows(
+                    $request->user(),
+                    $manage
+                        ? 'finance.sales.manage'
+                        : 'finance.sales.view',
+                )
+                || FinanceAuthorization::allows(
+                    $request->user(),
+                    $manage
+                        ? 'finance.purchases.manage'
+                        : 'finance.purchases.view',
+                ),
+                403,
+            );
+
+            return;
+        }
+
+        if ($feature === 'pipeline') {
+            abort_unless(
+                $request->user()?->can(
+                    $manage ? 'create' : 'viewAny',
+                    Party::class,
+                ),
+                403,
+            );
+
+            return;
+        }
+
+        if (
+            in_array(
+                $feature,
+                ['warranties', 'serials', 'batches'],
+                true,
+            )
+        ) {
+            abort_unless(
+                $request->user()?->can(
+                    $manage ? 'create' : 'viewAny',
+                    Product::class,
+                ),
+                403,
+            );
+
+            return;
+        }
+
+        abort(404);
+    }
+}
