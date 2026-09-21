@@ -2017,6 +2017,23 @@ final class WorkspaceFeaturePermissions
             return true;
         }
 
+        if ($customPermissions === null) {
+            $basePermissions =
+                WorkspaceRoleCatalog::builtInPermissions(
+                    $baseRole,
+                );
+
+            if (
+                in_array(
+                    $permission,
+                    $basePermissions,
+                    true,
+                )
+            ) {
+                return true;
+            }
+        }
+
         if ($customPermissions !== null) {
             $granted = array_values(array_unique($customPermissions));
 
