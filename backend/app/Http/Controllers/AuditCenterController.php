@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\FinanceAuthorization;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,11 @@ class AuditCenterController extends Controller
         Request $request,
     ): JsonResponse {
         abort_unless(
-            FinanceAuthorization::allows(
+            WorkspaceFeaturePermissions::allows(
+                $request->user(),
+                'audit.center.view',
+            )
+            || FinanceAuthorization::allows(
                 $request->user(),
                 'finance.sales.view',
             )
