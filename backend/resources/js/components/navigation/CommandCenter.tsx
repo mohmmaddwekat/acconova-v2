@@ -507,6 +507,15 @@ export function CommandCenter() {
             aliases: ['audit', 'تدقيق', 'who changed what', 'تغييرات'],
         },
         {
+            key: 'bulk-action-history',
+            label: text('سجل العمليات الجماعية', 'Bulk action history'),
+            detail: text('اعرف من عدّل أو أرشف أو استعاد عدة سجلات دفعة واحدة', 'See who edited, archived or restored multiple records at once'),
+            href: '/app/audit/bulk-actions',
+            icon: ClipboardCheck,
+            kind: 'module',
+            aliases: ['bulk actions', 'bulk history', 'عمليات جماعية', 'تعديل جماعي', 'أرشفة جماعية'],
+        },
+        {
             key: 'data-quality',
             label: text('مركز جودة البيانات', 'Data quality center'),
             detail: text('بيانات ناقصة وسجلات محتمل تكرارها', 'Missing data and possible duplicate records'),
