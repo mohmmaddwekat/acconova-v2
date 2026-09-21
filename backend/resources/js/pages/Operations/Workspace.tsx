@@ -13,16 +13,18 @@ import {
     ArrowRight,
     Check,
     FilePlus2,
+    Plus,
     RefreshCcw,
     RotateCcw,
     ShieldCheck,
+    Trash2,
     TrendingUp,
 } from 'lucide-react';
 import {
-    FormEvent,
     useEffect,
     useMemo,
     useState,
+    type FormEvent,
 } from 'react';
 
 type Feature =
@@ -58,6 +60,22 @@ type Field = {
     required?: boolean;
     placeholder?: string;
 };
+
+type TradeLineDraft = {
+    product_id: string;
+    warehouse_id: string;
+    description: string;
+    quantity: string;
+    unit_price: string;
+};
+
+const emptyTradeLine = (): TradeLineDraft => ({
+    product_id: '',
+    warehouse_id: '',
+    description: '',
+    quantity: '1',
+    unit_price: '',
+});
 
 const tradeFeatures: Feature[] = [
     'quotations',
@@ -207,6 +225,7 @@ function labelFor(
         promise_on: ['موعد الوعد', 'Promise date'],
         promise_amount: ['قيمة الوعد', 'Promise amount'],
         promise_status: ['حالة الوعد', 'Promise status'],
+        expected_collection: ['التحصيل المتوقع', 'Expected collection'],
         contact_today: ['اتصال اليوم', 'Contact today'],
         '0_30': ['0–30', '0–30'],
         '31_60': ['31–60', '31–60'],
@@ -279,6 +298,7 @@ function visibleKeys(feature: Feature): string[] {
             'overdue_days',
             'promise_on',
             'promise_amount',
+            'expected_collection',
             'contact_today',
         ],
         'ar-aging': [
@@ -420,6 +440,9 @@ export default function OperationsWorkspace({
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [form, setForm] = useState<Record<string, string>>({});
+    const [tradeLines, setTradeLines] = useState<TradeLineDraft[]>([
+        emptyTradeLine(),
+    ]);
     const [fulfillment, setFulfillment] = useState<Record<string, string>>({});
     const [claimReason, setClaimReason] = useState<Record<string, string>>({});
     const [parties, setParties] = useState<Option[]>([]);
@@ -546,6 +569,7 @@ export default function OperationsWorkspace({
             const payload = buildPayload(
                 feature,
                 form,
+                tradeLines,
             );
 
             await apiRequest(
@@ -557,6 +581,9 @@ export default function OperationsWorkspace({
             );
 
             setForm({});
+            setTradeLines([
+                emptyTradeLine(),
+            ]);
             await load();
         } catch (failure) {
             setError(
@@ -767,6 +794,17 @@ export default function OperationsWorkspace({
                                 />
                             ))}
                         </div>
+
+                        {tradeFeatures.includes(feature) && (
+                            <TradeLinesEditor
+                                ar={ar}
+                                feature={feature}
+                                products={products}
+                                warehouses={warehouses}
+                                lines={tradeLines}
+                                onChange={setTradeLines}
+                            />
+                        )}
 
                         <div className="mt-4 flex justify-end">
                             <button
@@ -1017,27 +1055,6 @@ function createFields(
                         : 'Valid until',
                 type: 'date',
             },
-            product(),
-            {
-                key: 'description',
-                ar: 'الوصف',
-                en: 'Description',
-                required: true,
-            },
-            {
-                key: 'quantity',
-                ar: 'الكمية',
-                en: 'Quantity',
-                type: 'number',
-                required: true,
-            },
-            {
-                key: 'unit_price',
-                ar: 'سعر الوحدة',
-                en: 'Unit price',
-                type: 'number',
-                required: true,
-            },
             {
                 key: 'notes',
                 ar: 'ملاحظات',
@@ -1121,6 +1138,19 @@ function createFields(
             product(),
             warehouse(),
             party('supplier_party_id', false),
+            party('customer_party_id', false),
+            {
+                key: 'source_purchase_document_id',
+                ar: 'ID فاتورة الشراء',
+                en: 'Purchase invoice ID',
+                type: 'number',
+            },
+            {
+                key: 'source_sale_document_id',
+                ar: 'ID فاتورة البيع',
+                en: 'Sales invoice ID',
+                type: 'number',
+            },
             {
                 key: 'serial_number',
                 ar: 'Serial Number',
@@ -1128,9 +1158,29 @@ function createFields(
                 required: true,
             },
             {
+                key: 'status',
+                ar: 'الحالة',
+                en: 'Status',
+                type: 'select',
+                options: [
+                    { value: 'in_stock', label: ar ? 'في المخزون' : 'In stock' },
+                    { value: 'reserved', label: ar ? 'محجوز' : 'Reserved' },
+                    { value: 'sold', label: ar ? 'مباع' : 'Sold' },
+                    { value: 'returned', label: ar ? 'مرتجع' : 'Returned' },
+                    { value: 'service', label: ar ? 'صيانة' : 'Service' },
+                    { value: 'scrapped', label: ar ? 'مشطوب' : 'Scrapped' },
+                ],
+            },
+            {
                 key: 'received_on',
                 ar: 'تاريخ الاستلام',
                 en: 'Received on',
+                type: 'date',
+            },
+            {
+                key: 'sold_on',
+                ar: 'تاريخ البيع',
+                en: 'Sold on',
                 type: 'date',
             },
             {
@@ -1173,6 +1223,19 @@ function createFields(
                 type: 'date',
             },
             {
+                key: 'status',
+                ar: 'الحالة',
+                en: 'Status',
+                type: 'select',
+                options: [
+                    { value: 'available', label: ar ? 'متاح' : 'Available' },
+                    { value: 'quarantine', label: ar ? 'حجر' : 'Quarantine' },
+                    { value: 'depleted', label: ar ? 'منتهي الكمية' : 'Depleted' },
+                    { value: 'expired', label: ar ? 'منتهي الصلاحية' : 'Expired' },
+                    { value: 'recalled', label: ar ? 'مسحوب' : 'Recalled' },
+                ],
+            },
+            {
                 key: 'notes',
                 ar: 'ملاحظات',
                 en: 'Notes',
@@ -1187,6 +1250,7 @@ function createFields(
 function buildPayload(
     feature: Feature,
     form: Record<string, string>,
+    tradeLines: TradeLineDraft[],
 ): Row {
     const clean = Object.fromEntries(
         Object.entries(form)
@@ -1198,32 +1262,226 @@ function buildPayload(
     );
 
     if (tradeFeatures.includes(feature)) {
-        const {
-            product_id,
-            description,
-            quantity,
-            unit_price,
-            ...header
-        } = clean;
-
         return {
-            ...header,
-            lines: [
-                {
-                    product_id:
-                        product_id
-                            ? Number(product_id)
-                            : null,
-                    description,
-                    quantity,
-                    unit_price,
-                    affects_inventory: true,
-                },
-            ],
+            ...clean,
+            lines: tradeLines.map(line => ({
+                product_id:
+                    line.product_id
+                        ? Number(line.product_id)
+                        : null,
+                warehouse_id:
+                    line.warehouse_id
+                        ? Number(line.warehouse_id)
+                        : null,
+                description: line.description.trim(),
+                quantity: line.quantity,
+                unit_price: line.unit_price,
+                affects_inventory: true,
+            })),
         };
     }
 
     return clean;
+}
+
+function TradeLinesEditor({
+    ar,
+    feature,
+    products,
+    warehouses,
+    lines,
+    onChange,
+}: {
+    ar: boolean;
+    feature: Feature;
+    products: Option[];
+    warehouses: Option[];
+    lines: TradeLineDraft[];
+    onChange: (lines: TradeLineDraft[]) => void;
+}) {
+    const showWarehouse =
+        feature === 'sales-orders'
+        || feature === 'purchase-orders';
+
+    function updateLine(
+        index: number,
+        patch: Partial<TradeLineDraft>,
+    ): void {
+        onChange(
+            lines.map((line, lineIndex) =>
+                lineIndex === index
+                    ? {
+                        ...line,
+                        ...patch,
+                    }
+                    : line,
+            ),
+        );
+    }
+
+    return (
+        <div className="mt-5 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h3 className="text-xs font-bold text-[var(--ac-text)]">
+                        {ar ? 'بنود المستند' : 'Document lines'}
+                    </h3>
+                    <p className="mt-1 text-[9px] text-[var(--ac-text-muted)]">
+                        {ar
+                            ? 'أضف كل المنتجات والخدمات المطلوبة في نفس العرض أو الأمر.'
+                            : 'Add all products and services to the same quotation or order.'}
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() =>
+                        onChange([
+                            ...lines,
+                            emptyTradeLine(),
+                        ])
+                    }
+                    className="inline-flex h-9 items-center gap-1.5 rounded-[11px] border border-[var(--ac-line)] bg-transparent px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                >
+                    <Plus size={12} />
+                    {ar ? 'إضافة بند' : 'Add line'}
+                </button>
+            </div>
+
+            <div className="mt-3 space-y-2">
+                {lines.map((line, index) => (
+                    <div
+                        key={index}
+                        className="grid gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.6fr_.7fr_.8fr_auto]"
+                    >
+                        <select
+                            value={line.product_id}
+                            onChange={event =>
+                                updateLine(index, {
+                                    product_id:
+                                        event.target.value,
+                                    description:
+                                        line.description
+                                        || products.find(
+                                            option =>
+                                                option.value
+                                                === event.target.value,
+                                        )?.label
+                                        || '',
+                                })
+                            }
+                            className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                        >
+                            <option value="">
+                                {ar
+                                    ? 'منتج/خدمة غير مرتبطة'
+                                    : 'Unlinked item'}
+                            </option>
+                            {products.map(option => (
+                                <option
+                                    key={option.value}
+                                    value={option.value}
+                                >
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+
+                        {showWarehouse ? (
+                            <select
+                                value={line.warehouse_id}
+                                onChange={event =>
+                                    updateLine(index, {
+                                        warehouse_id:
+                                            event.target.value,
+                                    })
+                                }
+                                className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                            >
+                                <option value="">
+                                    {ar
+                                        ? 'بدون مستودع'
+                                        : 'No warehouse'}
+                                </option>
+                                {warehouses.map(option => (
+                                    <option
+                                        key={option.value}
+                                        value={option.value}
+                                    >
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div className="hidden xl:block" />
+                        )}
+
+                        <input
+                            required
+                            value={line.description}
+                            onChange={event =>
+                                updateLine(index, {
+                                    description:
+                                        event.target.value,
+                                })
+                            }
+                            placeholder={ar ? 'الوصف' : 'Description'}
+                            className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                        />
+
+                        <input
+                            required
+                            type="number"
+                            min="0.0001"
+                            step="0.0001"
+                            value={line.quantity}
+                            onChange={event =>
+                                updateLine(index, {
+                                    quantity:
+                                        event.target.value,
+                                })
+                            }
+                            placeholder={ar ? 'الكمية' : 'Qty'}
+                            className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                        />
+
+                        <input
+                            required
+                            type="number"
+                            min="0"
+                            step="0.0001"
+                            value={line.unit_price}
+                            onChange={event =>
+                                updateLine(index, {
+                                    unit_price:
+                                        event.target.value,
+                                })
+                            }
+                            placeholder={ar ? 'سعر الوحدة' : 'Unit price'}
+                            className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                        />
+
+                        <button
+                            type="button"
+                            disabled={lines.length === 1}
+                            onClick={() =>
+                                onChange(
+                                    lines.filter(
+                                        (_, lineIndex) =>
+                                            lineIndex !== index,
+                                    ),
+                                )
+                            }
+                            aria-label={ar ? 'حذف البند' : 'Remove line'}
+                            className="flex size-9 items-center justify-center rounded-[11px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] transition hover:border-red-400 hover:text-red-400 disabled:opacity-30"
+                        >
+                            <Trash2 size={13} />
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 }
 
 function FieldInput({
