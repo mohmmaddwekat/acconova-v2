@@ -167,6 +167,10 @@ class CashMovementService
                 );
             }
 
+            $this->assertDepartmentSpendingLimit(
+                $locked,
+            );
+
             $before = $this->snapshot($locked);
             $locked->status = 'posted';
             $locked->posted_at = now();
@@ -667,6 +671,102 @@ class CashMovementService
             ? 'open'
             : ($paid < $amount ? 'partial' : 'paid');
         $obligation->save();
+    }
+
+    private function assertDepartmentSpendingLimit(
+        CashMovement $movement,
+    ): void {
+        if (
+            $movement->direction !== 'outgoing'
+            || ! $movement->department_id
+            || $movement->reversal_of_id
+        ) {
+            return;
+        }
+
+        $limit = DB::table(
+            'department_spending_limits',
+        )
+            ->where(
+                'department_id',
+                $movement->department_id,
+            )
+            ->where(
+                'currency',
+                $movement->currency,
+            )
+            ->where('active', true)
+            ->first();
+
+        if (! $limit) {
+            return;
+        }
+
+        $date = $movement->movement_date
+            ?? now();
+
+        $spent = (float) CashMovement::query()
+            ->where(
+                'department_id',
+                $movement->department_id,
+            )
+            ->where(
+                'currency',
+                $movement->currency,
+            )
+            ->where('direction', 'outgoing')
+            ->where('status', 'posted')
+            ->where('id', '!=', $movement->id)
+            ->whereYear(
+                'movement_date',
+                $date->year,
+            )
+            ->whereMonth(
+                'movement_date',
+                $date->month,
+            )
+            ->where(function ($query): void {
+                $query
+                    ->where('method', '!=', 'check')
+                    ->orWhereNull('check_status')
+                    ->orWhereNotIn(
+                        'check_status',
+                        ['bounced', 'cancelled'],
+                    );
+            })
+            ->sum('amount');
+
+        $projected =
+            $spent
+            + (float) $movement->amount;
+
+        if (
+            $projected
+            > (float) $limit->monthly_limit
+                + 0.00005
+        ) {
+            throw ValidationException::withMessages([
+                'department_id' => [
+                    sprintf(
+                        'This payment would exceed the department monthly spending limit. Current spend: %s %s. Limit: %s %s.',
+                        number_format(
+                            $spent,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        $movement->currency,
+                        number_format(
+                            (float) $limit->monthly_limit,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        $movement->currency,
+                    ),
+                ],
+            ]);
+        }
     }
 
     private function assertReferences(array $data): void
