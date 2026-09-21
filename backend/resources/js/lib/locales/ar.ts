@@ -6,6 +6,7 @@ export default {
     'feedback.notes': 'تم حفظ الملاحظات بنجاح.',
     'feedback.workspace': 'تم تغيير مساحة العمل بنجاح.',
     'errors.unexpected': 'حدث خطأ. يرجى المحاولة مرة أخرى.',
+    'errors.server': 'حدث خطأ داخلي في الخادم. تم تسجيله تلقائيًا.',
     'errors.network': 'تعذر الاتصال. تحقق من اتصالك وحاول مرة أخرى.',
     'errors.validation': 'يرجى مراجعة الحقول المحددة.',
     'errors.invalidField': 'يرجى التحقق من هذه القيمة.',
