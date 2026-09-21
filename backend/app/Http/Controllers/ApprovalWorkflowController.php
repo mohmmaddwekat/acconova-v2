@@ -110,6 +110,17 @@ class ApprovalWorkflowController extends Controller
             ]);
         }
 
+        if (
+            (int) $row->requested_by
+            === (int) $request->user()->id
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'approval' => [
+                    'The requester cannot approve their own request. A different authorized reviewer is required.',
+                ],
+            ]);
+        }
+
         DB::table('approval_requests')
             ->where('id', $row->id)
             ->update([
