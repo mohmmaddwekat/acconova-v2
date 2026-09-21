@@ -160,7 +160,7 @@ class PartyInsightsController extends Controller
                 $operationalStatuses,
             )
             ->selectRaw(
-                'COALESCE(SUM(financial_document_lines.line_total), 0) as revenue,
+                'COALESCE(SUM(financial_document_lines.line_total - financial_document_lines.line_tax), 0) as revenue,
                  COALESCE(SUM(financial_document_lines.quantity * COALESCE(financial_document_lines.cost_price_snapshot, profit_products.cost_price, 0)), 0) as estimated_cost',
             )
             ->first();
