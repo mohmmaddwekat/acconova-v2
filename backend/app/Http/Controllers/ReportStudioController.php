@@ -39,7 +39,22 @@ class ReportStudioController extends Controller
                 ->where('organization_id', $org)
                 ->where(fn ($q) => $q->where('created_by', $user->id)->orWhere('shared', true))
                 ->orderBy('name')
-                ->get(['id', 'name', 'dataset', 'created_by', 'shared', 'visualization']),
+                ->get()
+                ->map(fn ($row): array => [
+                    'id' => (int) $row->id,
+                    'name' => $row->name,
+                    'dataset' => $row->dataset,
+                    'columns' => json_decode($row->columns ?: '[]', true) ?: [],
+                    'filters' => json_decode($row->filters ?: '[]', true) ?: [],
+                    'group_by' => $row->group_by,
+                    'sort_by' => $row->sort_by,
+                    'sort_direction' => $row->sort_direction,
+                    'shared' => (bool) $row->shared,
+                    'can_edit' => (int) $row->created_by === (int) $user->id,
+                    'visualization' => $row->visualization
+                        ? (json_decode($row->visualization, true) ?: null)
+                        : null,
+                ]),
             'annotations' => Schema::hasTable('report_annotations')
                 ? DB::table('report_annotations')->where('organization_id', $org)->latest('id')->limit(30)->get()
                 : [],
