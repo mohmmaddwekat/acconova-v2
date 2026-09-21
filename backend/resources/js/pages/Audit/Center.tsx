@@ -228,21 +228,40 @@ export default function AuditCenter() {
                             </p>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() =>
-                                void load()
-                            }
-                            disabled={loading}
-                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)] disabled:opacity-50"
-                        >
-                            <RefreshCcw
-                                size={14}
-                            />
-                            {ar
-                                ? 'تحديث'
-                                : 'Refresh'}
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                            <Link
+                                href="/app/audit/bulk-actions"
+                                className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                            >
+                                {ar
+                                    ? 'العمليات الجماعية'
+                                    : 'Bulk actions'}
+                                <ArrowRight
+                                    size={13}
+                                    className={
+                                        ar
+                                            ? 'rotate-180'
+                                            : ''
+                                    }
+                                />
+                            </Link>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    void load()
+                                }
+                                disabled={loading}
+                                className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)] disabled:opacity-50"
+                            >
+                                <RefreshCcw
+                                    size={14}
+                                />
+                                {ar
+                                    ? 'تحديث'
+                                    : 'Refresh'}
+                            </button>
+                        </div>
                     </div>
                 </section>
 
