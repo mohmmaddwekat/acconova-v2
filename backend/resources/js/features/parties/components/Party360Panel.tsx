@@ -23,12 +23,31 @@ type Party360Data = {
         sales_total: string;
         outstanding: string;
         receipts_total: string;
+        profitability: {
+            revenue: string;
+            estimated_cost: string;
+            gross_profit_estimate: string;
+            margin_estimate_percent: string;
+            basis: string;
+        };
     };
     supplier: {
         invoice_count: number;
         purchase_total: string;
         outstanding: string;
         payments_total: string;
+        performance: {
+            score: number;
+            price_stability_score: number;
+            receipt_speed_score: number;
+            completion_score: number;
+            returns_score: number;
+            average_price_change_percent: number;
+            average_receipt_days: number | null;
+            delayed_open_lines: number;
+            supplier_return_rate_percent: number;
+            methodology: string;
+        };
     };
     top_products: Array<{
         product_id: number | null;
@@ -187,6 +206,39 @@ export function Party360Panel({
                             }
                         />
                     </div>
+
+                    <div className="mt-3 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p className="text-[10px] font-bold text-[var(--ac-text)]">
+                                    {ar ? 'ربحية العميل' : 'Customer profitability'}
+                                </p>
+                                <p className="mt-1 text-[9px] text-[var(--ac-text-muted)]">
+                                    {ar
+                                        ? 'تقدير تشغيلي باستخدام التكلفة الحالية للمنتجات.'
+                                        : 'Operational estimate using current product cost.'}
+                                </p>
+                            </div>
+                            <strong className="text-lg text-[var(--ac-accent)]">
+                                {number(data.customer.profitability.margin_estimate_percent)}%
+                            </strong>
+                        </div>
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                            <Metric
+                                label={ar ? 'الإيراد' : 'Revenue'}
+                                value={money(data.customer.profitability.revenue)}
+                            />
+                            <Metric
+                                label={ar ? 'تكلفة تقديرية' : 'Est. cost'}
+                                value={money(data.customer.profitability.estimated_cost)}
+                            />
+                            <Metric
+                                label={ar ? 'ربح إجمالي تقديري' : 'Est. gross profit'}
+                                value={money(data.customer.profitability.gross_profit_estimate)}
+                            />
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -212,6 +264,64 @@ export function Party360Panel({
                             label={ar ? 'المدفوعات' : 'Payments'}
                             value={money(data.supplier.payments_total)}
                         />
+                    </div>
+
+                    <div className="mt-3 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <p className="text-[10px] font-bold text-[var(--ac-text)]">
+                                    {ar ? 'أداء المورد' : 'Supplier performance'}
+                                </p>
+                                <p className="mt-1 max-w-2xl text-[9px] leading-4 text-[var(--ac-text-muted)]">
+                                    {ar
+                                        ? 'تقييم تشغيلي من ثبات السعر، سرعة الاستلام، اكتمال الاستلامات، والمرتجعات المرتبطة.'
+                                        : 'Operational score based on price stability, receipt speed, open-line completion and linked supplier returns.'}
+                                </p>
+                            </div>
+
+                            <div className="rounded-[13px] bg-[var(--ac-accent-soft)] px-4 py-2 text-center">
+                                <span className="block text-[9px] text-[var(--ac-text-muted)]">
+                                    {ar ? 'النتيجة' : 'Score'}
+                                </span>
+                                <strong className="text-xl text-[var(--ac-accent)]">
+                                    {data.supplier.performance.score.toFixed(1)}
+                                </strong>
+                            </div>
+                        </div>
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                            <Metric
+                                label={ar ? 'ثبات السعر' : 'Price stability'}
+                                value={data.supplier.performance.price_stability_score.toFixed(0) + '/100'}
+                            />
+                            <Metric
+                                label={ar ? 'سرعة الاستلام' : 'Receipt speed'}
+                                value={data.supplier.performance.receipt_speed_score.toFixed(0) + '/100'}
+                            />
+                            <Metric
+                                label={ar ? 'اكتمال الطلبات' : 'Completion'}
+                                value={data.supplier.performance.completion_score.toFixed(0) + '/100'}
+                            />
+                            <Metric
+                                label={ar ? 'المرتجعات' : 'Returns'}
+                                value={data.supplier.performance.returns_score.toFixed(0) + '/100'}
+                            />
+                        </div>
+
+                        <p className="mt-3 text-[9px] text-[var(--ac-text-muted)]">
+                            {ar
+                                ? 'متوسط تغير السعر: '
+                                : 'Avg. price change: '}
+                            {data.supplier.performance.average_price_change_percent.toFixed(1)}%
+                            {' · '}
+                            {ar ? 'متوسط الاستلام: ' : 'Avg. receipt: '}
+                            {data.supplier.performance.average_receipt_days === null
+                                ? '—'
+                                : data.supplier.performance.average_receipt_days.toFixed(1) + (ar ? ' يوم' : ' days')}
+                            {' · '}
+                            {ar ? 'بنود متأخرة: ' : 'Delayed lines: '}
+                            {data.supplier.performance.delayed_open_lines}
+                        </p>
                     </div>
                 </div>
             )}
