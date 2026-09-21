@@ -1175,6 +1175,16 @@ Route::prefix(
             [ReportBuilderController::class, 'run'],
         );
 
+        Route::get(
+            'report-builder/{report}/versions',
+            [ReportBuilderController::class, 'versions'],
+        )->whereNumber('report');
+
+        Route::post(
+            'report-builder/{report}/versions/{version}/restore',
+            [ReportBuilderController::class, 'restoreVersion'],
+        )->whereNumber(['report', 'version']);
+
         Route::get('report-studio', [ReportStudioController::class, 'index']);
         Route::post('report-studio/run', [ReportStudioController::class, 'run']);
         Route::post('report-studio/natural-language', [ReportStudioController::class, 'naturalLanguage']);
