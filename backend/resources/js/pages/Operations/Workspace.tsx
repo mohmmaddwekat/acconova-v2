@@ -4124,6 +4124,64 @@ function formatValue(
 
     const text = String(value);
 
+    const labels: Record<
+        string,
+        [string, string]
+    > = {
+        draft: ['مسودة', 'Draft'],
+        sent: ['مرسل', 'Sent'],
+        accepted: ['مقبول', 'Accepted'],
+        rejected: ['مرفوض', 'Rejected'],
+        expired: ['منتهي', 'Expired'],
+        converted: ['تم التحويل', 'Converted'],
+        confirmed: ['مؤكد', 'Confirmed'],
+        cancelled: ['ملغى', 'Cancelled'],
+        partial: ['تنفيذ جزئي', 'Partial'],
+        fulfilled: ['منفذ بالكامل', 'Fulfilled'],
+        partial_invoiced: ['فوتر جزئياً', 'Partially invoiced'],
+        invoiced: ['تمت الفوترة', 'Invoiced'],
+        requested: ['مطلوب', 'Requested'],
+        approved: ['معتمد', 'Approved'],
+        received: ['مستلم', 'Received'],
+        completed: ['مكتمل', 'Completed'],
+        active: ['نشط', 'Active'],
+        void: ['ملغى', 'Void'],
+        open: ['مفتوح', 'Open'],
+        missed: ['فات الموعد', 'Missed'],
+        in_progress: ['قيد المعالجة', 'In progress'],
+        resolved: ['تم الحل', 'Resolved'],
+        prospect: ['عميل محتمل', 'Prospect'],
+        contacted: ['تم التواصل', 'Contacted'],
+        quoted: ['عرض سعر', 'Quoted'],
+        negotiating: ['تفاوض', 'Negotiating'],
+        won: ['مربوحة', 'Won'],
+        lost: ['خاسرة', 'Lost'],
+        in_stock: ['في المخزون', 'In stock'],
+        reserved: ['محجوز', 'Reserved'],
+        sold: ['مباع', 'Sold'],
+        returned: ['مرتجع', 'Returned'],
+        service: ['صيانة', 'Service'],
+        scrapped: ['مشطوب', 'Scrapped'],
+        available: ['متاح', 'Available'],
+        quarantine: ['حجر', 'Quarantine'],
+        depleted: ['نفدت الكمية', 'Depleted'],
+        recalled: ['مسحوب', 'Recalled'],
+        sale_return: ['مرتجع بيع', 'Sales return'],
+        purchase_return: ['مرتجع شراء', 'Purchase return'],
+        incoming: ['قبض', 'Incoming'],
+        outgoing: ['دفع', 'Outgoing'],
+        cash: ['نقدي', 'Cash'],
+        bank_transfer: ['تحويل بنكي', 'Bank transfer'],
+        check: ['شيك', 'Check'],
+        card: ['بطاقة', 'Card'],
+    };
+
+    if (labels[text]) {
+        return ar
+            ? labels[text][0]
+            : labels[text][1];
+    }
+
     if (
         /^-?\d+(?:\.\d+)?$/.test(text)
         && text.length < 22
