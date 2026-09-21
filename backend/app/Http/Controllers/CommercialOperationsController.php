@@ -2662,6 +2662,38 @@ class CommercialOperationsController extends Controller
                         ],
                     ]);
                 }
+
+                if ($data['status'] === 'cancelled') {
+                    $lineState = DB::table(
+                        'trade_document_lines',
+                    )
+                        ->where(
+                            'organization_id',
+                            $organizationId,
+                        )
+                        ->where(
+                            'trade_document_id',
+                            $record,
+                        )
+                        ->selectRaw(
+                            'SUM(fulfilled_quantity) as fulfilled,
+                             SUM(invoiced_quantity) as invoiced',
+                        )
+                        ->first();
+
+                    if (
+                        (float) ($lineState?->fulfilled ?? 0)
+                        >
+                        (float) ($lineState?->invoiced ?? 0)
+                            + 0.00005
+                    ) {
+                        throw ValidationException::withMessages([
+                            'status' => [
+                                'Invoice fulfilled quantities before cancelling the remaining order.',
+                            ],
+                        ]);
+                    }
+                }
             }
 
             DB::table('trade_documents')
