@@ -265,6 +265,7 @@ function labelFor(
         promise_status: ['حالة الوعد', 'Promise status'],
         expected_collection: ['التحصيل المتوقع', 'Expected collection'],
         contact_today: ['اتصال اليوم', 'Contact today'],
+        current: ['غير مستحق بعد', 'Current'],
         '0_30': ['0–30', '0–30'],
         '31_60': ['31–60', '31–60'],
         '61_90': ['61–90', '61–90'],
@@ -2102,6 +2103,15 @@ function OperationalSummary({
             : feature === 'ar-aging'
                 || feature === 'ap-aging'
                 ? [
+                    {
+                        label:
+                            ar
+                                ? 'غير مستحق بعد'
+                                : 'Current',
+                        value:
+                            amount('current')
+                                .toLocaleString(),
+                    },
                     {
                         label: '0–30',
                         value:
