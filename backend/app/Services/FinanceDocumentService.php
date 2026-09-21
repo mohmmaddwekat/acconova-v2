@@ -45,6 +45,12 @@ class FinanceDocumentService
             $document->root_document_id = $document->id;
             $document->save();
 
+            $this->recordExchangeRateHistory(
+                $document,
+                $actorId,
+                'draft_created',
+            );
+
             $this->syncLines($document, $data['lines']);
             $this->recalculateTotals($document, (string) ($data['shipping_total'] ?? '0'));
 
@@ -73,6 +79,10 @@ class FinanceDocumentService
             }
 
             $before = $this->snapshot($locked);
+            $previousCurrency =
+                (string) $locked->currency;
+            $previousExchangeRate =
+                (string) $locked->exchange_rate;
             $kind = $locked->kind;
             $this->assertPartyRole((int) $data['party_id'], $kind);
             $this->assertHeaderReferences($data);
@@ -83,6 +93,19 @@ class FinanceDocumentService
                 'updated_by' => $actorId,
             ]);
             $locked->save();
+
+            if (
+                $previousCurrency
+                    !== (string) $locked->currency
+                || $previousExchangeRate
+                    !== (string) $locked->exchange_rate
+            ) {
+                $this->recordExchangeRateHistory(
+                    $locked,
+                    $actorId,
+                    'draft_updated',
+                );
+            }
 
             $this->syncLines($locked, $data['lines']);
             $this->recalculateTotals($locked, (string) ($data['shipping_total'] ?? '0'));
@@ -554,6 +577,41 @@ class FinanceDocumentService
         }
 
         return $warnings;
+    }
+
+    private function recordExchangeRateHistory(
+        FinancialDocument $document,
+        int $actorId,
+        string $source,
+    ): void {
+        $organization = app(
+            \App\Tenancy\TenantContext::class,
+        )->organization();
+
+        DB::table('exchange_rate_history')->insert([
+            'organization_id' =>
+                $organization->id,
+            'financial_document_id' =>
+                $document->id,
+            'base_currency' => strtoupper(
+                (string) (
+                    $organization
+                        ->preferences['currency']
+                    ?? 'ILS'
+                ),
+            ),
+            'currency' => strtoupper(
+                (string) $document->currency,
+            ),
+            'exchange_rate' =>
+                $document->exchange_rate
+                ?: 1,
+            'source' => $source,
+            'changed_by' => $actorId,
+            'recorded_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /** @return array<string, mixed> */
