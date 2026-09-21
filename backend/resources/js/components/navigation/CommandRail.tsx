@@ -14,6 +14,7 @@ import {
 } from '@inertiajs/react';
 import {
     Boxes,
+    ChartColumn,
     ContactRound,
     Factory,
     Gauge,
@@ -372,6 +373,29 @@ export function CommandRail({
         });
     }
 
+    if (
+        canViewSalesInvoices
+        || canViewPurchaseInvoices
+    ) {
+        navigationItems.push({
+            label:
+                locale === 'ar'
+                    ? 'التقارير'
+                    : 'Reports',
+
+            description:
+                locale === 'ar'
+                    ? 'أعمار الذمم والتحليلات المالية'
+                    : 'Aging & financial reports',
+
+            href:
+                '/app/reports',
+
+            icon:
+                ChartColumn,
+        });
+    }
+
     navigationItems.push({
         label:
             t(
@@ -463,6 +487,9 @@ export function CommandRail({
 
         '/app/finance/taxes':
             'finance.taxes.view',
+
+        '/app/reports':
+            'finance.sales.view',
     };
 
     const visibleItems =
@@ -484,6 +511,13 @@ export function CommandRail({
                           item.href === '/app/finance'
                       ) {
                           return canViewFinance;
+                      }
+
+                      if (
+                          item.href === '/app/reports'
+                      ) {
+                          return canViewSalesInvoices
+                              || canViewPurchaseInvoices;
                       }
 
                       return ! permission
