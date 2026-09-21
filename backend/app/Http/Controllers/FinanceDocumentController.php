@@ -6,6 +6,7 @@ use App\Models\CashMovement;
 use App\Models\FinanceAuditEvent;
 use App\Models\FinancialDocument;
 use App\Services\CashMovementService;
+use App\Services\ApprovalWorkflowService;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
 use App\Services\MentionNotifier;
@@ -278,13 +279,23 @@ class FinanceDocumentController extends Controller
         return response()->noContent();
     }
 
-    public function issue(Request $request, string $document, FinanceDocumentService $service): JsonResponse
+    public function issue(
+        Request $request,
+        string $document,
+        FinanceDocumentService $service,
+        ApprovalWorkflowService $approvals,
+    ): JsonResponse
     {
         $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
         $data = $request->validate([
             'acknowledge_warnings' => ['sometimes', 'boolean'],
         ]);
+
+        $approvals->assertDocumentApproved(
+            $document,
+            $request->user()->id,
+        );
 
         $document = $service->issue(
             $document,
