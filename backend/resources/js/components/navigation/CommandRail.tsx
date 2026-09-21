@@ -101,6 +101,9 @@ function destinationIsActive(
             )
             || currentUrl.startsWith(
                 '/app/receipts',
+            )
+            || currentUrl.startsWith(
+                '/app/purchases',
             );
     }
 
@@ -109,7 +112,10 @@ function destinationIsActive(
         '/app/inventory'
     ) {
         return currentUrl ===
-            '/app/inventory';
+            '/app/inventory'
+            || currentUrl.startsWith(
+                '/app/inventory/transfers',
+            );
     }
 
     return currentUrl.startsWith(
