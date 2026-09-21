@@ -734,6 +734,42 @@ export default function OperationsWorkspace({
         }
     }
 
+    async function updateClaim(
+        warrantyId: number,
+        claimId: number,
+        payload: Row,
+    ): Promise<void> {
+        setBusy(true);
+        setError('');
+
+        try {
+            await apiRequest(
+                '/api/operations/warranties/'
+                + String(warrantyId)
+                + '/claims/'
+                + String(claimId),
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify(payload),
+                },
+            );
+
+            await load();
+        } catch (failure) {
+            setError(
+                failure instanceof ApiError
+                    ? failure.message
+                    : (
+                        ar
+                            ? 'تعذر تحديث مطالبة الضمان.'
+                            : 'The warranty claim could not be updated.'
+                    ),
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
     return (
         <AppShell>
             <Head title={featureMeta.title} />
@@ -934,6 +970,13 @@ export default function OperationsWorkspace({
                                     }
                                     onClaim={() =>
                                         void addClaim(row)
+                                    }
+                                    onUpdateClaim={(claimId, payload) =>
+                                        void updateClaim(
+                                            Number(row.id),
+                                            claimId,
+                                            payload,
+                                        )
                                     }
                                 />
                             </article>
@@ -1846,6 +1889,7 @@ function RowActions({
     onPatch,
     onConvert,
     onClaim,
+    onUpdateClaim,
 }: {
     feature: Feature;
     row: Row;
@@ -1863,6 +1907,10 @@ function RowActions({
     onPatch: (payload: Row) => void;
     onConvert: () => void;
     onClaim: () => void;
+    onUpdateClaim: (
+        claimId: number,
+        payload: Row,
+    ) => void;
 }) {
     const stages = [
         'prospect',
