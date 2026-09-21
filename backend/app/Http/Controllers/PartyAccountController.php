@@ -597,13 +597,21 @@ class PartyAccountController extends Controller
                         (float) $entry['amount'],
                 );
 
+        /*
+         * Aging uses today's open balances. The statement itself can be
+         * filtered to a historical period, but current balance_due values
+         * must not be presented as if they were a historical aging snapshot.
+         */
+        $agingAsOf =
+            now()->endOfDay();
+
         $aging =
             $this->aging(
                 $party->id,
                 $scope,
                 $canSales,
                 $canPurchases,
-                $dateTo,
+                $agingAsOf,
             );
 
         return response()->json([
@@ -737,20 +745,21 @@ class PartyAccountController extends Controller
                     ),
             ],
             'aging' => $aging,
+            'aging_as_of' => $agingAsOf->toDateString(),
             'aging_breakdown' => [
                 'customer' => $this->aging(
                     $party->id,
                     'customer',
                     $canSales,
                     false,
-                    $dateTo,
+                    $agingAsOf,
                 ),
                 'supplier' => $this->aging(
                     $party->id,
                     'supplier',
                     false,
                     $canPurchases,
-                    $dateTo,
+                    $agingAsOf,
                 ),
             ],
             'transactions' => $rows,
