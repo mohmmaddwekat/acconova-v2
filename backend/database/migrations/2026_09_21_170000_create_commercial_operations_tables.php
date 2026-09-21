@@ -68,6 +68,7 @@ return new class extends Migration
             $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
             $table->foreignId('trade_document_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('warehouse_id')->nullable()->constrained()->nullOnDelete();
             $table->string('description', 255);
             $table->decimal('quantity', 18, 4);
             $table->decimal('unit_price', 18, 4);
