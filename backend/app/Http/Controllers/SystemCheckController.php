@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,18 +16,10 @@ class SystemCheckController extends Controller
     public function __invoke(
         Request $request,
     ): JsonResponse {
-        $role = app(TenantContext::class)
-            ->role()
-            ->value;
-
         abort_unless(
-            in_array(
-                $role,
-                [
-                    'owner',
-                    'admin',
-                ],
-                true,
+            WorkspaceFeaturePermissions::allows(
+                $request->user(),
+                'audit.system_checks.view',
             ),
             403,
         );
