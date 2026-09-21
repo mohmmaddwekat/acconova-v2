@@ -38,6 +38,7 @@ type StudioIndex = {
     snapshots: Array<Record<string, unknown>>;
     presets: Array<Record<string, unknown>>;
     boards: Array<Record<string, unknown>>;
+    reports: Array<{ id: number; name: string; dataset: string; shared: boolean }>;
 };
 
 const panel = 'rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)]';
@@ -59,7 +60,7 @@ const categoryIcon: Record<string, typeof BarChart3> = {
 export default function ReportStudio() {
     const ar = useLocale() === 'ar';
     const t = (arabic: string, english: string) => ar ? arabic : english;
-    const [data, setData] = useState<StudioIndex>({ features: [], snapshots: [], presets: [], boards: [] });
+    const [data, setData] = useState<StudioIndex>({ features: [], snapshots: [], presets: [], boards: [], reports: [] });
     const [selected, setSelected] = useState('customer-profitability');
     const [query, setQuery] = useState('');
     const [dateFrom, setDateFrom] = useState(() => {
@@ -71,7 +72,7 @@ export default function ReportStudio() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
-    const [chartType, setChartType] = useState<'table' | 'bar' | 'line'>('table');
+    const [chartType, setChartType] = useState<'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut'>('table');
     const [pivotRows, setPivotRows] = useState('');
     const [pivotCols, setPivotCols] = useState('');
     const [pivotValue, setPivotValue] = useState('');
@@ -89,7 +90,7 @@ export default function ReportStudio() {
     const [note, setNote] = useState('');
     const [comment, setComment] = useState('');
     const [boardName, setBoardName] = useState('');
-    const [boardFeatures, setBoardFeatures] = useState<string[]>([]);
+    const [boardReports, setBoardReports] = useState<number[]>([]);
 
     async function load() {
         setError('');
@@ -197,14 +198,14 @@ export default function ReportStudio() {
     }
 
     async function saveBoard() {
-        if (!boardName.trim() || boardFeatures.length === 0) return;
+        if (!boardName.trim() || boardReports.length < 4 || boardReports.length > 8) return;
         setBusy(true);
         try {
             await apiRequest('/api/report-studio/boards', {
                 method: 'POST',
-                body: JSON.stringify({ name: boardName.trim(), shared: false, layout: boardFeatures.slice(0, 8).map((key, index) => ({ key, order: index })) }),
+                body: JSON.stringify({ name: boardName.trim(), shared: false, layout: boardReports.map((report_id, index) => ({ report_id, order: index })) }),
             });
-            setBoardName(''); setBoardFeatures([]); await load();
+            setBoardName(''); setBoardReports([]); await load();
         } catch (failure) {
             setError(failure instanceof ApiError ? failure.message : t('تعذر حفظ لوحة التقارير.', 'Could not save report board.'));
         } finally { setBusy(false); }
@@ -310,7 +311,7 @@ export default function ReportStudio() {
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                     <div className="flex items-center gap-2"><LineChart size={14} className="text-[var(--ac-accent)]"/><h3 className="text-xs font-bold text-[var(--ac-text)]">{t('النتيجة والتحليل', 'Result & visualization')}</h3></div>
                                     <div className="flex gap-2">
-                                        {(['table','bar','line'] as const).map(type => <button key={type} className={button + (chartType === type ? ' border-[var(--ac-accent)] text-[var(--ac-accent)]' : '')} onClick={() => setChartType(type)}>{type}</button>)}
+                                        {(['table','bar','line','area','pie','donut'] as const).map(type => <button key={type} className={button + (chartType === type ? ' border-[var(--ac-accent)] text-[var(--ac-accent)]' : '')} onClick={() => setChartType(type)}>{type}</button>)}
                                         <button className={button} onClick={() => void saveSnapshot()}><Snowflake size={13}/>{t('Freeze Snapshot', 'Freeze Snapshot')}</button>
                                     </div>
                                 </div>
@@ -343,7 +344,7 @@ export default function ReportStudio() {
                             <section className="grid gap-4 xl:grid-cols-3">
                                 <div className={panel + ' p-4'}><h3 className="text-xs font-bold text-[var(--ac-text)]">{t('ملاحظة على التقرير', 'Report annotation')}</h3><textarea className="mt-3 min-h-24 w-full rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3 text-xs text-[var(--ac-text)] outline-none" value={note} onChange={e => setNote(e.target.value)}/><button className={button + ' mt-2 w-full'} disabled={!note.trim()} onClick={() => void saveText('annotations', note)}><Save size={13}/>{t('حفظ الملاحظة', 'Save annotation')}</button></div>
                                 <div className={panel + ' p-4'}><h3 className="text-xs font-bold text-[var(--ac-text)]">{t('تعليق وتعاون', 'Comment & collaborate')}</h3><textarea className="mt-3 min-h-24 w-full rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3 text-xs text-[var(--ac-text)] outline-none" value={comment} onChange={e => setComment(e.target.value)} placeholder="@Ahmad ..."/><button className={button + ' mt-2 w-full'} disabled={!comment.trim()} onClick={() => void saveText('comments', comment)}><MessageSquareText size={13}/>{t('إضافة تعليق', 'Add comment')}</button></div>
-                                <div className={panel + ' p-4'}><h3 className="text-xs font-bold text-[var(--ac-text)]">{t('Executive Report Board', 'Executive Report Board')}</h3><input className={input + ' mt-3 w-full'} value={boardName} onChange={e => setBoardName(e.target.value)} placeholder={t('اسم اللوحة', 'Board name')}/><div className="mt-2 max-h-24 overflow-auto text-[9px]">{data.features.slice(0,32).map(f => <label key={f.key} className="flex items-center gap-2 py-1 text-[var(--ac-text-soft)]"><input type="checkbox" checked={boardFeatures.includes(f.key)} disabled={!boardFeatures.includes(f.key) && boardFeatures.length >= 8} onChange={() => setBoardFeatures(v => v.includes(f.key) ? v.filter(k => k !== f.key) : [...v, f.key])}/>{f.title}</label>)}</div><button className={button + ' mt-2 w-full'} onClick={() => void saveBoard()} disabled={!boardName.trim() || boardFeatures.length === 0}><Save size={13}/>{t('حفظ اللوحة', 'Save board')}</button></div>
+                                <div className={panel + ' p-4'}><h3 className="text-xs font-bold text-[var(--ac-text)]">{t('Executive Report Board', 'Executive Report Board')}</h3><p className="mt-1 text-[9px] text-[var(--ac-text-muted)]">{t('اختر من 4 إلى 8 تقارير محفوظة.', 'Choose 4 to 8 saved reports.')}</p><input className={input + ' mt-3 w-full'} value={boardName} onChange={e => setBoardName(e.target.value)} placeholder={t('اسم اللوحة', 'Board name')}/><div className="mt-2 max-h-28 overflow-auto text-[9px]">{data.reports.length === 0 ? <p className="py-2 text-[var(--ac-text-muted)]">{t('احفظ تقارير من Report Builder أولاً.', 'Save reports in Report Builder first.')}</p> : data.reports.map(report => <label key={report.id} className="flex items-center gap-2 py-1 text-[var(--ac-text-soft)]"><input type="checkbox" checked={boardReports.includes(report.id)} disabled={!boardReports.includes(report.id) && boardReports.length >= 8} onChange={() => setBoardReports(v => v.includes(report.id) ? v.filter(id => id !== report.id) : [...v, report.id])}/>{report.name}</label>)}</div><button className={button + ' mt-2 w-full'} onClick={() => void saveBoard()} disabled={!boardName.trim() || boardReports.length < 4 || boardReports.length > 8}><Save size={13}/>{t('حفظ اللوحة', 'Save board')} ({boardReports.length}/8)</button></div>
                             </section>
                         </>}
                     </section>
@@ -359,15 +360,27 @@ function ResultTable({columns, rows, onDrill}: {columns: string[]; rows: Array<R
     return <div className="mt-4 max-h-[580px] overflow-auto rounded-[14px] border border-[var(--ac-line)]"><table className="w-full min-w-[800px] text-[10px]"><thead className="sticky top-0 bg-[var(--ac-surface-soft)]"><tr>{columns.map(c => <th key={c} className="border-b border-[var(--ac-line)] px-3 py-2 text-start font-semibold text-[var(--ac-text-muted)]">{c.replaceAll('_',' ')}</th>)}</tr></thead><tbody className="divide-y divide-[var(--ac-line)]">{rows.map((row,i) => <tr key={i} className="hover:bg-[var(--ac-surface-soft)]">{columns.map(c => { const numeric = typeof row[c] === 'number' || (row[c] !== null && row[c] !== '' && !Number.isNaN(Number(row[c]))); return <td key={c} className="max-w-[300px] px-3 py-2 text-[var(--ac-text-soft)]">{numeric ? <button className="font-semibold text-[var(--ac-accent)] hover:underline" onClick={() => onDrill(row,c)}>{formatValue(row[c])}</button> : <span className="break-words">{formatValue(row[c])}</span>}</td>;})}</tr>)}</tbody></table></div>;
 }
 
-function SimpleChart({rows, columns, type}: {rows: Array<Record<string, unknown>>; columns: string[]; type: 'bar'|'line'}) {
+function SimpleChart({rows, columns, type}: {rows: Array<Record<string, unknown>>; columns: string[]; type: 'bar'|'line'|'area'|'pie'|'donut'}) {
     const numeric = columns.find(c => rows.some(r => typeof r[c] === 'number' || !Number.isNaN(Number(r[c]))));
     const label = columns.find(c => c !== numeric) ?? columns[0];
     const points = rows.slice(0, 20).map(r => ({label: String(r[label] ?? '—'), value: Number(r[numeric ?? ''] ?? 0)}));
     const max = Math.max(1, ...points.map(p => Math.abs(p.value)));
     if (!numeric) return <div className="mt-4 p-8 text-center text-xs text-[var(--ac-text-muted)]">No numeric field available.</div>;
-    if (type === 'line') {
+    if (type === 'line' || type === 'area') {
         const path = points.map((p,i) => `${i === 0 ? 'M':'L'} ${20 + i * (760 / Math.max(1, points.length - 1))} ${190 - (Math.max(0,p.value) / max) * 160}`).join(' ');
-        return <div className="mt-4 overflow-x-auto rounded-[14px] border border-[var(--ac-line)] p-4"><svg viewBox="0 0 800 220" className="min-w-[720px]"><path d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--ac-accent)]"/>{points.map((p,i) => <circle key={i} cx={20 + i * (760 / Math.max(1, points.length - 1))} cy={190 - (Math.max(0,p.value) / max) * 160} r="3" fill="currentColor" className="text-[var(--ac-accent)]"/>)}</svg></div>;
+        const areaPath = path + ` L ${20 + Math.max(0, points.length - 1) * (760 / Math.max(1, points.length - 1))} 190 L 20 190 Z`;
+        return <div className="mt-4 overflow-x-auto rounded-[14px] border border-[var(--ac-line)] p-4"><svg viewBox="0 0 800 220" className="min-w-[720px]">{type === 'area' && <path d={areaPath} fill="currentColor" opacity="0.12" className="text-[var(--ac-accent)]"/>}<path d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--ac-accent)]"/>{points.map((p,i) => <circle key={i} cx={20 + i * (760 / Math.max(1, points.length - 1))} cy={190 - (Math.max(0,p.value) / max) * 160} r="3" fill="currentColor" className="text-[var(--ac-accent)]"/>)}</svg></div>;
+    }
+    if (type === 'pie' || type === 'donut') {
+        const total = Math.max(1, points.reduce((sum,p) => sum + Math.max(0,p.value), 0));
+        let cursor = 0;
+        const stops = points.map((p,i) => {
+            const start = cursor;
+            cursor += (Math.max(0,p.value) / total) * 100;
+            const hue = (i * 47) % 360;
+            return `hsl(${hue} 70% 55%) ${start}% ${cursor}%`;
+        }).join(', ');
+        return <div className="mt-4 grid gap-4 md:grid-cols-[260px_1fr]"><div className="mx-auto size-56 rounded-full" style={{background: `conic-gradient(${stops})`, WebkitMask: type === 'donut' ? 'radial-gradient(circle at center, transparent 0 38%, black 39%)' : undefined, mask: type === 'donut' ? 'radial-gradient(circle at center, transparent 0 38%, black 39%)' : undefined}}/><div className="space-y-2">{points.map((p,i) => <div key={i} className="flex items-center justify-between gap-3 text-[9px]"><span className="truncate text-[var(--ac-text-soft)]">{p.label}</span><span className="font-semibold text-[var(--ac-text)]">{formatValue(p.value)} · {((Math.max(0,p.value)/total)*100).toFixed(1)}%</span></div>)}</div></div>;
     }
     return <div className="mt-4 space-y-2">{points.map((p,i) => <div key={i} className="grid grid-cols-[150px_1fr_100px] items-center gap-2 text-[9px]"><span className="truncate text-[var(--ac-text-soft)]">{p.label}</span><div className="h-2 overflow-hidden rounded-full bg-[var(--ac-surface-soft)]"><div className="h-full rounded-full bg-[var(--ac-accent)]" style={{width: Math.max(1,(Math.abs(p.value)/max)*100)+'%'}}/></div><span className="text-end font-semibold text-[var(--ac-text)]">{formatValue(p.value)}</span></div>)}</div>;
 }
