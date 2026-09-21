@@ -281,7 +281,7 @@ class ApprovalWorkflowService
             return (int) $pending->id;
         }
 
-        return (int) DB::table('approval_requests')
+        $id = (int) DB::table('approval_requests')
             ->insertGetId([
                 'organization_id' => $organizationId,
                 'subject_type' => $subjectType,
@@ -297,6 +297,50 @@ class ApprovalWorkflowService
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
+        $this->notifyReviewers(
+            $organizationId,
+            $id,
+            $reason,
+            $actorId,
+        );
+
+        return $id;
+    }
+
+    private function notifyReviewers(
+        int $organizationId,
+        int $approvalId,
+        string $reason,
+        int $requesterId,
+    ): void {
+        $reviewers = DB::table('memberships')
+            ->where('organization_id', $organizationId)
+            ->whereIn('role', [
+                'owner',
+                'admin',
+                'manager',
+            ])
+            ->where('user_id', '!=', $requesterId)
+            ->pluck('user_id');
+
+        foreach ($reviewers as $userId) {
+            DB::table('workspace_notifications')
+                ->insertOrIgnore([
+                    'organization_id' => $organizationId,
+                    'user_id' => $userId,
+                    'event_key' => 'approval-required:'.$approvalId.':'.$userId,
+                    'kind' => 'approval_required',
+                    'category' => 'activity',
+                    'data' => json_encode([
+                        'name' => 'Approval required',
+                        'detail' => $reason,
+                    ], JSON_THROW_ON_ERROR),
+                    'url' => '/app/finance/approvals',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        }
     }
 
     private function documentFingerprint(
