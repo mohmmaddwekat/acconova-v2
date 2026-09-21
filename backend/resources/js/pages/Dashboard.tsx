@@ -34,7 +34,6 @@ import {
     Radar,
     ReceiptText,
     ShieldCheck,
-    Sparkles,
     WalletCards,
 } from 'lucide-react';
 import {
@@ -55,6 +54,7 @@ type Shortcut = {
     description: string;
     href: string;
     icon: LucideIcon;
+    visible: boolean;
 };
 
 export default function Dashboard() {
@@ -166,6 +166,112 @@ export default function Dashboard() {
     ): string =>
         ar ? arabic : english;
 
+    const permissions =
+        organization?.permissions;
+
+    const builtinFinance =
+        [
+            'owner',
+            'admin',
+            'manager',
+            'accountant',
+        ].includes(
+            organization?.role
+            ?? '',
+        );
+
+    const canViewSales =
+        permissions
+            ? permissions.includes(
+                'finance.sales.view',
+            )
+            : builtinFinance;
+    const canManageSales =
+        permissions
+            ? permissions.includes(
+                'finance.sales.manage',
+            )
+            : builtinFinance;
+    const canViewPurchases =
+        permissions
+            ? permissions.includes(
+                'finance.purchases.view',
+            )
+            : builtinFinance;
+    const canViewCash =
+        permissions
+            ? permissions.includes(
+                'finance.cash.view',
+            )
+            : builtinFinance;
+    const canPayCash =
+        permissions
+            ? permissions.includes(
+                'finance.cash.pay',
+            )
+            : builtinFinance;
+    const canViewTaxes =
+        permissions
+            ? permissions.includes(
+                'finance.taxes.view',
+            )
+            : builtinFinance;
+    const canViewFinance =
+        canViewSales
+        || canViewPurchases
+        || canViewCash
+        || canViewTaxes;
+
+    const canViewParties =
+        permissions
+            ? permissions.includes(
+                'parties.view',
+            )
+            : true;
+    const canCreateParties =
+        permissions
+            ? permissions.some(
+                permission =>
+                    [
+                        'parties.manage',
+                        'parties.create',
+                    ].includes(
+                        permission,
+                    ),
+            )
+            : true;
+    const canCreateProducts =
+        permissions
+            ? permissions.some(
+                permission =>
+                    [
+                        'products.manage',
+                        'products.create',
+                    ].includes(
+                        permission,
+                    ),
+            )
+            : true;
+    const canViewInventory =
+        permissions
+            ? permissions.includes(
+                'inventory.view',
+            )
+            : true;
+    const canManageInventory =
+        permissions
+            ? permissions.includes(
+                'inventory.manage',
+            )
+            : [
+                'owner',
+                'admin',
+                'manager',
+            ].includes(
+                organization?.role
+                ?? '',
+            );
+
     const shortcuts:
         Shortcut[] = [
         {
@@ -181,6 +287,8 @@ export default function Dashboard() {
                 ),
             href:
                 '/app/finance',
+            visible:
+                canViewFinance,
             icon:
                 WalletCards,
         },
@@ -197,6 +305,8 @@ export default function Dashboard() {
                 ),
             href:
                 '/app/finance/approvals',
+            visible:
+                canViewFinance,
             icon:
                 ShieldCheck,
         },
@@ -213,6 +323,8 @@ export default function Dashboard() {
                 ),
             href:
                 '/app/finance/bank-reconciliation',
+            visible:
+                canViewCash,
             icon:
                 Landmark,
         },
@@ -229,6 +341,8 @@ export default function Dashboard() {
                 ),
             href:
                 '/app/purchases/requisitions',
+            visible:
+                true,
             icon:
                 ClipboardList,
         },
@@ -245,6 +359,8 @@ export default function Dashboard() {
                 ),
             href:
                 '/app/inventory/intelligence',
+            visible:
+                canViewInventory,
             icon:
                 PackageSearch,
         },
@@ -261,6 +377,8 @@ export default function Dashboard() {
                 ),
             href:
                 '/app/inventory/transfers',
+            visible:
+                canManageInventory,
             icon:
                 Boxes,
         },
@@ -277,6 +395,8 @@ export default function Dashboard() {
                 ),
             href:
                 '/app/parties/intelligence',
+            visible:
+                canViewParties,
             icon:
                 ContactRound,
         },
@@ -293,6 +413,8 @@ export default function Dashboard() {
                 ),
             href:
                 '/app/finance/anomalies',
+            visible:
+                canViewFinance,
             icon:
                 AlertTriangle,
         },
@@ -355,6 +477,7 @@ export default function Dashboard() {
                             </p>
 
                             <div className="mt-6 flex flex-wrap gap-2">
+                                {canManageSales && (
                                 <Link
                                     href="/app/invoices/sales/create"
                                     className="inline-flex h-11 items-center gap-2 rounded-[13px] bg-[var(--ac-accent-solid)] px-4 text-xs font-semibold text-[var(--ac-accent-solid-text)] shadow-[var(--ac-shadow-soft)] transition hover:-translate-y-px"
@@ -367,7 +490,9 @@ export default function Dashboard() {
                                         'New sales invoice',
                                     )}
                                 </Link>
+                                )}
 
+                                {canPayCash && (
                                 <Link
                                     href="/app/payments/create"
                                     className="inline-flex h-11 items-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 text-xs font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-accent)]"
@@ -380,7 +505,9 @@ export default function Dashboard() {
                                         'Record payment',
                                     )}
                                 </Link>
+                                )}
 
+                                {canCreateParties && (
                                 <Link
                                     href="/app/parties?create=1"
                                     className="inline-flex h-11 items-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 text-xs font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-accent)]"
@@ -393,7 +520,9 @@ export default function Dashboard() {
                                         'Add customer/supplier',
                                     )}
                                 </Link>
+                                )}
 
+                                {canCreateProducts && (
                                 <Link
                                     href="/app/products?create=1"
                                     className="inline-flex h-11 items-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 text-xs font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-accent)]"
@@ -406,6 +535,7 @@ export default function Dashboard() {
                                         'Add product',
                                     )}
                                 </Link>
+                                )}
                             </div>
                         </div>
 
@@ -423,6 +553,8 @@ export default function Dashboard() {
                                         ClipboardCheck,
                                     href:
                                         '/app/finance/approvals',
+                                    visible:
+                                        canViewFinance,
                                 },
                                 {
                                     label:
@@ -436,6 +568,8 @@ export default function Dashboard() {
                                         Landmark,
                                     href:
                                         '/app/finance/bank-reconciliation',
+                                    visible:
+                                        canViewCash,
                                 },
                                 {
                                     label:
@@ -449,6 +583,8 @@ export default function Dashboard() {
                                         PackageSearch,
                                     href:
                                         '/app/inventory/intelligence',
+                                    visible:
+                                        canViewInventory,
                                 },
                                 {
                                     label:
@@ -462,8 +598,13 @@ export default function Dashboard() {
                                         AlertTriangle,
                                     href:
                                         '/app/inventory/intelligence',
+                                    visible:
+                                        canViewInventory,
                                 },
-                            ].map(
+                            ].filter(
+                                card =>
+                                    card.visible,
+                            ).map(
                                 card => {
                                     const Icon =
                                         card.icon;
@@ -533,7 +674,12 @@ export default function Dashboard() {
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        {shortcuts.map(
+                        {shortcuts
+                            .filter(
+                                shortcut =>
+                                    shortcut.visible,
+                            )
+                            .map(
                             shortcut => {
                                 const Icon =
                                     shortcut.icon;
@@ -583,7 +729,8 @@ export default function Dashboard() {
                     ar={ar}
                 />
 
-                {organization && (
+                {organization
+                    && canViewParties && (
                     <CustomerSegmentsPanel
                         ar={ar}
                         currency={
@@ -594,6 +741,7 @@ export default function Dashboard() {
                 )}
 
                 <section className="mt-5 grid gap-3 lg:grid-cols-3">
+                    {canViewParties && (
                     <Link
                         href="/app/follow-ups"
                         className="flex items-center gap-3 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 transition hover:border-[var(--ac-accent)]"
@@ -621,7 +769,9 @@ export default function Dashboard() {
                             size={14}
                         />
                     </Link>
+                    )}
 
+                    {canViewFinance && (
                     <Link
                         href="/app/finance/cashflow"
                         className="flex items-center gap-3 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 transition hover:border-[var(--ac-accent)]"
@@ -649,7 +799,9 @@ export default function Dashboard() {
                             size={14}
                         />
                     </Link>
+                    )}
 
+                    {canViewFinance && (
                     <Link
                         href="/app/finance"
                         className="flex items-center gap-3 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 transition hover:border-[var(--ac-accent)]"
@@ -677,6 +829,7 @@ export default function Dashboard() {
                             size={14}
                         />
                     </Link>
+                    )}
                 </section>
             </main>
         </AppShell>
