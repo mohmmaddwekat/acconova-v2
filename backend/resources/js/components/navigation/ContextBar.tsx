@@ -251,6 +251,10 @@ export function ContextBar({
             'التقارير المجدولة',
             'Scheduled reports',
         ],
+        '/app/settings/notifications': [
+            'إعدادات الإشعارات',
+            'Notification settings',
+        ],
         '/app/settings/customization': [
             'تخصيص النظام',
             'Workspace customization',
