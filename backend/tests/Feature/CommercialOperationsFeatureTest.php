@@ -469,6 +469,70 @@ class CommercialOperationsFeatureTest extends TestCase
             ),
         );
 
+        $this->patchJson(
+            "/api/operations/sales-orders/{$salesOrderId}",
+            [
+                'line_id' => $salesOrder['first_line_id'],
+                'fulfilled_quantity' => '100',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'fulfilled',
+            );
+
+        $secondSalesConversion = $this->postJson(
+            "/api/operations/sales-orders/{$salesOrderId}/convert",
+        )
+            ->assertCreated();
+
+        $secondSalesInvoiceId = (int) $secondSalesConversion->json(
+            'data.financial_document_id',
+        );
+
+        $this->getJson(
+            "/api/finance/documents/{$secondSalesInvoiceId}",
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.lines.0.quantity',
+                '40.0000',
+            );
+
+        $this->assertDatabaseHas(
+            'trade_documents',
+            [
+                'id' => $salesOrderId,
+                'status' => 'invoiced',
+            ],
+        );
+
+        $this->assertSame(
+            2,
+            IlluminateSupportFacadesDB::table(
+                'trade_document_conversions',
+            )
+                ->where(
+                    'trade_document_id',
+                    $salesOrderId,
+                )
+                ->count(),
+        );
+
+        $this->assertNull(
+            collect(
+                $this->getJson(
+                    '/api/operations/backorders',
+                )
+                    ->assertOk()
+                    ->json('data'),
+            )->firstWhere(
+                'order_id',
+                $salesOrderId,
+            ),
+        );
+
         $purchaseOrderId = (int) $this->postJson(
             '/api/operations/purchase-orders',
             [
