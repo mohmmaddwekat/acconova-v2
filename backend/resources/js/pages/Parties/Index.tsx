@@ -19,6 +19,9 @@ import {
 
 import { DataPagination } from '@/components/data/DataPagination';
 import {
+    CustomerSegmentsPanel,
+} from '@/components/dashboard/CustomerSegmentsPanel';
+import {
     AdvancedFilterBuilder,
     type AdvancedFilterCondition,
 } from '@/components/data/AdvancedFilterBuilder';
@@ -1086,6 +1089,13 @@ function PartiesWorkspace() {
                         </div>
                     </div>
                 </section>
+
+                {activeOrganization && (
+                    <CustomerSegmentsPanel
+                        ar={ar}
+                        currency={activeOrganization.currency ?? ''}
+                    />
+                )}
 
                 {activeOrganization && (
                     <section className="mt-7 overflow-visible rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] shadow-[var(--ac-shadow-soft)] lg:mt-10 lg:rounded-[28px]">
