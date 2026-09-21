@@ -10,6 +10,7 @@ use App\Http\Controllers\AuditCenterController;
 use App\Http\Controllers\BusinessPulseController;
 use App\Http\Controllers\BusinessControlController;
 use App\Http\Controllers\CommercialOperationsController;
+use App\Http\Controllers\RestoreCenterController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentFulfillmentController;
 use App\Http\Controllers\FinanceDocumentController;
@@ -566,6 +567,11 @@ Route::middleware([
     )->name('app.audit');
 
     Route::get(
+        '/app/admin/restore',
+        fn () => Inertia::render('Admin/RestoreCenter'),
+    )->name('app.admin.restore');
+
+    Route::get(
         '/app/finance/approvals',
         fn () => Inertia::render('Finance/Approvals'),
     )->name('app.finance.approvals');
@@ -951,6 +957,16 @@ Route::prefix(
             'audit-center',
             [AuditCenterController::class, 'index'],
         );
+
+        Route::get(
+            'restore-center',
+            [RestoreCenterController::class, 'index'],
+        );
+
+        Route::post(
+            'restore-center/{type}/{record}',
+            [RestoreCenterController::class, 'restore'],
+        )->whereNumber('record');
 
         Route::get(
             'control-lookups',
