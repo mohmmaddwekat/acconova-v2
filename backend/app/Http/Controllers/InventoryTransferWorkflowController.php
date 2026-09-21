@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InventoryBalance;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Services\InventoryStockService;
+use App\Support\InventoryQuantity;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class InventoryTransferWorkflowController extends Controller
 {
@@ -153,78 +156,112 @@ class InventoryTransferWorkflowController extends Controller
             ],
         ]);
 
-        $row = DB::table('inventory_transfer_requests')
-            ->where(
-                'organization_id',
-                app(TenantContext::class)->id(),
-            )
-            ->where('id', (int) $transfer)
-            ->first();
+        $updated = DB::transaction(
+            function () use (
+                $request,
+                $transfer,
+                $inventory,
+                $data,
+            ): object {
+                $row = DB::table('inventory_transfer_requests')
+                    ->where(
+                        'organization_id',
+                        app(TenantContext::class)->id(),
+                    )
+                    ->where('id', (int) $transfer)
+                    ->lockForUpdate()
+                    ->first();
 
-        abort_unless($row, 404);
+                abort_unless($row, 404);
 
-        $action = $data['action'];
+                $action = $data['action'];
 
-        if (in_array($action, ['approve', 'reject'], true)) {
-            $this->authorizeApprover();
+                if (
+                    in_array(
+                        $action,
+                        ['approve', 'reject'],
+                        true,
+                    )
+                ) {
+                    $this->authorizeApprover();
 
-            abort_unless(
-                in_array(
-                    $row->status,
-                    ['requested', 'approved'],
-                    true,
-                ),
-                422,
-            );
-        }
+                    abort_unless(
+                        in_array(
+                            $row->status,
+                            ['requested', 'approved'],
+                            true,
+                        ),
+                        422,
+                    );
+                }
 
-        if ($action === 'approve') {
-            DB::table('inventory_transfer_requests')
-                ->where('id', $row->id)
-                ->update([
-                    'status' => 'approved',
-                    'approved_by' => $request->user()->id,
-                    'approved_at' => now(),
-                    'updated_at' => now(),
-                ]);
-        } elseif ($action === 'reject') {
-            DB::table('inventory_transfer_requests')
-                ->where('id', $row->id)
-                ->update([
-                    'status' => 'rejected',
-                    'approved_by' => $request->user()->id,
-                    'approved_at' => now(),
-                    'updated_at' => now(),
-                ]);
-        } elseif ($action === 'ship') {
-            abort_unless($row->status === 'approved', 422);
+                if ($action === 'approve') {
+                    DB::table('inventory_transfer_requests')
+                        ->where('id', $row->id)
+                        ->update([
+                            'status' => 'approved',
+                            'approved_by' => $request->user()->id,
+                            'approved_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                } elseif ($action === 'reject') {
+                    DB::table('inventory_transfer_requests')
+                        ->where('id', $row->id)
+                        ->update([
+                            'status' => 'rejected',
+                            'approved_by' => $request->user()->id,
+                            'approved_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                } elseif ($action === 'ship') {
+                    abort_unless(
+                        $row->status === 'approved',
+                        422,
+                    );
 
-            DB::table('inventory_transfer_requests')
-                ->where('id', $row->id)
-                ->update([
-                    'status' => 'shipped',
-                    'shipped_by' => $request->user()->id,
-                    'shipped_at' => now(),
-                    'updated_at' => now(),
-                ]);
-        } else {
-            abort_unless($row->status === 'shipped', 422);
-
-            $product = Product::query()
-                ->findOrFail((int) $row->product_id);
-
-            DB::transaction(
-                function () use (
-                    $inventory,
-                    $product,
-                    $row,
-                    $request,
-                ): void {
                     /*
-                     * The physical stock ledger changes only at receipt.
-                     * Request/approval/shipping are operational workflow states,
-                     * so rejected or abandoned requests never mutate stock.
+                     * Shipping reserves the source quantity. That keeps the
+                     * stock physically on hand until receipt, while removing it
+                     * from available stock so another sale/transfer cannot
+                     * consume the same units in transit.
                      */
+                    $this->reserveShipment(
+                        (int) $row->product_id,
+                        (int) $row->source_warehouse_id,
+                        (string) $row->quantity,
+                    );
+
+                    DB::table('inventory_transfer_requests')
+                        ->where('id', $row->id)
+                        ->update([
+                            'status' => 'shipped',
+                            'shipped_by' => $request->user()->id,
+                            'shipped_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    abort_unless(
+                        $row->status === 'shipped',
+                        422,
+                    );
+
+                    $product = Product::query()
+                        ->findOrFail(
+                            (int) $row->product_id,
+                        );
+
+                    /*
+                     * Release only this workflow's transit reservation, then
+                     * perform the normal atomic warehouse transfer. If the
+                     * transfer fails, the outer transaction restores the
+                     * reservation and leaves the request shipped.
+                     */
+                    $this->releaseShipmentReservation(
+                        (int) $row->product_id,
+                        (int) $row->source_warehouse_id,
+                        (string) $row->quantity,
+                    );
+
                     $inventory->transferStock(
                         $product,
                         (int) $row->source_warehouse_id,
@@ -243,16 +280,104 @@ class InventoryTransferWorkflowController extends Controller
                             'received_at' => now(),
                             'updated_at' => now(),
                         ]);
-                },
-                3,
-            );
-        }
+                }
+
+                return DB::table('inventory_transfer_requests')
+                    ->where('id', $row->id)
+                    ->first();
+            },
+            3,
+        );
 
         return response()->json([
-            'data' => DB::table('inventory_transfer_requests')
-                ->where('id', $row->id)
-                ->first(),
+            'data' => $updated,
         ]);
+    }
+
+    private function reserveShipment(
+        int $productId,
+        int $warehouseId,
+        string $quantity,
+    ): void {
+        Product::query()
+            ->lockForUpdate()
+            ->findOrFail($productId);
+
+        $balance = InventoryBalance::query()
+            ->where('product_id', $productId)
+            ->where('warehouse_id', $warehouseId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $balance) {
+            throw ValidationException::withMessages([
+                'quantity' => [
+                    'The source warehouse has no available stock for this transfer.',
+                ],
+            ]);
+        }
+
+        $units = InventoryQuantity::toUnits($quantity);
+        $onHand = InventoryQuantity::toUnits(
+            $balance->on_hand,
+        );
+        $reserved = InventoryQuantity::toUnits(
+            $balance->reserved,
+        );
+        $available = $onHand - $reserved;
+
+        if (
+            $units <= 0
+            || $available < $units
+        ) {
+            throw ValidationException::withMessages([
+                'quantity' => [
+                    'The source warehouse no longer has enough available stock to ship this transfer.',
+                ],
+            ]);
+        }
+
+        $balance->reserved =
+            InventoryQuantity::fromUnits(
+                $reserved + $units,
+            );
+        $balance->save();
+    }
+
+    private function releaseShipmentReservation(
+        int $productId,
+        int $warehouseId,
+        string $quantity,
+    ): void {
+        $balance = InventoryBalance::query()
+            ->where('product_id', $productId)
+            ->where('warehouse_id', $warehouseId)
+            ->lockForUpdate()
+            ->first();
+
+        abort_unless($balance, 422);
+
+        $units = InventoryQuantity::toUnits($quantity);
+        $reserved = InventoryQuantity::toUnits(
+            $balance->reserved,
+        );
+
+        if (
+            $units <= 0
+            || $reserved < $units
+        ) {
+            throw ValidationException::withMessages([
+                'quantity' => [
+                    'The in-transit stock reservation is inconsistent. Review this transfer before receiving it.',
+                ],
+            ]);
+        }
+
+        $balance->reserved =
+            InventoryQuantity::fromUnits(
+                $reserved - $units,
+            );
+        $balance->save();
     }
 
     private function authorizeApprover(): void
