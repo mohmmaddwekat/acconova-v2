@@ -8,6 +8,7 @@ import {
     Head,
     Link,
     router,
+    usePage,
 } from '@inertiajs/react';
 import {
     ArrowRight,
@@ -20,6 +21,7 @@ import {
     Trash2,
     TrendingUp,
 } from 'lucide-react';
+import type { AppPageProps } from '@/types/app';
 import {
     useEffect,
     useMemo,
@@ -449,6 +451,74 @@ export default function OperationsWorkspace({
 }) {
     const ar = useLocale() === 'ar';
     const featureMeta = meta(feature, ar);
+    const activeOrganization =
+        usePage<AppPageProps>().props.workspace
+            .activeOrganization;
+    const customPermissions =
+        activeOrganization?.permissions;
+    const role =
+        activeOrganization?.role;
+
+    const builtInFinanceManage = [
+        'owner',
+        'admin',
+        'manager',
+        'accountant',
+    ].includes(role ?? '');
+
+    const salesManage = customPermissions
+        ? customPermissions.includes(
+            'finance.sales.manage',
+        )
+        : builtInFinanceManage;
+
+    const purchasesManage = customPermissions
+        ? customPermissions.includes(
+            'finance.purchases.manage',
+        )
+        : builtInFinanceManage;
+
+    const partyManage = customPermissions
+        ? customPermissions.some(permission =>
+            [
+                'parties.manage',
+                'parties.create',
+            ].includes(permission),
+        )
+        : builtInFinanceManage;
+
+    const productManage = customPermissions
+        ? customPermissions.some(permission =>
+            [
+                'products.manage',
+                'products.create',
+            ].includes(permission),
+        )
+        : builtInFinanceManage;
+
+    const canManageFeature =
+        feature === 'pipeline'
+            ? partyManage
+            : [
+                'warranties',
+                'serials',
+                'batches',
+            ].includes(feature)
+                ? productManage
+                : feature === 'purchase-orders'
+                    ? purchasesManage
+                    : feature === 'returns'
+                        ? salesManage
+                            || purchasesManage
+                        : [
+                            'promises',
+                            'quotations',
+                            'proformas',
+                            'sales-orders',
+                        ].includes(feature)
+                            ? salesManage
+                            : false;
+
     const [rows, setRows] = useState<Row[]>([]);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
@@ -465,7 +535,9 @@ export default function OperationsWorkspace({
     const [products, setProducts] = useState<Option[]>([]);
     const [warehouses, setWarehouses] = useState<Option[]>([]);
 
-    const canCreate = ! readonlyFeatures.includes(feature);
+    const canCreate =
+        ! readonlyFeatures.includes(feature)
+        && canManageFeature;
 
     const load = async (): Promise<void> => {
         setLoading(true);
@@ -956,7 +1028,10 @@ export default function OperationsWorkspace({
                                     feature={feature}
                                     row={row}
                                     ar={ar}
-                                    busy={busy}
+                                    busy={
+                                        busy
+                                        || ! canManageFeature
+                                    }
                                     fulfillment={
                                         fulfillment[String(row.id)]
                                         ?? ''
