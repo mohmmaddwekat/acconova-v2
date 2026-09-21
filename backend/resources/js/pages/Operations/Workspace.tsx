@@ -946,6 +946,16 @@ export default function OperationsWorkspace({
                         />
                     )}
 
+                {! loading
+                    && rows.length > 0
+                    && feature === 'pipeline'
+                    && (
+                        <PipelineBoard
+                            rows={rows}
+                            ar={ar}
+                        />
+                    )}
+
                 {canCreate && (
                     <form
                         onSubmit={(event) => void submit(event)}
@@ -1516,6 +1526,91 @@ function buildPayload(
     return clean;
 }
 
+function PipelineBoard({
+    rows,
+    ar,
+}: {
+    rows: Row[];
+    ar: boolean;
+}) {
+    const stages = [
+        { key: 'prospect', ar: 'عميل محتمل', en: 'Prospect' },
+        { key: 'contacted', ar: 'تم التواصل', en: 'Contacted' },
+        { key: 'quoted', ar: 'عرض سعر', en: 'Quoted' },
+        { key: 'negotiating', ar: 'تفاوض', en: 'Negotiating' },
+        { key: 'won', ar: 'مربوحة', en: 'Won' },
+        { key: 'lost', ar: 'خاسرة', en: 'Lost' },
+    ];
+
+    return (
+        <section className="mt-5 overflow-x-auto pb-1">
+            <div className="grid min-w-[980px] grid-cols-6 gap-3">
+                {stages.map(stage => {
+                    const stageRows = rows.filter(
+                        row => row.stage === stage.key,
+                    );
+                    const expected = stageRows.reduce(
+                        (sum, row) =>
+                            sum + Number(row.expected_value ?? 0),
+                        0,
+                    );
+
+                    return (
+                        <div
+                            key={stage.key}
+                            className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 shadow-[var(--ac-shadow-soft)]"
+                        >
+                            <div className="flex items-center justify-between gap-2">
+                                <h2 className="text-[10px] font-bold text-[var(--ac-text)]">
+                                    {ar ? stage.ar : stage.en}
+                                </h2>
+                                <span className="rounded-full border border-[var(--ac-line)] px-2 py-0.5 text-[9px] font-semibold text-[var(--ac-text-muted)]">
+                                    {stageRows.length}
+                                </span>
+                            </div>
+
+                            <p className="mt-2 text-sm font-bold text-[var(--ac-accent)]">
+                                {expected.toLocaleString(undefined, {
+                                    maximumFractionDigits: 2,
+                                })}
+                            </p>
+
+                            <div className="mt-3 space-y-2">
+                                {stageRows.slice(0, 5).map(row => (
+                                    <div
+                                        key={row.id}
+                                        className="rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-2.5 py-2"
+                                    >
+                                        <p className="truncate text-[10px] font-semibold text-[var(--ac-text)]">
+                                            {row.title}
+                                        </p>
+                                        <p className="mt-1 truncate text-[9px] text-[var(--ac-text-muted)]">
+                                            {row.party || (ar ? 'بدون جهة' : 'No party')}
+                                        </p>
+                                        {row.next_action_on && (
+                                            <p className="mt-1 text-[8px] text-[var(--ac-text-muted)]">
+                                                {ar ? 'الإجراء القادم: ' : 'Next action: '}
+                                                {row.next_action_on}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+
+                                {stageRows.length > 5 && (
+                                    <p className="pt-1 text-center text-[8px] text-[var(--ac-text-muted)]">
+                                        {ar
+                                            ? '+' + String(stageRows.length - 5) + ' فرصة أخرى'
+                                            : '+' + String(stageRows.length - 5) + ' more'}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
 function OperationalSummary({
     feature,
     rows,
