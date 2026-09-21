@@ -725,11 +725,37 @@ class CommercialOperationsController extends Controller
                 'party.email',
             ]);
 
-        $promiseRows = DB::table('payment_promises')
-            ->where('organization_id', $organizationId)
-            ->whereIn('status', ['open', 'missed'])
-            ->orderBy('promised_on')
-            ->get()
+        $workspaceCurrency = strtoupper(
+            (string) (
+                app(TenantContext::class)
+                    ->organization()
+                    ->preferences['currency']
+                ?? 'ILS'
+            ),
+        );
+
+        $promiseRows = DB::table(
+            'payment_promises as promise',
+        )
+            ->leftJoin(
+                'financial_documents as promise_document',
+                'promise_document.id',
+                '=',
+                'promise.financial_document_id',
+            )
+            ->where(
+                'promise.organization_id',
+                $organizationId,
+            )
+            ->whereIn(
+                'promise.status',
+                ['open', 'missed'],
+            )
+            ->orderBy('promise.promised_on')
+            ->get([
+                'promise.*',
+                'promise_document.currency as promise_currency',
+            ])
             ->groupBy('party_id');
 
         return $rows
@@ -739,13 +765,23 @@ class CommercialOperationsController extends Controller
                     .'|'
                     .$row->currency,
             )
-            ->map(function ($partyRows) use ($promiseRows): array {
+            ->map(function ($partyRows) use (
+                $promiseRows,
+                $workspaceCurrency,
+            ): array {
                 $first = $partyRows->first();
                 $partyId =
                     (int) $first->party_id;
                 $promises = $promiseRows->get(
                     $partyId,
                     collect(),
+                )->filter(
+                    fn ($promise): bool =>
+                        $promise->promise_currency
+                            ? $promise->promise_currency
+                                === $first->currency
+                            : $first->currency
+                                === $workspaceCurrency,
                 );
                 $nextPromise = $promises->first();
                 $oldestDue = $partyRows
@@ -932,6 +968,15 @@ class CommercialOperationsController extends Controller
         Request $request,
         int $organizationId,
     ): array {
+        $workspaceCurrency = strtoupper(
+            (string) (
+                app(TenantContext::class)
+                    ->organization()
+                    ->preferences['currency']
+                ?? 'ILS'
+            ),
+        );
+
         $openPromises = DB::table(
             'payment_promises',
         )
@@ -952,6 +997,7 @@ class CommercialOperationsController extends Controller
                     : $this->activePartyReceiptTotal(
                         $organizationId,
                         (int) $promise->party_id,
+                        $workspaceCurrency,
                     );
 
             $baseline =
@@ -1049,8 +1095,12 @@ class CommercialOperationsController extends Controller
                 'party.name',
                 'party.company_name',
                 'document.number as document_number',
+                'document.currency as document_currency',
             ])
-            ->map(function ($row) use ($organizationId): array {
+            ->map(function ($row) use (
+                $organizationId,
+                $workspaceCurrency,
+            ): array {
                 $currentReceived =
                     $row->financial_document_id
                         ? $this->activeInvoiceReceiptTotal(
@@ -1060,6 +1110,7 @@ class CommercialOperationsController extends Controller
                         : $this->activePartyReceiptTotal(
                             $organizationId,
                             (int) $row->party_id,
+                            $workspaceCurrency,
                         );
 
                 $receivedSincePromise = max(
@@ -1083,6 +1134,9 @@ class CommercialOperationsController extends Controller
                         $row->document_number,
                     'amount' =>
                         (string) $row->amount,
+                    'currency' =>
+                        $row->document_currency
+                        ?: $workspaceCurrency,
                     'received_since_promise' =>
                         number_format(
                             $receivedSincePromise,
@@ -1750,6 +1804,15 @@ class CommercialOperationsController extends Controller
             }
         }
 
+        $workspaceCurrency = strtoupper(
+            (string) (
+                app(TenantContext::class)
+                    ->organization()
+                    ->preferences['currency']
+                ?? 'ILS'
+            ),
+        );
+
         $baselineReceived = $document
             ? $this->activeInvoiceReceiptTotal(
                 $organizationId,
@@ -1758,6 +1821,7 @@ class CommercialOperationsController extends Controller
             : $this->activePartyReceiptTotal(
                 $organizationId,
                 (int) $data['party_id'],
+                $workspaceCurrency,
             );
 
         $id = DB::table('payment_promises')->insertGetId([
@@ -3051,6 +3115,7 @@ class CommercialOperationsController extends Controller
     private function activePartyReceiptTotal(
         int $organizationId,
         int $partyId,
+        string $currency,
     ): float {
         return (float) DB::table('cash_movements')
             ->where(
@@ -3058,6 +3123,7 @@ class CommercialOperationsController extends Controller
                 $organizationId,
             )
             ->where('party_id', $partyId)
+            ->where('currency', $currency)
             ->where('status', 'posted')
             ->where('direction', 'incoming')
             ->where('category', 'customer_receipt')
