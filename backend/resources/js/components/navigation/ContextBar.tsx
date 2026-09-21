@@ -187,6 +187,50 @@ export function ContextBar({
             'الدفعات والتشغيلات',
             'Batches / lots',
         ],
+        '/app/inventory/expiry': [
+            'تنبيهات انتهاء الصلاحية',
+            'Expiry date tracking',
+        ],
+        '/app/purchases/landed-costs': [
+            'تكلفة الاستيراد والتوريد',
+            'Landed cost',
+        ],
+        '/app/finance/exchange-rates': [
+            'سجل أسعار الصرف',
+            'Exchange rate history',
+        ],
+        '/app/finance/budgets': [
+            'الميزانية مقابل الفعلي',
+            'Budget vs actual',
+        ],
+        '/app/departments/spending-limits': [
+            'سقوف صرف الأقسام',
+            'Department spending limits',
+        ],
+        '/app/staff/expense-claims': [
+            'مطالبات المصاريف',
+            'Expense claims',
+        ],
+        '/app/finance/petty-cash': [
+            'صناديق النثريات',
+            'Petty cash',
+        ],
+        '/app/finance/recurring-expenses': [
+            'المصاريف المتكررة',
+            'Recurring expenses',
+        ],
+        '/app/parties/contracts': [
+            'إدارة العقود',
+            'Contract management',
+        ],
+        '/app/documents/expiry': [
+            'انتهاء الوثائق',
+            'Document expiry',
+        ],
+        '/app/data-quality': [
+            'مركز جودة البيانات',
+            'Data quality center',
+        ],
     };
 
     const pageLabel =
