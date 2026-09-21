@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StockMovementType;
 use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Models\FinancialDocumentLine;
 use App\Models\Party;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class PartyInsightsController extends Controller
@@ -127,6 +129,374 @@ class PartyInsightsController extends Controller
             ])
             ->values();
 
+        /*
+         * Customer profitability is an operational estimate. Invoice lines do
+         * not yet snapshot historical product cost, so the current catalog cost
+         * is used and the UI labels the result as an estimate.
+         */
+        $customerProfitabilityRow = FinancialDocumentLine::query()
+            ->join(
+                'financial_documents as profit_documents',
+                'profit_documents.id',
+                '=',
+                'financial_document_lines.financial_document_id',
+            )
+            ->leftJoin(
+                'products as profit_products',
+                'profit_products.id',
+                '=',
+                'financial_document_lines.product_id',
+            )
+            ->where(
+                'profit_documents.party_id',
+                $record->id,
+            )
+            ->where(
+                'profit_documents.kind',
+                'sale_invoice',
+            )
+            ->whereIn(
+                'profit_documents.status',
+                $operationalStatuses,
+            )
+            ->selectRaw(
+                'COALESCE(SUM(financial_document_lines.line_total), 0) as revenue,
+                 COALESCE(SUM(financial_document_lines.quantity * COALESCE(profit_products.cost_price, 0)), 0) as estimated_cost',
+            )
+            ->first();
+
+        $customerRevenue =
+            (float) ($customerProfitabilityRow?->revenue ?? 0);
+        $customerEstimatedCost =
+            (float) ($customerProfitabilityRow?->estimated_cost ?? 0);
+        $customerGrossProfit =
+            $customerRevenue - $customerEstimatedCost;
+        $customerMargin =
+            $customerRevenue > 0
+                ? (
+                    $customerGrossProfit
+                    / $customerRevenue
+                    * 100
+                )
+                : 0;
+
+        $customerProfitability = [
+            'revenue' => number_format(
+                $customerRevenue,
+                4,
+                '.',
+                '',
+            ),
+            'estimated_cost' => number_format(
+                $customerEstimatedCost,
+                4,
+                '.',
+                '',
+            ),
+            'gross_profit_estimate' => number_format(
+                $customerGrossProfit,
+                4,
+                '.',
+                '',
+            ),
+            'margin_estimate_percent' => number_format(
+                $customerMargin,
+                2,
+                '.',
+                '',
+            ),
+            'basis' => 'current_product_cost',
+        ];
+
+        $purchasePriceRows = FinancialDocumentLine::query()
+            ->join(
+                'financial_documents as score_documents',
+                'score_documents.id',
+                '=',
+                'financial_document_lines.financial_document_id',
+            )
+            ->where(
+                'score_documents.party_id',
+                $record->id,
+            )
+            ->where(
+                'score_documents.kind',
+                'purchase_invoice',
+            )
+            ->whereIn(
+                'score_documents.status',
+                $operationalStatuses,
+            )
+            ->whereNotNull(
+                'financial_document_lines.product_id',
+            )
+            ->orderBy(
+                'financial_document_lines.product_id',
+            )
+            ->orderBy(
+                'score_documents.issue_date',
+            )
+            ->orderBy(
+                'financial_document_lines.id',
+            )
+            ->get([
+                'financial_document_lines.product_id',
+                'financial_document_lines.unit_price',
+                'financial_document_lines.quantity',
+                'score_documents.issue_date',
+                'score_documents.id as document_id',
+            ]);
+
+        $priceChanges = [];
+        foreach (
+            $purchasePriceRows
+                ->groupBy('product_id') as $rows
+        ) {
+            $previous = null;
+
+            foreach ($rows as $row) {
+                $current =
+                    (float) $row->unit_price;
+
+                if (
+                    $previous !== null
+                    && $previous > 0
+                ) {
+                    $priceChanges[] =
+                        abs(
+                            (
+                                $current
+                                - $previous
+                            )
+                            / $previous
+                            * 100,
+                        );
+                }
+
+                $previous = $current;
+            }
+        }
+
+        $averagePriceChange =
+            $priceChanges === []
+                ? 0
+                : array_sum($priceChanges)
+                    / count($priceChanges);
+
+        $receiptStats = DB::table(
+            'financial_line_fulfillments as fulfillments',
+        )
+            ->join(
+                'financial_document_lines as receipt_lines',
+                'receipt_lines.id',
+                '=',
+                'fulfillments.financial_document_line_id',
+            )
+            ->join(
+                'financial_documents as receipt_documents',
+                'receipt_documents.id',
+                '=',
+                'receipt_lines.financial_document_id',
+            )
+            ->where(
+                'receipt_documents.party_id',
+                $record->id,
+            )
+            ->where(
+                'receipt_documents.kind',
+                'purchase_invoice',
+            )
+            ->selectRaw(
+                'AVG(DATEDIFF(fulfillments.occurred_on, receipt_documents.issue_date)) as avg_receipt_days',
+            )
+            ->first();
+
+        $averageReceiptDays =
+            $receiptStats?->avg_receipt_days !== null
+                ? max(
+                    0,
+                    (float) $receiptStats->avg_receipt_days,
+                )
+                : null;
+
+        $delayedOpenLines = DB::table(
+            'financial_document_lines as delayed_lines',
+        )
+            ->join(
+                'financial_documents as delayed_documents',
+                'delayed_documents.id',
+                '=',
+                'delayed_lines.financial_document_id',
+            )
+            ->leftJoinSub(
+                DB::table('financial_line_fulfillments')
+                    ->selectRaw(
+                        'financial_document_line_id, SUM(quantity) as fulfilled_quantity',
+                    )
+                    ->groupBy(
+                        'financial_document_line_id',
+                    ),
+                'fulfilled',
+                'fulfilled.financial_document_line_id',
+                '=',
+                'delayed_lines.id',
+            )
+            ->where(
+                'delayed_documents.party_id',
+                $record->id,
+            )
+            ->where(
+                'delayed_documents.kind',
+                'purchase_invoice',
+            )
+            ->whereIn(
+                'delayed_documents.status',
+                $operationalStatuses,
+            )
+            ->whereDate(
+                'delayed_documents.issue_date',
+                '<=',
+                now()->subDays(30)->toDateString(),
+            )
+            ->whereRaw(
+                'COALESCE(fulfilled.fulfilled_quantity, 0) < delayed_lines.quantity',
+            )
+            ->count();
+
+        $purchaseDocumentIds = FinancialDocument::query()
+            ->where(
+                'party_id',
+                $record->id,
+            )
+            ->where(
+                'kind',
+                'purchase_invoice',
+            )
+            ->whereIn(
+                'status',
+                $operationalStatuses,
+            )
+            ->pluck('id');
+
+        $supplierReturnQuantity =
+            (float) DB::table('stock_movements')
+                ->where(
+                    'type',
+                    StockMovementType::SupplierReturn->value,
+                )
+                ->where(
+                    'reference_type',
+                    'financial_document',
+                )
+                ->whereIn(
+                    'reference_id',
+                    $purchaseDocumentIds,
+                )
+                ->sum(DB::raw('ABS(quantity)'));
+
+        $purchasedQuantity =
+            (float) $purchasePriceRows
+                ->sum(
+                    fn ($row): float =>
+                        (float) $row->quantity,
+                );
+
+        $returnRate =
+            $purchasedQuantity > 0
+                ? (
+                    $supplierReturnQuantity
+                    / $purchasedQuantity
+                    * 100
+                )
+                : 0;
+
+        $priceStabilityScore =
+            max(
+                0,
+                100
+                - min(
+                    100,
+                    $averagePriceChange * 2,
+                ),
+            );
+
+        $receiptSpeedScore =
+            $averageReceiptDays === null
+                ? 70
+                : match (true) {
+                    $averageReceiptDays <= 7 => 100,
+                    $averageReceiptDays <= 14 => 90,
+                    $averageReceiptDays <= 30 => 75,
+                    default => 50,
+                };
+
+        $completionScore =
+            max(
+                50,
+                100
+                - min(
+                    50,
+                    $delayedOpenLines * 10,
+                ),
+            );
+
+        $returnsScore =
+            max(
+                0,
+                100
+                - min(
+                    100,
+                    $returnRate * 5,
+                ),
+            );
+
+        $supplierScore =
+            (
+                $priceStabilityScore * 0.30
+                + $receiptSpeedScore * 0.30
+                + $completionScore * 0.20
+                + $returnsScore * 0.20
+            );
+
+        $supplierPerformance = [
+            'score' => round(
+                $supplierScore,
+                1,
+            ),
+            'price_stability_score' => round(
+                $priceStabilityScore,
+                1,
+            ),
+            'receipt_speed_score' => round(
+                $receiptSpeedScore,
+                1,
+            ),
+            'completion_score' => round(
+                $completionScore,
+                1,
+            ),
+            'returns_score' => round(
+                $returnsScore,
+                1,
+            ),
+            'average_price_change_percent' => round(
+                $averagePriceChange,
+                2,
+            ),
+            'average_receipt_days' => $averageReceiptDays === null
+                ? null
+                : round(
+                    $averageReceiptDays,
+                    1,
+                ),
+            'delayed_open_lines' => $delayedOpenLines,
+            'supplier_return_rate_percent' => round(
+                $returnRate,
+                2,
+            ),
+            'methodology' => 'Operational score: 30% price stability, 30% receipt speed, 20% open-line completion, 20% linked supplier-return rate.',
+        ];
+
         $recentCash = CashMovement::query()
             ->where('party_id', $record->id)
             ->latest('movement_date')
@@ -167,6 +537,7 @@ class PartyInsightsController extends Controller
                         '.',
                         '',
                     ),
+                    'profitability' => $customerProfitability,
                 ],
                 'supplier' => [
                     'invoice_count' => (clone $purchases)->count(),
@@ -188,6 +559,7 @@ class PartyInsightsController extends Controller
                         '.',
                         '',
                     ),
+                    'performance' => $supplierPerformance,
                 ],
                 'top_products' => $topProducts,
                 'recent_documents' => $recentDocuments,
