@@ -985,6 +985,110 @@ class PartyAccountController extends Controller
         ]);
     }
 
+    public function deleteOpeningBalance(
+        Request $request,
+        string $party,
+        string $side,
+    ): \Illuminate\Http\Response {
+        $party = Party::withTrashed()
+            ->findOrFail($party);
+
+        abort_unless(
+            $request->user()?->can(
+                'update',
+                $party,
+            ),
+            403,
+        );
+
+        abort_unless(
+            in_array(
+                $side,
+                [
+                    'customer',
+                    'supplier',
+                ],
+                true,
+            ),
+            404,
+        );
+
+        if (
+            $side === 'customer'
+            && ! FinanceAuthorization::allows(
+                $request->user(),
+                'finance.sales.manage',
+            )
+        ) {
+            abort(403);
+        }
+
+        if (
+            $side === 'supplier'
+            && ! FinanceAuthorization::allows(
+                $request->user(),
+                'finance.purchases.manage',
+            )
+        ) {
+            abort(403);
+        }
+
+        $opening =
+            PartyOpeningBalance::query()
+                ->where(
+                    'party_id',
+                    $party->id,
+                )
+                ->where(
+                    'side',
+                    $side,
+                )
+                ->firstOrFail();
+
+        $before = [
+            'party_id' =>
+                $party->id,
+            'side' =>
+                $side,
+            'amount' =>
+                $opening->amount,
+            'as_of_date' =>
+                $opening
+                    ->as_of_date
+                    ?->format(
+                        'Y-m-d',
+                    ),
+            'notes' =>
+                $opening->notes,
+        ];
+
+        FinanceAuditEvent::create([
+            'auditable_type' =>
+                'PartyOpeningBalance',
+            'auditable_id' =>
+                $opening->id,
+            'action' =>
+                'opening_balance_removed',
+            'reason' =>
+                'Opening balance removed from Party account.',
+            'before_payload' =>
+                $before,
+            'after_payload' =>
+                null,
+            'created_by' =>
+                $request
+                    ->user()
+                    ->id,
+            'created_at' =>
+                now(),
+        ]);
+
+        $opening->delete();
+
+        return response()
+            ->noContent();
+    }
+
     private function openingEntry(
         PartyOpeningBalance $opening,
         string $side,
