@@ -507,14 +507,6 @@ class ReportStudioController extends Controller
     private function profitability(Carbon $from, Carbon $to, string $dimension): array
     {
         $org = app(TenantContext::class)->id();
-        $q = DB::table('financial_document_lines as line')
-            ->join('financial_documents as doc', 'doc.id', '=', 'line.financial_document_id')
-            ->leftJoin('products as product', 'product.id', '=', 'line.product_id')
-            ->leftJoin('parties as party', 'party.id', '=', 'doc.party_id')
-            ->leftJoin('users as employee', 'employee.id', '=', 'doc.created_by')
-            ->leftJoin('warehouses as warehouse', 'warehouse.id', '=', 'line.warehouse_id')
-            ->where('doc.organization_id', $org)->where('doc.kind', 'sale_invoice')
-            ->where('doc.status', '!=', 'void')->whereBetween('doc.issue_date', [$from, $to]);
 
         $dimensionSql = match ($dimension) {
             'product' => "COALESCE(product.name, line.description, 'Unassigned')",
@@ -526,28 +518,78 @@ class ReportStudioController extends Controller
             default => "COALESCE(party.company_name, party.name, 'Unassigned')",
         };
 
-        $rows = $q->selectRaw("$dimensionSql as dimension")
+        $baseQuery = fn (string $kind) => DB::table('financial_document_lines as line')
+            ->join('financial_documents as doc', 'doc.id', '=', 'line.financial_document_id')
+            ->leftJoin('products as product', 'product.id', '=', 'line.product_id')
+            ->leftJoin('parties as party', 'party.id', '=', 'doc.party_id')
+            ->leftJoin('users as employee', 'employee.id', '=', 'doc.created_by')
+            ->leftJoin('warehouses as warehouse', 'warehouse.id', '=', 'line.warehouse_id')
+            ->where('doc.organization_id', $org)
+            ->where('doc.kind', $kind)
+            ->where('doc.status', '!=', 'void')
+            ->whereBetween('doc.issue_date', [$from, $to]);
+
+        $returns = $baseQuery('sale_credit_note')
+            ->selectRaw("$dimensionSql as dimension")
+            ->selectRaw('SUM(line.line_total) as return_amount')
+            ->selectRaw('SUM(line.quantity) as return_quantity')
+            ->groupByRaw($dimensionSql)
+            ->get()
+            ->keyBy(fn ($row) => (string) $row->dimension);
+
+        $rows = $baseQuery('sale_invoice')
+            ->selectRaw("$dimensionSql as dimension")
             ->selectRaw('SUM(line.line_subtotal - line.line_discount) as revenue')
             ->selectRaw('SUM(COALESCE(line.cost_price_snapshot, product.cost_price, 0) * line.quantity) as cost')
             ->selectRaw('SUM(line.line_discount) as discounts')
             ->selectRaw('SUM(line.quantity) as quantity')
-            ->groupByRaw($dimensionSql)->orderByDesc('revenue')->limit(200)->get()
-            ->map(function ($row) {
+            ->groupByRaw($dimensionSql)
+            ->orderByDesc('revenue')
+            ->limit(200)
+            ->get()
+            ->map(function ($row) use ($returns): array {
+                $dimension = (string) $row->dimension;
                 $revenue = (float) $row->revenue;
                 $cost = (float) $row->cost;
-                $profit = $revenue - $cost;
+                $returnAmount = (float) ($returns->get($dimension)?->return_amount ?? 0);
+                $returnQuantity = (float) ($returns->get($dimension)?->return_quantity ?? 0);
+                $netRevenue = $revenue - $returnAmount;
+                $profit = $netRevenue - $cost;
+                $quantity = (float) $row->quantity;
+
                 return [
-                    'dimension' => $row->dimension,
+                    'dimension' => $dimension,
                     'revenue' => $revenue,
                     'discounts' => (float) $row->discounts,
+                    'returns' => $returnAmount,
+                    'return_quantity' => $returnQuantity,
                     'cost' => $cost,
                     'gross_profit' => $profit,
-                    'margin_percent' => $revenue == 0.0 ? 0 : ($profit / $revenue) * 100,
-                    'quantity' => (float) $row->quantity,
+                    'margin_percent' => $netRevenue == 0.0
+                        ? 0
+                        : ($profit / $netRevenue) * 100,
+                    'quantity' => $quantity,
+                    'average_selling_price' => $quantity == 0.0
+                        ? 0
+                        : $netRevenue / $quantity,
                 ];
-            })->values();
+            })
+            ->values();
 
-        return ['columns' => ['dimension', 'revenue', 'discounts', 'cost', 'gross_profit', 'margin_percent', 'quantity'], 'rows' => $rows];
+        return [
+            'columns' => [
+                'dimension',
+                'revenue',
+                'discounts',
+                'returns',
+                'cost',
+                'gross_profit',
+                'margin_percent',
+                'quantity',
+                'average_selling_price',
+            ],
+            'rows' => $rows,
+        ];
     }
 
     private function marginLeakage(Carbon $from, Carbon $to): array
@@ -608,18 +650,47 @@ class ReportStudioController extends Controller
     private function paymentBehavior(Carbon $from, Carbon $to): array
     {
         $org = app(TenantContext::class)->id();
+
+        $paymentDates = DB::table('cash_allocations as allocation')
+            ->join('cash_movements as movement', 'movement.id', '=', 'allocation.cash_movement_id')
+            ->where('allocation.organization_id', $org)
+            ->where('movement.status', 'posted')
+            ->groupBy('allocation.financial_document_id')
+            ->selectRaw('allocation.financial_document_id, MAX(movement.movement_date) as last_payment_date, SUM(allocation.amount) as allocated_amount');
+
         $rows = DB::table('financial_documents as doc')
             ->leftJoin('parties as party', 'party.id', '=', 'doc.party_id')
-            ->where('doc.organization_id', $org)->where('doc.kind', 'sale_invoice')->where('doc.status', '!=', 'void')
+            ->leftJoinSub($paymentDates, 'payment', function ($join): void {
+                $join->on('payment.financial_document_id', '=', 'doc.id');
+            })
+            ->where('doc.organization_id', $org)
+            ->where('doc.kind', 'sale_invoice')
+            ->where('doc.status', '!=', 'void')
             ->whereBetween('doc.issue_date', [$from, $to])
             ->selectRaw("COALESCE(party.company_name, party.name, 'Unassigned') as customer")
-            ->selectRaw('AVG(CASE WHEN doc.paid_total >= doc.total AND doc.due_date IS NOT NULL THEN GREATEST(DATEDIFF(COALESCE(doc.updated_at, doc.issue_date), doc.due_date), 0) ELSE NULL END) as avg_delay_days')
-            ->selectRaw('MAX(CASE WHEN doc.due_date IS NOT NULL THEN GREATEST(DATEDIFF(COALESCE(doc.updated_at, CURRENT_DATE), doc.due_date), 0) ELSE 0 END) as max_delay_days')
+            ->selectRaw('AVG(CASE WHEN doc.paid_total >= doc.total AND doc.due_date IS NOT NULL THEN GREATEST(DATEDIFF(COALESCE(payment.last_payment_date, doc.updated_at), doc.due_date), 0) ELSE NULL END) as avg_delay_days')
+            ->selectRaw('MAX(CASE WHEN doc.due_date IS NOT NULL THEN GREATEST(DATEDIFF(COALESCE(payment.last_payment_date, CURRENT_DATE), doc.due_date), 0) ELSE 0 END) as max_delay_days')
             ->selectRaw('SUM(doc.balance_due) as outstanding')
-            ->selectRaw('AVG(CASE WHEN doc.paid_total >= doc.total AND (doc.due_date IS NULL OR DATE(doc.updated_at) <= doc.due_date) THEN 1 ELSE 0 END) * 100 as on_time_percent')
+            ->selectRaw('AVG(CASE WHEN doc.paid_total >= doc.total AND (doc.due_date IS NULL OR COALESCE(payment.last_payment_date, DATE(doc.updated_at)) <= doc.due_date) THEN 1 ELSE 0 END) * 100 as on_time_percent')
+            ->selectRaw('SUM(doc.paid_total) / NULLIF(SUM(doc.total), 0) * 100 as payment_rate_percent')
+            ->selectRaw('AVG(CASE WHEN doc.paid_total >= doc.total THEN 1 ELSE 0 END) * 100 as paid_invoice_percent')
             ->groupByRaw("COALESCE(party.company_name, party.name, 'Unassigned')")
-            ->orderByDesc('outstanding')->limit(200)->get();
-        return ['columns' => ['customer', 'avg_delay_days', 'on_time_percent', 'max_delay_days', 'outstanding'], 'rows' => $rows];
+            ->orderByDesc('outstanding')
+            ->limit(200)
+            ->get();
+
+        return [
+            'columns' => [
+                'customer',
+                'avg_delay_days',
+                'on_time_percent',
+                'max_delay_days',
+                'outstanding',
+                'payment_rate_percent',
+                'paid_invoice_percent',
+            ],
+            'rows' => $rows,
+        ];
     }
 
     private function cashflowForecast(Carbon $asOf): array
@@ -707,18 +778,63 @@ class ReportStudioController extends Controller
     private function inventoryMovement(Carbon $from, Carbon $to): array
     {
         $org = app(TenantContext::class)->id();
-        $rows = DB::table('stock_movements as move')->join('products as product', 'product.id', '=', 'move.product_id')
+
+        $movementRows = DB::table('stock_movements as move')
+            ->join('products as product', 'product.id', '=', 'move.product_id')
             ->join('warehouses as warehouse', 'warehouse.id', '=', 'move.warehouse_id')
-            ->where('move.organization_id', $org)->whereBetween('move.created_at', [$from, $to])
-            ->selectRaw('product.name as product, warehouse.name as warehouse')
-            ->selectRaw("SUM(CASE WHEN move.type LIKE '%purchase%' OR move.type LIKE '%receipt%' THEN move.quantity ELSE 0 END) as purchased")
-            ->selectRaw("SUM(CASE WHEN move.type LIKE '%production%' THEN move.quantity ELSE 0 END) as produced")
-            ->selectRaw("SUM(CASE WHEN move.type LIKE '%sale%' THEN ABS(move.quantity) ELSE 0 END) as sold")
+            ->where('move.organization_id', $org)
+            ->whereBetween('move.created_at', [$from, $to])
+            ->selectRaw('move.product_id, move.warehouse_id, product.name as product, warehouse.name as warehouse')
+            ->selectRaw("SUM(CASE WHEN move.type LIKE '%purchase%' OR move.type LIKE '%receipt%' THEN GREATEST(move.quantity, 0) ELSE 0 END) as purchased")
+            ->selectRaw("SUM(CASE WHEN move.type LIKE '%production%' THEN GREATEST(move.quantity, 0) ELSE 0 END) as produced")
+            ->selectRaw("SUM(CASE WHEN move.type LIKE '%sale%' THEN ABS(LEAST(move.quantity, 0)) ELSE 0 END) as sold")
             ->selectRaw("SUM(CASE WHEN move.type LIKE '%adjust%' THEN move.quantity ELSE 0 END) as adjusted")
             ->selectRaw("SUM(CASE WHEN move.type LIKE '%return%' THEN move.quantity ELSE 0 END) as returned")
             ->selectRaw('SUM(move.quantity) as net_movement')
-            ->groupBy('product.name', 'warehouse.name')->orderBy('product.name')->limit(500)->get();
-        return ['columns' => ['product', 'warehouse', 'purchased', 'produced', 'sold', 'adjusted', 'returned', 'net_movement'], 'rows' => $rows];
+            ->groupBy('move.product_id', 'move.warehouse_id', 'product.name', 'warehouse.name')
+            ->orderBy('product.name')
+            ->limit(500)
+            ->get()
+            ->map(function ($row) use ($org, $from): array {
+                $opening = (float) (DB::table('stock_movements')
+                    ->where('organization_id', $org)
+                    ->where('product_id', $row->product_id)
+                    ->where('warehouse_id', $row->warehouse_id)
+                    ->where('created_at', '<', $from)
+                    ->latest('id')
+                    ->value('balance_after') ?? 0);
+
+                $net = (float) $row->net_movement;
+
+                return [
+                    'product' => $row->product,
+                    'warehouse' => $row->warehouse,
+                    'opening_stock' => $opening,
+                    'purchased' => (float) $row->purchased,
+                    'produced' => (float) $row->produced,
+                    'sold' => (float) $row->sold,
+                    'adjusted' => (float) $row->adjusted,
+                    'returned' => (float) $row->returned,
+                    'net_movement' => $net,
+                    'closing_stock' => $opening + $net,
+                ];
+            });
+
+        return [
+            'columns' => [
+                'product',
+                'warehouse',
+                'opening_stock',
+                'purchased',
+                'produced',
+                'sold',
+                'adjusted',
+                'returned',
+                'net_movement',
+                'closing_stock',
+            ],
+            'rows' => $movementRows,
+        ];
     }
 
     private function deadStock(Carbon $asOf): array
@@ -748,19 +864,59 @@ class ReportStudioController extends Controller
     private function inventoryTurnover(Carbon $from, Carbon $to): array
     {
         $org = app(TenantContext::class)->id();
-        $rows = DB::table('products as product')->leftJoin('inventory_balances as balance', 'balance.product_id', '=', 'product.id')
-            ->leftJoin('financial_document_lines as line', 'line.product_id', '=', 'product.id')
-            ->leftJoin('financial_documents as doc', function ($join) use ($from, $to) {
-                $join->on('doc.id', '=', 'line.financial_document_id')->where('doc.kind', 'sale_invoice')->whereBetween('doc.issue_date', [$from, $to]);
+
+        $movements = collect($this->inventoryMovement($from, $to)['rows'])
+            ->groupBy('product');
+
+        $sales = DB::table('financial_document_lines as line')
+            ->join('financial_documents as doc', 'doc.id', '=', 'line.financial_document_id')
+            ->leftJoin('products as product', 'product.id', '=', 'line.product_id')
+            ->where('doc.organization_id', $org)
+            ->where('doc.kind', 'sale_invoice')
+            ->where('doc.status', '!=', 'void')
+            ->whereBetween('doc.issue_date', [$from, $to])
+            ->selectRaw("COALESCE(product.name, line.description, 'Unassigned') as product")
+            ->selectRaw('SUM(line.quantity) as sold_quantity')
+            ->selectRaw('SUM(COALESCE(line.cost_price_snapshot, product.cost_price, 0) * line.quantity) as cost_of_goods_sold')
+            ->selectRaw('AVG(COALESCE(line.cost_price_snapshot, product.cost_price, 0)) as avg_cost')
+            ->groupByRaw("COALESCE(product.name, line.description, 'Unassigned')")
+            ->get()
+            ->map(function ($row) use ($movements): array {
+                $movementRows = $movements->get($row->product, collect());
+                $openingQuantity = (float) $movementRows->sum('opening_stock');
+                $closingQuantity = (float) $movementRows->sum('closing_stock');
+                $avgCost = (float) $row->avg_cost;
+                $averageInventoryValue = (($openingQuantity + $closingQuantity) / 2) * $avgCost;
+                $cogs = (float) $row->cost_of_goods_sold;
+                $turnover = $averageInventoryValue == 0.0
+                    ? 0
+                    : $cogs / $averageInventoryValue;
+
+                return [
+                    'product' => $row->product,
+                    'sold_quantity' => (float) $row->sold_quantity,
+                    'cost_of_goods_sold' => $cogs,
+                    'average_inventory_value' => $averageInventoryValue,
+                    'turnover' => $turnover,
+                    'days_on_hand' => $turnover == 0.0
+                        ? null
+                        : 365 / $turnover,
+                ];
             })
-            ->where('product.organization_id', $org)
-            ->selectRaw('product.name as product, SUM(DISTINCT COALESCE(balance.on_hand,0)) as on_hand')
-            ->selectRaw('SUM(CASE WHEN doc.id IS NOT NULL THEN line.quantity ELSE 0 END) as sold_quantity')
-            ->groupBy('product.id', 'product.name')->get()->map(function ($row) {
-                $onHand = max(0.0001, (float) $row->on_hand);
-                return ['product' => $row->product, 'sold_quantity' => (float) $row->sold_quantity, 'on_hand' => (float) $row->on_hand, 'turnover' => (float) $row->sold_quantity / $onHand];
-            })->sortByDesc('turnover')->values();
-        return ['columns' => ['product', 'sold_quantity', 'on_hand', 'turnover'], 'rows' => $rows];
+            ->sortByDesc('turnover')
+            ->values();
+
+        return [
+            'columns' => [
+                'product',
+                'sold_quantity',
+                'cost_of_goods_sold',
+                'average_inventory_value',
+                'turnover',
+                'days_on_hand',
+            ],
+            'rows' => $sales,
+        ];
     }
 
     private function stockValuation(?Carbon $asOf = null): array
@@ -1186,14 +1342,57 @@ class ReportStudioController extends Controller
     {
         $metric = $exception['metric'] ?? 'margin';
         $operator = $exception['operator'] ?? 'lt';
-        $value = (float) ($exception['value'] ?? 10);
+        $value = (float) ($exception['value'] ?? ($metric === 'overdue_days' ? 30 : 10));
+
         $base = match ($metric) {
-            'stock' => collect($this->stockValuation()['rows'])->map(fn ($r) => (array) $r)->map(fn ($r) => [...$r, '_metric' => (float) $r['on_hand']]),
-            'discount' => collect($this->discountAnalysis($from, $to)['rows'])->map(fn ($r) => (array) $r)->map(fn ($r) => [...$r, '_metric' => (float) $r['discounts']]),
-            default => collect($this->profitability($from, $to, 'customer')['rows'])->map(fn ($r) => [...$r, '_metric' => (float) $r['margin_percent']]),
+            'stock' => collect($this->stockValuation($to)['rows'])
+                ->map(fn ($row) => (array) $row)
+                ->map(fn ($row) => [...$row, '_metric' => (float) $row['on_hand']]),
+            'discount' => collect($this->discountAnalysis($from, $to)['rows'])
+                ->map(fn ($row) => (array) $row)
+                ->map(fn ($row) => [...$row, '_metric' => (float) $row['discount_percent']]),
+            'overdue_days' => DB::table('financial_documents as doc')
+                ->leftJoin('parties as party', 'party.id', '=', 'doc.party_id')
+                ->where('doc.organization_id', app(TenantContext::class)->id())
+                ->where('doc.kind', 'sale_invoice')
+                ->where('doc.status', '!=', 'void')
+                ->where('doc.balance_due', '>', 0)
+                ->whereNotNull('doc.due_date')
+                ->whereDate('doc.due_date', '<', today())
+                ->selectRaw('doc.number, doc.due_date, doc.balance_due, doc.currency')
+                ->selectRaw("COALESCE(party.company_name, party.name, 'Unassigned') as customer")
+                ->selectRaw('DATEDIFF(CURRENT_DATE, doc.due_date) as overdue_days')
+                ->get()
+                ->map(fn ($row) => [...((array) $row), '_metric' => (float) $row->overdue_days]),
+            default => collect($this->profitability($from, $to, 'customer')['rows'])
+                ->map(fn ($row) => [...$row, '_metric' => (float) $row['margin_percent']]),
         };
-        $passes = fn (float $v) => match ($operator) { 'gt' => $v > $value, 'gte' => $v >= $value, 'lte' => $v <= $value, default => $v < $value };
-        return ['columns' => array_values(array_filter(array_keys((array) ($base->first() ?? [])), fn ($k) => $k !== '_metric')), 'rows' => $base->filter(fn ($r) => $passes((float) $r['_metric']))->map(function ($r) { unset($r['_metric']); return $r; })->values()];
+
+        $passes = fn (float $candidate): bool => match ($operator) {
+            'gt' => $candidate > $value,
+            'gte' => $candidate >= $value,
+            'lte' => $candidate <= $value,
+            default => $candidate < $value,
+        };
+
+        $rows = collect($base)
+            ->filter(fn ($row): bool => $passes((float) $row['_metric']))
+            ->map(function ($row): array {
+                $row = (array) $row;
+                unset($row['_metric']);
+                return $row;
+            })
+            ->values();
+
+        return [
+            'columns' => $rows->isEmpty() ? [] : array_keys($rows->first()),
+            'rows' => $rows,
+            'meta' => [
+                'metric' => $metric,
+                'operator' => $operator,
+                'threshold' => $value,
+            ],
+        ];
     }
 
     private function topBottom(Carbon $from, Carbon $to, int $limit): array
