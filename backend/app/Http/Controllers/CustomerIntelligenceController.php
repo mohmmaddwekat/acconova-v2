@@ -105,7 +105,7 @@ class CustomerIntelligenceController extends Controller
             ->selectRaw(
                 'd.party_id,
                  SUM(l.line_total) as revenue,
-                 SUM(l.quantity * COALESCE(products.cost_price, 0)) as estimated_cost',
+                 SUM(l.quantity * COALESCE(l.cost_price_snapshot, products.cost_price, 0)) as estimated_cost',
             )
             ->get()
             ->keyBy('party_id');
@@ -263,7 +263,7 @@ class CustomerIntelligenceController extends Controller
                     'inactive' => 'No sale in the last 90 days or no sale history.',
                     'overdue' => 'Has an issued or partially-paid sales invoice past due.',
                     'high_profitability' => 'Estimated gross margin is at least 25%.',
-                    'profitability_note' => 'Estimated using current product cost, not historical cost snapshots.',
+                    'profitability_note' => 'Uses issue-time cost snapshots when available, with current product cost only as a fallback for older invoices.',
                 ],
             ],
         ]);
