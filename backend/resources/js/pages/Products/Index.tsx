@@ -653,41 +653,33 @@ function ProductsWorkspace() {
     async function applyBulkEdit(
         patch: Record<string, string>,
     ): Promise<void> {
-        if (! allowEdit || actionBusy) {
-            return;
-        }
-
-        const selected = (response?.data ?? []).filter(
-            (product) => selectedIds.has(product.id),
-        );
-
-        if (! selected.length) {
+        if (
+            ! allowEdit
+            || actionBusy
+            || selectedIds.size === 0
+        ) {
             return;
         }
 
         setActionBusy(true);
 
         try {
-            await Promise.all(
-                selected.map((product) =>
-                    updateProduct(
-                        product.id,
-                        {
-                            type: product.type,
-                            name: product.name,
-                            sku: product.sku,
-                            description: product.description,
-                            unit: patch.unit ?? product.unit,
-                            unit_price:
-                                patch.unit_price
-                                ?? product.unit_price,
-                            cost_price: product.cost_price,
-                            tax_rate:
-                                patch.tax_rate
-                                ?? product.tax_rate,
-                        },
-                    ),
-                ),
+            const result = await apiRequest<{
+                data: {
+                    affected: number;
+                };
+            }>(
+                '/api/products/bulk-edit',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        product_ids:
+                            Array.from(
+                                selectedIds,
+                            ),
+                        changes: patch,
+                    }),
+                },
             );
 
             setBulkEditOpen(false);
@@ -696,8 +688,8 @@ function ProductsWorkspace() {
 
             showToast(
                 ar
-                    ? `تم تعديل ${selected.length} عنصر.`
-                    : `Updated ${selected.length} items.`,
+                    ? `تم تعديل ${result.data.affected} عنصر.`
+                    : `Updated ${result.data.affected} items.`,
             );
         } catch (exception) {
             showToast(
