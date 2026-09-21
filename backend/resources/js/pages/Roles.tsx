@@ -2090,7 +2090,7 @@ function RoleWorkspace() {
                 }
             />
 
-            <main className="mx-auto w-full max-w-[1680px] space-y-5 px-3 py-5 sm:px-5 lg:px-8">
+            <main className="mx-auto w-full max-w-[1640px] space-y-4 px-3 py-4 sm:px-5 lg:px-7">
                 <header className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 py-4 sm:px-6">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
@@ -2285,6 +2285,15 @@ function RoleWorkspace() {
                                 editRole(
                                     role,
                                 );
+
+                                window.requestAnimationFrame(() => {
+                                    document
+                                        .getElementById('role-designer')
+                                        ?.scrollIntoView({
+                                            behavior: 'smooth',
+                                            block: 'start',
+                                        });
+                                });
                             }}
                             onAssign={member => {
                                 setWorkspaceView(
@@ -2721,7 +2730,7 @@ function RoleWorkspace() {
                                 </div>
                             </div>
 
-                            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                                 {presets.map(
                                     ([
                                         key,
@@ -2743,7 +2752,7 @@ function RoleWorkspace() {
                                                 selectedPreset ===
                                                 key
                                                     ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
-                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] hover:-translate-y-0.5 hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface)] hover:text-[var(--ac-text)] hover:shadow-md',
+                                                    : 'border-[var(--ac-line)] bg-[var(--ac-bg)] hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)]',
                                             ].join(
                                                 ' ',
                                             )}
@@ -2813,6 +2822,7 @@ function RoleWorkspace() {
                             }
                         >
                             <form
+                                id="role-designer"
                                 onSubmit={event =>
                                     void saveRole(
                                         event,
@@ -3200,7 +3210,7 @@ function RoleWorkspace() {
                                 </fieldset>
                             </form>
 
-                            <aside className="space-y-5">
+                            <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
                                 <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
                                     <h2 className="font-semibold">
                                         {
@@ -4150,29 +4160,21 @@ function SummaryCard({
     value: string;
 }) {
     return (
-        <div className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)]">
-            <div className="flex items-center justify-between gap-3">
-                <div>
-                    <p className="text-[9px] font-semibold text-[var(--ac-text-muted)]">
-                        {
-                            label
-                        }
-                    </p>
-
-                    <strong className="mt-2 block text-2xl tracking-[-0.04em]">
-                        {
-                            value
-                        }
-                    </strong>
-                </div>
-
-                <span className="flex size-11 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
-                    <Icon
-                        size={
-                            18
-                        }
-                    />
+        <div className="rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3.5 py-3">
+            <div className="flex items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-[var(--ac-surface-soft)] text-[var(--ac-accent)]">
+                    <Icon size={15} />
                 </span>
+
+                <div className="min-w-0">
+                    <strong className="block text-lg font-bold tracking-[-0.03em] text-[var(--ac-text)]">
+                        {value}
+                    </strong>
+
+                    <p className="truncate text-[9px] font-medium text-[var(--ac-text-muted)]">
+                        {label}
+                    </p>
+                </div>
             </div>
         </div>
     );
