@@ -164,6 +164,25 @@ class CommercialOperationsController extends Controller
 
         abort_unless($document, 404);
 
+        if (
+            ! in_array(
+                $kind,
+                ['sales_order', 'purchase_order'],
+                true,
+            )
+            && in_array(
+                $document->status,
+                ['rejected', 'expired', 'cancelled'],
+                true,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'status' => [
+                    'Rejected, expired or cancelled documents cannot be converted.',
+                ],
+            ]);
+        }
+
         $lines = DB::table('trade_document_lines')
             ->where('organization_id', $organizationId)
             ->where('trade_document_id', $document->id)
@@ -1443,17 +1462,23 @@ class CommercialOperationsController extends Controller
             );
         }
 
-        foreach (
-            [
-                ['financial_documents', 'financial_document_id'],
-            ] as [$table, $field]
-        ) {
-            if (! empty($data[$field])) {
-                $this->assertTenantRecord(
-                    $table,
-                    (int) $data[$field],
-                    $organizationId,
-                );
+        if (! empty($data['financial_document_id'])) {
+            $document = $this->financialDocument(
+                (int) $data['financial_document_id'],
+                $organizationId,
+                'sale_invoice',
+            );
+
+            if (
+                ! empty($data['party_id'])
+                && (int) $document->party_id
+                    !== (int) $data['party_id']
+            ) {
+                throw ValidationException::withMessages([
+                    'financial_document_id' => [
+                        'The warranty invoice must belong to the selected customer.',
+                    ],
+                ]);
             }
         }
 
@@ -1528,20 +1553,63 @@ class CommercialOperationsController extends Controller
             );
         }
 
-        foreach (
-            [
-                ['warehouses', 'warehouse_id'],
-                ['financial_documents', 'source_purchase_document_id'],
-                ['financial_documents', 'source_sale_document_id'],
-            ] as [$table, $field]
-        ) {
-            if (! empty($data[$field])) {
-                $this->assertTenantRecord(
-                    $table,
-                    (int) $data[$field],
-                    $organizationId,
-                );
+        if (! empty($data['warehouse_id'])) {
+            $this->assertTenantRecord(
+                'warehouses',
+                (int) $data['warehouse_id'],
+                $organizationId,
+            );
+        }
+
+        if (! empty($data['source_purchase_document_id'])) {
+            $purchase = $this->financialDocument(
+                (int) $data['source_purchase_document_id'],
+                $organizationId,
+                'purchase_invoice',
+            );
+
+            if (
+                ! empty($data['supplier_party_id'])
+                && (int) $purchase->party_id
+                    !== (int) $data['supplier_party_id']
+            ) {
+                throw ValidationException::withMessages([
+                    'source_purchase_document_id' => [
+                        'The purchase invoice must belong to the selected supplier.',
+                    ],
+                ]);
             }
+        }
+
+        if (! empty($data['source_sale_document_id'])) {
+            $sale = $this->financialDocument(
+                (int) $data['source_sale_document_id'],
+                $organizationId,
+                'sale_invoice',
+            );
+
+            if (
+                ! empty($data['customer_party_id'])
+                && (int) $sale->party_id
+                    !== (int) $data['customer_party_id']
+            ) {
+                throw ValidationException::withMessages([
+                    'source_sale_document_id' => [
+                        'The sales invoice must belong to the selected customer.',
+                    ],
+                ]);
+            }
+        }
+
+        if (
+            ($data['status'] ?? 'in_stock') === 'sold'
+            && empty($data['customer_party_id'])
+        ) {
+            throw ValidationException::withMessages([
+                'customer_party_id' => [
+                    'A customer is required when a serial number is marked as sold.',
+                ],
+            ]);
         }
 
         $id = DB::table('inventory_serials')->insertGetId([
@@ -1910,11 +1978,12 @@ class CommercialOperationsController extends Controller
             'sold_on' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
-        $this->assertTenantRecord(
-            'inventory_serials',
-            $record,
-            $organizationId,
-        );
+        $current = DB::table('inventory_serials')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+
+        abort_unless($current, 404);
 
         foreach (
             [
@@ -1931,18 +2000,72 @@ class CommercialOperationsController extends Controller
             }
         }
 
+        $customerPartyId = array_key_exists(
+            'customer_party_id',
+            $data,
+        )
+            ? $data['customer_party_id']
+            : $current->customer_party_id;
+
+        $saleDocumentId = array_key_exists(
+            'source_sale_document_id',
+            $data,
+        )
+            ? $data['source_sale_document_id']
+            : $current->source_sale_document_id;
+
+        if (
+            $data['status'] === 'sold'
+            && empty($customerPartyId)
+        ) {
+            throw ValidationException::withMessages([
+                'customer_party_id' => [
+                    'A customer is required when a serial number is marked as sold.',
+                ],
+            ]);
+        }
+
+        if (! empty($customerPartyId)) {
+            $this->assertPartyRole(
+                (int) $customerPartyId,
+                'customer',
+            );
+        }
+
+        if (! empty($saleDocumentId)) {
+            $sale = $this->financialDocument(
+                (int) $saleDocumentId,
+                $organizationId,
+                'sale_invoice',
+            );
+
+            if (
+                ! empty($customerPartyId)
+                && (int) $sale->party_id
+                    !== (int) $customerPartyId
+            ) {
+                throw ValidationException::withMessages([
+                    'source_sale_document_id' => [
+                        'The sales invoice must belong to the selected customer.',
+                    ],
+                ]);
+            }
+        }
+
         DB::table('inventory_serials')
             ->where('organization_id', $organizationId)
             ->where('id', $record)
             ->update([
                 'status' => $data['status'],
-                'customer_party_id' =>
-                    $data['customer_party_id'] ?? null,
-                'source_sale_document_id' =>
-                    $data['source_sale_document_id'] ?? null,
+                'customer_party_id' => $customerPartyId,
+                'source_sale_document_id' => $saleDocumentId,
                 'sold_on' => $data['status'] === 'sold'
-                    ? ($data['sold_on'] ?? now()->toDateString())
-                    : null,
+                    ? (
+                        $data['sold_on']
+                        ?? $current->sold_on
+                        ?? now()->toDateString()
+                    )
+                    : $current->sold_on,
                 'updated_at' => now(),
             ]);
 
@@ -2021,6 +2144,30 @@ class CommercialOperationsController extends Controller
                 ->exists(),
             404,
         );
+    }
+
+    private function financialDocument(
+        int $documentId,
+        int $organizationId,
+        string $kind,
+    ): object {
+        $document = DB::table('financial_documents')
+            ->where('organization_id', $organizationId)
+            ->where('id', $documentId)
+            ->where('kind', $kind)
+            ->first();
+
+        if (! $document) {
+            throw ValidationException::withMessages([
+                'financial_document_id' => [
+                    $kind === 'sale_invoice'
+                        ? 'Choose a sales invoice from this workspace.'
+                        : 'Choose a purchase invoice from this workspace.',
+                ],
+            ]);
+        }
+
+        return $document;
     }
 
     private function assertPartyRole(
