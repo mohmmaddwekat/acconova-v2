@@ -1011,7 +1011,7 @@ function RoleWorkspace() {
                       'الأدوار والصلاحيات',
 
                   subtitle:
-                      'أنشئ أدوارًا دقيقة، ثم رقّي الموظفين بأمان دون المساس بملكية مساحة العمل.',
+                      'راجع كل مستخدم وصلاحياته الفعلية، ثم أنشئ أو عدّل الأدوار وعيّنها من نفس المكان.',
 
 
                   ownerTitle:
@@ -1163,7 +1163,7 @@ function RoleWorkspace() {
                       'Roles & Permissions',
 
                   subtitle:
-                      'Create precise roles and safely promote employees without changing workspace ownership.',
+                      'Review every member and their effective access, then create, edit and assign roles from one place.',
 
 
                   ownerTitle:
@@ -2099,7 +2099,7 @@ function RoleWorkspace() {
                 </header>
 
                 {! allowed ? (
-                    <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+                    <div className="rounded-[22px] border border-amber-500/20 bg-amber-500/10 p-5 text-sm text-[var(--ac-text-soft)]">
                         {
                             copy.ownerOnly
                         }
@@ -2107,7 +2107,7 @@ function RoleWorkspace() {
                 ) : (
                     <>
                         {error && (
-                            <div className="flex items-center justify-between gap-4 rounded-[16px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                            <div className="flex items-center justify-between gap-4 rounded-[16px] border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-500">
                                 <span>
                                     {
                                         error
@@ -2132,7 +2132,7 @@ function RoleWorkspace() {
                         )}
 
                         {success && (
-                            <div className="flex items-center gap-2 rounded-[16px] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                            <div className="flex items-center gap-2 rounded-[16px] border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-500">
                                 <Check
                                     size={
                                         15
@@ -2228,9 +2228,9 @@ function RoleWorkspace() {
                         />
 
                         <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-                            <section className="rounded-[24px] border border-amber-200 bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
+                            <section className="rounded-[24px] border border-amber-500/20 bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
                                 <div className="flex items-center gap-3">
-                                    <span className="flex size-12 items-center justify-center rounded-[15px] bg-amber-50 text-amber-700">
+                                    <span className="flex size-12 items-center justify-center rounded-[15px] bg-amber-500/10 text-amber-500">
                                         <Crown
                                             size={
                                                 20
@@ -2280,7 +2280,7 @@ function RoleWorkspace() {
                                             ?? '—'}
                                         </p>
 
-                                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[9px] font-bold text-amber-700">
+                                        <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[9px] font-bold text-amber-500">
                                             <Crown
                                                 size={
                                                     10
@@ -2294,7 +2294,7 @@ function RoleWorkspace() {
                                     </div>
                                 </div>
 
-                                <div className="mt-4 rounded-[15px] border border-amber-100 bg-amber-50/50 p-4 text-[10px] leading-5 text-amber-800">
+                                <div className="mt-4 rounded-[15px] border border-amber-500/20 bg-amber-500/10 p-4 text-[10px] leading-5 text-[var(--ac-text-soft)]">
                                     {
                                         copy.cannotAssignOwner
                                     }
