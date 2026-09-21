@@ -198,6 +198,138 @@ class BankReconciliationController extends Controller
         ], 201);
     }
 
+    public function candidates(
+        Request $request,
+        string $line,
+    ): JsonResponse {
+        FinanceAuthorization::authorize(
+            $request->user(),
+            'finance.cash.view',
+        );
+
+        $data = $request->validate([
+            'search' => ['nullable', 'string', 'max:160'],
+        ]);
+
+        $row = $this->find($line);
+        $direction = (float) $row->amount >= 0
+            ? 'incoming'
+            : 'outgoing';
+        $search = trim(
+            (string) ($data['search'] ?? ''),
+        );
+        $date = \Carbon\Carbon::parse(
+            $row->transaction_date,
+        );
+
+        $query = CashMovement::query()
+            ->where('status', 'posted')
+            ->where('direction', $direction)
+            ->where('currency', $row->currency)
+            ->whereBetween('movement_date', [
+                $date->copy()->subDays(30)->toDateString(),
+                $date->copy()->addDays(30)->toDateString(),
+            ])
+            ->whereNotIn('id', function ($matched): void {
+                $matched
+                    ->select('matched_cash_movement_id')
+                    ->from('bank_statement_lines')
+                    ->where(
+                        'organization_id',
+                        app(TenantContext::class)->id(),
+                    )
+                    ->where('status', 'matched')
+                    ->whereNotNull('matched_cash_movement_id');
+            })
+            ->with('party:id,name,company_name');
+
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+
+            $query->where(function ($candidate) use ($like): void {
+                $candidate
+                    ->where('number', 'like', $like)
+                    ->orWhere('reference', 'like', $like)
+                    ->orWhere('account_label', 'like', $like)
+                    ->orWhereHas(
+                        'party',
+                        fn ($party) =>
+                            $party
+                                ->where('name', 'like', $like)
+                                ->orWhere(
+                                    'company_name',
+                                    'like',
+                                    $like,
+                                ),
+                    );
+            });
+        }
+
+        $amount = abs(
+            (float) $row->amount,
+        );
+
+        $candidates = $query
+            ->orderByRaw(
+                'ABS(amount - ?) ASC',
+                [$amount],
+            )
+            ->orderByRaw(
+                'ABS(DATEDIFF(movement_date, ?)) ASC',
+                [$row->transaction_date],
+            )
+            ->latest('id')
+            ->limit(25)
+            ->get()
+            ->map(function (
+                CashMovement $movement,
+            ) use (
+                $amount,
+                $row,
+            ): array {
+                return [
+                    'id' => $movement->id,
+                    'number' => $movement->number,
+                    'direction' => $movement->direction,
+                    'movement_date' => $movement->movement_date?->format('Y-m-d'),
+                    'amount' => $movement->amount,
+                    'currency' => $movement->currency,
+                    'method' => $movement->method,
+                    'reference' => $movement->reference,
+                    'party' => $movement->party
+                        ? [
+                            'id' => $movement->party->id,
+                            'name' => $movement->party->company_name
+                                ?: $movement->party->name,
+                        ]
+                        : null,
+                    'amount_difference' => number_format(
+                        abs(
+                            (float) $movement->amount
+                            - $amount,
+                        ),
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'day_difference' => $movement->movement_date
+                        ? abs(
+                            $movement->movement_date->diffInDays(
+                                \Carbon\Carbon::parse(
+                                    $row->transaction_date,
+                                ),
+                            ),
+                        )
+                        : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => $candidates,
+        ]);
+    }
+
     public function match(
         Request $request,
         string $line,
