@@ -223,14 +223,14 @@ class CommercialOperationsFeatureTest extends TestCase
                 'direction' => 'incoming',
                 'party_id' => $customerId,
                 'category' => 'customer_receipt',
-                'amount' => '300.0000',
+                'amount' => '125.0000',
                 'currency' => 'ILS',
                 'movement_date' => today()->toDateString(),
                 'method' => 'cash',
                 'allocations' => [
                     [
                         'financial_document_id' => $saleId,
-                        'amount' => '300.0000',
+                        'amount' => '125.0000',
                     ],
                 ],
             ],
@@ -256,6 +256,19 @@ class CommercialOperationsFeatureTest extends TestCase
             ->assertJsonPath(
                 'data.0.status',
                 'fulfilled',
+            );
+
+        $this->getJson(
+            "/api/finance/documents/{$saleId}",
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'partially_paid',
+            )
+            ->assertJsonPath(
+                'data.balance_due',
+                '175.0000',
             );
 
         $opportunityId = (int) $this->postJson(
