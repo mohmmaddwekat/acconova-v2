@@ -587,10 +587,25 @@ export function BusinessIntelligenceDashboard({
 
     const renderedLayout =
         useMemo(
-            () =>
-                data?.preferences
-                    .layout
-                    ?? [],
+            () => {
+                if (! data) {
+                    return [];
+                }
+
+                if (
+                    data.preferences
+                        .exception_only
+                ) {
+                    return [
+                        'exceptions',
+                        'morning_actions',
+                    ] as WidgetKey[];
+                }
+
+                return data
+                    .preferences
+                    .layout;
+            },
             [data],
         );
 
