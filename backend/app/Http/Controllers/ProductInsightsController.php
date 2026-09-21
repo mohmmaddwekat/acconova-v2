@@ -51,7 +51,11 @@ class ProductInsightsController extends Controller
             });
 
         $soldQuantity = (float) (clone $salesLines)->sum('quantity');
-        $salesRevenue = (float) (clone $salesLines)->sum('line_total');
+        $salesRevenue = (float) (clone $salesLines)
+            ->selectRaw(
+                'COALESCE(SUM(line_total - line_tax), 0) as net_revenue',
+            )
+            ->value('net_revenue');
         $purchasedQuantity = (float) (clone $purchaseLines)->sum('quantity');
         $purchaseSpend = (float) (clone $purchaseLines)->sum('line_total');
 
