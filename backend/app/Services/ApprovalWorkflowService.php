@@ -13,8 +13,9 @@ class ApprovalWorkflowService
     /**
      * Require approvals for high-value invoices and unusually large discounts.
      *
-     * Approval thresholds are workspace preferences with conservative defaults:
-     * invoice value 10,000; effective discount 15%.
+     * Every matching rule is created in the same attempt, so a document that
+     * is both high value and heavily discounted does not force users through
+     * two separate retry cycles.
      */
     public function assertDocumentApproved(
         FinancialDocument $document,
@@ -35,28 +36,27 @@ class ApprovalWorkflowService
 
         $document->loadMissing('lines');
 
+        $requirements = [];
+
         if (
             $invoiceThreshold > 0
             && (float) $document->total >= $invoiceThreshold
         ) {
-            $this->assertApproved(
-                'financial_document',
-                $document->id,
-                'high_value_invoice',
-                sprintf(
+            $requirements[] = [
+                'category' => 'high_value_invoice',
+                'reason' => sprintf(
                     'Invoice %s total %s exceeds the approval threshold %s.',
                     $document->number,
                     $document->total,
                     number_format($invoiceThreshold, 2, '.', ''),
                 ),
-                [
+                'snapshot' => [
                     'number' => $document->number,
                     'kind' => $document->kind,
                     'total' => $document->total,
                     'threshold' => $invoiceThreshold,
                 ],
-                $actorId,
-            );
+            ];
         }
 
         if ($document->isSale()) {
@@ -80,25 +80,41 @@ class ApprovalWorkflowService
                 $discountThreshold > 0
                 && $maxDiscount > $discountThreshold
             ) {
-                $this->assertApproved(
-                    'financial_document',
-                    $document->id,
-                    'high_discount',
-                    sprintf(
+                $requirements[] = [
+                    'category' => 'high_discount',
+                    'reason' => sprintf(
                         'Sales invoice %s contains an effective discount of %.2f%%, above the %.2f%% approval threshold.',
                         $document->number,
                         $maxDiscount,
                         $discountThreshold,
                     ),
-                    [
+                    'snapshot' => [
                         'number' => $document->number,
                         'max_discount_percent' => round($maxDiscount, 2),
                         'threshold' => $discountThreshold,
                     ],
-                    $actorId,
-                );
+                ];
             }
         }
+
+        $pendingIds = [];
+
+        foreach ($requirements as $requirement) {
+            $pendingId = $this->requestApproval(
+                'financial_document',
+                $document->id,
+                $requirement['category'],
+                $requirement['reason'],
+                $requirement['snapshot'],
+                $actorId,
+            );
+
+            if ($pendingId !== null) {
+                $pendingIds[] = $pendingId;
+            }
+        }
+
+        $this->throwIfPending($pendingIds);
     }
 
     /**
@@ -133,7 +149,14 @@ class ApprovalWorkflowService
             return;
         }
 
-        $this->assertApproved(
+        $snapshot = [
+            'number' => $movement->number,
+            'amount' => $movement->amount,
+            'method' => $movement->method,
+            'threshold' => $threshold,
+        ];
+
+        $pendingId = $this->requestApproval(
             'cash_movement',
             $movement->id,
             'payment',
@@ -143,20 +166,20 @@ class ApprovalWorkflowService
                 $movement->amount,
                 $movement->method,
             ),
-            [
-                'number' => $movement->number,
-                'amount' => $movement->amount,
-                'method' => $movement->method,
-                'threshold' => $threshold,
-            ],
+            $snapshot,
             $actorId,
+        );
+
+        $this->throwIfPending(
+            $pendingId === null
+                ? []
+                : [$pendingId],
         );
     }
 
     /**
      * Approval is tied to the exact snapshot that was reviewed. Editing the
-     * draft after approval automatically invalidates that approval and creates
-     * a fresh request on the next attempt.
+     * draft after approval invalidates the previous approval automatically.
      *
      * @param array<string, mixed> $snapshot
      */
@@ -198,19 +221,18 @@ class ApprovalWorkflowService
     }
 
     /**
-     * Create one pending approval request if necessary, then block the action
-     * until a reviewer explicitly approves it.
+     * Return a pending request ID when approval is still missing.
      *
      * @param array<string, mixed> $snapshot
      */
-    private function assertApproved(
+    private function requestApproval(
         string $subjectType,
         int $subjectId,
         string $category,
         string $reason,
         array $snapshot,
         int $actorId,
-    ): void {
+    ): ?int {
         if (
             $this->approved(
                 $subjectType,
@@ -219,7 +241,7 @@ class ApprovalWorkflowService
                 $snapshot,
             )
         ) {
-            return;
+            return null;
         }
 
         $organizationId =
@@ -245,32 +267,43 @@ class ApprovalWorkflowService
                     && $pendingSnapshot == $snapshot;
             });
 
-        if (! $pending) {
-            $id = DB::table('approval_requests')
-                ->insertGetId([
-                    'organization_id' => $organizationId,
-                    'subject_type' => $subjectType,
-                    'subject_id' => $subjectId,
-                    'category' => $category,
-                    'status' => 'pending',
-                    'reason' => $reason,
-                    'snapshot' => json_encode(
-                        $snapshot,
-                        JSON_THROW_ON_ERROR,
-                    ),
-                    'requested_by' => $actorId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+        if ($pending) {
+            return (int) $pending->id;
+        }
 
-            $pending = (object) ['id' => $id];
+        return (int) DB::table('approval_requests')
+            ->insertGetId([
+                'organization_id' => $organizationId,
+                'subject_type' => $subjectType,
+                'subject_id' => $subjectId,
+                'category' => $category,
+                'status' => 'pending',
+                'reason' => $reason,
+                'snapshot' => json_encode(
+                    $snapshot,
+                    JSON_THROW_ON_ERROR,
+                ),
+                'requested_by' => $actorId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+    }
+
+    /**
+     * @param list<int> $pendingIds
+     */
+    private function throwIfPending(
+        array $pendingIds,
+    ): void {
+        if ($pendingIds === []) {
+            return;
         }
 
         throw ValidationException::withMessages([
             'approval' => [
-                'Approval required before this action can continue. Request #'
-                .$pending->id
-                .' is pending.',
+                'Approval required before this action can continue. Pending request(s): #'
+                .implode(', #', $pendingIds)
+                .'.',
             ],
         ]);
     }
