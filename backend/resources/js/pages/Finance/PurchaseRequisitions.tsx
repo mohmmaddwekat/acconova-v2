@@ -66,16 +66,22 @@ export default function PurchaseRequisitions() {
     const {
         workspace,
     } = usePage<AppPageProps>().props;
+    const activeOrganization =
+        workspace.activeOrganization;
     const role =
-        workspace.activeOrganization?.role
+        activeOrganization?.role
         ?? '';
     const canReview =
-        [
-            'owner',
-            'admin',
-            'manager',
-            'accountant',
-        ].includes(role);
+        activeOrganization?.permissions
+            ? activeOrganization.permissions.includes(
+                'finance.purchases.manage',
+            )
+            : [
+                'owner',
+                'admin',
+                'manager',
+                'accountant',
+            ].includes(role);
 
     const [
         response,
