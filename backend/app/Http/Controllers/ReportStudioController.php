@@ -262,33 +262,157 @@ class ReportStudioController extends Controller
     public function naturalLanguage(Request $request): JsonResponse
     {
         abort_unless($this->canViewReports($request), 403);
-        $data = $request->validate(['query' => ['required', 'string', 'max:500']]);
+
+        $data = $request->validate([
+            'query' => ['required', 'string', 'max:500'],
+        ]);
+
         $query = mb_strtolower($data['query']);
 
-        $feature = str_contains($query, 'profit') || str_contains($query, 'ربح')
-            ? 'profitability-explorer'
-            : (str_contains($query, 'inventory') || str_contains($query, 'مخزون')
-                ? 'inventory-movement'
-                : (str_contains($query, 'cash') || str_contains($query, 'كاش') || str_contains($query, 'نقد')
-                    ? 'cashflow-forecast'
-                    : 'customer-profitability'));
+        $featureRules = [
+            'margin-leakage' => ['margin leakage', 'leakage', 'تسرب', 'هامش منخفض'],
+            'customer-profitability' => ['customer profit', 'customer profitability', 'ربحية العميل', 'ربحية العملاء'],
+            'product-profitability' => ['product profit', 'product profitability', 'ربحية المنتج', 'ربحية المنتجات'],
+            'profitability-explorer' => ['profit', 'profitability', 'ربح', 'ربحية'],
+            'cash-conversion-cycle' => ['cash conversion', 'dso', 'dpo', 'دورة تحويل النقد'],
+            'receivables-movement' => ['receivable movement', 'حركة الذمم المدينة'],
+            'payables-movement' => ['payable movement', 'حركة الذمم الدائنة'],
+            'aging-trend' => ['aging trend', 'اتجاه الذمم', 'اعمار الذمم', 'أعمار الذمم'],
+            'payment-behavior' => ['payment behavior', 'سلوك الدفع', 'تأخير العملاء'],
+            'cashflow-forecast' => ['cashflow forecast', 'cash flow forecast', 'توقع التدفق', 'تدفق نقدي', 'سيولة'],
+            'dead-stock' => ['dead stock', 'slow moving', 'راكد', 'بطيء الحركة'],
+            'inventory-turnover' => ['inventory turnover', 'دوران المخزون'],
+            'stock-valuation' => ['stock valuation', 'inventory valuation', 'تقييم المخزون', 'قيمة المخزون'],
+            'inventory-movement' => ['inventory movement', 'stock movement', 'حركة المخزون', 'مخزون'],
+            'purchase-price-variance' => ['purchase price', 'price variance', 'سعر الشراء', 'انحراف الشراء'],
+            'supplier-performance' => ['supplier performance', 'أداء المورد', 'اداء المورد'],
+            'sales-performance' => ['sales performance', 'salesperson', 'أداء المبيعات', 'مندوب'],
+            'discount-analysis' => ['discount analysis', 'discount', 'خصم', 'خصومات'],
+            'returns-analysis' => ['returns', 'credit notes', 'مرتجعات', 'إشعارات دائنة', 'اشعارات دائنة'],
+            'tax-center' => ['tax', 'vat', 'ضريبة', 'ضرائب'],
+            'audit-report' => ['audit', 'changes', 'تدقيق', 'تغييرات'],
+            'variance-analysis' => ['actual vs budget', 'actual vs target', 'variance', 'انحراف', 'ميزانية مقابل'],
+            'top-bottom' => ['top 10', 'bottom 10', 'top ', 'bottom ', 'أعلى', 'ادنى', 'أدنى'],
+            'pareto' => ['pareto', '80/20', '80 20', 'باريتو'],
+            'concentration-risk' => ['concentration', 'dependency risk', 'تركز', 'تركيز الإيراد', 'اعتماد على عميل'],
+            'scenario-reports' => ['scenario', 'what if', 'سيناريو', 'ماذا لو'],
+            'period-comparison' => ['compare period', 'comparison', 'مقارنة', 'مقابل الشهر', 'مقابل السنة'],
+        ];
 
-        $dimension = str_contains($query, 'product') || str_contains($query, 'منتج')
-            ? 'product'
-            : (str_contains($query, 'supplier') || str_contains($query, 'مورد') ? 'supplier' : 'customer');
+        $feature = 'customer-profitability';
 
-        $months = 6;
-        if (preg_match('/(\d+)\s*(month|months|شهر|شهور)/u', $query, $match)) {
-            $months = max(1, min(36, (int) $match[1]));
+        foreach ($featureRules as $candidate => $needles) {
+            foreach ($needles as $needle) {
+                if (str_contains($query, $needle)) {
+                    $feature = $candidate;
+                    break 2;
+                }
+            }
         }
 
-        return response()->json(['data' => [
-            'feature' => $feature,
-            'dimension' => $dimension,
-            'date_from' => now()->subMonths($months)->startOfDay()->toDateString(),
-            'date_to' => now()->toDateString(),
-            'explanation' => 'Review these settings before running the report.',
-        ]]);
+        $dimensionRules = [
+            'product' => ['product', 'products', 'منتج', 'منتجات'],
+            'supplier' => ['supplier', 'suppliers', 'مورد', 'موردين'],
+            'employee' => ['employee', 'salesperson', 'staff', 'موظف', 'مندوب'],
+            'branch' => ['branch', 'branches', 'فرع', 'فروع'],
+            'warehouse' => ['warehouse', 'warehouses', 'مستودع', 'مستودعات'],
+            'month' => ['by month', 'monthly', 'حسب الشهر', 'شهري'],
+            'customer' => ['customer', 'customers', 'client', 'عميل', 'عملاء'],
+        ];
+
+        $dimension = 'customer';
+
+        foreach ($dimensionRules as $candidate => $needles) {
+            foreach ($needles as $needle) {
+                if (str_contains($query, $needle)) {
+                    $dimension = $candidate;
+                    break 2;
+                }
+            }
+        }
+
+        $metricRules = [
+            'gross_profit' => ['gross profit', 'profit', 'ربح إجمالي', 'الربح'],
+            'margin_percent' => ['margin', 'هامش'],
+            'quantity' => ['quantity', 'units', 'كمية', 'كميات'],
+            'discounts' => ['discount', 'خصم'],
+            'outstanding' => ['outstanding', 'balance due', 'مستحق', 'متبقي'],
+            'revenue' => ['revenue', 'sales', 'إيراد', 'ايراد', 'مبيعات'],
+        ];
+
+        $metric = 'revenue';
+
+        foreach ($metricRules as $candidate => $needles) {
+            foreach ($needles as $needle) {
+                if (str_contains($query, $needle)) {
+                    $metric = $candidate;
+                    break 2;
+                }
+            }
+        }
+
+        $to = now();
+        $from = now()->subMonths(6)->startOfDay();
+        $comparisonMode = 'previous_period';
+
+        if (
+            str_contains($query, 'this month')
+            || str_contains($query, 'هذا الشهر')
+            || str_contains($query, 'الشهر الحالي')
+        ) {
+            $from = now()->startOfMonth();
+        } elseif (
+            str_contains($query, 'this quarter')
+            || str_contains($query, 'هذا الربع')
+            || str_contains($query, 'الربع الحالي')
+        ) {
+            $from = now()->startOfQuarter();
+        } elseif (
+            str_contains($query, 'ytd')
+            || str_contains($query, 'year to date')
+            || str_contains($query, 'من بداية السنة')
+        ) {
+            $from = now()->startOfYear();
+            $comparisonMode = 'ytd_previous_year';
+        } elseif (
+            preg_match('/(\d+)\s*(day|days|يوم|أيام|ايام)/u', $query, $match)
+        ) {
+            $from = now()->subDays(max(1, min(730, (int) $match[1])))->startOfDay();
+        } elseif (
+            preg_match('/(\d+)\s*(month|months|شهر|شهور|أشهر|اشهر)/u', $query, $match)
+        ) {
+            $from = now()->subMonths(max(1, min(36, (int) $match[1])))->startOfDay();
+        } elseif (
+            preg_match('/(\d+)\s*(year|years|سنة|سنوات)/u', $query, $match)
+        ) {
+            $from = now()->subYears(max(1, min(5, (int) $match[1])))->startOfDay();
+        }
+
+        if (
+            str_contains($query, 'previous month')
+            || str_contains($query, 'الشهر السابق')
+        ) {
+            $comparisonMode = 'previous_month';
+        }
+
+        if (
+            str_contains($query, 'previous quarter')
+            || str_contains($query, 'الربع السابق')
+        ) {
+            $comparisonMode = 'previous_quarter';
+        }
+
+        return response()->json([
+            'data' => [
+                'feature' => $feature,
+                'dimension' => $dimension,
+                'metric' => $metric,
+                'comparison_mode' => $comparisonMode,
+                'date_from' => $from->toDateString(),
+                'date_to' => $to->toDateString(),
+                'explanation' => 'Review these settings before running the report.',
+            ],
+        ]);
     }
 
     public function snapshot(Request $request): JsonResponse
@@ -327,9 +451,13 @@ class ReportStudioController extends Controller
         return $this->storeTextItem($request, 'report_comments', false);
     }
 
-    private function storeTextItem(Request $request, string $table, bool $annotation): JsonResponse
-    {
+    private function storeTextItem(
+        Request $request,
+        string $table,
+        bool $annotation,
+    ): JsonResponse {
         abort_unless($this->canViewReports($request), 403);
+
         $data = $request->validate([
             'report_id' => ['nullable', 'integer'],
             'anchor_key' => ['nullable', 'string', 'max:180'],
@@ -339,8 +467,10 @@ class ReportStudioController extends Controller
             'mentions.*' => ['integer'],
         ]);
 
+        $organizationId = app(TenantContext::class)->id();
+
         $row = [
-            'organization_id' => app(TenantContext::class)->id(),
+            'organization_id' => $organizationId,
             'report_id' => $data['report_id'] ?? null,
             'created_by' => $request->user()->id,
             'anchor_key' => $data['anchor_key'] ?? null,
@@ -352,10 +482,61 @@ class ReportStudioController extends Controller
         if ($annotation) {
             $row['period_date'] = $data['period_date'] ?? null;
         } else {
-            $row['mentions'] = json_encode($data['mentions'] ?? [], JSON_THROW_ON_ERROR);
+            $mentions = collect($data['mentions'] ?? [])
+                ->map(fn ($id): int => (int) $id)
+                ->unique()
+                ->values();
+
+            $validMentions = DB::table('memberships')
+                ->where('organization_id', $organizationId)
+                ->whereIn('user_id', $mentions->all())
+                ->pluck('user_id')
+                ->map(fn ($id): int => (int) $id)
+                ->values();
+
+            $row['mentions'] = json_encode(
+                $validMentions->all(),
+                JSON_THROW_ON_ERROR,
+            );
         }
 
         $id = DB::table($table)->insertGetId($row);
+
+        if (! $annotation) {
+            $reportName = null;
+
+            if (! empty($data['report_id'])) {
+                $reportName = DB::table('custom_reports')
+                    ->where('organization_id', $organizationId)
+                    ->where('id', (int) $data['report_id'])
+                    ->value('name');
+            }
+
+            $senderName = (string) ($request->user()->name ?? 'Team member');
+
+            foreach ($validMentions ?? collect() as $mentionedUserId) {
+                if ((int) $mentionedUserId === (int) $request->user()->id) {
+                    continue;
+                }
+
+                DB::table('workspace_notifications')->insertOrIgnore([
+                    'organization_id' => $organizationId,
+                    'user_id' => (int) $mentionedUserId,
+                    'event_key' => 'report-comment:'.$id.':'.$mentionedUserId,
+                    'kind' => 'report_mention',
+                    'category' => 'activity',
+                    'data' => json_encode([
+                        'name' => $senderName,
+                        'detail' => $reportName
+                            ?: ($data['anchor_key'] ?? 'Report'),
+                    ], JSON_THROW_ON_ERROR),
+                    'url' => '/app/reports/studio',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
         return response()->json(['id' => $id], 201);
     }
 
