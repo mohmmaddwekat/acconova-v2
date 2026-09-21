@@ -1043,10 +1043,7 @@ export default function OperationsWorkspace({
                                         busy
                                         || ! canManageFeature
                                     }
-                                    fulfillment={
-                                        fulfillment[String(row.id)]
-                                        ?? ''
-                                    }
+                                    fulfillments={fulfillment}
                                     claimReason={
                                         claimReason[String(row.id)]
                                         ?? ''
@@ -1060,10 +1057,10 @@ export default function OperationsWorkspace({
                                         ?? ''
                                     }
                                     parties={parties}
-                                    onFulfillmentChange={(value) =>
+                                    onFulfillmentChange={(key, value) =>
                                         setFulfillment((current) => ({
                                             ...current,
-                                            [String(row.id)]: value,
+                                            [key]: value,
                                         }))
                                     }
                                     onClaimReasonChange={(value) =>
@@ -2005,7 +2002,7 @@ function RowActions({
     row,
     ar,
     busy,
-    fulfillment,
+    fulfillments,
     claimReason,
     serialCustomer,
     serialSaleInvoice,
@@ -2024,12 +2021,15 @@ function RowActions({
     row: Row;
     ar: boolean;
     busy: boolean;
-    fulfillment: string;
+    fulfillments: Record<string, string>;
     claimReason: string;
     serialCustomer: string;
     serialSaleInvoice: string;
     parties: Option[];
-    onFulfillmentChange: (value: string) => void;
+    onFulfillmentChange: (
+        key: string,
+        value: string,
+    ) => void;
     onClaimReasonChange: (value: string) => void;
     onSerialCustomerChange: (value: string) => void;
     onSerialSaleInvoiceChange: (value: string) => void;
@@ -2278,50 +2278,107 @@ function RowActions({
 
             {(feature === 'sales-orders'
                 || feature === 'purchase-orders')
-                && row.first_line_id
+                && Array.isArray(row.lines)
+                && row.lines.length > 0
                 && (
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="number"
-                            min="0"
-                            max={row.quantity}
-                            step="0.0001"
-                            value={fulfillment}
-                            onChange={(event) =>
-                                onFulfillmentChange(
-                                    event.target.value,
-                                )
-                            }
-                            placeholder={
-                                ar
-                                    ? 'الكمية المنفذة'
-                                    : 'Fulfilled qty'
-                            }
-                            className="h-9 w-32 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
-                        />
+                    <div className="w-full space-y-2">
+                        {row.lines.map((line: Row) => {
+                            const key =
+                                String(row.id)
+                                + ':'
+                                + String(line.id);
+                            const value =
+                                fulfillments[key]
+                                ?? String(
+                                    line.fulfilled_quantity
+                                    ?? '',
+                                );
 
-                        <button
-                            type="button"
-                            disabled={
-                                busy
-                                || fulfillment === ''
-                            }
-                            onClick={() =>
-                                onPatch({
-                                    line_id:
-                                        Number(
-                                            row.first_line_id,
-                                        ),
-                                    fulfilled_quantity:
-                                        fulfillment,
-                                })
-                            }
-                            className="h-9 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
-                        >
-                            {feature === 'sales-orders'
-                                ? (ar ? 'تسجيل التسليم' : 'Record delivery')
-                                : (ar ? 'تسجيل الاستلام' : 'Record receipt')}
-                        </button>
+                            return (
+                                <div
+                                    key={line.id}
+                                    className="flex flex-wrap items-center gap-2 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2"
+                                >
+                                    <div className="min-w-40 flex-1">
+                                        <p className="text-[10px] font-semibold text-[var(--ac-text)]">
+                                            {line.product
+                                                || line.description}
+                                        </p>
+                                        <p className="mt-0.5 text-[9px] text-[var(--ac-text-muted)]">
+                                            {ar ? 'مطلوب' : 'Ordered'}
+                                            {' '}
+                                            {formatValue(
+                                                line.quantity,
+                                                ar,
+                                            )}
+                                            {' · '}
+                                            {ar ? 'منفذ' : 'Fulfilled'}
+                                            {' '}
+                                            {formatValue(
+                                                line.fulfilled_quantity,
+                                                ar,
+                                            )}
+                                            {line.warehouse
+                                                ? ' · ' + line.warehouse
+                                                : ''}
+                                        </p>
+                                    </div>
+
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max={line.quantity}
+                                        step="0.0001"
+                                        value={value}
+                                        onChange={(event) =>
+                                            onFulfillmentChange(
+                                                key,
+                                                event.target.value,
+                                            )
+                                        }
+                                        placeholder={
+                                            ar
+                                                ? 'الكمية المنفذة'
+                                                : 'Fulfilled qty'
+                                        }
+                                        className="h-9 w-32 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            busy
+                                            || value === ''
+                                            || Number(value)
+                                                === Number(
+                                                    line.fulfilled_quantity,
+                                                )
+                                        }
+                                        onClick={() =>
+                                            onPatch({
+                                                line_id:
+                                                    Number(line.id),
+                                                fulfilled_quantity:
+                                                    value,
+                                            })
+                                        }
+                                        className="h-9 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)] disabled:opacity-40"
+                                    >
+                                        {feature === 'sales-orders'
+                                            ? (
+                                                ar
+                                                    ? 'تسجيل التسليم'
+                                                    : 'Record delivery'
+                                            )
+                                            : (
+                                                ar
+                                                    ? 'تسجيل الاستلام'
+                                                    : 'Record receipt'
+                                            )}
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
