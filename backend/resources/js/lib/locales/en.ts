@@ -4,6 +4,7 @@ export default {
     'feedback.notes': 'Notes saved successfully.',
     'feedback.workspace': 'Workspace changed successfully.',
     'errors.unexpected': 'Something went wrong. Please try again.',
+    'errors.server': 'An internal server error occurred. It has been logged automatically.',
     'errors.network': 'Unable to connect. Check your connection and try again.',
     'errors.validation': 'Please review the highlighted fields.',
     'errors.invalidField': 'Please check this value.',
