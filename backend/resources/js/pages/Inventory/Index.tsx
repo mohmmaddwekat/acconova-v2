@@ -1,14 +1,17 @@
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import {
     Head,
+    Link,
     usePage,
 } from '@inertiajs/react';
 import {
     Archive,
+    ArrowRightLeft,
     Boxes,
     Pencil,
     Plus,
     RotateCcw,
+    Sparkles,
     Star,
     Trash2,
     TrendingDown,
@@ -603,6 +606,34 @@ function InventoryWorkspace() {
                         </div>
                     </div>
                 </section>
+
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                    <Link
+                        href="/app/inventory/intelligence"
+                        className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent)] transition hover:-translate-y-px"
+                    >
+                        <Sparkles size={14} />
+                        {ar ? 'ذكاء المخزون' : 'Inventory intelligence'}
+                    </Link>
+
+                    {canManage && (
+                        <Link
+                            href="/app/inventory/transfers"
+                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                        >
+                            <ArrowRightLeft size={14} />
+                            {ar ? 'طلبات نقل المستودعات' : 'Warehouse transfers'}
+                        </Link>
+                    )}
+
+                    <Link
+                        href="/app/inventory/production"
+                        className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                    >
+                        <Boxes size={14} />
+                        {ar ? 'الإنتاج' : 'Production'}
+                    </Link>
+                </div>
 
                 <section className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                     <MetricCard
