@@ -2,6 +2,7 @@
 
 use App\Models\Organization;
 use App\Services\NotificationCenter;
+use App\Services\ScheduledReportService;
 use App\Services\InvoiceAutomationService;
 use App\Tenancy\TenantContext;
 use App\Enums\OrganizationRole;
@@ -22,6 +23,18 @@ Artisan::command('notifications:sync', function (): void {
 })->purpose('Persist upcoming and overdue payment notifications');
 
 Schedule::command('notifications:sync')->hourly()->withoutOverlapping();
+
+Artisan::command('reports:sync-scheduled', function (): void {
+    Organization::query()->chunkById(100, function ($organizations): void {
+        foreach ($organizations as $organization) {
+            app(ScheduledReportService::class)->runDue($organization->id);
+        }
+    });
+})->purpose('Generate due scheduled report snapshots and notify recipients');
+
+Schedule::command('reports:sync-scheduled')
+    ->hourly()
+    ->withoutOverlapping();
 
 
 Artisan::command('invoices:sync-recurring', function (): void {
