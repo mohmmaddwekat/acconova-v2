@@ -733,10 +733,20 @@ class CommercialOperationsController extends Controller
             ->groupBy('party_id');
 
         return $rows
-            ->groupBy('party_id')
-            ->map(function ($partyRows, $partyId) use ($promiseRows): array {
+            ->groupBy(
+                fn ($row): string =>
+                    (string) $row->party_id
+                    .'|'
+                    .$row->currency,
+            )
+            ->map(function ($partyRows) use ($promiseRows): array {
                 $first = $partyRows->first();
-                $promises = $promiseRows->get($partyId, collect());
+                $partyId =
+                    (int) $first->party_id;
+                $promises = $promiseRows->get(
+                    $partyId,
+                    collect(),
+                );
                 $nextPromise = $promises->first();
                 $oldestDue = $partyRows
                     ->pluck('due_date')
@@ -847,9 +857,16 @@ class CommercialOperationsController extends Controller
             ]);
 
         return $rows
-            ->groupBy('party_id')
-            ->map(function ($partyRows, $partyId): array {
+            ->groupBy(
+                fn ($row): string =>
+                    (string) $row->party_id
+                    .'|'
+                    .$row->currency,
+            )
+            ->map(function ($partyRows): array {
                 $first = $partyRows->first();
+                $partyId =
+                    (int) $first->party_id;
                 $buckets = [
                     'current' => 0.0,
                     '0_30' => 0.0,
