@@ -519,6 +519,20 @@ class FinanceDocumentService
             }
         }
 
+        if (
+            $document->isSale()
+            && (float) $document->tax_total > 0
+            && trim(
+                (string) (
+                    $document->seller_tax_snapshot['tax_number']
+                    ?? ''
+                ),
+            ) === ''
+        ) {
+            $warnings[] =
+                'This invoice contains tax but the seller tax/VAT number is missing from the tax invoice details.';
+        }
+
         if ($document->kind === 'purchase_invoice') {
             $duplicates = FinancialDocument::query()
                 ->where('id', '!=', $document->id)
