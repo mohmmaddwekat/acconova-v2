@@ -50,6 +50,7 @@ type Option = {
     value: string;
     label: string;
     tracksInventory?: boolean;
+    roles?: string[];
 };
 
 type Field = {
@@ -511,6 +512,7 @@ export default function OperationsWorkspace({
                             party.company_name
                             || party.name
                             || '#' + String(party.id),
+                        roles: party.roles,
                     })),
                 );
             }
@@ -915,23 +917,35 @@ function createFields(
     const party = (
         key = 'party_id',
         required = true,
+        role?: 'customer' | 'supplier',
     ): Field => ({
         key,
         ar:
-            key === 'supplier_party_id'
+            role === 'supplier'
                 ? 'المورد'
-                : 'العميل / المورد',
+                : role === 'customer'
+                    ? 'العميل'
+                    : 'العميل / المورد',
         en:
-            key === 'supplier_party_id'
+            role === 'supplier'
                 ? 'Supplier'
-                : 'Party',
+                : role === 'customer'
+                    ? 'Customer'
+                    : 'Party',
         type: 'select',
         options: [
             {
                 value: '',
                 label: ar ? '— اختر —' : '— Select —',
             },
-            ...parties,
+            ...(
+                role
+                    ? parties.filter(
+                        option =>
+                            option.roles?.includes(role),
+                    )
+                    : parties
+            ),
         ],
         required,
     });
@@ -967,7 +981,7 @@ function createFields(
 
     if (feature === 'promises') {
         return [
-            party(),
+            party('party_id', true, 'customer'),
             {
                 key: 'financial_document_id',
                 ar: 'رقم ID الفاتورة',
@@ -1035,7 +1049,13 @@ function createFields(
 
     if (tradeFeatures.includes(feature)) {
         return [
-            party(),
+            party(
+                'party_id',
+                true,
+                feature === 'purchase-orders'
+                    ? 'supplier'
+                    : 'customer',
+            ),
             {
                 key: 'issue_date',
                 ar: 'تاريخ المستند',
@@ -1102,7 +1122,7 @@ function createFields(
 
     if (feature === 'warranties') {
         return [
-            party('party_id', false),
+            party('party_id', false, 'customer'),
             product(),
             {
                 key: 'financial_document_id',
@@ -1142,8 +1162,8 @@ function createFields(
         return [
             product(),
             warehouse(),
-            party('supplier_party_id', false),
-            party('customer_party_id', false),
+            party('supplier_party_id', false, 'supplier'),
+            party('customer_party_id', false, 'customer'),
             {
                 key: 'source_purchase_document_id',
                 ar: 'ID فاتورة الشراء',
@@ -1201,7 +1221,7 @@ function createFields(
         return [
             product(),
             warehouse(),
-            party('supplier_party_id', false),
+            party('supplier_party_id', false, 'supplier'),
             {
                 key: 'lot_code',
                 ar: 'Lot / Batch',
