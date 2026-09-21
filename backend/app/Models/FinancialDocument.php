@@ -20,6 +20,8 @@ class FinancialDocument extends Model
         'kind',
         'number',
         'external_number',
+        'seller_tax_snapshot',
+        'buyer_tax_snapshot',
         'revision',
         'status',
         'issue_date',
@@ -51,6 +53,8 @@ class FinancialDocument extends Model
     {
         return [
             'revision' => 'integer',
+            'seller_tax_snapshot' => 'array',
+            'buyer_tax_snapshot' => 'array',
             'issue_date' => 'date',
             'due_date' => 'date',
             'exchange_rate' => 'decimal:8',
