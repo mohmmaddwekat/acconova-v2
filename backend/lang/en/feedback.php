@@ -2,6 +2,7 @@
 
 return [
     'unexpected' => 'Something went wrong. Please try again.',
+    'server' => 'An internal server error occurred. It has been logged automatically.',
     'session' => 'Your session has expired. Please sign in again.',
     'forbidden' => "You don't have permission to perform this action.",
     'not_found' => 'This record is no longer available.',
