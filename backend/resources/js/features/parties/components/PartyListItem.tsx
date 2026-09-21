@@ -141,7 +141,8 @@ export function PartyListItem({
     onArchive,
     onRestore,
 }: PartyListItemProps) {
-    useLocale();
+    const locale =
+        useLocale();
 
     const archived =
         party.deleted_at !==
@@ -420,6 +421,21 @@ export function PartyListItem({
                 style={columnStyle('actions')}
                 className="flex flex-wrap items-center gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0"
             >
+                <a
+                    href={'/app/parties/' + String(party.id)}
+                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] px-3 text-[9px] font-bold text-[var(--ac-accent)] transition hover:border-[var(--ac-accent)]"
+                    title={
+                        locale === 'ar'
+                            ? 'فتح الحساب الكامل'
+                            : 'Open full account'
+                    }
+                >
+                    <ArrowUpRight size={13} />
+                    {locale === 'ar'
+                        ? 'الحساب'
+                        : 'Account'}
+                </a>
+
                 <button
                     type="button"
                     aria-label={t(
