@@ -54,12 +54,35 @@ class ReportStudioController extends Controller
                     'visualization' => $row->visualization
                         ? (json_decode($row->visualization, true) ?: null)
                         : null,
+                    'configuration' => $row->configuration
+                        ? (json_decode($row->configuration, true) ?: null)
+                        : null,
                 ]),
             'annotations' => Schema::hasTable('report_annotations')
-                ? DB::table('report_annotations')->where('organization_id', $org)->latest('id')->limit(30)->get()
+                ? DB::table('report_annotations as annotation')
+                    ->leftJoin('users as creator', 'creator.id', '=', 'annotation.created_by')
+                    ->where('annotation.organization_id', $org)
+                    ->latest('annotation.id')
+                    ->limit(30)
+                    ->get([
+                        'annotation.*',
+                        'creator.name as creator_name',
+                    ])
                 : [],
             'comments' => Schema::hasTable('report_comments')
-                ? DB::table('report_comments')->where('organization_id', $org)->latest('id')->limit(30)->get()
+                ? DB::table('report_comments as comment')
+                    ->leftJoin('users as creator', 'creator.id', '=', 'comment.created_by')
+                    ->where('comment.organization_id', $org)
+                    ->latest('comment.id')
+                    ->limit(30)
+                    ->get([
+                        'comment.*',
+                        'creator.name as creator_name',
+                    ])
+                    ->map(function ($row) {
+                        $row->mentions = json_decode($row->mentions ?: '[]', true) ?: [];
+                        return $row;
+                    })
                 : [],
             'approvals' => Schema::hasTable('report_approvals')
                 ? DB::table('report_approvals as approval')
@@ -266,6 +289,32 @@ class ReportStudioController extends Controller
                     'x' => $data['x'] ?? null,
                     'y' => $data['y'] ?? null,
                 ], JSON_THROW_ON_ERROR),
+                'updated_at' => now(),
+            ]);
+
+        abort_unless($updated > 0, 404);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function saveConfiguration(Request $request): JsonResponse
+    {
+        abort_unless($this->canViewReports($request), 403);
+
+        $data = $request->validate([
+            'report_id' => ['required', 'integer'],
+            'configuration' => ['required', 'array'],
+        ]);
+
+        $updated = DB::table('custom_reports')
+            ->where('organization_id', app(TenantContext::class)->id())
+            ->where('id', $data['report_id'])
+            ->where('created_by', $request->user()->id)
+            ->update([
+                'configuration' => json_encode(
+                    $data['configuration'],
+                    JSON_THROW_ON_ERROR,
+                ),
                 'updated_at' => now(),
             ]);
 
