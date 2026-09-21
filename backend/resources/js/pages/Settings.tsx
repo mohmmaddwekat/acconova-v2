@@ -24,6 +24,7 @@ import {
     CreditCard,
     Eye,
     FileSpreadsheet,
+    FlaskConical,
     FileText,
     Globe2,
     Hash,
@@ -863,6 +864,30 @@ function SettingsWorkspace() {
                                                 <Building2 size={14} />
                                                 {text('فتح إعدادات المؤسسة', 'Open organization settings')}
                                             </button>
+                                        </SettingsCard>
+
+                                        <SettingsCard
+                                            title={text('اختبارات النظام', 'System checks')}
+                                            description={text(
+                                                'فحص قراءة فقط لقاعدة البيانات والجداول والمسارات المهمة بعد إضافة أو تعديل فيتشرز.',
+                                                'Read-only checks for the database, required tables and key feature routes after product changes.',
+                                            )}
+                                            icon={FlaskConical}
+                                        >
+                                            <p className="text-[10px] leading-6 text-[var(--acs-text-soft)]">
+                                                {text(
+                                                    'استخدمها بعد migrations أو دفعة تطوير كبيرة للتأكد أن أجزاء AccoNova الأساسية جاهزة ومتصلة.',
+                                                    'Run it after migrations or a large development batch to verify that key AccoNova surfaces are ready and connected.',
+                                                )}
+                                            </p>
+
+                                            <Link
+                                                href="/app/system-checks"
+                                                className={secondaryButton + ' mt-4'}
+                                            >
+                                                <FlaskConical size={14} />
+                                                {text('فتح اختبارات النظام', 'Open system checks')}
+                                            </Link>
                                         </SettingsCard>
                                     </div>
                                 </div>
