@@ -496,16 +496,27 @@ export default function OperationsWorkspace({
         )
         : builtInFinanceManage;
 
+    const inventoryManage = customPermissions
+        ? customPermissions.includes(
+            'inventory.manage',
+        )
+        : [
+            'owner',
+            'admin',
+            'manager',
+        ].includes(role ?? '');
+
     const canManageFeature =
         feature === 'pipeline'
             ? partyManage
-            : [
-                'warranties',
-                'serials',
-                'batches',
-            ].includes(feature)
+            : feature === 'warranties'
                 ? productManage
-                : feature === 'purchase-orders'
+                : [
+                    'serials',
+                    'batches',
+                ].includes(feature)
+                    ? inventoryManage
+                    : feature === 'purchase-orders'
                     ? purchasesManage
                     : feature === 'returns'
                         ? salesManage
