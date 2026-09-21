@@ -1683,6 +1683,88 @@ function InvoicePrintView({
         ar ? arabic : english;
     const invoice = lookups.settings.invoice;
     const organization = lookups.settings.organization;
+
+    const organizationTax = {
+        name:
+            organization.legal_name
+            || organization.trade_name
+            || organization.name,
+        tax_number:
+            organization.vat_number
+            || '',
+        registration_number:
+            organization.commercial_registration
+            || '',
+        address:
+            organization.address
+            || '',
+        city:
+            organization.city
+            || '',
+        region: '',
+        country:
+            organization.country
+            || '',
+        phone:
+            organization.phone
+            || '',
+        email:
+            organization.support_email
+            || '',
+        website:
+            organization.website
+            || '',
+    };
+
+    const partyTax = {
+        name:
+            document.party?.name
+            || '',
+        tax_number:
+            document.party_detail?.tax_number
+            || '',
+        registration_number: '',
+        address:
+            [
+                document.party_detail?.address_line_1,
+                document.party_detail?.address_line_2,
+            ]
+                .filter(Boolean)
+                .join(', '),
+        city:
+            document.party_detail?.city
+            || '',
+        region:
+            document.party_detail?.region_code
+            || '',
+        country:
+            document.party_detail?.country_code
+            || '',
+        phone:
+            document.party_detail?.phone
+            || '',
+        email:
+            document.party_detail?.email
+            || '',
+        website: '',
+    };
+
+    const seller =
+        document.seller_tax_snapshot
+        ?? (
+            document.kind === 'sale_invoice'
+                ? organizationTax
+                : partyTax
+        );
+
+    const buyer =
+        document.buyer_tax_snapshot
+        ?? (
+            document.kind === 'sale_invoice'
+                ? partyTax
+                : organizationTax
+        );
+
     const columns = invoice.columns;
     const paperSize = invoice.paper_size === 'letter'
         ? 'Letter'
@@ -1752,35 +1834,35 @@ function InvoicePrintView({
                                 className="text-2xl font-extrabold"
                                 style={{ color: accentColor }}
                             >
-                                {organization.trade_name || organization.name}
+                                {organization.trade_name || seller.name || organization.name}
                             </div>
                             <div className="mt-1 text-xs text-slate-500">
-                                {organization.legal_name}
+                                {seller.name}
                             </div>
                         </div>
                     )}
 
                     {invoice.show_contact && (
                         <div className="text-[10px] leading-5 text-slate-500">
-                            {[organization.address, organization.city, organization.country]
+                            {[seller.address, seller.city, seller.region, seller.country]
                                 .filter(Boolean)
                                 .join(' · ')}
-                            {(organization.phone || organization.support_email) && <br />}
-                            {[organization.phone, organization.support_email, organization.website]
+                            {(seller.phone || seller.email || seller.website) && <br />}
+                            {[seller.phone, seller.email, seller.website]
                                 .filter(Boolean)
                                 .join(' · ')}
-                            {organization.commercial_registration && (
+                            {seller.registration_number && (
                                 <>
                                     <br />
-                                    {text('السجل التجاري', 'Registration')}: {organization.commercial_registration}
+                                    {text('رقم التسجيل', 'Registration')}: {seller.registration_number}
                                 </>
                             )}
                         </div>
                     )}
 
-                    {invoice.show_tax_number && organization.vat_number && (
-                        <div className="text-[10px] text-slate-500">
-                            {text('الرقم الضريبي', 'VAT')}: {organization.vat_number}
+                    {invoice.show_tax_number && seller.tax_number && (
+                        <div className="text-[10px] font-semibold text-slate-600">
+                            {text('الرقم الضريبي', 'Tax / VAT number')}: {seller.tax_number}
                         </div>
                     )}
                 </header>
@@ -1789,7 +1871,11 @@ function InvoicePrintView({
                     <div>
                         <h1 className="text-xl font-bold">
                             {document.kind === 'sale_invoice'
-                                ? text('فاتورة بيع', 'Sales invoice')
+                                ? (
+                                    seller.tax_number
+                                        ? text('فاتورة ضريبية', 'Tax Invoice')
+                                        : text('فاتورة بيع', 'Sales invoice')
+                                )
                                 : text('فاتورة شراء', 'Purchase invoice')}
                         </h1>
                         <p className="mt-1 text-xs text-slate-500">
@@ -1804,15 +1890,48 @@ function InvoicePrintView({
                     </div>
                 </div>
 
-                <div className="mb-5 rounded-lg bg-slate-50 p-3 text-[10px] leading-5">
-                    <strong className="block text-xs text-slate-700">
-                        {document.party?.name ?? text('بدون طرف', 'No party')}
-                    </strong>
-                    {document.party_detail?.tax_number && (
-                        <span className="text-slate-500">
-                            {text('الرقم الضريبي', 'Tax number')}: {document.party_detail.tax_number}
+                <div className="mb-5 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-[10px] leading-5 sm:grid-cols-2">
+                    <div>
+                        <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                            {text('البائع', 'Seller')}
                         </span>
-                    )}
+                        <strong className="mt-1 block text-xs text-slate-700">
+                            {seller.name || '—'}
+                        </strong>
+                        {seller.tax_number && (
+                            <div className="text-slate-500">
+                                {text('الرقم الضريبي', 'Tax number')}: {seller.tax_number}
+                            </div>
+                        )}
+                    </div>
+
+                    <div>
+                        <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                            {text('المشتري', 'Buyer')}
+                        </span>
+                        <strong className="mt-1 block text-xs text-slate-700">
+                            {buyer.name || '—'}
+                        </strong>
+                        {buyer.tax_number && (
+                            <div className="text-slate-500">
+                                {text('الرقم الضريبي', 'Tax number')}: {buyer.tax_number}
+                            </div>
+                        )}
+                        {[buyer.address, buyer.city, buyer.region, buyer.country]
+                            .filter(Boolean)
+                            .length > 0 && (
+                            <div className="text-slate-500">
+                                {[buyer.address, buyer.city, buyer.region, buyer.country]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                            </div>
+                        )}
+                        {buyer.registration_number && (
+                            <div className="text-slate-500">
+                                {text('رقم التسجيل', 'Registration')}: {buyer.registration_number}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <table className="w-full border-collapse text-[10px]">
@@ -1835,7 +1954,16 @@ function InvoicePrintView({
                                 {columns.includes('quantity') && <td className="px-2 py-2">{line.quantity} {line.unit}</td>}
                                 {columns.includes('unit_price') && <td className="px-2 py-2"><Money value={line.unit_price} currency={document.currency} compact /></td>}
                                 {columns.includes('discount') && <td className="px-2 py-2"><Money value={line.line_discount ?? 0} currency={document.currency} compact /></td>}
-                                {columns.includes('tax') && <td className="px-2 py-2"><Money value={line.line_tax ?? 0} currency={document.currency} compact /></td>}
+                                {columns.includes('tax') && (
+                                    <td className="px-2 py-2">
+                                        <div className="font-semibold">
+                                            {line.tax_rate ?? '0'}%
+                                        </div>
+                                        <div className="text-[9px] text-slate-500">
+                                            <Money value={line.line_tax ?? 0} currency={document.currency} compact />
+                                        </div>
+                                    </td>
+                                )}
                                 {columns.includes('total') && <td className="px-2 py-2 font-semibold"><Money value={line.line_total ?? 0} currency={document.currency} compact /></td>}
                             </tr>
                         ))}
