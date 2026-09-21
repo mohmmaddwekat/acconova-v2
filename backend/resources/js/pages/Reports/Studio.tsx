@@ -772,6 +772,8 @@ export default function ReportStudio() {
         useState(0);
     const [scenarioCost, setScenarioCost] =
         useState(0);
+    const [scenarioCurrency, setScenarioCurrency] =
+        useState(0);
 
     const [exceptionMetric, setExceptionMetric] =
         useState('margin');
@@ -914,7 +916,8 @@ export default function ReportStudio() {
                                     scenarioSales,
                                 cost_percent:
                                     scenarioCost,
-                                currency_percent: 0,
+                                currency_percent:
+                                    scenarioCurrency,
                             },
                             exception: {
                                 metric:
@@ -2703,7 +2706,7 @@ export default function ReportStudio() {
 
                             {selected ===
                                 'scenario-reports' && (
-                                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                <div className="mt-4 grid gap-3 md:grid-cols-3">
                                     <label className="space-y-1">
                                         <span className="text-[9px] text-[var(--ac-text-muted)]">
                                             {t(
@@ -2752,6 +2755,35 @@ export default function ReportStudio() {
                                             onChange={
                                                 event =>
                                                     setScenarioCost(
+                                                        Number(
+                                                            event
+                                                                .target
+                                                                .value,
+                                                        ),
+                                                    )
+                                            }
+                                        />
+                                    </label>
+
+                                    <label className="space-y-1">
+                                        <span className="text-[9px] text-[var(--ac-text-muted)]">
+                                            {t(
+                                                'تغير سعر الصرف %',
+                                                'Currency rate change %',
+                                            )}
+                                        </span>
+                                        <input
+                                            type="number"
+                                            className={
+                                                input
+                                                + ' w-full'
+                                            }
+                                            value={
+                                                scenarioCurrency
+                                            }
+                                            onChange={
+                                                event =>
+                                                    setScenarioCurrency(
                                                         Number(
                                                             event
                                                                 .target
