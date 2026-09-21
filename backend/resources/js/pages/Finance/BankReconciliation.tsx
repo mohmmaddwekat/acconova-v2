@@ -9,7 +9,9 @@ import {
     CheckCircle2,
     Landmark,
     Link2,
+    Search,
     Upload,
+    X,
     XCircle,
 } from 'lucide-react';
 import {
@@ -27,6 +29,23 @@ type SuggestedMatch = {
     amount: string;
     reference: string | null;
     method: string;
+};
+
+type ReconciliationCandidate = {
+    id: number;
+    number: string;
+    direction: string;
+    movement_date: string | null;
+    amount: string;
+    currency: string;
+    method: string;
+    reference: string | null;
+    party: {
+        id: number;
+        name: string;
+    } | null;
+    amount_difference: string;
+    day_difference: number | null;
 };
 
 type BankLine = {
@@ -134,6 +153,27 @@ export default function BankReconciliation() {
         useRef<HTMLInputElement | null>(
             null,
         );
+
+    const [
+        manualLine,
+        setManualLine,
+    ] = useState<BankLine | null>(
+        null,
+    );
+    const [
+        manualCandidates,
+        setManualCandidates,
+    ] = useState<ReconciliationCandidate[]>(
+        [],
+    );
+    const [
+        manualSearch,
+        setManualSearch,
+    ] = useState('');
+    const [
+        manualLoading,
+        setManualLoading,
+    ] = useState(false);
 
     const text = (
         arabic: string,
@@ -406,6 +446,19 @@ export default function BankReconciliation() {
             );
 
             await load();
+
+            if (
+                manualLine?.id ===
+                lineId
+            ) {
+                setManualLine(
+                    null,
+                );
+                setManualCandidates(
+                    [],
+                );
+                setManualSearch('');
+            }
         } catch {
             setError(
                 text(
@@ -418,40 +471,88 @@ export default function BankReconciliation() {
         }
     }
 
+    async function loadCandidates(
+        line:
+            BankLine,
+        search = '',
+    ): Promise<void> {
+        setManualLoading(true);
+        setError('');
+
+        try {
+            const params =
+                new URLSearchParams();
+
+            if (
+                search.trim()
+                !== ''
+            ) {
+                params.set(
+                    'search',
+                    search.trim(),
+                );
+            }
+
+            const response =
+                await apiRequest<{
+                    data:
+                        ReconciliationCandidate[];
+                }>(
+                    '/api/bank-reconciliation/'
+                    + String(
+                        line.id,
+                    )
+                    + '/candidates'
+                    + (
+                        params.toString()
+                            ? '?'
+                                + params.toString()
+                            : ''
+                    ),
+                );
+
+            setManualCandidates(
+                response.data,
+            );
+        } catch {
+            setError(
+                text(
+                    'تعذر تحميل الحركات المتاحة للمطابقة.',
+                    'Available reconciliation candidates could not be loaded.',
+                ),
+            );
+        } finally {
+            setManualLoading(false);
+        }
+    }
+
     async function manualMatch(
         line:
             BankLine,
     ): Promise<void> {
-        const value =
-            window.prompt(
-                text(
-                    'أدخل ID المقبوض/الدفعة المطابقة:',
-                    'Enter the matching cash movement ID:',
-                ),
-            );
-
-        if (! value) {
-            return;
-        }
-
-        const id =
-            Number(
-                value,
-            );
-
-        if (
-            ! Number.isInteger(
-                id,
-            )
-            || id <= 0
-        ) {
-            return;
-        }
-
-        await match(
-            line.id,
-            id,
+        setManualLine(
+            line,
         );
+        setManualSearch('');
+        setManualCandidates([]);
+
+        await loadCandidates(
+            line,
+        );
+    }
+
+    function closeManualMatch(): void {
+        if (busy) {
+            return;
+        }
+
+        setManualLine(
+            null,
+        );
+        setManualCandidates(
+            [],
+        );
+        setManualSearch('');
     }
 
     async function ignore(
@@ -858,6 +959,253 @@ export default function BankReconciliation() {
                     )}
                 </section>
             </main>
+
+            {manualLine && (
+                <div
+                    className="fixed inset-0 z-[90] flex items-center justify-center bg-black/35 p-3 backdrop-blur-[2px]"
+                    onMouseDown={(
+                        event,
+                    ) => {
+                        if (
+                            event.target ===
+                            event.currentTarget
+                        ) {
+                            closeManualMatch();
+                        }
+                    }}
+                >
+                    <section className="flex max-h-[85dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-panel)]">
+                        <header className="flex items-start justify-between gap-4 border-b border-[var(--ac-line)] p-4 sm:p-5">
+                            <div>
+                                <h2 className="text-sm font-bold text-[var(--ac-text)]">
+                                    {text(
+                                        'اختر الحركة المطابقة',
+                                        'Choose matching cash movement',
+                                    )}
+                                </h2>
+                                <p className="mt-1 text-[10px] leading-5 text-[var(--ac-text-muted)]">
+                                    {manualLine.transaction_date}
+                                    {' · '}
+                                    {Number(
+                                        manualLine.amount,
+                                    ).toLocaleString()}
+                                    {' '}
+                                    {manualLine.currency}
+                                    {' · '}
+                                    {manualLine.description}
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={
+                                    closeManualMatch
+                                }
+                                className="flex size-9 shrink-0 items-center justify-center rounded-[11px] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-surface-soft)]"
+                            >
+                                <X
+                                    size={15}
+                                />
+                            </button>
+                        </header>
+
+                        <div className="border-b border-[var(--ac-line)] p-4 sm:p-5">
+                            <div className="flex gap-2">
+                                <label className="relative min-w-0 flex-1">
+                                    <Search
+                                        size={14}
+                                        className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
+                                    />
+                                    <input
+                                        value={
+                                            manualSearch
+                                        }
+                                        onChange={(
+                                            event,
+                                        ) =>
+                                            setManualSearch(
+                                                event
+                                                    .target
+                                                    .value,
+                                            )
+                                        }
+                                        onKeyDown={(
+                                            event,
+                                        ) => {
+                                            if (
+                                                event.key ===
+                                                'Enter'
+                                            ) {
+                                                event.preventDefault();
+                                                void loadCandidates(
+                                                    manualLine,
+                                                    manualSearch,
+                                                );
+                                            }
+                                        }}
+                                        placeholder={text(
+                                            'ابحث برقم الحركة أو المرجع أو الحساب أو الطرف...',
+                                            'Search movement, reference, account or party...',
+                                        )}
+                                        className="h-10 w-full rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] ps-9 pe-3 text-xs outline-none focus:border-[var(--ac-accent)]"
+                                    />
+                                </label>
+
+                                <button
+                                    type="button"
+                                    disabled={
+                                        manualLoading
+                                    }
+                                    onClick={() =>
+                                        void loadCandidates(
+                                            manualLine,
+                                            manualSearch,
+                                        )
+                                    }
+                                    className="h-10 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 text-xs font-semibold text-[var(--ac-text-soft)]"
+                                >
+                                    {text(
+                                        'بحث',
+                                        'Search',
+                                    )}
+                                </button>
+                            </div>
+
+                            <p className="mt-2 text-[9px] text-[var(--ac-text-muted)]">
+                                {text(
+                                    'نعرض حركات مؤكدة من نفس الاتجاه والعملة ضمن ±30 يوم، ونرتب الأقرب بالمبلغ والتاريخ أولاً. الحركة التي تمت مطابقتها سابقاً لا تظهر هنا.',
+                                    'Shows posted movements with the same direction and currency within ±30 days, ranked by amount and date. Already reconciled movements are excluded.',
+                                )}
+                            </p>
+                        </div>
+
+                        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+                            {manualLoading ? (
+                                <div className="p-10 text-center text-xs text-[var(--ac-text-muted)]">
+                                    {text(
+                                        'جارٍ البحث عن حركات...',
+                                        'Searching movements...',
+                                    )}
+                                </div>
+                            ) : manualCandidates.length ===
+                                0 ? (
+                                <div className="p-10 text-center text-xs text-[var(--ac-text-muted)]">
+                                    {text(
+                                        'لا توجد حركة متاحة مطابقة لهذه المعايير.',
+                                        'No available movement matches these criteria.',
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {manualCandidates.map(
+                                        candidate => (
+                                            <div
+                                                key={
+                                                    candidate.id
+                                                }
+                                                className="grid gap-3 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
+                                            >
+                                                <div className="min-w-0">
+                                                    <Link
+                                                        href={
+                                                            candidate.direction ===
+                                                            'incoming'
+                                                                ? '/app/receipts/'
+                                                                    + String(
+                                                                        candidate.id,
+                                                                    )
+                                                                : '/app/payments/'
+                                                                    + String(
+                                                                        candidate.id,
+                                                                    )
+                                                        }
+                                                        className="truncate text-xs font-semibold text-[var(--ac-accent)]"
+                                                    >
+                                                        {
+                                                            candidate.number
+                                                        }
+                                                    </Link>
+
+                                                    <p className="mt-1 truncate text-[9px] text-[var(--ac-text-muted)]">
+                                                        {
+                                                            candidate.movement_date
+                                                            ?? '—'
+                                                        }
+                                                        {' · '}
+                                                        {
+                                                            candidate.party
+                                                                ?.name
+                                                            ?? candidate.reference
+                                                            ?? '—'
+                                                        }
+                                                        {' · '}
+                                                        {
+                                                            candidate.method
+                                                        }
+                                                    </p>
+                                                </div>
+
+                                                <div className="text-start sm:text-end">
+                                                    <strong className="text-xs text-[var(--ac-text)]">
+                                                        {Number(
+                                                            candidate.amount,
+                                                        ).toLocaleString()}
+                                                        {' '}
+                                                        {
+                                                            candidate.currency
+                                                        }
+                                                    </strong>
+                                                    <p className="mt-1 text-[8px] text-[var(--ac-text-muted)]">
+                                                        {text(
+                                                            'فرق مبلغ',
+                                                            'Amount diff',
+                                                        )}
+                                                        {' '}
+                                                        {Number(
+                                                            candidate.amount_difference,
+                                                        ).toLocaleString()}
+                                                        {' · '}
+                                                        {candidate.day_difference
+                                                            ?? '—'}
+                                                        {' '}
+                                                        {text(
+                                                            'يوم',
+                                                            'days',
+                                                        )}
+                                                    </p>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    disabled={
+                                                        busy
+                                                    }
+                                                    onClick={() =>
+                                                        void match(
+                                                            manualLine.id,
+                                                            candidate.id,
+                                                        )
+                                                    }
+                                                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[10px] bg-[var(--ac-accent-solid)] px-3 text-[10px] font-semibold text-[var(--ac-accent-solid-text)] disabled:opacity-50"
+                                                >
+                                                    <CheckCircle2
+                                                        size={12}
+                                                    />
+                                                    {text(
+                                                        'مطابقة',
+                                                        'Match',
+                                                    )}
+                                                </button>
+                                            </div>
+                                        ),
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                </div>
+            )}
         </AppShell>
     );
 }
