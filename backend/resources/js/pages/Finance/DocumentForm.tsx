@@ -345,6 +345,45 @@ export function DocumentForm({
                 draftState,
             ),
         );
+    const reviewStateSignature =
+        JSON.stringify({
+            partyId,
+            externalNumber,
+            selectedIssueDate,
+            dueDate,
+            shippingTotal,
+            lines,
+        });
+
+    const previousReviewSignature =
+        useRef(
+            reviewStateSignature,
+        );
+
+    useEffect(
+        () => {
+            if (
+                previousReviewSignature.current
+                === reviewStateSignature
+            ) {
+                return;
+            }
+
+            previousReviewSignature.current =
+                reviewStateSignature;
+
+            setAcknowledgeWarnings(
+                false,
+            );
+            setServerWarnings(
+                [],
+            );
+        },
+        [
+            reviewStateSignature,
+        ],
+    );
+
 
     const dirty =
         JSON.stringify(
