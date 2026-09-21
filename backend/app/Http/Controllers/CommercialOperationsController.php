@@ -2565,19 +2565,32 @@ class CommercialOperationsController extends Controller
                 ->where('trade_document_id', $record)
                 ->selectRaw(
                     'SUM(quantity) as quantity,
-                     SUM(fulfilled_quantity) as fulfilled',
+                     SUM(fulfilled_quantity) as fulfilled,
+                     SUM(invoiced_quantity) as invoiced',
                 )
                 ->first();
 
-            $status = (float) $totals->fulfilled <= 0.00005
-                ? 'draft'
-                : (
-                    (float) $totals->fulfilled
-                    + 0.00005
-                    >= (float) $totals->quantity
-                        ? 'fulfilled'
-                        : 'partial'
-                );
+            $ordered =
+                (float) ($totals->quantity ?? 0);
+            $fulfilled =
+                (float) ($totals->fulfilled ?? 0);
+            $invoiced =
+                (float) ($totals->invoiced ?? 0);
+
+            $status = match (true) {
+                $fulfilled <= 0.00005 =>
+                    $document->status === 'confirmed'
+                        ? 'confirmed'
+                        : 'draft',
+                $fulfilled + 0.00005 >= $ordered
+                    && $invoiced + 0.00005 >= $fulfilled =>
+                    'invoiced',
+                $invoiced > 0.00005 =>
+                    'partial_invoiced',
+                $fulfilled + 0.00005 >= $ordered =>
+                    'fulfilled',
+                default => 'partial',
+            };
 
             DB::table('trade_documents')
                 ->where('organization_id', $organizationId)
@@ -2603,15 +2616,11 @@ class CommercialOperationsController extends Controller
                     'cancelled',
                     'converted',
                 ],
-                default => [
-                    'draft',
+                'sales_order', 'purchase_order' => [
                     'confirmed',
                     'cancelled',
-                    'partial',
-                    'fulfilled',
-                    'partial_invoiced',
-                    'invoiced',
                 ],
+                default => [],
             };
 
             $data = $request->validate([
@@ -2620,6 +2629,40 @@ class CommercialOperationsController extends Controller
                     Rule::in($allowed),
                 ],
             ]);
+
+            if (
+                in_array(
+                    $kind,
+                    ['sales_order', 'purchase_order'],
+                    true,
+                )
+            ) {
+                if (
+                    $data['status'] === 'confirmed'
+                    && $document->status !== 'draft'
+                ) {
+                    throw ValidationException::withMessages([
+                        'status' => [
+                            'Only a draft order can be confirmed.',
+                        ],
+                    ]);
+                }
+
+                if (
+                    $data['status'] === 'cancelled'
+                    && in_array(
+                        $document->status,
+                        ['cancelled', 'invoiced'],
+                        true,
+                    )
+                ) {
+                    throw ValidationException::withMessages([
+                        'status' => [
+                            'This order can no longer be cancelled.',
+                        ],
+                    ]);
+                }
+            }
 
             DB::table('trade_documents')
                 ->where('organization_id', $organizationId)
