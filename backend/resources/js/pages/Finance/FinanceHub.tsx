@@ -199,7 +199,8 @@ export function FinanceHub({
             ),
             href: '/app/finance/approvals',
             icon: ClipboardCheck,
-            visible: lookups.permissions.sales_view
+            visible: lookups.permissions.approvals_review
+                || lookups.permissions.sales_view
                 || lookups.permissions.purchases_view
                 || lookups.permissions.cash_view,
         },
