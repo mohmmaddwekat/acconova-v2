@@ -926,7 +926,7 @@ export function CashForm({
             />
 
             {! canManage && (
-                <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <div className="rounded-[14px] border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-[var(--ac-text-soft)]">
                     {text(
                         'دورك الحالي يسمح بالعرض فقط.',
                         'Your current role is read-only.',
@@ -934,7 +934,7 @@ export function CashForm({
                 </div>
             )}
 
-            <div className="rounded-[14px] border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-blue-700">
+            <div className="rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] px-4 py-3 text-xs text-[var(--ac-text-soft)]">
                 {text(
                     'الحقول التي تحمل علامة * مطلوبة. الحقول الأخرى اختيارية، وبيانات الشيك تصبح مطلوبة فقط عند اختيار شيك.',
                     'Fields marked * are required. Other fields are optional; check details become required only when Check is selected.',
@@ -942,14 +942,14 @@ export function CashForm({
             </div>
 
             {initial?.correction_reason && (
-                <div className="rounded-[14px] border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
+                <div className="rounded-[14px] border border-violet-500/20 bg-violet-500/10 p-4 text-sm text-[var(--ac-text-soft)]">
                     <strong>{text('مسودة تصحيح:', 'Correction draft:')}</strong>{' '}
                     {initial.correction_reason}
                 </div>
             )}
 
             {error && (
-                <div role="alert" className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <div role="alert" className="rounded-[14px] border border-red-500/25 bg-red-500/10 p-4 text-sm text-[var(--ac-danger)]">
                     {error}
                 </div>
             )}
@@ -1226,12 +1226,12 @@ export function CashForm({
                                     />
                                 </label>
 
-                                <div className="rounded-[13px] border border-blue-100 bg-blue-50/70 p-3">
+                                <div className="rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3">
                                     <p className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
                                         {text('حالة الشيك', 'Check status')}
                                     </p>
 
-                                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-[var(--ac-surface)] px-3 py-1.5 text-[11px] font-bold text-[var(--ac-accent)]">
+                                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-[var(--ac-accent)]/25 bg-[var(--ac-accent-soft)] px-3 py-1.5 text-[11px] font-bold text-[var(--ac-accent)]">
                                         <span className="size-2 rounded-full bg-[var(--ac-accent-solid)]" />
                                         {text('قيد التحصيل تلقائياً', 'Pending automatically')}
                                     </div>
@@ -1266,7 +1266,7 @@ export function CashForm({
                         }
                     >
                         <div className="space-y-4 p-4">
-                            <div className="rounded-[12px] border border-blue-100 bg-blue-50/70 p-3 text-[11px] leading-6 text-blue-800">
+                            <div className="rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] p-3 text-[11px] leading-6 text-[var(--ac-text-soft)]">
                                 {text(
                                     'التوزيع اختياري وآمن: لا يمكن تخصيص أكثر من المتبقي على الفاتورة، وأي زيادة في المبلغ تبقى رصيداً مقدماً للطرف. مسودة الفاتورة يمكن حذفها قبل الإصدار فقط؛ أما الفاتورة الصادرة المرتبطة بدفعة فلا تُحذف، بل تُصحح أو تُلغى بعد معالجة الدفعة المرتبطة.',
                                     'Allocation is optional and protected: you cannot allocate more than the invoice outstanding balance, and any extra amount remains party advance credit. An invoice draft can only be deleted before issue; an issued invoice linked to a payment is corrected or voided after the linked payment is handled, never silently deleted.',
@@ -1299,7 +1299,7 @@ export function CashForm({
                                             type="button"
                                             key={document.id}
                                             onClick={() => addAllocation(document)}
-                                            className="flex items-center justify-between gap-3 rounded-[12px] border border-[var(--ac-line)] p-3 text-start text-xs hover:bg-blue-50"
+                                            className="flex items-center justify-between gap-3 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3 text-start text-xs transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)]"
                                         >
                                             <div>
                                                 <strong className="text-[var(--ac-accent)]">{document.number}</strong>
@@ -1426,7 +1426,7 @@ export function CashForm({
                                 label={text('المخصص للفواتير', 'Allocated')}
                                 value={String(allocated)}
                                 currency={currency}
-                                className="text-emerald-600"
+                                className="text-emerald-500"
                             />
                             <SummaryLine
                                 label={
@@ -1438,7 +1438,7 @@ export function CashForm({
                                 }
                                 value={String(unallocated)}
                                 currency={currency}
-                                className={unallocated > 0 ? 'text-amber-600' : 'text-emerald-600'}
+                                className={unallocated > 0 ? 'text-amber-500' : 'text-emerald-500'}
                                 strong
                             />
                         </div>
@@ -1450,7 +1450,7 @@ export function CashForm({
                             (incoming && category === 'customer_receipt')
                             || (! incoming && category === 'supplier_payment')
                         ) && (
-                        <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4 text-xs leading-6 text-emerald-800">
+                        <div className="rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 p-4 text-xs leading-6 text-[var(--ac-text-soft)]">
                             <strong>
                                 {incoming
                                     ? text('رصيد عميل محفوظ', 'Saved customer credit')
@@ -1507,7 +1507,7 @@ export function CashForm({
                         </FPanel>
                     )}
 
-                    <div className="rounded-[18px] border border-blue-200 bg-blue-50 p-4 text-xs leading-6 text-blue-800">
+                    <div className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] p-4 text-xs leading-6 text-[var(--ac-text-soft)]">
                         <div className="flex items-center gap-2 font-bold">
                             <ShieldCheck size={16} />
                             {text('تصحيح آمن', 'Safe correction')}
@@ -1521,7 +1521,7 @@ export function CashForm({
                     </div>
 
                     {method === 'check' && (
-                        <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-800">
+                        <div className="rounded-[18px] border border-amber-500/20 bg-amber-500/10 p-4 text-xs leading-6 text-[var(--ac-text-soft)]">
                             <div className="flex items-center gap-2 font-bold">
                                 <CalendarDays size={16} />
                                 {text('متابعة الشيك', 'Check tracking')}
@@ -1535,7 +1535,7 @@ export function CashForm({
                         </div>
                     )}
 
-                    <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4 text-xs leading-6 text-emerald-800">
+                    <div className="rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 p-4 text-xs leading-6 text-[var(--ac-text-soft)]">
                         <div className="flex items-center gap-2 font-bold">
                             <CheckCircle2 size={16} />
                             {text('الحركة لا تتطلب مخزوناً', 'No inventory required')}
