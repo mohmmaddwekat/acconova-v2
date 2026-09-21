@@ -471,6 +471,67 @@ class FinanceDocumentService
             }
         }
 
+        if ($document->kind === 'purchase_invoice') {
+            $duplicates = FinancialDocument::query()
+                ->where('id', '!=', $document->id)
+                ->where('kind', 'purchase_invoice')
+                ->where('party_id', $document->party_id)
+                ->whereIn('status', [
+                    'draft',
+                    'issued',
+                    'partially_paid',
+                    'paid',
+                    'overpaid',
+                ])
+                ->where(function ($query) use ($document): void {
+                    if ($document->external_number) {
+                        $query->where(
+                            'external_number',
+                            $document->external_number,
+                        );
+                    }
+
+                    $query->orWhere(function ($similar) use ($document): void {
+                        $similar
+                            ->whereBetween('issue_date', [
+                                $document->issue_date
+                                    ->copy()
+                                    ->subDays(3)
+                                    ->format('Y-m-d'),
+                                $document->issue_date
+                                    ->copy()
+                                    ->addDays(3)
+                                    ->format('Y-m-d'),
+                            ])
+                            ->whereRaw(
+                                'ABS(total - ?) <= 0.0001',
+                                [(float) $document->total],
+                            );
+                    });
+                })
+                ->latest('id')
+                ->limit(3)
+                ->get([
+                    'id',
+                    'number',
+                    'external_number',
+                    'issue_date',
+                    'total',
+                ]);
+
+            foreach ($duplicates as $duplicate) {
+                $warnings[] = sprintf(
+                    'Possible duplicate purchase invoice: %s%s on %s for %s.',
+                    $duplicate->number,
+                    $duplicate->external_number
+                        ? ' / supplier ref '.$duplicate->external_number
+                        : '',
+                    $duplicate->issue_date?->format('Y-m-d') ?? 'unknown date',
+                    $duplicate->total,
+                );
+            }
+        }
+
         return $warnings;
     }
 
