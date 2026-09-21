@@ -239,7 +239,15 @@ export default function Dashboard() {
                         permission,
                     ),
             )
-            : true;
+            : [
+                'owner',
+                'admin',
+                'manager',
+                'accountant',
+            ].includes(
+                organization?.role
+                ?? '',
+            );
     const canCreateProducts =
         permissions
             ? permissions.some(
@@ -251,7 +259,15 @@ export default function Dashboard() {
                         permission,
                     ),
             )
-            : true;
+            : [
+                'owner',
+                'admin',
+                'manager',
+                'accountant',
+            ].includes(
+                organization?.role
+                ?? '',
+            );
     const canViewInventory =
         permissions
             ? permissions.includes(
