@@ -2157,7 +2157,7 @@ export function DocumentForm({
             />
 
             {! canManage && (
-                <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <div className="rounded-[14px] border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-200">
                     {text(
                         'دورك الحالي يسمح بالعرض فقط ولا يسمح بإنشاء أو تعديل الفواتير.',
                         'Your current role is read-only for this invoice type.',
@@ -2165,7 +2165,7 @@ export function DocumentForm({
                 </div>
             )}
 
-            <div className="rounded-[14px] border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-blue-700">
+            <div className="rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] px-4 py-3 text-xs leading-5 text-[var(--ac-text-soft)]">
                 {text(
                     'الحقول التي تحمل علامة * مطلوبة. أي حقل آخر اختياري ما لم يظهر شرط مرتبط بطريقة الدفع أو المخزون.',
                     'Fields marked * are required. Other fields are optional unless a payment or inventory condition says otherwise.',
@@ -2173,7 +2173,7 @@ export function DocumentForm({
             </div>
 
             {initial?.correction_reason && (
-                <div className="rounded-[14px] border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
+                <div className="rounded-[14px] border border-violet-400/30 bg-violet-500/10 p-4 text-sm text-violet-200">
                     <strong>
                         {text(
                             'هذه مسودة تصحيح:',
@@ -2189,7 +2189,7 @@ export function DocumentForm({
             {error && (
                 <div
                     role="alert"
-                    className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                    className="rounded-[14px] border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200"
                 >
                     {
                         error
@@ -2197,7 +2197,7 @@ export function DocumentForm({
                 </div>
             )}
 
-            <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
+            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
                 <div className="space-y-4">
                     <FPanel
                         title={text(
@@ -3057,7 +3057,7 @@ export function DocumentForm({
                                                             'flex cursor-pointer items-start gap-3 rounded-[14px] border p-3 transition',
                                                             line.price_status ===
                                                             'estimated'
-                                                                ? 'border-amber-200 bg-amber-50'
+                                                                ? 'border-amber-400/30 bg-amber-500/10'
                                                                 : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)]',
                                                         ].join(' ')}
                                                     >
@@ -3150,7 +3150,7 @@ export function DocumentForm({
                                                                     'rounded-[13px] border px-3 py-3',
                                                                     summaryIndex ===
                                                                     3
-                                                                        ? 'border-blue-100 bg-[var(--ac-accent-soft)]'
+                                                                        ? 'border-[var(--ac-accent)]/30 bg-[var(--ac-accent-soft)]'
                                                                         : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)]',
                                                                 ].join(' ')}
                                                             >
@@ -3482,7 +3482,7 @@ export function DocumentForm({
 
                             <button
                                 type="button"
-                                className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--ac-line-strong)] bg-[var(--ac-bg)] px-4 py-4 text-xs font-bold text-[var(--ac-accent)] transition hover:border-[#1265d8] hover:bg-[var(--ac-accent-soft)]"
+                                className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-dashed border-[var(--ac-accent)]/55 bg-[var(--ac-surface-soft)] px-4 py-3.5 text-xs font-bold text-[var(--ac-accent)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)]"
                                 onClick={() =>
                                     setLines(
                                         current => [
@@ -3508,24 +3508,24 @@ export function DocumentForm({
                     </FPanel>
 
                     {reviewWarnings.length > 0 && (
-                        <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-4">
+                        <div className="rounded-[18px] border border-amber-400/30 bg-amber-500/10 p-4">
                             <div className="flex items-start gap-3">
                                 <AlertTriangle
                                     size={
                                         20
                                     }
-                                    className="mt-0.5 shrink-0 text-amber-600"
+                                    className="mt-0.5 shrink-0 text-amber-300"
                                 />
 
                                 <div>
-                                    <h3 className="text-sm font-bold text-amber-900">
+                                    <h3 className="text-sm font-bold text-amber-200">
                                         {text(
                                             'مراجعة إلزامية قبل الإصدار',
                                             'Required review before issue',
                                         )}
                                     </h3>
 
-                                    <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-800">
+                                    <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-200/90">
                                         {reviewWarnings.map(
                                             (
                                                 warning,
@@ -3545,7 +3545,7 @@ export function DocumentForm({
                                         )}
                                     </ul>
 
-                                    <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-900">
+                                    <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-200">
                                         <input
                                             type="checkbox"
                                             checked={
@@ -3571,8 +3571,9 @@ export function DocumentForm({
                         </div>
                     )}
 
-                    <div className="grid gap-4 lg:grid-cols-3">
+                    <div className="grid items-stretch gap-4 lg:grid-cols-[0.8fr_1fr_1fr]">
                         <FPanel
+                            className="h-full"
                             title={text(
                                 'الشحن والتكاليف الإضافية',
                                 'Shipping & extra costs',
@@ -3613,6 +3614,7 @@ export function DocumentForm({
                         </FPanel>
 
                         <FPanel
+                            className="h-full"
                             title={text(
                                 'ملاحظات العميل / المورد',
                                 'External notes',
@@ -3625,7 +3627,7 @@ export function DocumentForm({
                                 <textarea
                                     className={
                                         financeInput
-                                        + ' min-h-28'
+                                        + ' min-h-32 resize-y'
                                     }
                                     value={
                                         notes
@@ -3643,6 +3645,7 @@ export function DocumentForm({
                         </FPanel>
 
                         <FPanel
+                            className="h-full"
                             title={text(
                                 'ملاحظات داخلية',
                                 'Internal notes',
@@ -3655,7 +3658,7 @@ export function DocumentForm({
                                 <textarea
                                     className={
                                         financeInput
-                                        + ' min-h-28'
+                                        + ' min-h-32 resize-y'
                                     }
                                     value={
                                         internalNotes
@@ -3691,34 +3694,65 @@ export function DocumentForm({
                             Building2
                         }
                     >
-                        <div className="space-y-2 p-4 text-xs">
-                            <strong className="block text-base text-[var(--ac-text)]">
-                                {selectedParty?.name
-                                    ?? text(
-                                        'لم يتم الاختيار',
-                                        'Not selected',
+                        {selectedParty ? (
+                            <div className="space-y-2 p-4 text-xs">
+                                <div className="flex items-start gap-3">
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]">
+                                        <Building2 size={16} />
+                                    </span>
+                                    <div className="min-w-0">
+                                        <strong className="block truncate text-sm text-[var(--ac-text)]">
+                                            {selectedParty.name}
+                                        </strong>
+                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                            {sales
+                                                ? text('العميل المختار', 'Selected customer')
+                                                : text('المورد المختار', 'Selected supplier')}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3">
+                                    {selectedParty.email && (
+                                        <p className="break-all text-[var(--ac-text-soft)]">
+                                            {selectedParty.email}
+                                        </p>
                                     )}
-                            </strong>
-
-                            <p className="text-[var(--ac-text-muted)]">
-                                {selectedParty?.email
-                                    ?? '—'}
-                            </p>
-
-                            <p className="text-[var(--ac-text-muted)]">
-                                {selectedParty?.phone
-                                    ?? '—'}
-                            </p>
-
-                            <p className="text-[var(--ac-text-muted)]">
-                                {selectedParty?.country_code
-                                    ?? '—'}
-                                {selectedParty?.region_code
-                                    ? ' / '
-                                        + selectedParty.region_code
-                                    : ''}
-                            </p>
-                        </div>
+                                    {selectedParty.phone && (
+                                        <p className="text-[var(--ac-text-soft)]">
+                                            {selectedParty.phone}
+                                        </p>
+                                    )}
+                                    {(selectedParty.country_code || selectedParty.region_code) && (
+                                        <p className="text-[var(--ac-text-muted)]">
+                                            {[selectedParty.country_code, selectedParty.region_code]
+                                                .filter(Boolean)
+                                                .join(' / ')}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-4">
+                                <div className="rounded-[14px] border border-dashed border-[var(--ac-line-strong)] bg-[var(--ac-surface-soft)] px-4 py-6 text-center">
+                                    <Building2
+                                        size={20}
+                                        className="mx-auto text-[var(--ac-text-muted)]"
+                                    />
+                                    <strong className="mt-2 block text-xs text-[var(--ac-text)]">
+                                        {sales
+                                            ? text('لم يتم اختيار عميل بعد', 'No customer selected yet')
+                                            : text('لم يتم اختيار مورد بعد', 'No supplier selected yet')}
+                                    </strong>
+                                    <p className="mt-1 text-[10px] leading-5 text-[var(--ac-text-muted)]">
+                                        {text(
+                                            'اختر الجهة من معلومات الفاتورة لعرض بيانات التواصل هنا.',
+                                            'Choose a Party from the invoice information to show its contact details here.',
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </FPanel>
 
                     <FPanel
@@ -3812,7 +3846,7 @@ export function DocumentForm({
                                 </strong>
                             </div>
 
-                            <div className="border-t border-[var(--ac-line)] pt-3">
+                            <div className="mt-3 border-t border-[var(--ac-line-strong)] pt-4">
                                 <div className="flex items-end justify-between gap-4">
                                     <span className="font-bold text-[var(--ac-text)]">
                                         {text(
@@ -3836,7 +3870,7 @@ export function DocumentForm({
                         </div>
                     </FPanel>
 
-                    <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4 text-xs leading-6 text-emerald-800">
+                    <div className="rounded-[18px] border border-emerald-400/25 bg-emerald-500/10 p-4 text-xs leading-6 text-emerald-200">
                         <div className="flex items-center gap-2 font-bold">
                             <Check
                                 size={
