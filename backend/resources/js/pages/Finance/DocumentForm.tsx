@@ -504,6 +504,29 @@ export function DocumentForm({
                 window.location.search,
             );
 
+        const requestedPartyId =
+            params.get(
+                'party_id',
+            );
+
+        if (
+            requestedPartyId
+            && lookups.parties.some(
+                party =>
+                    String(party.id)
+                    === requestedPartyId
+                    && party.roles.includes(
+                        sales
+                            ? 'customer'
+                            : 'supplier',
+                    ),
+            )
+        ) {
+            setPartyId(
+                requestedPartyId,
+            );
+        }
+
         const copyFrom =
             Number(
                 params.get(
@@ -644,6 +667,13 @@ export function DocumentForm({
                         ),
                 );
 
+            return () => {
+                cancelled =
+                    true;
+            };
+        }
+
+        if (requestedPartyId) {
             return () => {
                 cancelled =
                     true;
