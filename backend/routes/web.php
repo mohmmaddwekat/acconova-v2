@@ -1199,6 +1199,7 @@ Route::prefix(
         Route::post('report-studio/run', [ReportStudioController::class, 'run']);
         Route::post('report-studio/drill-down', [ReportStudioController::class, 'drillDown']);
         Route::post('report-studio/visualizations', [ReportStudioController::class, 'saveVisualization']);
+        Route::post('report-studio/configuration', [ReportStudioController::class, 'saveConfiguration']);
         Route::post('report-studio/natural-language', [ReportStudioController::class, 'naturalLanguage']);
         Route::post('report-studio/snapshots', [ReportStudioController::class, 'snapshot']);
         Route::post('report-studio/annotations', [ReportStudioController::class, 'annotation']);
