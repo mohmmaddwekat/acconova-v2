@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PartyBulkActionController;
 use App\Http\Controllers\PartyBulkEditController;
+use App\Http\Controllers\PartyAccountController;
 use App\Http\Controllers\PartyController;
 use App\Http\Controllers\PartyDataTransferController;
 use App\Http\Controllers\PartyInsightsController;
@@ -82,6 +83,26 @@ Route::middleware([
             PartyController::class,
             'store',
         ],
+    );
+
+    Route::get(
+        'parties/{party}/account',
+        [
+            PartyAccountController::class,
+            'show',
+        ],
+    )->whereNumber(
+        'party',
+    );
+
+    Route::patch(
+        'parties/{party}/opening-balances',
+        [
+            PartyAccountController::class,
+            'updateOpeningBalances',
+        ],
+    )->whereNumber(
+        'party',
     );
 
     Route::get(
