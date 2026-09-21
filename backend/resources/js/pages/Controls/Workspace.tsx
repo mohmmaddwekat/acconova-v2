@@ -261,7 +261,6 @@ function labelFor(
         subject_type: ['صاحب الوثيقة', 'Subject type'],
         subject_label: ['الجهة / الموظف', 'Subject'],
         document_type: ['نوع الوثيقة', 'Document type'],
-        document_number: ['رقم الوثيقة', 'Document number'],
         expires_on: ['تنتهي في', 'Expires on'],
         entity_type: ['نوع السجل', 'Record type'],
         entity: ['السجل', 'Record'],
@@ -2019,20 +2018,6 @@ function buildPayload(
                     value !== '',
             ),
         );
-
-    if (
-        feature
-        === 'document-expiry'
-        && clean.subject_id
-    ) {
-        const lookupLabel =
-            clean.subject_type
-                === 'party'
-                    ? null
-                    : null;
-
-        void lookupLabel;
-    }
 
     return clean;
 }
