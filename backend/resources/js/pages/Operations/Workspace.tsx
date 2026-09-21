@@ -1289,6 +1289,8 @@ function createFields(
     parties: Option[],
     products: Option[],
     warehouses: Option[],
+    financeDocuments: FinanceDocumentOption[],
+    form: Record<string, string>,
 ): Field[] {
     const party = (
         key = 'party_id',
@@ -1355,15 +1357,110 @@ function createFields(
         ],
     });
 
+    const documentOptions = (
+        kinds: Array<
+            FinanceDocumentOption['kind']
+        >,
+        partyId?: string,
+        openOnly = false,
+    ): Option[] =>
+        financeDocuments
+            .filter(document =>
+                kinds.includes(document.kind),
+            )
+            .filter(document =>
+                [
+                    'issued',
+                    'partially_paid',
+                    'paid',
+                    'overpaid',
+                ].includes(document.status),
+            )
+            .filter(document =>
+                ! openOnly
+                || (
+                    [
+                        'issued',
+                        'partially_paid',
+                    ].includes(document.status)
+                    && Number(document.balance_due) > 0
+                ),
+            )
+            .filter(document =>
+                ! partyId
+                || String(document.party?.id ?? '')
+                    === partyId,
+            )
+            .map(document => ({
+                value: String(document.id),
+                label: [
+                    document.number,
+                    document.party?.name,
+                    (
+                        openOnly
+                            ? document.balance_due
+                            : document.total
+                    )
+                        + ' '
+                        + document.currency,
+                ]
+                    .filter(Boolean)
+                    .join(' · '),
+            }));
+
+    const documentField = (
+        key: string,
+        kinds: Array<
+            FinanceDocumentOption['kind']
+        >,
+        labels: [string, string],
+        required = false,
+        partyId?: string,
+        openOnly = false,
+    ): Field => ({
+        key,
+        ar: labels[0],
+        en: labels[1],
+        type: 'select',
+        required,
+        options: [
+            {
+                value: '',
+                label:
+                    required
+                        ? (
+                            ar
+                                ? '— اختر الفاتورة —'
+                                : '— Select invoice —'
+                        )
+                        : (
+                            ar
+                                ? '— بدون فاتورة —'
+                                : '— No invoice —'
+                        ),
+            },
+            ...documentOptions(
+                kinds,
+                partyId,
+                openOnly,
+            ),
+        ],
+    });
+
     if (feature === 'promises') {
         return [
             party('party_id', true, 'customer'),
-            {
-                key: 'financial_document_id',
-                ar: 'رقم ID الفاتورة',
-                en: 'Invoice ID',
-                type: 'number',
-            },
+            documentField(
+                'financial_document_id',
+                ['sale_invoice'],
+                [
+                    'فاتورة البيع',
+                    'Sales invoice',
+                ],
+                false,
+                form.party_id,
+                true,
+            ),
             {
                 key: 'amount',
                 ar: 'المبلغ الموعود',
@@ -1467,13 +1564,18 @@ function createFields(
 
     if (feature === 'returns') {
         return [
-            {
-                key: 'financial_document_id',
-                ar: 'ID الفاتورة الأصلية',
-                en: 'Original invoice ID',
-                type: 'number',
-                required: true,
-            },
+            documentField(
+                'financial_document_id',
+                [
+                    'sale_invoice',
+                    'purchase_invoice',
+                ],
+                [
+                    'الفاتورة الأصلية',
+                    'Original invoice',
+                ],
+                true,
+            ),
             {
                 key: 'reason',
                 ar: 'سبب المرتجع',
@@ -1500,12 +1602,16 @@ function createFields(
         return [
             party('party_id', false, 'customer'),
             product(),
-            {
-                key: 'financial_document_id',
-                ar: 'ID فاتورة البيع',
-                en: 'Sales invoice ID',
-                type: 'number',
-            },
+            documentField(
+                'financial_document_id',
+                ['sale_invoice'],
+                [
+                    'فاتورة البيع',
+                    'Sales invoice',
+                ],
+                false,
+                form.party_id,
+            ),
             {
                 key: 'serial_number',
                 ar: 'Serial Number',
@@ -1540,18 +1646,26 @@ function createFields(
             warehouse(),
             party('supplier_party_id', false, 'supplier'),
             party('customer_party_id', false, 'customer'),
-            {
-                key: 'source_purchase_document_id',
-                ar: 'ID فاتورة الشراء',
-                en: 'Purchase invoice ID',
-                type: 'number',
-            },
-            {
-                key: 'source_sale_document_id',
-                ar: 'ID فاتورة البيع',
-                en: 'Sales invoice ID',
-                type: 'number',
-            },
+            documentField(
+                'source_purchase_document_id',
+                ['purchase_invoice'],
+                [
+                    'فاتورة الشراء',
+                    'Purchase invoice',
+                ],
+                false,
+                form.supplier_party_id,
+            ),
+            documentField(
+                'source_sale_document_id',
+                ['sale_invoice'],
+                [
+                    'فاتورة البيع',
+                    'Sales invoice',
+                ],
+                false,
+                form.customer_party_id,
+            ),
             {
                 key: 'serial_number',
                 ar: 'Serial Number',
