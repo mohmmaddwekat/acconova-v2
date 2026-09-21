@@ -2166,6 +2166,31 @@ function RowActions({
                 </Link>
             )}
 
+            {tradeFeatures.includes(feature)
+                && Array.isArray(row.invoices)
+                && row.invoices.length > 0
+                && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {row.invoices.map((invoice: Row) => (
+                            <Link
+                                key={invoice.id}
+                                href={invoice.url}
+                                className="inline-flex h-9 items-center gap-1.5 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                            >
+                                <FilePlus2 size={12} />
+                                {invoice.number}
+                                {invoice.converted_quantity
+                                    ? ' · '
+                                        + formatValue(
+                                            invoice.converted_quantity,
+                                            ar,
+                                        )
+                                    : ''}
+                            </Link>
+                        ))}
+                    </div>
+                )}
+
             {feature === 'collections' && row.phone && (
                 <a
                     href={'tel:' + String(row.phone)}
