@@ -9,6 +9,50 @@ return new class extends Migration
     public function up(): void
     {
         if (
+            Schema::hasTable('payment_promises')
+            && ! Schema::hasColumn(
+                'payment_promises',
+                'baseline_balance',
+            )
+        ) {
+            Schema::table(
+                'payment_promises',
+                function (Blueprint $table): void {
+                    $table
+                        ->decimal(
+                            'baseline_balance',
+                            18,
+                            4,
+                        )
+                        ->nullable()
+                        ->after('amount');
+                },
+            );
+        }
+
+        if (
+            Schema::hasTable('payment_promises')
+            && ! Schema::hasColumn(
+                'payment_promises',
+                'baseline_received_total',
+            )
+        ) {
+            Schema::table(
+                'payment_promises',
+                function (Blueprint $table): void {
+                    $table
+                        ->decimal(
+                            'baseline_received_total',
+                            18,
+                            4,
+                        )
+                        ->nullable()
+                        ->after('baseline_balance');
+                },
+            );
+        }
+
+        if (
             Schema::hasTable('trade_document_lines')
             && ! Schema::hasColumn(
                 'trade_document_lines',
