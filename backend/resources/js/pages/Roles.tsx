@@ -971,6 +971,14 @@ function RoleWorkspace() {
         );
 
     const [
+        showAllPresets,
+        setShowAllPresets,
+    ] =
+        useState(
+            false,
+        );
+
+    const [
         selectedMemberId,
         setSelectedMemberId,
     ] =
@@ -1424,6 +1432,15 @@ function RoleWorkspace() {
                 presetSearch,
             ],
         );
+
+    const visiblePresets =
+        presetSearch.trim()
+        || showAllPresets
+            ? presets
+            : presets.slice(
+                0,
+                6,
+            );
 
     const ownerMember =
         data?.members.find(
@@ -2731,7 +2748,7 @@ function RoleWorkspace() {
                             </div>
 
                             <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                                {presets.map(
+                                {visiblePresets.map(
                                     ([
                                         key,
                                         preset,
@@ -2812,6 +2829,46 @@ function RoleWorkspace() {
                                     </strong>
                                 </button>
                             </div>
+
+                            {! presetSearch.trim()
+                                && presets.length > 6 && (
+                                <div className="mt-3 flex justify-center">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowAllPresets(
+                                                current =>
+                                                    ! current,
+                                            )
+                                        }
+                                        className="inline-flex min-h-9 items-center gap-2 rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-[9px] font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-line-strong)] hover:text-[var(--ac-text)]"
+                                    >
+                                        <ChevronDown
+                                            size={12}
+                                            className={[
+                                                'transition-transform',
+                                                showAllPresets
+                                                    ? 'rotate-180'
+                                                    : '',
+                                            ].join(' ')}
+                                        />
+                                        {showAllPresets
+                                            ? (
+                                                ar
+                                                    ? 'عرض أقل'
+                                                    : 'Show less'
+                                            )
+                                            : (
+                                                ar
+                                                    ? 'عرض كل القوالب'
+                                                    : 'Show all templates'
+                                            )}
+                                        <span className="text-[var(--ac-text-muted)]">
+                                            ({presets.length})
+                                        </span>
+                                    </button>
+                                </div>
+                            )}
                         </section>
 
                         <div
