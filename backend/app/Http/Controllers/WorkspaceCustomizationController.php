@@ -904,7 +904,7 @@ class WorkspaceCustomizationController extends Controller
     private function approvalRuleData(
         Request $request,
     ): array {
-        return $request->validate([
+        $data = $request->validate([
             'name' => [
                 'required',
                 'string',
@@ -959,6 +959,61 @@ class WorkspaceCustomizationController extends Controller
             'active' => true,
             'priority' => 100,
         ];
+
+        $allowedFields =
+            $data['subject_type']
+            === 'financial_document'
+                ? [
+                    'total',
+                    'discount_percent',
+                ]
+                : [
+                    'amount',
+                    'method',
+                ];
+
+        if (
+            ! in_array(
+                $data['condition_field'],
+                $allowedFields,
+                true,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'condition_field' => [
+                    'The selected field is not available for this approval subject.',
+                ],
+            ]);
+        }
+
+        if (
+            $data['condition_field']
+            === 'method'
+            && $data['operator']
+                !== 'eq'
+        ) {
+            throw ValidationException::withMessages([
+                'operator' => [
+                    'Payment method rules support the equals operator only.',
+                ],
+            ]);
+        }
+
+        if (
+            $data['condition_field']
+            !== 'method'
+            && ! is_numeric(
+                $data['threshold'],
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'threshold' => [
+                    'This approval rule requires a numeric threshold.',
+                ],
+            ]);
+        }
+
+        return $data;
     }
 
     private function field(
