@@ -906,6 +906,11 @@ Route::prefix(
         )->whereNumber('record');
 
         Route::post(
+            'operations/unallocated/{record}/prepare-allocation',
+            [CommercialOperationsController::class, 'prepareAllocation'],
+        )->whereNumber('record');
+
+        Route::post(
             'operations/warranties/{record}/claims',
             [CommercialOperationsController::class, 'claim'],
         )->whereNumber('record');
