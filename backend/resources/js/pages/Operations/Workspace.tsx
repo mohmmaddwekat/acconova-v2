@@ -55,6 +55,22 @@ type Option = {
     roles?: string[];
 };
 
+type FinanceDocumentOption = {
+    id: number;
+    number: string;
+    kind:
+        | 'sale_invoice'
+        | 'purchase_invoice';
+    status: string;
+    party: {
+        id: number;
+        name: string;
+    } | null;
+    total: string;
+    balance_due: string;
+    currency: string;
+};
+
 type Field = {
     key: string;
     ar: string;
@@ -495,6 +511,18 @@ export default function OperationsWorkspace({
         )
         : builtInFinanceManage;
 
+    const salesView = customPermissions
+        ? customPermissions.includes(
+            'finance.sales.view',
+        )
+        : builtInFinanceManage;
+
+    const purchasesView = customPermissions
+        ? customPermissions.includes(
+            'finance.purchases.view',
+        )
+        : builtInFinanceManage;
+
     const cashReceive = customPermissions
         ? customPermissions.includes(
             'finance.cash.receive',
@@ -568,6 +596,10 @@ export default function OperationsWorkspace({
     const [parties, setParties] = useState<Option[]>([]);
     const [products, setProducts] = useState<Option[]>([]);
     const [warehouses, setWarehouses] = useState<Option[]>([]);
+    const [
+        financeDocuments,
+        setFinanceDocuments,
+    ] = useState<FinanceDocumentOption[]>([]);
 
     const canCreate =
         ! readonlyFeatures.includes(feature)
@@ -600,7 +632,10 @@ export default function OperationsWorkspace({
 
     useEffect(() => {
         void load();
-    }, [feature]);
+    }, [
+        feature,
+        activeOrganization?.id,
+    ]);
 
     useEffect(() => {
         if (
@@ -646,6 +681,16 @@ export default function OperationsWorkspace({
     useEffect(() => {
         let active = true;
 
+        setParties([]);
+        setProducts([]);
+        setWarehouses([]);
+        setFinanceDocuments([]);
+
+        const emptyDocuments =
+            Promise.resolve({
+                data: [] as FinanceDocumentOption[],
+            });
+
         Promise.allSettled([
             fetchParties({
                 page: 1,
@@ -656,12 +701,36 @@ export default function OperationsWorkspace({
                 perPage: 100,
             }),
             fetchWarehouses('active'),
+            salesView
+                ? apiRequest<{
+                    data: FinanceDocumentOption[];
+                }>(
+                    '/api/finance/documents'
+                    + '?kind=sale_invoice'
+                    + '&per_page=100',
+                )
+                : emptyDocuments,
+            purchasesView
+                ? apiRequest<{
+                    data: FinanceDocumentOption[];
+                }>(
+                    '/api/finance/documents'
+                    + '?kind=purchase_invoice'
+                    + '&per_page=100',
+                )
+                : emptyDocuments,
         ]).then((results) => {
             if (! active) {
                 return;
             }
 
-            const [partyResult, productResult, warehouseResult] = results;
+            const [
+                partyResult,
+                productResult,
+                warehouseResult,
+                saleDocumentResult,
+                purchaseDocumentResult,
+            ] = results;
 
             if (partyResult.status === 'fulfilled') {
                 setParties(
@@ -695,12 +764,31 @@ export default function OperationsWorkspace({
                     })),
                 );
             }
+
+            setFinanceDocuments([
+                ...(
+                    saleDocumentResult.status
+                    === 'fulfilled'
+                        ? saleDocumentResult.value.data
+                        : []
+                ),
+                ...(
+                    purchaseDocumentResult.status
+                    === 'fulfilled'
+                        ? purchaseDocumentResult.value.data
+                        : []
+                ),
+            ]);
         });
 
         return () => {
             active = false;
         };
-    }, []);
+    }, [
+        activeOrganization?.id,
+        salesView,
+        purchasesView,
+    ]);
 
     const fields = useMemo(
         () => createFields(
@@ -709,6 +797,8 @@ export default function OperationsWorkspace({
             parties,
             products,
             warehouses,
+            financeDocuments,
+            form,
         ),
         [
             feature,
@@ -716,6 +806,10 @@ export default function OperationsWorkspace({
             parties,
             products,
             warehouses,
+            financeDocuments,
+            form.party_id,
+            form.supplier_party_id,
+            form.customer_party_id,
         ],
     );
 
