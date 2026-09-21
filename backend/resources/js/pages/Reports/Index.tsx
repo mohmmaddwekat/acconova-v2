@@ -58,7 +58,7 @@ export default function ReportsIndex() {
                     : 'Advanced Report Studio',
             description:
                 ar
-                    ? '40 أداة متقدمة: Drill-Down وPivot وFormulas وCharts والربحية والكاش والمخزون والسيناريوهات والتعاون.'
+                    ? '40 أداة متقدمة: الاستكشاف التفاعلي، التقارير المحورية، المعادلات، الرسوم البيانية، الربحية، السيولة، المخزون، السيناريوهات والتعاون.'
                     : '40 advanced capabilities: drill-down, pivot, formulas, charts, profitability, cash, inventory, scenarios and collaboration.',
             href: '/app/reports/studio',
             icon: Sparkles,
@@ -110,7 +110,7 @@ export default function ReportsIndex() {
                     : 'Scheduled reports',
             description:
                 ar
-                    ? 'جهّز تقارير المبيعات والذمم والتحصيل والميزانيات تلقائياً واحفظ Snapshot لكل تشغيل.'
+                    ? 'جهّز تقارير المبيعات والذمم والتحصيل والميزانيات تلقائياً واحفظ لقطة تاريخية لكل تشغيل.'
                     : 'Automatically generate sales, aging, collections and budget reports with a historical snapshot for each run.',
             href: '/app/reports/scheduled',
             icon: CalendarClock,
@@ -131,7 +131,7 @@ export default function ReportsIndex() {
             >
                 <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ac-accent)]">
-                        Reports
+                        {ar ? 'التقارير' : 'Reports'}
                     </p>
 
                     <h1 className="mt-1 text-2xl font-bold text-[var(--ac-text)]">
