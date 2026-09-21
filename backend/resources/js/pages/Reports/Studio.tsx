@@ -362,6 +362,13 @@ const columnLabels: Record<string, [string, string]> = {
     total_entities: ['إجمالي العناصر', 'Total entities'],
     contributor_percent: ['نسبة العناصر المساهمة', 'Contributor %'],
     largest_share_percent: ['أكبر نسبة مساهمة', 'Largest share %'],
+    reconciled_closing: ['الرصيد الختامي المحسوب', 'Reconciled closing'],
+    sales_return_rate_percent: ['نسبة مرتجعات المبيعات %', 'Sales return rate %'],
+    snapshot_at: ['وقت اللقطة', 'Snapshot at'],
+    target_scope: ['نطاق الهدف', 'Target scope'],
+    threshold: ['الحد', 'Threshold'],
+    operator: ['المعامل', 'Operator'],
+    valuation_method: ['طريقة التقييم', 'Valuation method'],
     first_purchase_date: ['أول تاريخ شراء', 'First purchase date'],
     latest_purchase_date: ['آخر تاريخ شراء', 'Latest purchase date'],
 };
@@ -397,6 +404,12 @@ const valueLabels: Record<string, [string, string]> = {
     previous_month: ['الشهر السابق', 'Previous month'],
     previous_quarter: ['الربع السابق', 'Previous quarter'],
     ytd_previous_year: ['من بداية السنة مقابل السنة الماضية', 'YTD vs previous year'],
+    workspace_sales_target: ['هدف مبيعات مساحة العمل', 'Workspace sales target'],
+    historical_purchase_cost: ['آخر تكلفة شراء تاريخية حتى تاريخ اللقطة', 'Latest historical purchase cost through snapshot date'],
+    lt: ['أقل من', 'Less than'],
+    lte: ['أقل من أو يساوي', 'Less than or equal'],
+    gt: ['أكبر من', 'Greater than'],
+    gte: ['أكبر من أو يساوي', 'Greater than or equal'],
 };
 
 function featureTitle(feature: Feature | undefined, ar: boolean): string {
