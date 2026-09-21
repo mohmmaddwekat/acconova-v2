@@ -490,6 +490,15 @@ export function CommandCenter() {
             aliases: ['تقارير مجدولة', 'scheduled reports', 'report schedule'],
         },
         {
+            key: 'notification-rules',
+            label: text('قواعد الإشعارات', 'Notification rules'),
+            detail: text('حدد متى يستحق التنبيه أن يصل لك', 'Control when an alert is important enough to reach you'),
+            href: '/app/settings/notifications',
+            icon: Bell,
+            kind: 'module',
+            aliases: ['notification rules', 'تنبيهات', 'قواعد الاشعارات', 'alert rules'],
+        },
+        {
             key: 'workspace-customization',
             label: text('تخصيص النظام', 'Workspace customization'),
             detail: text('حقول وحالات خاصة وقواعد موافقة', 'Custom fields, statuses and approval rules'),
