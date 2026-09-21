@@ -1988,7 +1988,10 @@ export default function PartyAccount({
                                     </div>
                                 </section>
 
-                                <section className={panel + ' p-5'}>
+                                <section
+                                    id="party-aging"
+                                    className={panel + ' scroll-mt-24 p-5'}
+                                >
                                     <div className="flex items-center gap-2">
                                         <Clock3
                                             size={17}
