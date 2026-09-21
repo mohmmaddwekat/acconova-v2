@@ -110,6 +110,23 @@ class CashMovementController extends Controller
                 ),
                 'drafts' => $summaryRows->where('status', 'draft')->count(),
                 'reversed' => $summaryRows->where('status', 'reversed')->count(),
+                'methods' => $effectivePostedRows
+                    ->groupBy('method')
+                    ->map(
+                        fn ($rows): array => [
+                            'count' => $rows->count(),
+                            'amount' => number_format(
+                                (float) $rows->sum(
+                                    fn (CashMovement $row): float =>
+                                        (float) $row->amount,
+                                ),
+                                4,
+                                '.',
+                                '',
+                            ),
+                        ],
+                    )
+                    ->all(),
             ],
         ]);
     }
