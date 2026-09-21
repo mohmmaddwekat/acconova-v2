@@ -1,3 +1,4 @@
+import { NotificationRulesPanel } from '@/components/settings/NotificationRulesPanel';
 import { AppShell } from '@/layouts/AppShell';
 import {
     deviceEnabled,
@@ -1909,7 +1910,7 @@ function SettingsWorkspace() {
                             )}
 
                             {section === 'notifications' && (
-                                <div className="grid gap-4 xl:grid-cols-2">
+                                <div className="grid items-start gap-4 xl:grid-cols-2">
                                     <SettingsCard title={text('تنبيهات هذا الجهاز', 'This device notifications')} description={text('إذن إشعارات المتصفح الحقيقي لهذا الجهاز.', 'Real browser notification permission for this device.')} icon={Bell}>
                                         <SettingRow
                                             label={deviceNotifications ? text('مفعلة', 'Enabled') : text('متوقفة', 'Disabled')}
@@ -1924,6 +1925,10 @@ function SettingsWorkspace() {
                                             <input type="number" min={0} max={30} className={input} value={settings.reminder_days} onChange={event => updateSetting('reminder_days', Math.min(30, Math.max(0, Number(event.target.value) || 0)))} />
                                         </label>
                                     </SettingsCard>
+
+                                    <NotificationRulesPanel
+                                        ar={ar}
+                                    />
                                 </div>
                             )}
 
