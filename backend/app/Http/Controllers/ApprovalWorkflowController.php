@@ -130,6 +130,42 @@ class ApprovalWorkflowController extends Controller
                 'updated_at' => now(),
             ]);
 
+        DB::table('workspace_notifications')
+            ->where(
+                'organization_id',
+                app(TenantContext::class)->id(),
+            )
+            ->where(
+                'event_key',
+                'like',
+                'approval-required:'.$row->id.':%',
+            )
+            ->whereNull('read_at')
+            ->update([
+                'read_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        DB::table('workspace_notifications')
+            ->insertOrIgnore([
+                'organization_id' => app(TenantContext::class)->id(),
+                'user_id' => $row->requested_by,
+                'event_key' => 'approval-reviewed:'.$row->id.':'.$row->requested_by,
+                'kind' => $data['decision'] === 'approved'
+                    ? 'approval_approved'
+                    : 'approval_rejected',
+                'category' => 'activity',
+                'data' => json_encode([
+                    'name' => $data['decision'] === 'approved'
+                        ? 'Approval approved'
+                        : 'Approval rejected',
+                    'detail' => $row->reason,
+                ], JSON_THROW_ON_ERROR),
+                'url' => '/app/finance/approvals',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
         return response()->json([
             'data' => DB::table('approval_requests')
                 ->where('id', $row->id)
