@@ -92,6 +92,14 @@ class WorkspaceSettingsController extends Controller
             'purchase_prefix' => $preferences['purchase_prefix'] ?? 'PUR',
             'receipt_prefix' => $preferences['receipt_prefix'] ?? 'RCV',
             'payment_prefix' => $preferences['payment_prefix'] ?? 'PAY',
+            'invoice_number_pattern' => $preferences['invoice_number_pattern']
+                ?? '{PREFIX}-{YYYY}-{SEQ:4}',
+            'purchase_number_pattern' => $preferences['purchase_number_pattern']
+                ?? '{PREFIX}-{YYYY}-{SEQ:4}',
+            'receipt_number_pattern' => $preferences['receipt_number_pattern']
+                ?? '{PREFIX}-{YYYY}-{SEQ:4}',
+            'payment_number_pattern' => $preferences['payment_number_pattern']
+                ?? '{PREFIX}-{YYYY}-{SEQ:4}',
             'invoice_start_number' => max(1, (int) ($preferences['invoice_start_number'] ?? 1)),
             'purchase_start_number' => max(1, (int) ($preferences['purchase_start_number'] ?? 1)),
         ]);
@@ -188,6 +196,38 @@ class WorkspaceSettingsController extends Controller
             'purchase_prefix' => ['sometimes', 'required', 'string', 'max:16', 'regex:/^[A-Za-z0-9_-]+$/'],
             'receipt_prefix' => ['sometimes', 'required', 'string', 'max:16', 'regex:/^[A-Za-z0-9_-]+$/'],
             'payment_prefix' => ['sometimes', 'required', 'string', 'max:16', 'regex:/^[A-Za-z0-9_-]+$/'],
+            'invoice_number_pattern' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:80',
+                'regex:/^[A-Za-z0-9_{}:\\-]+$/',
+                'regex:/\\{SEQ(?::\\d{1,2})?\\}/',
+            ],
+            'purchase_number_pattern' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:80',
+                'regex:/^[A-Za-z0-9_{}:\\-]+$/',
+                'regex:/\\{SEQ(?::\\d{1,2})?\\}/',
+            ],
+            'receipt_number_pattern' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:80',
+                'regex:/^[A-Za-z0-9_{}:\\-]+$/',
+                'regex:/\\{SEQ(?::\\d{1,2})?\\}/',
+            ],
+            'payment_number_pattern' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:80',
+                'regex:/^[A-Za-z0-9_{}:\\-]+$/',
+                'regex:/\\{SEQ(?::\\d{1,2})?\\}/',
+            ],
             'invoice_start_number' => ['sometimes', 'integer', 'between:1,999999999'],
             'purchase_start_number' => ['sometimes', 'integer', 'between:1,999999999'],
         ]);
