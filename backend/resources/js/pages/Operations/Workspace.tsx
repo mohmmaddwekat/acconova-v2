@@ -422,6 +422,7 @@ function visibleKeys(feature: Feature): string[] {
             'quantity',
             'fulfilled_quantity',
             'invoiced_quantity',
+            'invoice_count',
             'remaining_quantity',
             'total',
         ],
