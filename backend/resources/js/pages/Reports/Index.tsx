@@ -12,6 +12,7 @@ import {
     CalendarClock,
     ReceiptText,
     ShoppingCart,
+    Sparkles,
 } from 'lucide-react';
 
 export default function ReportsIndex() {
@@ -50,6 +51,19 @@ export default function ReportsIndex() {
         : builtInFinanceAccess;
 
     const reports = [
+        {
+            title:
+                ar
+                    ? 'استوديو التقارير المتقدم'
+                    : 'Advanced Report Studio',
+            description:
+                ar
+                    ? '40 أداة متقدمة: Drill-Down وPivot وFormulas وCharts والربحية والكاش والمخزون والسيناريوهات والتعاون.'
+                    : '40 advanced capabilities: drill-down, pivot, formulas, charts, profitability, cash, inventory, scenarios and collaboration.',
+            href: '/app/reports/studio',
+            icon: Sparkles,
+            visible: true,
+        },
         {
             title:
                 ar
