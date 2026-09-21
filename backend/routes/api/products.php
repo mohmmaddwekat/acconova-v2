@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProductBulkActionController;
+use App\Http\Controllers\ProductBulkEditController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductDataTransferController;
 use App\Http\Controllers\ProductInsightsController;
@@ -137,6 +138,11 @@ Route::middleware([
     Route::post(
         'products/bulk-action',
         ProductBulkActionController::class,
+    );
+
+    Route::post(
+        'products/bulk-edit',
+        ProductBulkEditController::class,
     );
 
     Route::get(
