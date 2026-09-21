@@ -230,6 +230,28 @@ function displayMoney(
     );
 }
 
+function displaySignedMoney(
+    value: string | number,
+    currency: string,
+    locale: string,
+): string {
+    const numeric =
+        toNumber(
+            value,
+        );
+
+    const formatted =
+        displayMoney(
+            numeric,
+            currency,
+            locale,
+        );
+
+    return numeric < -0.00005
+        ? '-' + formatted
+        : formatted;
+}
+
 function signedStatus(
     value: number,
     scope: Scope,
@@ -2447,7 +2469,7 @@ function TransactionRow({
             </td>
 
             <td className="px-4 py-3 text-end font-bold text-[var(--ac-text)]">
-                {displayMoney(
+                {displaySignedMoney(
                     transaction
                         .balance,
                     currency,
@@ -2578,7 +2600,7 @@ function TransactionCard({
                             : 'Balance'
                     }
                     value={
-                        displayMoney(
+                        displaySignedMoney(
                             transaction
                                 .balance,
                             currency,
@@ -3411,7 +3433,7 @@ function PrintStatement({
                                     </td>
 
                                     <td className="px-2 py-2 text-end font-bold">
-                                        {displayMoney(
+                                        {displaySignedMoney(
                                             transaction
                                                 .balance,
                                             data.currency,
