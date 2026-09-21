@@ -110,8 +110,8 @@ function meta(
         unallocated: [
             'دفعات غير مخصصة',
             'Unallocated payment queue',
-            'دفعات مقبوضة أو مدفوعة بقي منها رصيد غير مربوط بفاتورة.',
-            'Posted cash movements with a remaining amount not yet allocated to an invoice.',
+            'مقبوضات عملاء دخلت فعلياً وبقي منها رصيد غير مربوط بفاتورة بيع.',
+            'Posted customer receipts with a remaining amount not yet allocated to a sales invoice.',
         ],
         collections: [
             'لوحة التحصيل',
@@ -263,7 +263,9 @@ function labelFor(
         starts_on: ['بداية الضمان', 'Warranty start'],
         ends_on: ['نهاية الضمان', 'Warranty end'],
         serial_number: ['Serial Number', 'Serial number'],
-        claim_count: ['المطالبات', 'Claims'],
+        claim_count: ['إجمالي المطالبات', 'Claims'],
+        open_claim_count: ['مطالبات مفتوحة', 'Open claims'],
+        last_claim_status: ['آخر مطالبة', 'Latest claim'],
         warehouse: ['المستودع', 'Warehouse'],
         customer: ['العميل', 'Customer'],
         received_on: ['تاريخ الاستلام', 'Received on'],
@@ -408,6 +410,8 @@ function visibleKeys(feature: Feature): string[] {
             'ends_on',
             'status',
             'claim_count',
+            'open_claim_count',
+            'last_claim_status',
         ],
         serials: [
             'serial_number',
