@@ -57,6 +57,17 @@ class BankReconciliationController extends Controller
 
                 $candidate = CashMovement::query()
                     ->where('status', 'posted')
+                    ->whereNotIn('id', function ($query): void {
+                        $query
+                            ->select('matched_cash_movement_id')
+                            ->from('bank_statement_lines')
+                            ->where(
+                                'organization_id',
+                                app(TenantContext::class)->id(),
+                            )
+                            ->where('status', 'matched')
+                            ->whereNotNull('matched_cash_movement_id');
+                    })
                     ->where('direction', $direction)
                     ->where('currency', $line->currency)
                     ->whereBetween('movement_date', [
@@ -218,6 +229,27 @@ class BankReconciliationController extends Controller
             ) <= 0.0001,
             422,
         );
+
+        $alreadyMatched = DB::table('bank_statement_lines')
+            ->where(
+                'organization_id',
+                app(TenantContext::class)->id(),
+            )
+            ->where('status', 'matched')
+            ->where(
+                'matched_cash_movement_id',
+                $movement->id,
+            )
+            ->where('id', '!=', $row->id)
+            ->exists();
+
+        if ($alreadyMatched) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'cash_movement_id' => [
+                    'This cash movement is already reconciled to another bank statement line.',
+                ],
+            ]);
+        }
 
         DB::table('bank_statement_lines')
             ->where('id', $row->id)
