@@ -250,14 +250,14 @@ export default function ScheduledReports() {
                     <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ac-accent)]">
-                                Reports
+                                {ar ? 'التقارير' : 'Reports'}
                             </p>
                             <h1 className="mt-1 text-2xl font-bold text-[var(--ac-text)]">
                                 {ar ? 'التقارير المجدولة' : 'Scheduled reports'}
                             </h1>
                             <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--ac-text-muted)]">
                                 {ar
-                                    ? 'جهّز تقارير المبيعات والذمم والتحصيل والميزانيات تلقائياً، واحفظ Snapshot تاريخي لكل تشغيل مع إشعار للمستلمين.'
+                                    ? 'جهّز تقارير المبيعات والذمم والتحصيل والميزانيات تلقائياً، واحفظ لقطة تاريخية لكل تشغيل مع إشعار للمستلمين.'
                                     : 'Automatically generate sales, aging, collections and budget snapshots and notify recipients when each run is ready.'}
                             </p>
                         </div>
