@@ -773,6 +773,17 @@ export default function OperationsWorkspace({
                     </div>
                 )}
 
+                {! loading
+                    && rows.length > 0
+                    && readonlyFeatures.includes(feature)
+                    && (
+                        <OperationalSummary
+                            feature={feature}
+                            rows={rows}
+                            ar={ar}
+                        />
+                    )}
+
                 {canCreate && (
                     <form
                         onSubmit={(event) => void submit(event)}
@@ -1331,6 +1342,182 @@ function buildPayload(
     }
 
     return clean;
+}
+
+function OperationalSummary({
+    feature,
+    rows,
+    ar,
+}: {
+    feature: Feature;
+    rows: Row[];
+    ar: boolean;
+}) {
+    const amount = (
+        key: string,
+    ): number =>
+        rows.reduce(
+            (sum, row) =>
+                sum + Number(row[key] ?? 0),
+            0,
+        );
+
+    const metrics: Array<{
+        label: string;
+        value: string;
+    }> = feature === 'collections'
+        ? [
+            {
+                label:
+                    ar
+                        ? 'عملاء يحتاجون اتصال اليوم'
+                        : 'Customers to contact today',
+                value: String(
+                    rows.filter(
+                        row => row.contact_today,
+                    ).length,
+                ),
+            },
+            {
+                label:
+                    ar
+                        ? 'إجمالي المستحق'
+                        : 'Total outstanding',
+                value:
+                    amount('outstanding')
+                        .toLocaleString(
+                            undefined,
+                            {
+                                maximumFractionDigits: 4,
+                            },
+                        ),
+            },
+            {
+                label:
+                    ar
+                        ? 'التحصيل المتوقع'
+                        : 'Expected collection',
+                value:
+                    amount('expected_collection')
+                        .toLocaleString(
+                            undefined,
+                            {
+                                maximumFractionDigits: 4,
+                            },
+                        ),
+            },
+        ]
+        : feature === 'unallocated'
+            ? [
+                {
+                    label:
+                        ar
+                            ? 'دفعات تنتظر التخصيص'
+                            : 'Payments awaiting allocation',
+                    value: String(rows.length),
+                },
+                {
+                    label:
+                        ar
+                            ? 'إجمالي غير مخصص'
+                            : 'Total unallocated',
+                    value:
+                        amount('unallocated')
+                            .toLocaleString(
+                                undefined,
+                                {
+                                    maximumFractionDigits: 4,
+                                },
+                            ),
+                },
+            ]
+            : feature === 'ar-aging'
+                || feature === 'ap-aging'
+                ? [
+                    {
+                        label: '0–30',
+                        value:
+                            amount('0_30')
+                                .toLocaleString(),
+                    },
+                    {
+                        label: '31–60',
+                        value:
+                            amount('31_60')
+                                .toLocaleString(),
+                    },
+                    {
+                        label: '61–90',
+                        value:
+                            amount('61_90')
+                                .toLocaleString(),
+                    },
+                    {
+                        label:
+                            ar
+                                ? '+90 يوم'
+                                : '90+ days',
+                        value:
+                            amount('90_plus')
+                                .toLocaleString(),
+                    },
+                    {
+                        label:
+                            ar
+                                ? 'الإجمالي'
+                                : 'Total',
+                        value:
+                            amount('total')
+                                .toLocaleString(),
+                    },
+                ]
+                : feature === 'backorders'
+                    ? [
+                        {
+                            label:
+                                ar
+                                    ? 'بنود مؤجلة'
+                                    : 'Backordered lines',
+                            value: String(rows.length),
+                        },
+                        {
+                            label:
+                                ar
+                                    ? 'إجمالي الكمية المؤجلة'
+                                    : 'Total backordered quantity',
+                            value:
+                                amount('backorder')
+                                    .toLocaleString(
+                                        undefined,
+                                        {
+                                            maximumFractionDigits: 4,
+                                        },
+                                    ),
+                        },
+                    ]
+                    : [];
+
+    if (metrics.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {metrics.map(metric => (
+                <div
+                    key={metric.label}
+                    className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)]"
+                >
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--ac-text-muted)]">
+                        {metric.label}
+                    </p>
+                    <p className="mt-2 text-xl font-bold text-[var(--ac-text)]">
+                        {metric.value}
+                    </p>
+                </div>
+            ))}
+        </section>
+    );
 }
 
 function TradeLinesEditor({
