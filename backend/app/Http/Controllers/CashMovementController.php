@@ -131,6 +131,88 @@ class CashMovementController extends Controller
         ]);
     }
 
+    public function duplicateCheck(Request $request): JsonResponse
+    {
+        FinanceAuthorization::authorize(
+            $request->user(),
+            'finance.cash.view',
+        );
+
+        $data = $request->validate([
+            'direction' => [
+                'required',
+                Rule::in([
+                    'incoming',
+                    'outgoing',
+                ]),
+            ],
+            'party_id' => ['nullable', 'integer'],
+            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999'],
+            'movement_date' => ['required', 'date_format:Y-m-d'],
+            'method' => ['required', 'string', 'max:40'],
+            'reference' => ['nullable', 'string', 'max:160'],
+            'exclude_id' => ['nullable', 'integer'],
+        ]);
+
+        $date = \Carbon\Carbon::parse(
+            $data['movement_date'],
+        );
+
+        $query = CashMovement::query()
+            ->where('direction', $data['direction'])
+            ->whereIn('status', [
+                'draft',
+                'posted',
+            ])
+            ->whereBetween('movement_date', [
+                $date->copy()->subDays(3)->toDateString(),
+                $date->copy()->addDays(3)->toDateString(),
+            ])
+            ->whereRaw(
+                'ABS(amount - ?) <= 0.0001',
+                [(float) $data['amount']],
+            );
+
+        if (! empty($data['party_id'])) {
+            $query->where(
+                'party_id',
+                (int) $data['party_id'],
+            );
+        }
+
+        if (! empty($data['exclude_id'])) {
+            $query->where(
+                'id',
+                '!=',
+                (int) $data['exclude_id'],
+            );
+        }
+
+        $candidates = $query
+            ->latest('movement_date')
+            ->latest('id')
+            ->limit(5)
+            ->get()
+            ->map(fn (CashMovement $movement): array => [
+                'id' => $movement->id,
+                'number' => $movement->number,
+                'status' => $movement->status,
+                'movement_date' => $movement->movement_date?->format('Y-m-d'),
+                'amount' => $movement->amount,
+                'method' => $movement->method,
+                'reference' => $movement->reference,
+                'party_id' => $movement->party_id,
+                'same_method' => $movement->method === $data['method'],
+                'same_reference' => ! empty($data['reference'])
+                    && $movement->reference === $data['reference'],
+            ])
+            ->values();
+
+        return response()->json([
+            'data' => $candidates,
+        ]);
+    }
+
     public function store(Request $request, CashMovementService $service): JsonResponse
     {
         FinanceAuthorization::authorize($request->user(), 'finance.cash.view');
