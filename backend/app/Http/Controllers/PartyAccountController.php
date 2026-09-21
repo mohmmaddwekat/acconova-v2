@@ -736,6 +736,22 @@ class PartyAccountController extends Controller
                     ),
             ],
             'aging' => $aging,
+            'aging_breakdown' => [
+                'customer' => $this->aging(
+                    $party->id,
+                    'customer',
+                    $canSales,
+                    false,
+                    $dateTo,
+                ),
+                'supplier' => $this->aging(
+                    $party->id,
+                    'supplier',
+                    false,
+                    $canPurchases,
+                    $dateTo,
+                ),
+            ],
             'transactions' => $rows,
             'permissions' => [
                 'sales_view' => $canSales,
