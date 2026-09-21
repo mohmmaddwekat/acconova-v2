@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\InventoryIntelligenceController;
 use App\Http\Controllers\InventoryOverviewController;
+use App\Http\Controllers\InventoryTransferWorkflowController;
 use App\Http\Controllers\ProductInventoryController;
 use App\Http\Controllers\ProductionRunController;
 use App\Http\Controllers\WarehouseController;
@@ -22,6 +24,11 @@ Route::middleware([
     Route::get(
         'inventory/overview',
         InventoryOverviewController::class,
+    );
+
+    Route::get(
+        'inventory/intelligence',
+        InventoryIntelligenceController::class,
     );
 
     /*
@@ -74,6 +81,21 @@ Route::middleware([
                 'store',
             ],
         );
+
+        Route::get(
+            'inventory/transfer-requests',
+            [InventoryTransferWorkflowController::class, 'index'],
+        );
+
+        Route::post(
+            'inventory/transfer-requests',
+            [InventoryTransferWorkflowController::class, 'store'],
+        );
+
+        Route::patch(
+            'inventory/transfer-requests/{transfer}',
+            [InventoryTransferWorkflowController::class, 'transition'],
+        )->whereNumber('transfer');
 
         Route::patch(
             'production-runs/{run}',
