@@ -18,9 +18,9 @@ class PurchaseRequisitionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        FinanceAuthorization::authorize(
+        abort_unless(
             $request->user(),
-            'finance.purchases.view',
+            403,
         );
 
         $status = $request->validate([
@@ -51,6 +51,18 @@ class PurchaseRequisitionController extends Controller
             $query->where(
                 'requisitions.status',
                 $status,
+            );
+        }
+
+        if (
+            ! FinanceAuthorization::allows(
+                $request->user(),
+                'finance.purchases.view',
+            )
+        ) {
+            $query->where(
+                'requisitions.requested_by',
+                $request->user()->id,
             );
         }
 
@@ -122,9 +134,9 @@ class PurchaseRequisitionController extends Controller
         FinanceNumberService $numbers,
     ): JsonResponse
     {
-        FinanceAuthorization::authorize(
+        abort_unless(
             $request->user(),
-            'finance.purchases.view',
+            403,
         );
 
         $data = $request->validate([
