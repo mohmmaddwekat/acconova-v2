@@ -718,6 +718,26 @@ Route::middleware([
             'app.parties.account',
         );
 
+    foreach ([
+        'statement' => 'statement',
+        'invoices' => 'invoices',
+        'payments' => 'payments',
+        'aging' => 'aging',
+    ] as $segment => $tab) {
+        Route::get(
+            '/app/parties/{party}/'.$segment,
+            fn (string $party) => Inertia::render(
+                'Parties/Account',
+                [
+                    'partyId' => (int) $party,
+                    'initialTab' => $tab,
+                ],
+            ),
+        )
+            ->whereNumber('party')
+            ->name('app.parties.account.'.$segment);
+    }
+
     Route::get(
         '/app/products',
         fn () => Inertia::render(
