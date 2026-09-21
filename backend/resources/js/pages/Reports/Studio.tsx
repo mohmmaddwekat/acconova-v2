@@ -35,10 +35,19 @@ type Result = {
 };
 type StudioIndex = {
     features: Feature[];
-    snapshots: Array<Record<string, unknown>>;
-    presets: Array<Record<string, unknown>>;
-    boards: Array<Record<string, unknown>>;
-    reports: Array<{ id: number; name: string; dataset: string; shared: boolean }>;
+    snapshots: Array<{ id: number; name: string; as_of_date: string; definition: string; payload: string }>;
+    presets: Array<{ id: number; name: string; scope: string; filters: string }>;
+    boards: Array<{ id: number; name: string; layout: Array<{ report_id: number; order: number }>; shared: boolean }>;
+    reports: Array<{ id: number; name: string; dataset: string; shared: boolean; visualization?: string | null }>;
+    annotations: Array<Record<string, unknown>>;
+    comments: Array<Record<string, unknown>>;
+    approvals: Array<Record<string, unknown>>;
+};
+
+type DrillResult = {
+    breadcrumbs: Array<{ label: string; value: string }>;
+    months: Array<Record<string, unknown>>;
+    invoices: Array<Record<string, unknown>>;
 };
 
 const panel = 'rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)]';
@@ -60,7 +69,7 @@ const categoryIcon: Record<string, typeof BarChart3> = {
 export default function ReportStudio() {
     const ar = useLocale() === 'ar';
     const t = (arabic: string, english: string) => ar ? arabic : english;
-    const [data, setData] = useState<StudioIndex>({ features: [], snapshots: [], presets: [], boards: [], reports: [] });
+    const [data, setData] = useState<StudioIndex>({ features: [], snapshots: [], presets: [], boards: [], reports: [], annotations: [], comments: [], approvals: [] });
     const [selected, setSelected] = useState('customer-profitability');
     const [query, setQuery] = useState('');
     const [dateFrom, setDateFrom] = useState(() => {
@@ -86,7 +95,10 @@ export default function ReportStudio() {
     const [exceptionMetric, setExceptionMetric] = useState('margin');
     const [exceptionOperator, setExceptionOperator] = useState('lt');
     const [exceptionValue, setExceptionValue] = useState(10);
-    const [drill, setDrill] = useState<{ row: Record<string, unknown>; key: string } | null>(null);
+    const [drill, setDrill] = useState<{ row: Record<string, unknown>; key: string; details?: DrillResult; loading?: boolean } | null>(null);
+    const [chartX, setChartX] = useState('');
+    const [chartY, setChartY] = useState('');
+    const [visualizationReportId, setVisualizationReportId] = useState<number | null>(null);
     const [note, setNote] = useState('');
     const [comment, setComment] = useState('');
     const [boardName, setBoardName] = useState('');
@@ -130,6 +142,8 @@ export default function ReportStudio() {
             setFormulaLeft(numeric[0] ?? '');
             setFormulaRight(numeric[1] ?? numeric[0] ?? '');
             setPivotRows(response.data.columns[0] ?? '');
+            setChartX(response.data.columns[0] ?? '');
+            setChartY(numeric[0] ?? '');
         } catch (failure) {
             setError(failure instanceof ApiError ? failure.message : t('تعذر تشغيل التقرير.', 'Could not run report.'));
         } finally { setBusy(false); }
@@ -209,6 +223,70 @@ export default function ReportStudio() {
         } catch (failure) {
             setError(failure instanceof ApiError ? failure.message : t('تعذر حفظ لوحة التقارير.', 'Could not save report board.'));
         } finally { setBusy(false); }
+    }
+
+
+    function applyPreset(filtersRaw: string) {
+        try {
+            const filters = JSON.parse(filtersRaw) as { dateFrom?: string; dateTo?: string; dimension?: string };
+            if (filters.dateFrom) setDateFrom(filters.dateFrom);
+            if (filters.dateTo) setDateTo(filters.dateTo);
+            if (filters.dimension) setDimension(filters.dimension);
+        } catch {
+            setError(t('إعدادات الفلتر المحفوظ غير صالحة.', 'Saved preset is invalid.'));
+        }
+    }
+
+    function openSnapshot(snapshot: StudioIndex['snapshots'][number]) {
+        try {
+            const payload = JSON.parse(snapshot.payload) as Result;
+            const definition = JSON.parse(snapshot.definition) as { feature?: string; date_from?: string; date_to?: string; dimension?: string };
+            setResult(payload);
+            if (definition.feature) setSelected(definition.feature);
+            if (definition.date_from) setDateFrom(definition.date_from);
+            if (definition.date_to) setDateTo(definition.date_to);
+            if (definition.dimension) setDimension(definition.dimension);
+        } catch {
+            setError(t('تعذر فتح الـSnapshot.', 'Could not open snapshot.'));
+        }
+    }
+
+    async function openDrill(row: Record<string, unknown>, key: string) {
+        setDrill({ row, key, loading: true });
+        const dimensionKey = ['dimension', 'customer', 'supplier', 'party', 'branch', 'month', 'employee']
+            .find(candidate => row[candidate] !== undefined);
+        try {
+            const response = await apiRequest<{ data: DrillResult }>('/api/report-studio/drill-down', {
+                method: 'POST',
+                body: JSON.stringify({
+                    feature: selected,
+                    date_from: dateFrom,
+                    date_to: dateTo,
+                    dimension: dimensionKey ?? dimension,
+                    dimension_value: dimensionKey ? String(row[dimensionKey] ?? '') : null,
+                    metric: key,
+                }),
+            });
+            setDrill({ row, key, details: response.data, loading: false });
+        } catch {
+            setDrill({ row, key, loading: false });
+        }
+    }
+
+    async function saveVisualization() {
+        if (!visualizationReportId) return;
+        setBusy(true);
+        try {
+            await apiRequest('/api/report-studio/visualizations', {
+                method: 'POST',
+                body: JSON.stringify({ report_id: visualizationReportId, type: chartType, x: chartX || null, y: chartY || null }),
+            });
+            await load();
+        } catch (failure) {
+            setError(failure instanceof ApiError ? failure.message : t('تعذر حفظ الرسم.', 'Could not save visualization.'));
+        } finally {
+            setBusy(false);
+        }
     }
 
     const displayedRows = useMemo(() => {
@@ -316,7 +394,13 @@ export default function ReportStudio() {
                                     </div>
                                 </div>
                                 <div className="mt-3 flex flex-wrap gap-2 text-[9px] text-[var(--ac-text-muted)]"><span>{result.date_from} → {result.date_to}</span><span>•</span><span>{displayedRows.length} {t('صف', 'rows')}</span>{result.meta && Object.entries(result.meta).slice(0,4).map(([k,v]) => <span key={k}>• {k}: {String(v)}</span>)}</div>
-                                {chartType === 'table' ? <ResultTable columns={displayedColumns} rows={displayedRows} onDrill={(row,key) => setDrill({row,key})}/> : <SimpleChart rows={displayedRows} columns={displayedColumns} type={chartType}/>}
+                                <div className="mt-3 grid gap-2 md:grid-cols-4">
+                                    <select className={input} value={chartX} onChange={e => setChartX(e.target.value)}><option value="">X axis</option>{displayedColumns.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                                    <select className={input} value={chartY} onChange={e => setChartY(e.target.value)}><option value="">Y axis</option>{displayedColumns.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                                    <select className={input} value={visualizationReportId ?? ''} onChange={e => setVisualizationReportId(e.target.value ? Number(e.target.value) : null)}><option value="">{t('اختر تقرير محفوظ', 'Choose saved report')}</option>{data.reports.map(report => <option key={report.id} value={report.id}>{report.name}</option>)}</select>
+                                    <button className={button} disabled={!visualizationReportId} onClick={() => void saveVisualization()}><Save size={13}/>{t('حفظ الرسم', 'Save visualization')}</button>
+                                </div>
+                                {chartType === 'table' ? <ResultTable columns={displayedColumns} rows={displayedRows} onDrill={(row,key) => void openDrill(row,key)}/> : <SimpleChart rows={displayedRows} columns={displayedColumns} type={chartType} xKey={chartX} yKey={chartY}/>}
                             </section>
 
                             <section className="grid gap-4 2xl:grid-cols-2">
@@ -350,7 +434,19 @@ export default function ReportStudio() {
                     </section>
                 </div>
 
-                {drill && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDrill(null)}><div className={panel + ' max-h-[80vh] w-full max-w-2xl overflow-auto p-5'} onClick={e => e.stopPropagation()}><h3 className="text-sm font-bold text-[var(--ac-text)]">{t('Drill-Down', 'Drill-Down')} · {drill.key}</h3><div className="mt-4 grid gap-2 sm:grid-cols-2">{Object.entries(drill.row).map(([k,v]) => <div key={k} className="rounded-[11px] border border-[var(--ac-line)] p-3"><p className="text-[9px] text-[var(--ac-text-muted)]">{k}</p><p className="mt-1 break-words text-xs font-semibold text-[var(--ac-text)]">{formatValue(v)}</p></div>)}</div><button className={button + ' mt-4 w-full'} onClick={() => setDrill(null)}>{t('إغلاق', 'Close')}</button></div></div>}
+                {data.snapshots.length > 0 || data.presets.length > 0 || data.boards.length > 0 ? <section className="mt-4 grid gap-4 xl:grid-cols-3">
+                    <div className={panel + ' p-4'}><h3 className="text-xs font-bold text-[var(--ac-text)]">{t('Snapshots المحفوظة', 'Saved snapshots')}</h3><div className="mt-3 max-h-44 space-y-2 overflow-auto">{data.snapshots.map(snapshot => <button key={snapshot.id} className="w-full rounded-[10px] border border-[var(--ac-line)] p-2 text-start hover:border-[var(--ac-accent)]" onClick={() => openSnapshot(snapshot)}><p className="text-[10px] font-semibold text-[var(--ac-text)]">{snapshot.name}</p><p className="text-[8px] text-[var(--ac-text-muted)]">{snapshot.as_of_date}</p></button>)}</div></div>
+                    <div className={panel + ' p-4'}><h3 className="text-xs font-bold text-[var(--ac-text)]">{t('Filter Presets', 'Filter presets')}</h3><div className="mt-3 max-h-44 space-y-2 overflow-auto">{data.presets.map(preset => <button key={preset.id} className="w-full rounded-[10px] border border-[var(--ac-line)] p-2 text-start hover:border-[var(--ac-accent)]" onClick={() => applyPreset(preset.filters)}><p className="text-[10px] font-semibold text-[var(--ac-text)]">{preset.name}</p><p className="text-[8px] text-[var(--ac-text-muted)]">{preset.scope}</p></button>)}</div></div>
+                    <div className={panel + ' p-4'}><h3 className="text-xs font-bold text-[var(--ac-text)]">{t('Executive Boards', 'Executive boards')}</h3><div className="mt-3 max-h-44 space-y-2 overflow-auto">{data.boards.map(board => <div key={board.id} className="rounded-[10px] border border-[var(--ac-line)] p-2"><p className="text-[10px] font-semibold text-[var(--ac-text)]">{board.name}</p><p className="mt-1 text-[8px] text-[var(--ac-text-muted)]">{board.layout.map(item => data.reports.find(r => r.id === item.report_id)?.name ?? '#' + item.report_id).join(' · ')}</p></div>)}</div></div>
+                </section> : null}
+
+                {drill && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDrill(null)}><div className={panel + ' max-h-[85vh] w-full max-w-5xl overflow-auto p-5'} onClick={e => e.stopPropagation()}><h3 className="text-sm font-bold text-[var(--ac-text)]">{t('Interactive Drill-Down', 'Interactive Drill-Down')} · {drill.key}</h3>
+                    {drill.loading && <p className="mt-4 text-xs text-[var(--ac-text-muted)]">{t('تحميل التفاصيل...', 'Loading details...')}</p>}
+                    {drill.details && <><div className="mt-3 flex flex-wrap gap-2">{drill.details.breadcrumbs.map((crumb,i) => <span key={i} className="rounded-full border border-[var(--ac-line)] px-2 py-1 text-[9px] text-[var(--ac-text-soft)]">{crumb.label}: {crumb.value}</span>)}</div>
+                    <h4 className="mt-5 text-xs font-bold text-[var(--ac-text)]">{t('حسب الشهر', 'By month')}</h4><ResultTable columns={drill.details.months.length ? Object.keys(drill.details.months[0]) : []} rows={drill.details.months} onDrill={() => {}}/>
+                    <h4 className="mt-5 text-xs font-bold text-[var(--ac-text)]">{t('الفواتير', 'Invoices')}</h4><ResultTable columns={drill.details.invoices.length ? Object.keys(drill.details.invoices[0]) : []} rows={drill.details.invoices} onDrill={() => {}}/></>}
+                    {!drill.loading && !drill.details && <div className="mt-4 grid gap-2 sm:grid-cols-2">{Object.entries(drill.row).map(([k,v]) => <div key={k} className="rounded-[11px] border border-[var(--ac-line)] p-3"><p className="text-[9px] text-[var(--ac-text-muted)]">{k}</p><p className="mt-1 break-words text-xs font-semibold text-[var(--ac-text)]">{formatValue(v)}</p></div>)}</div>}
+                    <button className={button + ' mt-4 w-full'} onClick={() => setDrill(null)}>{t('إغلاق', 'Close')}</button></div></div>}
             </main>
         </AppShell>
     );
@@ -360,9 +456,9 @@ function ResultTable({columns, rows, onDrill}: {columns: string[]; rows: Array<R
     return <div className="mt-4 max-h-[580px] overflow-auto rounded-[14px] border border-[var(--ac-line)]"><table className="w-full min-w-[800px] text-[10px]"><thead className="sticky top-0 bg-[var(--ac-surface-soft)]"><tr>{columns.map(c => <th key={c} className="border-b border-[var(--ac-line)] px-3 py-2 text-start font-semibold text-[var(--ac-text-muted)]">{c.replaceAll('_',' ')}</th>)}</tr></thead><tbody className="divide-y divide-[var(--ac-line)]">{rows.map((row,i) => <tr key={i} className="hover:bg-[var(--ac-surface-soft)]">{columns.map(c => { const numeric = typeof row[c] === 'number' || (row[c] !== null && row[c] !== '' && !Number.isNaN(Number(row[c]))); return <td key={c} className="max-w-[300px] px-3 py-2 text-[var(--ac-text-soft)]">{numeric ? <button className="font-semibold text-[var(--ac-accent)] hover:underline" onClick={() => onDrill(row,c)}>{formatValue(row[c])}</button> : <span className="break-words">{formatValue(row[c])}</span>}</td>;})}</tr>)}</tbody></table></div>;
 }
 
-function SimpleChart({rows, columns, type}: {rows: Array<Record<string, unknown>>; columns: string[]; type: 'bar'|'line'|'area'|'pie'|'donut'}) {
-    const numeric = columns.find(c => rows.some(r => typeof r[c] === 'number' || !Number.isNaN(Number(r[c]))));
-    const label = columns.find(c => c !== numeric) ?? columns[0];
+function SimpleChart({rows, columns, type, xKey, yKey}: {rows: Array<Record<string, unknown>>; columns: string[]; type: 'bar'|'line'|'area'|'pie'|'donut'; xKey?: string; yKey?: string}) {
+    const numeric = yKey || columns.find(c => rows.some(r => typeof r[c] === 'number' || !Number.isNaN(Number(r[c]))));
+    const label = xKey || columns.find(c => c !== numeric) || columns[0];
     const points = rows.slice(0, 20).map(r => ({label: String(r[label] ?? '—'), value: Number(r[numeric ?? ''] ?? 0)}));
     const max = Math.max(1, ...points.map(p => Math.abs(p.value)));
     if (!numeric) return <div className="mt-4 p-8 text-center text-xs text-[var(--ac-text-muted)]">No numeric field available.</div>;
