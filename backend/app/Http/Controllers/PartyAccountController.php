@@ -103,13 +103,9 @@ class PartyAccountController extends Controller
                 ->pluck('role')
                 ->map(
                     fn ($role): string =>
-                        is_object($role)
-                            && property_exists(
-                                $role,
-                                'value',
-                            )
-                                ? $role->value
-                                : (string) $role,
+                        $role instanceof \BackedEnum
+                            ? (string) $role->value
+                            : (string) $role,
                 )
                 ->values()
                 ->all();
