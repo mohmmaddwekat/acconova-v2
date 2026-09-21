@@ -1334,7 +1334,7 @@ function ProductsWorkspace() {
                                 null,
                             );
                         }
-                    }
+                    }}
                     onEdit={
                         edit
                     }
