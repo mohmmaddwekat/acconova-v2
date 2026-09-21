@@ -314,15 +314,67 @@ class ApprovalWorkflowService
         string $reason,
         int $requesterId,
     ): void {
-        $reviewers = DB::table('memberships')
-            ->where('organization_id', $organizationId)
-            ->whereIn('role', [
-                'owner',
-                'admin',
-                'manager',
+        $reviewers = DB::table('memberships as memberships')
+            ->leftJoin(
+                'workspace_roles as workspace_roles',
+                'workspace_roles.id',
+                '=',
+                'memberships.workspace_role_id',
+            )
+            ->where(
+                'memberships.organization_id',
+                $organizationId,
+            )
+            ->where(
+                'memberships.user_id',
+                '!=',
+                $requesterId,
+            )
+            ->get([
+                'memberships.user_id',
+                'memberships.role',
+                'workspace_roles.permissions',
+                'workspace_roles.is_custom',
             ])
-            ->where('user_id', '!=', $requesterId)
-            ->pluck('user_id');
+            ->filter(function ($membership): bool {
+                if (
+                    in_array(
+                        $membership->role,
+                        [
+                            'owner',
+                            'admin',
+                            'manager',
+                        ],
+                        true,
+                    )
+                ) {
+                    return true;
+                }
+
+                if (! $membership->is_custom) {
+                    return false;
+                }
+
+                $permissions =
+                    $membership->permissions
+                        ? json_decode(
+                            $membership->permissions,
+                            true,
+                        )
+                        : [];
+
+                return is_array(
+                    $permissions,
+                )
+                    && in_array(
+                        'finance.approvals.review',
+                        $permissions,
+                        true,
+                    );
+            })
+            ->pluck('user_id')
+            ->unique()
+            ->values();
 
         foreach ($reviewers as $userId) {
             DB::table('workspace_notifications')
