@@ -25,6 +25,10 @@ type InventoryIntelligenceRow = {
     frozen_capital: string;
     sales_30_days: string;
     sales_90_days: string;
+    production_consumption_30_days: string;
+    production_consumption_90_days: string;
+    demand_30_days: string;
+    demand_90_days: string;
     daily_demand: string;
     reorder_quantity: string;
     stockout_days: number | null;
