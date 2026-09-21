@@ -215,6 +215,8 @@ function labelFor(
         number: ['الرقم', 'Number'],
         kind: ['النوع', 'Type'],
         party: ['العميل / المورد', 'Party'],
+        phone: ['الهاتف', 'Phone'],
+        email: ['البريد', 'Email'],
         direction: ['الاتجاه', 'Direction'],
         date: ['التاريخ', 'Date'],
         movement_date: ['التاريخ', 'Date'],
@@ -298,6 +300,8 @@ function visibleKeys(feature: Feature): string[] {
         ],
         collections: [
             'party',
+            'phone',
+            'email',
             'invoice_count',
             'outstanding',
             'currency',
@@ -1975,6 +1979,24 @@ function RowActions({
                     <ArrowRight size={13} />
                     {ar ? 'فتح' : 'Open'}
                 </Link>
+            )}
+
+            {feature === 'collections' && row.phone && (
+                <a
+                    href={'tel:' + String(row.phone)}
+                    className="inline-flex h-9 items-center rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                >
+                    {ar ? 'اتصال' : 'Call'}
+                </a>
+            )}
+
+            {feature === 'collections' && row.email && (
+                <a
+                    href={'mailto:' + String(row.email)}
+                    className="inline-flex h-9 items-center rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                >
+                    {ar ? 'إيميل' : 'Email'}
+                </a>
             )}
 
             {feature === 'unallocated'
