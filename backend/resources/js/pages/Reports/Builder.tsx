@@ -79,6 +79,7 @@ export default function ReportBuilder() {
     const [sortDirection, setSortDirection] =
         useState<'asc' | 'desc'>('asc');
     const [name, setName] = useState('');
+    const [editingId, setEditingId] = useState<number | null>(null);
     const [shared, setShared] = useState(false);
     const [result, setResult] = useState<RunResult | null>(null);
     const [loading, setLoading] = useState(true);
@@ -209,16 +210,24 @@ export default function ReportBuilder() {
         setError('');
 
         try {
-            await apiRequest('/api/report-builder', {
-                method: 'POST',
-                body: JSON.stringify({
-                    ...payload(),
-                    name: name.trim(),
-                    shared,
-                }),
-            });
+            await apiRequest(
+                editingId
+                    ? '/api/report-builder/' + editingId
+                    : '/api/report-builder',
+                {
+                    method: editingId
+                        ? 'PATCH'
+                        : 'POST',
+                    body: JSON.stringify({
+                        ...payload(),
+                        name: name.trim(),
+                        shared,
+                    }),
+                },
+            );
 
             setName('');
+            setEditingId(null);
             await load();
         } catch (failure) {
             setError(
@@ -239,6 +248,11 @@ export default function ReportBuilder() {
         setSortBy(report.sort_by ?? '');
         setSortDirection(report.sort_direction ?? 'asc');
         setName(report.name);
+        setEditingId(
+            report.can_edit
+                ? report.id
+                : null,
+        );
         setShared(Boolean(report.shared));
         setResult(null);
     }
@@ -255,6 +269,12 @@ export default function ReportBuilder() {
             await apiRequest('/api/report-builder/' + id, {
                 method: 'DELETE',
             });
+
+            if (editingId === id) {
+                setEditingId(null);
+                setName('');
+            }
+
             await load();
         } catch (failure) {
             setError(
@@ -358,9 +378,25 @@ export default function ReportBuilder() {
                             onSubmit={event => void save(event)}
                             className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4"
                         >
-                            <h2 className="text-xs font-bold text-[var(--ac-text)]">
-                                {text('حفظ التقرير', 'Save report')}
-                            </h2>
+                            <div className="flex items-center justify-between gap-2">
+                                <h2 className="text-xs font-bold text-[var(--ac-text)]">
+                                    {editingId
+                                        ? text('تعديل التقرير', 'Update report')
+                                        : text('حفظ التقرير', 'Save report')}
+                                </h2>
+                                {editingId && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingId(null);
+                                            setName('');
+                                        }}
+                                        className="text-[9px] font-semibold text-[var(--ac-accent)]"
+                                    >
+                                        {text('تقرير جديد', 'New report')}
+                                    </button>
+                                )}
+                            </div>
                             <input
                                 className={control + ' mt-3'}
                                 required
@@ -382,7 +418,9 @@ export default function ReportBuilder() {
                                 className={outline + ' mt-3 w-full'}
                             >
                                 <Save size={13} />
-                                {text('حفظ', 'Save')}
+                                {editingId
+                                    ? text('حفظ التعديلات', 'Update report')
+                                    : text('حفظ', 'Save')}
                             </button>
                         </form>
 
