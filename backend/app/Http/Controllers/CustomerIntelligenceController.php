@@ -73,9 +73,9 @@ class CustomerIntelligenceController extends Controller
             ->keyBy('party_id');
 
         /*
-         * Profitability is an operational estimate using each product's
-         * current cost price because historical cost snapshots are not yet
-         * stored on invoice lines.
+         * Profitability uses net-of-tax sales revenue and the issue-time cost
+         * snapshot when available. Older invoices fall back to the current
+         * catalog cost so historical data still remains usable.
          */
         $profit = DB::table('financial_document_lines as l')
             ->join(
@@ -133,10 +133,11 @@ class CustomerIntelligenceController extends Controller
             $profitRow = $profit->get($customer->id);
 
             $revenue = (float) ($sale->revenue ?? 0);
+            $profitRevenue = (float) ($profitRow->revenue ?? 0);
             $estimatedCost = (float) ($profitRow->estimated_cost ?? 0);
-            $grossProfit = $revenue - $estimatedCost;
-            $margin = $revenue > 0
-                ? ($grossProfit / $revenue) * 100
+            $grossProfit = $profitRevenue - $estimatedCost;
+            $margin = $profitRevenue > 0
+                ? ($grossProfit / $profitRevenue) * 100
                 : 0;
 
             $lastSaleDate = $sale->last_sale_date ?? null;
