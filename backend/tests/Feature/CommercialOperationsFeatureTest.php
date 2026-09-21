@@ -32,6 +32,10 @@ class CommercialOperationsFeatureTest extends TestCase
             'supplier',
             'Aging Supplier',
         );
+        $currentCustomerId = $this->party(
+            'customer',
+            'Current Customer',
+        );
 
         $saleId = $this->invoice(
             'sale_invoice',
@@ -45,9 +49,16 @@ class CommercialOperationsFeatureTest extends TestCase
             '200.0000',
             today()->subDays(75)->toDateString(),
         );
+        $currentSaleId = $this->invoice(
+            'sale_invoice',
+            $currentCustomerId,
+            '75.0000',
+            today()->addDays(20)->toDateString(),
+        );
 
         $this->issue($saleId);
         $this->issue($purchaseId);
+        $this->issue($currentSaleId);
 
         $receiptId = (int) $this->postJson(
             '/api/finance/cash-movements',
@@ -147,6 +158,25 @@ class CommercialOperationsFeatureTest extends TestCase
         $this->assertSame(
             '100.0000',
             $receivable['31_60'],
+        );
+
+        $currentReceivable = collect(
+            $receivables,
+        )->firstWhere(
+            'party_id',
+            $currentCustomerId,
+        );
+
+        $this->assertNotNull(
+            $currentReceivable,
+        );
+        $this->assertSame(
+            '75.0000',
+            $currentReceivable['current'],
+        );
+        $this->assertSame(
+            '0.0000',
+            $currentReceivable['0_30'],
         );
 
         $payables = $this->getJson(
