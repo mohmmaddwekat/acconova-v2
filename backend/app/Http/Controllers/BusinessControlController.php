@@ -1923,6 +1923,13 @@ class BusinessControlController extends Controller
                 'required',
                 'string',
                 'max:160',
+                Rule::unique(
+                    'petty_cash_funds',
+                    'name',
+                )->where(
+                    'organization_id',
+                    $organizationId,
+                ),
             ],
             'department_id' => [
                 'nullable',
@@ -2163,6 +2170,41 @@ class BusinessControlController extends Controller
                 (int) $data['party_id'],
                 $organizationId,
             );
+
+            if (
+                in_array(
+                    $data['contract_type'],
+                    ['customer', 'supplier'],
+                    true,
+                )
+            ) {
+                $hasRole = DB::table(
+                    'party_roles',
+                )
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->where(
+                        'party_id',
+                        (int) $data['party_id'],
+                    )
+                    ->where(
+                        'role',
+                        $data['contract_type'],
+                    )
+                    ->exists();
+
+                if (! $hasRole) {
+                    throw ValidationException::withMessages([
+                        'party_id' => [
+                            $data['contract_type'] === 'customer'
+                                ? 'Choose a party with the customer role.'
+                                : 'Choose a party with the supplier role.',
+                        ],
+                    ]);
+                }
+            }
         }
 
         $id = DB::table(
@@ -2268,12 +2310,70 @@ class BusinessControlController extends Controller
             );
         }
 
+        $subjectLabel =
+            $data['subject_label']
+            ?? null;
+
+        if (
+            ! empty($data['subject_id'])
+            && $data['subject_type']
+                === 'party'
+        ) {
+            $party = DB::table('parties')
+                ->where(
+                    'organization_id',
+                    $organizationId,
+                )
+                ->where(
+                    'id',
+                    (int) $data['subject_id'],
+                )
+                ->first([
+                    'name',
+                    'company_name',
+                ]);
+
+            $subjectLabel =
+                $party?->company_name
+                ?: $party?->name;
+        }
+
+        if (
+            ! empty($data['subject_id'])
+            && $data['subject_type']
+                === 'staff'
+        ) {
+            $subjectLabel =
+                DB::table('staff_members')
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->where(
+                        'id',
+                        (int) $data['subject_id'],
+                    )
+                    ->value('name');
+        }
+
+        if (
+            $data['subject_type']
+                === 'organization'
+        ) {
+            $subjectLabel =
+                app(TenantContext::class)
+                    ->organization()
+                    ->name;
+        }
+
         $id = DB::table(
             'expiring_documents',
         )->insertGetId([
             'organization_id' =>
                 $organizationId,
             ...$data,
+            'subject_label' =>
+                $subjectLabel,
             'reminder_days' =>
                 $data['reminder_days']
                 ?? 30,
