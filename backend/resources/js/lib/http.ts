@@ -2,6 +2,8 @@ import { normalizeApiError } from './error-feedback';
 import { getLocale } from './locale';
 export type ApiErrorPayload = {
     message?: string;
+    code?: string;
+    error_id?: string;
     error_codes?: Record<string, string[]>;
     errors?: Record<string, string[]>;
 };
@@ -13,6 +15,10 @@ export class ApiError extends Error {
     public readonly status: number;
 
     public readonly errors: Record<string, string[]>;
+
+    public readonly code: string | null;
+
+    public readonly errorId: string | null;
 
     /**
      * Build one typed API error from Laravel's JSON error response.
@@ -29,6 +35,8 @@ export class ApiError extends Error {
 
         this.status = status;
         this.errors = safe.fieldErrors;
+        this.code = payload.code ?? null;
+        this.errorId = payload.error_id ?? null;
     }
 }
 
