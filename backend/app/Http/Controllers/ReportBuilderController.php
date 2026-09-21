@@ -173,6 +173,11 @@ class ReportBuilderController extends Controller
                 now(),
         ]);
 
+        $this->saveVersion(
+            $id,
+            $request->user()->id,
+        );
+
         return response()->json([
             'data' =>
                 $this->presentReport(
@@ -275,6 +280,11 @@ class ReportBuilderController extends Controller
                 'updated_at' =>
                     now(),
             ]);
+
+        $this->saveVersion(
+            (int) $current->id,
+            $request->user()->id,
+        );
 
         return response()->json([
             'data' =>
@@ -562,6 +572,119 @@ class ReportBuilderController extends Controller
                     $rows->count()
                     >= 1000,
             ],
+        ]);
+    }
+
+    public function versions(
+        Request $request,
+        string $report,
+    ): JsonResponse {
+        $organizationId = app(TenantContext::class)->id();
+
+        $exists = DB::table('custom_reports')
+            ->where('organization_id', $organizationId)
+            ->where('id', (int) $report)
+            ->where(function ($query) use ($request): void {
+                $query->where('created_by', $request->user()->id)
+                    ->orWhere('shared', true);
+            })
+            ->exists();
+
+        abort_unless($exists, 404);
+
+        $versions = DB::table('report_versions')
+            ->where('organization_id', $organizationId)
+            ->where('report_id', (int) $report)
+            ->latest('version')
+            ->get()
+            ->map(function ($row): array {
+                return [
+                    ...((array) $row),
+                    'definition' => json_decode($row->definition, true) ?: [],
+                ];
+            });
+
+        return response()->json(['data' => $versions]);
+    }
+
+    public function restoreVersion(
+        Request $request,
+        string $report,
+        string $version,
+    ): JsonResponse {
+        $organizationId = app(TenantContext::class)->id();
+
+        $current = DB::table('custom_reports')
+            ->where('organization_id', $organizationId)
+            ->where('created_by', $request->user()->id)
+            ->where('id', (int) $report)
+            ->first();
+
+        abort_unless($current, 404);
+
+        $row = DB::table('report_versions')
+            ->where('organization_id', $organizationId)
+            ->where('report_id', (int) $report)
+            ->where('version', (int) $version)
+            ->first();
+
+        abort_unless($row, 404);
+        $definition = json_decode($row->definition, true) ?: [];
+
+        DB::table('custom_reports')
+            ->where('id', (int) $report)
+            ->update([
+                'name' => $definition['name'] ?? $current->name,
+                'dataset' => $definition['dataset'] ?? $current->dataset,
+                'columns' => json_encode($definition['columns'] ?? [], JSON_THROW_ON_ERROR),
+                'filters' => json_encode($definition['filters'] ?? [], JSON_THROW_ON_ERROR),
+                'group_by' => $definition['group_by'] ?? null,
+                'sort_by' => $definition['sort_by'] ?? null,
+                'sort_direction' => $definition['sort_direction'] ?? 'asc',
+                'shared' => (bool) ($definition['shared'] ?? false),
+                'updated_at' => now(),
+            ]);
+
+        $this->saveVersion((int) $report, $request->user()->id);
+
+        return response()->json([
+            'data' => $this->presentReport(
+                DB::table('custom_reports')->where('id', (int) $report)->first(),
+                $request->user()->id,
+            ),
+        ]);
+    }
+
+    private function saveVersion(
+        int $reportId,
+        int $userId,
+    ): void {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('report_versions')) {
+            return;
+        }
+
+        $organizationId = app(TenantContext::class)->id();
+        $report = DB::table('custom_reports')
+            ->where('organization_id', $organizationId)
+            ->where('id', $reportId)
+            ->first();
+
+        if (! $report) {
+            return;
+        }
+
+        $version = ((int) DB::table('report_versions')
+            ->where('report_id', $reportId)
+            ->max('version')) + 1;
+
+        DB::table('report_versions')->insert([
+            'organization_id' => $organizationId,
+            'report_id' => $reportId,
+            'created_by' => $userId,
+            'version' => $version,
+            'definition' => json_encode($this->presentReport($report), JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 
