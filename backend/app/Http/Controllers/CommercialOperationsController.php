@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CashMovement;
 use App\Models\Party;
 use App\Models\Product;
+use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
 use App\Tenancy\TenantContext;
@@ -30,7 +32,10 @@ class CommercialOperationsController extends Controller
         $organizationId = app(TenantContext::class)->id();
 
         $data = match ($feature) {
-            'unallocated' => $this->unallocated($organizationId),
+            'unallocated' => $this->unallocated(
+                $request,
+                $organizationId,
+            ),
             'collections' => $this->collections($organizationId),
             'ar-aging' => $this->aging($organizationId, 'sale_invoice'),
             'ap-aging' => $this->aging($organizationId, 'purchase_invoice'),
@@ -484,7 +489,71 @@ class CommercialOperationsController extends Controller
         ]);
     }
 
-    private function unallocated(int $organizationId): array
+    public function prepareAllocation(
+        Request $request,
+        string $record,
+        CashMovementService $cashMovements,
+    ): JsonResponse {
+        FinanceAuthorization::authorize(
+            $request->user(),
+            'finance.cash.correct',
+        );
+
+        $movement = CashMovement::query()
+            ->with('allocations')
+            ->findOrFail((int) $record);
+
+        if (
+            $movement->status !== 'posted'
+            || $movement->direction !== 'incoming'
+            || $movement->category !== 'customer_receipt'
+            || ! $movement->party_id
+            || $movement->reversal_of_id
+        ) {
+            throw ValidationException::withMessages([
+                'movement' => [
+                    'Only posted customer receipts can be prepared for allocation.',
+                ],
+            ]);
+        }
+
+        $allocated = (float) $movement
+            ->allocations
+            ->sum(
+                fn ($allocation): float =>
+                    (float) $allocation->amount,
+            );
+
+        if (
+            (float) $movement->amount
+            - $allocated
+            <= 0.00005
+        ) {
+            throw ValidationException::withMessages([
+                'movement' => [
+                    'This receipt is already fully allocated.',
+                ],
+            ]);
+        }
+
+        $replacement = $cashMovements->startCorrection(
+            $movement,
+            'Allocate previously unallocated receipt to customer invoice',
+            $request->user()->id,
+        );
+
+        return response()->json([
+            'data' => [
+                'id' => $replacement->id,
+                'url' => '/app/receipts/'.$replacement->id,
+            ],
+        ], 201);
+    }
+
+    private function unallocated(
+        Request $request,
+        int $organizationId,
+    ): array
     {
         $allocations = DB::table('cash_allocations')
             ->selectRaw(
@@ -509,6 +578,8 @@ class CommercialOperationsController extends Controller
             ->where('movement.organization_id', $organizationId)
             ->where('movement.status', 'posted')
             ->where('movement.direction', 'incoming')
+            ->where('movement.category', 'customer_receipt')
+            ->whereNotNull('movement.party_id')
             ->whereNull('movement.reversal_of_id')
             ->where(function ($query): void {
                 $query
@@ -532,7 +603,7 @@ class CommercialOperationsController extends Controller
                 'party.company_name',
                 DB::raw('COALESCE(allocation_totals.allocated, 0) as allocated'),
             ])
-            ->map(function ($row): ?array {
+            ->map(function ($row) use ($request): ?array {
                 $unallocated =
                     (float) $row->amount
                     - (float) $row->allocated;
@@ -557,9 +628,12 @@ class CommercialOperationsController extends Controller
                     ),
                     'currency' => $row->currency,
                     'method' => $row->method,
-                    'url' => $row->direction === 'incoming'
-                        ? '/app/receipts/'.$row->id
-                        : '/app/payments/'.$row->id,
+                    'can_allocate' =>
+                        FinanceAuthorization::allows(
+                            $request->user(),
+                            'finance.cash.correct',
+                        ),
+                    'url' => '/app/receipts/'.$row->id,
                 ];
             })
             ->filter()
