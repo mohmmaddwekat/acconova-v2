@@ -374,20 +374,37 @@ class NotificationCenter
                     (int) $reminder->record_id,
                 );
 
-                DB::table('workspace_notifications')->insertOrIgnore([
-                    'organization_id' => $organizationId,
-                    'user_id' => $reminder->user_id,
-                    'event_key' => 'record-reminder:'.$reminder->id,
-                    'kind' => 'follow_up_due',
-                    'category' => 'activity',
-                    'data' => json_encode([
-                        'name' => $reminder->note ?: 'Follow-up reminder',
-                        'detail' => $reminder->due_at,
-                    ], JSON_THROW_ON_ERROR),
-                    'url' => $url,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                $data = [
+                    'name' =>
+                        $reminder->note
+                        ?: 'Follow-up reminder',
+                    'detail' =>
+                        $reminder->due_at,
+                    'count' => 1,
+                ];
+
+                if (app(NotificationRuleService::class)->allows(
+                    $organizationId,
+                    (int) $reminder->user_id,
+                    'follow_up_due',
+                    'activity',
+                    $data,
+                )) {
+                    DB::table('workspace_notifications')->insertOrIgnore([
+                        'organization_id' => $organizationId,
+                        'user_id' => $reminder->user_id,
+                        'event_key' => 'record-reminder:'.$reminder->id,
+                        'kind' => 'follow_up_due',
+                        'category' => 'activity',
+                        'data' => json_encode(
+                            $data,
+                            JSON_THROW_ON_ERROR,
+                        ),
+                        'url' => $url,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
 
                 DB::table('record_reminders')
                     ->where('id', $reminder->id)
