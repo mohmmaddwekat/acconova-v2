@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Closure;
@@ -24,6 +25,10 @@ class ResolveOrganization
             $resolve = function () use ($request, $next, $context, $organizationId): Response {
                 try {
                     app(OrganizationAccess::class)->resolve($request->user(), (int) $organizationId, $context, ! $request->isMethodSafe());
+
+                    WorkspaceFeaturePermissions::authorizeRequest(
+                        $request,
+                    );
                 } catch (ModelNotFoundException $exception) {
                     if ((string) $request->session()->get(OrganizationAccess::SESSION_KEY) === (string) $organizationId) {
                         $request->session()->forget(OrganizationAccess::SESSION_KEY);
