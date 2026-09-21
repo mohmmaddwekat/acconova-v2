@@ -115,6 +115,10 @@ type WorkspaceSettings = {
     purchase_prefix: string;
     receipt_prefix: string;
     payment_prefix: string;
+    invoice_number_pattern: string;
+    purchase_number_pattern: string;
+    receipt_number_pattern: string;
+    payment_number_pattern: string;
     invoice_start_number: number;
     purchase_start_number: number;
 };
@@ -148,6 +152,48 @@ const secondaryButton =
 
 const primaryButton =
     'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-[var(--acs-accent)] px-5 text-xs font-semibold text-white shadow-[0_8px_18px_rgba(20,104,234,.2)] transition hover:bg-[var(--acs-accent-hover)] disabled:cursor-not-allowed disabled:opacity-45';
+
+function previewNumberPattern(
+    pattern: string,
+    prefix: string,
+    sequence: number,
+): string {
+    const now = new Date();
+    const year = String(
+        now.getFullYear(),
+    );
+    const month = String(
+        now.getMonth() + 1,
+    ).padStart(2, '0');
+    const day = String(
+        now.getDate(),
+    ).padStart(2, '0');
+
+    return pattern
+        .replaceAll('{PREFIX}', prefix)
+        .replaceAll('{YYYY}', year)
+        .replaceAll('{YY}', year.slice(-2))
+        .replaceAll('{MM}', month)
+        .replaceAll('{DD}', day)
+        .replace(
+            /\{SEQ:(\d{1,2})\}/g,
+            (_, width: string) =>
+                String(sequence).padStart(
+                    Math.min(
+                        12,
+                        Math.max(
+                            1,
+                            Number(width),
+                        ),
+                    ),
+                    '0',
+                ),
+        )
+        .replaceAll(
+            '{SEQ}',
+            String(sequence),
+        );
+}
 
 function errorText(error: unknown, fallback: string): string {
     if (error instanceof ApiError) {
@@ -1470,7 +1516,11 @@ function SettingsWorkspace() {
                                                         <div>
                                                             <strong className="text-[11px]">{text('فاتورة ضريبية', 'Tax invoice')}</strong>
                                                             <p className="mt-1 text-[7px] text-slate-400">
-                                                                {settings.invoice_prefix}-2026-{String(settings.invoice_start_number).padStart(4, '0')}
+                                                                {previewNumberPattern(
+                                                                    settings.invoice_number_pattern,
+                                                                    settings.invoice_prefix,
+                                                                    settings.invoice_start_number,
+                                                                )}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -1583,6 +1633,71 @@ function SettingsWorkspace() {
                                                         {text('بادئة الدفع', 'Payment prefix')}
                                                         <input className={input} value={settings.payment_prefix} onChange={event => updateSetting('payment_prefix', event.target.value.toUpperCase())} />
                                                     </label>
+                                                </div>
+                                                <div className="rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-bg)] p-3">
+                                                    <p className="text-[10px] font-semibold text-[var(--acs-text)]">
+                                                        {text('قواعد الترقيم المخصصة', 'Custom numbering rules')}
+                                                    </p>
+                                                    <p className="mt-1 text-[9px] leading-5 text-[var(--acs-text-muted)]">
+                                                        {text(
+                                                            'استخدم {PREFIX} و{YYYY} و{YY} و{MM} و{DD} و{SEQ:4}. يجب أن تحتوي القاعدة على SEQ حتى لا تتكرر الأرقام.',
+                                                            'Use {PREFIX}, {YYYY}, {YY}, {MM}, {DD} and {SEQ:4}. A SEQ token is required to keep numbers unique.',
+                                                        )}
+                                                    </p>
+
+                                                    <div className="mt-3 space-y-3">
+                                                        {([
+                                                            [
+                                                                'invoice_number_pattern',
+                                                                text('فاتورة البيع', 'Sales invoice'),
+                                                                settings.invoice_prefix,
+                                                                settings.invoice_start_number,
+                                                            ],
+                                                            [
+                                                                'purchase_number_pattern',
+                                                                text('فاتورة الشراء', 'Purchase invoice'),
+                                                                settings.purchase_prefix,
+                                                                settings.purchase_start_number,
+                                                            ],
+                                                            [
+                                                                'receipt_number_pattern',
+                                                                text('المقبوض', 'Receipt'),
+                                                                settings.receipt_prefix,
+                                                                1,
+                                                            ],
+                                                            [
+                                                                'payment_number_pattern',
+                                                                text('الدفعة', 'Payment'),
+                                                                settings.payment_prefix,
+                                                                1,
+                                                            ],
+                                                        ] as const).map(([key, label, prefix, sequence]) => (
+                                                            <label
+                                                                key={key}
+                                                                className="block text-[10px] font-semibold text-[var(--acs-text-soft)]"
+                                                            >
+                                                                {label}
+                                                                <input
+                                                                    className={input}
+                                                                    value={settings[key]}
+                                                                    onChange={event =>
+                                                                        updateSetting(
+                                                                            key,
+                                                                            event.target.value.toUpperCase(),
+                                                                        )
+                                                                    }
+                                                                />
+                                                                <span className="mt-1 block font-normal text-[9px] text-[var(--acs-text-muted)]">
+                                                                    {text('مثال: ', 'Preview: ')}
+                                                                    {previewNumberPattern(
+                                                                        settings[key],
+                                                                        prefix,
+                                                                        sequence,
+                                                                    )}
+                                                                </span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </SettingsCard>
