@@ -15,7 +15,6 @@ import {
     Download,
     FileText,
     Landmark,
-    MoreHorizontal,
     Plus,
     ReceiptText,
     RefreshCcw,
@@ -181,6 +180,25 @@ function money(
             value,
         ),
     );
+}
+
+function documentOverdue(
+    row: DocumentRow,
+): boolean {
+    if (
+        ! row.due_date
+        || ! [
+            'issued',
+            'partially_paid',
+        ].includes(
+            row.status,
+        )
+    ) {
+        return false;
+    }
+
+    return row.due_date
+        < today();
 }
 
 function statusLabel(
@@ -927,18 +945,6 @@ export function PartyFinancialOperations({
                             {ar
                                 ? 'تصدير'
                                 : 'Export'}
-                        </button>
-
-                        <button
-                            type="button"
-                            className={button}
-                        >
-                            <MoreHorizontal
-                                size={13}
-                            />
-                            {ar
-                                ? 'المزيد'
-                                : 'More'}
                         </button>
 
                         {(tab ===
@@ -1688,6 +1694,11 @@ function InvoiceContent({
                                                             ar={
                                                                 ar
                                                             }
+                                                            overdue={
+                                                                documentOverdue(
+                                                                    row,
+                                                                )
+                                                            }
                                                         />
                                                     </td>
 
@@ -1827,6 +1838,11 @@ function InvoiceContent({
                                                 }
                                                 ar={
                                                     ar
+                                                }
+                                                overdue={
+                                                    documentOverdue(
+                                                        row,
+                                                    )
                                                 }
                                             />
                                         </div>
@@ -2490,12 +2506,16 @@ function StatCard({
 function StatusPill({
     status,
     ar,
+    overdue = false,
 }: {
     status: string;
     ar: boolean;
+    overdue?: boolean;
 }) {
     const tone =
-        status ===
+        overdue
+            ? 'border-red-500/20 bg-red-500/10 text-red-500'
+            : status ===
             'paid'
         || status ===
             'overpaid'
@@ -2519,10 +2539,16 @@ function StatusPill({
                 ' ',
             )}
         >
-            {statusLabel(
-                status,
-                ar,
-            )}
+            {overdue
+                ? (
+                    ar
+                        ? 'متأخرة'
+                        : 'Overdue'
+                )
+                : statusLabel(
+                    status,
+                    ar,
+                )}
         </span>
     );
 }
