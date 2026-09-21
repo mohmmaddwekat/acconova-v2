@@ -2361,30 +2361,139 @@ function RowActions({
                 )}
 
             {feature === 'warranties' && (
-                <div className="flex min-w-[280px] flex-1 items-center gap-2">
-                    <input
-                        value={claimReason}
-                        onChange={(event) =>
-                            onClaimReasonChange(
-                                event.target.value,
-                            )
-                        }
-                        placeholder={
-                            ar
-                                ? 'سبب مطالبة الضمان'
-                                : 'Warranty claim reason'
-                        }
-                        className="h-9 min-w-0 flex-1 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
-                    />
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={onClaim}
-                        className="inline-flex h-9 items-center gap-2 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
-                    >
-                        <ShieldCheck size={13} />
-                        {ar ? 'مطالبة' : 'Add claim'}
-                    </button>
+                <div className="w-full space-y-3">
+                    <div className="flex min-w-[280px] flex-1 items-center gap-2">
+                        <input
+                            value={claimReason}
+                            onChange={(event) =>
+                                onClaimReasonChange(
+                                    event.target.value,
+                                )
+                            }
+                            placeholder={
+                                ar
+                                    ? 'سبب مطالبة الضمان'
+                                    : 'Warranty claim reason'
+                            }
+                            className="h-9 min-w-0 flex-1 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                        />
+                        <button
+                            type="button"
+                            disabled={
+                                busy
+                                || row.status === 'void'
+                            }
+                            onClick={onClaim}
+                            className="inline-flex h-9 items-center gap-2 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)] disabled:opacity-40"
+                        >
+                            <ShieldCheck size={13} />
+                            {ar ? 'مطالبة' : 'Add claim'}
+                        </button>
+                    </div>
+
+                    {Array.isArray(row.claims)
+                        && row.claims.length > 0
+                        && (
+                            <div className="space-y-2">
+                                {row.claims.map((claim: Row) => (
+                                    <div
+                                        key={claim.id}
+                                        className="flex flex-wrap items-center justify-between gap-2 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-semibold text-[var(--ac-text)]">
+                                                {claim.claimed_on}
+                                                {' · '}
+                                                {claim.reason}
+                                            </p>
+                                            <p className="mt-0.5 text-[9px] text-[var(--ac-text-muted)]">
+                                                {claim.status}
+                                                {claim.resolution
+                                                    ? ' · ' + claim.resolution
+                                                    : ''}
+                                            </p>
+                                        </div>
+
+                                        {['open', 'in_progress'].includes(
+                                            claim.status,
+                                        ) && (
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {claim.status === 'open' && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={busy}
+                                                        onClick={() =>
+                                                            onUpdateClaim(
+                                                                Number(claim.id),
+                                                                {
+                                                                    status:
+                                                                        'in_progress',
+                                                                },
+                                                            )
+                                                        }
+                                                        className="h-8 rounded-[10px] border border-amber-500/50 px-2 text-[9px] font-semibold text-amber-400"
+                                                    >
+                                                        {ar
+                                                            ? 'قيد المعالجة'
+                                                            : 'Start work'}
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    disabled={busy}
+                                                    onClick={() => {
+                                                        const resolution =
+                                                            window.prompt(
+                                                                ar
+                                                                    ? 'اكتب نتيجة معالجة المطالبة.'
+                                                                    : 'Enter the warranty claim resolution.',
+                                                            );
+
+                                                        if (
+                                                            ! resolution
+                                                            || ! resolution.trim()
+                                                        ) {
+                                                            return;
+                                                        }
+
+                                                        onUpdateClaim(
+                                                            Number(claim.id),
+                                                            {
+                                                                status:
+                                                                    'resolved',
+                                                                resolution:
+                                                                    resolution.trim(),
+                                                            },
+                                                        );
+                                                    }}
+                                                    className="h-8 rounded-[10px] border border-emerald-500/50 px-2 text-[9px] font-semibold text-emerald-400"
+                                                >
+                                                    {ar ? 'حل المطالبة' : 'Resolve'}
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    disabled={busy}
+                                                    onClick={() =>
+                                                        onUpdateClaim(
+                                                            Number(claim.id),
+                                                            {
+                                                                status:
+                                                                    'rejected',
+                                                            },
+                                                        )
+                                                    }
+                                                    className="h-8 rounded-[10px] border border-red-400/50 px-2 text-[9px] font-semibold text-red-400"
+                                                >
+                                                    {ar ? 'رفض' : 'Reject'}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                 </div>
             )}
         </div>
