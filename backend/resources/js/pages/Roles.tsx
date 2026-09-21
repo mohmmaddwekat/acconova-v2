@@ -84,11 +84,32 @@ type RolePreset = {
     permissions: string[];
 };
 
+type PermissionCatalogEntry = {
+    key: string;
+    label_ar: string;
+    label_en: string;
+    legacy?: string[];
+    depends?: string[];
+    builtin?: string[];
+};
+
+type PermissionCatalogGroup = {
+    key: string;
+    title_ar: string;
+    title_en: string;
+    description_ar: string;
+    description_en: string;
+    icon: string;
+    permissions: PermissionCatalogEntry[];
+};
+
 type RolesResponse = {
     roles: Role[];
     members: Member[];
     presets: Record<string, RolePreset>;
     permission_keys: string[];
+    permission_groups: PermissionCatalogGroup[];
+    permission_dependencies: Record<string, string[]>;
 };
 
 type PermissionGroup = {
@@ -366,7 +387,11 @@ const groups: PermissionGroup[] = [
 function permissionLabel(
     permission: string,
     ar: boolean,
+    catalogLabels: Record<string, [string, string]> = {},
 ): string {
+    if (catalogLabels[permission]) {
+        return catalogLabels[permission][ar ? 0 : 1];
+    }
     if (taskPermissionLabels[permission]) {
         return taskPermissionLabels[permission][ar ? 0 : 1];
     }
@@ -602,6 +627,7 @@ function permissionLabel(
  */
 function normalizePermissions(
     input: string[],
+    dependencies: Record<string, string[]> = {},
 ): string[] {
     const permissions =
         new Set(input);
@@ -840,6 +866,39 @@ function normalizePermissions(
         }
     }
 
+    const queue =
+        Array.from(
+            permissions,
+        );
+
+    while (queue.length > 0) {
+        const permission =
+            queue.shift();
+
+        if (! permission) {
+            continue;
+        }
+
+        for (
+            const dependency of
+            dependencies[permission]
+            ?? []
+        ) {
+            if (
+                ! permissions.has(
+                    dependency,
+                )
+            ) {
+                permissions.add(
+                    dependency,
+                );
+                queue.push(
+                    dependency,
+                );
+            }
+        }
+    }
+
     return Array.from(
         permissions,
     );
@@ -897,6 +956,121 @@ function RoleWorkspace() {
         useState<RolesResponse | null>(
             null,
         );
+
+    const permissionIconMap:
+        Record<
+            string,
+            typeof Package
+        > = {
+            tasks: Package,
+            teams: Users,
+            products: Package,
+            parties: ContactRound,
+            inventory: Boxes,
+            production: Factory,
+            finance: BadgeDollarSign,
+            cash: Wallet,
+            governance: ShieldCheck,
+            reports: BriefcaseBusiness,
+            dashboard: Sparkles,
+            operations: BriefcaseBusiness,
+            controls: KeyRound,
+            audit: ShieldCheck,
+            staff: Users,
+            collaboration: ContactRound,
+            teamspace: Users,
+            workspace: KeyRound,
+        };
+
+    const permissionGroups =
+        useMemo<PermissionGroup[]>(
+            () => {
+                if (
+                    ! data
+                        ?.permission_groups
+                        ?.length
+                ) {
+                    return groups;
+                }
+
+                return data
+                    .permission_groups
+                    .map(
+                        group => ({
+                            key:
+                                group.key,
+                            titleAr:
+                                group.title_ar,
+                            titleEn:
+                                group.title_en,
+                            descriptionAr:
+                                group.description_ar,
+                            descriptionEn:
+                                group.description_en,
+                            icon:
+                                permissionIconMap[
+                                    group.icon
+                                ]
+                                ?? ShieldCheck,
+                            permissions:
+                                group
+                                    .permissions
+                                    .map(
+                                        permission =>
+                                            permission.key,
+                                    ),
+                        }),
+                    );
+            },
+            [
+                data,
+            ],
+        );
+
+    const permissionLabels =
+        useMemo<
+            Record<
+                string,
+                [string, string]
+            >
+        >(
+            () => {
+                const labels:
+                    Record<
+                        string,
+                        [string, string]
+                    > = {};
+
+                for (
+                    const group of
+                    data
+                        ?.permission_groups
+                    ?? []
+                ) {
+                    for (
+                        const permission of
+                        group.permissions
+                    ) {
+                        labels[
+                            permission.key
+                        ] = [
+                            permission.label_ar,
+                            permission.label_en,
+                        ];
+                    }
+                }
+
+                return labels;
+            },
+            [
+                data,
+            ],
+        );
+
+    const permissionDependencies =
+        data
+            ?.permission_dependencies
+        ?? {};
 
     const [
         revision,
@@ -1616,6 +1790,7 @@ function RoleWorkspace() {
         setPermissions(
             normalizePermissions(
                 preset.permissions,
+                permissionDependencies,
             ),
         );
 
@@ -1651,6 +1826,7 @@ function RoleWorkspace() {
         setPermissions(
             normalizePermissions(
                 role.permissions,
+                permissionDependencies,
             ),
         );
     }
@@ -1798,13 +1974,17 @@ function RoleWorkspace() {
 
                     return normalizePermissions(
                         next,
+                        permissionDependencies,
                     );
                 }
 
-                return normalizePermissions([
-                    ...current,
-                    permission,
-                ]);
+                return normalizePermissions(
+                    [
+                        ...current,
+                        permission,
+                    ],
+                    permissionDependencies,
+                );
             },
         );
     }
@@ -1840,10 +2020,13 @@ function RoleWorkspace() {
 
         setPermissions(
             current =>
-                normalizePermissions([
-                    ...current,
-                    ...group.permissions,
-                ]),
+                normalizePermissions(
+                    [
+                        ...current,
+                        ...group.permissions,
+                    ],
+                    permissionDependencies,
+                ),
         );
     }
 
@@ -1900,6 +2083,7 @@ function RoleWorkspace() {
                             permissions:
                                 normalizePermissions(
                                     permissions,
+                                    permissionDependencies,
                                 ),
                         }),
                 },
@@ -2293,6 +2477,8 @@ function RoleWorkspace() {
                             members={data?.members ?? []}
                             roles={data?.roles ?? []}
                             permissionKeys={data?.permission_keys ?? []}
+                            permissionGroups={permissionGroups}
+                            permissionLabels={permissionLabels}
                             ar={ar}
                             busy={busy}
                             onEditRole={role => {
@@ -2637,7 +2823,7 @@ function RoleWorkspace() {
 
                                     {selectedRole ? (
                                         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                            {groups.map(
+                                            {permissionGroups.map(
                                                 group => {
                                                     const granted =
                                                         group.permissions.filter(
@@ -2991,7 +3177,7 @@ function RoleWorkspace() {
                                     </div>
 
                                     <div className="mt-4 space-y-3">
-                                        {groups.map(
+                                        {permissionGroups.map(
                                             group => {
                                                 const Icon =
                                                     group.icon;
@@ -3440,6 +3626,8 @@ function MemberAccessMatrix({
     members,
     roles,
     permissionKeys,
+    permissionGroups,
+    permissionLabels,
     ar,
     busy,
     onEditRole,
@@ -3449,6 +3637,8 @@ function MemberAccessMatrix({
     members: Member[];
     roles: Role[];
     permissionKeys: string[];
+    permissionGroups: PermissionGroup[];
+    permissionLabels: Record<string, [string, string]>;
     ar: boolean;
     busy: boolean;
     onEditRole: (role: Role) => void;
@@ -3992,7 +4182,7 @@ function MemberAccessMatrix({
                         </section>
 
                         <div className="mt-3 space-y-2">
-                            {groups.map(
+                            {permissionGroups.map(
                                 group => {
                                     const available =
                                         group.permissions.filter(
