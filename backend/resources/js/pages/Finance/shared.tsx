@@ -5,13 +5,13 @@ export const financePanel =
     'rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)]';
 
 export const financeInput =
-    'w-full rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2.5 text-sm text-[var(--ac-text)] outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[#2f80ed] focus:ring-4 focus:ring-blue-500/10 disabled:bg-[var(--ac-surface-strong)] disabled:text-[var(--ac-text-muted)]';
+    'w-full rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 py-2.5 text-sm text-[var(--ac-text)] outline-none transition placeholder:text-[var(--ac-text-faint)] hover:border-[var(--ac-line-strong)] focus:border-[var(--ac-accent)] focus:bg-[var(--ac-surface)] focus:ring-4 focus:ring-[var(--ac-accent)]/10 disabled:bg-[var(--ac-surface-soft)] disabled:text-[var(--ac-text-muted)]';
 
 export const financeButton =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-xs font-semibold text-[#4f92ff] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] disabled:cursor-not-allowed disabled:opacity-45';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[var(--ac-line)] bg-transparent px-4 text-xs font-semibold text-[var(--ac-accent)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-45';
 
 export const financePrimary =
-    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[#1265d8] bg-[#1265d8] px-4 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(18,101,216,.18)] transition hover:bg-[#0e57bd] disabled:cursor-not-allowed disabled:opacity-45';
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[var(--ac-accent)] bg-[var(--ac-accent)] px-4 text-xs font-semibold text-white shadow-[var(--ac-shadow-soft)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45';
 
 export function FPanel({
     title,
@@ -31,7 +31,7 @@ export function FPanel({
             {(title || action) && (
                 <header className="flex items-center justify-between gap-3 border-b border-[var(--ac-line)] px-4 py-3.5">
                     <h2 className="flex items-center gap-2 text-sm font-bold text-[var(--ac-text)]">
-                        {Icon && <Icon size={17} className="text-[#1265d8]" />}
+                        {Icon && <Icon size={17} className="text-[var(--ac-accent)]" />}
                         {title}
                     </h2>
                     {action}
@@ -56,11 +56,11 @@ export function SummaryCard({
     tone?: 'blue' | 'green' | 'amber' | 'red' | 'violet';
 }) {
     const toneClass = {
-        blue: 'bg-blue-50 text-blue-600',
-        green: 'bg-emerald-50 text-emerald-600',
-        amber: 'bg-amber-50 text-amber-600',
-        red: 'bg-red-50 text-red-500',
-        violet: 'bg-violet-50 text-violet-600',
+        blue: 'border border-blue-500/15 bg-blue-500/10 text-blue-500',
+        green: 'border border-emerald-500/15 bg-emerald-500/10 text-emerald-500',
+        amber: 'border border-amber-500/15 bg-amber-500/10 text-amber-500',
+        red: 'border border-red-500/15 bg-red-500/10 text-red-500',
+        violet: 'border border-violet-500/15 bg-violet-500/10 text-violet-500',
     }[tone];
 
     return (
@@ -104,14 +104,14 @@ export function StatusBadge({
 
     const tone =
         ['paid', 'posted', 'cleared'].includes(status)
-            ? 'bg-emerald-50 text-emerald-700'
+            ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
             : ['partially_paid', 'partial', 'pending', 'draft'].includes(status)
-              ? 'bg-amber-50 text-amber-700'
+              ? 'border border-amber-500/20 bg-amber-500/10 text-amber-500'
               : ['voided', 'reversed', 'bounced', 'cancelled'].includes(status)
-                ? 'bg-red-50 text-red-600'
+                ? 'border border-red-500/20 bg-red-500/10 text-red-500'
                 : ['overpaid'].includes(status)
-                  ? 'bg-violet-50 text-violet-700'
-                  : 'bg-blue-50 text-blue-700';
+                  ? 'border border-violet-500/20 bg-violet-500/10 text-violet-500'
+                  : 'border border-blue-500/20 bg-blue-500/10 text-blue-500';
 
     return (
         <span className={'inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ' + tone}>
