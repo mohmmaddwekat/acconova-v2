@@ -2182,10 +2182,6 @@ class BusinessControlController extends Controller
                     'party_roles',
                 )
                     ->where(
-                        'organization_id',
-                        $organizationId,
-                    )
-                    ->where(
                         'party_id',
                         (int) $data['party_id'],
                     )
