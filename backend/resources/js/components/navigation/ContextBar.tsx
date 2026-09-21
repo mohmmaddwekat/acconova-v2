@@ -235,6 +235,10 @@ export function ContextBar({
             'مركز التدقيق',
             'Audit center',
         ],
+        '/app/admin/restore': [
+            'مركز الاسترجاع',
+            'Restore center',
+        ],
     };
 
     const pageLabel =
