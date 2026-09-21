@@ -101,12 +101,10 @@ class CommercialOperationsController extends Controller
                 $organizationId,
                 (int) $record,
             ),
-            'returns' => $this->updateSimpleStatus(
+            'returns' => $this->updateReturn(
                 $request,
                 $organizationId,
-                'return_requests',
                 (int) $record,
-                ['requested', 'approved', 'received', 'completed', 'rejected', 'cancelled'],
             ),
             'warranties' => $this->updateSimpleStatus(
                 $request,
@@ -356,23 +354,38 @@ class CommercialOperationsController extends Controller
 
         $organizationId = app(TenantContext::class)->id();
 
-        abort_unless(
-            DB::table('warranty_records')
-                ->where('organization_id', $organizationId)
-                ->where('id', (int) $record)
-                ->exists(),
-            404,
-        );
+        $warranty = DB::table('warranty_records')
+            ->where('organization_id', $organizationId)
+            ->where('id', (int) $record)
+            ->first();
+
+        abort_unless($warranty, 404);
 
         $data = $request->validate([
             'reason' => ['required', 'string', 'max:180'],
             'claimed_on' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
+        $claimedOn =
+            $data['claimed_on']
+            ?? now()->toDateString();
+
+        if (
+            $warranty->status === 'void'
+            || $claimedOn < $warranty->starts_on
+            || $claimedOn > $warranty->ends_on
+        ) {
+            throw ValidationException::withMessages([
+                'claimed_on' => [
+                    'The warranty claim date must fall inside an active warranty period.',
+                ],
+            ]);
+        }
+
         $id = DB::table('warranty_claims')->insertGetId([
             'organization_id' => $organizationId,
             'warranty_record_id' => (int) $record,
-            'claimed_on' => $data['claimed_on'] ?? now()->toDateString(),
+            'claimed_on' => $claimedOn,
             'status' => 'open',
             'reason' => $data['reason'],
             'resolution' => null,
@@ -386,6 +399,71 @@ class CommercialOperationsController extends Controller
                 ->where('id', $id)
                 ->first(),
         ], 201);
+    }
+
+    public function updateClaim(
+        Request $request,
+        string $record,
+        string $claim,
+    ): JsonResponse {
+        $this->authorizeFeature(
+            $request,
+            'warranties',
+            true,
+        );
+
+        $organizationId =
+            app(TenantContext::class)->id();
+
+        $warranty = DB::table('warranty_records')
+            ->where('organization_id', $organizationId)
+            ->where('id', (int) $record)
+            ->first();
+
+        abort_unless($warranty, 404);
+
+        $claimRecord = DB::table('warranty_claims')
+            ->where('organization_id', $organizationId)
+            ->where('warranty_record_id', $warranty->id)
+            ->where('id', (int) $claim)
+            ->first();
+
+        abort_unless($claimRecord, 404);
+
+        $data = $request->validate([
+            'status' => [
+                'required',
+                Rule::in([
+                    'open',
+                    'in_progress',
+                    'resolved',
+                    'rejected',
+                ]),
+            ],
+            'resolution' => [
+                'nullable',
+                'string',
+                'max:5000',
+                'required_if:status,resolved',
+            ],
+        ]);
+
+        DB::table('warranty_claims')
+            ->where('organization_id', $organizationId)
+            ->where('id', $claimRecord->id)
+            ->update([
+                'status' => $data['status'],
+                'resolution' =>
+                    $data['resolution'] ?? null,
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'data' => DB::table('warranty_claims')
+                ->where('organization_id', $organizationId)
+                ->where('id', $claimRecord->id)
+                ->first(),
+        ]);
     }
 
     private function unallocated(int $organizationId): array
@@ -685,6 +763,51 @@ class CommercialOperationsController extends Controller
         Request $request,
         int $organizationId,
     ): array {
+        $fulfilledPromiseIds = DB::table(
+            'payment_promises as promise',
+        )
+            ->join(
+                'financial_documents as document',
+                'document.id',
+                '=',
+                'promise.financial_document_id',
+            )
+            ->where(
+                'promise.organization_id',
+                $organizationId,
+            )
+            ->where(
+                'document.organization_id',
+                $organizationId,
+            )
+            ->where('promise.status', 'open')
+            ->whereNotNull(
+                'promise.financial_document_id',
+            )
+            ->where(
+                'document.balance_due',
+                '<=',
+                0,
+            )
+            ->pluck('promise.id');
+
+        if ($fulfilledPromiseIds->isNotEmpty()) {
+            DB::table('payment_promises')
+                ->where(
+                    'organization_id',
+                    $organizationId,
+                )
+                ->whereIn(
+                    'id',
+                    $fulfilledPromiseIds,
+                )
+                ->update([
+                    'status' => 'fulfilled',
+                    'fulfilled_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        }
+
         DB::table('payment_promises')
             ->where('organization_id', $organizationId)
             ->where('status', 'open')
@@ -996,6 +1119,36 @@ class CommercialOperationsController extends Controller
 
     private function warranties(int $organizationId): array
     {
+        DB::table('warranty_records')
+            ->where('organization_id', $organizationId)
+            ->where('status', 'active')
+            ->whereDate(
+                'ends_on',
+                '<',
+                now()->toDateString(),
+            )
+            ->update([
+                'status' => 'expired',
+                'updated_at' => now(),
+            ]);
+
+        $claimStats = DB::table('warranty_claims')
+            ->where('organization_id', $organizationId)
+            ->selectRaw(
+                "warranty_record_id,
+                 COUNT(*) as claim_count,
+                 SUM(CASE WHEN status IN ('open', 'in_progress') THEN 1 ELSE 0 END) as open_claim_count,
+                 MAX(id) as last_claim_id",
+            )
+            ->groupBy('warranty_record_id');
+
+        $claims = DB::table('warranty_claims')
+            ->where('organization_id', $organizationId)
+            ->orderByDesc('claimed_on')
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy('warranty_record_id');
+
         return DB::table('warranty_records as warranty')
             ->leftJoin(
                 'products as product',
@@ -1016,16 +1169,17 @@ class CommercialOperationsController extends Controller
                 'warranty.financial_document_id',
             )
             ->leftJoinSub(
-                DB::table('warranty_claims')
-                    ->where('organization_id', $organizationId)
-                    ->selectRaw(
-                        'warranty_record_id, COUNT(*) as claim_count',
-                    )
-                    ->groupBy('warranty_record_id'),
-                'claims',
-                'claims.warranty_record_id',
+                $claimStats,
+                'claim_stats',
+                'claim_stats.warranty_record_id',
                 '=',
                 'warranty.id',
+            )
+            ->leftJoin(
+                'warranty_claims as last_claim',
+                'last_claim.id',
+                '=',
+                'claim_stats.last_claim_id',
             )
             ->where('warranty.organization_id', $organizationId)
             ->orderBy('warranty.ends_on')
@@ -1043,13 +1197,37 @@ class CommercialOperationsController extends Controller
                 'party.name',
                 'party.company_name',
                 'document.number as document_number',
-                DB::raw('COALESCE(claims.claim_count, 0) as claim_count'),
+                DB::raw('COALESCE(claim_stats.claim_count, 0) as claim_count'),
+                DB::raw('COALESCE(claim_stats.open_claim_count, 0) as open_claim_count'),
+                'last_claim.status as last_claim_status',
+                'last_claim.reason as last_claim_reason',
+                'last_claim.resolution as last_claim_resolution',
             ])
-            ->map(fn ($row): array => [
-                ...((array) $row),
-                'party' => $row->company_name ?: $row->name,
-                'expired' => $row->ends_on < now()->toDateString(),
-            ])
+            ->map(function ($row) use ($claims): array {
+                $history = $claims
+                    ->get($row->id, collect())
+                    ->take(12)
+                    ->map(fn ($claim): array => [
+                        'id' => $claim->id,
+                        'claimed_on' => $claim->claimed_on,
+                        'status' => $claim->status,
+                        'reason' => $claim->reason,
+                        'resolution' => $claim->resolution,
+                    ])
+                    ->values()
+                    ->all();
+
+                return [
+                    ...((array) $row),
+                    'party' =>
+                        $row->company_name
+                        ?: $row->name,
+                    'expired' =>
+                        $row->ends_on
+                        < now()->toDateString(),
+                    'claims' => $history,
+                ];
+            })
             ->all();
     }
 
@@ -1101,6 +1279,23 @@ class CommercialOperationsController extends Controller
 
     private function batches(int $organizationId): array
     {
+        DB::table('inventory_batches')
+            ->where('organization_id', $organizationId)
+            ->whereIn(
+                'status',
+                ['available', 'quarantine'],
+            )
+            ->whereNotNull('expiry_date')
+            ->whereDate(
+                'expiry_date',
+                '<',
+                now()->toDateString(),
+            )
+            ->update([
+                'status' => 'expired',
+                'updated_at' => now(),
+            ]);
+
         return DB::table('inventory_batches as batch')
             ->leftJoin(
                 'products as product',
@@ -1917,6 +2112,83 @@ class CommercialOperationsController extends Controller
         }
 
         return DB::table('trade_documents')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+    }
+
+    private function updateReturn(
+        Request $request,
+        int $organizationId,
+        int $record,
+    ): object {
+        $current = DB::table('return_requests')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+
+        abort_unless($current, 404);
+
+        $data = $request->validate([
+            'status' => [
+                'required',
+                Rule::in([
+                    'requested',
+                    'approved',
+                    'received',
+                    'completed',
+                    'rejected',
+                    'cancelled',
+                ]),
+            ],
+        ]);
+
+        $transitions = [
+            'requested' => [
+                'approved',
+                'rejected',
+                'cancelled',
+            ],
+            'approved' => [
+                'received',
+                'cancelled',
+            ],
+            'received' => [
+                'completed',
+            ],
+            'completed' => [],
+            'rejected' => [],
+            'cancelled' => [],
+        ];
+
+        $allowed =
+            $transitions[$current->status]
+            ?? [];
+
+        if (
+            $data['status'] !== $current->status
+            && ! in_array(
+                $data['status'],
+                $allowed,
+                true,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'status' => [
+                    'This return status transition is not allowed.',
+                ],
+            ]);
+        }
+
+        DB::table('return_requests')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->update([
+                'status' => $data['status'],
+                'updated_at' => now(),
+            ]);
+
+        return DB::table('return_requests')
             ->where('organization_id', $organizationId)
             ->where('id', $record)
             ->first();
