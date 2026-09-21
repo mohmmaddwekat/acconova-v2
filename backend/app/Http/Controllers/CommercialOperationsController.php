@@ -965,6 +965,7 @@ class CommercialOperationsController extends Controller
                 'promise.party_id',
                 'promise.financial_document_id',
                 'promise.amount',
+                'promise.baseline_received_total',
                 'promise.promised_on',
                 'promise.status',
                 'promise.note',
@@ -973,18 +974,67 @@ class CommercialOperationsController extends Controller
                 'party.company_name',
                 'document.number as document_number',
             ])
-            ->map(fn ($row): array => [
-                'id' => $row->id,
-                'party_id' => $row->party_id,
-                'party' => $row->company_name ?: $row->name,
-                'financial_document_id' => $row->financial_document_id,
-                'document_number' => $row->document_number,
-                'amount' => (string) $row->amount,
-                'promised_on' => $row->promised_on,
-                'status' => $row->status,
-                'note' => $row->note,
-                'fulfilled_at' => $row->fulfilled_at,
-            ])
+            ->map(function ($row) use ($organizationId): array {
+                $currentReceived =
+                    $row->financial_document_id
+                        ? $this->activeInvoiceReceiptTotal(
+                            $organizationId,
+                            (int) $row->financial_document_id,
+                        )
+                        : $this->activePartyReceiptTotal(
+                            $organizationId,
+                            (int) $row->party_id,
+                        );
+
+                $receivedSincePromise = max(
+                    $currentReceived
+                    - (float) (
+                        $row->baseline_received_total
+                        ?? $currentReceived
+                    ),
+                    0,
+                );
+
+                return [
+                    'id' => $row->id,
+                    'party_id' => $row->party_id,
+                    'party' =>
+                        $row->company_name
+                        ?: $row->name,
+                    'financial_document_id' =>
+                        $row->financial_document_id,
+                    'document_number' =>
+                        $row->document_number,
+                    'amount' =>
+                        (string) $row->amount,
+                    'received_since_promise' =>
+                        number_format(
+                            $receivedSincePromise,
+                            4,
+                            '.',
+                            '',
+                        ),
+                    'promise_remaining' =>
+                        number_format(
+                            max(
+                                (float) $row->amount
+                                - $receivedSincePromise,
+                                0,
+                            ),
+                            4,
+                            '.',
+                            '',
+                        ),
+                    'promised_on' =>
+                        $row->promised_on,
+                    'status' =>
+                        $row->status,
+                    'note' =>
+                        $row->note,
+                    'fulfilled_at' =>
+                        $row->fulfilled_at,
+                ];
+            })
             ->all();
     }
 
