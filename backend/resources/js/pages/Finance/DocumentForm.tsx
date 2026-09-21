@@ -2157,7 +2157,7 @@ export function DocumentForm({
             />
 
             {! canManage && (
-                <div className="rounded-[14px] border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                <div className="rounded-[14px] border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-[var(--ac-text)]">
                     {text(
                         'دورك الحالي يسمح بالعرض فقط ولا يسمح بإنشاء أو تعديل الفواتير.',
                         'Your current role is read-only for this invoice type.',
@@ -2189,7 +2189,7 @@ export function DocumentForm({
             {error && (
                 <div
                     role="alert"
-                    className="rounded-[14px] border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200"
+                    className="rounded-[14px] border border-red-400/30 bg-red-500/10 p-4 text-sm text-[var(--ac-danger)]"
                 >
                     {
                         error
@@ -3518,14 +3518,14 @@ export function DocumentForm({
                                 />
 
                                 <div>
-                                    <h3 className="text-sm font-bold text-amber-200">
+                                    <h3 className="text-sm font-bold text-[var(--ac-text)]">
                                         {text(
                                             'مراجعة إلزامية قبل الإصدار',
                                             'Required review before issue',
                                         )}
                                     </h3>
 
-                                    <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-200/90">
+                                    <ul className="mt-2 space-y-1 text-xs leading-5 text-[var(--ac-text-soft)]">
                                         {reviewWarnings.map(
                                             (
                                                 warning,
@@ -3545,7 +3545,7 @@ export function DocumentForm({
                                         )}
                                     </ul>
 
-                                    <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-200">
+                                    <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-[var(--ac-text)]">
                                         <input
                                             type="checkbox"
                                             checked={
@@ -3870,7 +3870,7 @@ export function DocumentForm({
                         </div>
                     </FPanel>
 
-                    <div className="rounded-[18px] border border-emerald-400/25 bg-emerald-500/10 p-4 text-xs leading-6 text-emerald-200">
+                    <div className="rounded-[18px] border border-emerald-400/25 bg-emerald-500/10 p-4 text-xs leading-6 text-[var(--ac-text-soft)]">
                         <div className="flex items-center gap-2 font-bold">
                             <Check
                                 size={
