@@ -85,12 +85,43 @@ export async function apiRequest<T>(
         headers.set('X-CSRF-TOKEN', csrfToken());
     }
 
-    const response = await fetch(path, {
-        ...options,
-        method,
-        headers,
-        credentials: 'same-origin',
-    });
+    const execute = (): Promise<Response> =>
+        fetch(path, {
+            ...options,
+            method,
+            headers,
+            credentials: 'same-origin',
+        });
+
+    let response: Response;
+
+    try {
+        response = await execute();
+    } catch (failure) {
+        if (
+            ['GET', 'HEAD'].includes(method)
+            && ! options.signal?.aborted
+        ) {
+            await new Promise(resolve =>
+                window.setTimeout(resolve, 250),
+            );
+            response = await execute();
+        } else {
+            throw failure;
+        }
+    }
+
+    if (
+        ! response.ok
+        && ['GET', 'HEAD'].includes(method)
+        && [500, 502, 503, 504].includes(response.status)
+        && ! options.signal?.aborted
+    ) {
+        await new Promise(resolve =>
+            window.setTimeout(resolve, 250),
+        );
+        response = await execute();
+    }
 
     if (! response.ok) {
         const payload = await response
