@@ -851,6 +851,7 @@ class CommercialOperationsController extends Controller
             ->map(function ($partyRows, $partyId): array {
                 $first = $partyRows->first();
                 $buckets = [
+                    'current' => 0.0,
                     '0_30' => 0.0,
                     '31_60' => 0.0,
                     '61_90' => 0.0,
@@ -859,17 +860,16 @@ class CommercialOperationsController extends Controller
 
                 foreach ($partyRows as $row) {
                     $days = $row->due_date
-                        ? max(
-                            0,
-                            CarbonImmutable::parse($row->due_date)
-                                ->diffInDays(
-                                    CarbonImmutable::today(),
-                                    false,
-                                ),
+                        ? CarbonImmutable::parse(
+                            $row->due_date,
+                        )->diffInDays(
+                            CarbonImmutable::today(),
+                            false,
                         )
                         : 0;
 
                     $bucket = match (true) {
+                        $days <= 0 => 'current',
                         $days <= 30 => '0_30',
                         $days <= 60 => '31_60',
                         $days <= 90 => '61_90',
@@ -884,6 +884,12 @@ class CommercialOperationsController extends Controller
                     'party_id' => (int) $partyId,
                     'party' => $first->company_name ?: $first->name,
                     'currency' => $first->currency,
+                    'current' => number_format(
+                        $buckets['current'],
+                        4,
+                        '.',
+                        '',
+                    ),
                     '0_30' => number_format($buckets['0_30'], 4, '.', ''),
                     '31_60' => number_format($buckets['31_60'], 4, '.', ''),
                     '61_90' => number_format($buckets['61_90'], 4, '.', ''),
