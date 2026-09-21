@@ -194,15 +194,44 @@ class CommercialOperationsFeatureTest extends TestCase
                 'open',
             );
 
-        $this->patchJson(
-            "/api/operations/promises/{$promiseId}",
+        $receiptId = (int) $this->postJson(
+            '/api/finance/cash-movements',
             [
-                'status' => 'fulfilled',
+                'direction' => 'incoming',
+                'party_id' => $customerId,
+                'category' => 'customer_receipt',
+                'amount' => '300.0000',
+                'currency' => 'ILS',
+                'movement_date' => today()->toDateString(),
+                'method' => 'cash',
+                'allocations' => [
+                    [
+                        'financial_document_id' => $saleId,
+                        'amount' => '300.0000',
+                    ],
+                ],
             ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->postJson(
+            "/api/finance/cash-movements/{$receiptId}/post",
+            [
+                'acknowledge_duplicate' => true,
+            ],
+        )->assertOk();
+
+        $this->getJson(
+            '/api/operations/promises?party_id='.$customerId,
         )
             ->assertOk()
             ->assertJsonPath(
-                'data.status',
+                'data.0.id',
+                $promiseId,
+            )
+            ->assertJsonPath(
+                'data.0.status',
                 'fulfilled',
             );
 
@@ -563,6 +592,39 @@ class CommercialOperationsFeatureTest extends TestCase
                 'approved',
             );
 
+        $this->patchJson(
+            "/api/operations/returns/{$returnId}",
+            [
+                'status' => 'completed',
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+
+        $this->patchJson(
+            "/api/operations/returns/{$returnId}",
+            [
+                'status' => 'received',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'received',
+            );
+
+        $this->patchJson(
+            "/api/operations/returns/{$returnId}",
+            [
+                'status' => 'completed',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'completed',
+            );
+
         $warrantyId = (int) $this->postJson(
             '/api/operations/warranties',
             [
@@ -577,12 +639,39 @@ class CommercialOperationsFeatureTest extends TestCase
             ->assertCreated()
             ->json('data.id');
 
-        $this->postJson(
+        $claimId = (int) $this->postJson(
             "/api/operations/warranties/{$warrantyId}/claims",
             [
                 'reason' => 'Device does not power on',
             ],
-        )->assertCreated();
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->patchJson(
+            "/api/operations/warranties/{$warrantyId}/claims/{$claimId}",
+            [
+                'status' => 'in_progress',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'in_progress',
+            );
+
+        $this->patchJson(
+            "/api/operations/warranties/{$warrantyId}/claims/{$claimId}",
+            [
+                'status' => 'resolved',
+                'resolution' => 'Replaced the defective unit.',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'resolved',
+            );
 
         $warranty = collect(
             $this->getJson(
@@ -599,6 +688,18 @@ class CommercialOperationsFeatureTest extends TestCase
         $this->assertSame(
             1,
             (int) $warranty['claim_count'],
+        );
+        $this->assertSame(
+            0,
+            (int) $warranty['open_claim_count'],
+        );
+        $this->assertSame(
+            'resolved',
+            $warranty['last_claim_status'],
+        );
+        $this->assertSame(
+            'Replaced the defective unit.',
+            $warranty['claims'][0]['resolution'],
         );
 
         $serialId = (int) $this->postJson(
@@ -656,6 +757,37 @@ class CommercialOperationsFeatureTest extends TestCase
                 'lot_code' => 'LOT-2026-001',
                 'status' => 'available',
             ],
+        );
+
+        $expiredBatchId = (int) $this->postJson(
+            '/api/operations/batches',
+            [
+                'product_id' => $productId,
+                'supplier_party_id' => $supplierId,
+                'lot_code' => 'LOT-EXPIRED-001',
+                'quantity' => '5',
+                'manufactured_on' => today()->subYear()->toDateString(),
+                'expiry_date' => today()->subDay()->toDateString(),
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $expiredBatch = collect(
+            $this->getJson(
+                '/api/operations/batches',
+            )
+                ->assertOk()
+                ->json('data'),
+        )->firstWhere(
+            'id',
+            $expiredBatchId,
+        );
+
+        $this->assertNotNull($expiredBatch);
+        $this->assertSame(
+            'expired',
+            $expiredBatch['status'],
         );
     }
 
