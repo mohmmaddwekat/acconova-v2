@@ -244,7 +244,7 @@ class CommercialOperationsController extends Controller
             'lines' => $convertible
                 ->map(fn (array $item): array => [
                     'product_id' => $item['line']->product_id,
-                    'warehouse_id' => null,
+                    'warehouse_id' => $item['line']->warehouse_id,
                     'tax_rule_id' => null,
                     'description' => $item['line']->description,
                     'unit' => null,
@@ -1251,6 +1251,7 @@ class CommercialOperationsController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
             'lines' => ['required', 'array', 'min:1', 'max:250'],
             'lines.*.product_id' => ['nullable', 'integer'],
+            'lines.*.warehouse_id' => ['nullable', 'integer'],
             'lines.*.description' => ['required', 'string', 'max:255'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
@@ -1269,6 +1270,14 @@ class CommercialOperationsController extends Controller
                 $this->assertTenantRecord(
                     'products',
                     (int) $line['product_id'],
+                    $organizationId,
+                );
+            }
+
+            if (! empty($line['warehouse_id'])) {
+                $this->assertTenantRecord(
+                    'warehouses',
+                    (int) $line['warehouse_id'],
                     $organizationId,
                 );
             }
@@ -1339,6 +1348,7 @@ class CommercialOperationsController extends Controller
                     'organization_id' => $organizationId,
                     'trade_document_id' => $id,
                     'product_id' => $line['product_id'] ?? null,
+                    'warehouse_id' => $line['warehouse_id'] ?? null,
                     'description' => $line['description'],
                     'quantity' => $line['quantity'],
                     'unit_price' => $line['unit_price'],
