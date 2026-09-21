@@ -113,6 +113,99 @@ type TaskSearchResponse = {
 
 type Mode = 'search' | 'create' | 'shortcuts';
 
+type CommandHistoryItem = {
+    key: string;
+    label: string;
+    detail: string;
+    href: string;
+    touchedAt: number;
+};
+
+type SmartCommand = {
+    kind:
+        | 'payment'
+        | 'receipt'
+        | 'sales_invoice'
+        | 'purchase_invoice';
+    amount: string | null;
+    term: string;
+};
+
+function parseSmartCommand(
+    value: string,
+): SmartCommand | null {
+    const normalized =
+        value.trim();
+
+    if (! normalized) {
+        return null;
+    }
+
+    const lower =
+        normalized.toLocaleLowerCase();
+
+    let kind:
+        | SmartCommand['kind']
+        | null = null;
+
+    if (
+        /فاتورة\s*شراء|purchase\s+invoice|supplier\s+invoice/i.test(lower)
+    ) {
+        kind = 'purchase_invoice';
+    } else if (
+        /سجل\s*(?:دفعة|دفع)|دفعة\s+ل|دفع\s+ل|record\s+payment|new\s+payment/i.test(lower)
+    ) {
+        kind = 'payment';
+    } else if (
+        /سجل\s*(?:قبض|مقبوض)|قبض\s+من|مقبوض\s+من|record\s+receipt|new\s+receipt/i.test(lower)
+    ) {
+        kind = 'receipt';
+    } else if (
+        /(?:اعمل|أنشئ|انشئ|سوي|سوّي)?\s*فاتورة|sales\s+invoice|customer\s+invoice|create\s+invoice/i.test(lower)
+    ) {
+        kind = 'sales_invoice';
+    }
+
+    if (! kind) {
+        return null;
+    }
+
+    const amountMatch =
+        normalized.match(
+            /(?:^|\s)(\d+(?:[.,]\d{1,4})?)(?=\s|$)/,
+        );
+    const amount =
+        amountMatch?.[1]
+            ?.replace(',', '.')
+        ?? null;
+
+    const term = normalized
+        .replace(
+            /(?:اعمل|أنشئ|انشئ|سوي|سوّي|سجل|تسجيل|record|create|new)/gi,
+            ' ',
+        )
+        .replace(
+            /(?:فاتورة\s*شراء|فاتورة\s*بيع|فاتورة|دفعة|دفع|قبض|مقبوض|purchase\s+invoice|sales\s+invoice|supplier\s+invoice|customer\s+invoice|payment|receipt)/gi,
+            ' ',
+        )
+        .replace(
+            /(?:للمورد|للموردِ|للعميل|من\s+العميل|لـ|إلى|الى|from|for|supplier|customer)/gi,
+            ' ',
+        )
+        .replace(
+            amountMatch?.[1] ?? '',
+            ' ',
+        )
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return {
+        kind,
+        amount,
+        term,
+    };
+}
+
 function normalize(value: string): string {
     return value
         .trim()
@@ -157,6 +250,8 @@ export function CommandCenter() {
     const [mode, setMode] = useState<Mode>('search');
     const [query, setQuery] = useState('');
     const [remoteHits, setRemoteHits] = useState<SearchHit[]>([]);
+    const [commandHistory, setCommandHistory] =
+        useState<CommandHistoryItem[]>([]);
     const [loading, setLoading] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -576,6 +671,42 @@ export function CommandCenter() {
     ], [ar]);
 
     useEffect(() => {
+        if (
+            ! organizationId
+            || typeof window === 'undefined'
+        ) {
+            setCommandHistory([]);
+            return;
+        }
+
+        const key =
+            'acconova:command-history:'
+            + String(organizationId);
+
+        try {
+            const parsed = JSON.parse(
+                window.localStorage.getItem(key)
+                ?? '[]',
+            );
+
+            setCommandHistory(
+                Array.isArray(parsed)
+                    ? parsed
+                        .filter(
+                            item =>
+                                item
+                                && typeof item.href === 'string'
+                                && typeof item.label === 'string',
+                        )
+                        .slice(0, 12)
+                    : [],
+            );
+        } catch {
+            setCommandHistory([]);
+        }
+    }, [organizationId]);
+
+    useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent): void => {
             const target = event.target as HTMLElement | null;
             const typing =
@@ -685,13 +816,19 @@ export function CommandCenter() {
             return;
         }
 
+        const smartCommand =
+            parseSmartCommand(query);
+        const partySearch =
+            smartCommand?.term
+            || query;
+
         const controller = new AbortController();
         const timer = window.setTimeout(() => {
             setLoading(true);
 
             void Promise.allSettled([
                 fetchParties({
-                    search: query,
+                    search: partySearch,
                     status: 'active',
                     page: 1,
                     perPage: 6,
@@ -750,6 +887,120 @@ export function CommandCenter() {
                         const label = party.type === 'company'
                             ? party.company_name ?? text('شركة بدون اسم', 'Unnamed company')
                             : party.name ?? text('جهة بدون اسم', 'Unnamed contact');
+
+                        if (smartCommand) {
+                            const isCustomer =
+                                party.roles.includes('customer');
+                            const isSupplier =
+                                party.roles.includes('supplier');
+                            const amountQuery =
+                                smartCommand.amount
+                                    ? '&amount='
+                                        + encodeURIComponent(
+                                            smartCommand.amount,
+                                        )
+                                    : '';
+
+                            if (
+                                smartCommand.kind === 'payment'
+                                && isSupplier
+                            ) {
+                                hits.push({
+                                    key: 'smart-payment-' + String(party.id),
+                                    label: text(
+                                        'سجل دفعة لـ ' + label,
+                                        'Record payment for ' + label,
+                                    ),
+                                    detail: smartCommand.amount
+                                        ? text(
+                                            'المبلغ ' + smartCommand.amount + ' — راجع النموذج ثم احفظ',
+                                            'Amount ' + smartCommand.amount + ' — review the form before saving',
+                                        )
+                                        : text(
+                                            'فتح نموذج دفع للمورد المحدد',
+                                            'Open a payment form for the selected supplier',
+                                        ),
+                                    href:
+                                        '/app/payments/create?party_id='
+                                        + String(party.id)
+                                        + amountQuery,
+                                    icon: Banknote,
+                                    kind: 'module',
+                                });
+                            }
+
+                            if (
+                                smartCommand.kind === 'receipt'
+                                && isCustomer
+                            ) {
+                                hits.push({
+                                    key: 'smart-receipt-' + String(party.id),
+                                    label: text(
+                                        'سجل قبض من ' + label,
+                                        'Record receipt from ' + label,
+                                    ),
+                                    detail: smartCommand.amount
+                                        ? text(
+                                            'المبلغ ' + smartCommand.amount + ' — راجع النموذج ثم احفظ',
+                                            'Amount ' + smartCommand.amount + ' — review the form before saving',
+                                        )
+                                        : text(
+                                            'فتح نموذج قبض للعميل المحدد',
+                                            'Open a receipt form for the selected customer',
+                                        ),
+                                    href:
+                                        '/app/receipts/create?party_id='
+                                        + String(party.id)
+                                        + amountQuery,
+                                    icon: HandCoins,
+                                    kind: 'module',
+                                });
+                            }
+
+                            if (
+                                smartCommand.kind === 'sales_invoice'
+                                && isCustomer
+                            ) {
+                                hits.push({
+                                    key: 'smart-sales-invoice-' + String(party.id),
+                                    label: text(
+                                        'اعمل فاتورة بيع لـ ' + label,
+                                        'Create sales invoice for ' + label,
+                                    ),
+                                    detail: text(
+                                        'سيفتح نموذج الفاتورة والعميل محدد مسبقاً',
+                                        'Opens the invoice form with the customer preselected',
+                                    ),
+                                    href:
+                                        '/app/invoices/sales/create?party_id='
+                                        + String(party.id),
+                                    icon: ReceiptText,
+                                    kind: 'module',
+                                });
+                            }
+
+                            if (
+                                smartCommand.kind === 'purchase_invoice'
+                                && isSupplier
+                            ) {
+                                hits.push({
+                                    key: 'smart-purchase-invoice-' + String(party.id),
+                                    label: text(
+                                        'اعمل فاتورة شراء لـ ' + label,
+                                        'Create purchase invoice for ' + label,
+                                    ),
+                                    detail: text(
+                                        'سيفتح نموذج الشراء والمورد محدد مسبقاً',
+                                        'Opens the purchase form with the supplier preselected',
+                                    ),
+                                    href:
+                                        '/app/invoices/purchases/create?party_id='
+                                        + String(party.id),
+                                    icon: ShoppingCart,
+                                    kind: 'module',
+                                });
+                            }
+                        }
 
                         hits.push({
                             key: 'party-' + String(party.id),
@@ -955,6 +1206,65 @@ export function CommandCenter() {
         router.visit(href);
     };
 
+    const rememberCommand = (
+        item: SearchHit,
+    ): void => {
+        if (
+            ! organizationId
+            || typeof window === 'undefined'
+            || (
+                ! item.key.startsWith('create-')
+                && ! item.key.startsWith('smart-')
+            )
+        ) {
+            return;
+        }
+
+        const historyItem: CommandHistoryItem = {
+            key: item.key,
+            label: item.label,
+            detail: item.detail,
+            href: item.href,
+            touchedAt: Date.now(),
+        };
+
+        setCommandHistory(current => {
+            const next = [
+                historyItem,
+                ...current.filter(
+                    existing =>
+                        existing.key !== historyItem.key
+                        || existing.href !== historyItem.href,
+                ),
+            ].slice(0, 12);
+
+            window.localStorage.setItem(
+                'acconova:command-history:'
+                + String(organizationId),
+                JSON.stringify(next),
+            );
+
+            return next;
+        });
+    };
+
+    const goHit = (
+        item: SearchHit,
+    ): void => {
+        rememberCommand(item);
+        go(item.href);
+    };
+
+    const historyHits: SearchHit[] =
+        commandHistory.map(item => ({
+            key: 'history-' + item.key + '-' + String(item.touchedAt),
+            label: item.label,
+            detail: item.detail,
+            href: item.href,
+            icon: Clock3,
+            kind: 'module',
+        }));
+
     const overlay = open && typeof document !== 'undefined'
         ? createPortal(
             <div className="fixed inset-0 z-[300]">
@@ -1001,7 +1311,7 @@ export function CommandCenter() {
 
                                     if (target) {
                                         event.preventDefault();
-                                        go(target.href);
+                                        goHit(target);
                                     }
                                 }}
                                 placeholder={
@@ -1092,7 +1402,23 @@ export function CommandCenter() {
                                                 <CommandRow
                                                     key={'command-' + item.key}
                                                     item={item}
-                                                    onOpen={go}
+                                                    onOpen={goHit}
+                                                />
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {mode === 'search' && ! normalizedQuery && historyHits.length > 0 && (
+                                        <>
+                                            <p className="flex items-center gap-2 px-2 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
+                                                <Clock3 size={12} />
+                                                {text('آخر الأوامر', 'Command history')}
+                                            </p>
+                                            {historyHits.map(item => (
+                                                <CommandRow
+                                                    key={item.key}
+                                                    item={item}
+                                                    onOpen={goHit}
                                                 />
                                             ))}
                                         </>
@@ -1132,7 +1458,7 @@ export function CommandCenter() {
                                         <CommandRow
                                             key={item.key}
                                             item={item}
-                                            onOpen={go}
+                                            onOpen={goHit}
                                         />
                                     ))}
 
@@ -1146,7 +1472,7 @@ export function CommandCenter() {
                                                 <CommandRow
                                                     key={item.key}
                                                     item={item}
-                                                    onOpen={go}
+                                                    onOpen={goHit}
                                                 />
                                             ))}
                                         </>
@@ -1156,6 +1482,14 @@ export function CommandCenter() {
                                         && actionHits.length === 0
                                         && localHits.length === 0
                                         && remoteHits.length === 0
+                                        && (
+                                            normalizedQuery
+                                            || (
+                                                historyHits.length === 0
+                                                && favorites.length === 0
+                                                && recent.length === 0
+                                            )
+                                        )
                                         && (
                                             <div className="rounded-[18px] border border-dashed border-[var(--ac-line)] px-5 py-12 text-center text-sm text-[var(--ac-text-muted)]">
                                                 {text('لا توجد نتائج مطابقة.', 'No matching results.')}
@@ -1316,14 +1650,14 @@ function CommandRow({
     onOpen,
 }: {
     item: SearchHit;
-    onOpen: (href: string) => void;
+    onOpen: (item: SearchHit) => void;
 }) {
     const Icon = item.icon;
 
     return (
         <button
             type="button"
-            onClick={() => onOpen(item.href)}
+            onClick={() => onOpen(item)}
             className="group flex w-full items-center gap-3 rounded-[16px] border border-transparent px-3 py-3 text-start transition hover:border-[var(--ac-line)] hover:bg-[var(--ac-surface-soft)]"
         >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)] transition group-hover:bg-[var(--ac-accent-solid)] group-hover:text-[var(--ac-accent-solid-text)]">
