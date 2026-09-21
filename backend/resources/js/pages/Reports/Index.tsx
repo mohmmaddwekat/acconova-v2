@@ -3,7 +3,9 @@ import { useLocale } from '@/lib/i18n';
 import {
     Head,
     Link,
+    usePage,
 } from '@inertiajs/react';
+import type { AppPageProps } from '@/types/app';
 import {
     ArrowRight,
     ReceiptText,
@@ -12,6 +14,32 @@ import {
 
 export default function ReportsIndex() {
     const ar = useLocale() === 'ar';
+    const activeOrganization =
+        usePage<AppPageProps>().props.workspace
+            .activeOrganization;
+    const customPermissions =
+        activeOrganization?.permissions;
+    const builtInFinanceAccess = [
+        'owner',
+        'admin',
+        'manager',
+        'accountant',
+    ].includes(
+        activeOrganization?.role
+        ?? '',
+    );
+
+    const canViewSales = customPermissions
+        ? customPermissions.includes(
+            'finance.sales.view',
+        )
+        : builtInFinanceAccess;
+
+    const canViewPurchases = customPermissions
+        ? customPermissions.includes(
+            'finance.purchases.view',
+        )
+        : builtInFinanceAccess;
 
     const reports = [
         {
@@ -25,6 +53,7 @@ export default function ReportsIndex() {
                     : 'Customer receivables grouped into 0–30, 31–60, 61–90 and 90+ day buckets.',
             href: '/app/reports/ar-aging',
             icon: ReceiptText,
+            visible: canViewSales,
         },
         {
             title:
@@ -37,6 +66,7 @@ export default function ReportsIndex() {
                     : 'Supplier payables grouped by aging bucket to show what should be paid first.',
             href: '/app/reports/ap-aging',
             icon: ShoppingCart,
+            visible: canViewPurchases,
         },
     ];
 
@@ -65,7 +95,9 @@ export default function ReportsIndex() {
                 </section>
 
                 <section className="mt-5 grid gap-4 md:grid-cols-2">
-                    {reports.map(report => {
+                    {reports
+                        .filter(report => report.visible)
+                        .map(report => {
                         const Icon = report.icon;
 
                         return (
