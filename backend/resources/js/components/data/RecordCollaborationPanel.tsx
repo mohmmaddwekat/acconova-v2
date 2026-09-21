@@ -391,7 +391,7 @@ export function RecordCollaborationPanel({
             </div>
 
             {error && (
-                <div className="mt-3 rounded-[12px] border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                <div className="mt-3 rounded-[12px] border border-red-400/30 bg-red-500/10 p-3 text-xs text-red-200">
                     {error}
                 </div>
             )}
@@ -559,7 +559,7 @@ export function RecordCollaborationPanel({
                 </div>
             </div>
 
-            <div className="mt-4 rounded-[16px] border border-[var(--ac-line)] p-3">
+            <div className="mt-4 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)]/45 p-3">
                 <div className="flex items-center gap-2">
                     <MessageSquareText size={14} className="text-[var(--ac-accent)]" />
                     <strong className="text-xs">
@@ -635,7 +635,7 @@ export function RecordCollaborationPanel({
             </div>
 
             {allowReminders && (
-                <div className="mt-4 rounded-[16px] border border-[var(--ac-line)] p-3">
+                <div className="mt-4 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)]/45 p-3">
                     <div className="flex items-center gap-2">
                         <BellPlus size={14} className="text-[var(--ac-accent)]" />
                         <strong className="text-xs">
@@ -643,7 +643,7 @@ export function RecordCollaborationPanel({
                         </strong>
                     </div>
 
-                    <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]">
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
                         <input
                             type="datetime-local"
                             value={reminderAt}
@@ -666,7 +666,7 @@ export function RecordCollaborationPanel({
                             type="button"
                             disabled={busy || ! reminderAt}
                             onClick={() => void addReminder()}
-                            className={button}
+                            className={button + ' md:col-span-2 md:justify-self-start'}
                         >
                             <BellPlus size={12} />
                             {ar ? 'ذكرني' : 'Remind me'}
@@ -703,7 +703,7 @@ export function RecordCollaborationPanel({
                                                     },
                                                 ),
                                             )}
-                                        className="flex size-8 items-center justify-center rounded-[9px] text-emerald-600 hover:bg-emerald-50"
+                                        className="flex size-8 items-center justify-center rounded-[9px] border border-emerald-400/20 text-emerald-300 transition hover:bg-emerald-500/10"
                                     >
                                         <CheckCircle2 size={13} />
                                     </button>
@@ -715,7 +715,7 @@ export function RecordCollaborationPanel({
             )}
 
             {allowRelationships && type === 'party' && (
-                <div className="mt-4 rounded-[16px] border border-[var(--ac-line)] p-3">
+                <div className="mt-4 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)]/45 p-3">
                     <div className="flex items-center gap-2">
                         <Link2 size={14} className="text-[var(--ac-accent)]" />
                         <strong className="text-xs">
@@ -723,8 +723,8 @@ export function RecordCollaborationPanel({
                         </strong>
                     </div>
 
-                    <div className="mt-3 grid gap-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
-                        <div className="relative">
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                        <div className="relative md:col-span-2">
                             <input
                                 value={relationshipSearch}
                                 onChange={(event) =>
@@ -780,7 +780,7 @@ export function RecordCollaborationPanel({
                             type="button"
                             disabled={busy || ! relationshipPartyId}
                             onClick={() => void addRelationship()}
-                            className={button}
+                            className={button + ' md:col-span-2 md:justify-self-start'}
                         >
                             <Plus size={12} />
                             {ar ? 'ربط' : 'Link'}
@@ -827,7 +827,7 @@ export function RecordCollaborationPanel({
                                                 },
                                             ),
                                         )}
-                                    className="flex size-8 items-center justify-center rounded-[9px] text-[var(--ac-text-muted)] hover:bg-red-50 hover:text-red-600"
+                                    className="flex size-8 items-center justify-center rounded-[9px] border border-transparent text-[var(--ac-text-muted)] transition hover:border-red-400/25 hover:bg-red-500/10 hover:text-red-300"
                                 >
                                     <Trash2 size={12} />
                                 </button>
