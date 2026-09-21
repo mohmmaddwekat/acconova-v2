@@ -639,6 +639,71 @@ export function CashForm({
             return;
         }
 
+        if (post) {
+            try {
+                const duplicateResponse = await apiRequest<{
+                    data: Array<{
+                        id: number;
+                        number: string;
+                        status: string;
+                        movement_date: string | null;
+                        amount: string;
+                        method: string;
+                        reference: string | null;
+                    }>;
+                }>(
+                    '/api/finance/cash-movements/duplicate-check',
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            direction,
+                            party_id: partyId
+                                ? Number(partyId)
+                                : null,
+                            amount,
+                            movement_date: movementDate,
+                            method,
+                            reference: reference || null,
+                            exclude_id: initial?.id ?? null,
+                        }),
+                    },
+                );
+
+                const duplicateCandidates =
+                    duplicateResponse.data;
+
+                if (
+                    duplicateCandidates.length > 0
+                    && ! window.confirm(
+                        text(
+                            'تنبيه: يوجد '
+                            + String(duplicateCandidates.length)
+                            + ' دفعة/مقبوض مشابه جداً خلال ±3 أيام بنفس المبلغ. أقرب حركة: '
+                            + duplicateCandidates[0].number
+                            + ' بتاريخ '
+                            + (duplicateCandidates[0].movement_date ?? '—')
+                            + '. هل راجعت أنها ليست دفعة مكررة وتريد المتابعة؟',
+                            'Warning: '
+                            + String(duplicateCandidates.length)
+                            + ' very similar payment/receipt record(s) exist within ±3 days with the same amount. Closest: '
+                            + duplicateCandidates[0].number
+                            + ' dated '
+                            + (duplicateCandidates[0].movement_date ?? '—')
+                            + '. Did you verify this is not a duplicate and want to continue?',
+                        ),
+                    )
+                ) {
+                    return;
+                }
+            } catch {
+                /*
+                 * Duplicate detection is a safety layer, not a reason to lose
+                 * an otherwise valid draft if the check endpoint is
+                 * temporarily unavailable.
+                 */
+            }
+        }
+
         if (
             post
             && ! window.confirm(
