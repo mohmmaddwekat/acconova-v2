@@ -1731,24 +1731,40 @@ class DashboardIntelligenceController extends Controller
             }
         }
 
-        $expiredDocuments =
-            (int) DB::table(
-                'expiring_documents',
+        $canViewExpiringDocuments =
+            StaffController::allowed(
+                'staff.view',
             )
-                ->where(
-                    'organization_id',
-                    $organizationId,
+            || StaffController::allowed(
+                'staff.team_view',
+            )
+            || Gate::forUser(
+                $request->user(),
+            )->allows(
+                'viewAny',
+                Party::class,
+            );
+
+        $expiredDocuments =
+            $canViewExpiringDocuments
+                ? (int) DB::table(
+                    'expiring_documents',
                 )
-                ->where(
-                    'status',
-                    'active',
-                )
-                ->whereDate(
-                    'expires_on',
-                    '<',
-                    today(),
-                )
-                ->count();
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->where(
+                        'status',
+                        'active',
+                    )
+                    ->whereDate(
+                        'expires_on',
+                        '<',
+                        today(),
+                    )
+                    ->count()
+                : 0;
 
         if (
             $expiredDocuments
