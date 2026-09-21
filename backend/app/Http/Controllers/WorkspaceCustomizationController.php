@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\OrganizationRole;
 use App\Models\Party;
 use App\Models\Product;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -1311,15 +1312,27 @@ class WorkspaceCustomizationController extends Controller
 
     private function authorizeSettings(): void
     {
+        $user = request()->user();
+
         abort_unless(
-            in_array(
-                app(TenantContext::class)
-                    ->role(),
-                [
-                    OrganizationRole::Owner,
-                    OrganizationRole::Admin,
-                ],
-                true,
+            $user
+            && (
+                WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'workspace.customization.view',
+                )
+                || WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'workspace.custom_fields.manage',
+                )
+                || WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'workspace.custom_statuses.manage',
+                )
+                || WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'workspace.approval_rules.manage',
+                )
             ),
             403,
         );
