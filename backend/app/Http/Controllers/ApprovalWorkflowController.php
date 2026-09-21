@@ -51,6 +51,8 @@ class ApprovalWorkflowController extends Controller
                 'approvals.subject_id',
                 'approvals.category',
                 'approvals.status',
+                'approvals.required_approvals',
+                'approvals.approved_count',
                 'approvals.reason',
                 'approvals.snapshot',
                 'approvals.requested_by',
@@ -61,6 +63,28 @@ class ApprovalWorkflowController extends Controller
                 'approvals.created_at',
             ])
             ->map(function ($row): array {
+                $decisions = DB::table(
+                    'approval_decisions as decision',
+                )
+                    ->join(
+                        'users as reviewer_user',
+                        'reviewer_user.id',
+                        '=',
+                        'decision.reviewer_id',
+                    )
+                    ->where(
+                        'decision.approval_request_id',
+                        $row->id,
+                    )
+                    ->orderBy('decision.id')
+                    ->get([
+                        'decision.id',
+                        'decision.reviewer_id',
+                        'decision.decision',
+                        'decision.decided_at',
+                        'reviewer_user.name as reviewer_name',
+                    ]);
+
                 return [
                     ...((array) $row),
                     'snapshot' => $row->snapshot
@@ -69,6 +93,12 @@ class ApprovalWorkflowController extends Controller
                             true,
                         )
                         : null,
+                    'decisions' => $decisions,
+                    'remaining_approvals' => max(
+                        (int) $row->required_approvals
+                        - (int) $row->approved_count,
+                        0,
+                    ),
                 ];
             })
             ->values();
@@ -121,24 +151,154 @@ class ApprovalWorkflowController extends Controller
             ]);
         }
 
-        DB::table('approval_requests')
-            ->where('id', $row->id)
-            ->update([
-                'status' => $data['decision'],
-                'reviewed_by' => $request->user()->id,
-                'reviewed_at' => now(),
-                'updated_at' => now(),
-            ]);
+        $organizationId =
+            app(TenantContext::class)->id();
+
+        $updated = DB::transaction(
+            function () use (
+                $request,
+                $data,
+                $row,
+                $organizationId,
+            ): object {
+                $locked = DB::table(
+                    'approval_requests',
+                )
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->where('id', $row->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                abort_unless($locked, 404);
+
+                if (
+                    $locked->status
+                    !== 'pending'
+                ) {
+                    return $locked;
+                }
+
+                $existing = DB::table(
+                    'approval_decisions',
+                )
+                    ->where(
+                        'approval_request_id',
+                        $locked->id,
+                    )
+                    ->where(
+                        'reviewer_id',
+                        $request->user()->id,
+                    )
+                    ->first();
+
+                if ($existing) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'approval' => [
+                            'You have already reviewed this approval request.',
+                        ],
+                    ]);
+                }
+
+                DB::table(
+                    'approval_decisions',
+                )->insert([
+                    'organization_id' =>
+                        $organizationId,
+                    'approval_request_id' =>
+                        $locked->id,
+                    'reviewer_id' =>
+                        $request->user()->id,
+                    'decision' =>
+                        $data['decision'],
+                    'decided_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $approvedCount =
+                    (int) DB::table(
+                        'approval_decisions',
+                    )
+                        ->where(
+                            'approval_request_id',
+                            $locked->id,
+                        )
+                        ->where(
+                            'decision',
+                            'approved',
+                        )
+                        ->count();
+
+                $required =
+                    max(
+                        1,
+                        (int) (
+                            $locked->required_approvals
+                            ?? 1
+                        ),
+                    );
+
+                $status =
+                    $data['decision']
+                    === 'rejected'
+                        ? 'rejected'
+                        : (
+                            $approvedCount
+                            >= $required
+                                ? 'approved'
+                                : 'pending'
+                        );
+
+                DB::table(
+                    'approval_requests',
+                )
+                    ->where(
+                        'id',
+                        $locked->id,
+                    )
+                    ->update([
+                        'status' => $status,
+                        'approved_count' =>
+                            $approvedCount,
+                        'reviewed_by' =>
+                            $status
+                            !== 'pending'
+                                ? $request->user()->id
+                                : $locked->reviewed_by,
+                        'reviewed_at' =>
+                            $status
+                            !== 'pending'
+                                ? now()
+                                : $locked->reviewed_at,
+                        'updated_at' => now(),
+                    ]);
+
+                return DB::table(
+                    'approval_requests',
+                )
+                    ->where(
+                        'id',
+                        $locked->id,
+                    )
+                    ->first();
+            },
+            3,
+        );
 
         DB::table('workspace_notifications')
             ->where(
                 'organization_id',
-                app(TenantContext::class)->id(),
+                $organizationId,
             )
             ->where(
                 'event_key',
-                'like',
-                'approval-required:'.$row->id.':%',
+                'approval-required:'
+                .$row->id
+                .':'
+                .$request->user()->id,
             )
             ->whereNull('read_at')
             ->update([
@@ -146,30 +306,82 @@ class ApprovalWorkflowController extends Controller
                 'updated_at' => now(),
             ]);
 
+        if (
+            $updated->status
+            !== 'pending'
+        ) {
+            DB::table('workspace_notifications')
+                ->where(
+                    'organization_id',
+                    $organizationId,
+                )
+                ->where(
+                    'event_key',
+                    'like',
+                    'approval-required:'
+                    .$row->id
+                    .':%',
+                )
+                ->whereNull('read_at')
+                ->update([
+                    'read_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        }
+
         DB::table('workspace_notifications')
             ->insertOrIgnore([
-                'organization_id' => app(TenantContext::class)->id(),
-                'user_id' => $row->requested_by,
-                'event_key' => 'approval-reviewed:'.$row->id.':'.$row->requested_by,
-                'kind' => $data['decision'] === 'approved'
-                    ? 'approval_approved'
-                    : 'approval_rejected',
+                'organization_id' =>
+                    $organizationId,
+                'user_id' =>
+                    $row->requested_by,
+                'event_key' =>
+                    'approval-review-progress:'
+                    .$row->id
+                    .':'
+                    .$updated->approved_count
+                    .':'
+                    .$updated->status,
+                'kind' => match (
+                    $updated->status
+                ) {
+                    'approved' =>
+                        'approval_approved',
+                    'rejected' =>
+                        'approval_rejected',
+                    default =>
+                        'approval_progress',
+                },
                 'category' => 'activity',
                 'data' => json_encode([
-                    'name' => $data['decision'] === 'approved'
-                        ? 'Approval approved'
-                        : 'Approval rejected',
-                    'detail' => $row->reason,
+                    'name' => match (
+                        $updated->status
+                    ) {
+                        'approved' =>
+                            'Approval approved',
+                        'rejected' =>
+                            'Approval rejected',
+                        default =>
+                            'Approval progress',
+                    },
+                    'detail' =>
+                        $updated->status
+                        === 'pending'
+                            ? sprintf(
+                                '%d of %d required approvals completed.',
+                                $updated->approved_count,
+                                $updated->required_approvals,
+                            )
+                            : $row->reason,
                 ], JSON_THROW_ON_ERROR),
-                'url' => '/app/finance/approvals',
+                'url' =>
+                    '/app/finance/approvals',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
         return response()->json([
-            'data' => DB::table('approval_requests')
-                ->where('id', $row->id)
-                ->first(),
+            'data' => $updated,
         ]);
     }
 
