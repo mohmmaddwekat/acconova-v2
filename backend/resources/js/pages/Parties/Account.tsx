@@ -1278,7 +1278,7 @@ export default function PartyAccount({
                                         .party_edit && (
                                         <Link
                                             href={
-                                                '/app/parties?focus='
+                                                '/app/parties?edit='
                                                 + String(
                                                     data
                                                         .party
