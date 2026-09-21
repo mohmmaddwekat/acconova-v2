@@ -4,7 +4,7 @@ import { ApiError, apiRequest } from '@/lib/http';
 import { t, useLocale } from '@/lib/i18n';
 import { getLocale } from '@/lib/locale';
 import type { AppPageProps } from '@/types/app';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowUpRight,
     Bell,
@@ -381,28 +381,45 @@ function NotificationWorkspace() {
                         </div>
                     </div>
 
-                    <button
-                        disabled={
-                            busy
-                            || loading
-                            || ! digest
-                                ?.total_unread
-                        }
-                        onClick={() =>
-                            void read()
-                        }
-                        className={
-                            button
-                            + ' flex items-center gap-2'
-                        }
-                    >
-                        <CheckCheck
-                            size={15}
-                        />
-                        {t(
-                            'notifications.readAll',
-                        )}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <Link
+                            href="/app/settings/notifications"
+                            className={
+                                button
+                                + ' flex items-center gap-2'
+                            }
+                        >
+                            <Bell
+                                size={14}
+                            />
+                            {ar
+                                ? 'قواعد الإشعارات'
+                                : 'Notification rules'}
+                        </Link>
+
+                        <button
+                            disabled={
+                                busy
+                                || loading
+                                || ! digest
+                                    ?.total_unread
+                            }
+                            onClick={() =>
+                                void read()
+                            }
+                            className={
+                                button
+                                + ' flex items-center gap-2'
+                            }
+                        >
+                            <CheckCheck
+                                size={15}
+                            />
+                            {t(
+                                'notifications.readAll',
+                            )}
+                        </button>
+                    </div>
                 </header>
 
                 {digest
