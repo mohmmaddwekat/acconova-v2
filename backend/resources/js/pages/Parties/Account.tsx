@@ -2228,7 +2228,7 @@ function SummaryCards({
                         : 'Opening balance'
                 }
                 value={
-                    displayMoney(
+                    displaySignedMoney(
                         data.summary
                             .opening_balance,
                         currency,
@@ -3382,7 +3382,7 @@ function PrintStatement({
                                 : 'Opening balance'
                         }
                         value={
-                            displayMoney(
+                            displaySignedMoney(
                                 data.summary
                                     .opening_balance,
                                 data.currency,
@@ -3430,7 +3430,7 @@ function PrintStatement({
                                 : 'Closing balance'
                         }
                         value={
-                            displayMoney(
+                            displaySignedMoney(
                                 data.summary
                                     .closing_balance,
                                 data.currency,
