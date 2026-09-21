@@ -600,11 +600,24 @@ function PartiesWorkspace() {
     function openDetail(
         party: Party,
     ): void {
-        setDetailParty(
-            party,
-        );
-        setDetailDrawerOpen(
-            ! splitView,
+        if (
+            splitView
+        ) {
+            setDetailParty(
+                party,
+            );
+            setDetailDrawerOpen(
+                false,
+            );
+
+            return;
+        }
+
+        window.location.assign(
+            '/app/parties/'
+            + String(
+                party.id,
+            ),
         );
     }
 
@@ -1576,8 +1589,11 @@ function PartiesWorkspace() {
                                             allowEdit
                                         }
                                         onOpenFull={() =>
-                                            setDetailDrawerOpen(
-                                                true,
+                                            window.location.assign(
+                                                '/app/parties/'
+                                                + String(
+                                                    detailParty.id,
+                                                ),
                                             )
                                         }
                                         onEdit={() =>
