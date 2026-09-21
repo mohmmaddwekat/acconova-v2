@@ -215,8 +215,8 @@ export function Party360Panel({
                                 </p>
                                 <p className="mt-1 text-[9px] text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'تقدير تشغيلي باستخدام التكلفة الحالية للمنتجات.'
-                                        : 'Operational estimate using current product cost.'}
+                                        ? 'يستخدم لقطة تكلفة وقت إصدار الفاتورة عندما تكون متاحة، مع الرجوع للتكلفة الحالية للفواتير الأقدم.'
+                                        : 'Uses the issue-time cost snapshot when available, with current cost only as a fallback for older invoices.'}
                                 </p>
                             </div>
                             <strong className="text-lg text-[var(--ac-accent)]">
