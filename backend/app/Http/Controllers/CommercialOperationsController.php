@@ -393,6 +393,7 @@ class CommercialOperationsController extends Controller
             )
             ->where('movement.organization_id', $organizationId)
             ->where('movement.status', 'posted')
+            ->where('movement.direction', 'incoming')
             ->whereNull('movement.reversal_of_id')
             ->where(function ($query): void {
                 $query
@@ -539,17 +540,38 @@ class CommercialOperationsController extends Controller
                     'promise_on' => $nextPromise?->promised_on,
                     'promise_amount' => $nextPromise?->amount,
                     'promise_status' => $nextPromise?->status,
+                    'expected_collection' => number_format(
+                        min(
+                            (float) $partyRows->sum(
+                                fn ($row): float =>
+                                    (float) $row->balance_due,
+                            ),
+                            $nextPromise
+                                ? (float) $nextPromise->amount
+                                : (float) $partyRows->sum(
+                                    fn ($row): float =>
+                                        (float) $row->balance_due,
+                                ),
+                        ),
+                        4,
+                        '.',
+                        '',
+                    ),
                     'contact_today' => $needsContact,
                     'url' => '/app/parties?focus='.$partyId,
                 ];
             })
-            ->sortByDesc(
-                fn (array $row): array => [
-                    $row['contact_today'] ? 1 : 0,
-                    $row['overdue_days'],
-                    (float) $row['outstanding'],
-                ],
-            )
+            ->sort(function (array $left, array $right): int {
+                return [
+                    $right['contact_today'] ? 1 : 0,
+                    $right['overdue_days'],
+                    (float) $right['outstanding'],
+                ] <=> [
+                    $left['contact_today'] ? 1 : 0,
+                    $left['overdue_days'],
+                    (float) $left['outstanding'],
+                ];
+            })
             ->values()
             ->all();
     }
@@ -749,13 +771,17 @@ class CommercialOperationsController extends Controller
                 ...((array) $row),
                 'party' => $row->company_name ?: $row->name,
             ])
-            ->sortBy(
-                fn (array $row): array => [
-                    $stageOrder[$row['stage']] ?? 99,
-                    $row['next_action_on'] ?? '9999-12-31',
-                    -((int) $row['id']),
-                ],
-            )
+            ->sort(function (array $left, array $right) use ($stageOrder): int {
+                return [
+                    $stageOrder[$left['stage']] ?? 99,
+                    $left['next_action_on'] ?? '9999-12-31',
+                    -((int) $left['id']),
+                ] <=> [
+                    $stageOrder[$right['stage']] ?? 99,
+                    $right['next_action_on'] ?? '9999-12-31',
+                    -((int) $right['id']),
+                ];
+            })
             ->values()
             ->all();
     }
@@ -1105,18 +1131,39 @@ class CommercialOperationsController extends Controller
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $this->assertTenantRecord(
-            'parties',
+        $this->assertPartyRole(
             (int) $data['party_id'],
-            $organizationId,
+            'customer',
         );
 
         if (! empty($data['financial_document_id'])) {
-            $this->assertTenantRecord(
-                'financial_documents',
-                (int) $data['financial_document_id'],
-                $organizationId,
-            );
+            $document = DB::table('financial_documents')
+                ->where('organization_id', $organizationId)
+                ->where('id', (int) $data['financial_document_id'])
+                ->where('party_id', (int) $data['party_id'])
+                ->where('kind', 'sale_invoice')
+                ->whereIn(
+                    'status',
+                    ['issued', 'partially_paid'],
+                )
+                ->where('balance_due', '>', 0)
+                ->first();
+
+            if (! $document) {
+                throw ValidationException::withMessages([
+                    'financial_document_id' => [
+                        'Choose an open sales invoice belonging to this customer.',
+                    ],
+                ]);
+            }
+
+            if ((float) $data['amount'] > (float) $document->balance_due + 0.00005) {
+                throw ValidationException::withMessages([
+                    'amount' => [
+                        'The promised amount cannot exceed the selected invoice balance.',
+                    ],
+                ]);
+            }
         }
 
         $id = DB::table('payment_promises')->insertGetId([
@@ -1210,10 +1257,11 @@ class CommercialOperationsController extends Controller
             'lines.*.affects_inventory' => ['sometimes', 'boolean'],
         ]);
 
-        $this->assertTenantRecord(
-            'parties',
+        $this->assertPartyRole(
             (int) $data['party_id'],
-            $organizationId,
+            $kind === 'purchase_order'
+                ? 'supplier'
+                : 'customer',
         );
 
         foreach ($data['lines'] as $line) {
@@ -1328,6 +1376,10 @@ class CommercialOperationsController extends Controller
                 'kind',
                 ['sale_invoice', 'purchase_invoice'],
             )
+            ->whereIn(
+                'status',
+                ['issued', 'partially_paid', 'paid', 'overpaid'],
+            )
             ->first();
 
         abort_unless($document, 404);
@@ -1374,9 +1426,15 @@ class CommercialOperationsController extends Controller
             $organizationId,
         );
 
+        if (! empty($data['party_id'])) {
+            $this->assertPartyRole(
+                (int) $data['party_id'],
+                'customer',
+            );
+        }
+
         foreach (
             [
-                ['parties', 'party_id'],
                 ['financial_documents', 'financial_document_id'],
             ] as [$table, $field]
         ) {
@@ -1446,11 +1504,23 @@ class CommercialOperationsController extends Controller
             $organizationId,
         );
 
+        if (! empty($data['supplier_party_id'])) {
+            $this->assertPartyRole(
+                (int) $data['supplier_party_id'],
+                'supplier',
+            );
+        }
+
+        if (! empty($data['customer_party_id'])) {
+            $this->assertPartyRole(
+                (int) $data['customer_party_id'],
+                'customer',
+            );
+        }
+
         foreach (
             [
                 ['warehouses', 'warehouse_id'],
-                ['parties', 'supplier_party_id'],
-                ['parties', 'customer_party_id'],
                 ['financial_documents', 'source_purchase_document_id'],
                 ['financial_documents', 'source_sale_document_id'],
             ] as [$table, $field]
@@ -1518,10 +1588,9 @@ class CommercialOperationsController extends Controller
         }
 
         if (! empty($data['supplier_party_id'])) {
-            $this->assertTenantRecord(
-                'parties',
+            $this->assertPartyRole(
                 (int) $data['supplier_party_id'],
-                $organizationId,
+                'supplier',
             );
         }
 
@@ -1942,6 +2011,31 @@ class CommercialOperationsController extends Controller
                 ->exists(),
             404,
         );
+    }
+
+    private function assertPartyRole(
+        int $partyId,
+        string $role,
+    ): void {
+        $exists = Party::query()
+            ->usableForNewBusiness()
+            ->whereKey($partyId)
+            ->whereHas(
+                'roles',
+                fn ($query) =>
+                    $query->where('role', $role),
+            )
+            ->exists();
+
+        if (! $exists) {
+            throw ValidationException::withMessages([
+                'party_id' => [
+                    $role === 'customer'
+                        ? 'Choose an active customer.'
+                        : 'Choose an active supplier.',
+                ],
+            ]);
+        }
     }
 
     private function authorizeFeature(
