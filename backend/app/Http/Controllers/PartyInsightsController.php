@@ -161,7 +161,7 @@ class PartyInsightsController extends Controller
             )
             ->selectRaw(
                 'COALESCE(SUM(financial_document_lines.line_total), 0) as revenue,
-                 COALESCE(SUM(financial_document_lines.quantity * COALESCE(profit_products.cost_price, 0)), 0) as estimated_cost',
+                 COALESCE(SUM(financial_document_lines.quantity * COALESCE(financial_document_lines.cost_price_snapshot, profit_products.cost_price, 0)), 0) as estimated_cost',
             )
             ->first();
 
@@ -205,7 +205,7 @@ class PartyInsightsController extends Controller
                 '.',
                 '',
             ),
-            'basis' => 'current_product_cost',
+            'basis' => 'issue_cost_snapshot_with_current_cost_fallback',
         ];
 
         $purchasePriceRows = FinancialDocumentLine::query()
