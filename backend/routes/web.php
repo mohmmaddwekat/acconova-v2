@@ -23,6 +23,7 @@ use App\Http\Controllers\StaffCorrectionController;
 use App\Http\Controllers\StaffImportController;
 use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\StaffWorkforceController;
+use App\Http\Controllers\SystemCheckController;
 use App\Http\Controllers\TaxComplianceController;
 use App\Services\FinanceAuthorization;
 use App\Http\Controllers\WorkspaceConversationController;
@@ -293,6 +294,29 @@ Route::middleware([
     )
         ->middleware(ResolveOrganization::class)
         ->name('app.settings');
+
+    Route::get(
+        '/app/system-checks',
+        function () {
+            $role = app(\App\Tenancy\TenantContext::class)->role();
+
+            abort_unless(
+                in_array(
+                    $role,
+                    [
+                        \App\Enums\OrganizationRole::Owner,
+                        \App\Enums\OrganizationRole::Admin,
+                    ],
+                    true,
+                ),
+                403,
+            );
+
+            return Inertia::render('SystemChecks');
+        },
+    )
+        ->middleware(ResolveOrganization::class)
+        ->name('app.system-checks');
 
     Route::get(
         '/app/finance',
@@ -945,6 +969,11 @@ Route::prefix(
                 WorkspaceRoleController::class,
                 'assign',
             ],
+        );
+
+        Route::get(
+            'system-checks',
+            SystemCheckController::class,
         );
 
         Route::get(
