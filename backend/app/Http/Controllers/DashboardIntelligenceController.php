@@ -14,6 +14,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class DashboardIntelligenceController extends Controller
@@ -242,7 +243,9 @@ class DashboardIntelligenceController extends Controller
                             TenantContext::class,
                         )
                             ->organization()
-                            ->currency
+                            ->preferences[
+                                'currency'
+                            ]
                         ?? ''
                     ),
                 );
@@ -1473,26 +1476,35 @@ class DashboardIntelligenceController extends Controller
             }
         }
 
-        $lowStock =
-            $this->lowStockCount(
-                $organizationId,
-            );
-
         if (
-            $lowStock > 0
+            Gate::forUser(
+                $request->user(),
+            )->allows(
+                'viewAny',
+                Product::class,
+            )
         ) {
-            $items->push([
-                'kind' =>
-                    'low_stock',
-                'title' =>
-                    'Replenish low stock',
-                'count' =>
-                    $lowStock,
-                'priority' =>
-                    'medium',
-                'url' =>
-                    '/app/inventory/intelligence',
-            ]);
+            $lowStock =
+                $this->lowStockCount(
+                    $organizationId,
+                );
+
+            if (
+                $lowStock > 0
+            ) {
+                $items->push([
+                    'kind' =>
+                        'low_stock',
+                    'title' =>
+                        'Replenish low stock',
+                    'count' =>
+                        $lowStock,
+                    'priority' =>
+                        'medium',
+                    'url' =>
+                        '/app/inventory/intelligence',
+                ]);
+            }
         }
 
         $approvals =
@@ -1560,24 +1572,33 @@ class DashboardIntelligenceController extends Controller
     ): array {
         $items = collect();
 
-        $lowStock =
-            $this->lowStockCount(
-                $organizationId,
-            );
+        if (
+            Gate::forUser(
+                $request->user(),
+            )->allows(
+                'viewAny',
+                Product::class,
+            )
+        ) {
+            $lowStock =
+                $this->lowStockCount(
+                    $organizationId,
+                );
 
-        if ($lowStock) {
-            $items->push([
-                'kind' =>
-                    'low_stock',
-                'severity' =>
-                    'warning',
-                'title' =>
-                    'Products below low-stock threshold',
-                'count' =>
-                    $lowStock,
-                'url' =>
-                    '/app/inventory/intelligence',
-            ]);
+            if ($lowStock) {
+                $items->push([
+                    'kind' =>
+                        'low_stock',
+                    'severity' =>
+                        'warning',
+                    'title' =>
+                        'Products below low-stock threshold',
+                    'count' =>
+                        $lowStock,
+                    'url' =>
+                        '/app/inventory/intelligence',
+                ]);
+            }
         }
 
         $approvals =
