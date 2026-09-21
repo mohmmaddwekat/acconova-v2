@@ -2269,8 +2269,7 @@ export default function PartyAccount({
                                 </section>
 
                                 <section
-                                    id="party-aging"
-                                    className={panel + ' scroll-mt-24 p-5'}
+                                    className={panel + ' p-5'}
                                 >
                                     <div className="flex items-center gap-2">
                                         <Clock3
@@ -2352,6 +2351,46 @@ export default function PartyAccount({
                 )}
             </main>
         </AppShell>
+    );
+}
+
+function OverviewBalanceLine({
+    label,
+    value,
+    currency,
+    locale,
+}: {
+    label: string;
+    value: string | number;
+    currency: string;
+    locale: string;
+}) {
+    const numeric =
+        toNumber(
+            value,
+        );
+
+    return (
+        <div className="flex items-center justify-between gap-4 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 py-3">
+            <span className="text-[9px] font-semibold text-[var(--ac-text-muted)]">
+                {label}
+            </span>
+
+            <strong
+                className={[
+                    'text-xs',
+                    numeric < 0
+                        ? 'text-[var(--ac-accent)]'
+                        : 'text-[var(--ac-text)]',
+                ].join(' ')}
+            >
+                {displaySignedMoney(
+                    numeric,
+                    currency,
+                    locale,
+                )}
+            </strong>
+        </div>
     );
 }
 
