@@ -22,6 +22,7 @@ import {
     TrendingUp,
     UsersRound,
     X,
+    type LucideIcon,
 } from 'lucide-react';
 import {
     useEffect,
@@ -984,34 +985,38 @@ export function BusinessIntelligenceDashboard({
                     </div>
 
                     <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                        {[
-                            [
-                                text(
+                        {([
+                            {
+                                heading: text(
                                     'أفضل العملاء ربحية',
                                     'Most profitable customers',
                                 ),
-                                profit
-                                    .top_customers,
-                                UsersRound,
-                            ],
-                            [
-                                text(
+                                rows:
+                                    profit.top_customers,
+                                Icon: UsersRound,
+                            },
+                            {
+                                heading: text(
                                     'أفضل المنتجات ربحية',
                                     'Most profitable products',
                                 ),
-                                profit
-                                    .top_products,
-                                BarChart3,
-                            ],
-                        ].map(
-                            ([
+                                rows:
+                                    profit.top_products,
+                                Icon: BarChart3,
+                            },
+                        ] satisfies Array<{
+                            heading: string;
+                            rows: ProfitRow[];
+                            Icon: LucideIcon;
+                        }>).map(
+                            ({
                                 heading,
                                 rows,
                                 Icon,
-                            ]) => (
+                            }) => (
                                 <div
                                     key={
-                                        heading as string
+                                        heading
                                     }
                                     className="overflow-hidden rounded-[15px] border border-[var(--ac-line)]"
                                 >
@@ -1022,14 +1027,12 @@ export function BusinessIntelligenceDashboard({
                                         />
                                         <strong className="text-[10px] text-[var(--ac-text)]">
                                             {
-                                                heading as string
+                                                heading
                                             }
                                         </strong>
                                     </div>
                                     <div className="divide-y divide-[var(--ac-line)]">
-                                        {(
-                                            rows as ProfitRow[]
-                                        ).length ===
+                                        {rows.length ===
                                         0 ? (
                                             <p className="p-4 text-center text-[10px] text-[var(--ac-text-muted)]">
                                                 {text(
@@ -1038,9 +1041,7 @@ export function BusinessIntelligenceDashboard({
                                                 )}
                                             </p>
                                         ) : (
-                                            (
-                                                rows as ProfitRow[]
-                                            ).map(
+                                            rows.map(
                                                 row => (
                                                     <Link
                                                         key={
