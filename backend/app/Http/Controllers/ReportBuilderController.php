@@ -99,6 +99,7 @@ class ReportBuilderController extends Controller
                 fn ($row): array =>
                     $this->presentReport(
                         $row,
+                        $request->user()->id,
                     ),
             );
 
@@ -573,7 +574,6 @@ class ReportBuilderController extends Controller
         $data =
             $this->validatedExecution(
                 $request,
-                true,
             );
 
         $name = $request->validate([
@@ -599,7 +599,6 @@ class ReportBuilderController extends Controller
      */
     private function validatedExecution(
         Request $request,
-        bool $includeName = false,
     ): array {
         $data = $request->validate([
             'dataset' => [
@@ -1294,9 +1293,14 @@ class ReportBuilderController extends Controller
      */
     private function presentReport(
         object $row,
+        ?int $userId = null,
     ): array {
         return [
             ...((array) $row),
+            'can_edit' =>
+                $userId !== null
+                && (int) $row->created_by
+                    === $userId,
             'columns' =>
                 json_decode(
                     $row->columns,
