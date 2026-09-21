@@ -615,6 +615,26 @@ class CommercialOperationsController extends Controller
                     return null;
                 }
 
+                $invoices = $conversionsByDocument
+                    ->get($row->id, collect())
+                    ->map(fn ($invoice): array => [
+                        'id' => $invoice->id,
+                        'number' => $invoice->number,
+                        'kind' => $invoice->kind,
+                        'status' => $invoice->status,
+                        'total' => (string) $invoice->total,
+                        'currency' => $invoice->currency,
+                        'converted_quantity' =>
+                            (string) $invoice->converted_quantity,
+                        'created_at' => $invoice->created_at,
+                        'url' =>
+                            $invoice->kind === 'sale_invoice'
+                                ? '/app/invoices/sales/'.$invoice->id
+                                : '/app/invoices/purchases/'.$invoice->id,
+                    ])
+                    ->values()
+                    ->all();
+
                 return [
                     'id' => $row->id,
                     'number' => $row->number,
@@ -1108,6 +1128,33 @@ class CommercialOperationsController extends Controller
             )
             ->groupBy('trade_document_id');
 
+        $conversionsByDocument = DB::table(
+            'trade_document_conversions as conversion',
+        )
+            ->join(
+                'financial_documents as invoice',
+                'invoice.id',
+                '=',
+                'conversion.financial_document_id',
+            )
+            ->where(
+                'conversion.organization_id',
+                $organizationId,
+            )
+            ->orderByDesc('conversion.id')
+            ->get([
+                'conversion.trade_document_id',
+                'conversion.converted_quantity',
+                'conversion.created_at',
+                'invoice.id',
+                'invoice.number',
+                'invoice.kind',
+                'invoice.status',
+                'invoice.total',
+                'invoice.currency',
+            ])
+            ->groupBy('trade_document_id');
+
         $lineTotals = DB::table('trade_document_lines')
             ->selectRaw(
                 'trade_document_id,
@@ -1200,7 +1247,10 @@ class CommercialOperationsController extends Controller
                 DB::raw('COALESCE(conversion_totals.invoice_count, 0) as invoice_count'),
                 'line_totals.first_line_id',
             ])
-            ->map(function ($row) use ($linesByDocument): array {
+            ->map(function ($row) use (
+                $linesByDocument,
+                $conversionsByDocument,
+            ): array {
                 $lines = $linesByDocument
                     ->get($row->id, collect())
                     ->map(fn ($line): array => [
@@ -1270,6 +1320,7 @@ class CommercialOperationsController extends Controller
                     'first_line_id' =>
                         $row->first_line_id,
                     'lines' => $lines,
+                    'invoices' => $invoices,
                 ];
             })
             ->all();
