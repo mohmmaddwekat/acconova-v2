@@ -1571,7 +1571,39 @@ export default function PartyAccount({
                             </div>
                         </section>
 
-                        <section className="mt-5">
+                        <nav
+                            aria-label={ar ? 'أقسام حساب الجهة' : 'Party account sections'}
+                            className={panel + ' mt-4 overflow-x-auto p-1.5 print:hidden'}
+                        >
+                            <div className="flex min-w-max gap-1">
+                                {([
+                                    ['overview', '', ar ? 'نظرة عامة' : 'Overview'],
+                                    ['statement', '/statement', ar ? 'كشف الحساب' : 'Statement'],
+                                    ['invoices', '/invoices', ar ? 'الفواتير' : 'Invoices'],
+                                    ['payments', '/payments', ar ? 'القبض والدفع' : 'Payments'],
+                                    ['aging', '/aging', ar ? 'أعمار الذمم' : 'Aging'],
+                                ] as const).map(([tab, suffix, label]) => (
+                                    <Link
+                                        key={tab}
+                                        href={
+                                            '/app/parties/'
+                                            + String(data.party.id)
+                                            + suffix
+                                        }
+                                        className={[
+                                            'inline-flex h-10 items-center justify-center rounded-[10px] border px-4 text-[10px] font-bold transition',
+                                            initialTab === tab
+                                                ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                                : 'border-transparent text-[var(--ac-text-muted)] hover:border-[var(--ac-line)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)]',
+                                        ].join(' ')}
+                                    >
+                                        {label}
+                                    </Link>
+                                ))}
+                            </div>
+                        </nav>
+
+                        <section id="party-statement" className="mt-5 scroll-mt-24">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                                 <div>
                                     <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--ac-accent)]">
