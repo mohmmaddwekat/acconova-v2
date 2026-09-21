@@ -1610,25 +1610,85 @@ class ReportStudioController extends Controller
     private function deadStock(Carbon $asOf): array
     {
         $org = app(TenantContext::class)->id();
-        $rows = DB::table('inventory_balances as balance')->join('products as product', 'product.id', '=', 'balance.product_id')
+
+        $rows = DB::table('inventory_balances as balance')
+            ->join('products as product', 'product.id', '=', 'balance.product_id')
             ->join('warehouses as warehouse', 'warehouse.id', '=', 'balance.warehouse_id')
-            ->leftJoin('stock_movements as move', function ($join) {
-                $join->on('move.product_id', '=', 'balance.product_id')->on('move.warehouse_id', '=', 'balance.warehouse_id')->where('move.quantity', '<', 0);
+            ->leftJoin('stock_movements as sale_move', function ($join) use ($asOf): void {
+                $join
+                    ->on('sale_move.product_id', '=', 'balance.product_id')
+                    ->on('sale_move.warehouse_id', '=', 'balance.warehouse_id')
+                    ->where('sale_move.type', '=', 'sale')
+                    ->where('sale_move.created_at', '<=', $asOf);
             })
-            ->where('balance.organization_id', $org)->where('balance.on_hand', '>', 0)
-            ->selectRaw('product.name as product, warehouse.name as warehouse, balance.on_hand, product.cost_price')
-            ->selectRaw('MAX(move.created_at) as last_outbound_at')
-            ->groupBy('product.name', 'warehouse.name', 'balance.on_hand', 'product.cost_price')
-            ->get()->map(function ($row) use ($asOf) {
-                $last = $row->last_outbound_at ? Carbon::parse($row->last_outbound_at) : null;
-                $days = $last ? $last->diffInDays($asOf) : 9999;
+            ->where('balance.organization_id', $org)
+            ->where('balance.on_hand', '>', 0)
+            ->selectRaw('product.name as product')
+            ->selectRaw('warehouse.name as warehouse')
+            ->selectRaw('balance.on_hand')
+            ->selectRaw('product.cost_price')
+            ->selectRaw('MAX(sale_move.created_at) as last_sale_at')
+            ->groupBy(
+                'product.name',
+                'warehouse.name',
+                'balance.on_hand',
+                'product.cost_price',
+            )
+            ->get()
+            ->map(function ($row) use ($asOf): array {
+                $lastSale = $row->last_sale_at
+                    ? Carbon::parse($row->last_sale_at)
+                    : null;
+
+                $days = $lastSale
+                    ? $lastSale->diffInDays($asOf)
+                    : 9999;
+
                 return [
-                    'product' => $row->product, 'warehouse' => $row->warehouse, 'on_hand' => (float) $row->on_hand,
-                    'days_without_sale' => $days, 'frozen_capital' => (float) $row->on_hand * (float) $row->cost_price,
-                    'bucket' => $days >= 180 ? '180+' : ($days >= 90 ? '90+' : ($days >= 60 ? '60+' : ($days >= 30 ? '30+' : '<30'))),
+                    'product' => $row->product,
+                    'warehouse' => $row->warehouse,
+                    'on_hand' => (float) $row->on_hand,
+                    'last_sale_at' => $row->last_sale_at,
+                    'days_without_sale' => $days,
+                    'frozen_capital' =>
+                        (float) $row->on_hand
+                        * (float) $row->cost_price,
+                    'bucket' => $days >= 180
+                        ? '180+'
+                        : (
+                            $days >= 90
+                                ? '90+'
+                                : (
+                                    $days >= 60
+                                        ? '60+'
+                                        : (
+                                            $days >= 30
+                                                ? '30+'
+                                                : '<30'
+                                        )
+                                )
+                        ),
                 ];
-            })->filter(fn ($row) => $row['days_without_sale'] >= 30)->sortByDesc('days_without_sale')->values();
-        return ['columns' => ['product', 'warehouse', 'on_hand', 'days_without_sale', 'bucket', 'frozen_capital'], 'rows' => $rows];
+            })
+            ->filter(
+                fn (array $row): bool =>
+                    $row['days_without_sale'] >= 30,
+            )
+            ->sortByDesc('days_without_sale')
+            ->values();
+
+        return [
+            'columns' => [
+                'product',
+                'warehouse',
+                'on_hand',
+                'last_sale_at',
+                'days_without_sale',
+                'bucket',
+                'frozen_capital',
+            ],
+            'rows' => $rows,
+        ];
     }
 
     private function inventoryTurnover(Carbon $from, Carbon $to): array
@@ -1692,7 +1752,9 @@ class ReportStudioController extends Controller
     private function stockValuation(?Carbon $asOf = null): array
     {
         $org = app(TenantContext::class)->id();
-        $asOf = ($asOf ?? now())->copy()->endOfDay();
+        $asOf = ($asOf ?? now())
+            ->copy()
+            ->endOfDay();
 
         $latestMovementIds = DB::table('stock_movements')
             ->where('organization_id', $org)
@@ -1712,24 +1774,78 @@ class ReportStudioController extends Controller
                     'snapshot_date',
                 ],
                 'rows' => [],
-                'meta' => ['snapshot_at' => $asOf->toIso8601String()],
+                'meta' => [
+                    'snapshot_at' => $asOf->toIso8601String(),
+                ],
             ];
         }
 
-        $rows = DB::table('stock_movements as movement')
+        $baseRows = DB::table('stock_movements as movement')
             ->join('products as product', 'product.id', '=', 'movement.product_id')
             ->join('warehouses as warehouse', 'warehouse.id', '=', 'movement.warehouse_id')
             ->where('movement.organization_id', $org)
             ->whereIn('movement.id', $latestMovementIds->all())
-            ->selectRaw('warehouse.name as warehouse')
-            ->selectRaw('product.name as product')
-            ->selectRaw('movement.balance_after as on_hand')
-            ->selectRaw('product.cost_price as cost_price')
-            ->selectRaw('movement.balance_after * product.cost_price as stock_value')
-            ->selectRaw('? as snapshot_date', [$asOf->toDateString()])
-            ->orderByDesc('stock_value')
-            ->limit(500)
-            ->get();
+            ->get([
+                'movement.product_id',
+                'warehouse.name as warehouse',
+                'product.name as product',
+                'movement.balance_after as on_hand',
+                'product.cost_price as fallback_cost_price',
+            ]);
+
+        $productIds = $baseRows
+            ->pluck('product_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $historicalCosts = DB::table('financial_document_lines as line')
+            ->join(
+                'financial_documents as document',
+                'document.id',
+                '=',
+                'line.financial_document_id',
+            )
+            ->where('document.organization_id', $org)
+            ->where('document.kind', 'purchase_invoice')
+            ->where('document.status', '!=', 'void')
+            ->whereDate('document.issue_date', '<=', $asOf)
+            ->whereIn('line.product_id', $productIds)
+            ->orderByDesc('document.issue_date')
+            ->orderByDesc('line.id')
+            ->get([
+                'line.product_id',
+                'line.unit_price',
+            ])
+            ->groupBy('product_id')
+            ->map(
+                fn ($items): float =>
+                    (float) $items->first()->unit_price,
+            );
+
+        $rows = $baseRows
+            ->map(function ($row) use ($historicalCosts, $asOf): array {
+                $cost = (float) (
+                    $historicalCosts[$row->product_id]
+                    ?? $row->fallback_cost_price
+                    ?? 0
+                );
+
+                $onHand = (float) $row->on_hand;
+
+                return [
+                    'warehouse' => $row->warehouse,
+                    'product' => $row->product,
+                    'on_hand' => $onHand,
+                    'cost_price' => $cost,
+                    'stock_value' => $onHand * $cost,
+                    'snapshot_date' => $asOf->toDateString(),
+                ];
+            })
+            ->sortByDesc('stock_value')
+            ->take(500)
+            ->values();
 
         return [
             'columns' => [
@@ -1743,7 +1859,8 @@ class ReportStudioController extends Controller
             'rows' => $rows,
             'meta' => [
                 'snapshot_at' => $asOf->toIso8601String(),
-                'valuation_note' => 'Historical quantity with the current catalog cost when no historical cost layer exists.',
+                'valuation_note' =>
+                    'Historical quantity valued using the latest purchase cost available on or before the snapshot date.',
             ],
         ];
     }
