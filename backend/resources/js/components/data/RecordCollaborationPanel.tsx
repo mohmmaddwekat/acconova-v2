@@ -391,7 +391,7 @@ export function RecordCollaborationPanel({
             </div>
 
             {error && (
-                <div className="mt-3 rounded-[12px] border border-red-400/30 bg-red-500/10 p-3 text-xs text-red-200">
+                <div className="mt-3 rounded-[12px] border border-red-400/30 bg-red-500/10 p-3 text-xs text-[var(--ac-danger)]">
                     {error}
                 </div>
             )}
@@ -703,7 +703,7 @@ export function RecordCollaborationPanel({
                                                     },
                                                 ),
                                             )}
-                                        className="flex size-8 items-center justify-center rounded-[9px] border border-emerald-400/20 text-emerald-300 transition hover:bg-emerald-500/10"
+                                        className="flex size-8 items-center justify-center rounded-[9px] border border-emerald-400/20 text-emerald-500 transition hover:bg-emerald-500/10"
                                     >
                                         <CheckCircle2 size={13} />
                                     </button>
@@ -827,7 +827,7 @@ export function RecordCollaborationPanel({
                                                 },
                                             ),
                                         )}
-                                    className="flex size-8 items-center justify-center rounded-[9px] border border-transparent text-[var(--ac-text-muted)] transition hover:border-red-400/25 hover:bg-red-500/10 hover:text-red-300"
+                                    className="flex size-8 items-center justify-center rounded-[9px] border border-transparent text-[var(--ac-text-muted)] transition hover:border-red-400/25 hover:bg-red-500/10 hover:text-[var(--ac-danger)]"
                                 >
                                     <Trash2 size={12} />
                                 </button>
