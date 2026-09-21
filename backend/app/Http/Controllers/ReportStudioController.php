@@ -788,7 +788,6 @@ class ReportStudioController extends Controller
                 ['metric' => 'Purchases', 'value' => $purchases],
                 ['metric' => 'Net', 'value' => $sales - $purchases],
             ],
-            'meta' => ['mode' => $feature],
         ];
     }
 
@@ -1859,8 +1858,7 @@ class ReportStudioController extends Controller
             'rows' => $rows,
             'meta' => [
                 'snapshot_at' => $asOf->toIso8601String(),
-                'valuation_note' =>
-                    'Historical quantity valued using the latest purchase cost available on or before the snapshot date.',
+                'valuation_method' => 'historical_purchase_cost',
             ],
         ];
     }
