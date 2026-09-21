@@ -1,6 +1,9 @@
 import {
     DailyBusinessBrief,
 } from '@/components/dashboard/DailyBusinessBrief';
+import {
+    CustomerSegmentsPanel,
+} from '@/components/dashboard/CustomerSegmentsPanel';
 import { useLocale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import {
@@ -105,6 +108,13 @@ export default function Dashboard() {
                 <DailyBusinessBrief
                     ar={ar}
                 />
+
+                {organization && (
+                    <CustomerSegmentsPanel
+                        ar={ar}
+                        currency={organization.currency ?? ''}
+                    />
+                )}
 
                 <section className="mt-4 grid gap-4 lg:mt-5 lg:grid-cols-[1.15fr_0.85fr]">
                     <article className="group relative min-h-[250px] overflow-hidden rounded-[24px] border border-[var(--ac-line)] bg-white p-5 shadow-[var(--ac-shadow-soft)] transition duration-300 hover:-translate-y-1 hover:shadow-[var(--ac-shadow-panel)] sm:rounded-[28px] sm:p-7">
