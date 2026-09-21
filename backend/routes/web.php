@@ -489,6 +489,15 @@ Route::middleware([
     )->name(
         'app.inventory.production',
     );
+
+    Route::get(
+        '/app/inventory/transfers',
+        fn () => Inertia::render(
+            'Inventory/Transfers',
+        ),
+    )->name(
+        'app.inventory.transfers',
+    );
 });
 
 /*
