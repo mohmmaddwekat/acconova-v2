@@ -447,7 +447,7 @@ export function PartyDetailDrawer({
                                 )}
 
                                 {archived && (
-                                    <span className="rounded-full border border-red-400/25 bg-red-500/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-red-300">
+                                    <span className="rounded-full border border-red-400/25 bg-red-500/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--ac-danger)]">
                                         {t(
                                             'ui.archived',
                                         )}
@@ -863,7 +863,7 @@ export function PartyDetailDrawer({
                                             resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[12px] border border-red-400/35 bg-red-500/10 px-5 text-sm font-semibold text-red-300 transition hover:bg-red-500/15"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[12px] border border-red-400/35 bg-red-500/10 px-5 text-sm font-semibold text-[var(--ac-danger)] transition hover:bg-red-500/15"
                                 >
                                     <Archive
                                         size={
