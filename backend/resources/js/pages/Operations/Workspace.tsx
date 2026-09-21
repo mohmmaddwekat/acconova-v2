@@ -3330,7 +3330,7 @@ function RowActions({
                                     reason.trim()
                                     || null,
                             });
-                        }
+                        }}
                         className="h-9 rounded-[11px] border border-red-400/50 px-3 text-[10px] font-semibold text-red-400"
                     >
                         {ar ? 'خسارة الفرصة' : 'Mark lost'}
