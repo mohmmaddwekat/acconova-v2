@@ -109,6 +109,23 @@ export default function ScheduledReports() {
     };
 
     useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const requestedRun = Number(
+                new URLSearchParams(
+                    window.location.search,
+                ).get('run') ?? 0,
+            );
+
+            if (
+                Number.isInteger(requestedRun)
+                && requestedRun > 0
+            ) {
+                setSelectedRun(
+                    requestedRun,
+                );
+            }
+        }
+
         void load();
     }, []);
 
