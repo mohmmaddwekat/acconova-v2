@@ -283,6 +283,15 @@ Route::middleware([
     );
 
     Route::get(
+        '/app/settings/notifications',
+        fn () => Inertia::render(
+            'Settings/Notifications',
+        ),
+    )
+        ->middleware(ResolveOrganization::class)
+        ->name('app.settings.notifications');
+
+    Route::get(
         '/app/settings',
         function () {
             $role = app(\App\Tenancy\TenantContext::class)->role();
