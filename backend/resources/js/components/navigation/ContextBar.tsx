@@ -231,6 +231,10 @@ export function ContextBar({
             'مركز جودة البيانات',
             'Data quality center',
         ],
+        '/app/audit': [
+            'مركز التدقيق',
+            'Audit center',
+        ],
     };
 
     const pageLabel =
