@@ -36,6 +36,22 @@ class ApprovalWorkflowService
 
         $document->loadMissing('lines');
 
+        $maxDiscount = 0.0;
+
+        foreach ($document->lines as $line) {
+            $subtotal = (float) $line->line_subtotal;
+            $discount = (float) $line->line_discount;
+
+            if ($subtotal <= 0) {
+                continue;
+            }
+
+            $maxDiscount = max(
+                $maxDiscount,
+                ($discount / $subtotal) * 100,
+            );
+        }
+
         $documentFingerprint =
             $this->documentFingerprint(
                 $document,
@@ -55,6 +71,7 @@ class ApprovalWorkflowService
                     $document->total,
                     number_format($invoiceThreshold, 2, '.', ''),
                 ),
+                'required_approvals' => 1,
                 'snapshot' => [
                     'number' => $document->number,
                     'kind' => $document->kind,
@@ -65,43 +82,83 @@ class ApprovalWorkflowService
             ];
         }
 
-        if ($document->isSale()) {
-            $maxDiscount = 0.0;
-
-            foreach ($document->lines as $line) {
-                $subtotal = (float) $line->line_subtotal;
-                $discount = (float) $line->line_discount;
-
-                if ($subtotal <= 0) {
-                    continue;
-                }
-
-                $maxDiscount = max(
+        if (
+            $document->isSale()
+            && $discountThreshold > 0
+            && $maxDiscount > $discountThreshold
+        ) {
+            $requirements[] = [
+                'category' => 'high_discount',
+                'reason' => sprintf(
+                    'Sales invoice %s contains an effective discount of %.2f%%, above the %.2f%% approval threshold.',
+                    $document->number,
                     $maxDiscount,
-                    ($discount / $subtotal) * 100,
-                );
-            }
+                    $discountThreshold,
+                ),
+                'required_approvals' => 1,
+                'snapshot' => [
+                    'number' => $document->number,
+                    'max_discount_percent' => round($maxDiscount, 2),
+                    'threshold' => $discountThreshold,
+                    'fingerprint' => $documentFingerprint,
+                ],
+            ];
+        }
+
+        $customRules = DB::table('approval_rules')
+            ->where(
+                'organization_id',
+                app(TenantContext::class)->id(),
+            )
+            ->where(
+                'subject_type',
+                'financial_document',
+            )
+            ->where('active', true)
+            ->orderBy('priority')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($customRules as $rule) {
+            $actual = match ($rule->condition_field) {
+                'total' => (float) $document->total,
+                'discount_percent' => $maxDiscount,
+                default => null,
+            };
 
             if (
-                $discountThreshold > 0
-                && $maxDiscount > $discountThreshold
+                $actual === null
+                || ! $this->ruleMatches(
+                    $actual,
+                    (string) $rule->operator,
+                    (string) $rule->threshold,
+                )
             ) {
-                $requirements[] = [
-                    'category' => 'high_discount',
-                    'reason' => sprintf(
-                        'Sales invoice %s contains an effective discount of %.2f%%, above the %.2f%% approval threshold.',
-                        $document->number,
-                        $maxDiscount,
-                        $discountThreshold,
-                    ),
-                    'snapshot' => [
-                        'number' => $document->number,
-                        'max_discount_percent' => round($maxDiscount, 2),
-                        'threshold' => $discountThreshold,
-                        'fingerprint' => $documentFingerprint,
-                    ],
-                ];
+                continue;
             }
+
+            $requirements[] = [
+                'category' => 'custom_rule_'.$rule->id,
+                'reason' => sprintf(
+                    '%s requires %d approval(s).',
+                    $rule->name,
+                    $rule->required_approvals,
+                ),
+                'required_approvals' =>
+                    max(
+                        1,
+                        (int) $rule->required_approvals,
+                    ),
+                'snapshot' => [
+                    'rule_id' => $rule->id,
+                    'rule_name' => $rule->name,
+                    'field' => $rule->condition_field,
+                    'operator' => $rule->operator,
+                    'threshold' => $rule->threshold,
+                    'actual' => $actual,
+                    'fingerprint' => $documentFingerprint,
+                ],
+            ];
         }
 
         $pendingIds = [];
@@ -114,6 +171,10 @@ class ApprovalWorkflowService
                 $requirement['reason'],
                 $requirement['snapshot'],
                 $actorId,
+                (int) (
+                    $requirement['required_approvals']
+                    ?? 1
+                ),
             );
 
             if ($pendingId !== null) {
@@ -145,6 +206,12 @@ class ApprovalWorkflowService
             ?? 5000
         );
 
+        $requirements = [];
+        $fingerprint =
+            $this->movementFingerprint(
+                $movement,
+            );
+
         $needsApproval =
             $movement->method === 'bank_transfer'
             || (
@@ -152,38 +219,105 @@ class ApprovalWorkflowService
                 && (float) $movement->amount >= $threshold
             );
 
-        if (! $needsApproval) {
-            return;
+        if ($needsApproval) {
+            $requirements[] = [
+                'category' => 'payment',
+                'reason' => sprintf(
+                    'Outgoing payment %s for %s via %s requires approval.',
+                    $movement->number,
+                    $movement->amount,
+                    $movement->method,
+                ),
+                'required_approvals' => 1,
+                'snapshot' => [
+                    'number' => $movement->number,
+                    'amount' => $movement->amount,
+                    'method' => $movement->method,
+                    'threshold' => $threshold,
+                    'fingerprint' => $fingerprint,
+                ],
+            ];
         }
 
-        $snapshot = [
-            'number' => $movement->number,
-            'amount' => $movement->amount,
-            'method' => $movement->method,
-            'threshold' => $threshold,
-            'fingerprint' => $this->movementFingerprint(
-                $movement,
-            ),
-        ];
+        $customRules = DB::table('approval_rules')
+            ->where(
+                'organization_id',
+                app(TenantContext::class)->id(),
+            )
+            ->where(
+                'subject_type',
+                'cash_movement',
+            )
+            ->where('active', true)
+            ->orderBy('priority')
+            ->orderBy('id')
+            ->get();
 
-        $pendingId = $this->requestApproval(
-            'cash_movement',
-            $movement->id,
-            'payment',
-            sprintf(
-                'Outgoing payment %s for %s via %s requires approval.',
-                $movement->number,
-                $movement->amount,
-                $movement->method,
-            ),
-            $snapshot,
-            $actorId,
-        );
+        foreach ($customRules as $rule) {
+            $actual = match ($rule->condition_field) {
+                'amount' => (float) $movement->amount,
+                'method' => (string) $movement->method,
+                default => null,
+            };
+
+            if (
+                $actual === null
+                || ! $this->ruleMatches(
+                    $actual,
+                    (string) $rule->operator,
+                    (string) $rule->threshold,
+                )
+            ) {
+                continue;
+            }
+
+            $requirements[] = [
+                'category' => 'custom_rule_'.$rule->id,
+                'reason' => sprintf(
+                    '%s requires %d approval(s).',
+                    $rule->name,
+                    $rule->required_approvals,
+                ),
+                'required_approvals' =>
+                    max(
+                        1,
+                        (int) $rule->required_approvals,
+                    ),
+                'snapshot' => [
+                    'rule_id' => $rule->id,
+                    'rule_name' => $rule->name,
+                    'field' => $rule->condition_field,
+                    'operator' => $rule->operator,
+                    'threshold' => $rule->threshold,
+                    'actual' => $actual,
+                    'fingerprint' => $fingerprint,
+                ],
+            ];
+        }
+
+        $pendingIds = [];
+
+        foreach ($requirements as $requirement) {
+            $pendingId = $this->requestApproval(
+                'cash_movement',
+                $movement->id,
+                $requirement['category'],
+                $requirement['reason'],
+                $requirement['snapshot'],
+                $actorId,
+                (int) (
+                    $requirement['required_approvals']
+                    ?? 1
+                ),
+            );
+
+            if ($pendingId !== null) {
+                $pendingIds[] = $pendingId;
+            }
+        }
 
         $this->throwIfPending(
-            $pendingId === null
-                ? []
-                : [$pendingId],
+            $pendingIds,
         );
     }
 
@@ -242,6 +376,7 @@ class ApprovalWorkflowService
         string $reason,
         array $snapshot,
         int $actorId,
+        int $requiredApprovals = 1,
     ): ?int {
         if (
             $this->approved(
@@ -278,6 +413,24 @@ class ApprovalWorkflowService
             });
 
         if ($pending) {
+            $requiredApprovals = max(
+                1,
+                $requiredApprovals,
+            );
+
+            if (
+                (int) ($pending->required_approvals ?? 1)
+                !== $requiredApprovals
+            ) {
+                DB::table('approval_requests')
+                    ->where('id', $pending->id)
+                    ->update([
+                        'required_approvals' =>
+                            $requiredApprovals,
+                        'updated_at' => now(),
+                    ]);
+            }
+
             return (int) $pending->id;
         }
 
@@ -288,6 +441,12 @@ class ApprovalWorkflowService
                 'subject_id' => $subjectId,
                 'category' => $category,
                 'status' => 'pending',
+                'required_approvals' =>
+                    max(
+                        1,
+                        $requiredApprovals,
+                    ),
+                'approved_count' => 0,
                 'reason' => $reason,
                 'snapshot' => json_encode(
                     $snapshot,
@@ -393,6 +552,37 @@ class ApprovalWorkflowService
                     'updated_at' => now(),
                 ]);
         }
+    }
+
+    private function ruleMatches(
+        float|string $actual,
+        string $operator,
+        string $threshold,
+    ): bool {
+        if (
+            is_string($actual)
+            && ! is_numeric($actual)
+        ) {
+            return $operator === 'eq'
+                && mb_strtolower($actual)
+                    === mb_strtolower($threshold);
+        }
+
+        if (! is_numeric($threshold)) {
+            return false;
+        }
+
+        $left = (float) $actual;
+        $right = (float) $threshold;
+
+        return match ($operator) {
+            'gte' => $left >= $right,
+            'gt' => $left > $right,
+            'lte' => $left <= $right,
+            'lt' => $left < $right,
+            'eq' => abs($left - $right) < 0.00005,
+            default => false,
+        };
     }
 
     private function documentFingerprint(
