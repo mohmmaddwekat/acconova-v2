@@ -1205,6 +1205,7 @@ Route::prefix(
         Route::post('report-studio/annotations', [ReportStudioController::class, 'annotation']);
         Route::post('report-studio/comments', [ReportStudioController::class, 'comment']);
         Route::post('report-studio/approvals', [ReportStudioController::class, 'approval']);
+        Route::post('report-studio/targets', [ReportStudioController::class, 'saveTarget']);
         Route::post('report-studio/presets', [ReportStudioController::class, 'preset']);
         Route::post('report-studio/boards', [ReportStudioController::class, 'board']);
 
