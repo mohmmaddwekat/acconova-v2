@@ -57,6 +57,11 @@ type Member = {
     user_id: number;
     role: string;
     workspace_role_id: number | null;
+    role_name: string | null;
+    access_mode: 'full' | 'custom' | 'built_in';
+    effective_permissions: string[];
+    permission_count: number;
+    full_access: boolean;
 
     user: {
         name: string;
@@ -169,6 +174,7 @@ const groups: PermissionGroup[] = [
             'products.create',
             'products.update',
             'products.service',
+            'products.manage',
             'products.archive',
         ],
     },
@@ -196,6 +202,7 @@ const groups: PermissionGroup[] = [
             'parties.view',
             'parties.create',
             'parties.update',
+            'parties.manage',
             'parties.archive',
         ],
     },
@@ -274,6 +281,7 @@ const groups: PermissionGroup[] = [
             'payments.create',
             'payments.update',
             'payments.record',
+            'payments.manage',
         ],
     },
 
@@ -384,6 +392,11 @@ function permissionLabel(
             'Record service operations',
         ],
 
+        'products.manage': [
+            'إدارة كاملة للمنتجات',
+            'Full product management',
+        ],
+
         'products.archive': [
             'أرشفة واستعادة',
             'Archive & restore',
@@ -402,6 +415,11 @@ function permissionLabel(
         'parties.update': [
             'تعديل العملاء والموردين',
             'Edit customers & suppliers',
+        ],
+
+        'parties.manage': [
+            'إدارة كاملة للعملاء والموردين',
+            'Full customer & supplier management',
         ],
 
         'parties.archive': [
@@ -447,6 +465,11 @@ function permissionLabel(
         'payments.record': [
             'تسجيل دفعة أو قبض',
             'Record payment',
+        ],
+
+        'payments.manage': [
+            'إدارة كاملة للعمليات المالية',
+            'Full financial operation management',
         ],
 
         'finance.sales.view': [
