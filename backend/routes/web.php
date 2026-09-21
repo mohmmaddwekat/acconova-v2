@@ -7,6 +7,7 @@ use App\Http\Controllers\BankReconciliationController;
 use App\Http\Controllers\ApprovalWorkflowController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\BusinessPulseController;
+use App\Http\Controllers\CommercialOperationsController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentFulfillmentController;
 use App\Http\Controllers\FinanceDocumentController;
@@ -423,6 +424,86 @@ Route::middleware([
     )->name('app.finance.anomalies');
 
     Route::get(
+        '/app/finance/unallocated',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'unallocated']),
+    )->name('app.finance.unallocated');
+
+    Route::get(
+        '/app/finance/collections',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'collections']),
+    )->name('app.finance.collections');
+
+    Route::get(
+        '/app/reports',
+        fn () => redirect('/app/reports/ar-aging'),
+    )->name('app.reports');
+
+    Route::get(
+        '/app/reports/ar-aging',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'ar-aging']),
+    )->name('app.reports.ar-aging');
+
+    Route::get(
+        '/app/reports/ap-aging',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'ap-aging']),
+    )->name('app.reports.ap-aging');
+
+    Route::get(
+        '/app/parties/payment-promises',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'promises']),
+    )->name('app.parties.payment-promises');
+
+    Route::get(
+        '/app/crm/pipeline',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'pipeline']),
+    )->name('app.crm.pipeline');
+
+    Route::get(
+        '/app/sales/quotations',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'quotations']),
+    )->name('app.sales.quotations');
+
+    Route::get(
+        '/app/sales/proforma',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'proformas']),
+    )->name('app.sales.proforma');
+
+    Route::get(
+        '/app/sales/orders',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'sales-orders']),
+    )->name('app.sales.orders');
+
+    Route::get(
+        '/app/purchases/orders',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'purchase-orders']),
+    )->name('app.purchases.orders');
+
+    Route::get(
+        '/app/sales/backorders',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'backorders']),
+    )->name('app.sales.backorders');
+
+    Route::get(
+        '/app/returns',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'returns']),
+    )->name('app.returns');
+
+    Route::get(
+        '/app/products/warranties',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'warranties']),
+    )->name('app.products.warranties');
+
+    Route::get(
+        '/app/inventory/serials',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'serials']),
+    )->name('app.inventory.serials');
+
+    Route::get(
+        '/app/inventory/batches',
+        fn () => Inertia::render('Operations/Workspace', ['feature' => 'batches']),
+    )->name('app.inventory.batches');
+
+    Route::get(
         '/app/finance/approvals',
         fn () => Inertia::render('Finance/Approvals'),
     )->name('app.finance.approvals');
@@ -803,6 +884,31 @@ Route::prefix(
             'finance/recurring-invoices/{profile}',
             [InvoiceAutomationController::class, 'deleteRecurring'],
         )->whereNumber('profile');
+
+        Route::get(
+            'operations/{feature}',
+            [CommercialOperationsController::class, 'index'],
+        );
+
+        Route::post(
+            'operations/{feature}',
+            [CommercialOperationsController::class, 'store'],
+        );
+
+        Route::patch(
+            'operations/{feature}/{record}',
+            [CommercialOperationsController::class, 'update'],
+        )->whereNumber('record');
+
+        Route::post(
+            'operations/{feature}/{record}/convert',
+            [CommercialOperationsController::class, 'convert'],
+        )->whereNumber('record');
+
+        Route::post(
+            'operations/warranties/{record}/claims',
+            [CommercialOperationsController::class, 'claim'],
+        )->whereNumber('record');
 
         Route::get(
             'business-pulse/brief',
