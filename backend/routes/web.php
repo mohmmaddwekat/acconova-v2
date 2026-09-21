@@ -869,6 +869,11 @@ Route::prefix(
             [BankReconciliationController::class, 'import'],
         );
 
+        Route::get(
+            'bank-reconciliation/{line}/candidates',
+            [BankReconciliationController::class, 'candidates'],
+        )->whereNumber('line');
+
         Route::post(
             'bank-reconciliation/{line}/match',
             [BankReconciliationController::class, 'match'],
