@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\ConversationAdmins;
 use App\Services\MessageRestrictions;
 use App\Services\NotificationCenter;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -2592,19 +2593,13 @@ class WorkspaceConversationController extends Controller
      */
     private function canManageGroups(): bool
     {
-        return in_array(
-            app(
-                TenantContext::class,
-            )
-                ->role()
-                ->value,
-            [
-                'owner',
-                'admin',
-                'manager',
-            ],
-            true,
-        );
+        $user = request()->user();
+
+        return $user
+            && WorkspaceFeaturePermissions::allows(
+                $user,
+                'teamspace.groups.create',
+            );
     }
 
     /**
