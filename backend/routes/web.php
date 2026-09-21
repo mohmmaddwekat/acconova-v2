@@ -703,6 +703,22 @@ Route::middleware([
     );
 
     Route::get(
+        '/app/parties/{party}',
+        fn (string $party) => Inertia::render(
+            'Parties/Account',
+            [
+                'partyId' => (int) $party,
+            ],
+        ),
+    )
+        ->whereNumber(
+            'party',
+        )
+        ->name(
+            'app.parties.account',
+        );
+
+    Route::get(
         '/app/products',
         fn () => Inertia::render(
             'Products/Index',
