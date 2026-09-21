@@ -1,4 +1,7 @@
 import {
+    BusinessIntelligenceDashboard,
+} from '@/components/dashboard/BusinessIntelligenceDashboard';
+import {
     CustomerSegmentsPanel,
 } from '@/components/dashboard/CustomerSegmentsPanel';
 import {
@@ -752,6 +755,10 @@ export default function Dashboard() {
                         )}
                     </div>
                 </section>
+
+                <BusinessIntelligenceDashboard
+                    ar={ar}
+                />
 
                 <DailyBusinessBrief
                     ar={ar}
