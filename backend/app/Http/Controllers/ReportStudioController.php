@@ -1366,29 +1366,29 @@ class ReportStudioController extends Controller
                 ->sum('balance_due');
 
             $recurringExpenses = Schema::hasTable('recurring_expenses')
-                ? (float) DB::table('recurring_expenses')
-                    ->where('organization_id', $org)
-                    ->where('active', true)
-                    ->whereBetween('next_due_on', [$asOf, $end])
-                    ->sum('amount')
+                ? $this->forecastRecurringExpenses(
+                    $org,
+                    $asOf,
+                    $end,
+                )
                 : 0.0;
 
             $paymentPlansIn = Schema::hasTable('payment_plans')
-                ? (float) DB::table('payment_plans')
-                    ->where('organization_id', $org)
-                    ->where('active', true)
-                    ->where('direction', 'in')
-                    ->whereBetween('next_due_on', [$asOf, $end])
-                    ->sum('amount')
+                ? $this->forecastPaymentPlans(
+                    $org,
+                    $asOf,
+                    $end,
+                    'incoming',
+                )
                 : 0.0;
 
             $paymentPlansOut = Schema::hasTable('payment_plans')
-                ? (float) DB::table('payment_plans')
-                    ->where('organization_id', $org)
-                    ->where('active', true)
-                    ->where('direction', 'out')
-                    ->whereBetween('next_due_on', [$asOf, $end])
-                    ->sum('amount')
+                ? $this->forecastPaymentPlans(
+                    $org,
+                    $asOf,
+                    $end,
+                    'outgoing',
+                )
                 : 0.0;
 
             $expectedIn = $receivables + $paymentPlansIn;
@@ -1421,6 +1421,128 @@ class ReportStudioController extends Controller
             ],
             'rows' => $rows,
         ];
+    }
+
+    private function forecastRecurringExpenses(
+        int $organizationId,
+        Carbon $from,
+        Carbon $to,
+    ): float {
+        $total = 0.0;
+
+        $expenses = DB::table('recurring_expenses')
+            ->where('organization_id', $organizationId)
+            ->where('active', true)
+            ->whereDate('next_due_on', '<=', $to)
+            ->get([
+                'amount',
+                'frequency',
+                'next_due_on',
+            ]);
+
+        foreach ($expenses as $expense) {
+            $due = Carbon::parse($expense->next_due_on)->startOfDay();
+            $iterations = 0;
+
+            while ($due < $from && $iterations < 500) {
+                $due = $this->advanceRecurringDate(
+                    $due,
+                    (string) $expense->frequency,
+                    1,
+                );
+                $iterations++;
+            }
+
+            while ($due <= $to && $iterations < 500) {
+                $total += (float) $expense->amount;
+                $due = $this->advanceRecurringDate(
+                    $due,
+                    (string) $expense->frequency,
+                    1,
+                );
+                $iterations++;
+            }
+        }
+
+        return $total;
+    }
+
+    private function forecastPaymentPlans(
+        int $organizationId,
+        Carbon $from,
+        Carbon $to,
+        string $direction,
+    ): float {
+        $total = 0.0;
+
+        $plans = DB::table('payment_plans')
+            ->where('organization_id', $organizationId)
+            ->where('active', true)
+            ->where('direction', $direction)
+            ->whereDate('next_due_on', '<=', $to)
+            ->get([
+                'amount',
+                'frequency',
+                'interval_count',
+                'next_due_on',
+            ]);
+
+        foreach ($plans as $plan) {
+            $due = Carbon::parse($plan->next_due_on)->startOfDay();
+            $frequency = (string) $plan->frequency;
+            $interval = max(1, (int) ($plan->interval_count ?? 1));
+            $iterations = 0;
+
+            while ($due < $from && $iterations < 500) {
+                if ($frequency === 'once') {
+                    break;
+                }
+
+                $due = $this->advanceRecurringDate(
+                    $due,
+                    $frequency,
+                    $interval,
+                );
+                $iterations++;
+            }
+
+            if ($frequency === 'once') {
+                if ($due >= $from && $due <= $to) {
+                    $total += (float) $plan->amount;
+                }
+
+                continue;
+            }
+
+            while ($due <= $to && $iterations < 500) {
+                if ($due >= $from) {
+                    $total += (float) $plan->amount;
+                }
+
+                $due = $this->advanceRecurringDate(
+                    $due,
+                    $frequency,
+                    $interval,
+                );
+                $iterations++;
+            }
+        }
+
+        return $total;
+    }
+
+    private function advanceRecurringDate(
+        Carbon $date,
+        string $frequency,
+        int $interval = 1,
+    ): Carbon {
+        return match ($frequency) {
+            'daily' => $date->copy()->addDays($interval),
+            'weekly' => $date->copy()->addWeeks($interval),
+            'quarterly' => $date->copy()->addMonths(3 * $interval),
+            'yearly' => $date->copy()->addYears($interval),
+            default => $date->copy()->addMonths($interval),
+        };
     }
 
     private function inventoryMovement(Carbon $from, Carbon $to): array
