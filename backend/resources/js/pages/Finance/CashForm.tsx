@@ -639,6 +639,9 @@ export function CashForm({
             return;
         }
 
+        let duplicateAcknowledged =
+            false;
+
         if (post) {
             try {
                 const duplicateResponse = await apiRequest<{
@@ -673,27 +676,34 @@ export function CashForm({
                     duplicateResponse.data;
 
                 if (
-                    duplicateCandidates.length > 0
-                    && ! window.confirm(
-                        text(
-                            'تنبيه: يوجد '
-                            + String(duplicateCandidates.length)
-                            + ' دفعة/مقبوض مشابه جداً خلال ±3 أيام بنفس المبلغ. أقرب حركة: '
-                            + duplicateCandidates[0].number
-                            + ' بتاريخ '
-                            + (duplicateCandidates[0].movement_date ?? '—')
-                            + '. هل راجعت أنها ليست دفعة مكررة وتريد المتابعة؟',
-                            'Warning: '
-                            + String(duplicateCandidates.length)
-                            + ' very similar payment/receipt record(s) exist within ±3 days with the same amount. Closest: '
-                            + duplicateCandidates[0].number
-                            + ' dated '
-                            + (duplicateCandidates[0].movement_date ?? '—')
-                            + '. Did you verify this is not a duplicate and want to continue?',
-                        ),
-                    )
+                    duplicateCandidates.length >
+                    0
                 ) {
-                    return;
+                    if (
+                        ! window.confirm(
+                            text(
+                                'تنبيه: يوجد '
+                                + String(duplicateCandidates.length)
+                                + ' دفعة/مقبوض مشابه جداً خلال ±3 أيام بنفس المبلغ. أقرب حركة: '
+                                + duplicateCandidates[0].number
+                                + ' بتاريخ '
+                                + (duplicateCandidates[0].movement_date ?? '—')
+                                + '. هل راجعت أنها ليست دفعة مكررة وتريد المتابعة؟',
+                                'Warning: '
+                                + String(duplicateCandidates.length)
+                                + ' very similar payment/receipt record(s) exist within ±3 days with the same amount. Closest: '
+                                + duplicateCandidates[0].number
+                                + ' dated '
+                                + (duplicateCandidates[0].movement_date ?? '—')
+                                + '. Did you verify this is not a duplicate and want to continue?',
+                            ),
+                        )
+                    ) {
+                        return;
+                    }
+
+                    duplicateAcknowledged =
+                        true;
                 }
             } catch {
                 /*
@@ -749,7 +759,10 @@ export function CashForm({
                     '/api/finance/cash-movements/' + movement.id + '/post',
                     {
                         method: 'POST',
-                        body: JSON.stringify({}),
+                        body: JSON.stringify({
+                            acknowledge_duplicate:
+                                duplicateAcknowledged,
+                        }),
                     },
                 );
 
