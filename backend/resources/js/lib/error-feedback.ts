@@ -13,6 +13,11 @@ const statusKeys:
         413: 'errors.file',
         422: 'errors.validation',
         429: 'errors.throttled',
+        500: 'errors.server',
+        501: 'errors.server',
+        502: 'errors.server',
+        503: 'errors.server',
+        504: 'errors.server',
     };
 
 const trustedServerValidationCodes =
@@ -179,19 +184,32 @@ export function normalizeApiError(
         }
     }
 
+    const errorId =
+        typeof input.error_id ===
+        'string'
+            ? input.error_id
+            : '';
+
+    const baseMessage =
+        t(
+            statusKeys[
+                status
+            ] ??
+                (
+                    status ===
+                    0
+                        ? 'errors.network'
+                        : 'errors.unexpected'
+                ),
+        );
+
     return {
         generalMessage:
-            t(
-                statusKeys[
-                    status
-                ] ??
-                    (
-                        status ===
-                        0
-                            ? 'errors.network'
-                            : 'errors.unexpected'
-                    ),
-            ),
+            errorId
+                ? baseMessage
+                    + ' #'
+                    + errorId
+                : baseMessage,
 
         fieldErrors,
     };
