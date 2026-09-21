@@ -357,20 +357,9 @@ class PurchaseRequisitionController extends Controller
 
     private function authorizeReviewer(Request $request): void
     {
-        abort_unless(
-            in_array(
-                app(TenantContext::class)
-                    ->role()
-                    ->value,
-                [
-                    'owner',
-                    'admin',
-                    'manager',
-                    'accountant',
-                ],
-                true,
-            ),
-            403,
+        FinanceAuthorization::authorize(
+            $request->user(),
+            'finance.purchases.manage',
         );
     }
 }
