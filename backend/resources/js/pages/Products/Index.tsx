@@ -1298,6 +1298,9 @@ function ProductsWorkspace() {
                         setDetailProduct(
                             saved,
                         );
+                        setDetailDrawerOpen(
+                            ! splitView,
+                        );
 
                         void loadProducts();
                     }}
