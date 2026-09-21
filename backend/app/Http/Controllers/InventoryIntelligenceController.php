@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
+
 use App\Enums\ProductType;
 use App\Enums\StockMovementType;
 use App\Models\Product;
@@ -180,15 +182,15 @@ class InventoryIntelligenceController extends Controller
             $firstInboundAt = $firstInbound[$product->id] ?? null;
 
             $deadDays = $lastOutboundAt
-                ? now()->diffInDays($lastOutboundAt)
+                ? Carbon::parse($lastOutboundAt)->diffInDays(now())
                 : (
                     $firstInboundAt
-                        ? now()->diffInDays($firstInboundAt)
+                        ? Carbon::parse($firstInboundAt)->diffInDays(now())
                         : null
                 );
 
             $ageDays = $firstInboundAt
-                ? now()->diffInDays($firstInboundAt)
+                ? Carbon::parse($firstInboundAt)->diffInDays(now())
                 : null;
 
             $deadBucket = match (true) {
