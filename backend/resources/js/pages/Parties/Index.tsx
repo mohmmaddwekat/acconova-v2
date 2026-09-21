@@ -6,8 +6,10 @@ import {
     usePage,
 } from '@inertiajs/react';
 import {
+    BellRing,
     Plus,
     Search,
+    Sparkles,
     UsersRound,
     X,
 } from 'lucide-react';
@@ -1089,6 +1091,26 @@ function PartiesWorkspace() {
                         </div>
                     </div>
                 </section>
+
+                {activeOrganization && (
+                    <div className="mt-5 flex flex-wrap items-center gap-2">
+                        <Link
+                            href="/app/parties/intelligence"
+                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-3 text-xs font-semibold text-[var(--ac-accent)] transition hover:-translate-y-px"
+                        >
+                            <Sparkles size={14} />
+                            {ar ? 'ذكاء العملاء' : 'Customer intelligence'}
+                        </Link>
+
+                        <Link
+                            href="/app/follow-ups"
+                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                        >
+                            <BellRing size={14} />
+                            {ar ? 'طابور المتابعة' : 'Follow-up queue'}
+                        </Link>
+                    </div>
+                )}
 
                 {activeOrganization && (
                     <CustomerSegmentsPanel
