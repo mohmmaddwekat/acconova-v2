@@ -34,6 +34,10 @@ type InventorySignal = {
     frozen_capital: string;
     sales_30_days: string;
     sales_90_days: string;
+    production_consumption_30_days: string;
+    production_consumption_90_days: string;
+    demand_30_days: string;
+    demand_90_days: string;
     daily_demand: string;
     reorder_quantity: string;
     stockout_days: number | null;
@@ -389,8 +393,8 @@ export default function InventoryIntelligence() {
                                                     'Available',
                                                 ),
                                                 text(
-                                                    'مبيعات 30 يوم',
-                                                    '30d sales',
+                                                    'طلب 30 يوم',
+                                                    '30d demand',
                                                 ),
                                                 text(
                                                     'طلب يومي',
@@ -481,7 +485,7 @@ export default function InventoryIntelligence() {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         {Number(
-                                                            row.sales_30_days,
+                                                            row.demand_30_days,
                                                         ).toLocaleString()}
                                                     </td>
                                                     <td className="px-4 py-3">
