@@ -170,6 +170,8 @@ function NotificationWorkspace() {
         } | null>(null);
     const [digest, setDigest] =
         useState<Digest | null>(null);
+    const [showIndividual, setShowIndividual] =
+        useState(false);
     const [loading, setLoading] =
         useState(true);
     const [busy, setBusy] =
@@ -252,6 +254,43 @@ function NotificationWorkspace() {
         page,
         revision,
     ]);
+
+    async function openDigest(
+        id: number,
+        url: string,
+    ): Promise<void> {
+        if (busy) {
+            return;
+        }
+
+        setBusy(true);
+        setError('');
+
+        try {
+            await apiRequest(
+                `/api/notifications/${id}/read`,
+                {
+                    method: 'PATCH',
+                },
+            );
+            window.dispatchEvent(
+                new Event(
+                    'notifications-changed',
+                ),
+            );
+            router.visit(url);
+        } catch (failure) {
+            setError(
+                failure instanceof ApiError
+                    ? failure.message
+                    : t(
+                        'catalog.operations.failed',
+                    ),
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
 
     async function read(
         notice?: Notice,
@@ -392,6 +431,29 @@ function NotificationWorkspace() {
                                         : 'A digest of unread notifications from the last 7 days, grouped by category and kind.'}
                                 </p>
                             </div>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowIndividual(
+                                        value =>
+                                            ! value,
+                                    )
+                                }
+                                className={button}
+                            >
+                                {showIndividual
+                                    ? (
+                                        ar
+                                            ? 'إخفاء التفاصيل'
+                                            : 'Hide individual alerts'
+                                    )
+                                    : (
+                                        ar
+                                            ? 'عرض الإشعارات الفردية'
+                                            : 'Show individual alerts'
+                                    )}
+                            </button>
                         </div>
 
                         <div className="mt-4 grid items-start gap-3 md:grid-cols-2">
@@ -465,8 +527,10 @@ function NotificationWorkspace() {
                                                                     item.id
                                                                 }
                                                                 type="button"
+                                                                disabled={busy}
                                                                 onClick={() =>
-                                                                    router.visit(
+                                                                    void openDigest(
+                                                                        item.id,
                                                                         item.url,
                                                                     )
                                                                 }
@@ -506,81 +570,29 @@ function NotificationWorkspace() {
                     </section>
                 )}
 
-                <div className="my-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
-                    <div className="flex gap-1 rounded-xl bg-[var(--ac-surface-soft)] p-1">
-                        {[
-                            false,
-                            true,
-                        ].map(
-                            value => (
-                                <button
-                                    key={
-                                        String(
-                                            value,
-                                        )
-                                    }
-                                    aria-pressed={
-                                        unread
-                                        === value
-                                    }
-                                    onClick={() => {
-                                        setUnread(
-                                            value,
-                                        );
-                                        setPage(
-                                            1,
-                                        );
-                                    }}
-                                    className={[
-                                        'rounded-lg px-4 py-2 text-sm',
-                                        unread
-                                        === value
-                                            ? 'bg-[var(--ac-text)] font-semibold text-[var(--ac-bg)] shadow-sm'
-                                            : 'text-[var(--ac-text-muted)]',
-                                    ].join(' ')}
-                                >
-                                    {t(
-                                        value
-                                            ? 'notifications.unread'
-                                            : 'notifications.all',
-                                    )}
-                                </button>
-                            ),
-                        )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                        {([
-                            '',
-                            'stock',
-                            'payments',
-                            'activity',
-                            'messages',
-                        ] as const).map(
-                            value => {
-                                const Icon =
-                                    value
-                                    === 'stock'
-                                        ? Package
-                                        : value
-                                        === 'payments'
-                                            ? CalendarClock
-                                            : value
-                                            === 'activity'
-                                                ? CircleCheck
-                                                : Bell;
-
-                                return (
+                {(showIndividual
+                    || ! digest
+                    || digest.total_unread === 0) && (
+                    <>
+                    <div className="my-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
+                        <div className="flex gap-1 rounded-xl bg-[var(--ac-surface-soft)] p-1">
+                            {[
+                                false,
+                                true,
+                            ].map(
+                                value => (
                                     <button
                                         key={
-                                            value
+                                            String(
+                                                value,
+                                            )
                                         }
                                         aria-pressed={
-                                            category
+                                            unread
                                             === value
                                         }
                                         onClick={() => {
-                                            setCategory(
+                                            setUnread(
                                                 value,
                                             );
                                             setPage(
@@ -588,216 +600,247 @@ function NotificationWorkspace() {
                                             );
                                         }}
                                         className={[
-                                            'flex items-center gap-2 rounded-full border px-4 py-2.5 text-xs transition',
-                                            category
+                                            'rounded-lg px-4 py-2 text-sm',
+                                            unread
                                             === value
-                                                ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] font-semibold text-[var(--ac-accent-strong)]'
-                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] hover:bg-[var(--ac-surface-soft)]',
+                                                ? 'bg-[var(--ac-text)] font-semibold text-[var(--ac-bg)] shadow-sm'
+                                                : 'text-[var(--ac-text-muted)]',
                                         ].join(' ')}
                                     >
-                                        <Icon
-                                            size={14}
-                                        />
                                         {t(
                                             value
-                                                ? `notifications.${value}`
+                                                ? 'notifications.unread'
                                                 : 'notifications.all',
                                         )}
                                     </button>
-                                );
-                            },
-                        )}
-                    </div>
-                </div>
-
-                {error && (
-                    <div
-                        role="alert"
-                        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-300"
-                    >
-                        <span>
-                            {error}
-                        </span>
-                        <button
-                            className={button}
-                            onClick={() =>
-                                setRevision(
-                                    value =>
+                                ),
+                            )}
+                        </div>
+    
+                        <div className="flex flex-wrap gap-2">
+                            {([
+                                '',
+                                'stock',
+                                'payments',
+                                'activity',
+                                'messages',
+                            ] as const).map(
+                                value => {
+                                    const Icon =
                                         value
-                                        + 1,
-                                )
-                            }
+                                        === 'stock'
+                                            ? Package
+                                            : value
+                                            === 'payments'
+                                                ? CalendarClock
+                                                : value
+                                                === 'activity'
+                                                    ? CircleCheck
+                                                    : Bell;
+    
+                                    return (
+                                        <button
+                                            key={
+                                                value
+                                            }
+                                            aria-pressed={
+                                                category
+                                                === value
+                                            }
+                                            onClick={() => {
+                                                setCategory(
+                                                    value,
+                                                );
+                                                setPage(
+                                                    1,
+                                                );
+                                            }}
+                                            className={[
+                                                'flex items-center gap-2 rounded-full border px-4 py-2.5 text-xs transition',
+                                                category
+                                                === value
+                                                    ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] font-semibold text-[var(--ac-accent-strong)]'
+                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] hover:bg-[var(--ac-surface-soft)]',
+                                            ].join(' ')}
+                                        >
+                                            <Icon
+                                                size={14}
+                                            />
+                                            {t(
+                                                value
+                                                    ? `notifications.${value}`
+                                                    : 'notifications.all',
+                                            )}
+                                        </button>
+                                    );
+                                },
+                            )}
+                        </div>
+                    </div>
+    
+                    {error && (
+                        <div
+                            role="alert"
+                            className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-300"
+                        >
+                            <span>
+                                {error}
+                            </span>
+                            <button
+                                className={button}
+                                onClick={() =>
+                                    setRevision(
+                                        value =>
+                                            value
+                                            + 1,
+                                    )
+                                }
+                            >
+                                {t(
+                                    'catalog.operations.retry',
+                                )}
+                            </button>
+                        </div>
+                    )}
+    
+                    {loading ? (
+                        <p
+                            role="status"
+                            className="py-12 text-center text-sm text-[var(--ac-text-muted)]"
                         >
                             {t(
-                                'catalog.operations.retry',
+                                'catalog.operations.loading',
                             )}
-                        </button>
-                    </div>
-                )}
-
-                {loading ? (
-                    <p
-                        role="status"
-                        className="py-12 text-center text-sm text-[var(--ac-text-muted)]"
-                    >
-                        {t(
-                            'catalog.operations.loading',
-                        )}
-                    </p>
-                ) : error ? null : ! result
-                    ?.data.length ? (
-                    <SmartEmptyState
-                        icon={
-                            CircleCheck
-                        }
-                        title={
-                            t(
-                                'notifications.empty',
-                            )
-                        }
-                        description={
-                            t(
-                                'notifications.emptyHelp',
-                            )
-                        }
-                        secondary={
-                            unread
-                            || category
-                                ? (
-                                    <button
-                                        type="button"
-                                        className={
-                                            button
-                                        }
-                                        onClick={() => {
-                                            setUnread(
-                                                false,
-                                            );
-                                            setCategory(
-                                                '',
-                                            );
-                                            setPage(
-                                                1,
-                                            );
-                                        }}
-                                    >
-                                        {ar
-                                            ? 'عرض كل الإشعارات'
-                                            : 'Show all notifications'}
-                                    </button>
+                        </p>
+                    ) : error ? null : ! result
+                        ?.data.length ? (
+                        <SmartEmptyState
+                            icon={
+                                CircleCheck
+                            }
+                            title={
+                                t(
+                                    'notifications.empty',
                                 )
-                                : undefined
-                        }
-                    />
-                ) : (
-                    <ul className="space-y-3">
-                        {result.data.map(
-                            notice => {
-                                const Icon =
-                                    categoryIcon(
-                                        notice.category,
-                                    );
-
-                                return (
-                                    <li
-                                        key={
-                                            notice.id
-                                        }
-                                        className={[
-                                            'rounded-2xl border bg-[var(--ac-surface)] p-5 transition hover:bg-[var(--ac-surface-soft)] hover:shadow-md sm:p-6',
-                                            notice.read_at
-                                                ? 'border-[var(--ac-line)]'
-                                                : 'border-[var(--ac-accent)]/35 shadow-sm',
-                                        ].join(' ')}
-                                    >
-                                        <div className="flex items-start gap-3 sm:gap-4">
-                                            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
-                                                <Icon
-                                                    size={19}
-                                                />
-                                            </span>
-
-                                            <div className="min-w-0 flex-1">
-                                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                                    <h2 className="flex items-center gap-2 text-sm font-semibold">
-                                                        {! notice
-                                                            .read_at && (
-                                                            <span className="size-2 shrink-0 rounded-full bg-[var(--ac-accent)]" />
-                                                        )}
-                                                        {noticeTitle(
-                                                            notice,
-                                                            ar,
-                                                        )}
-                                                    </h2>
-                                                    <time
-                                                        dateTime={
-                                                            notice.created_at
-                                                        }
-                                                        className="text-[11px] text-[var(--ac-text-muted)]"
-                                                    >
-                                                        {new Date(
-                                                            notice.created_at,
-                                                        ).toLocaleString(
-                                                            getLocale(),
-                                                        )}
-                                                    </time>
-                                                </div>
-
-                                                <p className="mt-2 break-words text-sm">
-                                                    {
-                                                        notice.data
-                                                            .name
-                                                    }
-                                                </p>
-
-                                                {notice.data
-                                                    .detail && (
-                                                    <p className="mt-1 break-words text-xs text-[var(--ac-text-muted)]">
+                            }
+                            description={
+                                t(
+                                    'notifications.emptyHelp',
+                                )
+                            }
+                            secondary={
+                                unread
+                                || category
+                                    ? (
+                                        <button
+                                            type="button"
+                                            className={
+                                                button
+                                            }
+                                            onClick={() => {
+                                                setUnread(
+                                                    false,
+                                                );
+                                                setCategory(
+                                                    '',
+                                                );
+                                                setPage(
+                                                    1,
+                                                );
+                                            }}
+                                        >
+                                            {ar
+                                                ? 'عرض كل الإشعارات'
+                                                : 'Show all notifications'}
+                                        </button>
+                                    )
+                                    : undefined
+                            }
+                        />
+                    ) : (
+                        <ul className="space-y-3">
+                            {result.data.map(
+                                notice => {
+                                    const Icon =
+                                        categoryIcon(
+                                            notice.category,
+                                        );
+    
+                                    return (
+                                        <li
+                                            key={
+                                                notice.id
+                                            }
+                                            className={[
+                                                'rounded-2xl border bg-[var(--ac-surface)] p-5 transition hover:bg-[var(--ac-surface-soft)] hover:shadow-md sm:p-6',
+                                                notice.read_at
+                                                    ? 'border-[var(--ac-line)]'
+                                                    : 'border-[var(--ac-accent)]/35 shadow-sm',
+                                            ].join(' ')}
+                                        >
+                                            <div className="flex items-start gap-3 sm:gap-4">
+                                                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
+                                                    <Icon
+                                                        size={19}
+                                                    />
+                                                </span>
+    
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <h2 className="flex items-center gap-2 text-sm font-semibold">
+                                                            {! notice
+                                                                .read_at && (
+                                                                <span className="size-2 shrink-0 rounded-full bg-[var(--ac-accent)]" />
+                                                            )}
+                                                            {noticeTitle(
+                                                                notice,
+                                                                ar,
+                                                            )}
+                                                        </h2>
+                                                        <time
+                                                            dateTime={
+                                                                notice.created_at
+                                                            }
+                                                            className="text-[11px] text-[var(--ac-text-muted)]"
+                                                        >
+                                                            {new Date(
+                                                                notice.created_at,
+                                                            ).toLocaleString(
+                                                                getLocale(),
+                                                            )}
+                                                        </time>
+                                                    </div>
+    
+                                                    <p className="mt-2 break-words text-sm">
                                                         {
                                                             notice.data
-                                                                .detail
+                                                                .name
                                                         }
                                                     </p>
-                                                )}
-
-                                                {notice.data
-                                                    .amount && (
-                                                    <p className="mt-2 text-sm font-medium">
-                                                        <bdi>
+    
+                                                    {notice.data
+                                                        .detail && (
+                                                        <p className="mt-1 break-words text-xs text-[var(--ac-text-muted)]">
                                                             {
                                                                 notice.data
-                                                                    .amount
+                                                                    .detail
                                                             }
-                                                        </bdi>
-                                                    </p>
-                                                )}
-
-                                                <div className="mt-4 flex flex-wrap gap-2">
-                                                    <button
-                                                        disabled={
-                                                            busy
-                                                        }
-                                                        className={
-                                                            button
-                                                            + ' flex items-center gap-1'
-                                                        }
-                                                        onClick={() =>
-                                                            void read(
-                                                                notice,
-                                                                true,
-                                                            )
-                                                        }
-                                                    >
-                                                        {t(
-                                                            'notifications.open',
-                                                        )}
-                                                        <ArrowUpRight
-                                                            size={14}
-                                                        />
-                                                    </button>
-
-                                                    {! notice
-                                                        .read_at && (
+                                                        </p>
+                                                    )}
+    
+                                                    {notice.data
+                                                        .amount && (
+                                                        <p className="mt-2 text-sm font-medium">
+                                                            <bdi>
+                                                                {
+                                                                    notice.data
+                                                                        .amount
+                                                                }
+                                                            </bdi>
+                                                        </p>
+                                                    )}
+    
+                                                    <div className="mt-4 flex flex-wrap gap-2">
                                                         <button
                                                             disabled={
                                                                 busy
@@ -809,81 +852,108 @@ function NotificationWorkspace() {
                                                             onClick={() =>
                                                                 void read(
                                                                     notice,
+                                                                    true,
                                                                 )
                                                             }
                                                         >
-                                                            <Check
+                                                            {t(
+                                                                'notifications.open',
+                                                            )}
+                                                            <ArrowUpRight
                                                                 size={14}
                                                             />
-                                                            {t(
-                                                                'notifications.read',
-                                                            )}
                                                         </button>
-                                                    )}
+    
+                                                        {! notice
+                                                            .read_at && (
+                                                            <button
+                                                                disabled={
+                                                                    busy
+                                                                }
+                                                                className={
+                                                                    button
+                                                                    + ' flex items-center gap-1'
+                                                                }
+                                                                onClick={() =>
+                                                                    void read(
+                                                                        notice,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Check
+                                                                    size={14}
+                                                                />
+                                                                {t(
+                                                                    'notifications.read',
+                                                                )}
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </li>
-                                );
-                            },
-                        )}
-                    </ul>
-                )}
-
-                {! error
-                && result
-                && result.meta
-                    .last_page > 1 && (
-                    <div className="mt-6 flex items-center justify-between">
-                        <button
-                            className={
-                                button
-                            }
-                            disabled={
-                                loading
-                                || page <= 1
-                            }
-                            onClick={() =>
-                                setPage(
-                                    value =>
-                                        value - 1,
-                                )
-                            }
-                        >
-                            {t(
-                                'catalog.operations.previous',
+                                        </li>
+                                    );
+                                },
                             )}
-                        </button>
-                        <span className="text-xs">
-                            {page}
-                            {' / '}
-                            {
-                                result.meta
-                                    .last_page
-                            }
-                        </span>
-                        <button
-                            className={
-                                button
-                            }
-                            disabled={
-                                loading
-                                || page
-                                >= result.meta
-                                    .last_page
-                            }
-                            onClick={() =>
-                                setPage(
-                                    value =>
-                                        value + 1,
-                                )
-                            }
-                        >
-                            {t(
-                                'catalog.operations.next',
-                            )}
-                        </button>
-                    </div>
+                        </ul>
+                    )}
+    
+                    {! error
+                    && result
+                    && result.meta
+                        .last_page > 1 && (
+                        <div className="mt-6 flex items-center justify-between">
+                            <button
+                                className={
+                                    button
+                                }
+                                disabled={
+                                    loading
+                                    || page <= 1
+                                }
+                                onClick={() =>
+                                    setPage(
+                                        value =>
+                                            value - 1,
+                                    )
+                                }
+                            >
+                                {t(
+                                    'catalog.operations.previous',
+                                )}
+                            </button>
+                            <span className="text-xs">
+                                {page}
+                                {' / '}
+                                {
+                                    result.meta
+                                        .last_page
+                                }
+                            </span>
+                            <button
+                                className={
+                                    button
+                                }
+                                disabled={
+                                    loading
+                                    || page
+                                    >= result.meta
+                                        .last_page
+                                }
+                                onClick={() =>
+                                    setPage(
+                                        value =>
+                                            value + 1,
+                                    )
+                                }
+                            >
+                                {t(
+                                    'catalog.operations.next',
+                                )}
+                            </button>
+                        </div>
+                    )}
+                    </>
                 )}
             </main>
         </AppShell>
