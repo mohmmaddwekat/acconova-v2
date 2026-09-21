@@ -24,18 +24,29 @@ class CashMovementController extends Controller
             'category' => ['nullable', 'string', 'max:48'],
             'party_id' => ['nullable', 'integer'],
             'method' => ['nullable', 'string', 'max:32'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'search' => ['nullable', 'string', 'max:120'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'between:10,100'],
         ]);
 
         $query = CashMovement::query()
-            ->with('party:id,name,company_name')
+            ->with([
+                'party:id,name,company_name',
+                'allocations.document:id,number',
+            ])
+            ->withSum(
+                'allocations as allocated_total',
+                'amount',
+            )
             ->when($data['direction'] ?? null, fn ($query, $direction) => $query->where('direction', $direction))
             ->when($data['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($data['category'] ?? null, fn ($query, $category) => $query->where('category', $category))
             ->when($data['party_id'] ?? null, fn ($query, $partyId) => $query->where('party_id', $partyId))
             ->when($data['method'] ?? null, fn ($query, $method) => $query->where('method', $method))
+            ->when($data['date_from'] ?? null, fn ($query, $date) => $query->whereDate('movement_date', '>=', $date))
+            ->when($data['date_to'] ?? null, fn ($query, $date) => $query->whereDate('movement_date', '<=', $date))
             ->when($data['search'] ?? null, function ($query, $search): void {
                 $query->where(function ($inner) use ($search): void {
                     $inner
@@ -479,6 +490,44 @@ class CashMovementController extends Controller
             'movement_date' => $movement->movement_date->format('Y-m-d'),
             'method' => $movement->method,
             'reference' => $movement->reference,
+            'notes' => $movement->notes,
+            'allocated_total' => number_format(
+                (float) (
+                    $movement->allocated_total
+                    ?? $movement->allocations->sum(
+                        fn ($allocation): float =>
+                            (float) $allocation->amount,
+                    )
+                ),
+                4,
+                '.',
+                '',
+            ),
+            'unallocated_total' => number_format(
+                max(
+                    (float) $movement->amount
+                    - (float) (
+                        $movement->allocated_total
+                        ?? $movement->allocations->sum(
+                            fn ($allocation): float =>
+                                (float) $allocation->amount,
+                        )
+                    ),
+                    0,
+                ),
+                4,
+                '.',
+                '',
+            ),
+            'applied_to' => $movement->allocations
+                ->map(
+                    fn ($allocation): array => [
+                        'document_id' => $allocation->financial_document_id,
+                        'document_number' => $allocation->document?->number,
+                        'amount' => $allocation->amount,
+                    ],
+                )
+                ->values(),
             'check_number' => $movement->check_number,
             'check_due_date' => $movement->check_due_date?->format('Y-m-d'),
             'check_status' => $movement->check_status,
