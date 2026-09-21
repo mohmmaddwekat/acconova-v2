@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
+
 use App\Models\Party;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -139,7 +141,7 @@ class CustomerIntelligenceController extends Controller
 
             $lastSaleDate = $sale->last_sale_date ?? null;
             $daysSinceSale = $lastSaleDate
-                ? now()->diffInDays($lastSaleDate)
+                ? Carbon::parse($lastSaleDate)->diffInDays(now())
                 : null;
 
             $segments = [];
