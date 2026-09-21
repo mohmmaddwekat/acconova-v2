@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Warehouse;
 use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Services\FinanceDocumentService;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -3465,6 +3466,31 @@ class CommercialOperationsController extends Controller
         string $feature,
         bool $manage,
     ): void {
+        $slug = [
+            'ar-aging' => 'ar_aging',
+            'ap-aging' => 'ap_aging',
+            'sales-orders' => 'sales_orders',
+            'purchase-orders' => 'purchase_orders',
+        ][$feature] ?? $feature;
+
+        $permission =
+            'operations.'
+            .$slug
+            .(
+                $manage
+                    ? '.manage'
+                    : '.view'
+            );
+
+        if (
+            WorkspaceFeaturePermissions::allows(
+                $request->user(),
+                $permission,
+            )
+        ) {
+            return;
+        }
+
         if (
             in_array(
                 $feature,
