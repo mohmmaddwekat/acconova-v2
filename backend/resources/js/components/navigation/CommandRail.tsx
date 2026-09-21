@@ -115,6 +115,9 @@ function destinationIsActive(
             '/app/inventory'
             || currentUrl.startsWith(
                 '/app/inventory/transfers',
+            )
+            || currentUrl.startsWith(
+                '/app/inventory/intelligence',
             );
     }
 
@@ -345,13 +348,7 @@ export function CommandRail({
         || canViewTaxes;
 
     const financeHref =
-        canViewSalesInvoices
-            ? '/app/invoices'
-            : canViewPurchaseInvoices
-                ? '/app/invoices/purchases'
-                : canViewCash
-                    ? '/app/payments'
-                    : '/app/finance/taxes';
+        '/app/finance';
 
     if (canViewFinance) {
         navigationItems.push({
@@ -461,6 +458,9 @@ export function CommandRail({
         '/app/inventory/production':
             'inventory.view',
 
+        '/app/finance':
+            'finance.sales.view',
+
         '/app/finance/taxes':
             'finance.taxes.view',
     };
@@ -479,6 +479,12 @@ export function CommandRail({
                           permissionByDestination[
                               item.href
                           ];
+
+                      if (
+                          item.href === '/app/finance'
+                      ) {
+                          return canViewFinance;
+                      }
 
                       return ! permission
                           ||
