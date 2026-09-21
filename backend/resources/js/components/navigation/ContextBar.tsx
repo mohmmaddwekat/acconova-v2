@@ -243,6 +243,10 @@ export function ContextBar({
             'مركز الاسترجاع',
             'Restore center',
         ],
+        '/app/reports/builder': [
+            'منشئ التقارير',
+            'Report Builder',
+        ],
         '/app/reports/scheduled': [
             'التقارير المجدولة',
             'Scheduled reports',
