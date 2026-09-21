@@ -1267,7 +1267,7 @@ function ProductsWorkspace() {
                     }
                     copyFrom={
                         copyingProduct
-                    }
+                    }}
                     onClose={() => {
                         setEditorOpen(
                             false,
