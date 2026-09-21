@@ -2,6 +2,7 @@ import { AppShell } from '@/layouts/AppShell';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import { downloadCsv } from '@/pages/Finance/shared';
+import { PartyFinancialOperations } from '@/pages/Parties/PartyFinancialOperations';
 import { Head, Link } from '@inertiajs/react';
 import {
     ArrowLeft,
@@ -1578,9 +1579,26 @@ export default function PartyAccount({
                             <div className="flex min-w-max gap-1">
                                 {([
                                     ['overview', '', ar ? 'نظرة عامة' : 'Overview'],
-                                    ['statement', '/statement', ar ? 'كشف الحساب' : 'Statement'],
-                                    ['invoices', '/invoices', ar ? 'الفواتير' : 'Invoices'],
-                                    ['payments', '/payments', ar ? 'القبض والدفع' : 'Payments'],
+                                    [
+                                        'invoices',
+                                        '/invoices',
+                                        data.party.roles.includes('supplier')
+                                            && ! data.party.roles.includes('customer')
+                                                ? (ar ? 'فواتير الشراء' : 'Bills')
+                                                : (ar ? 'الفواتير' : 'Invoices'),
+                                    ],
+                                    [
+                                        'payments',
+                                        '/payments',
+                                        data.party.roles.includes('customer')
+                                            && ! data.party.roles.includes('supplier')
+                                                ? (ar ? 'المقبوضات' : 'Receipts')
+                                                : data.party.roles.includes('supplier')
+                                                    && ! data.party.roles.includes('customer')
+                                                    ? (ar ? 'المدفوعات' : 'Payments')
+                                                    : (ar ? 'القبض والدفع' : 'Receipts & payments'),
+                                    ],
+                                    ['statement', '/statement', ar ? 'كشف الحساب' : 'Statement of account'],
                                     ['aging', '/aging', ar ? 'أعمار الذمم' : 'Aging'],
                                 ] as const).map(([tab, suffix, label]) => (
                                     <Link
@@ -1603,7 +1621,269 @@ export default function PartyAccount({
                             </div>
                         </nav>
 
-                        <section id="party-statement" className="mt-5 scroll-mt-24">
+                        {(initialTab === 'invoices'
+                            || initialTab === 'payments') && (
+                            <PartyFinancialOperations
+                                partyId={data.party.id}
+                                partyName={data.party.name ?? ''}
+                                roles={data.party.roles}
+                                permissions={data.permissions}
+                                currency={data.currency}
+                                tab={initialTab}
+                                ar={ar}
+                                locale={locale}
+                            />
+                        )}
+
+                        {initialTab === 'overview' && (
+                            <section className="mt-5">
+                                <div className="flex flex-col gap-1">
+                                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--ac-accent)]">
+                                        {ar ? 'نظرة عامة' : 'OVERVIEW'}
+                                    </p>
+                                    <h2 className="text-xl font-bold text-[var(--ac-text)] sm:text-2xl">
+                                        {ar
+                                            ? 'ملخص العلاقة المالية'
+                                            : 'Financial relationship summary'}
+                                    </h2>
+                                    <p className="text-[10px] text-[var(--ac-text-muted)]">
+                                        {ar
+                                            ? 'الرصيد الحالي، الدفعات المقدمة، الرصيد المدور، وآخر الحركات في مكان واحد.'
+                                            : 'Current position, advances, carried balances and recent activity in one place.'}
+                                    </p>
+                                </div>
+
+                                <SummaryCards
+                                    data={data}
+                                    scope="all"
+                                    ar={ar}
+                                    locale={locale}
+                                />
+
+                                <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+                                    <section className={panel + ' overflow-hidden'}>
+                                        <div className="flex items-center justify-between gap-3 border-b border-[var(--ac-line)] px-4 py-3 sm:px-5">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-[var(--ac-text)]">
+                                                    {ar ? 'آخر الحركات' : 'Recent activity'}
+                                                </h3>
+                                                <p className="mt-1 text-[9px] text-[var(--ac-text-muted)]">
+                                                    {ar
+                                                        ? 'آخر الفواتير والقبوضات والدفعات على الحساب.'
+                                                        : 'Latest invoices, receipts and payments on this account.'}
+                                                </p>
+                                            </div>
+
+                                            <Link
+                                                href={'/app/parties/' + String(data.party.id) + '/statement'}
+                                                className={button}
+                                            >
+                                                {ar ? 'كشف الحساب' : 'Statement'}
+                                                <ArrowUpRight size={12} />
+                                            </Link>
+                                        </div>
+
+                                        <div className="divide-y divide-[var(--ac-line)]">
+                                            {data.transactions
+                                                .slice(-6)
+                                                .reverse()
+                                                .map(transaction => (
+                                                    <div
+                                                        key={transaction.id}
+                                                        className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                                                    >
+                                                        <div className="min-w-0">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                {transaction.url ? (
+                                                                    <Link
+                                                                        href={transaction.url}
+                                                                        className="font-bold text-[var(--ac-accent)] hover:underline"
+                                                                    >
+                                                                        {transaction.reference}
+                                                                    </Link>
+                                                                ) : (
+                                                                    <span className="font-bold text-[var(--ac-text)]">
+                                                                        {transaction.reference}
+                                                                    </span>
+                                                                )}
+                                                                <span className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-2 py-1 text-[8px] font-semibold text-[var(--ac-text-muted)]">
+                                                                    {transactionLabel(transaction, ar)}
+                                                                </span>
+                                                            </div>
+                                                            <p className="mt-1 truncate text-[9px] text-[var(--ac-text-muted)]">
+                                                                {transaction.date}
+                                                                {transaction.description
+                                                                    ? ' · ' + transaction.description
+                                                                    : ''}
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="text-start sm:text-end">
+                                                            <p className="text-xs font-bold text-[var(--ac-text)]">
+                                                                {displaySignedMoney(
+                                                                    toNumber(transaction.debit)
+                                                                    - toNumber(transaction.credit),
+                                                                    data.currency,
+                                                                    locale,
+                                                                )}
+                                                            </p>
+                                                            <p className="mt-1 text-[8px] text-[var(--ac-text-muted)]">
+                                                                {ar ? 'الرصيد بعد الحركة: ' : 'Balance after: '}
+                                                                {displaySignedMoney(
+                                                                    transaction.balance,
+                                                                    data.currency,
+                                                                    locale,
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                            {data.transactions.length === 0 && (
+                                                <div className="px-5 py-12 text-center text-xs text-[var(--ac-text-muted)]">
+                                                    {ar
+                                                        ? 'لا توجد حركات على هذا الحساب بعد.'
+                                                        : 'No account activity yet.'}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </section>
+
+                                    <section className={panel + ' p-5'}>
+                                        <h3 className="text-sm font-bold text-[var(--ac-text)]">
+                                            {ar ? 'الأرصدة والمعلومات' : 'Balances & account info'}
+                                        </h3>
+
+                                        <div className="mt-4 space-y-3">
+                                            {data.party.roles.includes('customer') && (
+                                                <OverviewBalanceLine
+                                                    label={ar ? 'الرصيد المدور للعميل' : 'Customer carried balance'}
+                                                    value={data.opening_balances.customer?.amount ?? '0'}
+                                                    currency={data.currency}
+                                                    locale={locale}
+                                                />
+                                            )}
+
+                                            {data.party.roles.includes('supplier') && (
+                                                <OverviewBalanceLine
+                                                    label={ar ? 'الرصيد المدور للمورد' : 'Supplier carried balance'}
+                                                    value={data.opening_balances.supplier?.amount ?? '0'}
+                                                    currency={data.currency}
+                                                    locale={locale}
+                                                />
+                                            )}
+
+                                            <OverviewBalanceLine
+                                                label={ar ? 'دفعة عميل مقدمة متاحة' : 'Customer advance available'}
+                                                value={data.positions.customer_advance}
+                                                currency={data.currency}
+                                                locale={locale}
+                                            />
+
+                                            <OverviewBalanceLine
+                                                label={ar ? 'دفعة مورد مقدمة متاحة' : 'Supplier advance available'}
+                                                value={data.positions.supplier_advance}
+                                                currency={data.currency}
+                                                locale={locale}
+                                            />
+
+                                            {data.party.credit_limit && (
+                                                <OverviewBalanceLine
+                                                    label={ar ? 'الحد الائتماني' : 'Credit limit'}
+                                                    value={data.party.credit_limit}
+                                                    currency={data.currency}
+                                                    locale={locale}
+                                                />
+                                            )}
+                                        </div>
+
+                                        <div className="mt-5 flex flex-wrap gap-2">
+                                            {(data.permissions.sales_manage
+                                                || data.permissions.purchases_manage) && (
+                                                <button
+                                                    type="button"
+                                                    className={button}
+                                                    onClick={openOpeningBalances}
+                                                >
+                                                    <RotateCcw size={12} />
+                                                    {ar ? 'تعديل الرصيد المدور' : 'Edit opening balance'}
+                                                </button>
+                                            )}
+
+                                            <Link
+                                                href={'/app/parties/' + String(data.party.id) + '/aging'}
+                                                className={button}
+                                            >
+                                                <Clock3 size={12} />
+                                                {ar ? 'أعمار الذمم' : 'Aging'}
+                                            </Link>
+                                        </div>
+                                    </section>
+                                </div>
+                            </section>
+                        )}
+
+                        {initialTab === 'aging' && (
+                            <section id="party-aging" className="mt-5 scroll-mt-24">
+                                <div>
+                                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--ac-accent)]">
+                                        {ar ? 'أعمار الذمم' : 'ACCOUNT AGING'}
+                                    </p>
+                                    <h2 className="mt-1 text-xl font-bold text-[var(--ac-text)] sm:text-2xl">
+                                        {ar ? 'تحليل الاستحقاقات الحالية' : 'Current aging analysis'}
+                                    </h2>
+                                    <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                        {ar
+                                            ? 'يعرض الذمم المفتوحة الحالية كما في ' + data.aging_as_of + '.'
+                                            : 'Shows current open balances as of ' + data.aging_as_of + '.'}
+                                    </p>
+                                </div>
+
+                                <SummaryCards
+                                    data={data}
+                                    scope="all"
+                                    ar={ar}
+                                    locale={locale}
+                                />
+
+                                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                                    {data.party.roles.includes('customer')
+                                        && data.permissions.sales_view && (
+                                        <section className={panel + ' p-5'}>
+                                            <AgingRow
+                                                title={ar ? 'ذمم العميل (A/R)' : 'Customer receivables (A/R)'}
+                                                aging={data.aging_breakdown.customer}
+                                                currency={data.currency}
+                                                locale={locale}
+                                                ar={ar}
+                                            />
+                                        </section>
+                                    )}
+
+                                    {data.party.roles.includes('supplier')
+                                        && data.permissions.purchases_view && (
+                                        <section className={panel + ' p-5'}>
+                                            <AgingRow
+                                                title={ar ? 'ذمم المورد (A/P)' : 'Supplier payables (A/P)'}
+                                                aging={data.aging_breakdown.supplier}
+                                                currency={data.currency}
+                                                locale={locale}
+                                                ar={ar}
+                                            />
+                                        </section>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+
+                        <section
+                            id="party-statement"
+                            className={
+                                initialTab === 'statement'
+                                    ? 'mt-5 scroll-mt-24'
+                                    : 'hidden'
+                            }
+                        >
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                                 <div>
                                     <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--ac-accent)]">
