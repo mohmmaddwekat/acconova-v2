@@ -308,6 +308,11 @@ export function DocumentForm({
         false,
     );
 
+    const [
+        serverWarnings,
+        setServerWarnings,
+    ] = useState<string[]>([]);
+
     const localDraftKey =
         'acconova:draft:finance:'
         + kind
@@ -1483,10 +1488,14 @@ export function DocumentForm({
             ],
         );
 
-    const reviewWarnings = [
-        ...warnings,
-        ...creditWarnings,
-    ];
+    const reviewWarnings =
+        Array.from(
+            new Set([
+                ...warnings,
+                ...creditWarnings,
+                ...serverWarnings,
+            ]),
+        );
 
     function payload() {
         return {
@@ -1762,6 +1771,50 @@ export function DocumentForm({
                 response.data;
 
             if (issue) {
+                const preflight =
+                    await apiRequest<{
+                        data: string[];
+                    }>(
+                        '/api/finance/documents/'
+                        + document.id
+                        + '/warnings',
+                    );
+
+                const sameServerWarnings =
+                    JSON.stringify(
+                        preflight.data,
+                    ) ===
+                    JSON.stringify(
+                        serverWarnings,
+                    );
+
+                setServerWarnings(
+                    preflight.data,
+                );
+
+                if (
+                    preflight.data.length > 0
+                    && (
+                        ! sameServerWarnings
+                        || ! acknowledgeWarnings
+                    )
+                ) {
+                    if (! sameServerWarnings) {
+                        setAcknowledgeWarnings(
+                            false,
+                        );
+                    }
+
+                    setError(
+                        text(
+                            'وجد AccoNova تنبيهات إضافية قبل الإصدار. راجعها ثم فعّل مربع التأكيد واضغط إصدار مرة أخرى.',
+                            'AccoNova found additional issue warnings. Review them, acknowledge the warning box, then issue again.',
+                        ),
+                    );
+
+                    return;
+                }
+
                 const issued =
                     await apiRequest<{
                         data:
