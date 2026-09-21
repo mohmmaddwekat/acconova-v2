@@ -774,6 +774,11 @@ class CommercialOperationsFeatureTest extends TestCase
             ],
         )->assertOk();
 
+        $this->postJson(
+            "/api/operations/purchase-orders/{$cancelledOrderId}/convert",
+        )
+            ->assertCreated();
+
         $this->patchJson(
             "/api/operations/purchase-orders/{$cancelledOrderId}",
             [
