@@ -379,7 +379,7 @@ final class WorkspaceRoleCatalog
                 true,
             )
         ) {
-            return WorkspacePermissions::KEYS;
+            return WorkspacePermissions::keys();
         }
 
         if ($role === 'manager') {
@@ -693,9 +693,11 @@ final class WorkspaceRoleCatalog
             }
         }
 
-        return array_values(
-            array_unique(
-                $normalized,
+        return WorkspaceFeaturePermissions::normalize(
+            array_values(
+                array_unique(
+                    $normalized,
+                ),
             ),
         );
     }
