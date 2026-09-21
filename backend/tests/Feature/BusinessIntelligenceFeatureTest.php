@@ -378,6 +378,33 @@ class BusinessIntelligenceFeatureTest extends TestCase
         );
     }
 
+    public function test_cashflow_calendar_endpoint_loads_for_sales_access(): void
+    {
+        [$owner, $organization] = $this->workspace(
+            'Cashflow calendar workspace',
+        );
+
+        $this->actingInWorkspace(
+            $owner,
+            $organization,
+        );
+
+        $this->getJson(
+            '/api/business-pulse/cashflow?month='.today()->format('Y-m'),
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.month',
+                today()->format('Y-m'),
+            )
+            ->assertJsonStructure([
+                'data' => [
+                    'month',
+                    'days',
+                ],
+            ]);
+    }
+
     public function test_duplicate_supplier_invoice_is_blocked_until_warning_is_acknowledged(): void
     {
         [$owner, $organization] = $this->workspace(
