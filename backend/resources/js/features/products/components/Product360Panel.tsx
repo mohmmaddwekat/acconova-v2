@@ -242,8 +242,8 @@ export function Product360Panel({
                     </div>
                     <p className="mt-3 text-[9px] leading-4 text-[var(--ac-text-muted)]">
                         {ar
-                            ? 'التقدير يستخدم التكلفة الحالية للمنتج، لذلك هو مؤشر تشغيلي وليس قيداً محاسبياً.'
-                            : 'Estimate uses the current product cost, so it is an operational indicator rather than an accounting entry.'}
+                            ? 'الربحية تستخدم لقطة تكلفة وقت إصدار فاتورة البيع عندما تكون متاحة؛ وتبقى مؤشراً تشغيلياً وليست قيداً محاسبياً.'
+                            : 'Profitability uses the sale invoice issue-time cost snapshot when available; it remains an operational indicator rather than an accounting entry.'}
                     </p>
                 </div>
 
