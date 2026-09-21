@@ -9,6 +9,8 @@ import {
     Plus,
     Save,
     Trash2,
+    History,
+    CheckCircle2,
 } from 'lucide-react';
 import {
     useEffect,
@@ -48,6 +50,13 @@ type SavedReport = {
     can_edit: boolean;
 };
 
+type ReportVersion = {
+    id: number;
+    version: number;
+    created_at: string;
+    definition: Record<string, unknown>;
+};
+
 type RunResult = {
     columns: Column[];
     rows: Array<Record<string, unknown>>;
@@ -85,6 +94,8 @@ export default function ReportBuilder() {
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
+    const [versions, setVersions] = useState<ReportVersion[]>([]);
+    const [versionReportId, setVersionReportId] = useState<number | null>(null);
 
     const text = (arabic: string, english: string): string =>
         ar ? arabic : english;
@@ -287,6 +298,72 @@ export default function ReportBuilder() {
         }
     }
 
+    async function loadVersions(reportId: number): Promise<void> {
+        setBusy(true);
+        setError('');
+        try {
+            const response = await apiRequest<{ data: ReportVersion[] }>(
+                '/api/report-builder/' + reportId + '/versions',
+            );
+            setVersions(response.data);
+            setVersionReportId(reportId);
+        } catch (failure) {
+            setError(
+                failure instanceof ApiError
+                    ? failure.message
+                    : text('تعذر تحميل سجل النسخ.', 'Could not load version history.'),
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function restoreVersion(version: number): Promise<void> {
+        if (! versionReportId || busy) return;
+        setBusy(true);
+        setError('');
+        try {
+            const response = await apiRequest<{ data: SavedReport }>(
+                '/api/report-builder/' + versionReportId + '/versions/' + version + '/restore',
+                { method: 'POST' },
+            );
+            openSaved(response.data);
+            await load();
+            await loadVersions(versionReportId);
+        } catch (failure) {
+            setError(
+                failure instanceof ApiError
+                    ? failure.message
+                    : text('تعذر استرجاع النسخة.', 'Could not restore version.'),
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function approveReport(reportId: number): Promise<void> {
+        setBusy(true);
+        setError('');
+        try {
+            await apiRequest('/api/report-studio/approvals', {
+                method: 'POST',
+                body: JSON.stringify({
+                    report_id: reportId,
+                    status: 'approved',
+                    note: null,
+                }),
+            });
+        } catch (failure) {
+            setError(
+                failure instanceof ApiError
+                    ? failure.message
+                    : text('تعذر اعتماد التقرير.', 'Could not approve report.'),
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
     const selectedColumns =
         dataset?.columns.filter(column => columns.includes(column.key)) ?? [];
 
@@ -442,6 +519,26 @@ export default function ReportBuilder() {
                                             >
                                                 {report.name}
                                             </button>
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                onClick={() => void loadVersions(report.id)}
+                                                title={text('سجل النسخ', 'Version history')}
+                                                className="flex size-8 items-center justify-center rounded-[9px] border border-[var(--ac-line)] text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                                            >
+                                                <History size={12} />
+                                            </button>
+                                            {report.can_edit && (
+                                                <button
+                                                    type="button"
+                                                    disabled={busy}
+                                                    onClick={() => void approveReport(report.id)}
+                                                    title={text('اعتماد التقرير', 'Approve report')}
+                                                    className="flex size-8 items-center justify-center rounded-[9px] border border-[var(--ac-line)] text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                                                >
+                                                    <CheckCircle2 size={12} />
+                                                </button>
+                                            )}
                                             {report.can_edit && (
                                                 <button
                                                     type="button"
@@ -452,6 +549,54 @@ export default function ReportBuilder() {
                                                     <Trash2 size={12} />
                                                 </button>
                                             )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+                        {versionReportId && (
+                            <section className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
+                                <div className="flex items-center justify-between gap-2">
+                                    <h2 className="text-xs font-bold text-[var(--ac-text)]">
+                                        {text('سجل نسخ التقرير', 'Report version history')}
+                                    </h2>
+                                    <button
+                                        type="button"
+                                        className="text-[9px] font-semibold text-[var(--ac-accent)]"
+                                        onClick={() => {
+                                            setVersionReportId(null);
+                                            setVersions([]);
+                                        }}
+                                    >
+                                        {text('إغلاق', 'Close')}
+                                    </button>
+                                </div>
+                                <div className="mt-3 space-y-2">
+                                    {versions.length === 0 ? (
+                                        <p className="text-[10px] text-[var(--ac-text-muted)]">
+                                            {text('لا توجد نسخ محفوظة بعد.', 'No saved versions yet.')}
+                                        </p>
+                                    ) : versions.map(version => (
+                                        <div
+                                            key={version.id}
+                                            className="flex items-center justify-between gap-2 rounded-[10px] border border-[var(--ac-line)] p-2"
+                                        >
+                                            <div>
+                                                <p className="text-[10px] font-semibold text-[var(--ac-text)]">
+                                                    Version {version.version}
+                                                </p>
+                                                <p className="text-[8px] text-[var(--ac-text-muted)]">
+                                                    {version.created_at}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                className={outline + ' h-8 px-2'}
+                                                onClick={() => void restoreVersion(version.version)}
+                                            >
+                                                {text('استرجاع', 'Restore')}
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
