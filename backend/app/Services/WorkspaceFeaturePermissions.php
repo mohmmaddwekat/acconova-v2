@@ -2047,6 +2047,41 @@ final class WorkspaceFeaturePermissions
                 return true;
             }
 
+            $group =
+                $meta['group']
+                ?? null;
+
+            $hasGroupSelection = false;
+
+            if ($group) {
+                foreach (self::permissions() as $candidateKey => $candidate) {
+                    if (
+                        ($candidate['group'] ?? null) === $group
+                        && in_array(
+                            $candidateKey,
+                            $granted,
+                            true,
+                        )
+                    ) {
+                        $hasGroupSelection = true;
+                        break;
+                    }
+                }
+            }
+
+            $builtin = $meta['builtin'] ?? [];
+
+            if (
+                ! $hasGroupSelection
+                && in_array(
+                    $baseRole,
+                    $builtin,
+                    true,
+                )
+            ) {
+                return true;
+            }
+
             $legacy = $meta['legacy'] ?? [];
 
             if ($legacy === []) {
