@@ -52,6 +52,12 @@ class WorkspaceSettingsController extends Controller
             'include_extra_costs' => (bool) ($preferences['include_extra_costs'] ?? true),
             'include_shipping_cost' => (bool) ($preferences['include_shipping_cost'] ?? true),
 
+            'approval_invoice_threshold' => (string) ($preferences['approval_invoice_threshold'] ?? '10000'),
+            'approval_discount_percent' => (string) ($preferences['approval_discount_percent'] ?? '15'),
+            'approval_payment_threshold' => (string) ($preferences['approval_payment_threshold'] ?? '5000'),
+            'inventory_reorder_lead_days' => (int) ($preferences['inventory_reorder_lead_days'] ?? 14),
+            'inventory_safety_days' => (int) ($preferences['inventory_safety_days'] ?? 7),
+
             'payment_methods' => array_values($preferences['payment_methods'] ?? [
                 'bank_transfer',
                 'card',
@@ -122,6 +128,12 @@ class WorkspaceSettingsController extends Controller
             'cost_method' => ['sometimes', Rule::in(['moving_average', 'fifo'])],
             'include_extra_costs' => ['sometimes', 'boolean'],
             'include_shipping_cost' => ['sometimes', 'boolean'],
+
+            'approval_invoice_threshold' => ['sometimes', 'numeric', 'min:0', 'max:999999999999'],
+            'approval_discount_percent' => ['sometimes', 'numeric', 'between:0,100'],
+            'approval_payment_threshold' => ['sometimes', 'numeric', 'min:0', 'max:999999999999'],
+            'inventory_reorder_lead_days' => ['sometimes', 'integer', 'between:1,365'],
+            'inventory_safety_days' => ['sometimes', 'integer', 'between:0,365'],
 
             'payment_methods' => ['sometimes', 'array', 'min:1'],
             'payment_methods.*' => [
