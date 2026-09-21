@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\FinanceAuthorization;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -135,6 +136,22 @@ class ApprovalWorkflowController extends Controller
         );
 
         if (! $mustReview) {
+            abort_unless(
+                FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.sales.view',
+                )
+                || FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.purchases.view',
+                )
+                || FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.cash.view',
+                ),
+                403,
+            );
+
             return;
         }
 
