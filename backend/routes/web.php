@@ -962,6 +962,16 @@ Route::prefix(
         )->whereNumber('record');
 
         Route::post(
+            'control/expense-claims/{record}/receipt',
+            [BusinessControlController::class, 'uploadExpenseReceipt'],
+        )->whereNumber('record');
+
+        Route::get(
+            'control/expense-claims/{record}/receipt',
+            [BusinessControlController::class, 'expenseReceipt'],
+        )->whereNumber('record');
+
+        Route::post(
             'control/petty-cash/{fund}/transactions',
             [BusinessControlController::class, 'pettyCashTransaction'],
         )->whereNumber('fund');
