@@ -186,6 +186,10 @@ class ApprovalWorkflowController extends Controller
             abort_unless(
                 FinanceAuthorization::allows(
                     $request->user(),
+                    'finance.approvals.review',
+                )
+                || FinanceAuthorization::allows(
+                    $request->user(),
                     'finance.sales.view',
                 )
                 || FinanceAuthorization::allows(
@@ -202,19 +206,9 @@ class ApprovalWorkflowController extends Controller
             return;
         }
 
-        abort_unless(
-            in_array(
-                app(TenantContext::class)
-                    ->role()
-                    ->value,
-                [
-                    'owner',
-                    'admin',
-                    'manager',
-                ],
-                true,
-            ),
-            403,
+        FinanceAuthorization::authorize(
+            $request->user(),
+            'finance.approvals.review',
         );
     }
 }
