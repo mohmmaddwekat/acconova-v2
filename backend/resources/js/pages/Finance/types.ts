@@ -20,6 +20,10 @@ export type LookupParty = {
     email: string | null;
     phone: string | null;
     tax_number: string | null;
+    address_line_1: string | null;
+    address_line_2: string | null;
+    city: string | null;
+    postal_code: string | null;
     credit_limit: string | null;
     credit_used: string;
     country_code: string | null;
@@ -155,6 +159,19 @@ export type FinanceLookups = {
     permissions: FinancePermissions;
 };
 
+export type TaxPartySnapshot = {
+    name: string;
+    tax_number: string;
+    registration_number: string;
+    address: string;
+    city: string;
+    region: string;
+    country: string;
+    phone: string;
+    email: string;
+    website: string;
+};
+
 export type DocumentRow = {
     id: number;
     number: string;
@@ -208,6 +225,8 @@ export type DocumentDetail = DocumentRow & {
     discount_total: string;
     tax_total: string;
     shipping_total: string;
+    seller_tax_snapshot: TaxPartySnapshot | null;
+    buyer_tax_snapshot: TaxPartySnapshot | null;
     payment_terms: string | null;
     notes: string | null;
     internal_notes: string | null;
