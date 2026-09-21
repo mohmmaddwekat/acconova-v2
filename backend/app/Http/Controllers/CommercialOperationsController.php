@@ -168,16 +168,24 @@ class CommercialOperationsController extends Controller
 
         abort_unless($document, 404);
 
+        $isOrder = in_array(
+            $kind,
+            ['sales_order', 'purchase_order'],
+            true,
+        );
+
         if (
-            ! in_array(
-                $kind,
-                ['sales_order', 'purchase_order'],
-                true,
+            (
+                ! $isOrder
+                && in_array(
+                    $document->status,
+                    ['rejected', 'expired', 'cancelled'],
+                    true,
+                )
             )
-            && in_array(
-                $document->status,
-                ['rejected', 'expired', 'cancelled'],
-                true,
+            || (
+                $isOrder
+                && $document->status === 'cancelled'
             )
         ) {
             throw ValidationException::withMessages([
@@ -198,12 +206,6 @@ class CommercialOperationsController extends Controller
                 'lines' => ['At least one document line is required.'],
             ]);
         }
-
-        $isOrder = in_array(
-            $kind,
-            ['sales_order', 'purchase_order'],
-            true,
-        );
 
         if (! $isOrder && $document->converted_financial_document_id) {
             throw ValidationException::withMessages([
@@ -1761,13 +1763,18 @@ class CommercialOperationsController extends Controller
                 : 'customer',
         );
 
-        foreach ($data['lines'] as $line) {
+        foreach ($data['lines'] as $index => $line) {
+            $product = null;
+
             if (! empty($line['product_id'])) {
                 $this->assertTenantRecord(
                     'products',
                     (int) $line['product_id'],
                     $organizationId,
                 );
+
+                $product = Product::query()
+                    ->find((int) $line['product_id']);
             }
 
             if (! empty($line['warehouse_id'])) {
@@ -1776,6 +1783,27 @@ class CommercialOperationsController extends Controller
                     (int) $line['warehouse_id'],
                     $organizationId,
                 );
+            }
+
+            $affectsInventory =
+                (bool) (
+                    $line['affects_inventory']
+                    ?? false
+                );
+
+            if (
+                $affectsInventory
+                && (
+                    ! $product
+                    || ! $product->tracksInventory()
+                    || empty($line['warehouse_id'])
+                )
+            ) {
+                throw ValidationException::withMessages([
+                    "lines.$index.affects_inventory" => [
+                        'Inventory impact requires a tracked product and warehouse.',
+                    ],
+                ]);
             }
         }
 
@@ -1851,7 +1879,7 @@ class CommercialOperationsController extends Controller
                     'fulfilled_quantity' => 0,
                     'invoiced_quantity' => 0,
                     'affects_inventory' =>
-                        (bool) ($line['affects_inventory'] ?? true),
+                        (bool) ($line['affects_inventory'] ?? false),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -2286,6 +2314,20 @@ class CommercialOperationsController extends Controller
             )
             && $request->has('fulfilled_quantity')
         ) {
+            if (
+                in_array(
+                    $document->status,
+                    ['cancelled', 'invoiced'],
+                    true,
+                )
+            ) {
+                throw ValidationException::withMessages([
+                    'status' => [
+                        'Cancelled or fully invoiced orders cannot be fulfilled again.',
+                    ],
+                ]);
+            }
+
             $data = $request->validate([
                 'line_id' => ['required', 'integer'],
                 'fulfilled_quantity' => [
@@ -2310,6 +2352,18 @@ class CommercialOperationsController extends Controller
                 throw ValidationException::withMessages([
                     'fulfilled_quantity' => [
                         'Fulfilled quantity cannot exceed ordered quantity.',
+                    ],
+                ]);
+            }
+
+            if (
+                (float) $data['fulfilled_quantity']
+                + 0.00005
+                < (float) $line->invoiced_quantity
+            ) {
+                throw ValidationException::withMessages([
+                    'fulfilled_quantity' => [
+                        'Fulfilled quantity cannot be lower than the quantity already invoiced.',
                     ],
                 ]);
             }
