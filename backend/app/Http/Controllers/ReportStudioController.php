@@ -450,22 +450,70 @@ class ReportStudioController extends Controller
         ];
     }
 
-    private function periodComparison(Carbon $from, Carbon $to): array
-    {
-        $days = max(1, $from->diffInDays($to) + 1);
-        $previousTo = $from->copy()->subDay();
-        $previousFrom = $previousTo->copy()->subDays($days - 1);
-        $current = $this->salesTotal($from, $to);
+    private function periodComparison(
+        Carbon $from,
+        Carbon $to,
+        string $mode = 'previous_period',
+    ): array {
+        [$currentFrom, $currentTo, $previousFrom, $previousTo] = match ($mode) {
+            'previous_month' => [
+                $to->copy()->startOfMonth(),
+                $to->copy()->endOfDay(),
+                $to->copy()->subMonthNoOverflow()->startOfMonth(),
+                $to->copy()->subMonthNoOverflow()->endOfMonth(),
+            ],
+            'previous_quarter' => [
+                $to->copy()->startOfQuarter(),
+                $to->copy()->endOfDay(),
+                $to->copy()->subQuarter()->startOfQuarter(),
+                $to->copy()->subQuarter()->endOfQuarter(),
+            ],
+            'ytd_previous_year' => [
+                $to->copy()->startOfYear(),
+                $to->copy()->endOfDay(),
+                $to->copy()->subYear()->startOfYear(),
+                $to->copy()->subYear()->endOfDay(),
+            ],
+            default => (function () use ($from, $to): array {
+                $days = max(1, $from->diffInDays($to) + 1);
+                $previousTo = $from->copy()->subDay()->endOfDay();
+
+                return [
+                    $from->copy(),
+                    $to->copy(),
+                    $previousTo->copy()->subDays($days - 1)->startOfDay(),
+                    $previousTo,
+                ];
+            })(),
+        };
+
+        $current = $this->salesTotal($currentFrom, $currentTo);
         $previous = $this->salesTotal($previousFrom, $previousTo);
-        $change = $previous == 0.0 ? null : (($current - $previous) / abs($previous)) * 100;
+        $change = $previous == 0.0
+            ? null
+            : (($current - $previous) / abs($previous)) * 100;
 
         return [
             'columns' => ['period', 'sales', 'change_percent'],
             'rows' => [
-                ['period' => 'Current', 'sales' => $current, 'change_percent' => $change],
-                ['period' => 'Previous', 'sales' => $previous, 'change_percent' => null],
+                [
+                    'period' => 'Current',
+                    'sales' => $current,
+                    'change_percent' => $change,
+                ],
+                [
+                    'period' => 'Previous',
+                    'sales' => $previous,
+                    'change_percent' => null,
+                ],
             ],
-            'meta' => ['previous_from' => $previousFrom->toDateString(), 'previous_to' => $previousTo->toDateString()],
+            'meta' => [
+                'comparison_mode' => $mode,
+                'current_from' => $currentFrom->toDateString(),
+                'current_to' => $currentTo->toDateString(),
+                'previous_from' => $previousFrom->toDateString(),
+                'previous_to' => $previousTo->toDateString(),
+            ],
         ];
     }
 
@@ -1429,30 +1477,158 @@ class ReportStudioController extends Controller
         ];
     }
 
-    private function topBottom(Carbon $from, Carbon $to, int $limit): array
-    {
-        $rows = collect($this->profitability($from, $to, 'customer')['rows']);
-        return ['columns' => ['rank_type', 'dimension', 'revenue', 'gross_profit', 'margin_percent'], 'rows' => $rows->take($limit)->map(fn ($r) => ['rank_type' => 'Top', ...$r])->concat($rows->sortBy('revenue')->take($limit)->map(fn ($r) => ['rank_type' => 'Bottom', ...$r]))->values()];
+    private function topBottom(
+        Carbon $from,
+        Carbon $to,
+        int $limit,
+        string $dimension,
+        string $metric,
+    ): array {
+        $rows = $this->analysisRows($from, $to, $dimension);
+        $top = $rows
+            ->sortByDesc(fn (array $row): float => (float) ($row[$metric] ?? 0))
+            ->take($limit)
+            ->values()
+            ->map(fn (array $row): array => ['rank_type' => 'Top', ...$row]);
+
+        $bottom = $rows
+            ->sortBy(fn (array $row): float => (float) ($row[$metric] ?? 0))
+            ->take($limit)
+            ->values()
+            ->map(fn (array $row): array => ['rank_type' => 'Bottom', ...$row]);
+
+        return [
+            'columns' => [
+                'rank_type',
+                'dimension',
+                $metric,
+                'revenue',
+                'gross_profit',
+                'margin_percent',
+                'quantity',
+            ],
+            'rows' => $top->concat($bottom)->values(),
+            'meta' => [
+                'dimension' => $dimension,
+                'metric' => $metric,
+            ],
+        ];
     }
 
-    private function pareto(Carbon $from, Carbon $to): array
-    {
-        $rows = collect($this->profitability($from, $to, 'customer')['rows'])->sortByDesc('revenue')->values();
-        $total = (float) $rows->sum('revenue');
+    private function pareto(
+        Carbon $from,
+        Carbon $to,
+        string $dimension,
+        string $metric,
+    ): array {
+        $rows = $this->analysisRows($from, $to, $dimension)
+            ->sortByDesc(fn (array $row): float => (float) ($row[$metric] ?? 0))
+            ->values();
+
+        $total = (float) $rows->sum(fn (array $row): float => max(0, (float) ($row[$metric] ?? 0)));
         $running = 0.0;
-        $out = $rows->map(function ($row) use (&$running, $total) {
-            $running += (float) $row['revenue'];
-            return [...$row, 'cumulative_percent' => $total == 0.0 ? 0 : ($running / $total) * 100];
+
+        $out = $rows->map(function (array $row) use (&$running, $total, $metric): array {
+            $running += max(0, (float) ($row[$metric] ?? 0));
+
+            return [
+                ...$row,
+                'cumulative_percent' => $total == 0.0
+                    ? 0
+                    : ($running / $total) * 100,
+            ];
         });
-        $contributors = $out->takeUntil(fn ($r) => $r['cumulative_percent'] >= 80)->count() + ($out->isNotEmpty() ? 1 : 0);
-        return ['columns' => ['dimension', 'revenue', 'cumulative_percent'], 'rows' => $out, 'meta' => ['contributors_to_80' => min($contributors, $out->count()), 'total_entities' => $out->count()]];
+
+        $contributors = 0;
+        foreach ($out as $row) {
+            $contributors++;
+            if ((float) $row['cumulative_percent'] >= 80) {
+                break;
+            }
+        }
+
+        return [
+            'columns' => [
+                'dimension',
+                $metric,
+                'cumulative_percent',
+            ],
+            'rows' => $out,
+            'meta' => [
+                'dimension' => $dimension,
+                'metric' => $metric,
+                'contributors_to_80' => min($contributors, $out->count()),
+                'total_entities' => $out->count(),
+                'contributor_percent' => $out->count() === 0
+                    ? 0
+                    : (min($contributors, $out->count()) / $out->count()) * 100,
+            ],
+        ];
     }
 
-    private function concentrationRisk(Carbon $from, Carbon $to): array
-    {
-        $rows = collect($this->profitability($from, $to, 'customer')['rows']);
-        $total = (float) $rows->sum('revenue');
-        return ['columns' => ['dimension', 'revenue', 'share_percent'], 'rows' => $rows->map(fn ($r) => ['dimension' => $r['dimension'], 'revenue' => $r['revenue'], 'share_percent' => $total == 0.0 ? 0 : ((float) $r['revenue'] / $total) * 100])->sortByDesc('share_percent')->values()];
+    private function concentrationRisk(
+        Carbon $from,
+        Carbon $to,
+        string $dimension,
+        string $metric,
+    ): array {
+        $rows = $this->analysisRows($from, $to, $dimension);
+        $total = (float) $rows->sum(fn (array $row): float => max(0, (float) ($row[$metric] ?? 0)));
+
+        $out = $rows
+            ->map(function (array $row) use ($total, $metric): array {
+                $value = max(0, (float) ($row[$metric] ?? 0));
+
+                return [
+                    'dimension' => $row['dimension'],
+                    $metric => $value,
+                    'share_percent' => $total == 0.0
+                        ? 0
+                        : ($value / $total) * 100,
+                ];
+            })
+            ->sortByDesc('share_percent')
+            ->values();
+
+        return [
+            'columns' => ['dimension', $metric, 'share_percent'],
+            'rows' => $out,
+            'meta' => [
+                'dimension' => $dimension,
+                'metric' => $metric,
+                'largest_share_percent' => (float) ($out->first()['share_percent'] ?? 0),
+            ],
+        ];
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function analysisRows(
+        Carbon $from,
+        Carbon $to,
+        string $dimension,
+    ) {
+        if ($dimension === 'supplier') {
+            return collect($this->supplierPerformance($from, $to)['rows'])
+                ->map(fn ($row): array => [
+                    'dimension' => $row['supplier'] ?? $row->supplier ?? 'Unassigned',
+                    'revenue' => (float) ($row['purchases'] ?? $row->purchases ?? 0),
+                    'gross_profit' => 0.0,
+                    'margin_percent' => 0.0,
+                    'quantity' => (float) ($row['invoices'] ?? $row->invoices ?? 0),
+                    'discounts' => 0.0,
+                    'outstanding' => (float) ($row['outstanding'] ?? $row->outstanding ?? 0),
+                ])
+                ->values();
+        }
+
+        return collect($this->profitability($from, $to, $dimension)['rows'])
+            ->map(fn ($row): array => [
+                ...((array) $row),
+                'outstanding' => (float) (((array) $row)['outstanding'] ?? 0),
+            ])
+            ->values();
     }
 
     private function scenario(Carbon $from, Carbon $to, array $scenario): array
