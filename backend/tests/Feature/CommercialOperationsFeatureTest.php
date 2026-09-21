@@ -86,6 +86,29 @@ class CommercialOperationsFeatureTest extends TestCase
             $receipt['unallocated'],
         );
 
+        $allocationDraftId = (int) $this->postJson(
+            "/api/operations/unallocated/{$receiptId}/prepare-allocation",
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->assertDatabaseHas(
+            'cash_movements',
+            [
+                'id' => $allocationDraftId,
+                'status' => 'draft',
+                'corrected_from_id' => $receiptId,
+            ],
+        );
+
+        $this->assertDatabaseHas(
+            'cash_movements',
+            [
+                'id' => $receiptId,
+                'status' => 'posted',
+            ],
+        );
+
         $collections = $this->getJson(
             '/api/operations/collections',
         )
