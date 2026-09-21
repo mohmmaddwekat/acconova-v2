@@ -374,6 +374,15 @@ export function CommandCenter() {
             aliases: ['وثائق منتهية', 'document expiry', 'ترخيص'],
         },
         {
+            key: 'audit-center',
+            label: text('مركز التدقيق', 'Audit center'),
+            detail: text('من غيّر ماذا والقيم قبل وبعد', 'Who changed what with before/after values'),
+            href: '/app/audit',
+            icon: ShieldCheck,
+            kind: 'module',
+            aliases: ['audit', 'تدقيق', 'who changed what', 'تغييرات'],
+        },
+        {
             key: 'data-quality',
             label: text('مركز جودة البيانات', 'Data quality center'),
             detail: text('بيانات ناقصة وسجلات محتمل تكرارها', 'Missing data and possible duplicate records'),
