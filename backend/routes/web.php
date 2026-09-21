@@ -910,6 +910,14 @@ Route::prefix(
             [CommercialOperationsController::class, 'claim'],
         )->whereNumber('record');
 
+        Route::patch(
+            'operations/warranties/{record}/claims/{claim}',
+            [CommercialOperationsController::class, 'updateClaim'],
+        )->whereNumber([
+            'record',
+            'claim',
+        ]);
+
         Route::get(
             'business-pulse/brief',
             [BusinessPulseController::class, 'brief'],
