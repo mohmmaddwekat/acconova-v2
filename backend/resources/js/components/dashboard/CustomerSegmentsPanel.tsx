@@ -482,8 +482,8 @@ export function CustomerSegmentsPanel({
             {full && (
                 <p className="mt-3 text-[9px] leading-5 text-[var(--ac-text-muted)]">
                     {ar
-                        ? 'الربحية تقديرية لأنها تستخدم التكلفة الحالية للمنتج، وليست Cost Snapshot تاريخية لكل فاتورة.'
-                        : 'Profitability is estimated using current product cost, not a historical cost snapshot per invoice.'}
+                        ? 'الربحية تعتمد على لقطة تكلفة محفوظة وقت إصدار الفاتورة عندما تكون متاحة؛ الفواتير الأقدم فقط ترجع للتكلفة الحالية.'
+                        : 'Profitability uses the issue-time cost snapshot when available; only older invoices fall back to current product cost.'}
                 </p>
             )}
         </section>
