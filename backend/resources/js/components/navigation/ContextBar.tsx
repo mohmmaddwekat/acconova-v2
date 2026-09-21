@@ -123,6 +123,70 @@ export function ContextBar({
             'الإعدادات',
             'Settings',
         ],
+        '/app/reports': [
+            'التقارير',
+            'Reports',
+        ],
+        '/app/reports/ar-aging': [
+            'أعمار الذمم المدينة',
+            'A/R aging',
+        ],
+        '/app/reports/ap-aging': [
+            'أعمار الذمم الدائنة',
+            'A/P aging',
+        ],
+        '/app/finance/unallocated': [
+            'دفعات غير مخصصة',
+            'Unallocated payments',
+        ],
+        '/app/finance/collections': [
+            'لوحة التحصيل',
+            'Collections dashboard',
+        ],
+        '/app/parties/payment-promises': [
+            'وعود الدفع',
+            'Payment promises',
+        ],
+        '/app/crm/pipeline': [
+            'مسار المبيعات',
+            'Sales pipeline',
+        ],
+        '/app/sales/quotations': [
+            'عروض الأسعار',
+            'Quotations',
+        ],
+        '/app/sales/proforma': [
+            'الفواتير المبدئية',
+            'Proforma invoices',
+        ],
+        '/app/sales/orders': [
+            'أوامر البيع',
+            'Sales orders',
+        ],
+        '/app/purchases/orders': [
+            'أوامر الشراء',
+            'Purchase orders',
+        ],
+        '/app/sales/backorders': [
+            'الطلبات المؤجلة',
+            'Backorders',
+        ],
+        '/app/returns': [
+            'المرتجعات',
+            'Returns / RMA',
+        ],
+        '/app/products/warranties': [
+            'الضمانات',
+            'Warranties',
+        ],
+        '/app/inventory/serials': [
+            'الأرقام التسلسلية',
+            'Serial numbers',
+        ],
+        '/app/inventory/batches': [
+            'الدفعات والتشغيلات',
+            'Batches / lots',
+        ],
     };
 
     const pageLabel =
@@ -169,7 +233,7 @@ export function ContextBar({
                     onClick={
                         onOpenNavigation
                     }
-                    className="flex size-9 shrink-0 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-white text-[var(--ac-text-soft)] shadow-[var(--ac-shadow-soft)] transition duration-200 hover:-translate-y-px hover:border-[var(--ac-line-strong)] hover:text-[var(--ac-text)] active:translate-y-0 active:scale-95 motion-reduce:transform-none md:hidden"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] shadow-[var(--ac-shadow-soft)] transition duration-200 hover:-translate-y-px hover:border-[var(--ac-line-strong)] hover:text-[var(--ac-text)] active:translate-y-0 active:scale-95 motion-reduce:transform-none md:hidden"
                 >
                     <Menu
                         size={
