@@ -6,6 +6,7 @@ use App\Http\Controllers\CustomerIntelligenceController;
 use App\Http\Controllers\BankReconciliationController;
 use App\Http\Controllers\ApprovalWorkflowController;
 use App\Http\Controllers\CashMovementController;
+use App\Http\Controllers\AuditCenterController;
 use App\Http\Controllers\BusinessPulseController;
 use App\Http\Controllers\BusinessControlController;
 use App\Http\Controllers\CommercialOperationsController;
@@ -560,6 +561,11 @@ Route::middleware([
     )->name('app.data-quality');
 
     Route::get(
+        '/app/audit',
+        fn () => Inertia::render('Audit/Center'),
+    )->name('app.audit');
+
+    Route::get(
         '/app/finance/approvals',
         fn () => Inertia::render('Finance/Approvals'),
     )->name('app.finance.approvals');
@@ -940,6 +946,11 @@ Route::prefix(
             'finance/recurring-invoices/{profile}',
             [InvoiceAutomationController::class, 'deleteRecurring'],
         )->whereNumber('profile');
+
+        Route::get(
+            'audit-center',
+            [AuditCenterController::class, 'index'],
+        );
 
         Route::get(
             'control-lookups',
