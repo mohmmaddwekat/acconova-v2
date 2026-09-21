@@ -24,8 +24,9 @@ import {
 } from 'lucide-react';
 import {
     useEffect,
-    useMemo,
     useState,
+    type ComponentType,
+    type ReactNode,
 } from 'react';
 
 type PartySide =
@@ -1395,7 +1396,7 @@ function SideButton({
     active: boolean;
     onClick: () => void;
     children:
-        React.ReactNode;
+        ReactNode;
 }) {
     return (
         <button
@@ -2430,7 +2431,7 @@ function StatCard({
     tone,
 }: {
     icon:
-        React.ComponentType<{
+        ComponentType<{
             size?: number;
             className?: string;
         }>;
