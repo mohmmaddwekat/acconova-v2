@@ -297,18 +297,16 @@ Route::middleware([
     Route::get(
         '/app/finance',
         function (\Illuminate\Http\Request $request) {
-            $financeView = match (true) {
-                FinanceAuthorization::allows($request->user(), 'finance.sales.view') => 'sales-list',
-                FinanceAuthorization::allows($request->user(), 'finance.purchases.view') => 'purchase-list',
-                FinanceAuthorization::allows($request->user(), 'finance.cash.view') => 'payment-list',
-                FinanceAuthorization::allows($request->user(), 'finance.taxes.view') => 'taxes',
-                default => null,
-            };
+            $hasFinanceAccess =
+                FinanceAuthorization::allows($request->user(), 'finance.sales.view')
+                || FinanceAuthorization::allows($request->user(), 'finance.purchases.view')
+                || FinanceAuthorization::allows($request->user(), 'finance.cash.view')
+                || FinanceAuthorization::allows($request->user(), 'finance.taxes.view');
 
-            abort_unless($financeView, 403);
+            abort_unless($hasFinanceAccess, 403);
 
             return Inertia::render('Finance/Index', [
-                'financeView' => $financeView,
+                'financeView' => 'hub',
             ]);
         },
     )->name('app.finance');
@@ -497,6 +495,15 @@ Route::middleware([
         ),
     )->name(
         'app.inventory.transfers',
+    );
+
+    Route::get(
+        '/app/inventory/intelligence',
+        fn () => Inertia::render(
+            'Inventory/Intelligence',
+        ),
+    )->name(
+        'app.inventory.intelligence',
     );
 });
 
