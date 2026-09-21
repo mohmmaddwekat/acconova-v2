@@ -2517,6 +2517,7 @@ function RowActions({
                 )}
 
             {orderFeature
+                && ! hasConvertibleOrderQuantity
                 && ! [
                     'cancelled',
                     'invoiced',
