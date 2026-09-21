@@ -1635,7 +1635,7 @@ function PartiesWorkspace() {
                     }
                     canArchive={
                         allowArchive
-                    }}
+                    }
                     onClose={() => {
                         setDetailDrawerOpen(
                             false,
@@ -1646,7 +1646,7 @@ function PartiesWorkspace() {
                                 null,
                             );
                         }
-                    }
+                    }}
                     onChanged={
                         handlePartyChanged
                     }
