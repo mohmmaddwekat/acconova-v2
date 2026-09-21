@@ -129,7 +129,7 @@ const teamPermissionLabels: Record<string, [string, string]> = {
 };
 
 const fieldClass =
-    'w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:bg-[var(--ac-surface)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]';
+    'w-full rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3.5 py-3 text-sm text-[var(--ac-text)] outline-none transition placeholder:text-[var(--ac-text-faint)] hover:border-[var(--ac-line-strong)] focus:border-[var(--ac-accent)] focus:bg-[var(--ac-surface)] focus:ring-4 focus:ring-[var(--ac-accent)]/10';
 
 const secondaryButton =
     'inline-flex min-h-10 items-center justify-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] disabled:cursor-not-allowed disabled:opacity-40';
@@ -3863,42 +3863,37 @@ function MemberAccessMatrix({
                                 </div>
                             </div>
 
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                            <div className="mt-3 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
                                 {systemAreas.map(
                                     area => (
                                         <div
                                             key={area.key}
+                                            title={area.note}
                                             className={[
-                                                'rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2.5',
+                                                'flex min-h-9 items-center justify-between gap-2 rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2.5 py-2',
                                                 area.allowed
                                                     ? ''
-                                                    : 'opacity-60',
+                                                    : 'opacity-55',
                                             ].join(' ')}
                                         >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <strong className="text-[9px] text-[var(--ac-text)]">
-                                                    {area.label}
-                                                </strong>
+                                            <strong className="truncate text-[8px] font-semibold text-[var(--ac-text-soft)]">
+                                                {area.label}
+                                            </strong>
 
-                                                <span
-                                                    className={[
-                                                        'inline-flex size-5 items-center justify-center rounded-full border',
-                                                        area.allowed
-                                                            ? 'border-emerald-500/25 text-emerald-500'
-                                                            : 'border-[var(--ac-line)] text-[var(--ac-text-muted)]',
-                                                    ].join(' ')}
-                                                >
-                                                    {area.allowed ? (
-                                                        <Check size={10} />
-                                                    ) : (
-                                                        <X size={10} />
-                                                    )}
-                                                </span>
-                                            </div>
-
-                                            <p className="mt-2 text-[8px] leading-4 text-[var(--ac-text-muted)]">
-                                                {area.note}
-                                            </p>
+                                            <span
+                                                className={[
+                                                    'inline-flex size-5 shrink-0 items-center justify-center rounded-full border',
+                                                    area.allowed
+                                                        ? 'border-emerald-500/25 text-emerald-500'
+                                                        : 'border-[var(--ac-line)] text-[var(--ac-text-muted)]',
+                                                ].join(' ')}
+                                            >
+                                                {area.allowed ? (
+                                                    <Check size={10} />
+                                                ) : (
+                                                    <X size={9} />
+                                                )}
+                                            </span>
                                         </div>
                                     ),
                                 )}
