@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/http';
+import { PaymentPromisePanel } from '@/features/parties/components/PaymentPromisePanel';
 import type { Party } from '@/features/parties/types';
 import type { AppPageProps } from '@/types/app';
 import {
@@ -11,6 +12,7 @@ import {
     ReceiptText,
     ShoppingCart,
     Sparkles,
+    TrendingUp,
 } from 'lucide-react';
 import {
     useEffect,
@@ -168,13 +170,25 @@ export function Party360Panel({
 
     return (
         <section className="mt-5 space-y-4">
-            <div className="flex items-center gap-2">
-                <Sparkles size={15} className="text-[var(--ac-accent)]" />
-                <h3 className="text-sm font-bold text-[var(--ac-text)]">
-                    {ar
-                        ? 'نظرة 360 على العلاقة'
-                        : 'Relationship 360'}
-                </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <Sparkles size={15} className="text-[var(--ac-accent)]" />
+                    <h3 className="text-sm font-bold text-[var(--ac-text)]">
+                        {ar
+                            ? 'نظرة 360 على العلاقة'
+                            : 'Relationship 360'}
+                    </h3>
+                </div>
+
+                {hasCustomer && (
+                    <Link
+                        href="/app/crm/pipeline"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-[var(--ac-line)] bg-transparent px-2.5 text-[9px] font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                    >
+                        <TrendingUp size={12} />
+                        {ar ? 'مسار المبيعات' : 'Sales pipeline'}
+                    </Link>
+                )}
             </div>
 
             {hasCustomer && (
@@ -241,6 +255,27 @@ export function Party360Panel({
                             />
                         </div>
                     </div>
+
+                    <PaymentPromisePanel
+                        partyId={party.id}
+                        ar={ar}
+                        invoices={
+                            data.recent_documents
+                                .filter(
+                                    document =>
+                                        document.kind
+                                        === 'sale_invoice',
+                                )
+                                .map(document => ({
+                                    id: document.id,
+                                    number: document.number,
+                                    balance_due:
+                                        document.balance_due,
+                                    status:
+                                        document.status,
+                                }))
+                        }
+                    />
                 </div>
             )}
 
