@@ -40,6 +40,9 @@ import {
     WarehouseDetailDrawer,
 } from '@/features/inventory/components/WarehouseDetailDrawer';
 import {
+    InventoryIntelligencePanel,
+} from '@/features/inventory/components/InventoryIntelligencePanel';
+import {
     WarehouseEditorDrawer,
 } from '@/features/inventory/components/WarehouseEditorDrawer';
 import type {
@@ -681,6 +684,13 @@ function InventoryWorkspace() {
                         )}
                     />
                 </section>
+
+                {workspace.activeOrganization && (
+                    <InventoryIntelligencePanel
+                        ar={ar}
+                        currency={workspace.activeOrganization.currency ?? ''}
+                    />
+                )}
 
                 {error && (
                     <div className="mt-5 rounded-[16px] border border-[var(--ac-danger)]/15 bg-[var(--ac-danger)]/5 px-4 py-3 text-sm text-[var(--ac-danger)]">
