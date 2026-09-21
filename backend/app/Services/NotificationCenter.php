@@ -101,6 +101,9 @@ class NotificationCenter
     public function syncDue(int $organizationId): void
     {
         $this->syncRecordReminders($organizationId);
+        $this->syncInventoryExpiry($organizationId);
+        $this->syncContractExpiry($organizationId);
+        $this->syncDocumentExpiry($organizationId);
 
         PaymentPlan::withoutGlobalScopes()->where('organization_id', $organizationId)->where('active', true)
             ->whereDate('next_due_on', '<=', today()->addDays(30))->chunkById(100, function ($plans) use ($organizationId): void {
@@ -117,6 +120,213 @@ class NotificationCenter
                         ['name' => $plan->title, 'detail' => $plan->next_due_on->format('Y-m-d'), 'amount' => $plan->amount.' '.$plan->currency],
                         route('app.payments'), true);
                 }
+            });
+    }
+
+    private function syncInventoryExpiry(
+        int $organizationId,
+    ): void {
+        DB::table('inventory_batches as batch')
+            ->leftJoin(
+                'products as product',
+                'product.id',
+                '=',
+                'batch.product_id',
+            )
+            ->where(
+                'batch.organization_id',
+                $organizationId,
+            )
+            ->whereNotNull('batch.expiry_date')
+            ->where('batch.quantity', '>', 0)
+            ->whereNotIn(
+                'batch.status',
+                ['depleted', 'recalled'],
+            )
+            ->whereDate(
+                'batch.expiry_date',
+                '<=',
+                today()->addDays(30),
+            )
+            ->orderBy('batch.id')
+            ->limit(250)
+            ->get([
+                'batch.id',
+                'batch.lot_code',
+                'batch.expiry_date',
+                'product.name as product_name',
+            ])
+            ->each(function ($batch) use ($organizationId): void {
+                $days = today()->diffInDays(
+                    \Carbon\CarbonImmutable::parse(
+                        $batch->expiry_date,
+                    ),
+                    false,
+                );
+
+                $phase = match (true) {
+                    $days < 0 => 'expired',
+                    $days <= 7 => '7_days',
+                    $days <= 15 => '15_days',
+                    default => '30_days',
+                };
+
+                $this->publish(
+                    $organizationId,
+                    'inventory-expiry:'
+                        .$batch->id
+                        .':'
+                        .$batch->expiry_date
+                        .':'
+                        .$phase,
+                    'inventory_expiry',
+                    'stock',
+                    [
+                        'name' =>
+                            $batch->product_name
+                            ?: 'Inventory batch',
+                        'detail' =>
+                            $batch->lot_code
+                            .' · '
+                            .$batch->expiry_date,
+                    ],
+                    '/app/inventory/expiry',
+                );
+            });
+    }
+
+    private function syncContractExpiry(
+        int $organizationId,
+    ): void {
+        DB::table('party_contracts')
+            ->where(
+                'organization_id',
+                $organizationId,
+            )
+            ->where('status', 'active')
+            ->whereDate(
+                'ends_on',
+                '<=',
+                today()->addDays(365),
+            )
+            ->orderBy('id')
+            ->limit(250)
+            ->get([
+                'id',
+                'title',
+                'ends_on',
+                'reminder_days',
+            ])
+            ->each(function ($contract) use ($organizationId): void {
+                $days = today()->diffInDays(
+                    \Carbon\CarbonImmutable::parse(
+                        $contract->ends_on,
+                    ),
+                    false,
+                );
+
+                if (
+                    $days > (int) $contract->reminder_days
+                ) {
+                    return;
+                }
+
+                $phase = match (true) {
+                    $days < 0 => 'expired',
+                    $days <= 7 => '7_days',
+                    $days <= 15 => '15_days',
+                    default => '30_days',
+                };
+
+                $this->publish(
+                    $organizationId,
+                    'contract-expiry:'
+                        .$contract->id
+                        .':'
+                        .$contract->ends_on
+                        .':'
+                        .$phase,
+                    'contract_expiry',
+                    'activity',
+                    [
+                        'name' => $contract->title,
+                        'detail' =>
+                            'Ends '
+                            .$contract->ends_on,
+                    ],
+                    '/app/parties/contracts',
+                );
+            });
+    }
+
+    private function syncDocumentExpiry(
+        int $organizationId,
+    ): void {
+        DB::table('expiring_documents')
+            ->where(
+                'organization_id',
+                $organizationId,
+            )
+            ->where('status', 'active')
+            ->whereDate(
+                'expires_on',
+                '<=',
+                today()->addDays(365),
+            )
+            ->orderBy('id')
+            ->limit(250)
+            ->get([
+                'id',
+                'subject_label',
+                'document_type',
+                'expires_on',
+                'reminder_days',
+            ])
+            ->each(function ($document) use ($organizationId): void {
+                $days = today()->diffInDays(
+                    \Carbon\CarbonImmutable::parse(
+                        $document->expires_on,
+                    ),
+                    false,
+                );
+
+                if (
+                    $days > (int) $document->reminder_days
+                ) {
+                    return;
+                }
+
+                $phase = match (true) {
+                    $days < 0 => 'expired',
+                    $days <= 7 => '7_days',
+                    $days <= 15 => '15_days',
+                    default => '30_days',
+                };
+
+                $this->publish(
+                    $organizationId,
+                    'document-expiry:'
+                        .$document->id
+                        .':'
+                        .$document->expires_on
+                        .':'
+                        .$phase,
+                    'document_expiry',
+                    'activity',
+                    [
+                        'name' =>
+                            $document->document_type,
+                        'detail' =>
+                            (
+                                $document->subject_label
+                                ? $document->subject_label
+                                    .' · '
+                                : ''
+                            )
+                            .$document->expires_on,
+                    ],
+                    '/app/documents/expiry',
+                );
             });
     }
 
