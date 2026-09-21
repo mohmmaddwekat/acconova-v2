@@ -132,6 +132,7 @@ function canOpenFinanceView(
                 || permissions.purchases_view
                 || permissions.cash_view
                 || permissions.taxes_view
+                || permissions.approvals_review
                 || permissions.recurring_payments_view;
         case 'sales-list':
         case 'sales-detail':
