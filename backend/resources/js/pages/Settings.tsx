@@ -1866,6 +1866,18 @@ function SettingsWorkspace() {
                                             </div>
                                         )}
                                     </SettingsCard>
+                                    <SettingsCard
+                                        title={text('تخصيص النظام', 'Workspace customization')}
+                                        description={text('حقول وحالات خاصة وقواعد موافقة متعددة المستويات بدون تعديل الكود.', 'Custom fields, statuses and multi-reviewer approval rules without code changes.')}
+                                        icon={Grid2X2}
+                                    >
+                                        <SectionLink
+                                            href="/app/settings/customization"
+                                            icon={Settings2}
+                                            title={text('فتح أدوات التخصيص', 'Open customization builder')}
+                                            description={text('أنشئ حقولاً وحالات وقواعد موافقة خاصة بمساحة العمل.', 'Create workspace-specific fields, statuses and approval rules.')}
+                                        />
+                                    </SettingsCard>
                                 </div>
                             )}
 
