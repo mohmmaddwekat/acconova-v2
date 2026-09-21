@@ -3333,6 +3333,111 @@ function MemberAccessMatrix({
                     )
         );
 
+    const selectedPermissions =
+        new Set(
+            selected
+                ?.effective_permissions
+                ?? [],
+        );
+
+    const reportAccess =
+        selected
+            ? (
+                selectedPermissions.has(
+                    'finance.sales.view',
+                )
+                || selectedPermissions.has(
+                    'finance.purchases.view',
+                )
+                || selectedPermissions.has(
+                    'finance.cash.view',
+                )
+            )
+            : false;
+
+    const systemAreas =
+        selected
+            ? [
+                {
+                    key: 'dashboard',
+                    label: ar
+                        ? 'لوحة التحكم'
+                        : 'Dashboard',
+                    allowed: true,
+                    note: ar
+                        ? 'المحتوى يتكيّف حسب صلاحيات الموديولات.'
+                        : 'Content adapts to module permissions.',
+                },
+                {
+                    key: 'reports',
+                    label: ar
+                        ? 'التقارير وReport Studio'
+                        : 'Reports & Report Studio',
+                    allowed: reportAccess,
+                    note: ar
+                        ? 'يتطلب وصولًا ماليًا للبيانات المستخدمة.'
+                        : 'Requires finance data access.',
+                },
+                {
+                    key: 'scheduled_reports',
+                    label: ar
+                        ? 'إدارة التقارير المجدولة'
+                        : 'Manage scheduled reports',
+                    allowed:
+                        reportAccess
+                        && [
+                            'owner',
+                            'admin',
+                            'manager',
+                        ].includes(
+                            selected.role,
+                        )
+                        && selected.access_mode !==
+                            'custom',
+                    note: ar
+                        ? 'الإدارة حاليًا مرتبطة بالدور النظامي Owner/Admin/Manager.'
+                        : 'Management currently follows built-in Owner/Admin/Manager roles.',
+                },
+                {
+                    key: 'settings',
+                    label: ar
+                        ? 'إعدادات مساحة العمل'
+                        : 'Workspace settings',
+                    allowed: [
+                        'owner',
+                        'admin',
+                    ].includes(
+                        selected.role,
+                    ),
+                    note: ar
+                        ? 'مقصورة حاليًا على Owner وAdmin.'
+                        : 'Currently limited to Owner and Admin.',
+                },
+                {
+                    key: 'roles',
+                    label: ar
+                        ? 'إدارة الأدوار والصلاحيات'
+                        : 'Roles & permissions',
+                    allowed:
+                        selected.role ===
+                        'owner',
+                    note: ar
+                        ? 'مقصورة على مالك مساحة العمل.'
+                        : 'Workspace Owner only.',
+                },
+                {
+                    key: 'team_space',
+                    label: ar
+                        ? 'مساحة الفريق'
+                        : 'Team space',
+                    allowed: true,
+                    note: ar
+                        ? 'متاحة لأعضاء مساحة العمل، مع صلاحيات داخلية حسب السياق.'
+                        : 'Available to workspace members with contextual controls.',
+                },
+            ]
+            : [];
+
     return (
         <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)] sm:p-6">
             <div className="flex flex-col gap-3 border-b border-[var(--ac-line)] pb-5 lg:flex-row lg:items-center lg:justify-between">
@@ -3561,6 +3666,69 @@ function MemberAccessMatrix({
                                 </div>
                             )}
                         </div>
+
+                        <section className="mt-4 rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-4">
+                            <div className="flex items-start gap-2.5">
+                                <span className="flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]">
+                                    <KeyRound size={15} />
+                                </span>
+
+                                <div>
+                                    <h4 className="text-xs font-bold text-[var(--ac-text)]">
+                                        {ar
+                                            ? 'الوصول النظامي'
+                                            : 'System access'}
+                                    </h4>
+
+                                    <p className="mt-1 text-[8px] leading-4 text-[var(--ac-text-muted)]">
+                                        {ar
+                                            ? 'هذه أجزاء لا تُدار كلها بمفتاح صلاحية مستقل؛ المعروض هو السلوك الفعلي الحالي للنظام.'
+                                            : 'These areas are not all controlled by standalone permission keys; this reflects current system behavior.'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                {systemAreas.map(
+                                    area => (
+                                        <div
+                                            key={area.key}
+                                            className={[
+                                                'rounded-[12px] border p-3',
+                                                area.allowed
+                                                    ? 'border-emerald-500/20 bg-emerald-500/10'
+                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)]',
+                                            ].join(' ')}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <strong className="text-[9px] text-[var(--ac-text)]">
+                                                    {area.label}
+                                                </strong>
+
+                                                <span
+                                                    className={[
+                                                        'inline-flex size-5 items-center justify-center rounded-full border',
+                                                        area.allowed
+                                                            ? 'border-emerald-500/25 text-emerald-500'
+                                                            : 'border-[var(--ac-line)] text-[var(--ac-text-muted)]',
+                                                    ].join(' ')}
+                                                >
+                                                    {area.allowed ? (
+                                                        <Check size={10} />
+                                                    ) : (
+                                                        <X size={10} />
+                                                    )}
+                                                </span>
+                                            </div>
+
+                                            <p className="mt-2 text-[8px] leading-4 text-[var(--ac-text-muted)]">
+                                                {area.note}
+                                            </p>
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+                        </section>
 
                         <div className="mt-4 grid gap-3 lg:grid-cols-2">
                             {groups.map(
