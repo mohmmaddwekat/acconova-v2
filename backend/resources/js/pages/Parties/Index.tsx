@@ -1635,7 +1635,7 @@ function PartiesWorkspace() {
                     }
                     canArchive={
                         allowArchive
-                    }
+                    }}
                     onClose={() => {
                         setDetailDrawerOpen(
                             false,
