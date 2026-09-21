@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CashMovement;
 use App\Models\FinanceAuditEvent;
+use App\Services\ApprovalWorkflowService;
 use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
 use App\Tenancy\TenantContext;
@@ -151,10 +152,21 @@ class CashMovementController extends Controller
         return response()->json(['data' => $this->detail($movement)]);
     }
 
-    public function post(Request $request, string $movement, CashMovementService $service): JsonResponse
+    public function post(
+        Request $request,
+        string $movement,
+        CashMovementService $service,
+        ApprovalWorkflowService $approvals,
+    ): JsonResponse
     {
         $movement = CashMovement::query()->findOrFail($movement);
         $this->authorizeDirection($request, $movement->direction);
+
+        $approvals->assertPaymentApproved(
+            $movement,
+            $request->user()->id,
+        );
+
         $movement = $service->post($movement, $request->user()->id);
 
         return response()->json(['data' => $this->detail($movement)]);
