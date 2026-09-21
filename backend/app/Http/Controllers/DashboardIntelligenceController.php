@@ -231,19 +231,89 @@ class DashboardIntelligenceController extends Controller
             app(TenantContext::class)
                 ->id();
 
-        $id = DB::table(
+        $currency =
+            $data['metric']
+            === 'new_customers'
+                ? null
+                : strtoupper(
+                    $data['currency']
+                    ?: (
+                        app(
+                            TenantContext::class,
+                        )
+                            ->organization()
+                            ->currency
+                        ?? ''
+                    ),
+                );
+
+        $existing = DB::table(
             'kpi_targets',
-        )->insertGetId([
-            'organization_id' =>
+        )
+            ->where(
+                'organization_id',
                 $organizationId,
-            'created_by' =>
-                $request->user()->id,
-            ...$data,
-            'created_at' =>
-                now(),
-            'updated_at' =>
-                now(),
-        ]);
+            )
+            ->where(
+                'metric',
+                $data['metric'],
+            )
+            ->where(
+                'period',
+                $data['period'],
+            )
+            ->when(
+                $currency === null,
+                fn ($query) =>
+                    $query->whereNull(
+                        'currency',
+                    ),
+                fn ($query) =>
+                    $query->where(
+                        'currency',
+                        $currency,
+                    ),
+            )
+            ->first();
+
+        if ($existing) {
+            DB::table(
+                'kpi_targets',
+            )
+                ->where(
+                    'id',
+                    $existing->id,
+                )
+                ->update([
+                    'target_value' =>
+                        $data[
+                            'target_value'
+                        ],
+                    'active' =>
+                        $data['active'],
+                    'updated_at' =>
+                        now(),
+                ]);
+
+            $id =
+                (int) $existing->id;
+        } else {
+            $id = DB::table(
+                'kpi_targets',
+            )->insertGetId([
+                'organization_id' =>
+                    $organizationId,
+                'created_by' =>
+                    $request->user()->id,
+                ...$data,
+                'currency' =>
+                    $currency,
+                'created_at' =>
+                    now(),
+                'updated_at' =>
+                    now(),
+            ]);
+        }
 
         return response()->json([
             'data' =>
@@ -255,7 +325,7 @@ class DashboardIntelligenceController extends Controller
                         $id,
                     )
                     ->first(),
-        ], 201);
+        ], $existing ? 200 : 201);
     }
 
     public function updateTarget(
