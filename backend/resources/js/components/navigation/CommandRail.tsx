@@ -375,10 +375,21 @@ export function CommandRail({
                     : 'Finance',
 
             description:
-                locale ===
-                'ar'
-                    ? 'الفواتير والقبض والدفع والضرائب'
-                    : 'Invoices, cash & taxes',
+                canReviewFinanceApprovals
+                && ! canViewSalesInvoices
+                && ! canViewPurchaseInvoices
+                && ! canViewCash
+                && ! canViewTaxes
+                    ? (
+                        locale === 'ar'
+                            ? 'الموافقات المالية'
+                            : 'Finance approvals'
+                    )
+                    : (
+                        locale === 'ar'
+                            ? 'الفواتير والقبض والدفع والضرائب'
+                            : 'Invoices, cash & taxes'
+                    ),
 
             href:
                 financeHref,
