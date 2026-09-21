@@ -80,6 +80,24 @@ return new class extends Migration
             $table->index(['organization_id', 'product_id']);
         });
 
+        Schema::create('trade_document_conversions', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('trade_document_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('financial_document_id')->constrained('financial_documents')->cascadeOnDelete();
+            $table->decimal('converted_quantity', 18, 4)->default(0);
+            $table->timestamps();
+
+            $table->unique([
+                'organization_id',
+                'financial_document_id',
+            ]);
+            $table->index([
+                'organization_id',
+                'trade_document_id',
+            ]);
+        });
+
         Schema::create('return_requests', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
@@ -172,6 +190,7 @@ return new class extends Migration
         Schema::dropIfExists('warranty_claims');
         Schema::dropIfExists('warranty_records');
         Schema::dropIfExists('return_requests');
+        Schema::dropIfExists('trade_document_conversions');
         Schema::dropIfExists('trade_document_lines');
         Schema::dropIfExists('trade_documents');
         Schema::dropIfExists('sales_opportunities');
