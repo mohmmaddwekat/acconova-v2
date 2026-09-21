@@ -235,6 +235,10 @@ export function ContextBar({
             'مركز التدقيق',
             'Audit center',
         ],
+        '/app/audit/bulk-actions': [
+            'سجل العمليات الجماعية',
+            'Bulk action history',
+        ],
         '/app/admin/restore': [
             'مركز الاسترجاع',
             'Restore center',
