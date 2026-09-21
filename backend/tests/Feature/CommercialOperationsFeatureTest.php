@@ -280,6 +280,15 @@ class CommercialOperationsFeatureTest extends TestCase
                 '175.0000',
             );
 
+        $this->patchJson(
+            "/api/operations/promises/{$promiseId}",
+            [
+                'status' => 'open',
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+
         $unlinkedPromiseId = (int) $this->postJson(
             '/api/operations/promises',
             [
@@ -1056,6 +1065,15 @@ class CommercialOperationsFeatureTest extends TestCase
                 'data.status',
                 'resolved',
             );
+
+        $this->patchJson(
+            "/api/operations/warranties/{$warrantyId}/claims/{$claimId}",
+            [
+                'status' => 'in_progress',
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
 
         $warranty = collect(
             $this->getJson(
