@@ -349,7 +349,7 @@ export function PartyDetailDrawer({
                 onClick={
                     closeDialog
                 }
-                className="absolute inset-0 bg-[var(--ac-text)]/20 backdrop-blur-[3px]"
+                className="absolute inset-0 bg-black/35"
             />
 
             <aside
@@ -361,69 +361,15 @@ export function PartyDetailDrawer({
                 aria-label={t(
                     'ui.relationship_context',
                 )}
-                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[-40px_0_100px_rgba(20,35,30,0.16)] sm:max-w-[600px]"
+                className="absolute inset-y-0 end-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-s border-[var(--ac-line-strong)] bg-[var(--ac-surface)] shadow-[-28px_0_80px_rgba(0,0,0,0.28)] sm:max-w-[620px]"
             >
-                <header className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-5 sm:px-6 sm:py-6">
-                    <div className="flex items-start justify-between gap-5">
-                        <div className="flex min-w-0 items-start gap-3.5">
-                            <div className="flex size-12 shrink-0 items-center justify-center rounded-[17px] bg-[var(--ac-surface-strong)]">
-                                {resolvedParty.type ===
-                                'company' ? (
-                                    <Building2
-                                        size={
-                                            20
-                                        }
-                                    />
-                                ) : (
-                                    <UserRound
-                                        size={
-                                            20
-                                        }
-                                    />
-                                )}
-                            </div>
-
-                            <div className="min-w-0">
-                                <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-accent-strong)]">
-                                    {t(
-                                        'ui.relationship_context',
-                                    )}
-                                </p>
-
-                                <h2 className="mt-1.5 break-words text-2xl font-semibold tracking-[-0.045em] sm:text-3xl">
-                                    {
-                                        label
-                                    }
-                                </h2>
-
-                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {resolvedParty.roles.map(
-                                        (
-                                            role,
-                                        ) => (
-                                            <span
-                                                key={
-                                                    role
-                                                }
-                                                className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-accent-strong)]"
-                                            >
-                                                {roleLabel(
-                                                    role,
-                                                )}
-                                            </span>
-                                        ),
-                                    )}
-
-                                    {archived && (
-                                        <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--ac-danger)]">
-                                            {t(
-                                                'ui.archived',
-                                            )}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                <header className="shrink-0 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-4 sm:px-6">
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--ac-accent-strong)]">
+                            {t(
+                                'ui.relationship_context',
+                            )}
+                        </p>
 
                         <div className="flex shrink-0 items-center gap-2">
                             <RecordQuickActions
@@ -438,27 +384,81 @@ export function PartyDetailDrawer({
                                 ar={locale === 'ar'}
                             />
 
-                        <button
-                            type="button"
-                            aria-label={t(
-                                'ui.close_party_details',
-                            )}
-                            onClick={
-                                closeDialog
-                            }
-                            className="flex size-10 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-bg-soft)] hover:text-[var(--ac-text)]"
-                        >
-                            <X
-                                size={
-                                    18
+                            <button
+                                type="button"
+                                aria-label={t(
+                                    'ui.close_party_details',
+                                )}
+                                onClick={
+                                    closeDialog
                                 }
-                            />
-                        </button>
+                                className="flex size-9 shrink-0 items-center justify-center rounded-[11px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)]"
+                            >
+                                <X
+                                    size={
+                                        16
+                                    }
+                                />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 flex min-w-0 items-start gap-3.5">
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]">
+                            {resolvedParty.type ===
+                            'company' ? (
+                                <Building2
+                                    size={
+                                        20
+                                    }
+                                />
+                            ) : (
+                                <UserRound
+                                    size={
+                                        20
+                                    }
+                                />
+                            )}
+                        </div>
+
+                        <div className="min-w-0">
+                            <h2 className="break-words text-2xl font-semibold tracking-[-0.045em] text-[var(--ac-text)] sm:text-[28px]">
+                                {
+                                    label
+                                }
+                            </h2>
+
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {resolvedParty.roles.map(
+                                    (
+                                        role,
+                                    ) => (
+                                        <span
+                                            key={
+                                                role
+                                            }
+                                            className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--ac-accent)]"
+                                        >
+                                            {roleLabel(
+                                                role,
+                                            )}
+                                        </span>
+                                    ),
+                                )}
+
+                                {archived && (
+                                    <span className="rounded-full border border-red-400/25 bg-red-500/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-red-300">
+                                        {t(
+                                            'ui.archived',
+                                        )}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </header>
 
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 sm:py-6">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
                     <div className="mb-6">
                         <RecordHealth
                             ar={locale === 'ar'}
@@ -829,7 +829,7 @@ export function PartyDetailDrawer({
                     </div>
                 </div>
 
-                <footer className="shrink-0 border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[0_-10px_30px_rgba(23,35,30,0.04)] sm:px-6">
+                <footer className="shrink-0 border-t border-[var(--ac-line-strong)] bg-[var(--ac-surface)] px-4 py-3 shadow-[0_-14px_35px_rgba(0,0,0,0.12)] sm:px-6">
                     <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
                         {! archived &&
                             canEdit && (
@@ -840,7 +840,7 @@ export function PartyDetailDrawer({
                                             resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 text-sm font-semibold transition hover:border-[var(--ac-line-strong)]"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[12px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-5 text-sm font-semibold text-[var(--ac-accent)] transition hover:bg-[var(--ac-surface-soft)]"
                                 >
                                     <Edit3
                                         size={
@@ -863,7 +863,7 @@ export function PartyDetailDrawer({
                                             resolvedParty,
                                         )
                                     }
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white transition hover:-translate-y-px motion-reduce:transform-none"
+                                    className="flex h-11 items-center justify-center gap-2 rounded-[12px] border border-red-400/35 bg-red-500/10 px-5 text-sm font-semibold text-red-300 transition hover:bg-red-500/15"
                                 >
                                     <Archive
                                         size={
