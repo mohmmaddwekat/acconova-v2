@@ -3302,6 +3302,13 @@ function MemberAccessMatrix({
         ?? null,
     );
 
+    const [
+        expandedGroups,
+        setExpandedGroups,
+    ] = useState<string[]>(
+        [],
+    );
+
     useEffect(() => {
         if (
             selectedId !== null
@@ -3529,7 +3536,7 @@ function MemberAccessMatrix({
             : [];
 
     return (
-        <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)] sm:p-6">
+        <section className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 sm:p-5">
             <div className="flex flex-col gap-3 border-b border-[var(--ac-line)] pb-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-start gap-3">
                     <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]">
@@ -3568,8 +3575,8 @@ function MemberAccessMatrix({
                 </div>
             </div>
 
-            <div className="mt-5 grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
-                <aside className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3">
+            <div className="mt-4 grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+                <aside className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3 xl:sticky xl:top-24 xl:self-start">
                     <div className="relative">
                         <Search
                             size={14}
@@ -3603,11 +3610,14 @@ function MemberAccessMatrix({
                                     <button
                                         key={member.id}
                                         type="button"
-                                        onClick={() =>
+                                        onClick={() => {
                                             setSelectedId(
                                                 member.id,
-                                            )
-                                        }
+                                            );
+                                            setExpandedGroups(
+                                                [],
+                                            );
+                                        }}
                                         className={[
                                             'flex w-full items-center gap-3 rounded-[14px] border p-3 text-start transition',
                                             active
@@ -3757,7 +3767,7 @@ function MemberAccessMatrix({
                             )}
                         </div>
 
-                        <section className="mt-4 rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-4">
+                        <section className="mt-3 rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3">
                             <div className="flex items-start gap-2.5">
                                 <span className="flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]">
                                     <KeyRound size={15} />
@@ -3784,10 +3794,10 @@ function MemberAccessMatrix({
                                         <div
                                             key={area.key}
                                             className={[
-                                                'rounded-[12px] border p-3',
+                                                'rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2.5',
                                                 area.allowed
-                                                    ? 'border-emerald-500/20 bg-emerald-500/10'
-                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)]',
+                                                    ? ''
+                                                    : 'opacity-60',
                                             ].join(' ')}
                                         >
                                             <div className="flex items-center justify-between gap-2">
@@ -3820,7 +3830,7 @@ function MemberAccessMatrix({
                             </div>
                         </section>
 
-                        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                        <div className="mt-3 space-y-2">
                             {groups.map(
                                 group => {
                                     const available =
@@ -3851,100 +3861,188 @@ function MemberAccessMatrix({
                                     const Icon =
                                         group.icon;
 
+                                    const expanded =
+                                        expandedGroups.includes(
+                                            group.key,
+                                        );
+
+                                    const percent =
+                                        Math.round(
+                                            (
+                                                granted.length
+                                                / available.length
+                                            )
+                                            * 100,
+                                        );
+
                                     return (
                                         <section
                                             key={group.key}
-                                            className="rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-4"
+                                            className={[
+                                                'overflow-hidden rounded-[14px] border transition',
+                                                expanded
+                                                    ? 'border-[var(--ac-line-strong)] bg-[var(--ac-bg)]'
+                                                    : 'border-[var(--ac-line)] bg-[var(--ac-bg)] hover:border-[var(--ac-line-strong)]',
+                                            ].join(' ')}
                                         >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="flex items-start gap-2.5">
-                                                    <span className={[
-                                                        'flex size-9 shrink-0 items-center justify-center rounded-[11px]',
-                                                        granted.length
-                                                            ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
-                                                            : 'bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]',
-                                                    ].join(' ')}>
-                                                        <Icon size={15} />
-                                                    </span>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setExpandedGroups(
+                                                        current =>
+                                                            current.includes(
+                                                                group.key,
+                                                            )
+                                                                ? current.filter(
+                                                                    key =>
+                                                                        key !==
+                                                                        group.key,
+                                                                )
+                                                                : [
+                                                                    ...current,
+                                                                    group.key,
+                                                                ],
+                                                    )
+                                                }
+                                                className="flex w-full items-center gap-3 p-3 text-start sm:p-3.5"
+                                                aria-expanded={
+                                                    expanded
+                                                }
+                                            >
+                                                <span className={[
+                                                    'flex size-9 shrink-0 items-center justify-center rounded-[11px]',
+                                                    granted.length
+                                                        ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                                        : 'bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]',
+                                                ].join(' ')}>
+                                                    <Icon size={15} />
+                                                </span>
 
-                                                    <div>
-                                                        <h4 className="text-xs font-bold text-[var(--ac-text)]">
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="flex flex-wrap items-center gap-2">
+                                                        <strong className="text-[11px] font-bold text-[var(--ac-text)]">
                                                             {ar
                                                                 ? group.titleAr
                                                                 : group.titleEn}
-                                                        </h4>
+                                                        </strong>
 
-                                                        <p className="mt-1 text-[8px] text-[var(--ac-text-muted)]">
+                                                        <span className="text-[8px] font-semibold text-[var(--ac-text-muted)]">
                                                             {granted.length}
                                                             {' / '}
                                                             {available.length}
-                                                            {' '}
+                                                        </span>
+                                                    </span>
+
+                                                    <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-[var(--ac-surface-soft)]">
+                                                        <span
+                                                            className="block h-full rounded-full bg-[var(--ac-accent)] transition-all"
+                                                            style={{
+                                                                width:
+                                                                    String(
+                                                                        percent,
+                                                                    )
+                                                                    + '%',
+                                                            }}
+                                                        />
+                                                    </span>
+                                                </span>
+
+                                                <span className="hidden min-w-[82px] justify-end sm:flex">
+                                                    {granted.length ===
+                                                    available.length ? (
+                                                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[8px] font-bold text-emerald-500">
                                                             {ar
-                                                                ? 'صلاحيات'
-                                                                : 'permissions'}
-                                                        </p>
+                                                                ? 'كامل'
+                                                                : 'Full'}
+                                                        </span>
+                                                    ) : granted.length ===
+                                                        0 ? (
+                                                        <span className="rounded-full border border-[var(--ac-line)] px-2 py-1 text-[8px] font-bold text-[var(--ac-text-muted)]">
+                                                            {ar
+                                                                ? 'بدون وصول'
+                                                                : 'No access'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[8px] font-bold text-amber-500">
+                                                            {ar
+                                                                ? 'جزئي'
+                                                                : 'Partial'}
+                                                        </span>
+                                                    )}
+                                                </span>
+
+                                                <ChevronDown
+                                                    size={14}
+                                                    className={[
+                                                        'shrink-0 text-[var(--ac-text-muted)] transition-transform',
+                                                        expanded
+                                                            ? 'rotate-180'
+                                                            : '',
+                                                    ].join(' ')}
+                                                />
+                                            </button>
+
+                                            {expanded && (
+                                                <div className="border-t border-[var(--ac-line)] px-3 pb-3 pt-3 sm:px-3.5">
+                                                    <p className="mb-3 text-[9px] leading-4 text-[var(--ac-text-muted)]">
+                                                        {ar
+                                                            ? group.descriptionAr
+                                                            : group.descriptionEn}
+                                                    </p>
+
+                                                    <div className="grid gap-2 sm:grid-cols-2">
+                                                        {available.map(
+                                                            permission => {
+                                                                const checked =
+                                                                    selected
+                                                                        .effective_permissions
+                                                                        .includes(
+                                                                            permission,
+                                                                        );
+
+                                                                return (
+                                                                    <div
+                                                                        key={
+                                                                            permission
+                                                                        }
+                                                                        title={
+                                                                            permission
+                                                                        }
+                                                                        className={[
+                                                                            'flex min-h-10 items-center gap-2 rounded-[10px] border px-3 py-2 text-[9px] font-semibold',
+                                                                            checked
+                                                                                ? 'border-[var(--ac-accent)]/20 bg-[var(--ac-accent-soft)] text-[var(--ac-text)]'
+                                                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)]',
+                                                                        ].join(' ')}
+                                                                    >
+                                                                        <span
+                                                                            className={[
+                                                                                'flex size-5 shrink-0 items-center justify-center rounded-full border',
+                                                                                checked
+                                                                                    ? 'border-[var(--ac-accent)]/25 text-[var(--ac-accent)]'
+                                                                                    : 'border-[var(--ac-line)]',
+                                                                            ].join(' ')}
+                                                                        >
+                                                                            {checked ? (
+                                                                                <Check size={10} />
+                                                                            ) : (
+                                                                                <X size={9} />
+                                                                            )}
+                                                                        </span>
+
+                                                                        <span>
+                                                                            {permissionLabel(
+                                                                                permission,
+                                                                                ar,
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            },
+                                                        )}
                                                     </div>
                                                 </div>
-
-                                                {granted.length ===
-                                                available.length ? (
-                                                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[8px] font-bold text-emerald-500">
-                                                        {ar
-                                                            ? 'كامل'
-                                                            : 'Full'}
-                                                    </span>
-                                                ) : granted.length ===
-                                                    0 ? (
-                                                    <span className="rounded-full border border-[var(--ac-line)] px-2 py-1 text-[8px] font-bold text-[var(--ac-text-muted)]">
-                                                        {ar
-                                                            ? 'بدون وصول'
-                                                            : 'No access'}
-                                                    </span>
-                                                ) : (
-                                                    <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[8px] font-bold text-amber-500">
-                                                        {ar
-                                                            ? 'جزئي'
-                                                            : 'Partial'}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            <div className="mt-3 flex flex-wrap gap-1.5">
-                                                {available.map(
-                                                    permission => {
-                                                        const checked =
-                                                            selected
-                                                                .effective_permissions
-                                                                .includes(
-                                                                    permission,
-                                                                );
-
-                                                        return (
-                                                            <span
-                                                                key={permission}
-                                                                title={permission}
-                                                                className={[
-                                                                    'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[8px] font-semibold',
-                                                                    checked
-                                                                        ? 'border-[var(--ac-accent)]/20 bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
-                                                                        : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] opacity-55',
-                                                                ].join(' ')}
-                                                            >
-                                                                {checked ? (
-                                                                    <Check size={9} />
-                                                                ) : (
-                                                                    <X size={9} />
-                                                                )}
-
-                                                                {permissionLabel(
-                                                                    permission,
-                                                                    ar,
-                                                                )}
-                                                            </span>
-                                                        );
-                                                    },
-                                                )}
-                                            </div>
+                                            )}
                                         </section>
                                     );
                                 },
