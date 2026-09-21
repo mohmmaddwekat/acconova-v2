@@ -159,6 +159,26 @@ class FinanceDocumentService
                 ]);
             }
 
+            if ($locked->isSale()) {
+                /*
+                 * Refresh cost snapshots at issue time so profitability does
+                 * not drift later when the catalog cost changes. This is a
+                 * reporting snapshot only; it does not change accounting or
+                 * inventory valuation entries.
+                 */
+                $locked->load('lines.product');
+
+                foreach ($locked->lines as $line) {
+                    if (! $line->product) {
+                        continue;
+                    }
+
+                    $line->cost_price_snapshot =
+                        $line->product->cost_price;
+                    $line->save();
+                }
+            }
+
             $warnings = $this->warnings($locked);
 
             if ($warnings !== [] && ! $acknowledgeWarnings) {
@@ -307,6 +327,7 @@ class FinanceDocumentService
                     'unit_snapshot' => $line->unit_snapshot,
                     'quantity' => $line->quantity,
                     'unit_price' => $line->unit_price,
+                    'cost_price_snapshot' => $line->cost_price_snapshot,
                     'price_status' => $line->price_status,
                     'discount_percent' => $line->discount_percent,
                     'discount_type' => $line->discount_type,
@@ -686,6 +707,7 @@ class FinanceDocumentService
                 'unit_snapshot' => $line['unit'] ?? $product?->unit,
                 'quantity' => number_format($quantity, 4, '.', ''),
                 'unit_price' => number_format($unitPrice, 4, '.', ''),
+                'cost_price_snapshot' => $product?->cost_price,
                 'price_status' => $priceStatus,
                 'discount_percent' => number_format($discountPercent, 4, '.', ''),
                 'discount_type' => $discountType,
