@@ -15,6 +15,188 @@ use Illuminate\Validation\ValidationException;
 
 class BusinessControlController extends Controller
 {
+    public function lookups(
+        Request $request,
+    ): JsonResponse {
+        $tenant = app(
+            TenantContext::class,
+        );
+        $organizationId =
+            $tenant->id();
+
+        $canFinance =
+            FinanceAuthorization::allows(
+                $request->user(),
+                'finance.cash.view',
+            )
+            || FinanceAuthorization::allows(
+                $request->user(),
+                'finance.purchases.view',
+            )
+            || FinanceAuthorization::allows(
+                $request->user(),
+                'finance.sales.view',
+            );
+
+        $canStaff =
+            StaffController::allowed(
+                'staff.view',
+            )
+            || StaffController::allowed(
+                'staff.team_view',
+            );
+
+        $canParties =
+            $request->user()?->can(
+                'viewAny',
+                Party::class,
+            )
+            ?? false;
+
+        $departments =
+            ($canFinance || $canStaff)
+                ? DB::table('departments')
+                    ->where(
+                        'organization_id',
+                        $organizationId,
+                    )
+                    ->orderBy('name')
+                    ->get([
+                        'id',
+                        'name',
+                    ])
+                : DB::table(
+                    'staff_members as staff',
+                )
+                    ->join(
+                        'departments as department',
+                        'department.id',
+                        '=',
+                        'staff.department_id',
+                    )
+                    ->where(
+                        'staff.organization_id',
+                        $organizationId,
+                    )
+                    ->where(
+                        'staff.user_id',
+                        $request->user()->id,
+                    )
+                    ->get([
+                        'department.id',
+                        'department.name',
+                    ]);
+
+        $parties = $canParties
+            ? Party::query()
+                ->usableForNewBusiness()
+                ->orderByRaw(
+                    'COALESCE(company_name, name)',
+                )
+                ->limit(500)
+                ->get([
+                    'id',
+                    'name',
+                    'company_name',
+                ])
+                ->map(fn (Party $party): array => [
+                    'id' => $party->id,
+                    'name' =>
+                        $party->company_name
+                        ?: $party->name,
+                ])
+            : collect();
+
+        $purchaseDocuments =
+            FinanceAuthorization::allows(
+                $request->user(),
+                'finance.purchases.view',
+            )
+                ? DB::table(
+                    'financial_documents as document',
+                )
+                    ->leftJoin(
+                        'parties as party',
+                        'party.id',
+                        '=',
+                        'document.party_id',
+                    )
+                    ->where(
+                        'document.organization_id',
+                        $organizationId,
+                    )
+                    ->where(
+                        'document.kind',
+                        'purchase_invoice',
+                    )
+                    ->whereIn(
+                        'document.status',
+                        [
+                            'issued',
+                            'partially_paid',
+                            'paid',
+                            'overpaid',
+                        ],
+                    )
+                    ->latest(
+                        'document.issue_date',
+                    )
+                    ->limit(250)
+                    ->get([
+                        'document.id',
+                        'document.number',
+                        'document.total',
+                        'document.currency',
+                        'party.name as party_name',
+                        'party.company_name',
+                    ])
+                    ->map(fn ($row): array => [
+                        'id' => $row->id,
+                        'number' => $row->number,
+                        'total' => $row->total,
+                        'currency' => $row->currency,
+                        'party' =>
+                            $row->company_name
+                            ?: $row->party_name,
+                    ])
+                : collect();
+
+        $staff = $canStaff
+            ? DB::table('staff_members')
+                ->where(
+                    'organization_id',
+                    $organizationId,
+                )
+                ->where('active', true)
+                ->orderBy('name')
+                ->limit(500)
+                ->get([
+                    'id',
+                    'name',
+                    'department_id',
+                ])
+            : collect();
+
+        return response()->json([
+            'currency' => strtoupper(
+                (string) (
+                    $tenant->organization()
+                        ->preferences['currency']
+                    ?? 'ILS'
+                ),
+            ),
+            'departments' => $departments,
+            'parties' => $parties,
+            'purchase_documents' =>
+                $purchaseDocuments,
+            'staff' => $staff,
+            'can_review_expense_claims' =>
+                $this->canReviewExpenseClaims(
+                    $request,
+                ),
+        ]);
+    }
+
     public function index(
         Request $request,
         string $feature,
