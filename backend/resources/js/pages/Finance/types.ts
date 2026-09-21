@@ -92,6 +92,7 @@ export type FinancePermissions = {
     cash_receive: boolean;
     cash_correct: boolean;
     documents_correct: boolean;
+    approvals_review: boolean;
     taxes_view: boolean;
     taxes_manage: boolean;
     recurring_payments_view: boolean;
