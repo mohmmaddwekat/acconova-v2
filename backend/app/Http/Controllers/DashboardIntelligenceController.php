@@ -1215,7 +1215,7 @@ class DashboardIntelligenceController extends Controller
                     'url' =>
                         '/app/audit',
                 ],
-            );
+            )
                 : collect();
 
         $canViewBulkAudit =
