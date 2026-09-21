@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrganizationRole;
 use App\Models\OrganizationSequence;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -345,11 +346,23 @@ class WorkspaceSettingsController extends Controller
 
     private function authorizeSettings(TenantContext $context): void
     {
+        $user = request()->user();
+
         abort_unless(
-            in_array(
-                $context->role(),
-                [OrganizationRole::Owner, OrganizationRole::Admin],
-                true,
+            $user
+            && (
+                WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'workspace.settings.view',
+                )
+                || WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'workspace.settings.manage',
+                )
+                || WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'workspace.logo.manage',
+                )
             ),
             403,
         );
