@@ -7,9 +7,12 @@ import {
 } from '@inertiajs/react';
 import {
     BellRing,
+    CalendarClock,
+    HandCoins,
     Plus,
     Search,
     Sparkles,
+    TrendingUp,
     UsersRound,
     X,
 } from 'lucide-react';
@@ -1108,6 +1111,30 @@ function PartiesWorkspace() {
                         >
                             <BellRing size={14} />
                             {ar ? 'طابور المتابعة' : 'Follow-up queue'}
+                        </Link>
+
+                        <Link
+                            href="/app/crm/pipeline"
+                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                        >
+                            <TrendingUp size={14} />
+                            {ar ? 'مسار المبيعات' : 'Sales pipeline'}
+                        </Link>
+
+                        <Link
+                            href="/app/parties/payment-promises"
+                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                        >
+                            <CalendarClock size={14} />
+                            {ar ? 'وعود الدفع' : 'Payment promises'}
+                        </Link>
+
+                        <Link
+                            href="/app/finance/collections"
+                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                        >
+                            <HandCoins size={14} />
+                            {ar ? 'التحصيل' : 'Collections'}
                         </Link>
                     </div>
                 )}
