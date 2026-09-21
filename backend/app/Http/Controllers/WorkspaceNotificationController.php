@@ -22,11 +22,33 @@ class WorkspaceNotificationController extends Controller
         $custom = WorkspacePermissions::custom($request->user()->id, app(TenantContext::class)->id());
         if ($custom) {
             $categories = ['messages'];
-            foreach (['inventory.view' => 'stock', 'payments.view' => 'payments', 'products.view' => 'activity'] as $permission => $category) {
-                if (in_array($permission, $custom->permissions, true)) {
-                    $categories[] = $category;
-                }
-            } $query->whereIn('category', $categories);
+            $permissions = $custom->permissions;
+
+            if (in_array('inventory.view', $permissions, true)) {
+                $categories[] = 'stock';
+            }
+
+            if (
+                in_array('payments.view', $permissions, true)
+                || in_array('finance.cash.view', $permissions, true)
+                || in_array('finance.sales.view', $permissions, true)
+                || in_array('finance.purchases.view', $permissions, true)
+            ) {
+                $categories[] = 'payments';
+                $categories[] = 'activity';
+            }
+
+            if (
+                in_array('products.view', $permissions, true)
+                || in_array('parties.view', $permissions, true)
+            ) {
+                $categories[] = 'activity';
+            }
+
+            $query->whereIn(
+                'category',
+                array_values(array_unique($categories)),
+            );
         } elseif (app(TenantContext::class)->role() === OrganizationRole::Employee) {
             $query->whereIn('category', ['stock', 'messages']);
         }
