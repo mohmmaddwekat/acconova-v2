@@ -8,6 +8,7 @@ import {
 import type { AppPageProps } from '@/types/app';
 import {
     ArrowRight,
+    CalendarClock,
     ReceiptText,
     ShoppingCart,
 } from 'lucide-react';
@@ -41,6 +42,12 @@ export default function ReportsIndex() {
         )
         : builtInFinanceAccess;
 
+    const canViewCash = customPermissions
+        ? customPermissions.includes(
+            'finance.cash.view',
+        )
+        : builtInFinanceAccess;
+
     const reports = [
         {
             title:
@@ -67,6 +74,22 @@ export default function ReportsIndex() {
             href: '/app/reports/ap-aging',
             icon: ShoppingCart,
             visible: canViewPurchases,
+        },
+        {
+            title:
+                ar
+                    ? 'التقارير المجدولة'
+                    : 'Scheduled reports',
+            description:
+                ar
+                    ? 'جهّز تقارير المبيعات والذمم والتحصيل والميزانيات تلقائياً واحفظ Snapshot لكل تشغيل.'
+                    : 'Automatically generate sales, aging, collections and budget reports with a historical snapshot for each run.',
+            href: '/app/reports/scheduled',
+            icon: CalendarClock,
+            visible:
+                canViewSales
+                || canViewPurchases
+                || canViewCash,
         },
     ];
 
