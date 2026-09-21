@@ -1018,6 +1018,16 @@ function RoleWorkspace() {
             'members',
         );
 
+    const [
+        designerExpandedGroups,
+        setDesignerExpandedGroups,
+    ] =
+        useState<string[]>(
+            [
+                'finance',
+            ],
+        );
+
     const copy =
         ar
             ? {
@@ -2893,12 +2903,17 @@ function RoleWorkspace() {
                                                             ),
                                                     );
 
+                                                const designerExpanded =
+                                                    designerExpandedGroups.includes(
+                                                        group.key,
+                                                    );
+
                                                 return (
                                                     <section
                                                         key={
                                                             group.key
                                                         }
-                                                        className="rounded-[19px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4"
+                                                        className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3.5"
                                                     >
                                                         <div className="flex flex-wrap items-start justify-between gap-3">
                                                             <div className="flex items-start gap-3">
@@ -2925,22 +2940,65 @@ function RoleWorkspace() {
                                                                 </div>
                                                             </div>
 
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    toggleGroup(
-                                                                        group,
-                                                                    )
-                                                                }
-                                                                className="rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-2 text-[9px] font-semibold"
-                                                            >
-                                                                {allSelected
-                                                                    ? copy.clear
-                                                                    : copy.selectAll}
-                                                            </button>
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setDesignerExpandedGroups(
+                                                                            current =>
+                                                                                current.includes(
+                                                                                    group.key,
+                                                                                )
+                                                                                    ? current.filter(
+                                                                                        key =>
+                                                                                            key !==
+                                                                                            group.key,
+                                                                                    )
+                                                                                    : [
+                                                                                        ...current,
+                                                                                        group.key,
+                                                                                    ],
+                                                                        )
+                                                                    }
+                                                                    className="flex size-9 items-center justify-center rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] transition hover:border-[var(--ac-line-strong)] hover:text-[var(--ac-text)]"
+                                                                    aria-label={
+                                                                        ar
+                                                                            ? 'فتح أو إغلاق المجموعة'
+                                                                            : 'Toggle group'
+                                                                    }
+                                                                    aria-expanded={
+                                                                        designerExpanded
+                                                                    }
+                                                                >
+                                                                    <ChevronDown
+                                                                        size={13}
+                                                                        className={[
+                                                                            'transition-transform',
+                                                                            designerExpanded
+                                                                                ? 'rotate-180'
+                                                                                : '',
+                                                                        ].join(' ')}
+                                                                    />
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        toggleGroup(
+                                                                            group,
+                                                                        )
+                                                                    }
+                                                                    className="rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-2 text-[9px] font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-line-strong)] hover:text-[var(--ac-text)]"
+                                                                >
+                                                                    {allSelected
+                                                                        ? copy.clear
+                                                                        : copy.selectAll}
+                                                                </button>
+                                                            </div>
                                                         </div>
 
-                                                        {group.key ===
+                                                        {designerExpanded
+                                                            && group.key ===
                                                             'teams' && (
                                                             <div className="mt-4 grid gap-2 sm:grid-cols-3">
                                                                 <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-[9px] text-[var(--ac-text-muted)]">
@@ -2972,7 +3030,8 @@ function RoleWorkspace() {
                                                             </div>
                                                         )}
 
-                                                        {group.key ===
+                                                        {designerExpanded
+                                                            && group.key ===
                                                             'staff' && (
                                                             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                                                                 <div className="rounded-[13px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-[9px] text-[var(--ac-text-muted)]">
@@ -3013,7 +3072,13 @@ function RoleWorkspace() {
                                                             </div>
                                                         )}
 
-                                                        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                                        <div
+                                                            className={
+                                                                designerExpanded
+                                                                    ? 'mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3'
+                                                                    : 'hidden'
+                                                            }
+                                                        >
                                                             {group.permissions.map(
                                                                 permission => {
                                                                     const checked =
