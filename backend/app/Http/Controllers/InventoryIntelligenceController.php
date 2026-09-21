@@ -96,12 +96,47 @@ class InventoryIntelligenceController extends Controller
             )
             ->pluck('qty', 'product_id');
 
+        $productionConsumption30 = DB::table('stock_movements')
+            ->where('organization_id', $organizationId)
+            ->whereIn('product_id', $productIds)
+            ->where(
+                'type',
+                StockMovementType::ProductionOut->value,
+            )
+            ->where(
+                'created_at',
+                '>=',
+                now()->subDays(30),
+            )
+            ->groupBy('product_id')
+            ->selectRaw(
+                'product_id, COALESCE(SUM(ABS(quantity)), 0) as qty',
+            )
+            ->pluck('qty', 'product_id');
+
+        $productionConsumption90 = DB::table('stock_movements')
+            ->where('organization_id', $organizationId)
+            ->whereIn('product_id', $productIds)
+            ->where(
+                'type',
+                StockMovementType::ProductionOut->value,
+            )
+            ->where(
+                'created_at',
+                '>=',
+                now()->subDays(90),
+            )
+            ->groupBy('product_id')
+            ->selectRaw(
+                'product_id, COALESCE(SUM(ABS(quantity)), 0) as qty',
+            )
+            ->pluck('qty', 'product_id');
+
         $lastOutbound = DB::table('stock_movements')
             ->where('organization_id', $organizationId)
             ->whereIn('product_id', $productIds)
             ->whereIn('type', [
                 StockMovementType::Sale->value,
-                StockMovementType::TransferOut->value,
                 StockMovementType::ProductionOut->value,
                 StockMovementType::SupplierReturn->value,
             ])
@@ -144,6 +179,8 @@ class InventoryIntelligenceController extends Controller
             $lastOutbound,
             $lastMovement,
             $firstInbound,
+            $productionConsumption30,
+            $productionConsumption90,
             $leadDays,
             $safetyDays,
         ): array {
@@ -153,8 +190,25 @@ class InventoryIntelligenceController extends Controller
                 ->sum(fn ($balance): float => (float) $balance->reserved);
             $available = max($onHand - $reserved, 0);
 
-            $qty30 = (float) ($sales30[$product->id] ?? 0);
-            $qty90 = (float) ($sales90[$product->id] ?? 0);
+            $salesQty30 = (float) ($sales30[$product->id] ?? 0);
+            $salesQty90 = (float) ($sales90[$product->id] ?? 0);
+            $productionQty30 =
+                (float) ($productionConsumption30[$product->id] ?? 0);
+            $productionQty90 =
+                (float) ($productionConsumption90[$product->id] ?? 0);
+
+            /*
+             * Raw materials are often consumed by Production rather than sold
+             * directly, so organizational demand includes actual production
+             * consumption. Internal warehouse transfers are deliberately
+             * excluded because they do not consume stock at company level.
+             */
+            $qty30 =
+                $salesQty30
+                + $productionQty30;
+            $qty90 =
+                $salesQty90
+                + $productionQty90;
             $daily30 = $qty30 / 30;
             $daily90 = $qty90 / 90;
 
@@ -219,8 +273,22 @@ class InventoryIntelligenceController extends Controller
                     '.',
                     '',
                 ),
-                'sales_30_days' => number_format($qty30, 4, '.', ''),
-                'sales_90_days' => number_format($qty90, 4, '.', ''),
+                'sales_30_days' => number_format($salesQty30, 4, '.', ''),
+                'sales_90_days' => number_format($salesQty90, 4, '.', ''),
+                'production_consumption_30_days' => number_format(
+                    $productionQty30,
+                    4,
+                    '.',
+                    '',
+                ),
+                'production_consumption_90_days' => number_format(
+                    $productionQty90,
+                    4,
+                    '.',
+                    '',
+                ),
+                'demand_30_days' => number_format($qty30, 4, '.', ''),
+                'demand_90_days' => number_format($qty90, 4, '.', ''),
                 'daily_demand' => number_format($dailyDemand, 4, '.', ''),
                 'reorder_quantity' => number_format(
                     $reorderQuantity,
