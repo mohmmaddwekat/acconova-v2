@@ -56,10 +56,11 @@ class SystemCheckController extends Controller
             'invoice_templates',
             'recurring_invoice_profiles',
             'record_tags',
+            'record_taggables',
             'record_comments',
             'record_attachments',
             'record_reminders',
-            'party_relationships',
+            'party_relationship_links',
             'party_product_prices',
             'financial_line_fulfillments',
             'approval_requests',
@@ -112,7 +113,8 @@ class SystemCheckController extends Controller
                     )
                         ? route(
                             $routeName,
-                            absolute: false,
+                            [],
+                            false,
                         )
                         : 'missing',
             ];
