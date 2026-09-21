@@ -627,6 +627,12 @@ export default function ControlWorkspace({
         statusFilter,
         setStatusFilter,
     ] = useState('');
+    const [
+        expenseReceipt,
+        setExpenseReceipt,
+    ] = useState<File | null>(
+        null,
+    );
 
     const load = async (): Promise<void> => {
         setLoading(true);
@@ -705,6 +711,7 @@ export default function ControlWorkspace({
         void load();
         setSearch('');
         setStatusFilter('');
+        setExpenseReceipt(null);
     }, [
         feature,
         activeOrganization?.id,
@@ -808,20 +815,47 @@ export default function ControlWorkspace({
         setError('');
 
         try {
-            await apiRequest(
-                '/api/control/'
-                + feature,
-                {
-                    method: 'POST',
-                    body:
-                        JSON.stringify(
-                            buildPayload(
-                                feature,
-                                form,
+            const response =
+                await apiRequest<{
+                    data: Row;
+                }>(
+                    '/api/control/'
+                    + feature,
+                    {
+                        method: 'POST',
+                        body:
+                            JSON.stringify(
+                                buildPayload(
+                                    feature,
+                                    form,
+                                ),
                             ),
-                        ),
-                },
-            );
+                    },
+                );
+
+            if (
+                feature === 'expense-claims'
+                && expenseReceipt
+                && response.data?.id
+            ) {
+                const body =
+                    new FormData();
+
+                body.append(
+                    'receipt',
+                    expenseReceipt,
+                );
+
+                await apiRequest(
+                    '/api/control/expense-claims/'
+                    + String(response.data.id)
+                    + '/receipt',
+                    {
+                        method: 'POST',
+                        body,
+                    },
+                );
+            }
 
             setForm(
                 defaultForm(
@@ -829,6 +863,7 @@ export default function ControlWorkspace({
                     lookups.currency,
                 ),
             );
+            setExpenseReceipt(null);
             await load();
         } catch (failure) {
             setError(
@@ -1157,6 +1192,30 @@ export default function ControlWorkspace({
                                     />
                                 ),
                             )}
+
+                            {feature
+                                === 'expense-claims'
+                                && (
+                                    <label>
+                                        <span className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
+                                            {ar
+                                                ? 'صورة / PDF فاتورة المصروف'
+                                                : 'Expense receipt image / PDF'}
+                                        </span>
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                                            onChange={
+                                                event =>
+                                                    setExpenseReceipt(
+                                                        event.target.files?.[0]
+                                                        ?? null,
+                                                    )
+                                            }
+                                            className="mt-1 block w-full rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 py-2 text-xs text-[var(--ac-text)] file:me-3 file:rounded-[9px] file:border file:border-[var(--ac-line)] file:bg-transparent file:px-3 file:py-1.5 file:text-[10px] file:font-semibold file:text-[var(--ac-text-soft)]"
+                                        />
+                                    </label>
+                                )}
                         </div>
 
                         <div className="mt-4 flex justify-end">
@@ -2191,6 +2250,26 @@ function RowActions({
                         : 'Open record'}
                 </Link>
             )}
+
+            {feature
+                === 'expense-claims'
+                && row.receipt_url
+                && (
+                    <a
+                        href={
+                            row.receipt_url
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className={
+                            button
+                        }
+                    >
+                        {ar
+                            ? 'فتح فاتورة المصروف'
+                            : 'Open receipt'}
+                    </a>
+                )}
 
             {feature
                 === 'landed-costs'
