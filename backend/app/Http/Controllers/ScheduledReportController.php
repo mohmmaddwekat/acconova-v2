@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\OrganizationRole;
 use App\Services\FinanceAuthorization;
 use App\Services\ScheduledReportService;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -419,7 +420,7 @@ class ScheduledReportController extends Controller
     private function authorizeView(
         Request $request,
     ): void {
-        abort_unless(
+        $canReadFinance =
             FinanceAuthorization::allows(
                 $request->user(),
                 'finance.sales.view',
@@ -431,6 +432,13 @@ class ScheduledReportController extends Controller
             || FinanceAuthorization::allows(
                 $request->user(),
                 'finance.cash.view',
+            );
+
+        abort_unless(
+            $canReadFinance
+            && WorkspaceFeaturePermissions::allows(
+                $request->user(),
+                'reports.scheduled.view',
             ),
             403,
         );
@@ -446,15 +454,22 @@ class ScheduledReportController extends Controller
 
     private function canManage(): bool
     {
-        return in_array(
-            app(TenantContext::class)
-                ->role(),
-            [
-                OrganizationRole::Owner,
-                OrganizationRole::Admin,
-                OrganizationRole::Manager,
-            ],
-            true,
-        );
+        $user = request()->user();
+
+        return $user
+            && (
+                WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'reports.scheduled.create',
+                )
+                || WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'reports.scheduled.update',
+                )
+                || WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'reports.scheduled.run',
+                )
+            );
     }
 }
