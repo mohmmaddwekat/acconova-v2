@@ -498,6 +498,42 @@ export function BusinessIntelligenceDashboard({
         });
     }
 
+    async function removeTarget(
+        id: number,
+    ): Promise<void> {
+        if (
+            busy
+            || ! canManageTargets
+        ) {
+            return;
+        }
+
+        setBusy(true);
+        setError('');
+
+        try {
+            await apiRequest(
+                '/api/dashboard-intelligence/kpi-targets/'
+                + id,
+                {
+                    method: 'DELETE',
+                },
+            );
+            await load();
+        } catch (failure) {
+            setError(
+                failure instanceof ApiError
+                    ? failure.message
+                    : text(
+                        'تعذر حذف الهدف.',
+                        'Could not delete KPI target.',
+                    ),
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function createTarget(
         event: FormEvent,
     ): Promise<void> {
@@ -685,10 +721,32 @@ export function BusinessIntelligenceDashboard({
                                                         %
                                                     </strong>
                                                 </div>
-                                                <Target
-                                                    size={16}
-                                                    className="text-[var(--ac-accent)]"
-                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <Target
+                                                        size={16}
+                                                        className="text-[var(--ac-accent)]"
+                                                    />
+                                                    {canManageTargets && (
+                                                        <button
+                                                            type="button"
+                                                            disabled={busy}
+                                                            onClick={() =>
+                                                                void removeTarget(
+                                                                    target.id,
+                                                                )
+                                                            }
+                                                            className="flex size-7 items-center justify-center rounded-[8px] border border-red-400/30 text-red-300 transition hover:bg-red-500/10 disabled:opacity-40"
+                                                            aria-label={text(
+                                                                'حذف الهدف',
+                                                                'Delete target',
+                                                            )}
+                                                        >
+                                                            <X
+                                                                size={11}
+                                                            />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--ac-line)]">
@@ -1193,8 +1251,8 @@ export function BusinessIntelligenceDashboard({
                     'What changed since last time?',
                 )}
                 eyebrow={text(
-                    'منذ آخر فتح للوحة',
-                    'Since your last dashboard visit',
+                    'منذ آخر تسجيل دخول',
+                    'Since your previous login',
                 )}
                 icon={
                     <RefreshCcw
