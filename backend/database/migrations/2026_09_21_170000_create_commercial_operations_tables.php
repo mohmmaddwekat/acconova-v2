@@ -14,6 +14,8 @@ return new class extends Migration
             $table->foreignId('party_id')->constrained()->cascadeOnDelete();
             $table->foreignId('financial_document_id')->nullable()->constrained('financial_documents')->nullOnDelete();
             $table->decimal('amount', 18, 4);
+            $table->decimal('baseline_balance', 18, 4)->nullable();
+            $table->decimal('baseline_received_total', 18, 4)->nullable();
             $table->date('promised_on');
             $table->string('status', 24)->default('open');
             $table->text('note')->nullable();
