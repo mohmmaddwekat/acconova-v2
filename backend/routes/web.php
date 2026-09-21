@@ -8,6 +8,7 @@ use App\Http\Controllers\ApprovalWorkflowController;
 use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\AuditCenterController;
 use App\Http\Controllers\BusinessPulseController;
+use App\Http\Controllers\BulkActionHistoryController;
 use App\Http\Controllers\BusinessControlController;
 use App\Http\Controllers\CommercialOperationsController;
 use App\Http\Controllers\RestoreCenterController;
@@ -597,6 +598,11 @@ Route::middleware([
     )->name('app.audit');
 
     Route::get(
+        '/app/audit/bulk-actions',
+        fn () => Inertia::render('Audit/BulkActions'),
+    )->name('app.audit.bulk-actions');
+
+    Route::get(
         '/app/admin/restore',
         fn () => Inertia::render('Admin/RestoreCenter'),
     )->name('app.admin.restore');
@@ -1006,6 +1012,11 @@ Route::prefix(
         Route::get(
             'audit-center',
             [AuditCenterController::class, 'index'],
+        );
+
+        Route::get(
+            'bulk-action-history',
+            [BulkActionHistoryController::class, 'index'],
         );
 
         Route::get(
