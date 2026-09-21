@@ -378,21 +378,24 @@ export default function ScheduledReports() {
                 >
                     <div
                         aria-hidden="true"
-                        className="pointer-events-none absolute inset-y-0 start-0 hidden w-[34%] lg:block"
+                        className={[
+                            'pointer-events-none absolute inset-y-0 hidden w-[34%] lg:block',
+                            ar ? 'left-0' : 'right-0',
+                        ].join(' ')}
                     >
-                        <div className="absolute start-20 top-1/2 size-48 -translate-y-1/2 rounded-full bg-[var(--ac-accent)]/10 blur-[55px]" />
-                        <div className="absolute start-28 top-9 h-28 w-20 rotate-[8deg] rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] shadow-[var(--ac-shadow-soft)]" />
-                        <div className="absolute start-20 top-14 h-28 w-20 -rotate-[4deg] rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)]" />
-                        <div className="absolute start-[8.8rem] top-[4.2rem] flex size-16 items-center justify-center rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-accent)] shadow-[var(--ac-shadow-soft)]">
+                        <div className="absolute left-20 top-1/2 size-48 -translate-y-1/2 rounded-full bg-[var(--ac-accent)]/10 blur-[55px]" />
+                        <div className="absolute left-28 top-9 h-28 w-20 rotate-[8deg] rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] shadow-[var(--ac-shadow-soft)]" />
+                        <div className="absolute left-20 top-14 h-28 w-20 -rotate-[4deg] rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)]" />
+                        <div className="absolute left-[8.8rem] top-[4.2rem] flex size-16 items-center justify-center rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-accent)] shadow-[var(--ac-shadow-soft)]">
                             <BarChart3 size={28} />
                         </div>
-                        <div className="absolute start-[15.8rem] top-[7.6rem] flex size-12 items-center justify-center rounded-full border border-[var(--ac-line)] bg-[var(--ac-accent)] text-white shadow-[var(--ac-shadow-soft)]">
+                        <div className="absolute left-[15.8rem] top-[7.6rem] flex size-12 items-center justify-center rounded-full border border-[var(--ac-line)] bg-[var(--ac-accent)] text-white shadow-[var(--ac-shadow-soft)]">
                             <Clock3 size={20} />
                         </div>
                     </div>
 
                     <div className="relative flex flex-wrap items-start justify-between gap-5">
-                        <div className="max-w-4xl">
+                        <div className="max-w-4xl lg:max-w-[62%]">
                             <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--ac-accent)]">
                                 {ar ? 'التقارير' : 'REPORTS'}
                             </p>
