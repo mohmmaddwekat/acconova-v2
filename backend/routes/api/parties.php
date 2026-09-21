@@ -105,6 +105,24 @@ Route::middleware([
         'party',
     );
 
+    Route::delete(
+        'parties/{party}/opening-balances/{side}',
+        [
+            PartyAccountController::class,
+            'deleteOpeningBalance',
+        ],
+    )
+        ->whereNumber(
+            'party',
+        )
+        ->whereIn(
+            'side',
+            [
+                'customer',
+                'supplier',
+            ],
+        );
+
     Route::get(
         'parties/{party}/360',
         PartyInsightsController::class,
