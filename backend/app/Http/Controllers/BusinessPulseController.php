@@ -342,6 +342,72 @@ class BusinessPulseController extends Controller
 
         if (FinanceAuthorization::allows(
             $request->user(),
+            'finance.cash.view',
+        )) {
+            PaymentPlan::query()
+                ->where('active', true)
+                ->whereBetween('next_due_on', [
+                    $start->format('Y-m-d'),
+                    $end->format('Y-m-d'),
+                ])
+                ->get()
+                ->each(function (PaymentPlan $plan) use ($rows): void {
+                    $rows->push([
+                        'key' => 'plan-'.$plan->id,
+                        'date' => $plan->next_due_on?->format('Y-m-d'),
+                        'direction' => $plan->direction,
+                        'kind' => 'recurring_payment',
+                        'label' => $plan->title,
+                        'amount' => $plan->amount,
+                        'currency' => $plan->currency,
+                        'url' => '/app/payments?view=recurring',
+                    ]);
+                });
+        }
+
+        $grouped = $rows
+            ->sortBy('date')
+            ->groupBy('date')
+            ->map(function ($items, $date) {
+                return [
+                    'date' => $date,
+                    'incoming' => number_format(
+                        (float) $items
+                            ->where('direction', 'incoming')
+                            ->sum(fn ($item) => (float) $item['amount']),
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'outgoing' => number_format(
+                        (float) $items
+                            ->where('direction', 'outgoing')
+                            ->sum(fn ($item) => (float) $item['amount']),
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'items' => $items->values(),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => [
+                'month' => $month->format('Y-m'),
+                'days' => $grouped,
+            ],
+        ]);
+    }
+
+    public function anomalies(
+        Request $request,
+    ): JsonResponse {
+        $organizationId = app(TenantContext::class)->id();
+        $items = collect();
+
+        if (FinanceAuthorization::allows(
+            $request->user(),
             'finance.sales.view',
         )) {
             $balances = DB::table('financial_documents as d')
@@ -406,72 +472,6 @@ class BusinessPulseController extends Controller
                     });
             }
         }
-
-        if (FinanceAuthorization::allows(
-            $request->user(),
-            'finance.cash.view',
-        )) {
-            PaymentPlan::query()
-                ->where('active', true)
-                ->whereBetween('next_due_on', [
-                    $start->format('Y-m-d'),
-                    $end->format('Y-m-d'),
-                ])
-                ->get()
-                ->each(function (PaymentPlan $plan) use ($rows): void {
-                    $rows->push([
-                        'key' => 'plan-'.$plan->id,
-                        'date' => $plan->next_due_on?->format('Y-m-d'),
-                        'direction' => $plan->direction,
-                        'kind' => 'recurring_payment',
-                        'label' => $plan->title,
-                        'amount' => $plan->amount,
-                        'currency' => $plan->currency,
-                        'url' => '/app/payments?view=recurring',
-                    ]);
-                });
-        }
-
-        $grouped = $rows
-            ->sortBy('date')
-            ->groupBy('date')
-            ->map(function ($items, $date) {
-                return [
-                    'date' => $date,
-                    'incoming' => number_format(
-                        (float) $items
-                            ->where('direction', 'incoming')
-                            ->sum(fn ($item) => (float) $item['amount']),
-                        4,
-                        '.',
-                        '',
-                    ),
-                    'outgoing' => number_format(
-                        (float) $items
-                            ->where('direction', 'outgoing')
-                            ->sum(fn ($item) => (float) $item['amount']),
-                        4,
-                        '.',
-                        '',
-                    ),
-                    'items' => $items->values(),
-                ];
-            })
-            ->values();
-
-        return response()->json([
-            'data' => [
-                'month' => $month->format('Y-m'),
-                'days' => $grouped,
-            ],
-        ]);
-    }
-
-    public function anomalies(
-        Request $request,
-    ): JsonResponse {
-        $organizationId = app(TenantContext::class)->id();
-        $items = collect();
 
         Product::query()
             ->where(function ($query): void {
