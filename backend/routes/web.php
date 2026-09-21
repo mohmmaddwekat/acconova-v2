@@ -856,6 +856,7 @@ Route::prefix(
         Route::get('finance/documents', [FinanceDocumentController::class, 'index']);
         Route::post('finance/documents', [FinanceDocumentController::class, 'store']);
         Route::get('finance/documents/{document}', [FinanceDocumentController::class, 'show'])->whereNumber('document');
+        Route::get('finance/documents/{document}/warnings', [FinanceDocumentController::class, 'warnings'])->whereNumber('document');
         Route::patch('finance/documents/{document}', [FinanceDocumentController::class, 'update'])->whereNumber('document');
         Route::delete('finance/documents/{document}', [FinanceDocumentController::class, 'destroy'])->whereNumber('document');
         Route::post('finance/documents/{document}/issue', [FinanceDocumentController::class, 'issue'])->whereNumber('document');
