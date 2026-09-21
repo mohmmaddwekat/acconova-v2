@@ -284,6 +284,24 @@ class CommercialOperationsController extends Controller
             $convertible,
             $isOrder,
         ): void {
+            DB::table('trade_document_conversions')
+                ->insert([
+                    'organization_id' => $organizationId,
+                    'trade_document_id' => $document->id,
+                    'financial_document_id' => $invoice->id,
+                    'converted_quantity' => number_format(
+                        (float) $convertible->sum(
+                            fn (array $item): float =>
+                                (float) $item['quantity'],
+                        ),
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
             if ($isOrder) {
                 foreach ($convertible as $item) {
                     DB::table('trade_document_lines')
@@ -932,6 +950,16 @@ class CommercialOperationsController extends Controller
         int $organizationId,
         string $kind,
     ): array {
+        $conversionTotals = DB::table(
+            'trade_document_conversions',
+        )
+            ->where('organization_id', $organizationId)
+            ->selectRaw(
+                'trade_document_id,
+                 COUNT(*) as invoice_count',
+            )
+            ->groupBy('trade_document_id');
+
         $lineTotals = DB::table('trade_document_lines')
             ->selectRaw(
                 'trade_document_id,
@@ -948,6 +976,13 @@ class CommercialOperationsController extends Controller
                 $lineTotals,
                 'line_totals',
                 'line_totals.trade_document_id',
+                '=',
+                'document.id',
+            )
+            ->leftJoinSub(
+                $conversionTotals,
+                'conversion_totals',
+                'conversion_totals.trade_document_id',
                 '=',
                 'document.id',
             )
@@ -978,6 +1013,7 @@ class CommercialOperationsController extends Controller
                 DB::raw('COALESCE(line_totals.quantity, 0) as quantity'),
                 DB::raw('COALESCE(line_totals.fulfilled_quantity, 0) as fulfilled_quantity'),
                 DB::raw('COALESCE(line_totals.invoiced_quantity, 0) as invoiced_quantity'),
+                DB::raw('COALESCE(conversion_totals.invoice_count, 0) as invoice_count'),
                 'line_totals.first_line_id',
             ])
             ->map(fn ($row): array => [
@@ -997,6 +1033,7 @@ class CommercialOperationsController extends Controller
                 'quantity' => (string) $row->quantity,
                 'fulfilled_quantity' => (string) $row->fulfilled_quantity,
                 'invoiced_quantity' => (string) $row->invoiced_quantity,
+                'invoice_count' => (int) $row->invoice_count,
                 'remaining_quantity' => number_format(
                     max(
                         (float) $row->quantity
