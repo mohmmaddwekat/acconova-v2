@@ -210,17 +210,24 @@ class ReportStudioController extends Controller
         $from = Carbon::parse($data['date_from'])->startOfDay();
         $to = Carbon::parse($data['date_to'])->endOfDay();
 
+        $documentKind = in_array(
+            $data['feature'],
+            [
+                'supplier-performance',
+                'payables-movement',
+                'purchase-price-variance',
+            ],
+            true,
+        )
+            ? 'purchase_invoice'
+            : 'sale_invoice';
+
         $q = DB::table('financial_documents as doc')
             ->leftJoin('parties as party', 'party.id', '=', 'doc.party_id')
             ->where('doc.organization_id', $org)
             ->whereBetween('doc.issue_date', [$from, $to])
-            ->where('doc.status', '!=', 'void');
-
-        if (in_array($data['feature'], ['supplier-performance', 'payables-movement', 'purchase-price-variance'], true)) {
-            $q->where('doc.kind', 'purchase_invoice');
-        } else {
-            $q->where('doc.kind', 'sale_invoice');
-        }
+            ->where('doc.status', '!=', 'void')
+            ->where('doc.kind', $documentKind);
 
         $dimension = $data['dimension'] ?? null;
         $value = $data['dimension_value'] ?? null;
@@ -247,6 +254,7 @@ class ReportStudioController extends Controller
         $invoices = (clone $q)
             ->select([
                 'doc.id',
+                'doc.party_id',
                 'doc.number',
                 'doc.issue_date',
                 'doc.due_date',
@@ -259,7 +267,33 @@ class ReportStudioController extends Controller
             ])
             ->latest('doc.issue_date')
             ->limit(100)
-            ->get();
+            ->get()
+            ->map(function ($invoice) use ($documentKind): array {
+                $id = (int) $invoice->id;
+                $partyId = $invoice->party_id
+                    ? (int) $invoice->party_id
+                    : null;
+
+                return [
+                    'id' => $id,
+                    'number' => $invoice->number,
+                    'issue_date' => $invoice->issue_date,
+                    'due_date' => $invoice->due_date,
+                    'status' => $invoice->status,
+                    'total' => (float) $invoice->total,
+                    'paid_total' => (float) $invoice->paid_total,
+                    'balance_due' => (float) $invoice->balance_due,
+                    'currency' => $invoice->currency,
+                    'party' => $invoice->party,
+                    'party_id' => $partyId,
+                    'invoice_url' => $documentKind === 'purchase_invoice'
+                        ? '/app/invoices/purchases/'.$id
+                        : '/app/invoices/sales/'.$id,
+                    'party_url' => $partyId
+                        ? '/app/parties?party='.$partyId
+                        : null,
+                ];
+            });
 
         return response()->json(['data' => [
             'breadcrumbs' => [
