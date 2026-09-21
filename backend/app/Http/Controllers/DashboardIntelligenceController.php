@@ -56,23 +56,12 @@ class DashboardIntelligenceController extends Controller
             )
             ->first();
 
-        $visit = DB::table(
-            'dashboard_visits',
-        )
-            ->where(
-                'organization_id',
-                $organizationId,
-            )
-            ->where(
-                'user_id',
-                $userId,
-            )
-            ->first();
-
         $since =
-            $visit?->last_seen_at
+            $request->user()
+                ->previous_login_at
                 ? CarbonImmutable::parse(
-                    $visit->last_seen_at,
+                    $request->user()
+                        ->previous_login_at,
                 )
                 : CarbonImmutable::now()
                     ->startOfDay();
