@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\FinanceAuthorization;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -2679,9 +2680,10 @@ class ReportStudioController extends Controller
 
     private function canViewReports(Request $request): bool
     {
-        return FinanceAuthorization::allows($request->user(), 'finance.sales.view')
-            || FinanceAuthorization::allows($request->user(), 'finance.purchases.view')
-            || FinanceAuthorization::allows($request->user(), 'finance.cash.view');
+        return WorkspaceFeaturePermissions::allows(
+            $request->user(),
+            'reports.view',
+        );
     }
 
     private function catalog(): array
