@@ -36,6 +36,7 @@ use App\Http\Controllers\StaffWorkforceController;
 use App\Http\Controllers\SystemCheckController;
 use App\Http\Controllers\TaxComplianceController;
 use App\Services\FinanceAuthorization;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Http\Controllers\WorkspaceCustomizationController;
 use App\Http\Controllers\WorkspaceConversationController;
 use App\Http\Controllers\WorkspaceConversationSettingsController;
@@ -304,19 +305,10 @@ Route::middleware([
 
     Route::get(
         '/app/settings',
-        function () {
-            $role = app(\App\Tenancy\TenantContext::class)->role();
-
-            abort_unless(
-                in_array(
-                    $role,
-                    [
-                        \App\Enums\OrganizationRole::Owner,
-                        \App\Enums\OrganizationRole::Admin,
-                    ],
-                    true,
-                ),
-                403,
+        function (Request $request) {
+            WorkspaceFeaturePermissions::authorize(
+                $request->user(),
+                'workspace.settings.view',
             );
 
             return Inertia::render('Settings');
@@ -327,19 +319,10 @@ Route::middleware([
 
     Route::get(
         '/app/settings/customization',
-        function () {
-            $role = app(\App\Tenancy\TenantContext::class)->role();
-
-            abort_unless(
-                in_array(
-                    $role,
-                    [
-                        \App\Enums\OrganizationRole::Owner,
-                        \App\Enums\OrganizationRole::Admin,
-                    ],
-                    true,
-                ),
-                403,
+        function (Request $request) {
+            WorkspaceFeaturePermissions::authorize(
+                $request->user(),
+                'workspace.customization.view',
             );
 
             return Inertia::render('Settings/Customization');
@@ -350,19 +333,10 @@ Route::middleware([
 
     Route::get(
         '/app/system-checks',
-        function () {
-            $role = app(\App\Tenancy\TenantContext::class)->role();
-
-            abort_unless(
-                in_array(
-                    $role,
-                    [
-                        \App\Enums\OrganizationRole::Owner,
-                        \App\Enums\OrganizationRole::Admin,
-                    ],
-                    true,
-                ),
-                403,
+        function (Request $request) {
+            WorkspaceFeaturePermissions::authorize(
+                $request->user(),
+                'audit.system_checks.view',
             );
 
             return Inertia::render('SystemChecks');
