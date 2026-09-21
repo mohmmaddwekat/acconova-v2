@@ -30,6 +30,7 @@ use App\Http\Controllers\StaffWorkforceController;
 use App\Http\Controllers\SystemCheckController;
 use App\Http\Controllers\TaxComplianceController;
 use App\Services\FinanceAuthorization;
+use App\Http\Controllers\WorkspaceCustomizationController;
 use App\Http\Controllers\WorkspaceConversationController;
 use App\Http\Controllers\WorkspaceConversationSettingsController;
 use App\Http\Controllers\WorkspaceMessageMemberController;
@@ -298,6 +299,29 @@ Route::middleware([
     )
         ->middleware(ResolveOrganization::class)
         ->name('app.settings');
+
+    Route::get(
+        '/app/settings/customization',
+        function () {
+            $role = app(\App\Tenancy\TenantContext::class)->role();
+
+            abort_unless(
+                in_array(
+                    $role,
+                    [
+                        \App\Enums\OrganizationRole::Owner,
+                        \App\Enums\OrganizationRole::Admin,
+                    ],
+                    true,
+                ),
+                403,
+            );
+
+            return Inertia::render('Settings/Customization');
+        },
+    )
+        ->middleware(ResolveOrganization::class)
+        ->name('app.settings.customization');
 
     Route::get(
         '/app/system-checks',
@@ -1219,6 +1243,66 @@ Route::prefix(
             'system-checks',
             SystemCheckController::class,
         );
+
+        Route::get(
+            'workspace-customization',
+            [WorkspaceCustomizationController::class, 'index'],
+        );
+
+        Route::post(
+            'workspace-customization/fields',
+            [WorkspaceCustomizationController::class, 'storeField'],
+        );
+
+        Route::patch(
+            'workspace-customization/fields/{field}',
+            [WorkspaceCustomizationController::class, 'updateField'],
+        )->whereNumber('field');
+
+        Route::delete(
+            'workspace-customization/fields/{field}',
+            [WorkspaceCustomizationController::class, 'deleteField'],
+        )->whereNumber('field');
+
+        Route::post(
+            'workspace-customization/statuses',
+            [WorkspaceCustomizationController::class, 'storeStatus'],
+        );
+
+        Route::patch(
+            'workspace-customization/statuses/{status}',
+            [WorkspaceCustomizationController::class, 'updateStatus'],
+        )->whereNumber('status');
+
+        Route::delete(
+            'workspace-customization/statuses/{status}',
+            [WorkspaceCustomizationController::class, 'deleteStatus'],
+        )->whereNumber('status');
+
+        Route::post(
+            'workspace-customization/approval-rules',
+            [WorkspaceCustomizationController::class, 'storeApprovalRule'],
+        );
+
+        Route::patch(
+            'workspace-customization/approval-rules/{rule}',
+            [WorkspaceCustomizationController::class, 'updateApprovalRule'],
+        )->whereNumber('rule');
+
+        Route::delete(
+            'workspace-customization/approval-rules/{rule}',
+            [WorkspaceCustomizationController::class, 'deleteApprovalRule'],
+        )->whereNumber('rule');
+
+        Route::get(
+            'records/{type}/{record}/customization',
+            [WorkspaceCustomizationController::class, 'record'],
+        )->whereNumber('record');
+
+        Route::patch(
+            'records/{type}/{record}/customization',
+            [WorkspaceCustomizationController::class, 'updateRecord'],
+        )->whereNumber('record');
 
         Route::get(
             'workspace-settings',
