@@ -43,6 +43,17 @@ class NotificationCenter
                     continue;
                 }
             }
+
+            if (! app(NotificationRuleService::class)->allows(
+                $organizationId,
+                (int) $userId,
+                $kind,
+                $category,
+                $data,
+            )) {
+                continue;
+            }
+
             DB::table('workspace_notifications')->insertOrIgnore([
                 'organization_id' => $organizationId, 'user_id' => $userId, 'event_key' => $key,
                 'kind' => $kind, 'category' => $category, 'data' => json_encode($data, JSON_THROW_ON_ERROR),
@@ -69,7 +80,13 @@ class NotificationCenter
         $warehouse = DB::table('warehouses')->where('organization_id', $event->organizationId)->where('id', $event->warehouseId)->value('name');
         if ($kind) {
             $this->publish($event->organizationId, 'stock:'.$event->movementId, $kind, 'stock',
-                ['name' => $product->name, 'detail' => $warehouse, 'amount' => $event->currentAvailable.' '.$product->unit], route('app.inventory'));
+                [
+                    'name' => $product->name,
+                    'detail' => $warehouse,
+                    'amount' => $event->currentAvailable.' '.$product->unit,
+                    'stock_quantity' => $current,
+                    'amount_value' => $current,
+                ], route('app.inventory'));
         }
         if ($event->movementType === 'production_in') {
             $this->publish($event->organizationId, 'production:'.$event->movementId, 'production', 'activity',
@@ -88,7 +105,12 @@ class NotificationCenter
     {
         $this->resolve((int) $record->organization_id, 'payment_due:'.$record->payment_plan_id.':'.$record->due_on->format('Y-m-d').':%');
         $this->publish((int) $record->organization_id, 'payment:'.$record->id, 'payment_recorded', 'payments',
-            ['name' => $record->title, 'detail' => $record->counterparty, 'amount' => $record->amount.' '.$record->currency],
+            [
+                'name' => $record->title,
+                'detail' => $record->counterparty,
+                'amount' => $record->amount.' '.$record->currency,
+                'amount_value' => (float) $record->amount,
+            ],
             route('app.payments'), true);
     }
 
@@ -117,7 +139,12 @@ class NotificationCenter
                     }
                     $this->publish($organizationId, 'payment_due:'.$plan->id.':'.$plan->next_due_on->format('Y-m-d').':'.$phase,
                         $phase === 'due' ? 'payment_due' : 'payment_soon', 'payments',
-                        ['name' => $plan->title, 'detail' => $plan->next_due_on->format('Y-m-d'), 'amount' => $plan->amount.' '.$plan->currency],
+                        [
+                            'name' => $plan->title,
+                            'detail' => $plan->next_due_on->format('Y-m-d'),
+                            'amount' => $plan->amount.' '.$plan->currency,
+                            'amount_value' => (float) $plan->amount,
+                        ],
                         route('app.payments'), true);
                 }
             });
