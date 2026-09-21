@@ -2186,6 +2186,11 @@ class CommercialOperationsController extends Controller
                 'sale_invoice',
             );
 
+            $this->assertTraceableDocumentStatus(
+                $document,
+                'financial_document_id',
+            );
+
             if (
                 ! empty($data['party_id'])
                 && (int) $document->party_id
@@ -2263,6 +2268,19 @@ class CommercialOperationsController extends Controller
             $organizationId,
         );
 
+        $serialProduct = Product::query()
+            ->findOrFail(
+                (int) $data['product_id'],
+            );
+
+        if (! $serialProduct->isInventoryEligible()) {
+            throw ValidationException::withMessages([
+                'product_id' => [
+                    'Serial numbers can only be assigned to physical inventory products.',
+                ],
+            ]);
+        }
+
         if (! empty($data['supplier_party_id'])) {
             $this->assertPartyRole(
                 (int) $data['supplier_party_id'],
@@ -2292,6 +2310,11 @@ class CommercialOperationsController extends Controller
                 'purchase_invoice',
             );
 
+            $this->assertTraceableDocumentStatus(
+                $purchase,
+                'source_purchase_document_id',
+            );
+
             if (
                 ! empty($data['supplier_party_id'])
                 && (int) $purchase->party_id
@@ -2317,6 +2340,11 @@ class CommercialOperationsController extends Controller
                 (int) $data['source_sale_document_id'],
                 $organizationId,
                 'sale_invoice',
+            );
+
+            $this->assertTraceableDocumentStatus(
+                $sale,
+                'source_sale_document_id',
             );
 
             if (
@@ -2378,7 +2406,6 @@ class CommercialOperationsController extends Controller
             'expiry_date' => [
                 'nullable',
                 'date_format:Y-m-d',
-                'after_or_equal:manufactured_on',
             ],
             'status' => [
                 'nullable',
@@ -2398,6 +2425,32 @@ class CommercialOperationsController extends Controller
             (int) $data['product_id'],
             $organizationId,
         );
+
+        $batchProduct = Product::query()
+            ->findOrFail(
+                (int) $data['product_id'],
+            );
+
+        if (! $batchProduct->isInventoryEligible()) {
+            throw ValidationException::withMessages([
+                'product_id' => [
+                    'Batch tracking can only be used with physical inventory products.',
+                ],
+            ]);
+        }
+
+        if (
+            ! empty($data['manufactured_on'])
+            && ! empty($data['expiry_date'])
+            && $data['expiry_date']
+                < $data['manufactured_on']
+        ) {
+            throw ValidationException::withMessages([
+                'expiry_date' => [
+                    'Expiry date cannot be before the manufacturing date.',
+                ],
+            ]);
+        }
 
         if (! empty($data['warehouse_id'])) {
             $this->assertTenantRecord(
@@ -3189,6 +3242,30 @@ class CommercialOperationsController extends Controller
         }
 
         return $document;
+    }
+
+    private function assertTraceableDocumentStatus(
+        object $document,
+        string $field,
+    ): void {
+        if (
+            ! in_array(
+                $document->status,
+                [
+                    'issued',
+                    'partially_paid',
+                    'paid',
+                    'overpaid',
+                ],
+                true,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                $field => [
+                    'Choose an issued, paid or partially paid invoice for traceability.',
+                ],
+            ]);
+        }
     }
 
     private function assertDocumentContainsProduct(
