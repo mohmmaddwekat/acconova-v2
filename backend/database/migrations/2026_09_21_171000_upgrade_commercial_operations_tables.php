@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -135,6 +136,48 @@ return new class extends Migration
                     ]);
                 },
             );
+        }
+
+        if (
+            Schema::hasTable('trade_documents')
+            && Schema::hasTable(
+                'trade_document_conversions',
+            )
+            && Schema::hasColumn(
+                'trade_documents',
+                'converted_financial_document_id',
+            )
+        ) {
+            DB::table('trade_documents')
+                ->whereNotNull(
+                    'converted_financial_document_id',
+                )
+                ->orderBy('id')
+                ->get([
+                    'id',
+                    'organization_id',
+                    'converted_financial_document_id',
+                    'updated_at',
+                ])
+                ->each(function ($document): void {
+                    DB::table(
+                        'trade_document_conversions',
+                    )->insertOrIgnore([
+                        'organization_id' =>
+                            $document->organization_id,
+                        'trade_document_id' =>
+                            $document->id,
+                        'financial_document_id' =>
+                            $document->converted_financial_document_id,
+                        'converted_quantity' => 0,
+                        'created_at' =>
+                            $document->updated_at
+                            ?? now(),
+                        'updated_at' =>
+                            $document->updated_at
+                            ?? now(),
+                    ]);
+                });
         }
     }
 
