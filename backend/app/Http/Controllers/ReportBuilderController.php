@@ -642,6 +642,12 @@ class ReportBuilderController extends Controller
                 'sort_by' => $definition['sort_by'] ?? null,
                 'sort_direction' => $definition['sort_direction'] ?? 'asc',
                 'shared' => (bool) ($definition['shared'] ?? false),
+                'configuration' => array_key_exists('configuration', $definition)
+                    ? json_encode($definition['configuration'], JSON_THROW_ON_ERROR)
+                    : $current->configuration,
+                'visualization' => array_key_exists('visualization', $definition)
+                    ? json_encode($definition['visualization'], JSON_THROW_ON_ERROR)
+                    : $current->visualization,
                 'updated_at' => now(),
             ]);
 
@@ -1437,6 +1443,28 @@ class ReportBuilderController extends Controller
                     true,
                 )
                 ?: [],
+            'configuration' =>
+                isset($row->configuration)
+                && $row->configuration
+                    ? (
+                        json_decode(
+                            $row->configuration,
+                            true,
+                        )
+                        ?: null
+                    )
+                    : null,
+            'visualization' =>
+                isset($row->visualization)
+                && $row->visualization
+                    ? (
+                        json_decode(
+                            $row->visualization,
+                            true,
+                        )
+                        ?: null
+                    )
+                    : null,
         ];
     }
 }
