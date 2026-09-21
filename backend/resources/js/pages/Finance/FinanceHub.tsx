@@ -79,6 +79,107 @@ export function FinanceHub({
                 || lookups.permissions.recurring_payments_view,
         },
         {
+            title: text('دفعات غير مخصصة', 'Unallocated payments'),
+            description: text(
+                'دفعات دخلت أو خرجت وبقي منها مبلغ غير مربوط بفاتورة.',
+                'Posted receipts or payments with an amount still not allocated to an invoice.',
+            ),
+            href: '/app/finance/unallocated',
+            icon: WalletCards,
+            visible: lookups.permissions.cash_view,
+        },
+        {
+            title: text('لوحة التحصيل', 'Collections dashboard'),
+            description: text(
+                'العملاء المتأخرون ومن يجب التواصل معه اليوم وقيمة التحصيل المتوقعة.',
+                'Overdue customers, today\'s collection calls and expected cash recovery.',
+            ),
+            href: '/app/finance/collections',
+            icon: HandCoins,
+            visible: lookups.permissions.sales_view,
+        },
+        {
+            title: text('أعمار الذمم المدينة', 'A/R aging'),
+            description: text(
+                'أرصدة العملاء حسب 0–30 و31–60 و61–90 وأكثر من 90 يوماً.',
+                'Customer receivables grouped into standard aging buckets.',
+            ),
+            href: '/app/reports/ar-aging',
+            icon: ReceiptText,
+            visible: lookups.permissions.sales_view,
+        },
+        {
+            title: text('أعمار الذمم الدائنة', 'A/P aging'),
+            description: text(
+                'مستحقات الموردين حسب عمر الاستحقاق.',
+                'Supplier payables grouped by aging bucket.',
+            ),
+            href: '/app/reports/ap-aging',
+            icon: ShoppingCart,
+            visible: lookups.permissions.purchases_view,
+        },
+        {
+            title: text('عروض الأسعار', 'Quotations'),
+            description: text(
+                'عرض سعر مستقل يتحول إلى فاتورة بيع بدون إعادة الإدخال.',
+                'Create quotations and convert accepted ones into sales invoice drafts.',
+            ),
+            href: '/app/sales/quotations',
+            icon: FileSpreadsheet,
+            visible: lookups.permissions.sales_view,
+        },
+        {
+            title: text('الفاتورة المبدئية', 'Proforma invoices'),
+            description: text(
+                'مستند مبدئي لا يؤثر محاسبياً حتى يتم تحويله إلى فاتورة.',
+                'Non-accounting proforma documents that convert into sales invoices.',
+            ),
+            href: '/app/sales/proforma',
+            icon: ReceiptText,
+            visible: lookups.permissions.sales_view,
+        },
+        {
+            title: text('أوامر البيع', 'Sales orders'),
+            description: text(
+                'تتبع الطلب والتسليم الجزئي والكميات المؤجلة ثم الفوترة.',
+                'Track ordered, delivered, backordered and invoiced quantities.',
+            ),
+            href: '/app/sales/orders',
+            icon: ClipboardList,
+            visible: lookups.permissions.sales_view,
+        },
+        {
+            title: text('أوامر الشراء', 'Purchase orders'),
+            description: text(
+                'تتبع ما تم طلبه من المورد وما استلم وما تمت فوترته.',
+                'Track ordered, received and invoiced supplier quantities.',
+            ),
+            href: '/app/purchases/orders',
+            icon: ShoppingCart,
+            visible: lookups.permissions.purchases_view,
+        },
+        {
+            title: text('الطلبات المؤجلة', 'Backorders'),
+            description: text(
+                'الكميات التي طلبها العملاء ولم يتم تسليمها بعد.',
+                'Customer order quantities that are still waiting for delivery.',
+            ),
+            href: '/app/sales/backorders',
+            icon: AlertTriangle,
+            visible: lookups.permissions.sales_view,
+        },
+        {
+            title: text('المرتجعات / RMA', 'Returns / RMA'),
+            description: text(
+                'مرتجعات بيع وشراء مرتبطة بالفاتورة الأصلية مع السبب والحالة.',
+                'Track sales and purchase returns against their source invoice.',
+            ),
+            href: '/app/returns',
+            icon: ClipboardCheck,
+            visible: lookups.permissions.sales_view
+                || lookups.permissions.purchases_view,
+        },
+        {
             title: text('نقل البيانات القديمة', 'Import legacy data'),
             description: text(
                 'نزّل نموذج Excel وانقل فواتير البيع والشراء والدفعات والمصاريف من النظام القديم.',
