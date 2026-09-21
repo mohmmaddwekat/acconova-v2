@@ -8,6 +8,7 @@ import {
 import type { AppPageProps } from '@/types/app';
 import {
     ArrowRight,
+    BarChart3,
     CalendarClock,
     ReceiptText,
     ShoppingCart,
@@ -49,6 +50,19 @@ export default function ReportsIndex() {
         : builtInFinanceAccess;
 
     const reports = [
+        {
+            title:
+                ar
+                    ? 'منشئ التقارير'
+                    : 'Report Builder',
+            description:
+                ar
+                    ? 'اختر الأعمدة والفلاتر والتجميع وابنِ تقارير مخصصة واحفظها بدون برمجة.'
+                    : 'Choose columns, filters and grouping, then build and save custom reports without code.',
+            href: '/app/reports/builder',
+            icon: BarChart3,
+            visible: true,
+        },
         {
             title:
                 ar
