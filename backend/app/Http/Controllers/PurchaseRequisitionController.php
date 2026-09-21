@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Warehouse;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
+use App\Services\FinanceNumberService;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -116,7 +117,10 @@ class PurchaseRequisitionController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(
+        Request $request,
+        FinanceNumberService $numbers,
+    ): JsonResponse
     {
         FinanceAuthorization::authorize(
             $request->user(),
@@ -152,13 +156,10 @@ class PurchaseRequisitionController extends Controller
 
         $organizationId = app(TenantContext::class)->id();
 
-        $sequence = (int) DB::table('purchase_requisitions')
-            ->where('organization_id', $organizationId)
-            ->lockForUpdate()
-            ->max('id') + 1;
-
-        $number = 'REQ-'.now()->format('Y').'-'
-            .str_pad((string) $sequence, 5, '0', STR_PAD_LEFT);
+        $number = $numbers->next(
+            'purchase_requisition',
+            'REQ',
+        );
 
         $id = DB::table('purchase_requisitions')
             ->insertGetId([
