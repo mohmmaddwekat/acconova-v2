@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Organization;
 use App\Services\TaskAccess;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Services\WorkspacePermissions;
 use App\Tenancy\OrganizationAccess;
 use Illuminate\Http\Request;
@@ -100,7 +101,17 @@ class HandleInertiaRequests extends Middleware
 
                             'name' => $organization->name,
                             'currency' => $organization->preferences['currency'] ?? 'ILS',
-                            'permissions' => WorkspacePermissions::custom((int) auth()->id(), $organization->id)?->permissions,
+                            'permissions' => WorkspaceFeaturePermissions::effectiveForRole(
+                                (string) $organization
+                                    ->pivot
+                                    ->getAttribute('role'),
+                                ($customRole = WorkspacePermissions::custom(
+                                    (int) auth()->id(),
+                                    $organization->id,
+                                ))
+                                    ? ($customRole->permissions ?? [])
+                                    : null,
+                            ),
                             'task_permissions' => TaskAccess::permissions((int) auth()->id(), $organization->id, (string) $organization->pivot->getAttribute('role')),
 
                             'role' => (string) $organization
