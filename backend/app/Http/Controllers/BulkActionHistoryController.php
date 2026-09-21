@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\OrganizationRole;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,14 +16,9 @@ class BulkActionHistoryController extends Controller
         Request $request,
     ): JsonResponse {
         abort_unless(
-            in_array(
-                app(TenantContext::class)->role(),
-                [
-                    OrganizationRole::Owner,
-                    OrganizationRole::Admin,
-                    OrganizationRole::Manager,
-                ],
-                true,
+            WorkspaceFeaturePermissions::allows(
+                $request->user(),
+                'audit.bulk_actions.view',
             ),
             403,
         );
