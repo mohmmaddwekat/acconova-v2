@@ -23,6 +23,7 @@ import {
 } from '@inertiajs/react';
 import {
     Package,
+    PanelRightOpen,
     Plus,
     Search,
     ShieldCheck,
@@ -63,6 +64,7 @@ import {
 import {
     ProductListItem,
 } from '@/features/products/components/ProductListItem';
+import { ProductSplitPreview } from '@/features/products/components/ProductSplitPreview';
 import {
     canArchiveProducts,
     canEditProducts,
@@ -192,6 +194,16 @@ function ProductsWorkspace() {
         );
 
     const [
+        detailDrawerOpen,
+        setDetailDrawerOpen,
+    ] = useState(false);
+
+    const [
+        splitView,
+        setSplitView,
+    ] = useState(false);
+
+    const [
         pendingAction,
         setPendingAction,
     ] =
@@ -200,6 +212,24 @@ function ProductsWorkspace() {
         );
 
     const { showToast } = useToast();
+
+    useEffect(() => {
+        if (
+            typeof window === 'undefined'
+            || ! activeOrganization
+        ) {
+            return;
+        }
+
+        setSplitView(
+            window.localStorage.getItem(
+                'acconova:split-view:products:'
+                + String(activeOrganization.id),
+            ) === '1',
+        );
+    }, [
+        activeOrganization?.id,
+    ]);
 
     const [error, setError] =
         useState<string | null>(
@@ -237,6 +267,9 @@ function ProductsWorkspace() {
             void fetchProduct(focusId)
                 .then((product) => {
                     setDetailProduct(product);
+                    setDetailDrawerOpen(
+                        ! splitView,
+                    );
                 })
                 .catch(() => {
                     setError(
@@ -250,6 +283,7 @@ function ProductsWorkspace() {
         activeOrganization?.id,
         allowCreate,
         ar,
+        splitView,
     ]);
 
     const productColumns: ListColumn[] = [
@@ -438,6 +472,7 @@ function ProductsWorkspace() {
      * Open a clean Product editor.
      */
     function create(): void {
+        setDetailDrawerOpen(false);
         setEditingProduct(null);
         setCopyingProduct(null);
         setDetailProduct(null);
@@ -447,6 +482,7 @@ function ProductsWorkspace() {
     function copy(
         product: Product,
     ): void {
+        setDetailDrawerOpen(false);
         setEditingProduct(null);
         setCopyingProduct(
             product,
@@ -461,12 +497,55 @@ function ProductsWorkspace() {
     function edit(
         product: Product,
     ): void {
+        setDetailDrawerOpen(false);
         setDetailProduct(null);
         setCopyingProduct(null);
         setEditingProduct(
             product,
         );
         setEditorOpen(true);
+    }
+
+    function openDetail(
+        product: Product,
+    ): void {
+        setDetailProduct(
+            product,
+        );
+        setDetailDrawerOpen(
+            ! splitView,
+        );
+    }
+
+    function toggleSplitView(): void {
+        const next =
+            ! splitView;
+
+        setSplitView(
+            next,
+        );
+        setDetailDrawerOpen(
+            false,
+        );
+
+        if (! next) {
+            setDetailProduct(
+                null,
+            );
+        }
+
+        if (
+            typeof window !== 'undefined'
+            && activeOrganization
+        ) {
+            window.localStorage.setItem(
+                'acconova:split-view:products:'
+                + String(
+                    activeOrganization.id,
+                ),
+                next ? '1' : '0',
+            );
+        }
     }
 
     /**
@@ -873,6 +952,29 @@ function ProductsWorkspace() {
                                     ar={ar}
                                 />
 
+                                <button
+                                    type="button"
+                                    onClick={
+                                        toggleSplitView
+                                    }
+                                    aria-pressed={
+                                        splitView
+                                    }
+                                    className={[
+                                        'inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border px-3 text-[11px] font-semibold transition',
+                                        splitView
+                                            ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                            : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
+                                    ].join(' ')}
+                                >
+                                    <PanelRightOpen
+                                        size={14}
+                                    />
+                                    {ar
+                                        ? 'عرض مقسوم'
+                                        : 'Split view'}
+                                </button>
+
                                 <SavedViews
                                     storageKey={`acconova:saved-views:products:${activeOrganization?.id ?? 'none'}`}
                                     ar={ar}
@@ -1015,67 +1117,106 @@ function ProductsWorkspace() {
                             ) : undefined}
                         />
                     ) : (
-                        <div>
-                            {products.map(
-                                (
-                                    product,
-                                ) => (
-                                    <ProductListItem
-                                        key={
-                                            product.id
-                                        }
-                                        product={product}
-                                        selected={selectedIds.has(product.id)}
-                                        selectable={allowArchive}
-                                        onSelectionChange={(selected) => setSelectedIds((current) => {
-                                            const next = new Set(current);
-                                            if (selected) next.add(product.id); else next.delete(product.id);
-                                            return next;
-                                        })}
-                                        canEdit={
-                                            allowEdit
-                                        }
-                                        canArchive={
-                                            allowArchive
-                                        }
-                                        columnOrder={
-                                            listPreferences.order
-                                        }
-                                        hiddenColumns={
-                                            listPreferences.hidden
-                                        }
-                                        density={
-                                            listPreferences.density
-                                        }
-                                        onInlineUpdate={
-                                            inlineUpdateProduct
-                                        }
-                                        onView={
-                                            setDetailProduct
-                                        }
-                                        onEdit={
-                                            edit
-                                        }
-                                        onArchive={(
-                                            value,
-                                        ) =>
-                                            setPendingAction({
-                                                kind: 'archive',
-                                                product:
-                                                    value,
-                                            })
-                                        }
-                                        onRestore={(
-                                            value,
-                                        ) =>
-                                            setPendingAction({
-                                                kind: 'restore',
-                                                product:
-                                                    value,
-                                            })
-                                        }
-                                    />
-                                ),
+                        <div
+                            className={
+                                splitView
+                                && detailProduct
+                                    ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]'
+                                    : ''
+                            }
+                        >
+                            <div className="min-w-0">
+                                {products.map(
+                                    (
+                                        product,
+                                    ) => (
+                                        <ProductListItem
+                                            key={
+                                                product.id
+                                            }
+                                            product={product}
+                                            selected={selectedIds.has(product.id)}
+                                            selectable={allowArchive}
+                                            onSelectionChange={(selected) => setSelectedIds((current) => {
+                                                const next = new Set(current);
+                                                if (selected) next.add(product.id); else next.delete(product.id);
+                                                return next;
+                                            })}
+                                            canEdit={
+                                                allowEdit
+                                            }
+                                            canArchive={
+                                                allowArchive
+                                            }
+                                            columnOrder={
+                                                listPreferences.order
+                                            }
+                                            hiddenColumns={
+                                                listPreferences.hidden
+                                            }
+                                            density={
+                                                listPreferences.density
+                                            }
+                                            onInlineUpdate={
+                                                inlineUpdateProduct
+                                            }
+                                            onView={
+                                                openDetail
+                                            }
+                                            onEdit={
+                                                edit
+                                            }
+                                            onArchive={(
+                                                value,
+                                            ) =>
+                                                setPendingAction({
+                                                    kind: 'archive',
+                                                    product:
+                                                        value,
+                                                })
+                                            }
+                                            onRestore={(
+                                                value,
+                                            ) =>
+                                                setPendingAction({
+                                                    kind: 'restore',
+                                                    product:
+                                                        value,
+                                                })
+                                            }
+                                        />
+                                    ),
+                                )}
+                            </div>
+
+                            {splitView
+                            && detailProduct && (
+                                <ProductSplitPreview
+                                    product={
+                                        detailProduct
+                                    }
+                                    ar={
+                                        ar
+                                    }
+                                    canEdit={
+                                        allowEdit
+                                    }
+                                    onOpenFull={() =>
+                                        setDetailDrawerOpen(
+                                            true,
+                                        )
+                                    }
+                                    onEdit={() =>
+                                        edit(
+                                            detailProduct,
+                                        )
+                                    }
+                                    onClose={() =>
+                                        setDetailProduct(
+                                            null,
+                                        )
+                                    }
+                                />
                             )}
                         </div>
                     )}
@@ -1164,8 +1305,9 @@ function ProductsWorkspace() {
 
                 <ProductDetailDrawer
                     open={
-                        detailProduct !==
-                        null
+                        detailDrawerOpen
+                        && detailProduct !==
+                            null
                     }
                     product={
                         detailProduct
@@ -1179,10 +1321,16 @@ function ProductsWorkspace() {
                     canArchive={
                         allowArchive
                     }
-                    onClose={() =>
-                        setDetailProduct(
-                            null,
-                        )
+                    onClose={() => {
+                        setDetailDrawerOpen(
+                            false,
+                        );
+
+                        if (! splitView) {
+                            setDetailProduct(
+                                null,
+                            );
+                        }
                     }
                     onEdit={
                         edit
