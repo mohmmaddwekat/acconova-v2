@@ -56,8 +56,15 @@ class ProductInsightsController extends Controller
         $purchaseSpend = (float) (clone $purchaseLines)->sum('line_total');
 
         $currentCost = (float) ($record->cost_price ?? 0);
+        $snapshotCost = (float) (clone $salesLines)
+            ->selectRaw(
+                'COALESCE(SUM(quantity * COALESCE(cost_price_snapshot, ?)), 0) as cost_total',
+                [$currentCost],
+            )
+            ->value('cost_total');
+
         $grossProfitEstimate = $salesRevenue
-            - ($soldQuantity * $currentCost);
+            - $snapshotCost;
 
         $marginEstimate = $salesRevenue > 0
             ? ($grossProfitEstimate / $salesRevenue) * 100
@@ -231,6 +238,7 @@ class ProductInsightsController extends Controller
                 ],
                 'profitability' => [
                     'current_cost' => number_format($currentCost, 4, '.', ''),
+                    'cost_basis' => 'issue_cost_snapshot_with_current_cost_fallback',
                     'gross_profit_estimate' => number_format(
                         $grossProfitEstimate,
                         4,
