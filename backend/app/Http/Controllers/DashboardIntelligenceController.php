@@ -1290,6 +1290,103 @@ class DashboardIntelligenceController extends Controller
             )
                 : collect();
 
+        $parties =
+            Gate::forUser(
+                $request->user(),
+            )->allows(
+                'viewAny',
+                Party::class,
+            )
+                ? Party::query()
+                    ->where(
+                        'updated_at',
+                        '>',
+                        $since,
+                    )
+                    ->latest(
+                        'updated_at',
+                    )
+                    ->limit(6)
+                    ->get([
+                        'id',
+                        'type',
+                        'name',
+                        'company_name',
+                        'updated_at',
+                    ])
+                    ->map(
+                        fn (
+                            Party $row,
+                        ): array => [
+                            'key' =>
+                                'party-'
+                                .$row->id,
+                            'kind' =>
+                                'party',
+                            'title' =>
+                                $row->company_name
+                                ?: $row->name
+                                ?: 'Party #'
+                                    .$row->id,
+                            'detail' =>
+                                'Customer / supplier record updated',
+                            'actor' =>
+                                null,
+                            'created_at' =>
+                                $row->updated_at,
+                            'url' =>
+                                '/app/parties?focus='
+                                .$row->id,
+                        ],
+                    )
+                : collect();
+
+        $products =
+            Gate::forUser(
+                $request->user(),
+            )->allows(
+                'viewAny',
+                Product::class,
+            )
+                ? Product::query()
+                    ->where(
+                        'updated_at',
+                        '>',
+                        $since,
+                    )
+                    ->latest(
+                        'updated_at',
+                    )
+                    ->limit(6)
+                    ->get([
+                        'id',
+                        'name',
+                        'updated_at',
+                    ])
+                    ->map(
+                        fn (
+                            Product $row,
+                        ): array => [
+                            'key' =>
+                                'product-'
+                                .$row->id,
+                            'kind' =>
+                                'product',
+                            'title' =>
+                                $row->name,
+                            'detail' =>
+                                'Product record updated',
+                            'actor' =>
+                                null,
+                            'created_at' =>
+                                $row->updated_at,
+                            'url' =>
+                                '/app/products?focus='
+                                .$row->id,
+                        ],
+                    )
+                : collect();
+
         $tasks =
             TaskAccess::applyVisible(
                 Task::query()
@@ -1336,6 +1433,8 @@ class DashboardIntelligenceController extends Controller
 
         return $finance
             ->concat($bulk)
+            ->concat($parties)
+            ->concat($products)
             ->concat($tasks)
             ->sortByDesc(
                 fn (
@@ -1475,7 +1574,7 @@ class DashboardIntelligenceController extends Controller
                 'priority' =>
                     'medium',
                 'url' =>
-                    '/app/follow-ups',
+                    '/app/notifications',
             ]);
         }
 
