@@ -244,6 +244,71 @@ class CashMovementController extends Controller
         $movement = CashMovement::query()->findOrFail($movement);
         $this->authorizeDirection($request, $movement->direction);
 
+        $data = $request->validate([
+            'acknowledge_duplicate' => ['sometimes', 'boolean'],
+        ]);
+
+        $duplicateQuery = CashMovement::query()
+            ->where('id', '!=', $movement->id)
+            ->where('direction', $movement->direction)
+            ->whereIn('status', [
+                'draft',
+                'posted',
+            ])
+            ->whereBetween('movement_date', [
+                $movement->movement_date
+                    ->copy()
+                    ->subDays(3)
+                    ->toDateString(),
+                $movement->movement_date
+                    ->copy()
+                    ->addDays(3)
+                    ->toDateString(),
+            ])
+            ->whereRaw(
+                'ABS(amount - ?) <= 0.0001',
+                [(float) $movement->amount],
+            );
+
+        if ($movement->party_id) {
+            $duplicateQuery->where(
+                'party_id',
+                $movement->party_id,
+            );
+        }
+
+        $duplicates = $duplicateQuery
+            ->latest('movement_date')
+            ->latest('id')
+            ->limit(5)
+            ->get([
+                'id',
+                'number',
+                'movement_date',
+                'amount',
+                'method',
+                'reference',
+            ]);
+
+        if (
+            $duplicates->isNotEmpty()
+            && ! (bool) (
+                $data['acknowledge_duplicate']
+                ?? false
+            )
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'duplicate' => [
+                    'Possible duplicate cash movement detected: '
+                    .$duplicates
+                        ->pluck('number')
+                        ->filter()
+                        ->join(', ')
+                    .'. Review the similar movement(s) and explicitly acknowledge before posting.',
+                ],
+            ]);
+        }
+
         $approvals->assertPaymentApproved(
             $movement,
             $request->user()->id,
