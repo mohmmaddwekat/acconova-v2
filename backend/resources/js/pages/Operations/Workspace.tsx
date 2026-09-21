@@ -17,6 +17,7 @@ import {
     Plus,
     RefreshCcw,
     RotateCcw,
+    Search,
     ShieldCheck,
     Trash2,
     TrendingUp,
@@ -585,6 +586,11 @@ export default function OperationsWorkspace({
                             : false;
 
     const [rows, setRows] = useState<Row[]>([]);
+    const [search, setSearch] = useState('');
+    const [
+        statusFilter,
+        setStatusFilter,
+    ] = useState('');
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
@@ -815,6 +821,66 @@ export default function OperationsWorkspace({
             form.customer_party_id,
         ],
     );
+
+    const statusOptions = useMemo(
+        () => Array.from(
+            new Set(
+                rows
+                    .map(row =>
+                        String(
+                            row.status
+                            ?? row.stage
+                            ?? '',
+                        ),
+                    )
+                    .filter(Boolean),
+            ),
+        ).sort(),
+        [rows],
+    );
+
+    const filteredRows = useMemo(
+        () => {
+            const needle =
+                search.trim().toLowerCase();
+
+            return rows.filter(row => {
+                const status = String(
+                    row.status
+                    ?? row.stage
+                    ?? '',
+                );
+
+                if (
+                    statusFilter
+                    && status !== statusFilter
+                ) {
+                    return false;
+                }
+
+                if (! needle) {
+                    return true;
+                }
+
+                return JSON.stringify(row)
+                    .toLowerCase()
+                    .includes(needle);
+            });
+        },
+        [
+            rows,
+            search,
+            statusFilter,
+        ],
+    );
+
+    useEffect(() => {
+        setSearch('');
+        setStatusFilter('');
+    }, [
+        feature,
+        activeOrganization?.id,
+    ]);
 
     function updateFormField(
         key: string,
@@ -1225,11 +1291,73 @@ export default function OperationsWorkspace({
 
                 {! loading
                     && rows.length > 0
+                    && (
+                        <section className="mt-4 flex flex-wrap items-center gap-2 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3">
+                            <div className="relative min-w-[220px] flex-1">
+                                <Search
+                                    size={14}
+                                    className="absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
+                                />
+                                <input
+                                    value={search}
+                                    onChange={event =>
+                                        setSearch(
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder={
+                                        ar
+                                            ? 'بحث في السجلات الحالية...'
+                                            : 'Search current records...'
+                                    }
+                                    className="h-10 w-full rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] ps-9 pe-3 text-xs text-[var(--ac-text)] outline-none transition focus:border-[var(--ac-accent)]"
+                                />
+                            </div>
+
+                            {statusOptions.length > 1 && (
+                                <select
+                                    value={statusFilter}
+                                    onChange={event =>
+                                        setStatusFilter(
+                                            event.target.value,
+                                        )
+                                    }
+                                    className="h-10 min-w-40 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-xs text-[var(--ac-text)] outline-none transition focus:border-[var(--ac-accent)]"
+                                >
+                                    <option value="">
+                                        {ar
+                                            ? 'كل الحالات'
+                                            : 'All statuses'}
+                                    </option>
+                                    {statusOptions.map(status => (
+                                        <option
+                                            key={status}
+                                            value={status}
+                                        >
+                                            {formatValue(
+                                                status,
+                                                ar,
+                                            )}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+
+                            <span className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
+                                {filteredRows.length}
+                                {' / '}
+                                {rows.length}
+                            </span>
+                        </section>
+                    )}
+
+                {! loading
+                    && rows.length > 0
                     && summaryFeatures.includes(feature)
                     && (
                         <OperationalSummary
                             feature={feature}
-                            rows={rows}
+                            rows={filteredRows}
                             ar={ar}
                         />
                     )}
@@ -1239,7 +1367,7 @@ export default function OperationsWorkspace({
                     && feature === 'pipeline'
                     && (
                         <PipelineBoard
-                            rows={rows}
+                            rows={filteredRows}
                             ar={ar}
                         />
                     )}
@@ -1308,8 +1436,14 @@ export default function OperationsWorkspace({
                         <div className="rounded-[20px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-12 text-center text-sm text-[var(--ac-text-muted)]">
                             {ar ? 'لا توجد سجلات حالياً.' : 'No records yet.'}
                         </div>
+                    ) : filteredRows.length === 0 ? (
+                        <div className="rounded-[20px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-12 text-center text-sm text-[var(--ac-text-muted)]">
+                            {ar
+                                ? 'لا توجد نتائج مطابقة للبحث أو الفلتر.'
+                                : 'No records match the current search or filter.'}
+                        </div>
                     ) : (
-                        rows.map((row, index) => (
+                        filteredRows.map((row, index) => (
                             <article
                                 key={String(row.id ?? row.order_id ?? index)}
                                 className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)]"
