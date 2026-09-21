@@ -1,6 +1,8 @@
 import { Link } from '@inertiajs/react';
 import {
+    AlertTriangle,
     Banknote,
+    CalendarDays,
     ClipboardCheck,
     ClipboardList,
     FileSpreadsheet,
@@ -119,6 +121,30 @@ export function FinanceHub({
             href: '/app/finance/bank-reconciliation',
             icon: Scale,
             visible: lookups.permissions.cash_view,
+        },
+        {
+            title: text('تقويم التدفق النقدي', 'Cashflow calendar'),
+            description: text(
+                'المبالغ المتوقع دخولها وخروجها يومياً حسب تواريخ الاستحقاق.',
+                'Expected daily inflows and outflows based on due dates.',
+            ),
+            href: '/app/finance/cashflow',
+            icon: CalendarDays,
+            visible: lookups.permissions.sales_view
+                || lookups.permissions.purchases_view
+                || lookups.permissions.cash_view,
+        },
+        {
+            title: text('مركز الحالات الشاذة', 'Anomaly center'),
+            description: text(
+                'إشارات الأسعار والفواتير والدفعات والأرصدة التي تحتاج مراجعة.',
+                'Pricing, invoice, payment and balance signals that need review.',
+            ),
+            href: '/app/finance/anomalies',
+            icon: AlertTriangle,
+            visible: lookups.permissions.sales_view
+                || lookups.permissions.purchases_view
+                || lookups.permissions.cash_view,
         },
         {
             title: text('الضرائب والمستحقات', 'Taxes & obligations'),
