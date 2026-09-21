@@ -515,6 +515,18 @@ class CommercialOperationsFeatureTest extends TestCase
         $this->patchJson(
             "/api/operations/sales-orders/{$salesOrderId}",
             [
+                'status' => 'confirmed',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'confirmed',
+            );
+
+        $this->patchJson(
+            "/api/operations/sales-orders/{$salesOrderId}",
+            [
                 'line_id' => $salesOrder['first_line_id'],
                 'fulfilled_quantity' => '60',
             ],
@@ -603,7 +615,7 @@ class CommercialOperationsFeatureTest extends TestCase
             ->assertOk()
             ->assertJsonPath(
                 'data.status',
-                'fulfilled',
+                'partial_invoiced',
             );
 
         $secondSalesConversion = $this->postJson(
