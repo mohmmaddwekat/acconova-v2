@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Membership;
 use App\Models\User;
 use App\Models\WorkspaceRole;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Services\WorkspacePermissions;
 use App\Services\WorkspaceRoleCatalog;
 use App\Tenancy\TenantContext;
@@ -44,6 +45,24 @@ class WorkspaceRoleController extends Controller
             'id',
         );
 
+        $presentedRoles = $roles
+            ->map(
+                function (WorkspaceRole $role): array {
+                    $data = $role->toArray();
+
+                    $data['permissions'] =
+                        WorkspaceFeaturePermissions::effectiveForRole(
+                            $role->base_role,
+                            $role->is_custom
+                                ? ($role->permissions ?? [])
+                                : null,
+                        );
+
+                    return $data;
+                },
+            )
+            ->values();
+
         $members = Membership::with(
             'user:id,name,email',
         )
@@ -77,15 +96,16 @@ class WorkspaceRoleController extends Controller
                             ->is_custom;
 
                     $permissions =
-                        $isCustom
-                            ? WorkspaceRoleCatalog::normalizePermissions(
-                                $workspaceRole
-                                    ->permissions
-                                ?? [],
-                            )
-                            : WorkspaceRoleCatalog::builtInPermissions(
-                                $baseRole,
-                            );
+                        WorkspaceFeaturePermissions::effectiveForRole(
+                            $baseRole,
+                            $isCustom
+                                ? (
+                                    $workspaceRole
+                                        ->permissions
+                                    ?? []
+                                )
+                                : null,
+                        );
 
                     $accessMode =
                         in_array(
@@ -118,13 +138,13 @@ class WorkspaceRoleController extends Controller
                         'access_mode' => $accessMode,
                         'effective_permissions' => array_values(
                             array_intersect(
-                                WorkspacePermissions::KEYS,
+                                WorkspacePermissions::keys(),
                                 $permissions,
                             ),
                         ),
                         'permission_count' => count(
                             array_intersect(
-                                WorkspacePermissions::KEYS,
+                                WorkspacePermissions::keys(),
                                 $permissions,
                             ),
                         ),
@@ -135,13 +155,20 @@ class WorkspaceRoleController extends Controller
             ->values();
 
         return response()->json([
-            'roles' => $roles,
+            'roles' => $presentedRoles,
 
             'members' => $members,
 
             'presets' => WorkspaceRoleCatalog::presets(),
 
-            'permission_keys' => WorkspacePermissions::KEYS,
+            'permission_keys' => WorkspacePermissions::keys(),
+
+            'permission_groups' => array_values(
+                WorkspaceFeaturePermissions::groups(),
+            ),
+
+            'permission_dependencies' =>
+                WorkspaceFeaturePermissions::dependencies(),
         ]);
     }
 
@@ -216,7 +243,7 @@ class WorkspaceRoleController extends Controller
                     'distinct',
 
                     Rule::in(
-                        WorkspacePermissions::KEYS,
+                        WorkspacePermissions::keys(),
                     ),
                 ],
             ]);
