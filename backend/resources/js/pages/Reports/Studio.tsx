@@ -1403,6 +1403,69 @@ export default function ReportStudio() {
         }
     }
 
+    async function openDrillMonth(
+        month: string,
+    ): Promise<void> {
+        if (! drill) {
+            return;
+        }
+
+        setDrill(current =>
+            current
+                ? {
+                    ...current,
+                    loading: true,
+                }
+                : current,
+        );
+
+        try {
+            const response =
+                await apiRequest<{
+                    data: DrillResult;
+                }>(
+                    '/api/report-studio/drill-down',
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            feature:
+                                selected,
+                            date_from:
+                                dateFrom,
+                            date_to:
+                                dateTo,
+                            dimension:
+                                'month',
+                            dimension_value:
+                                month,
+                            metric:
+                                drill.key,
+                        }),
+                    },
+                );
+
+            setDrill(current =>
+                current
+                    ? {
+                        ...current,
+                        details:
+                            response.data,
+                        loading: false,
+                    }
+                    : current,
+            );
+        } catch {
+            setDrill(current =>
+                current
+                    ? {
+                        ...current,
+                        loading: false,
+                    }
+                    : current,
+            );
+        }
+    }
+
     async function saveVisualization(): Promise<void> {
         if (! savedReportId) {
             return;
@@ -4666,7 +4729,19 @@ export default function ReportStudio() {
                                             drill.details
                                                 .months
                                         }
-                                        onDrill={() => {}}
+                                        onDrill={row => {
+                                            const month =
+                                                String(
+                                                    row.label
+                                                    ?? '',
+                                                );
+
+                                            if (month) {
+                                                void openDrillMonth(
+                                                    month,
+                                                );
+                                            }
+                                        }}
                                         ar={ar}
                                     />
 
@@ -4685,6 +4760,15 @@ export default function ReportStudio() {
                                                     drill
                                                         .details
                                                         .invoices[0],
+                                                ).filter(
+                                                    key =>
+                                                        ! [
+                                                            'invoice_url',
+                                                            'party_url',
+                                                            'party_id',
+                                                        ].includes(
+                                                            key,
+                                                        ),
                                                 )
                                                 : []
                                         }
@@ -5039,6 +5123,21 @@ function ResultTable({
                                                 )
                                             );
 
+                                        const linkUrl =
+                                            column ===
+                                                'number'
+                                                && typeof row.invoice_url
+                                                    ===
+                                                    'string'
+                                                ? row.invoice_url
+                                                : column ===
+                                                        'party'
+                                                    && typeof row.party_url
+                                                        ===
+                                                        'string'
+                                                    ? row.party_url
+                                                    : null;
+
                                         return (
                                             <td
                                                 key={
@@ -5046,7 +5145,19 @@ function ResultTable({
                                                 }
                                                 className="max-w-[340px] px-3 py-2 text-[var(--ac-text-soft)]"
                                             >
-                                                {numeric ? (
+                                                {linkUrl ? (
+                                                    <a
+                                                        href={
+                                                            linkUrl
+                                                        }
+                                                        className="font-semibold text-[var(--ac-accent)] hover:underline"
+                                                    >
+                                                        {displayValue(
+                                                            value,
+                                                            ar,
+                                                        )}
+                                                    </a>
+                                                ) : numeric ? (
                                                     <button
                                                         type="button"
                                                         className="font-semibold text-[var(--ac-accent)] hover:underline"
