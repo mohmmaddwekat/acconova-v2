@@ -2179,7 +2179,7 @@ function RowActions({
                             >
                                 <FilePlus2 size={12} />
                                 {invoice.number}
-                                {invoice.converted_quantity
+                                {Number(invoice.converted_quantity) > 0
                                     ? ' · '
                                         + formatValue(
                                             invoice.converted_quantity,
