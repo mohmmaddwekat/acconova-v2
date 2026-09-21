@@ -10,6 +10,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -392,6 +393,148 @@ class BusinessControlController extends Controller
         return response()->json([
             'data' => $result,
         ]);
+    }
+
+    public function uploadExpenseReceipt(
+        Request $request,
+        string $record,
+    ): JsonResponse {
+        $organizationId = app(
+            TenantContext::class,
+        )->id();
+
+        $claim = $this->tenantRecord(
+            'expense_claims',
+            (int) $record,
+            $organizationId,
+        );
+
+        $this->authorizeExpenseClaimAccess(
+            $request,
+            $claim,
+        );
+
+        if (
+            in_array(
+                $claim->status,
+                ['rejected', 'paid'],
+                true,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'receipt' => [
+                    'Receipts cannot be replaced after a claim is rejected or paid.',
+                ],
+            ]);
+        }
+
+        $data = $request->validate([
+            'receipt' => [
+                'required',
+                'file',
+                'mimes:pdf,png,jpg,jpeg,webp',
+                'max:10240',
+            ],
+        ]);
+
+        $file = $data['receipt'];
+        $oldPath =
+            $claim->receipt_path
+            ?? null;
+
+        $path = $file->store(
+            'expense-claims/'
+            .$organizationId
+            .'/'
+            .$claim->id,
+            'local',
+        );
+
+        if (
+            $oldPath
+            && $oldPath !== $path
+        ) {
+            Storage::disk('local')
+                ->delete($oldPath);
+        }
+
+        DB::table('expense_claims')
+            ->where(
+                'organization_id',
+                $organizationId,
+            )
+            ->where('id', $claim->id)
+            ->update([
+                'receipt_path' => $path,
+                'receipt_original_name' =>
+                    $file->getClientOriginalName(),
+                'receipt_mime_type' =>
+                    $file->getMimeType(),
+                'receipt_size_bytes' =>
+                    $file->getSize(),
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'data' => [
+                'receipt_original_name' =>
+                    $file->getClientOriginalName(),
+                'receipt_url' =>
+                    '/api/control/expense-claims/'
+                    .$claim->id
+                    .'/receipt',
+            ],
+        ]);
+    }
+
+    public function expenseReceipt(
+        Request $request,
+        string $record,
+    ) {
+        $organizationId = app(
+            TenantContext::class,
+        )->id();
+
+        $claim = $this->tenantRecord(
+            'expense_claims',
+            (int) $record,
+            $organizationId,
+        );
+
+        $this->authorizeExpenseClaimAccess(
+            $request,
+            $claim,
+        );
+
+        abort_unless(
+            $claim->receipt_path
+            && Storage::disk('local')
+                ->exists(
+                    $claim->receipt_path,
+                ),
+            404,
+        );
+
+        return Storage::disk('local')
+            ->response(
+                $claim->receipt_path,
+                $claim->receipt_original_name
+                    ?: 'expense-receipt',
+                [
+                    'Content-Type' =>
+                        $claim->receipt_mime_type
+                        ?: 'application/octet-stream',
+                    'Content-Disposition' =>
+                        'inline; filename="'
+                        .str_replace(
+                            '"',
+                            '',
+                            $claim->receipt_original_name
+                            ?: 'expense-receipt',
+                        )
+                        .'"',
+                ],
+            );
     }
 
     public function pettyCashTransaction(
@@ -1083,6 +1226,12 @@ class BusinessControlController extends Controller
                 ...((array) $row),
                 'can_review' =>
                     $canReview,
+                'receipt_url' =>
+                    $row->receipt_path
+                        ? '/api/control/expense-claims/'
+                            .$row->id
+                            .'/receipt'
+                        : null,
             ])
             ->all();
     }
@@ -2863,6 +3012,20 @@ class BusinessControlController extends Controller
         return (float) $fund->opening_balance
             + $incoming
             - $outgoing;
+    }
+
+    private function authorizeExpenseClaimAccess(
+        Request $request,
+        object $claim,
+    ): void {
+        abort_unless(
+            (int) $claim->submitted_by
+                === (int) $request->user()->id
+            || $this->canReviewExpenseClaims(
+                $request,
+            ),
+            403,
+        );
     }
 
     private function canReviewExpenseClaims(
