@@ -40,6 +40,13 @@ class AuthController extends Controller
 
         Auth::login($user);
 
+        $user->forceFill([
+            'previous_login_at' =>
+                $user->last_login_at,
+            'last_login_at' =>
+                now(),
+        ])->save();
+
         /*
          * A newly authenticated identity must never inherit an active tenant
          * selection that belonged to a previous session identity.
@@ -68,6 +75,13 @@ class AuthController extends Controller
         $user = $authenticateUser->execute(
             $request->validated(),
         );
+
+        $user->forceFill([
+            'previous_login_at' =>
+                $user->last_login_at,
+            'last_login_at' =>
+                now(),
+        ])->save();
 
         /*
          * Active organization state belongs to the authenticated identity and
