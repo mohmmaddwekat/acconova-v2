@@ -435,7 +435,7 @@ Route::middleware([
 
     Route::get(
         '/app/reports',
-        fn () => redirect('/app/reports/ar-aging'),
+        fn () => Inertia::render('Reports/Index'),
     )->name('app.reports');
 
     Route::get(
