@@ -3,6 +3,7 @@ import {
     AlertTriangle,
     Banknote,
     CalendarDays,
+    ChartColumn,
     ClipboardCheck,
     ClipboardList,
     FileSpreadsheet,
@@ -247,6 +248,77 @@ export function FinanceHub({
             visible: lookups.permissions.sales_view
                 || lookups.permissions.purchases_view
                 || lookups.permissions.cash_view,
+        },
+        {
+            title: text('تكلفة الاستيراد والتوريد', 'Landed cost'),
+            description: text(
+                'توزيع الشحن والجمارك والتأمين ومصاريف التوريد على بنود فاتورة الشراء.',
+                'Allocate freight, customs, insurance and import costs across purchase invoice lines.',
+            ),
+            href: '/app/purchases/landed-costs',
+            icon: ShoppingCart,
+            visible: lookups.permissions.purchases_view,
+        },
+        {
+            title: text('سجل أسعار الصرف', 'Exchange rate history'),
+            description: text(
+                'راجع سعر الصرف المستخدم في كل فاتورة ومتى تغيّر ومن قام بالتعديل.',
+                'Review the exchange rate used by each invoice, when it changed and who changed it.',
+            ),
+            href: '/app/finance/exchange-rates',
+            icon: Scale,
+            visible: lookups.permissions.sales_view
+                || lookups.permissions.purchases_view,
+        },
+        {
+            title: text('الميزانية مقابل الفعلي', 'Budget vs actual'),
+            description: text(
+                'ميزانية شهرية للأقسام ومقارنتها بالمصروف الفعلي.',
+                'Monthly department budgets compared with actual posted spending.',
+            ),
+            href: '/app/finance/budgets',
+            icon: ChartColumn,
+            visible: lookups.permissions.cash_view,
+        },
+        {
+            title: text('سقوف صرف الأقسام', 'Department spending limits'),
+            description: text(
+                'ضع سقفاً شهرياً للقسم وامنع ترحيل دفعة تتجاوز السقف.',
+                'Set monthly department caps and block payments that would exceed them.',
+            ),
+            href: '/app/departments/spending-limits',
+            icon: AlertTriangle,
+            visible: lookups.permissions.cash_view,
+        },
+        {
+            title: text('مطالبات المصاريف', 'Expense claims'),
+            description: text(
+                'راجع مطالبات تعويض الموظفين واعتمادها ومتابعة دفعها.',
+                'Review employee reimbursements, approvals and payout references.',
+            ),
+            href: '/app/staff/expense-claims',
+            icon: ClipboardCheck,
+            visible: lookups.permissions.cash_view,
+        },
+        {
+            title: text('صناديق النثريات', 'Petty cash'),
+            description: text(
+                'صندوق مستقل بسقف ورصيد وحركات صرف وإيداع.',
+                'Independent petty cash funds with caps, balances and controlled transactions.',
+            ),
+            href: '/app/finance/petty-cash',
+            icon: WalletCards,
+            visible: lookups.permissions.cash_view,
+        },
+        {
+            title: text('المصاريف المتكررة', 'Recurring expenses'),
+            description: text(
+                'إيجار وإنترنت واشتراكات ومصاريف دورية مع الاستحقاق القادم.',
+                'Rent, subscriptions and recurring costs with next due dates.',
+            ),
+            href: '/app/finance/recurring-expenses',
+            icon: CalendarDays,
+            visible: lookups.permissions.cash_view,
         },
         {
             title: text('الضرائب والمستحقات', 'Taxes & obligations'),
