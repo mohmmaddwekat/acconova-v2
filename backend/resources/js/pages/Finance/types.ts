@@ -258,6 +258,14 @@ export type CashRow = {
     movement_date: string;
     method: string;
     reference: string | null;
+    notes: string | null;
+    allocated_total: string;
+    unallocated_total: string;
+    applied_to: {
+        document_id: number;
+        document_number: string | null;
+        amount: string;
+    }[];
     check_number: string | null;
     check_due_date: string | null;
     check_status: string | null;
