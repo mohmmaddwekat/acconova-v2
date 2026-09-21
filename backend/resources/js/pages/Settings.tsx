@@ -145,7 +145,7 @@ const panel =
     'rounded-[18px] border border-[var(--acs-line)] bg-[var(--acs-surface)] shadow-[0_10px_28px_rgba(30,75,140,.045)]';
 
 const input =
-    'mt-2 min-h-11 w-full rounded-[11px] border border-[var(--acs-line)] bg-[var(--acs-control)] px-3.5 text-sm text-[var(--acs-text)] outline-none transition placeholder:text-[var(--acs-text-muted)] focus:border-[var(--acs-accent)] focus:ring-2 focus:ring-[#2f7df4]/10 disabled:bg-slate-50 disabled:text-slate-400';
+    'mt-2 min-h-11 w-full rounded-[11px] border border-[var(--acs-line)] bg-[var(--acs-control)] px-3.5 text-sm text-[var(--acs-text)] outline-none transition placeholder:text-[var(--acs-text-muted)] focus:border-[var(--acs-accent)] focus:ring-2 focus:ring-[#2f7df4]/10 disabled:cursor-not-allowed disabled:border-[var(--acs-line)] disabled:bg-[var(--acs-surface-soft)] disabled:text-[var(--acs-text-muted)] disabled:opacity-60';
 
 const secondaryButton =
     'inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[var(--acs-line-strong)] bg-[var(--acs-control)] px-4 text-xs font-semibold text-[var(--acs-accent)] transition hover:bg-[var(--acs-control-hover)] disabled:cursor-not-allowed disabled:opacity-45';
@@ -262,6 +262,34 @@ function Toggle({
                     checked ? 'start-6' : 'start-1',
                 ].join(' ')}
             />
+        </button>
+    );
+}
+
+function Checkbox({
+    checked,
+    onChange,
+    label,
+}: {
+    checked: boolean;
+    onChange: () => void;
+    label: string;
+}) {
+    return (
+        <button
+            type="button"
+            role="checkbox"
+            aria-checked={checked}
+            aria-label={label}
+            onClick={onChange}
+            className={[
+                'flex size-5 shrink-0 items-center justify-center rounded-[6px] border text-[11px] font-black transition',
+                checked
+                    ? 'border-[var(--acs-accent)] bg-[var(--acs-accent)] text-white shadow-[0_0_0_2px_var(--acs-accent-soft)]'
+                    : 'border-[var(--acs-line-strong)] bg-[var(--acs-control)] text-transparent hover:border-[var(--acs-accent)]',
+            ].join(' ')}
+        >
+            ✓
         </button>
     );
 }
@@ -830,7 +858,7 @@ function SettingsWorkspace() {
                     </div>
 
                     {error && (
-                        <div className="mb-4 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+                        <div className="mb-4 rounded-[14px] border border-red-400/30 bg-red-500/10 px-4 py-3 text-xs text-red-300">
                             {error}
                         </div>
                     )}
@@ -1059,7 +1087,7 @@ function SettingsWorkspace() {
                             )}
 
                             {section === 'finance' && (
-                                <div className="grid gap-4 xl:grid-cols-3">
+                                <div className="grid items-start gap-4 xl:grid-cols-3">
                                     <SettingsCard title={text('السنة المالية', 'Fiscal year')} description={text('بداية السنة المالية للمؤسسة.', 'Workspace fiscal-year start.')} icon={CalendarDays}>
                                         <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                             {text('تبدأ السنة المالية في', 'Fiscal year starts in')}
@@ -1225,7 +1253,7 @@ function SettingsWorkspace() {
                                                             <div className="flex flex-wrap items-center gap-2">
                                                                 <strong className="text-xs text-[var(--acs-text)]">{account.bank_name}</strong>
                                                                 {account.is_primary && (
-                                                                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">
+                                                                    <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-300">
                                                                         {text('الأساسي', 'Primary')}
                                                                     </span>
                                                                 )}
@@ -1237,7 +1265,7 @@ function SettingsWorkspace() {
                                                                 </p>
                                                             )}
                                                         </div>
-                                                        <button type="button" onClick={() => removeBankAccount(account.id)} className="rounded-[9px] border border-red-100 bg-red-50 p-2 text-red-500">
+                                                        <button type="button" onClick={() => removeBankAccount(account.id)} className="rounded-[9px] border border-red-400/30 bg-red-500/10 p-2 text-red-300 transition hover:bg-red-500/15">
                                                             <Trash2 size={14} />
                                                         </button>
                                                     </div>
@@ -1270,15 +1298,14 @@ function SettingsWorkspace() {
 
                                     <SettingsCard title={text('طرق الدفع', 'Payment methods')} description={text('الطرق المفعلة هنا هي التي تظهر فعلياً في تسجيل الدفعات والمقبوضات.', 'Only enabled methods appear in payment and receipt entry.')} icon={CreditCard}>
                                         {paymentMethods.map(([value, label]) => (
-                                            <label key={value} className="flex items-center justify-between border-b border-[var(--acs-line-soft)] py-3 last:border-0">
+                                            <div key={value} className="flex items-center justify-between border-b border-[var(--acs-line-soft)] py-3 last:border-0">
                                                 <span className="text-xs font-semibold text-[var(--acs-text)]">{label}</span>
-                                                <input
-                                                    type="checkbox"
-                                                    className="size-4 accent-[#1265d8]"
+                                                <Checkbox
+                                                    label={label}
                                                     checked={settings.payment_methods.includes(value)}
                                                     onChange={() => toggleArrayValue('payment_methods', value)}
                                                 />
-                                            </label>
+                                            </div>
                                         ))}
                                     </SettingsCard>
 
@@ -1293,7 +1320,7 @@ function SettingsWorkspace() {
 
                                     <SettingsCard title={text('إعدادات النقد والشيكات', 'Cash & checks')} description={text('تعطيل طريقة دفع يخفيها ويمنع استخدامها من الخادم أيضاً.', 'Disabled methods are hidden and rejected by the server.')} icon={Banknote}>
                                         <SettingRow label={text('التحقق من تاريخ الشيك', 'Validate check date')} description={text('يمنع تاريخ استحقاق أقدم من تاريخ الحركة.', 'Prevents a due date earlier than the movement date.')} checked={settings.validate_check_date} onChange={() => updateSetting('validate_check_date', !settings.validate_check_date)} />
-                                        <div className="mt-3 rounded-[12px] bg-blue-50/70 p-3 text-[10px] leading-5 text-blue-700">
+                                        <div className="mt-3 rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] p-3 text-[10px] leading-5 text-[var(--acs-text-soft)]">
                                             {text(
                                                 'حالة الشيك عند التسجيل تبقى قيد التحصيل تلقائياً كما اعتمدنا سابقاً، ولا تتحول لمحصل بمجرد وصول التاريخ.',
                                                 'New checks remain pending automatically and never clear only because the due date arrived.',
@@ -1923,7 +1950,7 @@ function SettingsWorkspace() {
                                         <SectionLink href="/app/profile" icon={LockKeyhole} title={text('فتح أمان الحساب', 'Open account security')} description={text('تغيير كلمة المرور ومراجعة إعدادات الحساب.', 'Change password and manage account security.')} />
                                     </SettingsCard>
                                     <SettingsCard title={text('صلاحيات مساحة العمل', 'Workspace access')} description={text('منع المستخدم العادي من الوصول للإعدادات مطبق من الخادم والواجهة.', 'Regular users are blocked from settings at both UI and server.')} icon={ShieldCheck}>
-                                        <div className="rounded-[12px] bg-emerald-50 p-4 text-xs leading-6 text-emerald-800">
+                                        <div className="rounded-[12px] border border-emerald-400/25 bg-emerald-500/10 p-4 text-xs leading-6 text-emerald-200">
                                             <CheckCircle2 size={17} className="mb-2" />
                                             {text('صفحة الإعدادات متاحة فقط للمالك والمدير.', 'Settings are available only to workspace owners and admins.')}
                                         </div>
@@ -2012,7 +2039,7 @@ function SettingsWorkspace() {
                                             {text('جارٍ الحفظ تلقائياً...', 'Saving automatically...')}
                                         </span>
                                     ) : message ? (
-                                        <span className="inline-flex items-center gap-2 text-emerald-700">
+                                        <span className="inline-flex items-center gap-2 text-emerald-300">
                                             <CheckCircle2 size={14} />
                                             {message}
                                         </span>
