@@ -39,7 +39,16 @@ class ReportStudioController extends Controller
                 ->where('organization_id', $org)
                 ->where(fn ($q) => $q->where('created_by', $user->id)->orWhere('shared', true))
                 ->orderBy('name')
-                ->get(['id', 'name', 'dataset', 'created_by', 'shared']),
+                ->get(['id', 'name', 'dataset', 'created_by', 'shared', 'visualization']),
+            'annotations' => Schema::hasTable('report_annotations')
+                ? DB::table('report_annotations')->where('organization_id', $org)->latest('id')->limit(30)->get()
+                : [],
+            'comments' => Schema::hasTable('report_comments')
+                ? DB::table('report_comments')->where('organization_id', $org)->latest('id')->limit(30)->get()
+                : [],
+            'approvals' => Schema::hasTable('report_approvals')
+                ? DB::table('report_approvals')->where('organization_id', $org)->latest('id')->limit(30)->get()
+                : [],
         ]);
     }
 
@@ -103,6 +112,117 @@ class ReportStudioController extends Controller
             'date_to' => $to->toDateString(),
             ...$result,
         ]]);
+    }
+
+    public function drillDown(Request $request): JsonResponse
+    {
+        abort_unless($this->canViewReports($request), 403);
+
+        $data = $request->validate([
+            'feature' => ['required', 'string', Rule::in(array_column($this->catalog(), 'key'))],
+            'date_from' => ['required', 'date'],
+            'date_to' => ['required', 'date', 'after_or_equal:date_from'],
+            'dimension' => ['nullable', 'string', 'max:160'],
+            'dimension_value' => ['nullable', 'string', 'max:255'],
+            'metric' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $org = app(TenantContext::class)->id();
+        $from = Carbon::parse($data['date_from'])->startOfDay();
+        $to = Carbon::parse($data['date_to'])->endOfDay();
+
+        $q = DB::table('financial_documents as doc')
+            ->leftJoin('parties as party', 'party.id', '=', 'doc.party_id')
+            ->where('doc.organization_id', $org)
+            ->whereBetween('doc.issue_date', [$from, $to])
+            ->where('doc.status', '!=', 'void');
+
+        if (in_array($data['feature'], ['supplier-performance', 'payables-movement', 'purchase-price-variance'], true)) {
+            $q->where('doc.kind', 'purchase_invoice');
+        } else {
+            $q->where('doc.kind', 'sale_invoice');
+        }
+
+        $dimension = $data['dimension'] ?? null;
+        $value = $data['dimension_value'] ?? null;
+
+        if ($value !== null && $value !== '') {
+            if (in_array($dimension, ['customer', 'supplier', 'party', 'dimension'], true)) {
+                $q->whereRaw("COALESCE(party.company_name, party.name, 'Unassigned') = ?", [$value]);
+            } elseif ($dimension === 'branch') {
+                $q->whereRaw("COALESCE(doc.branch_label, 'Unassigned') = ?", [$value]);
+            } elseif ($dimension === 'month') {
+                $q->whereRaw("DATE_FORMAT(doc.issue_date, '%Y-%m') = ?", [$value]);
+            } elseif ($dimension === 'employee') {
+                $q->leftJoin('users as employee', 'employee.id', '=', 'doc.created_by')
+                    ->whereRaw("COALESCE(employee.name, 'Unassigned') = ?", [$value]);
+            }
+        }
+
+        $months = (clone $q)
+            ->selectRaw("DATE_FORMAT(doc.issue_date, '%Y-%m') as label, COUNT(*) as documents, SUM(doc.total) as total, SUM(doc.balance_due) as balance_due")
+            ->groupByRaw("DATE_FORMAT(doc.issue_date, '%Y-%m')")
+            ->orderBy('label')
+            ->get();
+
+        $invoices = (clone $q)
+            ->select([
+                'doc.id',
+                'doc.number',
+                'doc.issue_date',
+                'doc.due_date',
+                'doc.status',
+                'doc.total',
+                'doc.paid_total',
+                'doc.balance_due',
+                'doc.currency',
+                DB::raw("COALESCE(party.company_name, party.name, 'Unassigned') as party"),
+            ])
+            ->latest('doc.issue_date')
+            ->limit(100)
+            ->get();
+
+        return response()->json(['data' => [
+            'breadcrumbs' => [
+                ['label' => 'Report', 'value' => $data['feature']],
+                ['label' => 'Dimension', 'value' => $value ?: 'All'],
+                ['label' => 'Metric', 'value' => $data['metric'] ?? 'value'],
+            ],
+            'months' => $months,
+            'invoices' => $invoices,
+        ]]);
+    }
+
+    public function saveVisualization(Request $request): JsonResponse
+    {
+        abort_unless($this->canViewReports($request), 403);
+
+        $data = $request->validate([
+            'report_id' => ['required', 'integer'],
+            'type' => ['required', Rule::in(['table', 'bar', 'line', 'area', 'pie', 'donut'])],
+            'x' => ['nullable', 'string', 'max:100'],
+            'y' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $updated = DB::table('custom_reports')
+            ->where('organization_id', app(TenantContext::class)->id())
+            ->where('id', $data['report_id'])
+            ->where(function ($query) use ($request): void {
+                $query->where('created_by', $request->user()->id)
+                    ->orWhere('shared', true);
+            })
+            ->update([
+                'visualization' => json_encode([
+                    'type' => $data['type'],
+                    'x' => $data['x'] ?? null,
+                    'y' => $data['y'] ?? null,
+                ], JSON_THROW_ON_ERROR),
+                'updated_at' => now(),
+            ]);
+
+        abort_unless($updated > 0, 404);
+
+        return response()->json(['ok' => true]);
     }
 
     public function naturalLanguage(Request $request): JsonResponse
