@@ -3425,6 +3425,7 @@ function RoleWorkspace() {
                                                                                     permissionLabel(
                                                                                         permission,
                                                                                         ar,
+                                                                                        permissionLabels,
                                                                                     )
                                                                                 }
 
@@ -4385,6 +4386,7 @@ function MemberAccessMatrix({
                                                                             {permissionLabel(
                                                                                 permission,
                                                                                 ar,
+                                                                                permissionLabels,
                                                                             )}
                                                                         </span>
                                                                     </div>
