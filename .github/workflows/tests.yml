@@ -40,6 +40,8 @@ jobs:
       - run: npm run build
       - name: Targeted finance workflow test
         run: php artisan test --filter=FinanceWorkflowTest
+      - name: Targeted operational intelligence workflow test
+        run: php artisan test --filter=OperationalIntelligenceWorkflowTest
       - run: php artisan test
       - run: vendor/bin/phpunit --configuration=phpunit.sqlite.xml
       - run: vendor/bin/pint --test
