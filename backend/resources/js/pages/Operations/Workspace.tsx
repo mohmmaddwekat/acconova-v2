@@ -2207,6 +2207,15 @@ function RowActions({
             ? stages.indexOf(row.stage)
             : -1;
 
+    const orderFeature =
+        feature === 'sales-orders'
+        || feature === 'purchase-orders';
+
+    const hasConvertibleOrderQuantity =
+        Number(row.fulfilled_quantity ?? 0)
+        > Number(row.invoiced_quantity ?? 0)
+            + 0.00005;
+
     return (
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--ac-line)] pt-3">
             {row.url && (
@@ -2490,6 +2499,53 @@ function RowActions({
                     </button>
                 )}
 
+            {orderFeature
+                && row.status === 'draft'
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            onPatch({
+                                status: 'confirmed',
+                            })
+                        }
+                        className="h-9 rounded-[11px] border border-[var(--ac-accent)] px-3 text-[10px] font-semibold text-[var(--ac-accent)]"
+                    >
+                        {ar ? 'تأكيد الطلب' : 'Confirm order'}
+                    </button>
+                )}
+
+            {orderFeature
+                && ! [
+                    'cancelled',
+                    'invoiced',
+                ].includes(row.status)
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                            if (
+                                ! window.confirm(
+                                    ar
+                                        ? 'إلغاء ما تبقى من هذا الطلب؟ السجلات والفواتير السابقة ستبقى محفوظة.'
+                                        : 'Cancel the remaining order? Existing history and invoices will stay intact.',
+                                )
+                            ) {
+                                return;
+                            }
+
+                            onPatch({
+                                status: 'cancelled',
+                            });
+                        }}
+                        className="h-9 rounded-[11px] border border-red-400/50 px-3 text-[10px] font-semibold text-red-400"
+                    >
+                        {ar ? 'إلغاء الطلب' : 'Cancel order'}
+                    </button>
+                )}
+
             {tradeFeatures.includes(feature)
                 && ! [
                     'converted',
@@ -2497,6 +2553,10 @@ function RowActions({
                     'rejected',
                     'expired',
                 ].includes(row.status)
+                && (
+                    ! orderFeature
+                    || hasConvertibleOrderQuantity
+                )
                 && (
                     <button
                         type="button"
