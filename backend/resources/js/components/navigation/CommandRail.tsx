@@ -497,14 +497,15 @@ export function CommandRail({
         '/app/inventory/production':
             'inventory.view',
 
-        '/app/finance':
-            'finance.sales.view',
-
+        /*
+         * Finance and Reports are already conditionally added above using the
+         * union of the relevant permissions. Do not force them back through a
+         * single sales permission here, otherwise approval-only reviewers and
+         * purchase-only users lose destinations they are explicitly allowed
+         * to open.
+         */
         '/app/finance/taxes':
             'finance.taxes.view',
-
-        '/app/reports':
-            'finance.sales.view',
     };
 
     const visibleItems =
