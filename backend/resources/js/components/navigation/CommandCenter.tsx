@@ -30,6 +30,7 @@ import {
     Radar,
     Search,
     Settings2,
+    ShieldCheck,
     ShoppingCart,
     Star,
     UserPlus,
