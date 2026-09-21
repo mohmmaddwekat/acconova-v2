@@ -2007,11 +2007,14 @@ function RoleWorkspace() {
         if (allSelected) {
             setPermissions(
                 current =>
-                    current.filter(
-                        permission =>
-                            ! group.permissions.includes(
-                                permission,
-                            ),
+                    normalizePermissions(
+                        current.filter(
+                            permission =>
+                                ! group.permissions.includes(
+                                    permission,
+                                ),
+                        ),
+                        permissionDependencies,
                     ),
             );
 
