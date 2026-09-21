@@ -47,8 +47,24 @@ class ReportStudioController extends Controller
                 ? DB::table('report_comments')->where('organization_id', $org)->latest('id')->limit(30)->get()
                 : [],
             'approvals' => Schema::hasTable('report_approvals')
-                ? DB::table('report_approvals')->where('organization_id', $org)->latest('id')->limit(30)->get()
+                ? DB::table('report_approvals as approval')
+                    ->leftJoin('users as reviewer', 'reviewer.id', '=', 'approval.reviewed_by')
+                    ->where('approval.organization_id', $org)
+                    ->latest('approval.id')
+                    ->limit(30)
+                    ->get([
+                        'approval.*',
+                        'reviewer.name as reviewer_name',
+                    ])
                 : [],
+            'members' => DB::table('memberships as membership')
+                ->join('users as user', 'user.id', '=', 'membership.user_id')
+                ->where('membership.organization_id', $org)
+                ->orderBy('user.name')
+                ->get([
+                    'user.id',
+                    'user.name',
+                ]),
         ]);
     }
 
@@ -62,6 +78,8 @@ class ReportStudioController extends Controller
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'dimension' => ['nullable', Rule::in(['customer', 'product', 'supplier', 'employee', 'branch', 'warehouse', 'month'])],
             'limit' => ['nullable', 'integer', 'min:3', 'max:100'],
+            'metric' => ['nullable', Rule::in(['revenue', 'gross_profit', 'margin_percent', 'quantity', 'discounts', 'outstanding'])],
+            'comparison_mode' => ['nullable', Rule::in(['previous_period', 'previous_month', 'previous_quarter', 'ytd_previous_year'])],
             'scenario.sales_percent' => ['nullable', 'numeric', 'between:-90,500'],
             'scenario.cost_percent' => ['nullable', 'numeric', 'between:-90,500'],
             'scenario.currency_percent' => ['nullable', 'numeric', 'between:-90,500'],
@@ -75,7 +93,7 @@ class ReportStudioController extends Controller
         $feature = $data['feature'];
 
         $result = match ($feature) {
-            'period-comparison' => $this->periodComparison($from, $to),
+            'period-comparison' => $this->periodComparison($from, $to, $data['comparison_mode'] ?? 'previous_period'),
             'variance-analysis' => $this->varianceAnalysis($from, $to),
             'profitability-explorer' => $this->profitability($from, $to, $data['dimension'] ?? 'customer'),
             'margin-leakage' => $this->marginLeakage($from, $to),
@@ -99,9 +117,25 @@ class ReportStudioController extends Controller
             'tax-center' => $this->taxCenter($from, $to),
             'audit-report' => $this->auditReport($from, $to),
             'exception-builder' => $this->exceptionReport($from, $to, $data['exception'] ?? []),
-            'top-bottom' => $this->topBottom($from, $to, (int) ($data['limit'] ?? 10)),
-            'pareto' => $this->pareto($from, $to),
-            'concentration-risk' => $this->concentrationRisk($from, $to),
+            'top-bottom' => $this->topBottom(
+                $from,
+                $to,
+                (int) ($data['limit'] ?? 10),
+                $data['dimension'] ?? 'customer',
+                $data['metric'] ?? 'revenue',
+            ),
+            'pareto' => $this->pareto(
+                $from,
+                $to,
+                $data['dimension'] ?? 'customer',
+                $data['metric'] ?? 'revenue',
+            ),
+            'concentration-risk' => $this->concentrationRisk(
+                $from,
+                $to,
+                $data['dimension'] ?? 'customer',
+                $data['metric'] ?? 'revenue',
+            ),
             'scenario-reports' => $this->scenario($from, $to, $data['scenario'] ?? []),
             default => $this->summary($from, $to, $feature),
         };
