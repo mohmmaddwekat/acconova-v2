@@ -304,19 +304,35 @@ export function Party360Panel({
                         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                             <Metric
                                 label={ar ? 'ثبات السعر' : 'Price stability'}
-                                value={data.supplier.performance.price_stability_score.toFixed(0) + '/100'}
+                                value={
+                                    data.supplier.performance.data_quality === 'insufficient'
+                                        ? '—'
+                                        : data.supplier.performance.price_stability_score.toFixed(0) + '/100'
+                                }
                             />
                             <Metric
                                 label={ar ? 'سرعة الاستلام' : 'Receipt speed'}
-                                value={data.supplier.performance.receipt_speed_score.toFixed(0) + '/100'}
+                                value={
+                                    data.supplier.performance.data_quality === 'insufficient'
+                                        ? '—'
+                                        : data.supplier.performance.receipt_speed_score.toFixed(0) + '/100'
+                                }
                             />
                             <Metric
                                 label={ar ? 'اكتمال الطلبات' : 'Completion'}
-                                value={data.supplier.performance.completion_score.toFixed(0) + '/100'}
+                                value={
+                                    data.supplier.performance.data_quality === 'insufficient'
+                                        ? '—'
+                                        : data.supplier.performance.completion_score.toFixed(0) + '/100'
+                                }
                             />
                             <Metric
                                 label={ar ? 'المرتجعات' : 'Returns'}
-                                value={data.supplier.performance.returns_score.toFixed(0) + '/100'}
+                                value={
+                                    data.supplier.performance.data_quality === 'insufficient'
+                                        ? '—'
+                                        : data.supplier.performance.returns_score.toFixed(0) + '/100'
+                                }
                             />
                         </div>
 
