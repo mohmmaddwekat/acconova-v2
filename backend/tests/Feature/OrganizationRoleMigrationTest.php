@@ -5,14 +5,14 @@ namespace Tests\Feature;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Tests\TestCase;
 
 class OrganizationRoleMigrationTest extends TestCase
 {
-    use DatabaseMigrations;
+    use RefreshDatabase;
 
     /**
      * Verify that ownership protection refuses to activate when a legacy
