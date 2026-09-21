@@ -36,18 +36,108 @@ class WorkspaceRoleController extends Controller
     {
         $this->authorizeOwner();
 
-        return response()->json([
-            'roles' => WorkspaceRole::orderBy(
-                'name',
-            )->get(),
+        $roles = WorkspaceRole::orderBy(
+            'name',
+        )->get();
 
-            'members' => Membership::with(
-                'user:id,name,email',
+        $rolesById = $roles->keyBy(
+            'id',
+        );
+
+        $members = Membership::with(
+            'user:id,name,email',
+        )
+            ->orderBy(
+                'id',
             )
-                ->orderBy(
-                    'id',
-                )
-                ->get(),
+            ->get()
+            ->map(
+                function (
+                    Membership $membership,
+                ) use (
+                    $rolesById,
+                ): array {
+                    $baseRole =
+                        $membership
+                            ->role
+                            ->value;
+
+                    $workspaceRole =
+                        $membership
+                            ->workspace_role_id
+                            ? $rolesById->get(
+                                $membership
+                                    ->workspace_role_id,
+                            )
+                            : null;
+
+                    $isCustom =
+                        $workspaceRole
+                        && $workspaceRole
+                            ->is_custom;
+
+                    $permissions =
+                        $isCustom
+                            ? WorkspaceRoleCatalog::normalizePermissions(
+                                $workspaceRole
+                                    ->permissions
+                                ?? [],
+                            )
+                            : WorkspaceRoleCatalog::builtInPermissions(
+                                $baseRole,
+                            );
+
+                    $accessMode =
+                        in_array(
+                            $baseRole,
+                            [
+                                'owner',
+                                'admin',
+                            ],
+                            true,
+                        )
+                            ? 'full'
+                            : (
+                                $isCustom
+                                    ? 'custom'
+                                    : 'built_in'
+                            );
+
+                    return [
+                        'id' => $membership->id,
+                        'user_id' => $membership->user_id,
+                        'role' => $baseRole,
+                        'workspace_role_id' => $membership->workspace_role_id,
+                        'user' => [
+                            'name' => $membership->user?->name
+                                ?? '—',
+                            'email' => $membership->user?->email
+                                ?? '—',
+                        ],
+                        'role_name' => $workspaceRole?->name,
+                        'access_mode' => $accessMode,
+                        'effective_permissions' => array_values(
+                            array_intersect(
+                                WorkspacePermissions::KEYS,
+                                $permissions,
+                            ),
+                        ),
+                        'permission_count' => count(
+                            array_intersect(
+                                WorkspacePermissions::KEYS,
+                                $permissions,
+                            ),
+                        ),
+                        'full_access' => $accessMode === 'full',
+                    ];
+                },
+            )
+            ->values();
+
+        return response()->json([
+            'roles' => $roles,
+
+            'members' => $members,
 
             'presets' => WorkspaceRoleCatalog::presets(),
 
