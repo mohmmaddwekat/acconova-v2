@@ -36,6 +36,11 @@ class ApprovalWorkflowService
 
         $document->loadMissing('lines');
 
+        $documentFingerprint =
+            $this->documentFingerprint(
+                $document,
+            );
+
         $requirements = [];
 
         if (
@@ -55,6 +60,7 @@ class ApprovalWorkflowService
                     'kind' => $document->kind,
                     'total' => $document->total,
                     'threshold' => $invoiceThreshold,
+                    'fingerprint' => $documentFingerprint,
                 ],
             ];
         }
@@ -92,6 +98,7 @@ class ApprovalWorkflowService
                         'number' => $document->number,
                         'max_discount_percent' => round($maxDiscount, 2),
                         'threshold' => $discountThreshold,
+                        'fingerprint' => $documentFingerprint,
                     ],
                 ];
             }
@@ -154,6 +161,9 @@ class ApprovalWorkflowService
             'amount' => $movement->amount,
             'method' => $movement->method,
             'threshold' => $threshold,
+            'fingerprint' => $this->movementFingerprint(
+                $movement,
+            ),
         ];
 
         $pendingId = $this->requestApproval(
@@ -287,6 +297,91 @@ class ApprovalWorkflowService
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+    }
+
+    private function documentFingerprint(
+        FinancialDocument $document,
+    ): string {
+        $document->loadMissing('lines');
+
+        $lines = $document->lines
+            ->sortBy('position')
+            ->values()
+            ->map(
+                fn ($line): array => [
+                    'product_id' => $line->product_id,
+                    'warehouse_id' => $line->warehouse_id,
+                    'description' => $line->description,
+                    'quantity' => $line->quantity,
+                    'unit_price' => $line->unit_price,
+                    'discount_type' => $line->discount_type,
+                    'discount_value' => $line->discount_value,
+                    'tax_rate' => $line->tax_rate,
+                    'line_total' => $line->line_total,
+                ],
+            )
+            ->all();
+
+        return hash(
+            'sha256',
+            json_encode(
+                [
+                    'party_id' => $document->party_id,
+                    'kind' => $document->kind,
+                    'issue_date' => $document->issue_date?->format('Y-m-d'),
+                    'due_date' => $document->due_date?->format('Y-m-d'),
+                    'currency' => $document->currency,
+                    'exchange_rate' => $document->exchange_rate,
+                    'shipping_total' => $document->shipping_total,
+                    'total' => $document->total,
+                    'lines' => $lines,
+                ],
+                JSON_THROW_ON_ERROR,
+            ),
+        );
+    }
+
+    private function movementFingerprint(
+        CashMovement $movement,
+    ): string {
+        $movement->loadMissing(
+            'allocations',
+        );
+
+        $allocations = $movement->allocations
+            ->sortBy('financial_document_id')
+            ->values()
+            ->map(
+                fn ($allocation): array => [
+                    'financial_document_id' =>
+                        $allocation->financial_document_id,
+                    'amount' =>
+                        $allocation->amount,
+                ],
+            )
+            ->all();
+
+        return hash(
+            'sha256',
+            json_encode(
+                [
+                    'party_id' => $movement->party_id,
+                    'direction' => $movement->direction,
+                    'category' => $movement->category,
+                    'amount' => $movement->amount,
+                    'currency' => $movement->currency,
+                    'movement_date' => $movement->movement_date?->format('Y-m-d'),
+                    'method' => $movement->method,
+                    'account_label' => $movement->account_label,
+                    'reference' => $movement->reference,
+                    'check_number' => $movement->check_number,
+                    'check_bank' => $movement->check_bank,
+                    'check_due_date' => $movement->check_due_date?->format('Y-m-d'),
+                    'allocations' => $allocations,
+                ],
+                JSON_THROW_ON_ERROR,
+            ),
+        );
     }
 
     /**
