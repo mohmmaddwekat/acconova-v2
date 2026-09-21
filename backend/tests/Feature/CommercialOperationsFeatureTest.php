@@ -616,6 +616,113 @@ class CommercialOperationsFeatureTest extends TestCase
             );
     }
 
+    public function test_multi_line_sales_order_tracks_fulfillment_per_line(): void
+    {
+        [$owner, $organization] = $this->workspace(
+            'Multi line order workspace',
+        );
+
+        $this->actingInWorkspace(
+            $owner,
+            $organization,
+        );
+
+        $customerId = $this->party(
+            'customer',
+            'Multi Line Customer',
+        );
+
+        $orderId = (int) $this->postJson(
+            '/api/operations/sales-orders',
+            [
+                'party_id' => $customerId,
+                'lines' => [
+                    [
+                        'description' => 'First line',
+                        'quantity' => '10',
+                        'unit_price' => '5',
+                        'affects_inventory' => false,
+                    ],
+                    [
+                        'description' => 'Second line',
+                        'quantity' => '20',
+                        'unit_price' => '3',
+                        'affects_inventory' => false,
+                    ],
+                ],
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $order = collect(
+            $this->getJson(
+                '/api/operations/sales-orders',
+            )
+                ->assertOk()
+                ->json('data'),
+        )->firstWhere(
+            'id',
+            $orderId,
+        );
+
+        $this->assertNotNull($order);
+        $this->assertCount(
+            2,
+            $order['lines'],
+        );
+
+        $secondLineId =
+            (int) $order['lines'][1]['id'];
+
+        $this->patchJson(
+            "/api/operations/sales-orders/{$orderId}",
+            [
+                'line_id' => $secondLineId,
+                'fulfilled_quantity' => '7',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'partial',
+            );
+
+        $updatedOrder = collect(
+            $this->getJson(
+                '/api/operations/sales-orders',
+            )
+                ->assertOk()
+                ->json('data'),
+        )->firstWhere(
+            'id',
+            $orderId,
+        );
+
+        $updatedSecondLine = collect(
+            $updatedOrder['lines'],
+        )->firstWhere(
+            'id',
+            $secondLineId,
+        );
+
+        $this->assertNotNull(
+            $updatedSecondLine,
+        );
+        $this->assertSame(
+            '7.0000',
+            $updatedSecondLine[
+                'fulfilled_quantity'
+            ],
+        );
+        $this->assertSame(
+            '13.0000',
+            $updatedSecondLine[
+                'remaining_quantity'
+            ],
+        );
+    }
+
     public function test_returns_warranties_serials_and_batches_are_tenant_scoped_and_traceable(): void
     {
         [$owner, $organization] = $this->workspace(
