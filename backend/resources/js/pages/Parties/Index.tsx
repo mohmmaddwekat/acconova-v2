@@ -9,6 +9,7 @@ import {
     BellRing,
     CalendarClock,
     HandCoins,
+    PanelRightOpen,
     Plus,
     Search,
     Sparkles,
@@ -62,6 +63,7 @@ import {
 } from '@/features/parties/components/PartyFilterPopover';
 import { PartyImportDialog } from '@/features/parties/components/PartyImportDialog';
 import { PartyListItem } from '@/features/parties/components/PartyListItem';
+import { PartySplitPreview } from '@/features/parties/components/PartySplitPreview';
 import {
     canArchiveParties,
     canEditParties,
@@ -241,6 +243,16 @@ function PartiesWorkspace() {
         );
 
     const [
+        detailDrawerOpen,
+        setDetailDrawerOpen,
+    ] = useState(false);
+
+    const [
+        splitView,
+        setSplitView,
+    ] = useState(false);
+
+    const [
         pendingAction,
         setPendingAction,
     ] =
@@ -267,6 +279,24 @@ function PartiesWorkspace() {
     ] = useState(false);
 
     const { showToast } = useToast();
+
+    useEffect(() => {
+        if (
+            typeof window === 'undefined'
+            || ! activeOrganization
+        ) {
+            return;
+        }
+
+        setSplitView(
+            window.localStorage.getItem(
+                'acconova:split-view:parties:'
+                + String(activeOrganization.id),
+            ) === '1',
+        );
+    }, [
+        activeOrganization?.id,
+    ]);
 
     /*
      * Global search / quick-create deep links are intentionally handled by the
@@ -299,6 +329,9 @@ function PartiesWorkspace() {
             void fetchParty(focusId)
                 .then((party) => {
                     setDetailParty(party);
+                    setDetailDrawerOpen(
+                        ! splitView,
+                    );
                 })
                 .catch(() => {
                     setError(
@@ -312,6 +345,7 @@ function PartiesWorkspace() {
         activeOrganization?.id,
         allowCreate,
         ar,
+        splitView,
     ]);
 
     const partyColumns: ListColumn[] = [
@@ -540,6 +574,7 @@ function PartiesWorkspace() {
      * Open the clean Party creation editor.
      */
     function openCreate(): void {
+        setDetailDrawerOpen(false);
         setDetailParty(null);
         setEditingParty(null);
         setEditorOpen(true);
@@ -551,6 +586,7 @@ function PartiesWorkspace() {
     function openEdit(
         party: Party,
     ): void {
+        setDetailDrawerOpen(false);
         setDetailParty(null);
         setEditingParty(
             party,
@@ -567,6 +603,40 @@ function PartiesWorkspace() {
         setDetailParty(
             party,
         );
+        setDetailDrawerOpen(
+            ! splitView,
+        );
+    }
+
+    function toggleSplitView(): void {
+        const next =
+            ! splitView;
+
+        setSplitView(
+            next,
+        );
+        setDetailDrawerOpen(
+            false,
+        );
+
+        if (! next) {
+            setDetailParty(
+                null,
+            );
+        }
+
+        if (
+            typeof window !== 'undefined'
+            && activeOrganization
+        ) {
+            window.localStorage.setItem(
+                'acconova:split-view:parties:'
+                + String(
+                    activeOrganization.id,
+                ),
+                next ? '1' : '0',
+            );
+        }
     }
 
     /**
@@ -1259,6 +1329,29 @@ function PartiesWorkspace() {
                                         ar={ar}
                                     />
 
+                                    <button
+                                        type="button"
+                                        onClick={
+                                            toggleSplitView
+                                        }
+                                        aria-pressed={
+                                            splitView
+                                        }
+                                        className={[
+                                            'inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border px-3 text-[11px] font-semibold transition',
+                                            splitView
+                                                ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
+                                        ].join(' ')}
+                                    >
+                                        <PanelRightOpen
+                                            size={14}
+                                        />
+                                        {ar
+                                            ? 'عرض مقسوم'
+                                            : 'Split view'}
+                                    </button>
+
                                     <SavedViews
                                         storageKey={`acconova:saved-views:parties:${activeOrganization?.id ?? 'none'}`}
                                         ar={ar}
@@ -1406,59 +1499,98 @@ function PartiesWorkspace() {
                                 ) : undefined}
                             />
                         ) : (
-                            <div>
-                                {parties.map(
-                                    (
-                                        party,
-                                    ) => (
-                                        <PartyListItem
-                                            key={
-                                                party.id
-                                            }
-                                            party={
-                                                party
-                                            }
-                                            selected={selectedIds.has(
-                                                party.id,
-                                            )}
-                                            selectable={
-                                                allowArchive
-                                            }
-                                            canEdit={
-                                                allowEdit
-                                            }
-                                            canArchive={
-                                                allowArchive
-                                            }
-                                            columnOrder={
-                                                listPreferences.order
-                                            }
-                                            hiddenColumns={
-                                                listPreferences.hidden
-                                            }
-                                            density={
-                                                listPreferences.density
-                                            }
-                                            onInlineUpdate={
-                                                inlineUpdateParty
-                                            }
-                                            onSelectionChange={
-                                                handleSelectionChange
-                                            }
-                                            onView={
-                                                openDetail
-                                            }
-                                            onEdit={
-                                                openEdit
-                                            }
-                                            onArchive={
-                                                requestArchive
-                                            }
-                                            onRestore={
-                                                requestRestore
-                                            }
-                                        />
-                                    ),
+                            <div
+                                className={
+                                    splitView
+                                    && detailParty
+                                        ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]'
+                                        : ''
+                                }
+                            >
+                                <div className="min-w-0">
+                                    {parties.map(
+                                        (
+                                            party,
+                                        ) => (
+                                            <PartyListItem
+                                                key={
+                                                    party.id
+                                                }
+                                                party={
+                                                    party
+                                                }
+                                                selected={selectedIds.has(
+                                                    party.id,
+                                                )}
+                                                selectable={
+                                                    allowArchive
+                                                }
+                                                canEdit={
+                                                    allowEdit
+                                                }
+                                                canArchive={
+                                                    allowArchive
+                                                }
+                                                columnOrder={
+                                                    listPreferences.order
+                                                }
+                                                hiddenColumns={
+                                                    listPreferences.hidden
+                                                }
+                                                density={
+                                                    listPreferences.density
+                                                }
+                                                onInlineUpdate={
+                                                    inlineUpdateParty
+                                                }
+                                                onSelectionChange={
+                                                    handleSelectionChange
+                                                }
+                                                onView={
+                                                    openDetail
+                                                }
+                                                onEdit={
+                                                    openEdit
+                                                }
+                                                onArchive={
+                                                    requestArchive
+                                                }
+                                                onRestore={
+                                                    requestRestore
+                                                }
+                                            />
+                                        ),
+                                    )}
+                                </div>
+
+                                {splitView
+                                && detailParty && (
+                                    <PartySplitPreview
+                                        party={
+                                            detailParty
+                                        }
+                                        ar={
+                                            ar
+                                        }
+                                        canEdit={
+                                            allowEdit
+                                        }
+                                        onOpenFull={() =>
+                                            setDetailDrawerOpen(
+                                                true,
+                                            )
+                                        }
+                                        onEdit={() =>
+                                            openEdit(
+                                                detailParty,
+                                            )
+                                        }
+                                        onClose={() =>
+                                            setDetailParty(
+                                                null,
+                                            )
+                                        }
+                                    />
                                 )}
                             </div>
                         )}
@@ -1491,8 +1623,9 @@ function PartiesWorkspace() {
 
                 <PartyDetailDrawer
                     open={
-                        detailParty !==
-                        null
+                        detailDrawerOpen
+                        && detailParty !==
+                            null
                     }
                     party={
                         detailParty
@@ -1503,10 +1636,16 @@ function PartiesWorkspace() {
                     canArchive={
                         allowArchive
                     }
-                    onClose={() =>
-                        setDetailParty(
-                            null,
-                        )
+                    onClose={() => {
+                        setDetailDrawerOpen(
+                            false,
+                        );
+
+                        if (! splitView) {
+                            setDetailParty(
+                                null,
+                            );
+                        }
                     }
                     onChanged={
                         handlePartyChanged
