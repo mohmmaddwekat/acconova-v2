@@ -45,6 +45,7 @@ type SavedReport = {
     sort_by: string | null;
     sort_direction: 'asc' | 'desc';
     shared: boolean;
+    can_edit: boolean;
 };
 
 type RunResult = {
@@ -403,14 +404,16 @@ export default function ReportBuilder() {
                                             >
                                                 {report.name}
                                             </button>
-                                            <button
-                                                type="button"
-                                                disabled={busy}
-                                                onClick={() => void removeReport(report.id)}
-                                                className="flex size-8 items-center justify-center rounded-[9px] border border-red-400/30 text-red-300"
-                                            >
-                                                <Trash2 size={12} />
-                                            </button>
+                                            {report.can_edit && (
+                                                <button
+                                                    type="button"
+                                                    disabled={busy}
+                                                    onClick={() => void removeReport(report.id)}
+                                                    className="flex size-8 items-center justify-center rounded-[9px] border border-red-400/30 text-red-300"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
