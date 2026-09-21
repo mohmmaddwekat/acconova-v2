@@ -342,11 +342,26 @@ export function CommandRail({
               )
             : builtinFinanceAccess;
 
+    const canReviewFinanceApprovals =
+        customPermissions
+            ? customPermissions.includes(
+                  'finance.approvals.review',
+              )
+            : [
+                'owner',
+                'admin',
+                'manager',
+            ].includes(
+                activeOrganization?.role
+                ?? '',
+            );
+
     const canViewFinance =
         canViewSalesInvoices
         || canViewPurchaseInvoices
         || canViewCash
-        || canViewTaxes;
+        || canViewTaxes
+        || canReviewFinanceApprovals;
 
     const financeHref =
         '/app/finance';
