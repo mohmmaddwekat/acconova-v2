@@ -622,7 +622,7 @@ export function PartyFinancialOperations({
                             await apiRequest<
                                 CashResponse
                             >(
-                                '/api/finance/cash?'
+                                '/api/finance/cash-movements?'
                                 + params.toString(),
                             );
 
