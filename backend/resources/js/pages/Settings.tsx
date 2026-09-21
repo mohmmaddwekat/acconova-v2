@@ -88,6 +88,11 @@ type WorkspaceSettings = {
     cost_method: 'moving_average' | 'fifo';
     include_extra_costs: boolean;
     include_shipping_cost: boolean;
+    approval_invoice_threshold: string;
+    approval_discount_percent: string;
+    approval_payment_threshold: string;
+    inventory_reorder_lead_days: number;
+    inventory_safety_days: number;
     payment_methods: string[];
     validate_check_date: boolean;
     post_dated_checks_pending: boolean;
@@ -1031,6 +1036,105 @@ function SettingsWorkspace() {
                                         </label>
                                         <div className="mt-4 rounded-[12px] bg-[var(--acs-surface-soft)] p-4 text-center text-xl font-bold text-[var(--acs-text)]">
                                             {settings.currency} {moneyPreview}
+                                        </div>
+                                    </SettingsCard>
+
+                                    <SettingsCard
+                                        title={text('قواعد الموافقات', 'Approval rules')}
+                                        description={text(
+                                            'حدد متى يجب إيقاف العملية للمراجعة. القيمة 0 تعطل حد المبلغ، بينما التحويل البنكي الصادر يبقى بحاجة لموافقة.',
+                                            'Choose when an operation must pause for review. A value of 0 disables the amount threshold; outgoing bank transfers still require approval.',
+                                        )}
+                                        icon={ShieldCheck}
+                                    >
+                                        <div className="space-y-3">
+                                            <label className="block text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                {text('فاتورة تحتاج موافقة من مبلغ', 'Invoice approval from amount')}
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    step="0.01"
+                                                    className={input}
+                                                    value={settings.approval_invoice_threshold}
+                                                    onChange={event => updateSetting('approval_invoice_threshold', event.target.value)}
+                                                />
+                                            </label>
+
+                                            <label className="block text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                {text('خصم بيع يحتاج موافقة فوق %', 'Sales discount approval above %')}
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={100}
+                                                    step="0.1"
+                                                    className={input}
+                                                    value={settings.approval_discount_percent}
+                                                    onChange={event => updateSetting('approval_discount_percent', event.target.value)}
+                                                />
+                                            </label>
+
+                                            <label className="block text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                {text('دفعة صادرة تحتاج موافقة من مبلغ', 'Outgoing payment approval from amount')}
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    step="0.01"
+                                                    className={input}
+                                                    value={settings.approval_payment_threshold}
+                                                    onChange={event => updateSetting('approval_payment_threshold', event.target.value)}
+                                                />
+                                            </label>
+
+                                            <Link
+                                                href="/app/finance/approvals"
+                                                className={secondaryButton + ' w-full'}
+                                            >
+                                                <ShieldCheck size={13} />
+                                                {text('فتح مركز الموافقات', 'Open approval center')}
+                                            </Link>
+                                        </div>
+                                    </SettingsCard>
+
+                                    <SettingsCard
+                                        title={text('تخطيط المخزون', 'Inventory planning')}
+                                        description={text(
+                                            'تستخدم هذه الأيام في اقتراحات إعادة الطلب وتوقع النفاد، ولا تنشئ طلب شراء تلقائياً.',
+                                            'These day values drive reorder suggestions and stockout forecasts; they never create a purchase automatically.',
+                                        )}
+                                        icon={ShoppingCart}
+                                    >
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                {text('مهلة التوريد بالأيام', 'Lead time days')}
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={365}
+                                                    step={1}
+                                                    className={input}
+                                                    value={settings.inventory_reorder_lead_days}
+                                                    onChange={event => updateSetting(
+                                                        'inventory_reorder_lead_days',
+                                                        Math.min(365, Math.max(1, Number(event.target.value) || 1)),
+                                                    )}
+                                                />
+                                            </label>
+
+                                            <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                                {text('مخزون الأمان بالأيام', 'Safety stock days')}
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={365}
+                                                    step={1}
+                                                    className={input}
+                                                    value={settings.inventory_safety_days}
+                                                    onChange={event => updateSetting(
+                                                        'inventory_safety_days',
+                                                        Math.min(365, Math.max(0, Number(event.target.value) || 0)),
+                                                    )}
+                                                />
+                                            </label>
                                         </div>
                                     </SettingsCard>
 
