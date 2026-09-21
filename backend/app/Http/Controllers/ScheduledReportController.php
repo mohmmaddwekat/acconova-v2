@@ -420,23 +420,8 @@ class ScheduledReportController extends Controller
     private function authorizeView(
         Request $request,
     ): void {
-        $canReadFinance =
-            FinanceAuthorization::allows(
-                $request->user(),
-                'finance.sales.view',
-            )
-            || FinanceAuthorization::allows(
-                $request->user(),
-                'finance.purchases.view',
-            )
-            || FinanceAuthorization::allows(
-                $request->user(),
-                'finance.cash.view',
-            );
-
         abort_unless(
-            $canReadFinance
-            && WorkspaceFeaturePermissions::allows(
+            WorkspaceFeaturePermissions::allows(
                 $request->user(),
                 'reports.scheduled.view',
             ),
