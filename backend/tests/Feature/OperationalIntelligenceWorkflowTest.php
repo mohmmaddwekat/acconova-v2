@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class OperationalIntelligenceWorkflowTest extends TestCase
@@ -853,6 +854,286 @@ class OperationalIntelligenceWorkflowTest extends TestCase
                 'data.status',
                 'posted',
             );
+    }
+
+    public function test_custom_approval_reviewer_permission_can_review_without_broad_finance_role(): void
+    {
+        [$owner, $organization] = $this->workspace(
+            'owner',
+            'Custom approval reviewer workspace',
+        );
+
+        $reviewer = User::factory()->create();
+
+        $this->attachCustomRole(
+            $organization,
+            $reviewer,
+            'Approval Reviewer',
+            [
+                'finance.approvals.review',
+            ],
+        );
+
+        $this->actingInWorkspace(
+            $owner,
+            $organization,
+        );
+
+        $customerId = $this->party(
+            'customer',
+            'Custom Approval Customer',
+        );
+
+        $documentId = (int) $this->postJson(
+            '/api/finance/documents',
+            [
+                'kind' => 'sale_invoice',
+                'party_id' => $customerId,
+                'issue_date' => '2026-09-21',
+                'currency' => 'ILS',
+                'lines' => [
+                    [
+                        'description' => 'Approval-only reviewer test',
+                        'quantity' => '1',
+                        'unit' => 'service',
+                        'unit_price' => '15000',
+                        'discount_percent' => '0',
+                        'tax_rate' => '0',
+                        'affects_inventory' => false,
+                    ],
+                ],
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->postJson(
+            "/api/finance/documents/{$documentId}/issue",
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('approval');
+
+        $approvalId = (int) $this->getJson(
+            '/api/approval-requests?status=pending',
+        )
+            ->assertOk()
+            ->json('data.0.id');
+
+        $this->actingInWorkspace(
+            $reviewer,
+            $organization,
+        );
+
+        $this->getJson('/api/finance/lookups')
+            ->assertOk()
+            ->assertJsonPath(
+                'permissions.approvals_review',
+                true,
+            );
+
+        $this->patchJson(
+            "/api/approval-requests/{$approvalId}",
+            [
+                'decision' => 'approved',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'approved',
+            );
+    }
+
+    public function test_custom_purchase_manager_can_review_purchase_requisitions(): void
+    {
+        [$owner, $organization] = $this->workspace(
+            'owner',
+            'Custom purchase reviewer workspace',
+        );
+
+        $employee = User::factory()->create();
+        $reviewer = User::factory()->create();
+
+        $organization->users()->attach(
+            $employee->id,
+            [
+                'role' => 'employee',
+            ],
+        );
+
+        $this->attachCustomRole(
+            $organization,
+            $reviewer,
+            'Purchase Reviewer',
+            [
+                'finance.purchases.view',
+                'finance.purchases.manage',
+            ],
+        );
+
+        $this->actingInWorkspace(
+            $owner,
+            $organization,
+        );
+
+        $productId = $this->product(
+            'Custom Review Product',
+            '15.0000',
+            '8.0000',
+        );
+
+        $this->actingInWorkspace(
+            $employee,
+            $organization,
+        );
+
+        $requisitionId = (int) $this->postJson(
+            '/api/purchase-requisitions',
+            [
+                'product_id' => $productId,
+                'description' => 'Custom Review Product',
+                'quantity' => '3',
+                'expected_unit_cost' => '8',
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingInWorkspace(
+            $reviewer,
+            $organization,
+        );
+
+        $this->patchJson(
+            "/api/purchase-requisitions/{$requisitionId}/review",
+            [
+                'decision' => 'approved',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'approved',
+            );
+    }
+
+    public function test_custom_inventory_manager_can_approve_transfer_workflow(): void
+    {
+        [$owner, $organization] = $this->workspace(
+            'owner',
+            'Custom inventory manager workspace',
+        );
+
+        $reviewer = User::factory()->create();
+
+        $this->attachCustomRole(
+            $organization,
+            $reviewer,
+            'Inventory Reviewer',
+            [
+                'inventory.view',
+                'inventory.manage',
+                'products.view',
+            ],
+        );
+
+        $this->actingInWorkspace(
+            $owner,
+            $organization,
+        );
+
+        $productId = $this->product(
+            'Custom Transfer Product',
+            '12.0000',
+            '6.0000',
+        );
+        $sourceId = $this->warehouse(
+            'Custom Source Warehouse',
+        );
+        $destinationId = $this->warehouse(
+            'Custom Destination Warehouse',
+        );
+
+        $this->patchJson(
+            "/api/inventory/products/{$productId}/settings",
+            [
+                'track_inventory' => true,
+                'low_stock_threshold' => '1',
+            ],
+        )->assertOk();
+
+        $this->postJson(
+            "/api/inventory/products/{$productId}/opening-stock",
+            [
+                'warehouse_id' => $sourceId,
+                'quantity' => '5',
+            ],
+        )->assertOk();
+
+        $transferId = (int) $this->postJson(
+            '/api/inventory/transfer-requests',
+            [
+                'product_id' => $productId,
+                'source_warehouse_id' => $sourceId,
+                'destination_warehouse_id' => $destinationId,
+                'quantity' => '2',
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingInWorkspace(
+            $reviewer,
+            $organization,
+        );
+
+        $this->patchJson(
+            "/api/inventory/transfer-requests/{$transferId}",
+            [
+                'action' => 'approve',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'approved',
+            );
+    }
+
+    /**
+     * Attach one explicit custom workspace role without using owner-only UI
+     * endpoints so feature tests can exercise runtime permission resolution.
+     *
+     * @param list<string> $permissions
+     */
+    private function attachCustomRole(
+        Organization $organization,
+        User $user,
+        string $name,
+        array $permissions,
+    ): void {
+        $roleId = (int) DB::table(
+            'workspace_roles',
+        )->insertGetId([
+            'organization_id' => $organization->id,
+            'name' => $name,
+            'base_role' => 'employee',
+            'is_custom' => true,
+            'permissions' => json_encode(
+                $permissions,
+                JSON_THROW_ON_ERROR,
+            ),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $organization->users()->attach(
+            $user->id,
+            [
+                'role' => 'employee',
+                'workspace_role_id' => $roleId,
+            ],
+        );
     }
 
     /** @return array{0: User, 1: Organization} */
