@@ -68,6 +68,79 @@ class WorkspaceNotificationController extends Controller
             ->latest('id')->paginate(20));
     }
 
+    public function digest(
+        Request $request,
+        NotificationCenter $center,
+    ): JsonResponse {
+        $center->syncDue(
+            app(TenantContext::class)->id(),
+        );
+
+        $items = $this->query($request)
+            ->whereNull('read_at')
+            ->where(
+                'created_at',
+                '>=',
+                now()->subDays(7),
+            )
+            ->latest('id')
+            ->limit(200)
+            ->get();
+
+        $groups = $items
+            ->groupBy('category')
+            ->map(
+                function (
+                    $rows,
+                    $category,
+                ): array {
+                    $kinds = $rows
+                        ->groupBy('kind')
+                        ->map(
+                            fn ($kindRows, $kind): array => [
+                                'kind' => $kind,
+                                'count' => $kindRows->count(),
+                            ],
+                        )
+                        ->sortByDesc('count')
+                        ->values();
+
+                    $latest = $rows
+                        ->take(3)
+                        ->map(
+                            fn (WorkspaceNotification $notice): array => [
+                                'id' => $notice->id,
+                                'kind' => $notice->kind,
+                                'data' => $notice->data,
+                                'url' => $notice->url,
+                                'created_at' =>
+                                    $notice->created_at
+                                        ->toIso8601String(),
+                            ],
+                        )
+                        ->values();
+
+                    return [
+                        'category' => $category,
+                        'count' => $rows->count(),
+                        'kinds' => $kinds,
+                        'latest' => $latest,
+                    ];
+                },
+            )
+            ->sortByDesc('count')
+            ->values();
+
+        return response()->json([
+            'data' => [
+                'total_unread' => $items->count(),
+                'groups' => $groups,
+                'generated_at' =>
+                    now()->toIso8601String(),
+            ],
+        ]);
+    }
+
     public function count(Request $request, NotificationCenter $center): JsonResponse
     {
         $center->syncDue(app(TenantContext::class)->id());
