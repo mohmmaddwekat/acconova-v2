@@ -18,12 +18,14 @@ import { useLocale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import {
     Head,
+    Link,
     usePage,
 } from '@inertiajs/react';
 import {
     Package,
     Plus,
     Search,
+    ShieldCheck,
     X,
 } from 'lucide-react';
 import {
@@ -763,6 +765,18 @@ function ProductsWorkspace() {
                         </div>
                     </div>
                 </section>
+
+                {activeOrganization && (
+                    <div className="mt-5 flex flex-wrap items-center gap-2">
+                        <Link
+                            href="/app/products/warranties"
+                            className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                        >
+                            <ShieldCheck size={14} />
+                            {ar ? 'تتبع الضمانات' : 'Warranty tracking'}
+                        </Link>
+                    </div>
+                )}
 
                 <section className="mt-7 overflow-visible rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] shadow-[var(--ac-shadow-soft)] lg:mt-10 lg:rounded-[28px]">
                     <div className="rounded-t-[22px] border-b border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 sm:p-5 lg:rounded-t-[28px] lg:p-6">
