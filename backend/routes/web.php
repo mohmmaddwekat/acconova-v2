@@ -942,6 +942,11 @@ Route::prefix(
         )->whereNumber('profile');
 
         Route::get(
+            'control-lookups',
+            [BusinessControlController::class, 'lookups'],
+        );
+
+        Route::get(
             'control/{feature}',
             [BusinessControlController::class, 'index'],
         );
