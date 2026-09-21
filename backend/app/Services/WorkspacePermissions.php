@@ -36,6 +36,9 @@ class WorkspacePermissions
         'inventory.view',
         'inventory.manage',
 
+        'production.view',
+        'production.manage',
+
         'payments.create',
         'payments.update',
         'payments.record',
