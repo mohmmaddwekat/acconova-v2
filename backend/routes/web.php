@@ -506,57 +506,57 @@ Route::middleware([
 
     Route::get(
         '/app/inventory/expiry',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'expiry-alerts']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'expiry-alerts']),
     )->name('app.inventory.expiry');
 
     Route::get(
         '/app/purchases/landed-costs',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'landed-costs']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'landed-costs']),
     )->name('app.purchases.landed-costs');
 
     Route::get(
         '/app/finance/exchange-rates',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'exchange-rates']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'exchange-rates']),
     )->name('app.finance.exchange-rates');
 
     Route::get(
         '/app/finance/budgets',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'budgets']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'budgets']),
     )->name('app.finance.budgets');
 
     Route::get(
         '/app/departments/spending-limits',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'spending-limits']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'spending-limits']),
     )->name('app.departments.spending-limits');
 
     Route::get(
         '/app/staff/expense-claims',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'expense-claims']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'expense-claims']),
     )->name('app.staff.expense-claims');
 
     Route::get(
         '/app/finance/petty-cash',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'petty-cash']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'petty-cash']),
     )->name('app.finance.petty-cash');
 
     Route::get(
         '/app/finance/recurring-expenses',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'recurring-expenses']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'recurring-expenses']),
     )->name('app.finance.recurring-expenses');
 
     Route::get(
         '/app/parties/contracts',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'contracts']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'contracts']),
     )->name('app.parties.contracts');
 
     Route::get(
         '/app/documents/expiry',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'document-expiry']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'document-expiry']),
     )->name('app.documents.expiry');
 
     Route::get(
         '/app/data-quality',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'data-quality']),
+        fn () => Inertia::render('Controls/Workspace', ['feature' => 'data-quality']),
     )->name('app.data-quality');
 
     Route::get(
