@@ -1404,7 +1404,30 @@ export default function PartyAccount({
                                     </div>
                                 </div>
 
-                                <div className="flex flex-wrap gap-2 lg:justify-end">
+                                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                    <div className="min-w-[170px] rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] px-4 py-3">
+                                        <p className="text-[8px] font-semibold text-[var(--ac-text-muted)]">
+                                            {data.party.roles.includes('customer')
+                                                && data.party.roles.includes('supplier')
+                                                ? (ar ? 'صافي الحساب' : 'Net position')
+                                                : data.party.roles.includes('supplier')
+                                                    ? (ar ? 'المستحق للمورد' : 'Outstanding payable')
+                                                    : (ar ? 'الرصيد المستحق' : 'Outstanding balance')}
+                                        </p>
+                                        <p className="mt-1 text-lg font-bold text-[var(--ac-accent)]">
+                                            {displaySignedMoney(
+                                                data.party.roles.includes('customer')
+                                                    && data.party.roles.includes('supplier')
+                                                    ? data.positions.net
+                                                    : data.party.roles.includes('supplier')
+                                                        ? data.positions.supplier
+                                                        : data.positions.customer,
+                                                data.currency,
+                                                locale,
+                                            )}
+                                        </p>
+                                    </div>
+
                                     {data
                                         .permissions
                                         .party_edit && (
@@ -1460,46 +1483,27 @@ export default function PartyAccount({
                                         </button>
                                     )}
 
-                                    <button
-                                        type="button"
-                                        className={
-                                            button
-                                        }
-                                        onClick={() =>
-                                            window
-                                                .print()
-                                        }
-                                    >
-                                        <Printer
-                                            size={
-                                                13
-                                            }
-                                        />
+                                    {initialTab === 'statement' && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                className={button}
+                                                onClick={() => window.print()}
+                                            >
+                                                <Printer size={13} />
+                                                {ar ? 'طباعة' : 'Print'}
+                                            </button>
 
-                                        {ar
-                                            ? 'طباعة'
-                                            : 'Print'}
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className={
-                                            button
-                                        }
-                                        onClick={
-                                            exportStatement
-                                        }
-                                    >
-                                        <Download
-                                            size={
-                                                13
-                                            }
-                                        />
-
-                                        {ar
-                                            ? 'تصدير'
-                                            : 'Export'}
-                                    </button>
+                                            <button
+                                                type="button"
+                                                className={button}
+                                                onClick={exportStatement}
+                                            >
+                                                <Download size={13} />
+                                                {ar ? 'تصدير' : 'Export'}
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
