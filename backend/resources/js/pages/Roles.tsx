@@ -2201,6 +2201,32 @@ function RoleWorkspace() {
                             />
                         </div>
 
+                        <MemberAccessMatrix
+                            members={data?.members ?? []}
+                            roles={data?.roles ?? []}
+                            permissionKeys={data?.permission_keys ?? []}
+                            ar={ar}
+                            busy={busy}
+                            onEditRole={editRole}
+                            onAssign={member => {
+                                setSelectedMemberId(
+                                    String(member.id),
+                                );
+
+                                window.requestAnimationFrame(() => {
+                                    document
+                                        .getElementById('role-assignment')
+                                        ?.scrollIntoView({
+                                            behavior: 'smooth',
+                                            block: 'start',
+                                        });
+                                });
+                            }}
+                            onRevoke={member =>
+                                setRevoking(member)
+                            }
+                        />
+
                         <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
                             <section className="rounded-[24px] border border-amber-200 bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
                                 <div className="flex items-center gap-3">
@@ -2275,7 +2301,7 @@ function RoleWorkspace() {
                                 </div>
                             </section>
 
-                            <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)] sm:p-6">
+                            <section id="role-assignment" className="scroll-mt-24 rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)] sm:p-6">
                                 <div className="flex items-start gap-3">
                                     <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
                                         <UserCog
@@ -3089,31 +3115,7 @@ function RoleWorkspace() {
                             </aside>
                         </div>
 
-                        <MemberAccessMatrix
-                            members={data?.members ?? []}
-                            roles={data?.roles ?? []}
-                            permissionKeys={data?.permission_keys ?? []}
-                            ar={ar}
-                            busy={busy}
-                            onEditRole={editRole}
-                            onAssign={member => {
-                                setSelectedMemberId(
-                                    String(member.id),
-                                );
-
-                                window.requestAnimationFrame(() => {
-                                    document
-                                        .getElementById('role-assignment')
-                                        ?.scrollIntoView({
-                                            behavior: 'smooth',
-                                            block: 'start',
-                                        });
-                                });
-                            }}
-                            onRevoke={member =>
-                                setRevoking(member)
-                            }
-                        />
+                        
                     </>
                 )}
             </main>
