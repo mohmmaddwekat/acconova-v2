@@ -45,6 +45,7 @@ import type {
     DocumentDetail,
     DocumentLine,
     FinanceLookups,
+    TaxPartySnapshot,
 } from './types';
 
 type EditableLine = DocumentLine & {
@@ -82,6 +83,105 @@ function emptyLine(
     };
 }
 
+function blankTaxSnapshot(): TaxPartySnapshot {
+    return {
+        name: '',
+        tax_number: '',
+        registration_number: '',
+        address: '',
+        city: '',
+        region: '',
+        country: '',
+        phone: '',
+        email: '',
+        website: '',
+    };
+}
+
+function organizationTaxSnapshot(
+    lookups: FinanceLookups,
+): TaxPartySnapshot {
+    const organization =
+        lookups.settings.organization;
+
+    return {
+        name:
+            organization.legal_name
+            || organization.trade_name
+            || organization.name,
+        tax_number:
+            organization.vat_number
+            || '',
+        registration_number:
+            organization.commercial_registration
+            || '',
+        address:
+            organization.address
+            || '',
+        city:
+            organization.city
+            || '',
+        region: '',
+        country:
+            organization.country
+            || '',
+        phone:
+            organization.phone
+            || '',
+        email:
+            organization.support_email
+            || '',
+        website:
+            organization.website
+            || '',
+    };
+}
+
+function partyTaxSnapshot(
+    party:
+        | FinanceLookups['parties'][number]
+        | null
+        | undefined,
+): TaxPartySnapshot {
+    if (! party) {
+        return blankTaxSnapshot();
+    }
+
+    return {
+        name:
+            party.name
+            || '',
+        tax_number:
+            party.tax_number
+            || '',
+        registration_number: '',
+        address:
+            [
+                party.address_line_1,
+                party.address_line_2,
+            ]
+                .filter(Boolean)
+                .join(', '),
+        city:
+            party.city
+            || '',
+        region:
+            party.region_code
+            || '',
+        country:
+            party.country_code
+            || '',
+        phone:
+            party.phone
+            || '',
+        email:
+            party.email
+            || '',
+        website: '',
+    };
+}
+
+
 export function DocumentForm({
     kind,
     lookups,
@@ -101,6 +201,28 @@ export function DocumentForm({
     const sales =
         kind ===
         'sale_invoice';
+
+    const initialPartyRecord =
+        initial?.party?.id
+            ? (
+                lookups.parties.find(
+                    party =>
+                        party.id
+                        === initial.party?.id,
+                )
+                ?? null
+            )
+            : null;
+
+    const organizationTaxDefaults =
+        organizationTaxSnapshot(
+            lookups,
+        );
+
+    const initialPartyTax =
+        partyTaxSnapshot(
+            initialPartyRecord,
+        );
 
     const canManage =
         sales
@@ -249,6 +371,30 @@ export function DocumentForm({
     );
 
     const [
+        sellerTax,
+        setSellerTax,
+    ] = useState<TaxPartySnapshot>(
+        initial?.seller_tax_snapshot
+        ?? (
+            sales
+                ? organizationTaxDefaults
+                : initialPartyTax
+        ),
+    );
+
+    const [
+        buyerTax,
+        setBuyerTax,
+    ] = useState<TaxPartySnapshot>(
+        initial?.buyer_tax_snapshot
+        ?? (
+            sales
+                ? initialPartyTax
+                : organizationTaxDefaults
+        ),
+    );
+
+    const [
         lines,
         setLines,
     ] = useState<EditableLine[]>(
@@ -336,6 +482,8 @@ export function DocumentForm({
         shippingTotal,
         notes,
         internalNotes,
+        sellerTax,
+        buyerTax,
         lines,
     };
 
@@ -486,6 +634,22 @@ export function DocumentForm({
             setInternalNotes(
                 draft.internalNotes
                 ?? '',
+            );
+            setSellerTax(
+                draft.sellerTax
+                ?? (
+                    sales
+                        ? organizationTaxDefaults
+                        : blankTaxSnapshot()
+                ),
+            );
+            setBuyerTax(
+                draft.buyerTax
+                ?? (
+                    sales
+                        ? blankTaxSnapshot()
+                        : organizationTaxDefaults
+                ),
             );
             setLines(
                 draft.lines?.length
