@@ -281,17 +281,30 @@ class CommercialOperationsController extends Controller
                 }
             }
 
-            $remaining = DB::table('trade_document_lines')
+            $lineState = DB::table('trade_document_lines')
                 ->where('organization_id', $organizationId)
                 ->where('trade_document_id', $document->id)
-                ->get()
-                ->sum(
-                    fn ($line): float => max(
-                        (float) $line->fulfilled_quantity
-                        - (float) $line->invoiced_quantity,
-                        0,
-                    ),
-                );
+                ->selectRaw(
+                    'SUM(quantity) as ordered,
+                     SUM(fulfilled_quantity) as fulfilled,
+                     SUM(invoiced_quantity) as invoiced',
+                )
+                ->first();
+
+            $orderStatus = 'invoiced';
+
+            if ($isOrder) {
+                $ordered = (float) ($lineState?->ordered ?? 0);
+                $fulfilled = (float) ($lineState?->fulfilled ?? 0);
+                $invoiced = (float) ($lineState?->invoiced ?? 0);
+
+                $orderStatus = (
+                    $fulfilled + 0.00005 >= $ordered
+                    && $invoiced + 0.00005 >= $fulfilled
+                )
+                    ? 'invoiced'
+                    : 'partial_invoiced';
+            }
 
             DB::table('trade_documents')
                 ->where('organization_id', $organizationId)
@@ -299,7 +312,7 @@ class CommercialOperationsController extends Controller
                 ->update([
                     'converted_financial_document_id' => $invoice->id,
                     'status' => $isOrder
-                        ? ($remaining > 0.00005 ? 'partial_invoiced' : 'invoiced')
+                        ? $orderStatus
                         : 'converted',
                     'updated_at' => now(),
                 ]);
@@ -699,6 +712,15 @@ class CommercialOperationsController extends Controller
 
     private function pipeline(int $organizationId): array
     {
+        $stageOrder = [
+            'prospect' => 1,
+            'contacted' => 2,
+            'quoted' => 3,
+            'negotiating' => 4,
+            'won' => 5,
+            'lost' => 6,
+        ];
+
         return DB::table('sales_opportunities as opportunity')
             ->leftJoin(
                 'parties as party',
@@ -707,9 +729,6 @@ class CommercialOperationsController extends Controller
                 'opportunity.party_id',
             )
             ->where('opportunity.organization_id', $organizationId)
-            ->orderByRaw(
-                "FIELD(opportunity.stage, 'prospect', 'contacted', 'quoted', 'negotiating', 'won', 'lost')",
-            )
             ->orderBy('opportunity.next_action_on')
             ->orderByDesc('opportunity.id')
             ->get([
@@ -730,6 +749,14 @@ class CommercialOperationsController extends Controller
                 ...((array) $row),
                 'party' => $row->company_name ?: $row->name,
             ])
+            ->sortBy(
+                fn (array $row): array => [
+                    $stageOrder[$row['stage']] ?? 99,
+                    $row['next_action_on'] ?? '9999-12-31',
+                    -((int) $row['id']),
+                ],
+            )
+            ->values()
             ->all();
     }
 
