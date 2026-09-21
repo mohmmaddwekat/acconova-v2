@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CashMovement;
 use App\Models\FinancialDocument;
+use App\Models\FinanceAuditEvent;
 use App\Models\Party;
 use App\Models\PartyOpeningBalance;
 use App\Services\FinanceAuthorization;
@@ -877,38 +878,105 @@ class PartyAccountController extends Controller
                 abort(403);
             }
 
-            PartyOpeningBalance::query()
-                ->updateOrCreate(
-                    [
-                        'party_id' =>
-                            $party->id,
-                        'side' => $side,
-                    ],
-                    [
+            $existing =
+                PartyOpeningBalance::query()
+                    ->where(
+                        'party_id',
+                        $party->id,
+                    )
+                    ->where(
+                        'side',
+                        $side,
+                    )
+                    ->first();
+
+            $before =
+                $existing
+                    ? [
                         'amount' =>
-                            number_format(
-                                (float) $data[
-                                    $side
-                                ]['amount'],
-                                4,
-                                '.',
-                                '',
-                            ),
+                            $existing->amount,
                         'as_of_date' =>
-                            $data[
-                                $side
-                            ]['as_of_date'],
+                            $existing
+                                ->as_of_date
+                                ?->format(
+                                    'Y-m-d',
+                                ),
                         'notes' =>
-                            $data[
-                                $side
-                            ]['notes']
-                            ?? null,
-                        'updated_by' =>
-                            $request
-                                ->user()
-                                ->id,
-                    ],
-                );
+                            $existing->notes,
+                    ]
+                    : null;
+
+            $opening =
+                PartyOpeningBalance::query()
+                    ->updateOrCreate(
+                        [
+                            'party_id' =>
+                                $party->id,
+                            'side' =>
+                                $side,
+                        ],
+                        [
+                            'amount' =>
+                                number_format(
+                                    (float) $data[
+                                        $side
+                                    ]['amount'],
+                                    4,
+                                    '.',
+                                    '',
+                                ),
+                            'as_of_date' =>
+                                $data[
+                                    $side
+                                ]['as_of_date'],
+                            'notes' =>
+                                $data[
+                                    $side
+                                ]['notes']
+                                ?? null,
+                            'updated_by' =>
+                                $request
+                                    ->user()
+                                    ->id,
+                        ],
+                    );
+
+            FinanceAuditEvent::create([
+                'auditable_type' =>
+                    'PartyOpeningBalance',
+                'auditable_id' =>
+                    $opening->id,
+                'action' =>
+                    $existing
+                        ? 'opening_balance_updated'
+                        : 'opening_balance_created',
+                'reason' =>
+                    $opening->notes,
+                'before_payload' =>
+                    $before,
+                'after_payload' => [
+                    'party_id' =>
+                        $party->id,
+                    'side' =>
+                        $side,
+                    'amount' =>
+                        $opening->amount,
+                    'as_of_date' =>
+                        $opening
+                            ->as_of_date
+                            ?->format(
+                                'Y-m-d',
+                            ),
+                    'notes' =>
+                        $opening->notes,
+                ],
+                'created_by' =>
+                    $request
+                        ->user()
+                        ->id,
+                'created_at' =>
+                    now(),
+            ]);
         }
 
         return response()->json([
