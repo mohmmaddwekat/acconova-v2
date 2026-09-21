@@ -3089,109 +3089,31 @@ function RoleWorkspace() {
                             </aside>
                         </div>
 
-                        <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)] sm:p-6">
-                            <div className="flex items-center gap-3">
-                                <span className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)]">
-                                    <Users
-                                        size={
-                                            17
-                                        }
-                                    />
-                                </span>
+                        <MemberAccessMatrix
+                            members={data?.members ?? []}
+                            roles={data?.roles ?? []}
+                            permissionKeys={data?.permission_keys ?? []}
+                            ar={ar}
+                            busy={busy}
+                            onEditRole={editRole}
+                            onAssign={member => {
+                                setSelectedMemberId(
+                                    String(member.id),
+                                );
 
-                                <h2 className="font-semibold">
-                                    {
-                                        copy.members
-                                    }
-                                </h2>
-                            </div>
-
-                            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                {data?.members.map(
-                                    member => {
-                                        const role =
-                                            data.roles.find(
-                                                candidate =>
-                                                    candidate.id ===
-                                                    member.workspace_role_id,
-                                            );
-
-                                        return (
-                                            <article
-                                                key={
-                                                    member.id
-                                                }
-                                                className="flex items-center gap-3 rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4"
-                                            >
-                                                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--ac-surface)] text-xs font-bold">
-                                                    {member.user.name
-                                                        .charAt(
-                                                            0,
-                                                        )
-                                                        .toUpperCase()}
-                                                </span>
-
-                                                <div className="min-w-0 flex-1">
-                                                    <strong className="block truncate text-xs">
-                                                        {
-                                                            member.user.name
-                                                        }
-                                                    </strong>
-
-                                                    <p className="mt-1 truncate text-[9px] text-[var(--ac-text-muted)]">
-                                                        {
-                                                            member.user.email
-                                                        }
-                                                    </p>
-                                                </div>
-
-                                                <div className="text-end">
-                                                    <span
-                                                        className={[
-                                                            'block rounded-full px-2.5 py-1 text-[9px] font-semibold',
-                                                            member.role ===
-                                                            'owner'
-                                                                ? 'bg-amber-50 text-amber-700'
-                                                                : 'bg-[var(--ac-surface)]',
-                                                        ].join(
-                                                            ' ',
-                                                        )}
-                                                    >
-                                                        {member.role ===
-                                                        'owner'
-                                                            ? copy.owner
-                                                            : role?.name
-                                                              ?? memberRoleLabel(
-                                                                  member,
-                                                              )}
-                                                    </span>
-
-                                                    {member.role !==
-                                                        'owner' && (
-                                                        <button
-                                                            type="button"
-                                                            disabled={
-                                                                busy
-                                                            }
-                                                            onClick={() =>
-                                                                setRevoking(
-                                                                    member,
-                                                                )
-                                                            }
-                                                            className="mt-2 text-[9px] font-semibold text-red-600"
-                                                        >
-                                                            {
-                                                                copy.revoke
-                                                            }
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </article>
-                                        );
-                                    },
-                                )}
-                            </div>
-                        </section>
+                                window.requestAnimationFrame(() => {
+                                    document
+                                        .getElementById('role-assignment')
+                                        ?.scrollIntoView({
+                                            behavior: 'smooth',
+                                            block: 'start',
+                                        });
+                                });
+                            }}
+                            onRevoke={member =>
+                                setRevoking(member)
+                            }
+                        />
                     </>
                 )}
             </main>
@@ -3253,6 +3175,540 @@ function RoleWorkspace() {
                 }
             />
         </AppShell>
+    );
+}
+
+function MemberAccessMatrix({
+    members,
+    roles,
+    permissionKeys,
+    ar,
+    busy,
+    onEditRole,
+    onAssign,
+    onRevoke,
+}: {
+    members: Member[];
+    roles: Role[];
+    permissionKeys: string[];
+    ar: boolean;
+    busy: boolean;
+    onEditRole: (role: Role) => void;
+    onAssign: (member: Member) => void;
+    onRevoke: (member: Member) => void;
+}) {
+    const [
+        query,
+        setQuery,
+    ] = useState('');
+
+    const [
+        selectedId,
+        setSelectedId,
+    ] = useState<number | null>(
+        members[0]?.id
+        ?? null,
+    );
+
+    useEffect(() => {
+        if (
+            selectedId !== null
+            && members.some(
+                member =>
+                    member.id ===
+                    selectedId,
+            )
+        ) {
+            return;
+        }
+
+        setSelectedId(
+            members[0]?.id
+            ?? null,
+        );
+    }, [
+        members,
+        selectedId,
+    ]);
+
+    const filtered =
+        useMemo(
+            () => {
+                const needle =
+                    query
+                        .trim()
+                        .toLowerCase();
+
+                if (! needle) {
+                    return members;
+                }
+
+                return members.filter(
+                    member =>
+                        member.user.name
+                            .toLowerCase()
+                            .includes(needle)
+                        || member.user.email
+                            .toLowerCase()
+                            .includes(needle)
+                        || (
+                            member.role_name
+                            ?? member.role
+                        )
+                            .toLowerCase()
+                            .includes(needle),
+                );
+            },
+            [
+                members,
+                query,
+            ],
+        );
+
+    const selected =
+        members.find(
+            member =>
+                member.id ===
+                selectedId,
+        )
+        ?? filtered[0]
+        ?? null;
+
+    const selectedRole =
+        selected?.workspace_role_id
+            ? roles.find(
+                role =>
+                    role.id ===
+                    selected.workspace_role_id,
+            )
+            : null;
+
+    const accessLabel = (
+        member: Member,
+    ): string => {
+        if (
+            member.access_mode ===
+            'full'
+        ) {
+            return ar
+                ? 'وصول كامل للنظام'
+                : 'Full system access';
+        }
+
+        if (
+            member.access_mode ===
+            'custom'
+        ) {
+            return ar
+                ? 'صلاحيات من دور مخصص'
+                : 'Custom role permissions';
+        }
+
+        return ar
+            ? 'صلاحيات موروثة من الدور النظامي'
+            : 'Built-in role permissions';
+    };
+
+    const roleLabel = (
+        member: Member,
+    ): string =>
+        member.role_name
+        ?? (
+            member.role === 'owner'
+                ? (
+                    ar
+                        ? 'مالك مساحة العمل'
+                        : 'Workspace Owner'
+                )
+                : member.role === 'admin'
+                    ? (
+                        ar
+                            ? 'مدير النظام'
+                            : 'Administrator'
+                    )
+                    : memberRoleLabel(
+                        member,
+                    )
+        );
+
+    return (
+        <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)] sm:p-6">
+            <div className="flex flex-col gap-3 border-b border-[var(--ac-line)] pb-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-3">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]">
+                        <Users size={19} />
+                    </span>
+
+                    <div>
+                        <h2 className="text-lg font-bold text-[var(--ac-text)]">
+                            {ar
+                                ? 'الأعضاء والصلاحيات الفعلية'
+                                : 'Members & effective access'}
+                        </h2>
+
+                        <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[var(--ac-text-muted)]">
+                            {ar
+                                ? 'اختر أي مستخدم لترى بالضبط ما يستطيع الوصول إليه داخل كل موديول، ومصدر هذه الصلاحيات.'
+                                : 'Select any user to see exactly what they can access in each module and where that access comes from.'}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-[9px] font-semibold">
+                    <span className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 py-1.5 text-[var(--ac-text-soft)]">
+                        {members.length}{' '}
+                        {ar
+                            ? 'عضو'
+                            : 'members'}
+                    </span>
+
+                    <span className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 py-1.5 text-[var(--ac-text-soft)]">
+                        {permissionKeys.length}{' '}
+                        {ar
+                            ? 'صلاحية مسجلة'
+                            : 'registered permissions'}
+                    </span>
+                </div>
+            </div>
+
+            <div className="mt-5 grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+                <aside className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3">
+                    <div className="relative">
+                        <Search
+                            size={14}
+                            className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
+                        />
+
+                        <input
+                            className={fieldClass + ' ps-9'}
+                            value={query}
+                            onChange={event =>
+                                setQuery(
+                                    event.target.value,
+                                )
+                            }
+                            placeholder={
+                                ar
+                                    ? 'ابحث بالاسم أو البريد أو الدور...'
+                                    : 'Search name, email or role...'
+                            }
+                        />
+                    </div>
+
+                    <div className="mt-3 max-h-[620px] space-y-2 overflow-auto pe-1">
+                        {filtered.map(
+                            member => {
+                                const active =
+                                    selected?.id ===
+                                    member.id;
+
+                                return (
+                                    <button
+                                        key={member.id}
+                                        type="button"
+                                        onClick={() =>
+                                            setSelectedId(
+                                                member.id,
+                                            )
+                                        }
+                                        className={[
+                                            'flex w-full items-center gap-3 rounded-[14px] border p-3 text-start transition',
+                                            active
+                                                ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
+                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface)] hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)]',
+                                        ].join(' ')}
+                                    >
+                                        <span className={[
+                                            'flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                                            member.full_access
+                                                ? 'bg-amber-500/10 text-amber-500'
+                                                : 'bg-[var(--ac-surface-soft)] text-[var(--ac-accent)]',
+                                        ].join(' ')}>
+                                            {member.user.name
+                                                .charAt(0)
+                                                .toUpperCase()}
+                                        </span>
+
+                                        <span className="min-w-0 flex-1">
+                                            <strong className="block truncate text-xs text-[var(--ac-text)]">
+                                                {member.user.name}
+                                            </strong>
+
+                                            <span className="mt-1 block truncate text-[9px] text-[var(--ac-text-muted)]">
+                                                {roleLabel(member)}
+                                            </span>
+                                        </span>
+
+                                        <span className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 py-1 text-[8px] font-bold text-[var(--ac-text-soft)]">
+                                            {member.full_access
+                                                ? (
+                                                    ar
+                                                        ? 'كامل'
+                                                        : 'Full'
+                                                )
+                                                : member.permission_count}
+                                        </span>
+                                    </button>
+                                );
+                            },
+                        )}
+
+                        {filtered.length === 0 && (
+                            <p className="rounded-[14px] border border-dashed border-[var(--ac-line)] px-4 py-8 text-center text-[10px] text-[var(--ac-text-muted)]">
+                                {ar
+                                    ? 'لا يوجد عضو مطابق للبحث.'
+                                    : 'No member matches your search.'}
+                            </p>
+                        )}
+                    </div>
+                </aside>
+
+                {selected ? (
+                    <div className="min-w-0">
+                        <div className="flex flex-col gap-4 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex min-w-0 items-start gap-3">
+                                <span className={[
+                                    'flex size-12 shrink-0 items-center justify-center rounded-[15px]',
+                                    selected.full_access
+                                        ? 'bg-amber-500/10 text-amber-500'
+                                        : 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]',
+                                ].join(' ')}>
+                                    {selected.full_access ? (
+                                        <Crown size={20} />
+                                    ) : (
+                                        <ShieldCheck size={20} />
+                                    )}
+                                </span>
+
+                                <div className="min-w-0">
+                                    <h3 className="truncate text-base font-bold text-[var(--ac-text)]">
+                                        {selected.user.name}
+                                    </h3>
+
+                                    <p className="mt-1 truncate text-[10px] text-[var(--ac-text-muted)]">
+                                        {selected.user.email}
+                                    </p>
+
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2.5 py-1 text-[9px] font-bold text-[var(--ac-text-soft)]">
+                                            {roleLabel(selected)}
+                                        </span>
+
+                                        <span className={[
+                                            'rounded-full border px-2.5 py-1 text-[9px] font-bold',
+                                            selected.access_mode === 'custom'
+                                                ? 'border-[var(--ac-accent)]/25 bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                                : selected.full_access
+                                                    ? 'border-amber-500/25 bg-amber-500/10 text-amber-500'
+                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]',
+                                        ].join(' ')}>
+                                            {accessLabel(selected)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {selected.role !== 'owner' && (
+                                <div className="flex flex-wrap gap-2">
+                                    {selectedRole && (
+                                        <button
+                                            type="button"
+                                            className={secondaryButton}
+                                            onClick={() =>
+                                                onEditRole(
+                                                    selectedRole,
+                                                )
+                                            }
+                                        >
+                                            <Pencil size={13} />
+                                            {ar
+                                                ? 'تعديل الدور'
+                                                : 'Edit role'}
+                                        </button>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        className={primaryButton}
+                                        onClick={() =>
+                                            onAssign(
+                                                selected,
+                                            )
+                                        }
+                                    >
+                                        <UserCog size={13} />
+                                        {ar
+                                            ? 'تغيير الدور'
+                                            : 'Change role'}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        disabled={busy}
+                                        className="inline-flex min-h-10 items-center justify-center rounded-[13px] border border-red-500/20 px-3 text-[10px] font-semibold text-red-500 transition hover:bg-red-500/10 disabled:opacity-40"
+                                        onClick={() =>
+                                            onRevoke(
+                                                selected,
+                                            )
+                                        }
+                                    >
+                                        {ar
+                                            ? 'إلغاء الوصول'
+                                            : 'Revoke'}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                            {groups.map(
+                                group => {
+                                    const available =
+                                        group.permissions.filter(
+                                            permission =>
+                                                permissionKeys.includes(
+                                                    permission,
+                                                ),
+                                        );
+
+                                    if (
+                                        available.length ===
+                                        0
+                                    ) {
+                                        return null;
+                                    }
+
+                                    const granted =
+                                        available.filter(
+                                            permission =>
+                                                selected
+                                                    .effective_permissions
+                                                    .includes(
+                                                        permission,
+                                                    ),
+                                        );
+
+                                    const Icon =
+                                        group.icon;
+
+                                    return (
+                                        <section
+                                            key={group.key}
+                                            className="rounded-[17px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-4"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-start gap-2.5">
+                                                    <span className={[
+                                                        'flex size-9 shrink-0 items-center justify-center rounded-[11px]',
+                                                        granted.length
+                                                            ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                                            : 'bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]',
+                                                    ].join(' ')}>
+                                                        <Icon size={15} />
+                                                    </span>
+
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-[var(--ac-text)]">
+                                                            {ar
+                                                                ? group.titleAr
+                                                                : group.titleEn}
+                                                        </h4>
+
+                                                        <p className="mt-1 text-[8px] text-[var(--ac-text-muted)]">
+                                                            {granted.length}
+                                                            {' / '}
+                                                            {available.length}
+                                                            {' '}
+                                                            {ar
+                                                                ? 'صلاحيات'
+                                                                : 'permissions'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {granted.length ===
+                                                available.length ? (
+                                                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[8px] font-bold text-emerald-500">
+                                                        {ar
+                                                            ? 'كامل'
+                                                            : 'Full'}
+                                                    </span>
+                                                ) : granted.length ===
+                                                    0 ? (
+                                                    <span className="rounded-full border border-[var(--ac-line)] px-2 py-1 text-[8px] font-bold text-[var(--ac-text-muted)]">
+                                                        {ar
+                                                            ? 'بدون وصول'
+                                                            : 'No access'}
+                                                    </span>
+                                                ) : (
+                                                    <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[8px] font-bold text-amber-500">
+                                                        {ar
+                                                            ? 'جزئي'
+                                                            : 'Partial'}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="mt-3 flex flex-wrap gap-1.5">
+                                                {available.map(
+                                                    permission => {
+                                                        const checked =
+                                                            selected
+                                                                .effective_permissions
+                                                                .includes(
+                                                                    permission,
+                                                                );
+
+                                                        return (
+                                                            <span
+                                                                key={permission}
+                                                                title={permission}
+                                                                className={[
+                                                                    'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[8px] font-semibold',
+                                                                    checked
+                                                                        ? 'border-[var(--ac-accent)]/20 bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                                                        : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] opacity-55',
+                                                                ].join(' ')}
+                                                            >
+                                                                {checked ? (
+                                                                    <Check size={9} />
+                                                                ) : (
+                                                                    <X size={9} />
+                                                                )}
+
+                                                                {permissionLabel(
+                                                                    permission,
+                                                                    ar,
+                                                                )}
+                                                            </span>
+                                                        );
+                                                    },
+                                                )}
+                                            </div>
+                                        </section>
+                                    );
+                                },
+                            )}
+                        </div>
+
+                        {selected.access_mode ===
+                            'built_in' && (
+                            <div className="mt-4 rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 text-[9px] leading-5 text-[var(--ac-text-muted)]">
+                                {ar
+                                    ? 'هذا العضو يستخدم دورًا نظاميًا قديمًا (Manager / Accountant / Employee). المعروض هو الوصول الموروث من سياسات النظام الحالية. لتخصيصه بدقة، عيّن له دورًا مخصصًا.'
+                                    : 'This member uses a built-in legacy role (Manager / Accountant / Employee). The matrix shows access inherited from current system policies. Assign a custom role for precise control.'}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex min-h-80 items-center justify-center rounded-[18px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-bg)] text-xs text-[var(--ac-text-muted)]">
+                        {ar
+                            ? 'اختر عضوًا لعرض صلاحياته.'
+                            : 'Choose a member to inspect access.'}
+                    </div>
+                )}
+            </div>
+        </section>
     );
 }
 
