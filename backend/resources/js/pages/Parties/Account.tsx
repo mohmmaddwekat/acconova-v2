@@ -128,6 +128,7 @@ type PartyAccountResponse = {
         supplier: OpeningBalance;
     };
     aging: Aging;
+    aging_as_of: string;
     aging_breakdown: {
         customer: Aging;
         supplier: Aging;
@@ -1930,9 +1931,16 @@ export default function PartyAccount({
                                             size={17}
                                             className="text-[var(--ac-accent)]"
                                         />
-                                        <h3 className="text-sm font-bold text-[var(--ac-text)]">
-                                            {ar ? 'أعمار الذمم' : 'Account aging'}
-                                        </h3>
+                                        <div>
+                                            <h3 className="text-sm font-bold text-[var(--ac-text)]">
+                                                {ar ? 'أعمار الذمم الحالية' : 'Current account aging'}
+                                            </h3>
+                                            <p className="mt-1 text-[8px] text-[var(--ac-text-muted)]">
+                                                {ar
+                                                    ? 'كما في ' + data.aging_as_of
+                                                    : 'As of ' + data.aging_as_of}
+                                            </p>
+                                        </div>
                                     </div>
 
                                     <div className="mt-4 space-y-4">
