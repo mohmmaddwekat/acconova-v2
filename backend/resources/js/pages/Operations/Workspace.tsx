@@ -2833,7 +2833,7 @@ function TradeLinesEditor({
                                             && line.warehouse_id,
                                         ),
                                 });
-                            }
+                            }}
                             className="h-9 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
                         >
                             <option value="">
