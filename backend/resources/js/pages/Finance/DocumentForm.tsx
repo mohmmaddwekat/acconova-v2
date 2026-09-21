@@ -781,6 +781,32 @@ export function DocumentForm({
                             internalNotes:
                                 source.internal_notes
                                 ?? '',
+                            sellerTax:
+                                source.seller_tax_snapshot
+                                ?? (
+                                    sales
+                                        ? organizationTaxDefaults
+                                        : partyTaxSnapshot(
+                                            lookups.parties.find(
+                                                item =>
+                                                    item.id
+                                                    === source.party?.id,
+                                            ),
+                                        )
+                                ),
+                            buyerTax:
+                                source.buyer_tax_snapshot
+                                ?? (
+                                    sales
+                                        ? partyTaxSnapshot(
+                                            lookups.parties.find(
+                                                item =>
+                                                    item.id
+                                                    === source.party?.id,
+                                            ),
+                                        )
+                                        : organizationTaxDefaults
+                                ),
                             lines:
                                 source.lines.map(
                                     (
@@ -1091,6 +1117,28 @@ export function DocumentForm({
         setPartyId(
             value,
         );
+
+        const party =
+            availableParties.find(
+                item =>
+                    String(item.id)
+                    === value,
+            )
+            ?? null;
+
+        if (sales) {
+            setBuyerTax(
+                partyTaxSnapshot(
+                    party,
+                ),
+            );
+        } else {
+            setSellerTax(
+                partyTaxSnapshot(
+                    party,
+                ),
+            );
+        }
 
         setPriceReferences(
             {},
@@ -1752,6 +1800,10 @@ export function DocumentForm({
             external_number:
                 externalNumber
                     || null,
+            seller_tax_snapshot:
+                sellerTax,
+            buyer_tax_snapshot:
+                buyerTax,
             issue_date:
                 selectedIssueDate,
             due_date:
