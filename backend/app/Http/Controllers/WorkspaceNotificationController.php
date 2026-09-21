@@ -78,13 +78,8 @@ class WorkspaceNotificationController extends Controller
 
         $items = $this->query($request)
             ->whereNull('read_at')
-            ->where(
-                'created_at',
-                '>=',
-                now()->subDays(7),
-            )
             ->latest('id')
-            ->limit(200)
+            ->limit(500)
             ->get();
 
         $groups = $items
