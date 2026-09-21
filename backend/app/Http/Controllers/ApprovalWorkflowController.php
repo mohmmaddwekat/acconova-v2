@@ -114,6 +114,16 @@ class ApprovalWorkflowController extends Controller
             (int) $row->requested_by
             === (int) $request->user()->id
         ) {
+            abort(
+                422,
+                'Approval requests must be reviewed by a different team member.',
+            );
+        }
+
+        if (
+            (int) $row->requested_by
+            === (int) $request->user()->id
+        ) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'approval' => [
                     'The requester cannot approve their own request. A different authorized reviewer is required.',
