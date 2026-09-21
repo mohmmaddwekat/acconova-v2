@@ -6,6 +6,7 @@ use App\Models\InventoryBalance;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Services\InventoryStockService;
+use App\Services\WorkspacePermissions;
 use App\Support\InventoryQuantity;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -183,7 +184,9 @@ class InventoryTransferWorkflowController extends Controller
                         true,
                     )
                 ) {
-                    $this->authorizeApprover();
+                    $this->authorizeApprover(
+                        $request,
+                    );
 
                     abort_unless(
                         in_array(
@@ -380,18 +383,39 @@ class InventoryTransferWorkflowController extends Controller
         $balance->save();
     }
 
-    private function authorizeApprover(): void
-    {
-        abort_unless(
+    private function authorizeApprover(
+        Request $request,
+    ): void {
+        $context =
+            app(TenantContext::class);
+        $role =
+            $context->role()->value;
+
+        if (
             in_array(
-                app(TenantContext::class)
-                    ->role()
-                    ->value,
+                $role,
                 [
                     'owner',
                     'admin',
                     'manager',
                 ],
+                true,
+            )
+        ) {
+            return;
+        }
+
+        $custom =
+            WorkspacePermissions::custom(
+                $request->user()->id,
+                $context->id(),
+            );
+
+        abort_unless(
+            $custom
+            && in_array(
+                'inventory.manage',
+                $custom->permissions,
                 true,
             ),
             403,
