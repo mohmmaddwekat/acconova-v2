@@ -952,41 +952,7 @@ class CommercialOperationsController extends Controller
                 'party.company_name',
                 'document.number as document_number',
             ])
-            ->map(function ($row) use ($linesByDocument): array {
-                $lines = $linesByDocument
-                    ->get($row->id, collect())
-                    ->map(fn ($line): array => [
-                        'id' => $line->id,
-                        'product_id' => $line->product_id,
-                        'product' =>
-                            $line->product_name
-                            ?: $line->description,
-                        'warehouse_id' => $line->warehouse_id,
-                        'warehouse' => $line->warehouse_name,
-                        'description' => $line->description,
-                        'quantity' => (string) $line->quantity,
-                        'unit_price' => (string) $line->unit_price,
-                        'fulfilled_quantity' =>
-                            (string) $line->fulfilled_quantity,
-                        'invoiced_quantity' =>
-                            (string) $line->invoiced_quantity,
-                        'remaining_quantity' => number_format(
-                            max(
-                                (float) $line->quantity
-                                - (float) $line->fulfilled_quantity,
-                                0,
-                            ),
-                            4,
-                            '.',
-                            '',
-                        ),
-                        'affects_inventory' =>
-                            (bool) $line->affects_inventory,
-                    ])
-                    ->values()
-                    ->all();
-
-                return [
+            ->map(fn ($row): array => [
                 'id' => $row->id,
                 'party_id' => $row->party_id,
                 'party' => $row->company_name ?: $row->name,
@@ -1161,36 +1127,76 @@ class CommercialOperationsController extends Controller
                 DB::raw('COALESCE(conversion_totals.invoice_count, 0) as invoice_count'),
                 'line_totals.first_line_id',
             ])
-            ->map(fn ($row): array => [
-                'id' => $row->id,
-                'number' => $row->number,
-                'party_id' => $row->party_id,
-                'party' => $row->company_name ?: $row->name,
-                'status' => $row->status,
-                'issue_date' => $row->issue_date,
-                'valid_until' => $row->valid_until,
-                'expected_on' => $row->expected_on,
-                'currency' => $row->currency,
-                'total' => (string) $row->total,
-                'notes' => $row->notes,
-                'converted_financial_document_id' =>
-                    $row->converted_financial_document_id,
-                'quantity' => (string) $row->quantity,
-                'fulfilled_quantity' => (string) $row->fulfilled_quantity,
-                'invoiced_quantity' => (string) $row->invoiced_quantity,
-                'invoice_count' => (int) $row->invoice_count,
-                'remaining_quantity' => number_format(
-                    max(
-                        (float) $row->quantity
-                        - (float) $row->fulfilled_quantity,
-                        0,
+            ->map(function ($row) use ($linesByDocument): array {
+                $lines = $linesByDocument
+                    ->get($row->id, collect())
+                    ->map(fn ($line): array => [
+                        'id' => $line->id,
+                        'product_id' => $line->product_id,
+                        'product' =>
+                            $line->product_name
+                            ?: $line->description,
+                        'warehouse_id' => $line->warehouse_id,
+                        'warehouse' => $line->warehouse_name,
+                        'description' => $line->description,
+                        'quantity' => (string) $line->quantity,
+                        'unit_price' => (string) $line->unit_price,
+                        'fulfilled_quantity' =>
+                            (string) $line->fulfilled_quantity,
+                        'invoiced_quantity' =>
+                            (string) $line->invoiced_quantity,
+                        'remaining_quantity' => number_format(
+                            max(
+                                (float) $line->quantity
+                                - (float) $line->fulfilled_quantity,
+                                0,
+                            ),
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'affects_inventory' =>
+                            (bool) $line->affects_inventory,
+                    ])
+                    ->values()
+                    ->all();
+
+                return [
+                    'id' => $row->id,
+                    'number' => $row->number,
+                    'party_id' => $row->party_id,
+                    'party' =>
+                        $row->company_name
+                        ?: $row->name,
+                    'status' => $row->status,
+                    'issue_date' => $row->issue_date,
+                    'valid_until' => $row->valid_until,
+                    'expected_on' => $row->expected_on,
+                    'currency' => $row->currency,
+                    'total' => (string) $row->total,
+                    'notes' => $row->notes,
+                    'converted_financial_document_id' =>
+                        $row->converted_financial_document_id,
+                    'quantity' => (string) $row->quantity,
+                    'fulfilled_quantity' =>
+                        (string) $row->fulfilled_quantity,
+                    'invoiced_quantity' =>
+                        (string) $row->invoiced_quantity,
+                    'invoice_count' =>
+                        (int) $row->invoice_count,
+                    'remaining_quantity' => number_format(
+                        max(
+                            (float) $row->quantity
+                            - (float) $row->fulfilled_quantity,
+                            0,
+                        ),
+                        4,
+                        '.',
+                        '',
                     ),
-                    4,
-                    '.',
-                    '',
-                ),
-                'first_line_id' => $row->first_line_id,
-                'lines' => $lines,
+                    'first_line_id' =>
+                        $row->first_line_id,
+                    'lines' => $lines,
                 ];
             })
             ->all();
