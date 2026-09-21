@@ -8,6 +8,7 @@ use App\Models\Party;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Services\WarehouseService;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -299,17 +300,19 @@ class RestoreCenterController extends Controller
 
     private function authorizeAccess(): void
     {
+        $user = request()->user();
+
         abort_unless(
-            in_array(
-                app(TenantContext::class)
-                    ->role()
-                    ->value,
-                [
-                    'owner',
-                    'admin',
-                    'manager',
-                ],
-                true,
+            $user
+            && (
+                WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'audit.restore.view',
+                )
+                || WorkspaceFeaturePermissions::allows(
+                    $user,
+                    'audit.restore.execute',
+                )
             ),
             403,
         );
