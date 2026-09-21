@@ -55,10 +55,19 @@ class CommercialOperationsFeatureTest extends TestCase
             '75.0000',
             today()->addDays(20)->toDateString(),
         );
+        $usdSaleId = $this->invoice(
+            'sale_invoice',
+            $customerId,
+            '50.0000',
+            today()->subDays(10)->toDateString(),
+            null,
+            'USD',
+        );
 
         $this->issue($saleId);
         $this->issue($purchaseId);
         $this->issue($currentSaleId);
+        $this->issue($usdSaleId);
 
         $receiptId = (int) $this->postJson(
             '/api/finance/cash-movements',
@@ -128,9 +137,12 @@ class CommercialOperationsFeatureTest extends TestCase
             ->json('data');
 
         $customer = collect($collections)
-            ->firstWhere(
-                'party_id',
-                $customerId,
+            ->first(
+                fn (array $row): bool =>
+                    (int) $row['party_id']
+                        === $customerId
+                    && $row['currency']
+                        === 'ILS',
             );
 
         $this->assertNotNull($customer);
@@ -142,6 +154,24 @@ class CommercialOperationsFeatureTest extends TestCase
             $customer['outstanding'],
         );
 
+        $usdCollection = collect(
+            $collections,
+        )->first(
+            fn (array $row): bool =>
+                (int) $row['party_id']
+                    === $customerId
+                && $row['currency']
+                    === 'USD',
+        );
+
+        $this->assertNotNull(
+            $usdCollection,
+        );
+        $this->assertSame(
+            '50.0000',
+            $usdCollection['outstanding'],
+        );
+
         $receivables = $this->getJson(
             '/api/operations/ar-aging',
         )
@@ -149,15 +179,36 @@ class CommercialOperationsFeatureTest extends TestCase
             ->json('data');
 
         $receivable = collect($receivables)
-            ->firstWhere(
-                'party_id',
-                $customerId,
+            ->first(
+                fn (array $row): bool =>
+                    (int) $row['party_id']
+                        === $customerId
+                    && $row['currency']
+                        === 'ILS',
             );
 
         $this->assertNotNull($receivable);
         $this->assertSame(
             '100.0000',
             $receivable['31_60'],
+        );
+
+        $usdReceivable = collect(
+            $receivables,
+        )->first(
+            fn (array $row): bool =>
+                (int) $row['party_id']
+                    === $customerId
+                && $row['currency']
+                    === 'USD',
+        );
+
+        $this->assertNotNull(
+            $usdReceivable,
+        );
+        $this->assertSame(
+            '50.0000',
+            $usdReceivable['0_30'],
         );
 
         $currentReceivable = collect(
@@ -1335,6 +1386,7 @@ class CommercialOperationsFeatureTest extends TestCase
         string $amount,
         string $dueDate,
         ?int $productId = null,
+        string $currency = 'ILS',
     ): int {
         return (int) $this->postJson(
             '/api/finance/documents',
@@ -1343,7 +1395,7 @@ class CommercialOperationsFeatureTest extends TestCase
                 'party_id' => $partyId,
                 'issue_date' => today()->subDays(60)->toDateString(),
                 'due_date' => $dueDate,
-                'currency' => 'ILS',
+                'currency' => $currency,
                 'lines' => [
                     [
                         'product_id' => $productId,
