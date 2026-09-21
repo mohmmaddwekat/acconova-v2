@@ -67,6 +67,18 @@ export default function Dashboard() {
     const organization =
         workspace.activeOrganization;
 
+    const canViewCustomerIntelligence =
+        organization?.permissions
+            ? organization.permissions.includes('parties.view')
+            : [
+                'owner',
+                'admin',
+                'manager',
+                'accountant',
+            ].includes(
+                organization?.role ?? '',
+            );
+
     const [
         signals,
         setSignals,
