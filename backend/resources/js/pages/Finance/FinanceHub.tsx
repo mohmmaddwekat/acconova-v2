@@ -1,10 +1,13 @@
 import { Link } from '@inertiajs/react';
 import {
     Banknote,
+    ClipboardCheck,
+    ClipboardList,
     FileSpreadsheet,
     HandCoins,
     Landmark,
     ReceiptText,
+    Scale,
     ShoppingCart,
     WalletCards,
 } from 'lucide-react';
@@ -84,6 +87,38 @@ export function FinanceHub({
             visible: lookups.permissions.sales_manage
                 || lookups.permissions.purchases_manage
                 || lookups.permissions.cash_view,
+        },
+        {
+            title: text('مركز الموافقات', 'Approval center'),
+            description: text(
+                'مراجعة الفواتير عالية القيمة والخصومات الكبيرة والمدفوعات التي تحتاج قراراً.',
+                'Review high-value invoices, large discounts and payments that require a decision.',
+            ),
+            href: '/app/finance/approvals',
+            icon: ClipboardCheck,
+            visible: lookups.permissions.sales_view
+                || lookups.permissions.purchases_view
+                || lookups.permissions.cash_view,
+        },
+        {
+            title: text('طلبات الشراء', 'Purchase requisitions'),
+            description: text(
+                'طلب مادة ثم موافقتها وتحويل الطلب المعتمد إلى مسودة فاتورة شراء.',
+                'Request an item, approve it, then convert the approved request into a purchase invoice draft.',
+            ),
+            href: '/app/purchases/requisitions',
+            icon: ClipboardList,
+            visible: lookups.permissions.purchases_view,
+        },
+        {
+            title: text('المطابقة البنكية', 'Bank reconciliation'),
+            description: text(
+                'استيراد كشف البنك ومطابقة الحركات مع المقبوضات والمدفوعات المسجلة.',
+                'Import bank statement lines and reconcile them with posted receipts and payments.',
+            ),
+            href: '/app/finance/bank-reconciliation',
+            icon: Scale,
+            visible: lookups.permissions.cash_view,
         },
         {
             title: text('الضرائب والمستحقات', 'Taxes & obligations'),
