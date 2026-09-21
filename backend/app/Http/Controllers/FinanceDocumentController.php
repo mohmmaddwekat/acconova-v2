@@ -28,6 +28,8 @@ class FinanceDocumentController extends Controller
             'max_total' => ['nullable', 'numeric', 'min:0'],
             'due_after' => ['nullable', 'date'],
             'due_before' => ['nullable', 'date'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'between:10,100'],
         ]);
@@ -43,6 +45,8 @@ class FinanceDocumentController extends Controller
             ->when(isset($data['max_total']), fn ($query) => $query->where('total', '<=', $data['max_total']))
             ->when($data['due_after'] ?? null, fn ($query, $date) => $query->whereDate('due_date', '>=', $date))
             ->when($data['due_before'] ?? null, fn ($query, $date) => $query->whereDate('due_date', '<=', $date))
+            ->when($data['date_from'] ?? null, fn ($query, $date) => $query->whereDate('issue_date', '>=', $date))
+            ->when($data['date_to'] ?? null, fn ($query, $date) => $query->whereDate('issue_date', '<=', $date))
             ->when($data['search'] ?? null, function ($query, $search): void {
                 $query->where(function ($inner) use ($search): void {
                     $inner
@@ -74,10 +78,25 @@ class FinanceDocumentController extends Controller
                 'total' => number_format((float) $summaryRows->sum(fn ($row) => (float) $row->total), 4, '.', ''),
                 'paid' => number_format((float) $summaryRows->sum(fn ($row) => (float) $row->paid_total), 4, '.', ''),
                 'outstanding' => number_format((float) $summaryRows->sum(fn ($row) => (float) $row->balance_due), 4, '.', ''),
+                'paid_count' => $summaryRows
+                    ->whereIn('status', ['paid', 'overpaid'])
+                    ->count(),
+                'open_count' => $summaryRows
+                    ->whereIn('status', ['issued', 'partially_paid'])
+                    ->count(),
                 'overdue' => $summaryRows
                     ->whereIn('status', ['issued', 'partially_paid'])
                     ->filter(fn (FinancialDocument $row): bool => $row->due_date !== null && $row->due_date->lt(today()))
                     ->count(),
+                'overdue_amount' => number_format(
+                    (float) $summaryRows
+                        ->whereIn('status', ['issued', 'partially_paid'])
+                        ->filter(fn (FinancialDocument $row): bool => $row->due_date !== null && $row->due_date->lt(today()))
+                        ->sum(fn (FinancialDocument $row): float => (float) $row->balance_due),
+                    4,
+                    '.',
+                    '',
+                ),
             ],
         ]);
     }
