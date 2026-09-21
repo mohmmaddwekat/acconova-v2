@@ -907,12 +907,14 @@ class CommercialOperationsFeatureTest extends TestCase
             $customerId,
             '80.0000',
             today()->addDays(10)->toDateString(),
+            $productId,
         );
         $purchaseId = $this->invoice(
             'purchase_invoice',
             $supplierId,
             '50.0000',
             today()->addDays(10)->toDateString(),
+            $productId,
         );
 
         $this->issue($saleId);
@@ -929,6 +931,19 @@ class CommercialOperationsFeatureTest extends TestCase
         )
             ->assertCreated()
             ->json('data.id');
+
+        $this->postJson(
+            '/api/operations/returns',
+            [
+                'financial_document_id' => $saleId,
+                'reason' => 'Duplicate return request',
+                'total_quantity' => '1',
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(
+                'total_quantity',
+            );
 
         $this->patchJson(
             "/api/operations/returns/{$returnId}",
@@ -973,6 +988,25 @@ class CommercialOperationsFeatureTest extends TestCase
             ->assertJsonPath(
                 'data.status',
                 'completed',
+            );
+
+        $otherProductId = $this->product(
+            'Different Product',
+        );
+
+        $this->postJson(
+            '/api/operations/warranties',
+            [
+                'party_id' => $customerId,
+                'product_id' => $otherProductId,
+                'financial_document_id' => $saleId,
+                'starts_on' => today()->toDateString(),
+                'ends_on' => today()->addYear()->toDateString(),
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(
+                'financial_document_id',
             );
 
         $warrantyId = (int) $this->postJson(
@@ -1085,6 +1119,22 @@ class CommercialOperationsFeatureTest extends TestCase
             'Trace Customer',
             $serial['customer'],
         );
+
+        $this->postJson(
+            '/api/operations/batches',
+            [
+                'product_id' => $productId,
+                'supplier_party_id' => $supplierId,
+                'lot_code' => 'LOT-BAD-DATES',
+                'quantity' => '1',
+                'manufactured_on' => today()->toDateString(),
+                'expiry_date' => today()->subDay()->toDateString(),
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(
+                'expiry_date',
+            );
 
         $batchId = (int) $this->postJson(
             '/api/operations/batches',
@@ -1219,6 +1269,7 @@ class CommercialOperationsFeatureTest extends TestCase
         int $partyId,
         string $amount,
         string $dueDate,
+        ?int $productId = null,
     ): int {
         return (int) $this->postJson(
             '/api/finance/documents',
@@ -1230,6 +1281,7 @@ class CommercialOperationsFeatureTest extends TestCase
                 'currency' => 'ILS',
                 'lines' => [
                     [
+                        'product_id' => $productId,
                         'description' => 'Commercial operations test line',
                         'quantity' => '1',
                         'unit' => 'service',
