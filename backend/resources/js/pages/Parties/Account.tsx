@@ -1426,6 +1426,25 @@ export default function PartyAccount({
                                                 locale,
                                             )}
                                         </p>
+                                        <p className="mt-1 text-[8px] font-semibold text-[var(--ac-text-muted)]">
+                                            {signedStatus(
+                                                toNumber(
+                                                    data.party.roles.includes('customer')
+                                                        && data.party.roles.includes('supplier')
+                                                        ? data.positions.net
+                                                        : data.party.roles.includes('supplier')
+                                                            ? data.positions.supplier
+                                                            : data.positions.customer,
+                                                ),
+                                                data.party.roles.includes('customer')
+                                                    && data.party.roles.includes('supplier')
+                                                    ? 'all'
+                                                    : data.party.roles.includes('supplier')
+                                                        ? 'supplier'
+                                                        : 'customer',
+                                                ar,
+                                            )}
+                                        </p>
                                     </div>
 
                                     {data
