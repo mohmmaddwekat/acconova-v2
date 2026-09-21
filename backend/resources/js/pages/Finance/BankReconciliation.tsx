@@ -1,9 +1,11 @@
 import { apiRequest } from '@/lib/http';
 import { AppShell } from '@/layouts/AppShell';
 import { useLocale } from '@/lib/i18n';
+import type { AppPageProps } from '@/types/app';
 import {
     Head,
     Link,
+    usePage,
 } from '@inertiajs/react';
 import {
     CheckCircle2,
@@ -127,6 +129,12 @@ function parseCsvLine(
 
 export default function BankReconciliation() {
     const ar = useLocale() === 'ar';
+    const {
+        workspace,
+    } = usePage<AppPageProps>().props;
+    const workspaceCurrency =
+        workspace.activeOrganization?.currency
+        ?? 'ILS';
     const [
         response,
         setResponse,
@@ -362,11 +370,11 @@ export default function BankReconciliation() {
                                         ? cells[
                                             currencyIndex
                                         ]
-                                        : 'ILS'
+                                        : workspaceCurrency
                                 )
                                     ?.trim()
                                     .toUpperCase()
-                                    || 'ILS',
+                                    || workspaceCurrency,
                             bank_account_label:
                                 accountIndex >=
                                 0
