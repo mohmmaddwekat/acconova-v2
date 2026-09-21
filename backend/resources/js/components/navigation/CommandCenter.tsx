@@ -472,6 +472,15 @@ export function CommandCenter() {
             aliases: ['وثائق منتهية', 'document expiry', 'ترخيص'],
         },
         {
+            key: 'report-builder',
+            label: text('منشئ التقارير', 'Report Builder'),
+            detail: text('أعمدة وفلاتر وتجميع وتقارير مخصصة بدون برمجة', 'Columns, filters, grouping and custom reports without code'),
+            href: '/app/reports/builder',
+            icon: ClipboardList,
+            kind: 'module',
+            aliases: ['report builder', 'custom report', 'منشئ التقارير', 'تقرير مخصص'],
+        },
+        {
             key: 'scheduled-reports',
             label: text('التقارير المجدولة', 'Scheduled reports'),
             detail: text('تقارير تلقائية يومية وأسبوعية وشهرية مع سجل تشغيل', 'Automatic daily, weekly and monthly reports with run history'),
