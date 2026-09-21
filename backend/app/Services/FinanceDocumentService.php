@@ -182,6 +182,8 @@ class FinanceDocumentService
                 ]);
             }
 
+            $this->ensureTaxSnapshots($locked);
+
             if ($locked->isSale()) {
                 /*
                  * Refresh cost snapshots at issue time so profitability does
@@ -313,6 +315,8 @@ class FinanceDocumentService
                 'kind' => $locked->kind,
                 'number' => $root->number.'-R'.$revision,
                 'external_number' => $locked->external_number,
+                'seller_tax_snapshot' => $locked->seller_tax_snapshot,
+                'buyer_tax_snapshot' => $locked->buyer_tax_snapshot,
                 'revision' => $revision,
                 'status' => 'draft',
                 'issue_date' => now()->toDateString(),
@@ -623,6 +627,8 @@ class FinanceDocumentService
             'department_id' => $data['department_id'] ?? null,
             'kind' => $data['kind'],
             'external_number' => $data['external_number'] ?? null,
+            'seller_tax_snapshot' => $data['seller_tax_snapshot'] ?? null,
+            'buyer_tax_snapshot' => $data['buyer_tax_snapshot'] ?? null,
             'issue_date' => $data['issue_date'],
             'due_date' => $data['due_date'] ?? null,
             'activity_type' => $data['activity_type'] ?? null,
@@ -847,6 +853,126 @@ class FinanceDocumentService
     }
 
     /** @return array<string, mixed> */
+    private function ensureTaxSnapshots(FinancialDocument $document): void
+    {
+        $document->loadMissing('party');
+
+        $organization =
+            app(\App\Tenancy\TenantContext::class)
+                ->organization();
+
+        $preferences =
+            $organization->preferences
+            ?? [];
+
+        $organizationSnapshot = [
+            'name' => (string) (
+                $preferences['legal_name']
+                ?? $organization->name
+            ),
+            'tax_number' => (string) (
+                $preferences['vat_number']
+                ?? ''
+            ),
+            'registration_number' => (string) (
+                $preferences['commercial_registration']
+                ?? ''
+            ),
+            'address' => (string) (
+                $preferences['address']
+                ?? ''
+            ),
+            'city' => (string) (
+                $preferences['city']
+                ?? ''
+            ),
+            'region' => '',
+            'country' => (string) (
+                $preferences['country']
+                ?? ''
+            ),
+            'phone' => (string) (
+                $preferences['phone']
+                ?? ''
+            ),
+            'email' => (string) (
+                $preferences['support_email']
+                ?? ''
+            ),
+            'website' => (string) (
+                $preferences['website']
+                ?? ''
+            ),
+        ];
+
+        $party = $document->party;
+
+        $partySnapshot = $party
+            ? [
+                'name' => (string) (
+                    $party->company_name
+                    ?: $party->name
+                    ?: ''
+                ),
+                'tax_number' => (string) (
+                    $party->tax_number
+                    ?? ''
+                ),
+                'registration_number' => '',
+                'address' => trim(
+                    implode(
+                        ', ',
+                        array_filter([
+                            $party->address_line_1,
+                            $party->address_line_2,
+                        ]),
+                    ),
+                ),
+                'city' => (string) (
+                    $party->city
+                    ?? ''
+                ),
+                'region' => (string) (
+                    $party->state
+                    ?? ''
+                ),
+                'country' => (string) (
+                    $party->country_code
+                    ?? ''
+                ),
+                'phone' => (string) (
+                    $party->phone
+                    ?? ''
+                ),
+                'email' => (string) (
+                    $party->email
+                    ?? ''
+                ),
+                'website' => '',
+            ]
+            : [];
+
+        if ($document->isSale()) {
+            $document->seller_tax_snapshot =
+                $document->seller_tax_snapshot
+                ?: $organizationSnapshot;
+
+            $document->buyer_tax_snapshot =
+                $document->buyer_tax_snapshot
+                ?: $partySnapshot;
+        } else {
+            $document->seller_tax_snapshot =
+                $document->seller_tax_snapshot
+                ?: $partySnapshot;
+
+            $document->buyer_tax_snapshot =
+                $document->buyer_tax_snapshot
+                ?: $organizationSnapshot;
+        }
+
+        $document->save();
+    }
+
     private function snapshot(FinancialDocument $document): array
     {
         $document->loadMissing('lines');
@@ -856,6 +982,8 @@ class FinanceDocumentService
             'number' => $document->number,
             'status' => $document->status,
             'party_id' => $document->party_id,
+            'seller_tax_snapshot' => $document->seller_tax_snapshot,
+            'buyer_tax_snapshot' => $document->buyer_tax_snapshot,
             'issue_date' => $document->issue_date?->format('Y-m-d'),
             'due_date' => $document->due_date?->format('Y-m-d'),
             'currency' => $document->currency,
