@@ -372,6 +372,15 @@ export function PartyDetailDrawer({
                         </p>
 
                         <div className="flex shrink-0 items-center gap-2">
+                            <a
+                                href={'/app/parties/' + String(resolvedParty.id)}
+                                className="hidden h-9 items-center justify-center rounded-[11px] border border-[var(--ac-line)] px-3 text-[9px] font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)] sm:inline-flex"
+                            >
+                                {locale === 'ar'
+                                    ? 'فتح الحساب الكامل'
+                                    : 'Open full account'}
+                            </a>
+
                             <RecordQuickActions
                                 recordKey={'party-' + String(resolvedParty.id)}
                                 kind="party"
