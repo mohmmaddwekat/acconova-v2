@@ -741,7 +741,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
             );
     }
 
-    public function test_duplicate_payment_detector_finds_similar_movements(): void
+    public function test_duplicate_payment_detector_finds_similar_movements_and_requires_review_before_post(): void
     {
         [$owner, $organization] = $this->workspace(
             'owner',
@@ -753,7 +753,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
             $organization,
         );
 
-        $this->postJson(
+        $firstId = (int) $this->postJson(
             '/api/finance/cash-movements',
             [
                 'direction' =>
@@ -773,7 +773,9 @@ class OperationalIntelligenceWorkflowTest extends TestCase
                 'allocations' =>
                     [],
             ],
-        )->assertCreated();
+        )
+            ->assertCreated()
+            ->json('data.id');
 
         $this->postJson(
             '/api/finance/cash-movements/duplicate-check',
@@ -798,8 +800,58 @@ class OperationalIntelligenceWorkflowTest extends TestCase
                 'data',
             )
             ->assertJsonPath(
+                'data.0.id',
+                $firstId,
+            )
+            ->assertJsonPath(
                 'data.0.same_reference',
                 true,
+            );
+
+        $secondId = (int) $this->postJson(
+            '/api/finance/cash-movements',
+            [
+                'direction' =>
+                    'outgoing',
+                'category' =>
+                    'maintenance',
+                'amount' =>
+                    '99.50',
+                'currency' =>
+                    'ILS',
+                'movement_date' =>
+                    '2026-09-22',
+                'method' =>
+                    'cash',
+                'reference' =>
+                    'MAINT-DUP-SECOND',
+                'allocations' =>
+                    [],
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->postJson(
+            "/api/finance/cash-movements/{$secondId}/post",
+            [],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(
+                'duplicate',
+            );
+
+        $this->postJson(
+            "/api/finance/cash-movements/{$secondId}/post",
+            [
+                'acknowledge_duplicate' =>
+                    true,
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'posted',
             );
     }
 
