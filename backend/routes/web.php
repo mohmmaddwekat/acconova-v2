@@ -14,6 +14,7 @@ use App\Http\Controllers\BusinessControlController;
 use App\Http\Controllers\CommercialOperationsController;
 use App\Http\Controllers\RestoreCenterController;
 use App\Http\Controllers\ReportBuilderController;
+use App\Http\Controllers\ReportStudioController;
 use App\Http\Controllers\ScheduledReportController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentFulfillmentController;
@@ -483,6 +484,11 @@ Route::middleware([
         '/app/reports/builder',
         fn () => Inertia::render('Reports/Builder'),
     )->name('app.reports.builder');
+
+    Route::get(
+        '/app/reports/studio',
+        fn () => Inertia::render('Reports/Studio'),
+    )->name('app.reports.studio');
 
     Route::get(
         '/app/reports/scheduled',
@@ -1168,6 +1174,16 @@ Route::prefix(
             'report-builder/run',
             [ReportBuilderController::class, 'run'],
         );
+
+        Route::get('report-studio', [ReportStudioController::class, 'index']);
+        Route::post('report-studio/run', [ReportStudioController::class, 'run']);
+        Route::post('report-studio/natural-language', [ReportStudioController::class, 'naturalLanguage']);
+        Route::post('report-studio/snapshots', [ReportStudioController::class, 'snapshot']);
+        Route::post('report-studio/annotations', [ReportStudioController::class, 'annotation']);
+        Route::post('report-studio/comments', [ReportStudioController::class, 'comment']);
+        Route::post('report-studio/approvals', [ReportStudioController::class, 'approval']);
+        Route::post('report-studio/presets', [ReportStudioController::class, 'preset']);
+        Route::post('report-studio/boards', [ReportStudioController::class, 'board']);
 
         Route::get(
             'business-pulse/brief',
