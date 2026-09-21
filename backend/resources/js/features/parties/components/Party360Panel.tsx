@@ -37,7 +37,9 @@ type Party360Data = {
         outstanding: string;
         payments_total: string;
         performance: {
-            score: number;
+            score: number | null;
+            sample_invoice_count: number;
+            data_quality: 'measured' | 'insufficient';
             price_stability_score: number;
             receipt_speed_score: number;
             completion_score: number;
@@ -284,10 +286,20 @@ export function Party360Panel({
                                     {ar ? 'النتيجة' : 'Score'}
                                 </span>
                                 <strong className="text-xl text-[var(--ac-accent)]">
-                                    {data.supplier.performance.score.toFixed(1)}
+                                    {data.supplier.performance.score === null
+                                        ? '—'
+                                        : data.supplier.performance.score.toFixed(1)}
                                 </strong>
                             </div>
                         </div>
+
+                        {data.supplier.performance.data_quality === 'insufficient' && (
+                            <div className="mt-3 rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2 text-[9px] font-semibold text-amber-800">
+                                {ar
+                                    ? 'بيانات غير كافية للتقييم بعد. يبدأ التقييم بعد وجود مشتريات فعلية من المورد.'
+                                    : 'Not enough supplier history to score yet. Scoring starts after real purchase activity exists.'}
+                            </div>
+                        )}
 
                         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                             <Metric
