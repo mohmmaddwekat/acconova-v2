@@ -38,15 +38,21 @@ export default function Approvals() {
         workspace,
         auth,
     } = usePage<AppPageProps>().props;
+    const activeOrganization =
+        workspace.activeOrganization;
     const role =
-        workspace.activeOrganization?.role
+        activeOrganization?.role
         ?? '';
     const canReview =
-        [
-            'owner',
-            'admin',
-            'manager',
-        ].includes(role);
+        activeOrganization?.permissions
+            ? activeOrganization.permissions.includes(
+                'finance.approvals.review',
+            )
+            : [
+                'owner',
+                'admin',
+                'manager',
+            ].includes(role);
 
     const [
         rows,
