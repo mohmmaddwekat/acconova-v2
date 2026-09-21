@@ -458,11 +458,22 @@ class PartyInsightsController extends Controller
                 + $returnsScore * 0.20
             );
 
+        $supplierInvoiceCount =
+            (clone $purchases)->count();
+        $hasSupplierHistory =
+            $supplierInvoiceCount > 0;
+
         $supplierPerformance = [
-            'score' => round(
-                $supplierScore,
-                1,
-            ),
+            'score' => $hasSupplierHistory
+                ? round(
+                    $supplierScore,
+                    1,
+                )
+                : null,
+            'sample_invoice_count' => $supplierInvoiceCount,
+            'data_quality' => $hasSupplierHistory
+                ? 'measured'
+                : 'insufficient',
             'price_stability_score' => round(
                 $priceStabilityScore,
                 1,
