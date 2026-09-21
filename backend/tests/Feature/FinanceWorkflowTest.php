@@ -717,7 +717,7 @@ class FinanceWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('source', 'party_history')
             ->assertJsonPath('unit_price', '125.0000')
-            ->assertJsonPath('document_number', 'SAL-000001');
+            ->assertJsonPath('document_number', 'SAL-2026-0001');
     }
 
     public function test_invoice_line_supports_fixed_amount_discount(): void
