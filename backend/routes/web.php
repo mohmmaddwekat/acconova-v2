@@ -78,10 +78,20 @@ Route::post(
 
 Route::get(
     '/',
-    fn () => response()->json([
-        'name' => 'AccoNova',
-        'phase' => 0,
-    ]),
+    function (Request $request) {
+        if ($request->user()) {
+            return redirect('/app');
+        }
+
+        if ($request->header('X-Inertia')) {
+            return redirect('/login');
+        }
+
+        return response()->json([
+            'name' => 'AccoNova',
+            'phase' => 0,
+        ]);
+    },
 );
 
 /*
