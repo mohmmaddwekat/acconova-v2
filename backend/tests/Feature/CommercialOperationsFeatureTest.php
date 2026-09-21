@@ -256,6 +256,14 @@ class CommercialOperationsFeatureTest extends TestCase
             ->assertJsonPath(
                 'data.0.status',
                 'fulfilled',
+            )
+            ->assertJsonPath(
+                'data.0.received_since_promise',
+                '125.0000',
+            )
+            ->assertJsonPath(
+                'data.0.promise_remaining',
+                '0.0000',
             );
 
         $this->getJson(
@@ -270,6 +278,64 @@ class CommercialOperationsFeatureTest extends TestCase
                 'data.balance_due',
                 '175.0000',
             );
+
+        $unlinkedPromiseId = (int) $this->postJson(
+            '/api/operations/promises',
+            [
+                'party_id' => $customerId,
+                'amount' => '50.0000',
+                'promised_on' => today()->addDays(3)->toDateString(),
+                'note' => 'Customer promised an additional payment.',
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $secondReceiptId = (int) $this->postJson(
+            '/api/finance/cash-movements',
+            [
+                'direction' => 'incoming',
+                'party_id' => $customerId,
+                'category' => 'customer_receipt',
+                'amount' => '50.0000',
+                'currency' => 'ILS',
+                'movement_date' => today()->toDateString(),
+                'method' => 'cash',
+                'allocations' => [],
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->postJson(
+            "/api/finance/cash-movements/{$secondReceiptId}/post",
+            [
+                'acknowledge_duplicate' => true,
+            ],
+        )->assertOk();
+
+        $unlinkedPromise = collect(
+            $this->getJson(
+                '/api/operations/promises?party_id='.$customerId,
+            )
+                ->assertOk()
+                ->json('data'),
+        )->firstWhere(
+            'id',
+            $unlinkedPromiseId,
+        );
+
+        $this->assertNotNull(
+            $unlinkedPromise,
+        );
+        $this->assertSame(
+            'fulfilled',
+            $unlinkedPromise['status'],
+        );
+        $this->assertSame(
+            '50.0000',
+            $unlinkedPromise['received_since_promise'],
+        );
 
         $opportunityId = (int) $this->postJson(
             '/api/operations/pipeline',
