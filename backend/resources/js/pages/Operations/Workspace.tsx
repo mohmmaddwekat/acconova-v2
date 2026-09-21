@@ -213,6 +213,7 @@ function labelFor(
 ): string {
     const labels: Record<string, [string, string]> = {
         number: ['الرقم', 'Number'],
+        kind: ['النوع', 'Type'],
         party: ['العميل / المورد', 'Party'],
         direction: ['الاتجاه', 'Direction'],
         date: ['التاريخ', 'Date'],
@@ -449,6 +450,8 @@ export default function OperationsWorkspace({
     ]);
     const [fulfillment, setFulfillment] = useState<Record<string, string>>({});
     const [claimReason, setClaimReason] = useState<Record<string, string>>({});
+    const [serialCustomer, setSerialCustomer] = useState<Record<string, string>>({});
+    const [serialSaleInvoice, setSerialSaleInvoice] = useState<Record<string, string>>({});
     const [parties, setParties] = useState<Option[]>([]);
     const [products, setProducts] = useState<Option[]>([]);
     const [warehouses, setWarehouses] = useState<Option[]>([]);
@@ -805,7 +808,6 @@ export default function OperationsWorkspace({
                         {tradeFeatures.includes(feature) && (
                             <TradeLinesEditor
                                 ar={ar}
-                                feature={feature}
                                 products={products}
                                 warehouses={warehouses}
                                 lines={tradeLines}
@@ -873,6 +875,15 @@ export default function OperationsWorkspace({
                                         claimReason[String(row.id)]
                                         ?? ''
                                     }
+                                    serialCustomer={
+                                        serialCustomer[String(row.id)]
+                                        ?? ''
+                                    }
+                                    serialSaleInvoice={
+                                        serialSaleInvoice[String(row.id)]
+                                        ?? ''
+                                    }
+                                    parties={parties}
                                     onFulfillmentChange={(value) =>
                                         setFulfillment((current) => ({
                                             ...current,
@@ -881,6 +892,18 @@ export default function OperationsWorkspace({
                                     }
                                     onClaimReasonChange={(value) =>
                                         setClaimReason((current) => ({
+                                            ...current,
+                                            [String(row.id)]: value,
+                                        }))
+                                    }
+                                    onSerialCustomerChange={(value) =>
+                                        setSerialCustomer((current) => ({
+                                            ...current,
+                                            [String(row.id)]: value,
+                                        }))
+                                    }
+                                    onSerialSaleInvoiceChange={(value) =>
+                                        setSerialSaleInvoice((current) => ({
                                             ...current,
                                             [String(row.id)]: value,
                                         }))
@@ -1312,14 +1335,12 @@ function buildPayload(
 
 function TradeLinesEditor({
     ar,
-    feature,
     products,
     warehouses,
     lines,
     onChange,
 }: {
     ar: boolean;
-    feature: Feature;
     products: Option[];
     warehouses: Option[];
     lines: TradeLineDraft[];
@@ -1624,8 +1645,13 @@ function RowActions({
     busy,
     fulfillment,
     claimReason,
+    serialCustomer,
+    serialSaleInvoice,
+    parties,
     onFulfillmentChange,
     onClaimReasonChange,
+    onSerialCustomerChange,
+    onSerialSaleInvoiceChange,
     onPatch,
     onConvert,
     onClaim,
@@ -1636,8 +1662,13 @@ function RowActions({
     busy: boolean;
     fulfillment: string;
     claimReason: string;
+    serialCustomer: string;
+    serialSaleInvoice: string;
+    parties: Option[];
     onFulfillmentChange: (value: string) => void;
     onClaimReasonChange: (value: string) => void;
+    onSerialCustomerChange: (value: string) => void;
+    onSerialSaleInvoiceChange: (value: string) => void;
     onPatch: (payload: Row) => void;
     onConvert: () => void;
     onClaim: () => void;
@@ -1723,8 +1754,100 @@ function RowActions({
                     </button>
                 )}
 
+            {feature === 'pipeline'
+                && ! ['won', 'lost'].includes(row.stage)
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            onPatch({
+                                stage: 'lost',
+                            })
+                        }
+                        className="h-9 rounded-[11px] border border-red-400/50 px-3 text-[10px] font-semibold text-red-400"
+                    >
+                        {ar ? 'خسارة الفرصة' : 'Mark lost'}
+                    </button>
+                )}
+
+            {(feature === 'quotations'
+                || feature === 'proformas')
+                && row.status === 'draft'
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            onPatch({
+                                status: 'sent',
+                            })
+                        }
+                        className="h-9 rounded-[11px] border border-[var(--ac-line)] px-3 text-[10px] font-semibold text-[var(--ac-text-soft)] hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                    >
+                        {ar ? 'تحديد كمُرسل' : 'Mark sent'}
+                    </button>
+                )}
+
+            {(feature === 'quotations'
+                || feature === 'proformas')
+                && row.status === 'sent'
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            onPatch({
+                                status: 'accepted',
+                            })
+                        }
+                        className="h-9 rounded-[11px] border border-emerald-500/50 px-3 text-[10px] font-semibold text-emerald-400"
+                    >
+                        {ar ? 'تم القبول' : 'Accepted'}
+                    </button>
+                )}
+
+            {feature === 'quotations'
+                && row.status === 'sent'
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            onPatch({
+                                status: 'rejected',
+                            })
+                        }
+                        className="h-9 rounded-[11px] border border-red-400/50 px-3 text-[10px] font-semibold text-red-400"
+                    >
+                        {ar ? 'مرفوض' : 'Rejected'}
+                    </button>
+                )}
+
+            {feature === 'proformas'
+                && row.status === 'sent'
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            onPatch({
+                                status: 'cancelled',
+                            })
+                        }
+                        className="h-9 rounded-[11px] border border-red-400/50 px-3 text-[10px] font-semibold text-red-400"
+                    >
+                        {ar ? 'إلغاء' : 'Cancel'}
+                    </button>
+                )}
+
             {tradeFeatures.includes(feature)
-                && ! ['converted', 'cancelled'].includes(row.status)
+                && ! [
+                    'converted',
+                    'cancelled',
+                    'rejected',
+                    'expired',
+                ].includes(row.status)
                 && (
                     <button
                         type="button"
@@ -1817,6 +1940,140 @@ function RowActions({
                         className="h-9 rounded-[11px] border border-emerald-500/50 px-3 text-[10px] font-semibold text-emerald-400"
                     >
                         {ar ? 'إكمال المرتجع' : 'Complete return'}
+                    </button>
+                )}
+
+            {feature === 'serials'
+                && row.status !== 'sold'
+                && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <select
+                            value={serialCustomer}
+                            onChange={event =>
+                                onSerialCustomerChange(
+                                    event.target.value,
+                                )
+                            }
+                            className="h-9 min-w-40 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-[10px] text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                        >
+                            <option value="">
+                                {ar ? 'اختر العميل' : 'Select customer'}
+                            </option>
+                            {parties
+                                .filter(option =>
+                                    option.roles?.includes('customer'),
+                                )
+                                .map(option => (
+                                    <option
+                                        key={option.value}
+                                        value={option.value}
+                                    >
+                                        {option.label}
+                                    </option>
+                                ))}
+                        </select>
+
+                        <input
+                            type="number"
+                            min="1"
+                            value={serialSaleInvoice}
+                            onChange={event =>
+                                onSerialSaleInvoiceChange(
+                                    event.target.value,
+                                )
+                            }
+                            placeholder={
+                                ar
+                                    ? 'ID فاتورة البيع (اختياري)'
+                                    : 'Sales invoice ID (optional)'
+                            }
+                            className="h-9 w-44 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-[10px] text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                        />
+
+                        <button
+                            type="button"
+                            disabled={busy || ! serialCustomer}
+                            onClick={() =>
+                                onPatch({
+                                    status: 'sold',
+                                    customer_party_id:
+                                        Number(serialCustomer),
+                                    source_sale_document_id:
+                                        serialSaleInvoice
+                                            ? Number(serialSaleInvoice)
+                                            : null,
+                                })
+                            }
+                            className="h-9 rounded-[11px] border border-[var(--ac-accent)] px-3 text-[10px] font-semibold text-[var(--ac-accent)] disabled:opacity-40"
+                        >
+                            {ar ? 'تسجيل البيع' : 'Mark sold'}
+                        </button>
+                    </div>
+                )}
+
+            {feature === 'serials'
+                && row.status === 'sold'
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            onPatch({
+                                status: 'returned',
+                            })
+                        }
+                        className="h-9 rounded-[11px] border border-amber-500/50 px-3 text-[10px] font-semibold text-amber-400"
+                    >
+                        {ar ? 'تسجيل مرتجع' : 'Mark returned'}
+                    </button>
+                )}
+
+            {feature === 'batches'
+                && row.status === 'available'
+                && (
+                    <>
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                                onPatch({
+                                    status: 'quarantine',
+                                })
+                            }
+                            className="h-9 rounded-[11px] border border-amber-500/50 px-3 text-[10px] font-semibold text-amber-400"
+                        >
+                            {ar ? 'حجر الدفعة' : 'Quarantine'}
+                        </button>
+
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                                onPatch({
+                                    status: 'recalled',
+                                })
+                            }
+                            className="h-9 rounded-[11px] border border-red-400/50 px-3 text-[10px] font-semibold text-red-400"
+                        >
+                            {ar ? 'سحب الدفعة' : 'Recall'}
+                        </button>
+                    </>
+                )}
+
+            {feature === 'batches'
+                && ['quarantine', 'recalled'].includes(row.status)
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            onPatch({
+                                status: 'available',
+                            })
+                        }
+                        className="h-9 rounded-[11px] border border-emerald-500/50 px-3 text-[10px] font-semibold text-emerald-400"
+                    >
+                        {ar ? 'إعادة للإتاحة' : 'Make available'}
                     </button>
                 )}
 
