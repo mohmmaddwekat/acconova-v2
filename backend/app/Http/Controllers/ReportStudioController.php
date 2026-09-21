@@ -1308,16 +1308,72 @@ class ReportStudioController extends Controller
     private function purchasePriceVariance(Carbon $from, Carbon $to): array
     {
         $org = app(TenantContext::class)->id();
-        $rows = DB::table('financial_document_lines as line')->join('financial_documents as doc', 'doc.id', '=', 'line.financial_document_id')
-            ->join('products as product', 'product.id', '=', 'line.product_id')->leftJoin('parties as party', 'party.id', '=', 'doc.party_id')
-            ->where('doc.organization_id', $org)->where('doc.kind', 'purchase_invoice')->whereBetween('doc.issue_date', [$from, $to])
-            ->selectRaw("product.name as product, COALESCE(party.company_name, party.name, 'Unassigned') as supplier")
-            ->selectRaw('MIN(line.unit_price) as min_price, MAX(line.unit_price) as max_price, AVG(line.unit_price) as avg_price, SUM(line.quantity) as quantity')
-            ->groupBy('product.name', 'party.company_name', 'party.name')->get()->map(function ($row) {
-                $min = (float) $row->min_price; $max = (float) $row->max_price;
-                return ['product' => $row->product, 'supplier' => $row->supplier, 'min_price' => $min, 'max_price' => $max, 'variance' => $max - $min, 'variance_percent' => $min == 0 ? null : (($max - $min) / $min) * 100, 'quantity' => (float) $row->quantity];
-            })->sortByDesc('variance')->values();
-        return ['columns' => ['product', 'supplier', 'min_price', 'max_price', 'variance', 'variance_percent', 'quantity'], 'rows' => $rows];
+
+        $groups = DB::table('financial_document_lines as line')
+            ->join('financial_documents as doc', 'doc.id', '=', 'line.financial_document_id')
+            ->leftJoin('products as product', 'product.id', '=', 'line.product_id')
+            ->leftJoin('parties as party', 'party.id', '=', 'doc.party_id')
+            ->where('doc.organization_id', $org)
+            ->where('doc.kind', 'purchase_invoice')
+            ->where('doc.status', '!=', 'void')
+            ->whereBetween('doc.issue_date', [$from, $to])
+            ->orderBy('doc.issue_date')
+            ->orderBy('line.id')
+            ->get([
+                'line.product_id',
+                'doc.party_id',
+                'doc.issue_date',
+                'line.unit_price',
+                'line.quantity',
+                'product.name as product_name',
+                'line.description',
+                'party.company_name',
+                'party.name as party_name',
+            ])
+            ->groupBy(fn ($row): string => ($row->product_id ?? 'line-'.$row->description).'|'.($row->party_id ?? 0))
+            ->map(function ($items): array {
+                $first = $items->first();
+                $last = $items->last();
+                $previous = (float) $first->unit_price;
+                $current = (float) $last->unit_price;
+                $quantity = (float) $items->sum('quantity');
+                $variance = $current - $previous;
+
+                return [
+                    'product' => $first->product_name ?: $first->description,
+                    'supplier' => $first->company_name ?: $first->party_name ?: 'Unassigned',
+                    'previous_price' => $previous,
+                    'current_price' => $current,
+                    'avg_price' => (float) $items->avg('unit_price'),
+                    'quantity' => $quantity,
+                    'variance' => $variance,
+                    'variance_percent' => $previous == 0.0
+                        ? null
+                        : ($variance / abs($previous)) * 100,
+                    'profit_impact' => $variance * $quantity,
+                    'first_purchase_date' => $first->issue_date,
+                    'latest_purchase_date' => $last->issue_date,
+                ];
+            })
+            ->sortByDesc(fn (array $row): float => abs((float) $row['profit_impact']))
+            ->values();
+
+        return [
+            'columns' => [
+                'product',
+                'supplier',
+                'previous_price',
+                'current_price',
+                'avg_price',
+                'quantity',
+                'variance',
+                'variance_percent',
+                'profit_impact',
+                'first_purchase_date',
+                'latest_purchase_date',
+            ],
+            'rows' => $groups,
+        ];
     }
 
     private function supplierPerformance(Carbon $from, Carbon $to): array
@@ -1647,22 +1703,107 @@ class ReportStudioController extends Controller
     private function taxCenter(Carbon $from, Carbon $to): array
     {
         $org = app(TenantContext::class)->id();
-        $rows = DB::table('financial_documents')->where('organization_id', $org)->whereBetween('issue_date', [$from, $to])->where('status', '!=', 'void')
-            ->selectRaw("CASE WHEN kind LIKE 'sale%' THEN 'sales_tax' WHEN kind LIKE 'purchase%' THEN 'purchase_tax' ELSE 'other' END as tax_side")
-            ->selectRaw('SUM(tax_total) as tax, SUM(total) as gross')->groupBy('tax_side')->get();
-        $sales = (float) ($rows->firstWhere('tax_side', 'sales_tax')->tax ?? 0);
-        $purchases = (float) ($rows->firstWhere('tax_side', 'purchase_tax')->tax ?? 0);
-        return ['columns' => ['tax_side', 'tax', 'gross'], 'rows' => $rows, 'meta' => ['net_tax_position' => $sales - $purchases]];
+
+        $rows = DB::table('financial_documents')
+            ->where('organization_id', $org)
+            ->whereBetween('issue_date', [$from, $to])
+            ->where('status', '!=', 'void')
+            ->whereIn('kind', [
+                'sale_invoice',
+                'purchase_invoice',
+                'sale_credit_note',
+                'purchase_credit_note',
+            ])
+            ->selectRaw("DATE_FORMAT(issue_date, '%Y-%m') as period")
+            ->selectRaw("SUM(CASE WHEN kind = 'sale_invoice' THEN tax_total WHEN kind = 'sale_credit_note' THEN -tax_total ELSE 0 END) as sales_tax")
+            ->selectRaw("SUM(CASE WHEN kind = 'purchase_invoice' THEN tax_total WHEN kind = 'purchase_credit_note' THEN -tax_total ELSE 0 END) as purchase_tax")
+            ->selectRaw("SUM(CASE WHEN kind = 'sale_invoice' AND tax_total = 0 THEN total ELSE 0 END) as exempt_sales")
+            ->selectRaw("SUM(CASE WHEN kind = 'purchase_invoice' AND tax_total = 0 THEN total ELSE 0 END) as exempt_purchases")
+            ->groupByRaw("DATE_FORMAT(issue_date, '%Y-%m')")
+            ->orderBy('period')
+            ->get()
+            ->map(function ($row): array {
+                $salesTax = (float) $row->sales_tax;
+                $purchaseTax = (float) $row->purchase_tax;
+
+                return [
+                    'period' => $row->period,
+                    'sales_tax' => $salesTax,
+                    'purchase_tax' => $purchaseTax,
+                    'net_tax_position' => $salesTax - $purchaseTax,
+                    'exempt_sales' => (float) $row->exempt_sales,
+                    'exempt_purchases' => (float) $row->exempt_purchases,
+                ];
+            });
+
+        return [
+            'columns' => [
+                'period',
+                'sales_tax',
+                'purchase_tax',
+                'net_tax_position',
+                'exempt_sales',
+                'exempt_purchases',
+            ],
+            'rows' => $rows,
+            'meta' => [
+                'sales_tax' => (float) $rows->sum('sales_tax'),
+                'purchase_tax' => (float) $rows->sum('purchase_tax'),
+                'net_tax_position' => (float) $rows->sum('net_tax_position'),
+                'exempt_sales' => (float) $rows->sum('exempt_sales'),
+                'exempt_purchases' => (float) $rows->sum('exempt_purchases'),
+            ],
+        ];
     }
 
     private function auditReport(Carbon $from, Carbon $to): array
     {
         $org = app(TenantContext::class)->id();
-        $rows = DB::table('finance_audit_events as audit')->leftJoin('users as user', 'user.id', '=', 'audit.created_by')
-            ->where('audit.organization_id', $org)->whereBetween('audit.created_at', [$from, $to])
-            ->select('audit.id', 'audit.auditable_type', 'audit.auditable_id', 'audit.action', 'audit.reason', 'audit.before_payload', 'audit.after_payload', 'audit.created_at', 'user.name as changed_by')
-            ->latest('audit.id')->limit(500)->get();
-        return ['columns' => ['id', 'auditable_type', 'auditable_id', 'action', 'reason', 'changed_by', 'created_at'], 'rows' => $rows];
+
+        $rows = DB::table('finance_audit_events as audit')
+            ->leftJoin('users as user', 'user.id', '=', 'audit.created_by')
+            ->where('audit.organization_id', $org)
+            ->whereBetween('audit.created_at', [$from, $to])
+            ->select([
+                'audit.id',
+                'audit.auditable_type',
+                'audit.auditable_id',
+                'audit.action',
+                'audit.reason',
+                'audit.before_payload',
+                'audit.after_payload',
+                'audit.created_at',
+                'user.name as changed_by',
+            ])
+            ->latest('audit.id')
+            ->limit(500)
+            ->get()
+            ->map(fn ($row): array => [
+                'id' => (int) $row->id,
+                'auditable_type' => $row->auditable_type,
+                'auditable_id' => (int) $row->auditable_id,
+                'action' => $row->action,
+                'reason' => $row->reason,
+                'before_payload' => $row->before_payload,
+                'after_payload' => $row->after_payload,
+                'changed_by' => $row->changed_by,
+                'created_at' => $row->created_at,
+            ]);
+
+        return [
+            'columns' => [
+                'id',
+                'auditable_type',
+                'auditable_id',
+                'action',
+                'reason',
+                'before_payload',
+                'after_payload',
+                'changed_by',
+                'created_at',
+            ],
+            'rows' => $rows,
+        ];
     }
 
     private function exceptionReport(Carbon $from, Carbon $to, array $exception): array
