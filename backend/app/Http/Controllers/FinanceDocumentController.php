@@ -115,6 +115,27 @@ class FinanceDocumentController extends Controller
         ]);
     }
 
+    public function warnings(
+        Request $request,
+        string $document,
+        FinanceDocumentService $service,
+    ): JsonResponse {
+        $document = FinancialDocument::query()
+            ->findOrFail($document);
+
+        $this->authorizeKind(
+            $request,
+            $document->kind,
+            false,
+        );
+
+        return response()->json([
+            'data' => $service->warnings(
+                $document,
+            ),
+        ]);
+    }
+
     public function availableCredits(Request $request, string $document): JsonResponse
     {
         $document = FinancialDocument::query()->findOrFail($document);
