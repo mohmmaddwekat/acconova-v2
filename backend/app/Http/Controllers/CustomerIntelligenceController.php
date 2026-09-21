@@ -104,7 +104,7 @@ class CustomerIntelligenceController extends Controller
             ->groupBy('d.party_id')
             ->selectRaw(
                 'd.party_id,
-                 SUM(l.line_total) as revenue,
+                 SUM(l.line_total - l.line_tax) as revenue,
                  SUM(l.quantity * COALESCE(l.cost_price_snapshot, products.cost_price, 0)) as estimated_cost',
             )
             ->get()
