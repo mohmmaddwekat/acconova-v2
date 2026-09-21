@@ -462,16 +462,21 @@ class ApprovalWorkflowService
             $id,
             $reason,
             $actorId,
+            $snapshot,
         );
 
         return $id;
     }
 
+    /**
+     * @param array<string, mixed> $snapshot
+     */
     private function notifyReviewers(
         int $organizationId,
         int $approvalId,
         string $reason,
         int $requesterId,
+        array $snapshot,
     ): void {
         $reviewers = DB::table('memberships as memberships')
             ->leftJoin(
@@ -536,6 +541,35 @@ class ApprovalWorkflowService
             ->values();
 
         foreach ($reviewers as $userId) {
+            $data = [
+                'name' => 'Approval required',
+                'detail' => $reason,
+                'invoice_total' =>
+                    $snapshot['total']
+                    ?? (
+                        ($snapshot['field'] ?? null) === 'total'
+                            ? ($snapshot['actual'] ?? null)
+                            : null
+                    ),
+                'amount_value' =>
+                    $snapshot['amount']
+                    ?? (
+                        ($snapshot['field'] ?? null) === 'amount'
+                            ? ($snapshot['actual'] ?? null)
+                            : null
+                    ),
+            ];
+
+            if (! app(NotificationRuleService::class)->allows(
+                $organizationId,
+                (int) $userId,
+                'approval_required',
+                'activity',
+                $data,
+            )) {
+                continue;
+            }
+
             DB::table('workspace_notifications')
                 ->insertOrIgnore([
                     'organization_id' => $organizationId,
@@ -543,10 +577,10 @@ class ApprovalWorkflowService
                     'event_key' => 'approval-required:'.$approvalId.':'.$userId,
                     'kind' => 'approval_required',
                     'category' => 'activity',
-                    'data' => json_encode([
-                        'name' => 'Approval required',
-                        'detail' => $reason,
-                    ], JSON_THROW_ON_ERROR),
+                    'data' => json_encode(
+                        $data,
+                        JSON_THROW_ON_ERROR,
+                    ),
                     'url' => '/app/finance/approvals',
                     'created_at' => now(),
                     'updated_at' => now(),
