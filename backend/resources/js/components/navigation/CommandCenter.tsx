@@ -374,6 +374,15 @@ export function CommandCenter() {
             aliases: ['وثائق منتهية', 'document expiry', 'ترخيص'],
         },
         {
+            key: 'restore-center',
+            label: text('مركز الاسترجاع', 'Restore center'),
+            detail: text('استرجاع العملاء والمنتجات والمستودعات المؤرشفة', 'Restore archived parties, products and warehouses'),
+            href: '/app/admin/restore',
+            icon: ArchiveRestore,
+            kind: 'module',
+            aliases: ['restore', 'undo', 'استرجاع', 'مؤرشف'],
+        },
+        {
             key: 'audit-center',
             label: text('مركز التدقيق', 'Audit center'),
             detail: text('من غيّر ماذا والقيم قبل وبعد', 'Who changed what with before/after values'),
