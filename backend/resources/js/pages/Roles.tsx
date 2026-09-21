@@ -23,6 +23,7 @@ import {
     Boxes,
     BriefcaseBusiness,
     Check,
+    ChevronDown,
     ContactRound,
     Crown,
     Factory,
@@ -43,6 +44,11 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+
+type RolesView =
+    | 'members'
+    | 'assignment'
+    | 'roles';
 
 type Role = {
     id: number;
@@ -1002,6 +1008,14 @@ function RoleWorkspace() {
     ] =
         useState<Member | null>(
             null,
+        );
+
+    const [
+        workspaceView,
+        setWorkspaceView,
+    ] =
+        useState<RolesView>(
+            'members',
         );
 
     const copy =
@@ -2067,34 +2081,23 @@ function RoleWorkspace() {
             />
 
             <main className="mx-auto w-full max-w-[1680px] space-y-5 px-3 py-5 sm:px-5 lg:px-8">
-                <header className="relative overflow-hidden rounded-[28px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-6 shadow-[var(--ac-shadow-soft)] sm:p-8">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(93,205,168,.18),transparent_28%),radial-gradient(circle_at_92%_15%,rgba(42,132,105,.10),transparent_30%)]" />
-
-                    <div className="relative flex flex-wrap items-center justify-between gap-5">
-                        <div className="flex items-start gap-4">
-                            <span className="flex size-14 items-center justify-center rounded-[18px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
-                                <ShieldCheck
-                                    size={
-                                        25
-                                    }
-                                />
+                <header className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-5 py-4 sm:px-6">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] text-[var(--ac-accent)]">
+                                <ShieldCheck size={18} />
                             </span>
 
                             <div>
-                                <h1 className="text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">
-                                    {
-                                        copy.title
-                                    }
+                                <h1 className="text-xl font-bold tracking-[-0.03em] text-[var(--ac-text)] sm:text-2xl">
+                                    {copy.title}
                                 </h1>
 
-                                <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--ac-text-muted)]">
-                                    {
-                                        copy.subtitle
-                                    }
+                                <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[var(--ac-text-muted)] sm:text-xs">
+                                    {copy.subtitle}
                                 </p>
                             </div>
                         </div>
-
                     </div>
                 </header>
 
@@ -2201,14 +2204,82 @@ function RoleWorkspace() {
                             />
                         </div>
 
+                        <nav
+                            aria-label={ar ? 'أقسام الصلاحيات' : 'Permission sections'}
+                            className="flex flex-wrap gap-1 rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-1.5"
+                        >
+                            {([
+                                [
+                                    'members',
+                                    Users,
+                                    ar
+                                        ? 'الأعضاء والصلاحيات'
+                                        : 'Members & access',
+                                ],
+                                [
+                                    'assignment',
+                                    UserCog,
+                                    ar
+                                        ? 'تعيين الأدوار'
+                                        : 'Assign roles',
+                                ],
+                                [
+                                    'roles',
+                                    ShieldCheck,
+                                    ar
+                                        ? 'تصميم الأدوار'
+                                        : 'Role designer',
+                                ],
+                            ] as const).map(
+                                ([
+                                    view,
+                                    Icon,
+                                    label,
+                                ]) => (
+                                    <button
+                                        key={view}
+                                        type="button"
+                                        onClick={() =>
+                                            setWorkspaceView(
+                                                view,
+                                            )
+                                        }
+                                        className={[
+                                            'inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-[11px] px-4 text-[10px] font-bold transition sm:flex-none',
+                                            workspaceView ===
+                                            view
+                                                ? 'bg-[var(--ac-surface)] text-[var(--ac-text)] shadow-[var(--ac-shadow-soft)]'
+                                                : 'text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)]',
+                                        ].join(
+                                            ' ',
+                                        )}
+                                    >
+                                        <Icon size={13} />
+                                        {label}
+                                    </button>
+                                ),
+                            )}
+                        </nav>
+
+                        {workspaceView === 'members' && (
                         <MemberAccessMatrix
                             members={data?.members ?? []}
                             roles={data?.roles ?? []}
                             permissionKeys={data?.permission_keys ?? []}
                             ar={ar}
                             busy={busy}
-                            onEditRole={editRole}
+                            onEditRole={role => {
+                                setWorkspaceView(
+                                    'roles',
+                                );
+                                editRole(
+                                    role,
+                                );
+                            }}
                             onAssign={member => {
+                                setWorkspaceView(
+                                    'assignment',
+                                );
                                 setSelectedMemberId(
                                     String(member.id),
                                 );
@@ -2226,8 +2297,15 @@ function RoleWorkspace() {
                                 setRevoking(member)
                             }
                         />
+                        )}
 
-                        <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+                        <div
+                            className={
+                                workspaceView === 'assignment'
+                                    ? 'grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]'
+                                    : 'hidden'
+                            }
+                        >
                             <section className="rounded-[24px] border border-amber-500/20 bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
                                 <div className="flex items-center gap-3">
                                     <span className="flex size-12 items-center justify-center rounded-[15px] bg-amber-500/10 text-amber-500">
@@ -2584,7 +2662,13 @@ function RoleWorkspace() {
                             </section>
                         </div>
 
-                        <section className="rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-[var(--ac-shadow-soft)]">
+                        <section
+                            className={
+                                workspaceView === 'roles'
+                                    ? 'rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5'
+                                    : 'hidden'
+                            }
+                        >
                             <div className="flex flex-wrap items-end justify-between gap-4">
                                 <div>
                                     <h2 className="text-lg font-semibold">
@@ -2711,7 +2795,13 @@ function RoleWorkspace() {
                             </div>
                         </section>
 
-                        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                        <div
+                            className={
+                                workspaceView === 'roles'
+                                    ? 'grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]'
+                                    : 'hidden'
+                            }
+                        >
                             <form
                                 onSubmit={event =>
                                     void saveRole(
