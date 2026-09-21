@@ -235,6 +235,42 @@ export function CashForm({
         const params = new URLSearchParams(window.location.search);
         const documentId = params.get('document_id');
         const obligationId = params.get('government_obligation_id');
+        const partyIdParam = params.get('party_id');
+        const amountParam = params.get('amount');
+
+        if (
+            ! documentId
+            && partyIdParam
+        ) {
+            const party = lookups.parties.find(
+                item =>
+                    String(item.id)
+                    === partyIdParam
+                    && item.roles.includes(
+                        incoming
+                            ? 'customer'
+                            : 'supplier',
+                    ),
+            );
+
+            if (party) {
+                setPartyId(
+                    String(party.id),
+                );
+                setCategory(
+                    incoming
+                        ? 'customer_receipt'
+                        : 'supplier_payment',
+                );
+
+                if (
+                    amountParam
+                    && Number(amountParam) > 0
+                ) {
+                    setAmount(amountParam);
+                }
+            }
+        }
 
         if (documentId) {
             apiRequest<{ data: DocumentDetail }>(
@@ -301,6 +337,9 @@ export function CashForm({
             )
             || params.has(
                 'government_obligation_id',
+            )
+            || params.has(
+                'party_id',
             )
         ) {
             return;
