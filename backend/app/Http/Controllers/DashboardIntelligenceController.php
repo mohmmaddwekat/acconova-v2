@@ -9,6 +9,7 @@ use App\Models\PaymentPlan;
 use App\Models\Product;
 use App\Models\Task;
 use App\Services\FinanceAuthorization;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Support\TaskAccess;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -2007,16 +2008,9 @@ class DashboardIntelligenceController extends Controller
         Request $request,
     ): void {
         abort_unless(
-            in_array(
-                app(
-                    TenantContext::class,
-                )->role(),
-                [
-                    OrganizationRole::Owner,
-                    OrganizationRole::Admin,
-                    OrganizationRole::Manager,
-                ],
-                true,
+            WorkspaceFeaturePermissions::allows(
+                $request->user(),
+                'dashboard.targets.manage',
             ),
             403,
         );
