@@ -1,4 +1,6 @@
 import {
+    ChevronLeft,
+    ChevronRight,
     Menu,
     Star,
 } from 'lucide-react';
@@ -33,6 +35,7 @@ import type {
     AppPageProps,
 } from '@/types/app';
 import {
+    router,
     usePage,
 } from '@inertiajs/react';
 
@@ -174,6 +177,35 @@ export function ContextBar({
                         }
                     />
                 </button>
+
+                {pathname !== '/app' && (
+                    <button
+                        type="button"
+                        aria-label={
+                            locale === 'ar'
+                                ? 'العودة إلى الصفحة السابقة'
+                                : 'Go back to the previous page'
+                        }
+                        title={
+                            locale === 'ar'
+                                ? 'رجوع'
+                                : 'Back'
+                        }
+                        onClick={() => {
+                            if (window.history.length > 1) {
+                                window.history.back();
+                                return;
+                            }
+
+                            router.visit('/app');
+                        }}
+                        className="flex size-9 shrink-0 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] shadow-[var(--ac-shadow-soft)] transition duration-200 hover:-translate-y-px hover:border-[var(--ac-line-strong)] hover:text-[var(--ac-text)] active:translate-y-0 active:scale-95 motion-reduce:transform-none sm:size-10"
+                    >
+                        {locale === 'ar'
+                            ? <ChevronRight size={17} />
+                            : <ChevronLeft size={17} />}
+                    </button>
+                )}
 
                 <div className="min-w-0 flex-1">
                     <WorkspaceSwitcher />
