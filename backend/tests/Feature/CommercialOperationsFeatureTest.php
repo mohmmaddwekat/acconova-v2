@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class CommercialOperationsFeatureTest extends TestCase
@@ -558,6 +559,18 @@ class CommercialOperationsFeatureTest extends TestCase
             ],
         );
 
+        $this->patchJson(
+            "/api/operations/sales-orders/{$salesOrderId}",
+            [
+                'line_id' => $salesOrder['first_line_id'],
+                'fulfilled_quantity' => '50',
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(
+                'fulfilled_quantity',
+            );
+
         $this->assertNotNull(
             collect(
                 $this->getJson(
@@ -610,9 +623,19 @@ class CommercialOperationsFeatureTest extends TestCase
             ],
         );
 
+        $this->patchJson(
+            "/api/operations/sales-orders/{$salesOrderId}",
+            [
+                'line_id' => $salesOrder['first_line_id'],
+                'fulfilled_quantity' => '100',
+            ],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+
         $this->assertSame(
             2,
-            IlluminateSupportFacadesDB::table(
+            DB::table(
                 'trade_document_conversions',
             )
                 ->where(
@@ -693,6 +716,60 @@ class CommercialOperationsFeatureTest extends TestCase
                 'data.lines.0.quantity',
                 '20.0000',
             );
+
+        $cancelledOrderId = (int) $this->postJson(
+            '/api/operations/purchase-orders',
+            [
+                'party_id' => $supplierId,
+                'lines' => [
+                    [
+                        'description' => 'Cancelled supplier line',
+                        'quantity' => '5',
+                        'unit_price' => '4',
+                        'affects_inventory' => false,
+                    ],
+                ],
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $cancelledOrder = collect(
+            $this->getJson(
+                '/api/operations/purchase-orders',
+            )
+                ->assertOk()
+                ->json('data'),
+        )->firstWhere(
+            'id',
+            $cancelledOrderId,
+        );
+
+        $this->patchJson(
+            "/api/operations/purchase-orders/{$cancelledOrderId}",
+            [
+                'line_id' => $cancelledOrder['first_line_id'],
+                'fulfilled_quantity' => '2',
+            ],
+        )->assertOk();
+
+        $this->patchJson(
+            "/api/operations/purchase-orders/{$cancelledOrderId}",
+            [
+                'status' => 'cancelled',
+            ],
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'cancelled',
+            );
+
+        $this->postJson(
+            "/api/operations/purchase-orders/{$cancelledOrderId}/convert",
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
     }
 
     public function test_multi_line_sales_order_tracks_fulfillment_per_line(): void
