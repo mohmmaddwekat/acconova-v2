@@ -813,6 +813,133 @@ export default function OperationsWorkspace({
         ],
     );
 
+    function updateFormField(
+        key: string,
+        value: string,
+    ): void {
+        setForm((current) => {
+            const next = {
+                ...current,
+                [key]: value,
+            };
+
+            const selectedDocument =
+                financeDocuments.find(
+                    document =>
+                        String(document.id)
+                        === value,
+                );
+
+            if (
+                key === 'financial_document_id'
+                && selectedDocument
+            ) {
+                if (
+                    feature === 'promises'
+                    || feature === 'warranties'
+                ) {
+                    next.party_id =
+                        selectedDocument.party?.id
+                            ? String(
+                                selectedDocument.party.id,
+                            )
+                            : '';
+                }
+
+                if (feature === 'promises') {
+                    next.amount =
+                        selectedDocument.balance_due;
+                }
+            }
+
+            if (
+                key === 'source_purchase_document_id'
+                && selectedDocument
+            ) {
+                next.supplier_party_id =
+                    selectedDocument.party?.id
+                        ? String(
+                            selectedDocument.party.id,
+                        )
+                        : '';
+            }
+
+            if (
+                key === 'source_sale_document_id'
+                && selectedDocument
+            ) {
+                next.customer_party_id =
+                    selectedDocument.party?.id
+                        ? String(
+                            selectedDocument.party.id,
+                        )
+                        : '';
+            }
+
+            if (
+                key === 'party_id'
+                && next.financial_document_id
+            ) {
+                const selected =
+                    financeDocuments.find(
+                        document =>
+                            String(document.id)
+                            === next.financial_document_id,
+                    );
+
+                if (
+                    selected?.party?.id
+                    && String(selected.party.id)
+                        !== value
+                ) {
+                    next.financial_document_id = '';
+                }
+            }
+
+            if (
+                key === 'supplier_party_id'
+                && next.source_purchase_document_id
+            ) {
+                const selected =
+                    financeDocuments.find(
+                        document =>
+                            String(document.id)
+                            === next.source_purchase_document_id,
+                    );
+
+                if (
+                    selected?.party?.id
+                    && String(selected.party.id)
+                        !== value
+                ) {
+                    next.source_purchase_document_id = '';
+                }
+            }
+
+            if (
+                key === 'customer_party_id'
+                && next.source_sale_document_id
+            ) {
+                const selected =
+                    financeDocuments.find(
+                        document =>
+                            String(document.id)
+                            === next.source_sale_document_id,
+                    );
+
+                if (
+                    selected?.party?.id
+                    && String(selected.party.id)
+                        !== value
+                ) {
+                    next.source_sale_document_id = '';
+                }
+            }
+
+            return next;
+        });
+    }
+
     async function submit(
         event: FormEvent<HTMLFormElement>,
     ): Promise<void> {
@@ -1137,10 +1264,10 @@ export default function OperationsWorkspace({
                                     ar={ar}
                                     value={form[field.key] ?? ''}
                                     onChange={(value) =>
-                                        setForm((current) => ({
-                                            ...current,
-                                            [field.key]: value,
-                                        }))
+                                        updateFormField(
+                                            field.key,
+                                            value,
+                                        )
                                     }
                                 />
                             ))}
