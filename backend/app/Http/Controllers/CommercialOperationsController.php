@@ -1969,6 +1969,49 @@ class CommercialOperationsController extends Controller
 
         abort_unless($document, 404);
 
+        $documentQuantity = (float) DB::table(
+            'financial_document_lines',
+        )
+            ->where(
+                'financial_document_id',
+                $document->id,
+            )
+            ->sum('quantity');
+
+        $reservedReturnQuantity = (float) DB::table(
+            'return_requests',
+        )
+            ->where(
+                'organization_id',
+                $organizationId,
+            )
+            ->where(
+                'financial_document_id',
+                $document->id,
+            )
+            ->whereNotIn(
+                'status',
+                ['rejected', 'cancelled'],
+            )
+            ->sum('total_quantity');
+
+        $returnableQuantity = max(
+            $documentQuantity
+            - $reservedReturnQuantity,
+            0,
+        );
+
+        if (
+            (float) $data['total_quantity']
+            > $returnableQuantity + 0.00005
+        ) {
+            throw ValidationException::withMessages([
+                'total_quantity' => [
+                    'Return quantity exceeds the quantity still available to return on the original invoice.',
+                ],
+            ]);
+        }
+
         $id = DB::table('return_requests')->insertGetId([
             'organization_id' => $organizationId,
             'financial_document_id' => $document->id,
@@ -2036,6 +2079,13 @@ class CommercialOperationsController extends Controller
                     ],
                 ]);
             }
+
+            $this->assertDocumentContainsProduct(
+                (int) $document->id,
+                (int) $data['product_id'],
+                'financial_document_id',
+                'The warranty product must appear on the selected sales invoice.',
+            );
         }
 
         $id = DB::table('warranty_records')->insertGetId([
@@ -2135,6 +2185,13 @@ class CommercialOperationsController extends Controller
                     ],
                 ]);
             }
+
+            $this->assertDocumentContainsProduct(
+                (int) $purchase->id,
+                (int) $data['product_id'],
+                'source_purchase_document_id',
+                'The serial product must appear on the selected purchase invoice.',
+            );
         }
 
         if (! empty($data['source_sale_document_id'])) {
@@ -2155,6 +2212,13 @@ class CommercialOperationsController extends Controller
                     ],
                 ]);
             }
+
+            $this->assertDocumentContainsProduct(
+                (int) $sale->id,
+                (int) $data['product_id'],
+                'source_sale_document_id',
+                'The serial product must appear on the selected sales invoice.',
+            );
         }
 
         if (
@@ -2193,7 +2257,11 @@ class CommercialOperationsController extends Controller
             'lot_code' => ['required', 'string', 'max:160'],
             'quantity' => ['required', 'numeric', 'gt:0'],
             'manufactured_on' => ['nullable', 'date_format:Y-m-d'],
-            'expiry_date' => ['nullable', 'date_format:Y-m-d'],
+            'expiry_date' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:manufactured_on',
+            ],
             'status' => [
                 'nullable',
                 Rule::in([
@@ -2893,6 +2961,29 @@ class CommercialOperationsController extends Controller
         }
 
         return $document;
+    }
+
+    private function assertDocumentContainsProduct(
+        int $documentId,
+        int $productId,
+        string $field,
+        string $message,
+    ): void {
+        $exists = DB::table(
+            'financial_document_lines',
+        )
+            ->where(
+                'financial_document_id',
+                $documentId,
+            )
+            ->where('product_id', $productId)
+            ->exists();
+
+        if (! $exists) {
+            throw ValidationException::withMessages([
+                $field => [$message],
+            ]);
+        }
     }
 
     private function assertPartyRole(
