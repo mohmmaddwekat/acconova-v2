@@ -58,6 +58,7 @@ class BankReconciliationController extends Controller
                 $candidate = CashMovement::query()
                     ->where('status', 'posted')
                     ->where('direction', $direction)
+                    ->where('currency', $line->currency)
                     ->whereBetween('movement_date', [
                         \Carbon\Carbon::parse($line->transaction_date)
                             ->subDays(3)
@@ -209,6 +210,7 @@ class BankReconciliationController extends Controller
             : 'outgoing';
 
         abort_unless($movement->direction === $direction, 422);
+        abort_unless($movement->currency === $row->currency, 422);
         abort_unless(
             abs(
                 (float) $movement->amount
