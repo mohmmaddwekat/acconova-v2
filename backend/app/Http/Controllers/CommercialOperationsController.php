@@ -474,6 +474,37 @@ class CommercialOperationsController extends Controller
             ],
         ]);
 
+        $claimTransitions = [
+            'open' => [
+                'in_progress',
+                'resolved',
+                'rejected',
+            ],
+            'in_progress' => [
+                'resolved',
+                'rejected',
+            ],
+            'resolved' => [],
+            'rejected' => [],
+        ];
+
+        if (
+            $data['status'] !== $claimRecord->status
+            && ! in_array(
+                $data['status'],
+                $claimTransitions[
+                    $claimRecord->status
+                ] ?? [],
+                true,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'status' => [
+                    'This warranty claim status transition is not allowed.',
+                ],
+            ]);
+        }
+
         DB::table('warranty_claims')
             ->where('organization_id', $organizationId)
             ->where('id', $claimRecord->id)
@@ -2341,11 +2372,44 @@ class CommercialOperationsController extends Controller
             ],
         ]);
 
-        $this->assertTenantRecord(
-            'payment_promises',
-            $record,
-            $organizationId,
-        );
+        $current = DB::table('payment_promises')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+
+        abort_unless($current, 404);
+
+        $transitions = [
+            'open' => [
+                'fulfilled',
+                'missed',
+                'cancelled',
+            ],
+            'missed' => [
+                'open',
+                'fulfilled',
+                'cancelled',
+            ],
+            'fulfilled' => [],
+            'cancelled' => [],
+        ];
+
+        if (
+            $data['status'] !== $current->status
+            && ! in_array(
+                $data['status'],
+                $transitions[
+                    $current->status
+                ] ?? [],
+                true,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'status' => [
+                    'This payment promise status transition is not allowed.',
+                ],
+            ]);
+        }
 
         DB::table('payment_promises')
             ->where('organization_id', $organizationId)
@@ -2354,7 +2418,7 @@ class CommercialOperationsController extends Controller
                 'status' => $data['status'],
                 'fulfilled_at' =>
                     $data['status'] === 'fulfilled'
-                        ? now()
+                        ? ($current->fulfilled_at ?? now())
                         : null,
                 'updated_at' => now(),
             ]);
