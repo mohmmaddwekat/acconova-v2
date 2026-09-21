@@ -686,6 +686,40 @@ export default function OperationsWorkspace({
         }
     }
 
+    async function prepareAllocation(row: Row): Promise<void> {
+        setBusy(true);
+        setError('');
+
+        try {
+            const response = await apiRequest<{
+                data: {
+                    url: string;
+                };
+            }>(
+                '/api/operations/unallocated/'
+                + String(row.id)
+                + '/prepare-allocation',
+                {
+                    method: 'POST',
+                },
+            );
+
+            router.visit(response.data.url);
+        } catch (failure) {
+            setError(
+                failure instanceof ApiError
+                    ? failure.message
+                    : (
+                        ar
+                            ? 'تعذر تجهيز المقبوض للتخصيص.'
+                            : 'The receipt could not be prepared for allocation.'
+                    ),
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function addClaim(row: Row): Promise<void> {
         const reason = claimReason[String(row.id)]?.trim();
 
@@ -978,6 +1012,9 @@ export default function OperationsWorkspace({
                                             claimId,
                                             payload,
                                         )
+                                    }
+                                    onPrepareAllocation={() =>
+                                        void prepareAllocation(row)
                                     }
                                 />
                             </article>
@@ -1891,6 +1928,7 @@ function RowActions({
     onConvert,
     onClaim,
     onUpdateClaim,
+    onPrepareAllocation,
 }: {
     feature: Feature;
     row: Row;
@@ -1912,6 +1950,7 @@ function RowActions({
         claimId: number,
         payload: Row,
     ) => void;
+    onPrepareAllocation: () => void;
 }) {
     const stages = [
         'prospect',
@@ -1937,6 +1976,22 @@ function RowActions({
                     {ar ? 'فتح' : 'Open'}
                 </Link>
             )}
+
+            {feature === 'unallocated'
+                && row.can_allocate
+                && (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={onPrepareAllocation}
+                        className="inline-flex h-9 items-center gap-2 rounded-[11px] border border-[var(--ac-accent)] px-3 text-[10px] font-semibold text-[var(--ac-accent)]"
+                    >
+                        <FilePlus2 size={13} />
+                        {ar
+                            ? 'تخصيص على فاتورة'
+                            : 'Allocate to invoice'}
+                    </button>
+                )}
 
             {feature === 'promises'
                 && ! ['fulfilled', 'cancelled'].includes(row.status)
