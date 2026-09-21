@@ -421,6 +421,7 @@ class PartyAccountController extends Controller
                 $party->id,
                 'customer',
                 $dateTo,
+                $customerCutoff,
             );
 
         $supplierAdvance =
@@ -428,6 +429,7 @@ class PartyAccountController extends Controller
                 $party->id,
                 'supplier',
                 $dateTo,
+                $supplierCutoff,
             );
 
         $selected =
@@ -1422,6 +1424,7 @@ class PartyAccountController extends Controller
         int $partyId,
         string $side,
         Carbon $dateTo,
+        ?Carbon $cutoff = null,
     ): float {
         $direction =
             $side === 'customer'
@@ -1455,6 +1458,16 @@ class PartyAccountController extends Controller
                 '<=',
                 $dateTo
                     ->toDateString(),
+            )
+            ->when(
+                $cutoff,
+                fn ($query) =>
+                    $query->whereDate(
+                        'movement_date',
+                        '>',
+                        $cutoff
+                            ->toDateString(),
+                    ),
             )
             ->where(function ($query): void {
                 $query
