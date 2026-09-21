@@ -153,12 +153,20 @@ class ApprovalWorkflowService
         );
     }
 
+    /**
+     * Approval is tied to the exact snapshot that was reviewed. Editing the
+     * draft after approval automatically invalidates that approval and creates
+     * a fresh request on the next attempt.
+     *
+     * @param array<string, mixed> $snapshot
+     */
     public function approved(
         string $subjectType,
         int $subjectId,
         string $category,
+        array $snapshot,
     ): bool {
-        return DB::table('approval_requests')
+        $approved = DB::table('approval_requests')
             ->where(
                 'organization_id',
                 app(TenantContext::class)->id(),
@@ -167,7 +175,26 @@ class ApprovalWorkflowService
             ->where('subject_id', $subjectId)
             ->where('category', $category)
             ->where('status', 'approved')
-            ->exists();
+            ->latest('id')
+            ->get(['snapshot']);
+
+        foreach ($approved as $row) {
+            $reviewed = $row->snapshot
+                ? json_decode(
+                    $row->snapshot,
+                    true,
+                )
+                : [];
+
+            if (
+                is_array($reviewed)
+                && $reviewed == $snapshot
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -189,6 +216,7 @@ class ApprovalWorkflowService
                 $subjectType,
                 $subjectId,
                 $category,
+                $snapshot,
             )
         ) {
             return;
@@ -203,7 +231,19 @@ class ApprovalWorkflowService
             ->where('subject_id', $subjectId)
             ->where('category', $category)
             ->where('status', 'pending')
-            ->first();
+            ->latest('id')
+            ->get()
+            ->first(function ($row) use ($snapshot): bool {
+                $pendingSnapshot = $row->snapshot
+                    ? json_decode(
+                        $row->snapshot,
+                        true,
+                    )
+                    : [];
+
+                return is_array($pendingSnapshot)
+                    && $pendingSnapshot == $snapshot;
+            });
 
         if (! $pending) {
             $id = DB::table('approval_requests')
