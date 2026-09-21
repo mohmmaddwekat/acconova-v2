@@ -1466,6 +1466,12 @@ final class WorkspaceFeaturePermissions
                         'label_en' => 'Create expense claims',
                     ],
                     [
+                        'key' => 'controls.expense_claims.manage',
+                        'label_ar' => 'تعديل وإدارة مطالبات المصاريف',
+                        'label_en' => 'Edit & manage expense claims',
+                        'depends' => ['controls.expense_claims.view'],
+                    ],
+                    [
                         'key' => 'controls.expense_claims.review',
                         'label_ar' => 'مراجعة مطالبات المصاريف',
                         'label_en' => 'Review expense claims',
@@ -2149,6 +2155,15 @@ final class WorkspaceFeaturePermissions
         $method = strtoupper($request->method());
         $path = trim($request->path(), '/');
 
+        if (
+            $path === 'api/team-space'
+            && $method === 'POST'
+        ) {
+            return $request->input('kind') === 'group'
+                ? 'teamspace.groups.create'
+                : 'teamspace.view';
+        }
+
         // Dynamic business-control features.
         if (Str::is('api/control/*', $path)) {
             if (Str::is('api/control/expense-claims/*/receipt', $path)) {
@@ -2295,9 +2310,9 @@ final class WorkspaceFeaturePermissions
             ['POST', 'api/warehouses', 'inventory.warehouses.manage'],
             ['PATCH', 'api/warehouses/*', 'inventory.warehouses.manage'],
             ['POST', 'api/warehouses/*/default', 'inventory.warehouses.default.manage'],
+            ['DELETE', 'api/warehouses/*/permanent', 'inventory.warehouses.delete_permanent'],
             ['DELETE', 'api/warehouses/*', 'inventory.warehouses.archive'],
             ['POST', 'api/warehouses/*/restore', 'inventory.warehouses.archive'],
-            ['DELETE', 'api/warehouses/*/permanent', 'inventory.warehouses.delete_permanent'],
             ['GET', 'api/production-runs', 'production.runs.view'],
             ['GET', 'api/production-runs/*', 'production.runs.view'],
             ['POST', 'api/production-runs', 'production.runs.create'],
