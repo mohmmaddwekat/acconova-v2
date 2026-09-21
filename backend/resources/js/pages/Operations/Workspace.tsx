@@ -1951,10 +1951,23 @@ function RowActions({
                     <button
                         type="button"
                         disabled={busy}
-                        onClick={() =>
+                        onClick={() => {
+                            const reason = window.prompt(
+                                ar
+                                    ? 'سبب خسارة الفرصة؟ (اختياري)'
+                                    : 'Why was this opportunity lost? (optional)',
+                            );
+
+                            if (reason === null) {
+                                return;
+                            }
+
                             onPatch({
                                 stage: 'lost',
-                            })
+                                lost_reason:
+                                    reason.trim()
+                                    || null,
+                            });
                         }
                         className="h-9 rounded-[11px] border border-red-400/50 px-3 text-[10px] font-semibold text-red-400"
                     >
@@ -2103,22 +2116,53 @@ function RowActions({
             {feature === 'returns'
                 && row.status === 'requested'
                 && (
+                    <>
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                                onPatch({
+                                    status: 'approved',
+                                })
+                            }
+                            className="h-9 rounded-[11px] border border-[var(--ac-accent)] px-3 text-[10px] font-semibold text-[var(--ac-accent)]"
+                        >
+                            {ar ? 'اعتماد RMA' : 'Approve RMA'}
+                        </button>
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                                onPatch({
+                                    status: 'rejected',
+                                })
+                            }
+                            className="h-9 rounded-[11px] border border-red-400/50 px-3 text-[10px] font-semibold text-red-400"
+                        >
+                            {ar ? 'رفض الطلب' : 'Reject'}
+                        </button>
+                    </>
+                )}
+
+            {feature === 'returns'
+                && row.status === 'approved'
+                && (
                     <button
                         type="button"
                         disabled={busy}
                         onClick={() =>
                             onPatch({
-                                status: 'approved',
+                                status: 'received',
                             })
                         }
-                        className="h-9 rounded-[11px] border border-[var(--ac-accent)] px-3 text-[10px] font-semibold text-[var(--ac-accent)]"
+                        className="h-9 rounded-[11px] border border-amber-500/50 px-3 text-[10px] font-semibold text-amber-400"
                     >
-                        {ar ? 'اعتماد RMA' : 'Approve RMA'}
+                        {ar ? 'تم استلام المرتجع' : 'Mark received'}
                     </button>
                 )}
 
             {feature === 'returns'
-                && row.status === 'approved'
+                && row.status === 'received'
                 && (
                     <button
                         type="button"
