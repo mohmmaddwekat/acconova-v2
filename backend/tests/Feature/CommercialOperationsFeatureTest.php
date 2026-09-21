@@ -382,6 +382,56 @@ class CommercialOperationsFeatureTest extends TestCase
             ->assertCreated()
             ->json('data.id');
 
+        $usdReceiptId = (int) $this->postJson(
+            '/api/finance/cash-movements',
+            [
+                'direction' => 'incoming',
+                'party_id' => $customerId,
+                'category' => 'customer_receipt',
+                'amount' => '50.0000',
+                'currency' => 'USD',
+                'movement_date' => today()->toDateString(),
+                'method' => 'cash',
+                'allocations' => [],
+            ],
+        )
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->postJson(
+            "/api/finance/cash-movements/{$usdReceiptId}/post",
+            [
+                'acknowledge_duplicate' => true,
+            ],
+        )->assertOk();
+
+        $unlinkedBeforeIls = collect(
+            $this->getJson(
+                '/api/operations/promises?party_id='.$customerId,
+            )
+                ->assertOk()
+                ->json('data'),
+        )->firstWhere(
+            'id',
+            $unlinkedPromiseId,
+        );
+
+        $this->assertNotNull(
+            $unlinkedBeforeIls,
+        );
+        $this->assertSame(
+            'open',
+            $unlinkedBeforeIls['status'],
+        );
+        $this->assertSame(
+            'ILS',
+            $unlinkedBeforeIls['currency'],
+        );
+        $this->assertSame(
+            '0.0000',
+            $unlinkedBeforeIls['received_since_promise'],
+        );
+
         $secondReceiptId = (int) $this->postJson(
             '/api/finance/cash-movements',
             [
