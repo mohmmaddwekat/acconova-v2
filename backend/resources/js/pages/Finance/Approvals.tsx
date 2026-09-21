@@ -25,6 +25,7 @@ type ApprovalRow = {
     status: string;
     reason: string;
     snapshot: Record<string, unknown> | null;
+    requested_by: number;
     requested_by_name: string | null;
     reviewed_by_name: string | null;
     reviewed_at: string | null;
@@ -35,6 +36,7 @@ export default function Approvals() {
     const ar = useLocale() === 'ar';
     const {
         workspace,
+        auth,
     } = usePage<AppPageProps>().props;
     const role =
         workspace.activeOrganization?.role
@@ -376,7 +378,20 @@ export default function Approvals() {
 
                                                 {row.status ===
                                                     'pending'
-                                                    && canReview && (
+                                                    && canReview
+                                                    && auth.user?.id === row.requested_by && (
+                                                        <div className="flex items-center rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-[9px] font-semibold text-amber-800">
+                                                            {text(
+                                                                'يحتاج مراجعاً آخر — لا يمكنك اعتماد طلبك بنفسك.',
+                                                                'A second reviewer is required — you cannot approve your own request.',
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                {row.status ===
+                                                    'pending'
+                                                    && canReview
+                                                    && auth.user?.id !== row.requested_by && (
                                                         <div className="flex items-center gap-2">
                                                             <button
                                                                 type="button"
