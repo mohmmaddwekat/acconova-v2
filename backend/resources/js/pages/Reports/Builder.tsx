@@ -649,12 +649,31 @@ export default function ReportBuilder() {
                                             className="overflow-hidden rounded-[14px] border border-[var(--ac-line)]"
                                         >
                                             <div className="flex flex-wrap items-center justify-between gap-2 bg-[var(--ac-surface-soft)] px-3 py-2">
-                                                <strong className="text-[10px] text-[var(--ac-text)]">
-                                                    {group.key || '—'}
-                                                </strong>
-                                                <span className="text-[9px] text-[var(--ac-text-muted)]">
-                                                    {group.count} {text('سجل', 'rows')}
-                                                </span>
+                                                <div>
+                                                    <strong className="text-[10px] text-[var(--ac-text)]">
+                                                        {group.key || '—'}
+                                                    </strong>
+                                                    <span className="ms-2 text-[9px] text-[var(--ac-text-muted)]">
+                                                        {group.count} {text('سجل', 'rows')}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {Object.entries(group.totals).map(([key, value]) => {
+                                                        const column = result.columns.find(
+                                                            item => item.key === key,
+                                                        );
+
+                                                        return (
+                                                            <span
+                                                                key={key}
+                                                                className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 py-1 text-[8px] text-[var(--ac-text-soft)]"
+                                                            >
+                                                                {column?.label ?? key}: {value}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                             <ResultTable columns={result.columns} rows={group.rows} />
                                         </div>
