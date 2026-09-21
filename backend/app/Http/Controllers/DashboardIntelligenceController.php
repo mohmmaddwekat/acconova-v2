@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\OrganizationRole;
 use App\Models\FinancialDocument;
 use App\Models\PaymentPlan;
 use App\Models\Product;
@@ -1756,11 +1757,11 @@ class DashboardIntelligenceController extends Controller
             in_array(
                 app(
                     TenantContext::class,
-                )->role()->value,
+                )->role(),
                 [
-                    'owner',
-                    'admin',
-                    'manager',
+                    OrganizationRole::Owner,
+                    OrganizationRole::Admin,
+                    OrganizationRole::Manager,
                 ],
                 true,
             ),
