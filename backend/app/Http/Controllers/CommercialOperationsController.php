@@ -2991,6 +2991,53 @@ class CommercialOperationsController extends Controller
 
         abort_unless($current, 404);
 
+        $serialTransitions = [
+            'in_stock' => [
+                'reserved',
+                'sold',
+                'service',
+                'scrapped',
+            ],
+            'reserved' => [
+                'in_stock',
+                'sold',
+                'service',
+                'scrapped',
+            ],
+            'sold' => [
+                'returned',
+                'service',
+            ],
+            'returned' => [
+                'in_stock',
+                'service',
+                'scrapped',
+            ],
+            'service' => [
+                'in_stock',
+                'returned',
+                'scrapped',
+            ],
+            'scrapped' => [],
+        ];
+
+        if (
+            $data['status'] !== $current->status
+            && ! in_array(
+                $data['status'],
+                $serialTransitions[
+                    $current->status
+                ] ?? [],
+                true,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'status' => [
+                    'This serial number status transition is not allowed.',
+                ],
+            ]);
+        }
+
         foreach (
             [
                 ['parties', 'customer_party_id'],
@@ -3043,6 +3090,18 @@ class CommercialOperationsController extends Controller
                 (int) $saleDocumentId,
                 $organizationId,
                 'sale_invoice',
+            );
+
+            $this->assertTraceableDocumentStatus(
+                $sale,
+                'source_sale_document_id',
+            );
+
+            $this->assertDocumentContainsProduct(
+                (int) $sale->id,
+                (int) $current->product_id,
+                'source_sale_document_id',
+                'The serial product must appear on the selected sales invoice.',
             );
 
             if (
@@ -3100,20 +3159,105 @@ class CommercialOperationsController extends Controller
             'quantity' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $this->assertTenantRecord(
-            'inventory_batches',
-            $record,
-            $organizationId,
-        );
+        $current = DB::table('inventory_batches')
+            ->where('organization_id', $organizationId)
+            ->where('id', $record)
+            ->first();
+
+        abort_unless($current, 404);
+
+        $batchTransitions = [
+            'available' => [
+                'quarantine',
+                'depleted',
+                'expired',
+                'recalled',
+            ],
+            'quarantine' => [
+                'available',
+                'depleted',
+                'expired',
+                'recalled',
+            ],
+            'recalled' => [
+                'available',
+                'quarantine',
+                'depleted',
+                'expired',
+            ],
+            'depleted' => [
+                'available',
+                'quarantine',
+            ],
+            'expired' => [],
+        ];
+
+        if (
+            $data['status'] !== $current->status
+            && ! in_array(
+                $data['status'],
+                $batchTransitions[
+                    $current->status
+                ] ?? [],
+                true,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'status' => [
+                    'This batch status transition is not allowed.',
+                ],
+            ]);
+        }
+
+        $quantity = array_key_exists(
+            'quantity',
+            $data,
+        )
+            ? (float) $data['quantity']
+            : (float) $current->quantity;
+
+        if (
+            $data['status'] === 'available'
+            && $current->expiry_date
+            && $current->expiry_date
+                < now()->toDateString()
+        ) {
+            throw ValidationException::withMessages([
+                'status' => [
+                    'An expired batch cannot be made available.',
+                ],
+            ]);
+        }
+
+        if (
+            $current->status === 'depleted'
+            && $data['status'] === 'available'
+            && $quantity <= 0.00005
+        ) {
+            throw ValidationException::withMessages([
+                'quantity' => [
+                    'Increase the batch quantity before making a depleted batch available again.',
+                ],
+            ]);
+        }
+
+        $status =
+            $data['status'] === 'available'
+            && $quantity <= 0.00005
+                ? 'depleted'
+                : $data['status'];
 
         DB::table('inventory_batches')
             ->where('organization_id', $organizationId)
             ->where('id', $record)
             ->update([
-                'status' => $data['status'],
+                'status' => $status,
                 ...(
                     array_key_exists('quantity', $data)
-                        ? ['quantity' => $data['quantity']]
+                        ? [
+                            'quantity' =>
+                                $data['quantity'],
+                        ]
                         : []
                 ),
                 'updated_at' => now(),
