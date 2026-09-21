@@ -151,8 +151,7 @@ export default function ReportsIndex() {
                         .map(report => {
                         const Icon = report.icon;
 
-                        return (
-                            {report.href === '/app/reports/scheduled' ? (
+                        return report.href === '/app/reports/scheduled' ? (
                             <a
                                 key={report.href}
                                 href={report.href}
@@ -163,11 +162,18 @@ export default function ReportsIndex() {
                                         <Icon size={19} />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <h2 className="font-bold text-[var(--ac-text)]">{report.title}</h2>
-                                        <p className="mt-2 text-xs leading-6 text-[var(--ac-text-muted)]">{report.description}</p>
+                                        <h2 className="font-bold text-[var(--ac-text)]">
+                                            {report.title}
+                                        </h2>
+                                        <p className="mt-2 text-xs leading-6 text-[var(--ac-text-muted)]">
+                                            {report.description}
+                                        </p>
                                         <span className="mt-4 inline-flex items-center gap-2 text-[10px] font-semibold text-[var(--ac-accent)]">
                                             {ar ? 'فتح التقرير' : 'Open report'}
-                                            <ArrowRight size={12} className={ar ? 'rotate-180' : ''} />
+                                            <ArrowRight
+                                                size={12}
+                                                className={ar ? 'rotate-180' : ''}
+                                            />
                                         </span>
                                     </div>
                                 </div>
@@ -183,16 +189,22 @@ export default function ReportsIndex() {
                                         <Icon size={19} />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <h2 className="font-bold text-[var(--ac-text)]">{report.title}</h2>
-                                        <p className="mt-2 text-xs leading-6 text-[var(--ac-text-muted)]">{report.description}</p>
+                                        <h2 className="font-bold text-[var(--ac-text)]">
+                                            {report.title}
+                                        </h2>
+                                        <p className="mt-2 text-xs leading-6 text-[var(--ac-text-muted)]">
+                                            {report.description}
+                                        </p>
                                         <span className="mt-4 inline-flex items-center gap-2 text-[10px] font-semibold text-[var(--ac-accent)]">
                                             {ar ? 'فتح التقرير' : 'Open report'}
-                                            <ArrowRight size={12} className={ar ? 'rotate-180' : ''} />
+                                            <ArrowRight
+                                                size={12}
+                                                className={ar ? 'rotate-180' : ''}
+                                            />
                                         </span>
                                     </div>
                                 </div>
                             </Link>
-                        )}
                         );
                     })}
                 </section>
