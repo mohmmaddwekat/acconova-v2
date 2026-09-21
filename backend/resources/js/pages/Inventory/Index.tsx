@@ -7,10 +7,13 @@ import {
 import {
     Archive,
     ArrowRightLeft,
+    Barcode,
     Boxes,
+    Layers3,
     Pencil,
     Plus,
     RotateCcw,
+    ShieldCheck,
     Sparkles,
     Star,
     Trash2,
@@ -632,6 +635,30 @@ function InventoryWorkspace() {
                     >
                         <Boxes size={14} />
                         {ar ? 'الإنتاج' : 'Production'}
+                    </Link>
+
+                    <Link
+                        href="/app/inventory/serials"
+                        className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                    >
+                        <Barcode size={14} />
+                        {ar ? 'الأرقام التسلسلية' : 'Serial numbers'}
+                    </Link>
+
+                    <Link
+                        href="/app/inventory/batches"
+                        className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                    >
+                        <Layers3 size={14} />
+                        {ar ? 'الدفعات والتشغيلات' : 'Batches / lots'}
+                    </Link>
+
+                    <Link
+                        href="/app/products/warranties"
+                        className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                    >
+                        <ShieldCheck size={14} />
+                        {ar ? 'الضمانات' : 'Warranties'}
                     </Link>
                 </div>
 
