@@ -333,7 +333,9 @@ Route::middleware([
                 'financeView' => 'hub',
             ]);
         },
-    )->name('app.finance');
+    )
+        ->middleware(ResolveOrganization::class)
+        ->name('app.finance');
 
     Route::get(
         '/app/finance/import',
