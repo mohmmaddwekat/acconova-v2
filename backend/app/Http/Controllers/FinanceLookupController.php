@@ -101,6 +101,7 @@ class FinanceLookupController extends Controller
                 'finance.sales.view',
                 'finance.purchases.view',
                 'finance.cash.view',
+                'finance.approvals.review',
                 'finance.taxes.view',
             ])->contains(fn (string $permission): bool => FinanceAuthorization::allows($request->user(), $permission)),
             403,
@@ -113,6 +114,7 @@ class FinanceLookupController extends Controller
         $canCashView = FinanceAuthorization::allows($request->user(), 'finance.cash.view');
         $canCashPay = FinanceAuthorization::allows($request->user(), 'finance.cash.pay');
         $canCashReceive = FinanceAuthorization::allows($request->user(), 'finance.cash.receive');
+        $canApprovalsReview = FinanceAuthorization::allows($request->user(), 'finance.approvals.review');
         $canTaxesView = FinanceAuthorization::allows($request->user(), 'finance.taxes.view');
         $canTaxesManage = FinanceAuthorization::allows($request->user(), 'finance.taxes.manage');
 
@@ -314,6 +316,7 @@ class FinanceLookupController extends Controller
                 'cash_receive' => FinanceAuthorization::allows($request->user(), 'finance.cash.receive'),
                 'cash_correct' => FinanceAuthorization::allows($request->user(), 'finance.cash.correct'),
                 'documents_correct' => FinanceAuthorization::allows($request->user(), 'finance.documents.correct'),
+                'approvals_review' => $canApprovalsReview,
                 'taxes_view' => FinanceAuthorization::allows($request->user(), 'finance.taxes.view'),
                 'taxes_manage' => FinanceAuthorization::allows($request->user(), 'finance.taxes.manage'),
                 'recurring_payments_view' => $canRecurringPayments,
