@@ -239,6 +239,15 @@ export function CommandCenter() {
             aliases: ['تقسيم العملاء', 'customer segments', 'vip customers'],
         },
         {
+            key: 'inventory-intelligence',
+            label: text('ذكاء المخزون', 'Inventory intelligence'),
+            detail: text('المخزون الراكد وإعادة الطلب وتوقع النفاد والتقادم', 'Dead stock, reorder suggestions, stockout forecasting and aging'),
+            href: '/app/inventory/intelligence',
+            icon: Boxes,
+            kind: 'module',
+            aliases: ['مخزون راكد', 'إعادة الطلب', 'stockout', 'inventory intelligence', 'reorder'],
+        },
+        {
             key: 'inventory-transfers',
             label: text('تحويلات المستودعات', 'Warehouse transfers'),
             detail: text('طلب وموافقة وشحن واستلام بين المستودعات', 'Request, approve, ship and receive between warehouses'),
