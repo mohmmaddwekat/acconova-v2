@@ -117,7 +117,7 @@ class PaymentPlanTest extends TestCase
         $this->getJson('/api/workspace-settings')->assertOk()->assertJsonPath('reminder_days', 7);
         $this->patchJson('/api/workspace-settings', ['currency' => 'INVALID', 'reminder_days' => 31])->assertUnprocessable();
         $this->workspace(OrganizationRole::Employee);
-        $this->getJson('/api/workspace-settings')->assertOk()->assertJsonPath('currency', 'ILS')->assertJsonPath('can_manage', false);
+        $this->getJson('/api/workspace-settings')->assertForbidden();
         $this->patchJson('/api/workspace-settings', ['currency' => 'EUR', 'reminder_days' => 1])->assertForbidden();
     }
 
