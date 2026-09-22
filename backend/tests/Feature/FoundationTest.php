@@ -343,6 +343,12 @@ class FoundationTest extends TestCase
 
     public function test_database_rejects_invalid_roles(): void
     {
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            $this->markTestSkipped(
+                'The database-level role enum constraint is a MySQL contract.',
+            );
+        }
+
         $organization = $this->organization(User::factory()->create());
         $user = User::factory()->create();
         $this->expectException(QueryException::class);
