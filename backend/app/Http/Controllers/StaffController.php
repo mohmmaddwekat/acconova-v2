@@ -1140,6 +1140,17 @@ class StaffController extends Controller
     public function store(
         Request $request,
     ): JsonResponse {
+        /*
+         * Reject callers with no Staff management capability before profile
+         * validation. This keeps authorization authoritative and avoids
+         * leaking field-level validation details to unauthorized members.
+         */
+        abort_unless(
+            self::allowed('staff.manage')
+            || self::allowed('staff.team_manage'),
+            403,
+        );
+
         $request->merge([
             'currency' => app(
                 TenantContext::class,
