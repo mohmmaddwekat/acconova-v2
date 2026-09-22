@@ -10,8 +10,9 @@ use App\Models\Product;
 use App\Models\ProductionRecipe;
 use App\Models\ProductionRecipeUsage;
 use App\Models\StockMovement;
-use App\Services\InventoryStockService;
 use App\Services\ProductionRecipeService;
+use App\Services\ProductionRunService;
+use App\Services\WorkspaceFeaturePermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -142,100 +143,108 @@ class ProductionController extends Controller
      */
     public function store(
         RecordProductionRequest $request,
-        InventoryStockService $inventory,
         ProductionRecipeService $recipes,
+        ProductionRunService $runs,
         string $product,
     ): JsonResponse {
-        $data =
-            $request->validated();
-
-        $movement =
-            DB::transaction(
-                function () use (
-                    $request,
-                    $inventory,
-                    $recipes,
-                    $data,
-                ): StockMovement {
-                    /*
-                     * Product-first locking matches recipe activation and stock
-                     * workflows, reducing deadlock risk under concurrency.
-                     */
-                    $item =
-                        Product::query()
-                            ->lockForUpdate()
-                            ->findOrFail(
-                                $request
-                                    ->product()
-                                    ->id,
-                            );
-
-                    $recipe =
-                        ProductionRecipe::query()
-                            ->where(
-                                'product_id',
-                                $item->id,
-                            )
-                            ->lockForUpdate()
-                            ->findOrFail(
-                                (int) $data['recipe_id'],
-                            );
-
-                    $resolved =
-                        $recipes->resolveForProduction(
-                            $item,
-                            $recipe,
-                            (string) $data['quantity'],
-                            $data['selections'] ?? [],
-                        );
-
-                    $movement =
-                        $inventory->recordProduction(
-                            $item,
-                            (int) $data['warehouse_id'],
-                            (string) $data['quantity'],
-                            $resolved['materials'],
-                            $data['note'] ?? null,
-                            $request->user()->id,
-                        );
-
-                    $usage =
-                        ProductionRecipeUsage::create([
-                            'production_movement_id' => $movement->id,
-
-                            'production_recipe_id' => $recipe->id,
-
-                            'snapshot' => $resolved['snapshot'],
-                        ]);
-
-                    $usage->setRelation(
-                        'recipe',
-                        $recipe,
-                    );
-
-                    $movement->setRelation(
-                        'recipeUsage',
-                        $usage,
-                    );
-
-                    ProductionRecorded::dispatch(
-                        (int) $item
-                            ->organization_id,
-                        $item->id,
-                        $movement->id,
-                        $recipe->id,
-                        $recipe->version,
-                        $request->user()->id,
-                    );
-
-                    return $movement;
-                },
-                3,
-            );
-
-        $movement->load(
-            'warehouse',
+        WorkspaceFeaturePermissions::authorize(
+            $request->user(),
+            'production.runs.create',
         );
+
+        WorkspaceFeaturePermissions::authorize(
+            $request->user(),
+            'production.runs.post',
+        );
+
+        $data = $request->validated();
+
+        $movement = DB::transaction(
+            function () use (
+                $request,
+                $recipes,
+                $runs,
+                $data,
+            ): StockMovement {
+                $item = Product::query()
+                    ->findOrFail(
+                        $request->product()->id,
+                    );
+
+                $recipe = ProductionRecipe::query()
+                    ->where(
+                        'product_id',
+                        $item->id,
+                    )
+                    ->findOrFail(
+                        (int) $data['recipe_id'],
+                    );
+
+                $resolved = $recipes->resolveForProduction(
+                    $item,
+                    $recipe,
+                    (string) $data['quantity'],
+                    $data['selections'] ?? [],
+                );
+
+                $materials = collect(
+                    $resolved['materials'],
+                )
+                    ->map(
+                        fn (array $material): array => [
+                            'raw_material_id' => (int) $material['product_id'],
+                            'warehouse_id' => (int) $data['warehouse_id'],
+                            'actual_quantity' => (string) $material['quantity'],
+                        ],
+                    )
+                    ->values()
+                    ->all();
+
+                /*
+                 * This endpoint is only a backwards-compatible adapter.
+                 * Physical inventory changes still happen exclusively through
+                 * ProductionRunService / ProductionRunStockService.
+                 */
+                $draft = $runs->createDraft(
+                    [
+                        'occurred_on' => today()->toDateString(),
+                        'note' => $data['note'] ?? null,
+                        'outputs' => [[
+                            'product_id' => $item->id,
+                            'warehouse_id' => (int) $data['warehouse_id'],
+                            'quantity' => (string) $data['quantity'],
+                            'recipe_id' => $recipe->id,
+                            'selections' => $data['selections'] ?? [],
+                            'materials' => $materials,
+                        ]],
+                    ],
+                    $request->user()->id,
+                );
+
+                $posted = $runs->post(
+                    $draft,
+                    1,
+                    $request->user()->id,
+                );
+
+                $output = $posted->outputs->first();
+
+                abort_unless(
+                    $output
+                    && $output->postedMovement,
+                    500,
+                    'Posted production movement missing.',
+                );
+
+                return $output->postedMovement;
+            },
+            3,
+        );
+
+        $movement->load([
+            'warehouse',
+            'recipeUsage.recipe',
+        ]);
 
         $movement->setRelation(
             'materials',
