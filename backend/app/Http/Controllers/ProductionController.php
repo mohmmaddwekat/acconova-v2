@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\StockMovementType;
-use App\Events\ProductionRecorded;
 use App\Http\Requests\RecordProductionRequest;
 use App\Http\Resources\ProductionResource;
 use App\Models\Product;
