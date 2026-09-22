@@ -189,7 +189,7 @@ class StaffWorkflowTest extends TestCase
 
     public function test_staff_migration_center_imports_employees_attendance_and_payroll_from_csv(): void
     {
-        $this->workspace();
+        $organization = $this->workspace();
 
         $employeePreview =
             $this
@@ -291,12 +291,18 @@ class StaffWorkflowTest extends TestCase
             );
 
         $staffId =
-            StaffMember::where(
-                'name',
-                'Imported One',
-            )->value(
-                'id',
-            );
+            StaffMember::withoutGlobalScopes()
+                ->where(
+                    'organization_id',
+                    $organization->id,
+                )
+                ->where(
+                    'name',
+                    'Imported One',
+                )
+                ->value(
+                    'id',
+                );
 
         $this->assertDatabaseHas(
             'staff_attendances',
