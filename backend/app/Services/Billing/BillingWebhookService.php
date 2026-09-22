@@ -303,15 +303,12 @@ final class BillingWebhookService
         }
 
         /*
-         * Fetch the canonical object so payment-method expansion is available
-         * even when the webhook event carries an unexpanded reference.
+         * Subscription webhooks already carry the canonical subscription.
+         * Avoid a second provider read so cancellation events remain reliable
+         * even when the subscription can no longer be retrieved separately.
          */
-        $canonical = $this->gateway->subscription(
-            $subscriptionId,
-        );
-
         $this->syncSubscription(
-            $canonical,
+            $subscription,
             $this->positiveInt(
                 $subscription['metadata']['organization_id']
                     ?? null,
