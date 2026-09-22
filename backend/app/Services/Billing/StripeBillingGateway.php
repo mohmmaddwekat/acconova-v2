@@ -71,10 +71,10 @@ final class StripeBillingGateway
             ->first();
 
         $successUrl = trim((string) config('billing.urls.success', ''))
-            ?: url('/app/settings?section=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}');
+            ?: url('/app/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}');
 
         $cancelUrl = trim((string) config('billing.urls.cancel', ''))
-            ?: url('/app/settings?section=billing&checkout=cancelled');
+            ?: url('/app/billing?checkout=cancelled');
 
         $payload = [
             'mode' => 'subscription',
@@ -150,7 +150,7 @@ final class StripeBillingGateway
         }
 
         $returnUrl = trim((string) config('billing.urls.portal_return', ''))
-            ?: url('/app/settings?section=billing');
+            ?: url('/app/billing');
 
         $session = $this->post(
             '/v1/billing_portal/sessions',

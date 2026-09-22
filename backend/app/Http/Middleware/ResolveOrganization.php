@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Billing\WorkspaceSubscriptionAccess;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
@@ -24,7 +25,24 @@ class ResolveOrganization
 
             $resolve = function () use ($request, $next, $context, $organizationId): Response {
                 try {
-                    app(OrganizationAccess::class)->resolve($request->user(), (int) $organizationId, $context, ! $request->isMethodSafe());
+                    app(OrganizationAccess::class)->resolve(
+                        $request->user(),
+                        (int) $organizationId,
+                        $context,
+                        ! $request->isMethodSafe(),
+                    );
+
+                    $blocked = app(
+                        WorkspaceSubscriptionAccess::class,
+                    )->blockedResponse(
+                        $request,
+                        $context->id(),
+                        $context->role(),
+                    );
+
+                    if ($blocked) {
+                        return $blocked;
+                    }
 
                     WorkspaceFeaturePermissions::authorizeRequest(
                         $request,

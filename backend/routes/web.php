@@ -45,6 +45,7 @@ use App\Http\Controllers\WorkspaceMessageMemberController;
 use App\Http\Controllers\WorkspaceNotificationController;
 use App\Http\Controllers\WorkspaceRoleController;
 use App\Http\Controllers\WorkspaceSettingsController;
+use App\Http\Middleware\RequireActiveSubscription;
 use App\Http\Middleware\ResolveOrganization;
 use App\Services\FinanceAuthorization;
 use App\Services\WorkspaceFeaturePermissions;
@@ -215,7 +216,31 @@ Route::middleware(
 Route::middleware([
     'auth',
     'verified',
+    RequireActiveSubscription::class,
 ])->group(function (): void {
+    Route::get(
+        '/app/billing',
+        function (Request $request) {
+            WorkspaceFeaturePermissions::authorize(
+                $request->user(),
+                'workspace.settings.view',
+            );
+
+            return Inertia::render('BillingRequired');
+        },
+    )
+        ->middleware(ResolveOrganization::class)
+        ->name('app.billing');
+
+    Route::get(
+        '/app/subscription-required',
+        fn () => Inertia::render(
+            'SubscriptionRequired',
+        ),
+    )
+        ->middleware(ResolveOrganization::class)
+        ->name('app.subscription-required');
+
     Route::get(
         '/app/ai',
         function (Request $request) {

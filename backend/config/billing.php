@@ -7,6 +7,15 @@ return [
      */
     'enabled' => (bool) env('BILLING_ENABLED', false),
 
+    /*
+     * When billing is enabled, lock workspace application/API access until
+     * the organization has an active or trialing subscription.
+     */
+    'enforce_subscription' => (bool) env(
+        'BILLING_ENFORCE_SUBSCRIPTION',
+        true,
+    ),
+
     'provider' => env('BILLING_PROVIDER', 'stripe'),
 
     'allow_promotion_codes' => (bool) env(
