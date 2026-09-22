@@ -83,6 +83,39 @@ return new class extends Migration
 
     private function ensureRecurringScheduleIndex(): void
     {
+        $driver = DB::connection()->getDriverName();
+
+        /*
+         * The recovery probe below is MySQL-specific because it inspects
+         * information_schema. SQLite migrations run transactionally in our
+         * test suite, so creating the index directly is sufficient there.
+         */
+        if ($driver !== 'mysql') {
+            try {
+                Schema::table(
+                    'recurring_invoice_profiles',
+                    function (Blueprint $table): void {
+                        $table->index(
+                            ['organization_id', 'active', 'next_run_on'],
+                            'rec_inv_org_active_next_idx',
+                        );
+                    },
+                );
+            } catch (QueryException $exception) {
+                if (
+                    $driver !== 'sqlite'
+                    || ! str_contains(
+                        strtolower($exception->getMessage()),
+                        'already exists',
+                    )
+                ) {
+                    throw $exception;
+                }
+            }
+
+            return;
+        }
+
         $indexExists = DB::selectOne(
             <<<'SQL'
                 SELECT 1 AS found
