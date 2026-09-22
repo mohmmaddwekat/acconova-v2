@@ -77,19 +77,20 @@ class AiAssistantController extends Controller
 
     public function show(
         Request $request,
-        AiConversation $conversation,
+        int $conversation,
     ): JsonResponse {
         WorkspaceFeaturePermissions::authorize(
             $request->user(),
             'ai.assistant.use',
         );
 
-        $this->assertOwner($request, $conversation);
+        $conversationRecord = AiConversation::query()->findOrFail($conversation);
+        $this->assertOwner($request, $conversationRecord);
 
         return response()->json([
             'data' => [
-                'conversation' => $conversation,
-                'messages' => $conversation
+                'conversation' => $conversationRecord,
+                'messages' => $conversationRecord
                     ->messages()
                     ->orderBy('id')
                     ->limit(200)
@@ -100,7 +101,7 @@ class AiAssistantController extends Controller
 
     public function message(
         Request $request,
-        AiConversation $conversation,
+        int $conversation,
         AiGateway $gateway,
         AiConversationMemory $memory,
     ): JsonResponse {
@@ -109,28 +110,29 @@ class AiAssistantController extends Controller
             'ai.assistant.use',
         );
 
-        $this->assertOwner($request, $conversation);
+        $conversationRecord = AiConversation::query()->findOrFail($conversation);
+        $this->assertOwner($request, $conversationRecord);
 
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:12000'],
         ]);
 
         $userMessage = AiMessage::create([
-            'ai_conversation_id' => $conversation->id,
+            'ai_conversation_id' => $conversationRecord->id,
             'user_id' => $request->user()->id,
             'role' => 'user',
             'content' => trim($validated['message']),
         ]);
 
-        $conversation->forceFill([
-            'title' => $conversation->title
+        $conversationRecord->forceFill([
+            'title' => $conversationRecord->title
                 ?: mb_substr(trim($validated['message']), 0, 80),
             'last_message_at' => now(),
         ])->save();
 
         try {
             $result = $gateway->chat(
-                $memory->context($conversation),
+                $memory->context($conversationRecord),
             );
         } catch (RuntimeException $exception) {
             report($exception);
@@ -147,7 +149,7 @@ class AiAssistantController extends Controller
         }
 
         $assistantMessage = AiMessage::create([
-            'ai_conversation_id' => $conversation->id,
+            'ai_conversation_id' => $conversationRecord->id,
             'user_id' => null,
             'role' => 'assistant',
             'content' => $result['content'],
@@ -158,7 +160,7 @@ class AiAssistantController extends Controller
             'total_tokens' => $result['total_tokens'],
         ]);
 
-        $conversation->forceFill([
+        $conversationRecord->forceFill([
             'last_message_at' => now(),
         ])->save();
 
@@ -167,7 +169,7 @@ class AiAssistantController extends Controller
          * successful assistant response into a failed user request.
          */
         rescue(
-            fn () => $memory->compactIfNeeded($conversation->fresh(), $gateway),
+            fn () => $memory->compactIfNeeded($conversationRecord->fresh(), $gateway),
             report: true,
         );
 
@@ -185,16 +187,17 @@ class AiAssistantController extends Controller
 
     public function destroy(
         Request $request,
-        AiConversation $conversation,
+        int $conversation,
     ): JsonResponse {
         WorkspaceFeaturePermissions::authorize(
             $request->user(),
             'ai.conversations.manage',
         );
 
-        $this->assertOwner($request, $conversation);
+        $conversationRecord = AiConversation::query()->findOrFail($conversation);
+        $this->assertOwner($request, $conversationRecord);
 
-        $conversation->delete();
+        $conversationRecord->delete();
 
         return response()->json([], 204);
     }
