@@ -157,9 +157,9 @@ export function PartyListItem({
     columnOrder = [
         'identity',
         'contact',
+        'location',
         'owed_to_us',
         'we_owe',
-        'location',
         'actions',
     ],
     hiddenColumns = [],

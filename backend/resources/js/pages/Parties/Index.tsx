@@ -384,6 +384,10 @@ function PartiesWorkspace() {
             label: ar ? 'التواصل' : 'Contact',
         },
         {
+            key: 'location',
+            label: ar ? 'الموقع' : 'Location',
+        },
+        {
             key: 'owed_to_us',
             label: ar ? 'لي عليه' : 'Owes me',
         },
@@ -392,17 +396,13 @@ function PartiesWorkspace() {
             label: ar ? 'له عليّ' : 'I owe',
         },
         {
-            key: 'location',
-            label: ar ? 'الموقع' : 'Location',
-        },
-        {
             key: 'actions',
             label: ar ? 'الإجراءات' : 'Actions',
         },
     ];
 
     const listPreferences = useListPreferences(
-        `acconova:list-preferences:parties:${activeOrganization?.id ?? 'none'}`,
+        `acconova:list-preferences:parties-v2:${activeOrganization?.id ?? 'none'}`,
         partyColumns,
     );
 
