@@ -951,19 +951,6 @@ class ProductionRunWorkflowTest extends TestCase
                 'name' => 'Secondary Warehouse',
             ]);
 
-        foreach (
-            [
-                $plastic => '1000.0000',
-                $redDye => '100.0000',
-                $yellowDye => '100.0000',
-            ] as $material => $quantity
-        ) {
-            /*
-             * PHP objects cannot be array keys, so this loop is intentionally
-             * replaced immediately below with explicit rows.
-             */
-        }
-
         InventoryBalance::create([
             'product_id' => $plastic->id,
             'warehouse_id' => $raw->id,
