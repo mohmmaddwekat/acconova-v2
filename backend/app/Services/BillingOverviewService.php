@@ -83,7 +83,7 @@ final class BillingOverviewService
             'payment_method' => null,
             'invoices' => [],
             'addons' => [],
-            'currency' => (string) ($preferences['currency'] ?? 'USD'),
+            'currency' => (string) ($preferences['currency'] ?? 'ILS'),
             'usage' => [
                 'period' => [
                     'from' => $periodStart->toDateString(),
