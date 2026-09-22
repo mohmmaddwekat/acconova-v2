@@ -27,23 +27,49 @@ final class RequireActiveSubscription
         }
 
         $user = $request->user();
+
+        if (! $user) {
+            return $next($request);
+        }
+
         $organizationId = $request->session()->get(
             OrganizationAccess::SESSION_KEY,
         );
 
+        $role = null;
+
         /*
-         * Users without a selected workspace still need onboarding and tenant
-         * selection to work. The normal tenancy layer will handle stale state.
+         * Match AccoNova's normal one-workspace auto-selection before the page
+         * renders. Otherwise a user with one unpaid workspace could briefly
+         * reach the dashboard on the request that restores their session.
          */
         if (
-            ! $user
-            || ! is_numeric($organizationId)
+            ! is_numeric($organizationId)
             || (int) $organizationId <= 0
         ) {
-            return $next($request);
+            $memberships = DB::table('memberships')
+                ->where('user_id', $user->id)
+                ->limit(2)
+                ->get([
+                    'organization_id',
+                    'role',
+                ]);
+
+            if ($memberships->count() !== 1) {
+                return $next($request);
+            }
+
+            $membership = $memberships->first();
+            $organizationId = (int) $membership->organization_id;
+            $role = (string) $membership->role;
+
+            $request->session()->put(
+                OrganizationAccess::SESSION_KEY,
+                $organizationId,
+            );
         }
 
-        $role = DB::table('memberships')
+        $role ??= DB::table('memberships')
             ->where(
                 'organization_id',
                 (int) $organizationId,
