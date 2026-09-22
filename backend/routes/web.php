@@ -4,6 +4,7 @@ use App\Http\Controllers\ApprovalWorkflowController;
 use App\Http\Controllers\AuditCenterController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\BankReconciliationController;
+use App\Http\Controllers\BillingOverviewController;
 use App\Http\Controllers\BulkActionHistoryController;
 use App\Http\Controllers\BusinessControlController;
 use App\Http\Controllers\BusinessPulseController;
@@ -1470,6 +1471,14 @@ Route::prefix(
             'records/{type}/{record}/customization',
             [WorkspaceCustomizationController::class, 'updateRecord'],
         )->whereNumber('record');
+
+        Route::get(
+            'billing/overview',
+            [
+                BillingOverviewController::class,
+                'show',
+            ],
+        );
 
         Route::get(
             'workspace-settings',
