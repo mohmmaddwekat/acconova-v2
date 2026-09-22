@@ -483,6 +483,10 @@ final class BillingWebhookService
             $invoice['subscription'] ?? null,
         );
 
+        if (! $customerId && ! $subscriptionId) {
+            return;
+        }
+
         $account = BillingAccount::query()
             ->where(function ($query) use (
                 $customerId,
