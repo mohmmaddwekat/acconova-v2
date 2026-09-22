@@ -14,11 +14,11 @@ import {
     Trash2,
 } from 'lucide-react';
 import {
-    FormEvent,
     useEffect,
     useMemo,
     useRef,
     useState,
+    type FormEvent,
 } from 'react';
 
 type Conversation = {
