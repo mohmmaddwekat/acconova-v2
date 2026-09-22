@@ -63,6 +63,16 @@ export type Party = {
         | string
         | null;
 
+    balance_summary:
+        | {
+            customer_position: string;
+            supplier_position: string;
+            owed_to_us: string;
+            we_owe: string;
+            currency: string;
+        }
+        | null;
+
     roles: PartyRole[];
 
     deleted_at:
