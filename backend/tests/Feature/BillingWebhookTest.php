@@ -28,8 +28,7 @@ class BillingWebhookTest extends TestCase
 
         Http::preventStrayRequests();
         Http::fake([
-            'https://billing.example.test/v1/subscriptions/sub_123*' =>
-                Http::response([
+            'https://billing.example.test/v1/subscriptions/sub_123*' => Http::response([
                     'id' => 'sub_123',
                     'customer' => 'cus_123',
                     'status' => 'active',
@@ -118,10 +117,8 @@ class BillingWebhookTest extends TestCase
                     'amount_due' => 1900,
                     'amount_paid' => 1900,
                     'currency' => 'usd',
-                    'hosted_invoice_url' =>
-                        'https://billing.example.test/invoices/in_123',
-                    'invoice_pdf' =>
-                        'https://billing.example.test/invoices/in_123.pdf',
+                    'hosted_invoice_url' => 'https://billing.example.test/invoices/in_123',
+                    'invoice_pdf' => 'https://billing.example.test/invoices/in_123.pdf',
                     'created' => 1790035200,
                     'due_date' => null,
                     'status_transitions' => [
@@ -183,8 +180,7 @@ class BillingWebhookTest extends TestCase
             [],
             [
                 'CONTENT_TYPE' => 'application/json',
-                'HTTP_STRIPE_SIGNATURE' =>
-                    't='.time().',v1=invalid',
+                'HTTP_STRIPE_SIGNATURE' => 't='.time().',v1=invalid',
             ],
             $payload,
         )->assertStatus(400);
@@ -198,13 +194,12 @@ class BillingWebhookTest extends TestCase
             'billing.stripe.webhook_secret' => 'whsec_test',
             'billing.stripe.api_base' => 'https://billing.example.test',
             'billing.stripe.webhook_tolerance_seconds' => 300,
-            'billing.plans.starter.prices.month' =>
-                'price_starter_monthly',
+            'billing.plans.starter.prices.month' => 'price_starter_monthly',
         ]);
     }
 
     /**
-     * @param array<string,mixed> $event
+     * @param  array<string, mixed>  $event
      */
     private function sendSignedWebhook(
         array $event,
@@ -230,8 +225,7 @@ class BillingWebhookTest extends TestCase
             [],
             [
                 'CONTENT_TYPE' => 'application/json',
-                'HTTP_STRIPE_SIGNATURE' =>
-                    "t={$timestamp},v1={$signature}",
+                'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
             ],
             $payload,
         );
