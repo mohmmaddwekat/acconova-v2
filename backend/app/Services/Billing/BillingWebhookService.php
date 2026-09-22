@@ -15,8 +15,7 @@ final class BillingWebhookService
 {
     public function __construct(
         private readonly StripeBillingGateway $gateway,
-    ) {
-    }
+    ) {}
 
     /**
      * Verify, deduplicate, and process one provider webhook.
@@ -97,7 +96,7 @@ final class BillingWebhookService
     }
 
     /**
-     * @return array<string,mixed>
+     * @return array<string, mixed>
      */
     private function verifiedEvent(
         Request $request,
@@ -202,41 +201,36 @@ final class BillingWebhookService
     }
 
     /**
-     * @param array<string,mixed> $object
+     * @param  array<string, mixed>  $object
      */
     private function process(
         string $type,
         array $object,
     ): void {
         match ($type) {
-            'checkout.session.completed' =>
-                $this->checkoutCompleted($object),
+            'checkout.session.completed' => $this->checkoutCompleted($object),
 
             'customer.subscription.created',
             'customer.subscription.updated',
-            'customer.subscription.deleted' =>
-                $this->subscriptionChanged($object),
+            'customer.subscription.deleted' => $this->subscriptionChanged($object),
 
             'invoice.created',
             'invoice.finalized',
             'invoice.paid',
             'invoice.payment_succeeded',
             'invoice.payment_failed',
-            'invoice.voided' =>
-                $this->invoiceChanged($object),
+            'invoice.voided' => $this->invoiceChanged($object),
 
-            'payment_method.attached' =>
-                $this->paymentMethodAttached($object),
+            'payment_method.attached' => $this->paymentMethodAttached($object),
 
-            'customer.updated' =>
-                $this->customerUpdated($object),
+            'customer.updated' => $this->customerUpdated($object),
 
             default => null,
         };
     }
 
     /**
-     * @param array<string,mixed> $session
+     * @param  array<string, mixed>  $session
      */
     private function checkoutCompleted(
         array $session,
@@ -289,7 +283,7 @@ final class BillingWebhookService
     }
 
     /**
-     * @param array<string,mixed> $subscription
+     * @param  array<string, mixed>  $subscription
      */
     private function subscriptionChanged(
         array $subscription,
@@ -317,7 +311,7 @@ final class BillingWebhookService
     }
 
     /**
-     * @param array<string,mixed> $subscription
+     * @param  array<string, mixed>  $subscription
      */
     private function syncSubscription(
         array $subscription,
@@ -462,7 +456,7 @@ final class BillingWebhookService
     }
 
     /**
-     * @param array<string,mixed> $invoice
+     * @param  array<string, mixed>  $invoice
      */
     private function invoiceChanged(
         array $invoice,
@@ -560,7 +554,7 @@ final class BillingWebhookService
     }
 
     /**
-     * @param array<string,mixed> $method
+     * @param  array<string, mixed>  $method
      */
     private function paymentMethodAttached(
         array $method,
@@ -597,7 +591,7 @@ final class BillingWebhookService
     }
 
     /**
-     * @param array<string,mixed> $customer
+     * @param  array<string, mixed>  $customer
      */
     private function customerUpdated(
         array $customer,
