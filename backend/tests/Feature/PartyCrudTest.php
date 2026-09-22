@@ -8,12 +8,12 @@ use App\Models\Party;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PartyCrudTest extends TestCase
 {
-    use DatabaseMigrations;
+    use RefreshDatabase;
 
     /**
      * Clear tenant state after every Party HTTP lifecycle test.
