@@ -240,10 +240,24 @@ class ProductionController extends Controller
             3,
         );
 
-        $movement->load([
+        $movement->load(
             'warehouse',
-            'recipeUsage.recipe',
-        ]);
+        );
+
+        $usage = ProductionRecipeUsage::query()
+            ->where(
+                'production_movement_id',
+                $movement->id,
+            )
+            ->with(
+                'recipe:id,version',
+            )
+            ->first();
+
+        $movement->setRelation(
+            'recipeUsage',
+            $usage,
+        );
 
         $movement->setRelation(
             'materials',
