@@ -322,7 +322,6 @@ final class StripeBillingGateway
 
     /**
      * @param  array<string, mixed>  $query
-     *
      * @return array<string, mixed>
      */
     private function get(
@@ -349,7 +348,6 @@ final class StripeBillingGateway
 
     /**
      * @param  array<string, mixed>  $payload
-     *
      * @return array<string, mixed>
      */
     private function post(
