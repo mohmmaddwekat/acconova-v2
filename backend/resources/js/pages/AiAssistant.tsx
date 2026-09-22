@@ -32,9 +32,20 @@ type Message = {
     id: number;
     role: 'user' | 'assistant' | 'system';
     content: string;
+    provider?: string | null;
     model?: string | null;
     total_tokens?: number;
     created_at: string;
+};
+
+type AiProviderStatus = {
+    key: string;
+    label: string;
+    driver: string;
+    model: string;
+    auth_mode: string;
+    configured: boolean;
+    is_default: boolean;
 };
 
 type AiStatus = {
@@ -43,6 +54,8 @@ type AiStatus = {
     provider: string;
     model: string;
     auth_mode: 'api_key' | 'oauth_refresh' | string;
+    fallbacks: string[];
+    providers: AiProviderStatus[];
     memory: {
         recent_messages: number;
         summarize_after_messages: number;
@@ -56,6 +69,7 @@ export default function AiAssistant() {
     const locale = useLocale();
     const ar = locale === 'ar';
     const [status, setStatus] = useState<AiStatus | null>(null);
+    const [selectedProvider, setSelectedProvider] = useState('');
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeId, setActiveId] = useState<number | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -68,6 +82,18 @@ export default function AiAssistant() {
     const activeConversation = useMemo(
         () => conversations.find(item => item.id === activeId) ?? null,
         [conversations, activeId],
+    );
+
+    const availableProviders = useMemo(
+        () => status?.providers.filter(provider => provider.configured) ?? [],
+        [status],
+    );
+
+    const activeProvider = useMemo(
+        () => availableProviders.find(
+            provider => provider.key === selectedProvider,
+        ) ?? availableProviders[0] ?? null,
+        [availableProviders, selectedProvider],
     );
 
     useEffect(() => {
@@ -84,6 +110,16 @@ export default function AiAssistant() {
             .then(([statusResponse, conversationResponse]) => {
                 setStatus(statusResponse.data);
                 setConversations(conversationResponse.data);
+
+                const preferred = statusResponse.data.providers.find(
+                    provider =>
+                        provider.configured
+                        && provider.key === statusResponse.data.provider,
+                ) ?? statusResponse.data.providers.find(
+                    provider => provider.configured,
+                );
+
+                setSelectedProvider(preferred?.key ?? '');
 
                 const first = conversationResponse.data[0];
 
@@ -257,6 +293,7 @@ export default function AiAssistant() {
                     method: 'POST',
                     body: JSON.stringify({
                         message,
+                        provider: selectedProvider || undefined,
                     }),
                 },
             );
@@ -373,13 +410,13 @@ export default function AiAssistant() {
                             <div>
                                 <p className="text-sm font-semibold">
                                     {ar
-                                        ? 'البنية جاهزة، لكن مزود الذكاء الاصطناعي لم يتم ربطه بعد.'
-                                        : 'The AI infrastructure is ready, but a provider has not been connected yet.'}
+                                        ? 'البنية متعددة المزودات جاهزة، لكن لم يتم ربط أي مزود بعد.'
+                                        : 'The multi-provider AI infrastructure is ready, but no provider has been connected yet.'}
                                 </p>
                                 <p className="mt-1 text-xs leading-5 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'بعد إضافة بيانات المزود في إعدادات الخادم، المحادثة تعمل بدون كشف المفتاح للمتصفح.'
-                                        : 'Once provider credentials are added on the server, chat works without exposing secrets to the browser.'}
+                                        ? 'أضف مفتاح OpenAI أو Claude أو Gemini في الخادم؛ المفاتيح لا تصل للمتصفح، ويمكن للنظام التحويل لمزود احتياطي تلقائيًا.'
+                                        : 'Add OpenAI, Claude, or Gemini credentials on the server. Keys stay server-side and AccoNova can fail over automatically.'}
                                 </p>
                             </div>
                         </section>
@@ -482,21 +519,55 @@ export default function AiAssistant() {
                                                 || (ar ? 'محادثة جديدة' : 'New conversation')}
                                         </p>
                                         <p className="mt-0.5 text-[9px] text-[var(--ac-text-muted)]">
-                                            {status?.model
-                                                ? `${status.provider} · ${status.model}`
+                                            {activeProvider?.model
+                                                ? `${activeProvider.label} · ${activeProvider.model}`
                                                 : (ar ? 'Gateway داخلي آمن' : 'Secure internal gateway')}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 rounded-xl border border-[var(--ac-line)] px-3 py-2 text-[10px] text-[var(--ac-text-muted)]">
-                                    <ShieldCheck
-                                        size={13}
-                                        className="text-[var(--ac-accent)]"
-                                    />
-                                    {ar
-                                        ? 'نفس صلاحيات المستخدم'
-                                        : 'User permissions enforced'}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {availableProviders.length > 0 && (
+                                        <label className="flex items-center gap-2 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2 text-[10px] text-[var(--ac-text-muted)]">
+                                            <Sparkles
+                                                size={13}
+                                                className="text-[var(--ac-accent)]"
+                                            />
+                                            <span className="hidden sm:inline">
+                                                {ar ? 'المزود' : 'Provider'}
+                                            </span>
+                                            <select
+                                                value={selectedProvider}
+                                                onChange={event =>
+                                                    setSelectedProvider(event.target.value)
+                                                }
+                                                disabled={sending}
+                                                className="max-w-[190px] bg-transparent font-semibold text-[var(--ac-text)] outline-none disabled:opacity-50"
+                                            >
+                                                {availableProviders.map(provider => (
+                                                    <option
+                                                        key={provider.key}
+                                                        value={provider.key}
+                                                    >
+                                                        {provider.label}
+                                                        {provider.is_default
+                                                            ? (ar ? ' · افتراضي' : ' · Default')
+                                                            : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                    )}
+
+                                    <div className="flex items-center gap-2 rounded-xl border border-[var(--ac-line)] px-3 py-2 text-[10px] text-[var(--ac-text-muted)]">
+                                        <ShieldCheck
+                                            size={13}
+                                            className="text-[var(--ac-accent)]"
+                                        />
+                                        {ar
+                                            ? 'نفس صلاحيات المستخدم'
+                                            : 'User permissions enforced'}
+                                    </div>
                                 </div>
                             </div>
 
@@ -549,6 +620,9 @@ export default function AiAssistant() {
                                                         {message.role === 'assistant'
                                                         && (message.total_tokens ?? 0) > 0 && (
                                                             <p className="mt-2 text-[9px] text-[var(--ac-text-muted)]">
+                                                                {message.provider
+                                                                    ? `${message.provider} · `
+                                                                    : ''}
                                                                 {message.model || 'AI'}
                                                                 {' · '}
                                                                 {message.total_tokens}
