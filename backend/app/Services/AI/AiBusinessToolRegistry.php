@@ -10,6 +10,7 @@ use App\Services\AI\Tools\OverdueInvoicesTool;
 use App\Services\AI\Tools\PartyBalancesTool;
 use App\Services\AI\Tools\SalesSummaryTool;
 use App\Services\AI\Tools\StaffSummaryTool;
+use App\Services\WorkspaceFeaturePermissions;
 use RuntimeException;
 
 final class AiBusinessToolRegistry
@@ -27,6 +28,10 @@ final class AiBusinessToolRegistry
     /** @return list<array{name:string,description:string,input_schema:array<string,mixed>}> */
     public function definitionsFor(User $user): array
     {
+        if (! WorkspaceFeaturePermissions::allows($user, 'ai.business_data.use')) {
+            return [];
+        }
+
         $definitions = [];
 
         foreach ($this->tools() as $tool) {
@@ -49,6 +54,10 @@ final class AiBusinessToolRegistry
      */
     public function execute(User $user, string $name, array $arguments): array
     {
+        if (! WorkspaceFeaturePermissions::allows($user, 'ai.business_data.use')) {
+            throw new RuntimeException('AI business data access is not permitted for this user.');
+        }
+
         $tool = $this->find($name);
 
         if (! $tool || ! $tool->allowed($user)) {
@@ -60,6 +69,10 @@ final class AiBusinessToolRegistry
 
     public function available(User $user, string $name): bool
     {
+        if (! WorkspaceFeaturePermissions::allows($user, 'ai.business_data.use')) {
+            return false;
+        }
+
         $tool = $this->find($name);
 
         return $tool !== null && $tool->allowed($user);
