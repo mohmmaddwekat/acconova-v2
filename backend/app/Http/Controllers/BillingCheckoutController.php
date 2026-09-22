@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BillingAccount;
 use App\Services\Billing\StripeBillingGateway;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
@@ -25,6 +26,35 @@ class BillingCheckoutController extends Controller
             (array) config('billing.plans', []),
         );
 
+        $organization = app(
+            TenantContext::class,
+        )->organization();
+
+        $existing = BillingAccount::query()
+            ->where(
+                'organization_id',
+                $organization->id,
+            )
+            ->first();
+
+        if (
+            $existing
+            && ! in_array(
+                $existing->status,
+                [
+                    null,
+                    'canceled',
+                    'incomplete_expired',
+                ],
+                true,
+            )
+        ) {
+            return response()->json([
+                'message' => 'An existing subscription must be managed from the subscription center.',
+                'code' => 'SUBSCRIPTION_ALREADY_EXISTS',
+            ], 409);
+        }
+
         $data = $request->validate([
             'plan' => [
                 'required',
@@ -39,7 +69,7 @@ class BillingCheckoutController extends Controller
 
         try {
             $url = $billing->checkoutUrl(
-                app(TenantContext::class)->organization(),
+                $organization,
                 $request->user(),
                 (string) $data['plan'],
                 (string) $data['interval'],
