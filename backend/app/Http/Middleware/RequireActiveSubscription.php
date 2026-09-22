@@ -13,8 +13,7 @@ final class RequireActiveSubscription
 {
     public function __construct(
         private readonly WorkspaceSubscriptionAccess $subscriptions,
-    ) {
-    }
+    ) {}
 
     public function handle(
         Request $request,
