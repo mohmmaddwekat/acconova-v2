@@ -647,26 +647,6 @@ class CommercialOperationsController extends Controller
                     return null;
                 }
 
-                $invoices = $conversionsByDocument
-                    ->get($row->id, collect())
-                    ->map(fn ($invoice): array => [
-                        'id' => $invoice->id,
-                        'number' => $invoice->number,
-                        'kind' => $invoice->kind,
-                        'status' => $invoice->status,
-                        'total' => (string) $invoice->total,
-                        'currency' => $invoice->currency,
-                        'converted_quantity' =>
-                            (string) $invoice->converted_quantity,
-                        'created_at' => $invoice->created_at,
-                        'url' =>
-                            $invoice->kind === 'sale_invoice'
-                                ? '/app/invoices/sales/'.$invoice->id
-                                : '/app/invoices/purchases/'.$invoice->id,
-                    ])
-                    ->values()
-                    ->all();
-
                 return [
                     'id' => $row->id,
                     'number' => $row->number,
@@ -1360,6 +1340,26 @@ class CommercialOperationsController extends Controller
                 $linesByDocument,
                 $conversionsByDocument,
             ): array {
+                $invoices = $conversionsByDocument
+                    ->get($row->id, collect())
+                    ->map(fn ($invoice): array => [
+                        'id' => $invoice->id,
+                        'number' => $invoice->number,
+                        'kind' => $invoice->kind,
+                        'status' => $invoice->status,
+                        'total' => (string) $invoice->total,
+                        'currency' => $invoice->currency,
+                        'converted_quantity' =>
+                            (string) $invoice->converted_quantity,
+                        'created_at' => $invoice->created_at,
+                        'url' =>
+                            $invoice->kind === 'sale_invoice'
+                                ? '/app/invoices/sales/'.$invoice->id
+                                : '/app/invoices/purchases/'.$invoice->id,
+                    ])
+                    ->values()
+                    ->all();
+
                 $lines = $linesByDocument
                     ->get($row->id, collect())
                     ->map(fn ($line): array => [
