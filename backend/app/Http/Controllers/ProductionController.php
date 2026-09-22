@@ -56,9 +56,10 @@ class ProductionController extends Controller
                     'type',
                     StockMovementType::ProductionIn,
                 )
-                ->with(
+                ->with([
                     'warehouse',
-                )
+                    'productionRunOutput.recipe',
+                ])
                 ->latest(
                     'id',
                 )
@@ -240,9 +241,10 @@ class ProductionController extends Controller
             3,
         );
 
-        $movement->load(
+        $movement->load([
             'warehouse',
-        );
+            'productionRunOutput.recipe',
+        ]);
 
         $usage = ProductionRecipeUsage::query()
             ->where(
