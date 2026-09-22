@@ -44,6 +44,22 @@ class SubscriptionAccessGateTest extends TestCase
             ->assertOk();
     }
 
+    public function test_single_workspace_is_gated_even_when_session_selection_was_lost(): void
+    {
+        [$owner, $organization] = $this->workspace('owner');
+
+        $this->enableGate();
+
+        $this
+            ->actingAs($owner)
+            ->get('/app')
+            ->assertRedirect('/app/billing')
+            ->assertSessionHas(
+                OrganizationAccess::SESSION_KEY,
+                $organization->id,
+            );
+    }
+
     public function test_employee_without_subscription_gets_workspace_lock_screen(): void
     {
         [$employee, $organization] = $this->workspace('employee');
