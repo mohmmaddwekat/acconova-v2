@@ -1387,10 +1387,15 @@ class StaffController extends Controller
 
             'totals' => $totals,
 
-            'balance' => (string) (
-                clone $entries
-            )->sum(
-                'amount',
+            'balance' => number_format(
+                (float) (
+                    clone $entries
+                )->sum(
+                    'amount',
+                ),
+                4,
+                '.',
+                '',
             ),
 
             'corrections' => DB::table(
