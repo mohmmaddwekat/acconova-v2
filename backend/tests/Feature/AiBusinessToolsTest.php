@@ -54,7 +54,8 @@ class AiBusinessToolsTest extends TestCase
         $this->configureProvider();
 
         Http::preventStrayRequests();
-        Http::fakeSequence('https://ai.example.test/*')
+        Http::fake([
+            'https://ai.example.test/*' => Http::sequence()
             ->push([
                 'model' => 'tool-test-model',
                 'choices' => [[
@@ -88,7 +89,8 @@ class AiBusinessToolsTest extends TestCase
                     'completion_tokens' => 12,
                     'total_tokens' => 52,
                 ],
-            ]);
+            ]),
+        ]);
 
         $conversationId = (int) $this->postJson('/api/ai/conversations', [
             'title' => 'Sales question',
