@@ -1,4 +1,5 @@
 import { BillingPanel } from '@/components/settings/BillingPanel';
+import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import { Head, Link } from '@inertiajs/react';
 import {
@@ -7,6 +8,15 @@ import {
     ShieldCheck,
     Sparkles,
 } from 'lucide-react';
+import { useEffect } from 'react';
+
+type BillingAccessOverview = {
+    data: {
+        subscription: null | {
+            status: string | null;
+        };
+    };
+};
 
 export default function BillingRequired() {
     const locale = useLocale();
@@ -14,6 +24,54 @@ export default function BillingRequired() {
     const text = (arabic: string, english: string): string =>
         ar ? arabic : english;
     const Arrow = ar ? ArrowRight : ArrowLeft;
+
+    useEffect(() => {
+        let cancelled = false;
+        let attempts = 0;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+
+        const checkAccess = async (): Promise<void> => {
+            try {
+                const overview = await apiRequest<BillingAccessOverview>(
+                    '/api/billing/overview',
+                );
+
+                if (cancelled) return;
+
+                const status = overview.data.subscription?.status;
+
+                if (
+                    status === 'active'
+                    || status === 'trialing'
+                ) {
+                    window.location.replace('/app');
+
+                    return;
+                }
+            } catch {
+                // BillingPanel surfaces load errors; this check only unlocks.
+            }
+
+            attempts += 1;
+
+            if (! cancelled && attempts < 12) {
+                timer = setTimeout(
+                    () => void checkAccess(),
+                    1500,
+                );
+            }
+        };
+
+        void checkAccess();
+
+        return () => {
+            cancelled = true;
+
+            if (timer) {
+                clearTimeout(timer);
+            }
+        };
+    }, []);
 
     return (
         <>
