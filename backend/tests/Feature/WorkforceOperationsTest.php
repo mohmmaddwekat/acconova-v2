@@ -42,7 +42,7 @@ class WorkforceOperationsTest extends TestCase
     public function test_attendance_earns_by_basis_and_overtime_without_paying(): void
     {
         $this->workspace();
-        foreach (['day' => ['100', '100.0000'], 'hour' => ['10', '100.0000'], 'piece' => ['2', '20.0000'], 'month' => ['3000', '0']] as $basis => [$rate,$expected]) {
+        foreach (['day' => ['100', '100.0000'], 'hour' => ['10', '100.0000'], 'piece' => ['2', '20.0000'], 'month' => ['3000', '0.0000']] as $basis => [$rate,$expected]) {
             $staff = $this->staff($basis, $rate);
             $this->attendance($staff)->assertCreated();
             $this->getJson('/api/staff/'.$staff.'/ledger')->assertOk()->assertJsonPath('balance', $expected);
@@ -62,7 +62,7 @@ class WorkforceOperationsTest extends TestCase
         $this->attendance($id, ['quantity' => '23', 'overtime_hours' => '2', 'overtime_rate' => '15'])->assertUnprocessable();
         $this->attendance($id, ['status' => 'absent', 'overtime_hours' => '1'])->assertUnprocessable();
         $this->attendance($id, ['status' => 'absent'])->assertCreated();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '0');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '0.0000');
         $this->postJson('/api/staff/'.$id.'/entries', ['request_id' => (string) Str::uuid(), 'kind' => 'work', 'occurred_on' => '2026-09-16', 'quantity' => '10', 'notes' => 'Duplicate'])->assertConflict();
     }
 
