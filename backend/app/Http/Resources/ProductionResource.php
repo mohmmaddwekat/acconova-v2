@@ -27,6 +27,23 @@ class ProductionResource extends JsonResource
             )
             : null;
 
+        $runOutput =
+            $this->relationLoaded(
+                'productionRunOutput',
+            )
+            ? $this->getRelation(
+                'productionRunOutput',
+            )
+            : null;
+
+        $recipe =
+            $usage?->recipe
+            ?? $runOutput?->recipe;
+
+        $recipeSnapshot =
+            $usage?->snapshot
+            ?? $runOutput?->recipe_snapshot;
+
         return [
             'id' => $this->id,
 
@@ -40,9 +57,9 @@ class ProductionResource extends JsonResource
 
             'note' => $this->note,
 
-            'recipe_version' => $usage?->recipe?->version,
+            'recipe_version' => $recipe?->version,
 
-            'recipe_snapshot' => $usage?->snapshot,
+            'recipe_snapshot' => $recipeSnapshot,
 
             'materials' => $this
                 ->materials
