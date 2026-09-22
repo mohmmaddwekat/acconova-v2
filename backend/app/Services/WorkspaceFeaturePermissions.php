@@ -2414,6 +2414,7 @@ final class WorkspaceFeaturePermissions
             ['DELETE', 'api/warehouses/*/permanent', 'inventory.warehouses.delete_permanent'],
             ['DELETE', 'api/warehouses/*', 'inventory.warehouses.archive'],
             ['POST', 'api/warehouses/*/restore', 'inventory.warehouses.archive'],
+            ['POST', 'api/products/*/production', 'production.runs.post'],
             ['GET', 'api/production-runs', 'production.runs.view'],
             ['GET', 'api/production-runs/*', 'production.runs.view'],
             ['POST', 'api/production-runs', 'production.runs.create'],
