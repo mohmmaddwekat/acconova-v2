@@ -37,6 +37,13 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env && php artisan key:generate
       - name: Verify MySQL migration round trip
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 33069
+          DB_DATABASE: acconova_test
+          DB_USERNAME: acconova
+          DB_PASSWORD: local-development-only
         run: |
           php artisan migrate:fresh --force
           php artisan migrate:reset --force
