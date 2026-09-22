@@ -29,42 +29,42 @@ class BillingWebhookTest extends TestCase
         Http::preventStrayRequests();
         Http::fake([
             'https://billing.example.test/v1/subscriptions/sub_123*' => Http::response([
-                    'id' => 'sub_123',
-                    'customer' => 'cus_123',
-                    'status' => 'active',
-                    'metadata' => [
-                        'organization_id' => (string) $organization->id,
-                        'plan' => 'starter',
-                        'interval' => 'month',
-                    ],
-                    'items' => [
-                        'data' => [[
-                            'quantity' => 1,
-                            'price' => [
-                                'id' => 'price_starter_monthly',
-                                'unit_amount' => 1900,
-                                'currency' => 'usd',
-                                'recurring' => [
-                                    'interval' => 'month',
-                                ],
+                'id' => 'sub_123',
+                'customer' => 'cus_123',
+                'status' => 'active',
+                'metadata' => [
+                    'organization_id' => (string) $organization->id,
+                    'plan' => 'starter',
+                    'interval' => 'month',
+                ],
+                'items' => [
+                    'data' => [[
+                        'quantity' => 1,
+                        'price' => [
+                            'id' => 'price_starter_monthly',
+                            'unit_amount' => 1900,
+                            'currency' => 'usd',
+                            'recurring' => [
+                                'interval' => 'month',
                             ],
-                        ]],
-                    ],
-                    'current_period_start' => 1790035200,
-                    'current_period_end' => 1792627200,
-                    'cancel_at_period_end' => false,
-                    'trial_end' => null,
-                    'canceled_at' => null,
-                    'default_payment_method' => [
-                        'id' => 'pm_123',
-                        'card' => [
-                            'brand' => 'visa',
-                            'last4' => '4242',
-                            'exp_month' => 12,
-                            'exp_year' => 2030,
                         ],
+                    ]],
+                ],
+                'current_period_start' => 1790035200,
+                'current_period_end' => 1792627200,
+                'cancel_at_period_end' => false,
+                'trial_end' => null,
+                'canceled_at' => null,
+                'default_payment_method' => [
+                    'id' => 'pm_123',
+                    'card' => [
+                        'brand' => 'visa',
+                        'last4' => '4242',
+                        'exp_month' => 12,
+                        'exp_year' => 2030,
                     ],
-                ]),
+                ],
+            ]),
         ]);
 
         $checkoutEvent = [
