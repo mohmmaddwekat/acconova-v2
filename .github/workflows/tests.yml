@@ -1,5 +1,10 @@
 name: Foundation
 on: [push, pull_request]
+
+concurrency:
+  group: foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
