@@ -52,7 +52,7 @@ class StaffAccessAndDailyRecurrenceTest extends TestCase
         [$owner] = $this->workspace();
         $id = $this->role(['parties.create']);
         $user = User::factory()->create();
-        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $id])->assertOk();
+        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $id, 'confirmed_user_id' => $user->id, 'current_password' => 'password'])->assertOk();
         $party = $this->postJson('/api/parties', ['name' => 'Customer', 'type' => 'person', 'roles' => ['customer']])->assertCreated()->json('data.id');
         $this->actingAs($user);
         $this->getJson('/api/parties')->assertOk();
@@ -72,7 +72,7 @@ class StaffAccessAndDailyRecurrenceTest extends TestCase
         $other = $this->staff();
         $this->patchJson('/api/departments/'.$dept, ['name' => 'Packing', 'manager_id' => $manager])->assertOk();
         $role = $this->role(['staff.team_pay']);
-        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role])->assertOk();
+        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $user->id, 'current_password' => 'password'])->assertOk();
         $this->actingAs($user);
         $this->getJson('/api/staff')->assertOk()->assertJsonCount(2, 'data.data');
         $this->getJson('/api/staff/'.$worker.'/ledger')->assertOk()->assertJsonPath('can_pay', true);
