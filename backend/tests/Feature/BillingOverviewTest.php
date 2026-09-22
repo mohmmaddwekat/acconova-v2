@@ -52,11 +52,8 @@ class BillingOverviewTest extends TestCase
             ])
             ->getJson('/api/billing/overview')
             ->assertOk()
-            ->assertJsonPath('data.provider.name', 'stripe')
-            ->assertJsonPath('data.provider.credentials_configured', true)
-            ->assertJsonPath('data.provider.webhook_configured', true)
-            ->assertJsonPath('data.provider.mode', 'test')
-            ->assertJsonPath('data.provider.state', 'ready_for_sync')
+            ->assertJsonPath('data.payments_available', true)
+            ->assertJsonMissingPath('data.provider')
             ->assertJsonPath('data.usage.seats.used', 1)
             ->assertJsonPath('data.subscription', null)
             ->assertJsonPath('data.next_invoice', null)
@@ -66,5 +63,7 @@ class BillingOverviewTest extends TestCase
 
         $this->assertStringNotContainsString('sk_test_super_secret', $payload);
         $this->assertStringNotContainsString('whsec_super_secret', $payload);
+        $this->assertStringNotContainsString('stripe', strtolower($payload));
+        $this->assertStringNotContainsString('webhook', strtolower($payload));
     }
 }
