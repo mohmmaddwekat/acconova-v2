@@ -384,8 +384,12 @@ function PartiesWorkspace() {
             label: ar ? 'التواصل' : 'Contact',
         },
         {
-            key: 'balances',
-            label: ar ? 'الأرصدة' : 'Balances',
+            key: 'owed_to_us',
+            label: ar ? 'لي عليه' : 'Owes me',
+        },
+        {
+            key: 'we_owe',
+            label: ar ? 'له عليّ' : 'I owe',
         },
         {
             key: 'location',
@@ -1559,6 +1563,89 @@ function PartiesWorkspace() {
                                 }
                             >
                                 <div className="min-w-0">
+                                    <div className="hidden border-b border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-5 py-3 text-[10px] font-semibold text-[var(--ac-text-muted)] lg:grid lg:grid-cols-[auto_minmax(210px,1.2fr)_minmax(165px,0.9fr)_minmax(105px,0.55fr)_minmax(105px,0.55fr)_minmax(135px,0.7fr)_auto] lg:items-center lg:gap-4 xl:px-6">
+                                        <span aria-hidden="true" />
+
+                                        {! listPreferences.hidden.includes('identity') && (
+                                            <span
+                                                style={{
+                                                    order: Math.max(
+                                                        listPreferences.order.indexOf('identity'),
+                                                        0,
+                                                    ),
+                                                }}
+                                            >
+                                                {ar ? 'الجهة' : 'Party'}
+                                            </span>
+                                        )}
+
+                                        {! listPreferences.hidden.includes('contact') && (
+                                            <span
+                                                style={{
+                                                    order: Math.max(
+                                                        listPreferences.order.indexOf('contact'),
+                                                        0,
+                                                    ),
+                                                }}
+                                            >
+                                                {ar ? 'التواصل' : 'Contact'}
+                                            </span>
+                                        )}
+
+                                        {! listPreferences.hidden.includes('owed_to_us') && (
+                                            <span
+                                                style={{
+                                                    order: Math.max(
+                                                        listPreferences.order.indexOf('owed_to_us'),
+                                                        0,
+                                                    ),
+                                                }}
+                                            >
+                                                {ar ? 'لي عليه' : 'Owes me'}
+                                            </span>
+                                        )}
+
+                                        {! listPreferences.hidden.includes('we_owe') && (
+                                            <span
+                                                style={{
+                                                    order: Math.max(
+                                                        listPreferences.order.indexOf('we_owe'),
+                                                        0,
+                                                    ),
+                                                }}
+                                            >
+                                                {ar ? 'له عليّ' : 'I owe'}
+                                            </span>
+                                        )}
+
+                                        {! listPreferences.hidden.includes('location') && (
+                                            <span
+                                                style={{
+                                                    order: Math.max(
+                                                        listPreferences.order.indexOf('location'),
+                                                        0,
+                                                    ),
+                                                }}
+                                            >
+                                                {ar ? 'الموقع' : 'Location'}
+                                            </span>
+                                        )}
+
+                                        {! listPreferences.hidden.includes('actions') && (
+                                            <span
+                                                className="text-end"
+                                                style={{
+                                                    order: Math.max(
+                                                        listPreferences.order.indexOf('actions'),
+                                                        0,
+                                                    ),
+                                                }}
+                                            >
+                                                {ar ? 'الإجراءات' : 'Actions'}
+                                            </span>
+                                        )}
+                                    </div>
+
                                     {parties.map(
                                         (
                                             party,
