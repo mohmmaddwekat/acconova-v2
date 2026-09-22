@@ -17,10 +17,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (Schema::hasColumn('staff_members', 'deleted_at')) {
-            Schema::table('staff_members', function (Blueprint $table): void {
-                $table->dropSoftDeletes();
-            });
-        }
+        /*
+         * Compatibility-only migration: the original staff corrections
+         * migration owns staff_members.deleted_at. On a fresh schema this
+         * migration does not create the column, so it must not remove it
+         * during rollback or the owning migration will attempt a second drop.
+         */
     }
 };
