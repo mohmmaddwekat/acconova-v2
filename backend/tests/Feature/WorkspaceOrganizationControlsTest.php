@@ -67,7 +67,7 @@ class WorkspaceOrganizationControlsTest extends TestCase
         $this->patchJson('/api/workspace-roles/'.$role, ['name' => 'Catalog editor', 'base_role' => 'employee', 'is_custom' => true, 'permissions' => ['products.manage']])->assertOk();
         $this->actingAs($user);
         $this->postJson('/api/products', [])->assertUnprocessable();
-        $this->getJson('/api/parties')->assertOk();
+        $this->getJson('/api/parties')->assertForbidden();
         $this->actingAs($owner);
         $this->patchJson('/api/workspace-roles/'.$role, ['name' => 'No access', 'base_role' => 'employee', 'is_custom' => true, 'permissions' => []])->assertOk();
         $this->actingAs($user);
