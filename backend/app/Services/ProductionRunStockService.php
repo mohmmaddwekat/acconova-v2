@@ -510,12 +510,16 @@ class ProductionRunStockService
         string $reason,
         int $actorId,
     ): void {
-        $outputs->loadMissing([
-            'product',
-            'warehouse',
-            'materials.rawMaterial',
-            'materials.warehouse',
-        ]);
+        $outputs->each(
+            static function (ProductionRunOutput $output): void {
+                $output->loadMissing([
+                    'product',
+                    'warehouse',
+                    'materials.rawMaterial',
+                    'materials.warehouse',
+                ]);
+            },
+        );
 
         $outputIds =
             $outputs
