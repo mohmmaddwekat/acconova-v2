@@ -10,6 +10,11 @@ class AiMessage extends Model
 {
     use BelongsToOrganization;
 
+    protected $hidden = [
+        'provider',
+        'model',
+    ];
+
     protected $fillable = [
         'ai_conversation_id',
         'user_id',
