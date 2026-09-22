@@ -387,6 +387,36 @@ class PartyWorkflowTest extends TestCase
                 '0.0000',
             );
 
+        /*
+         * The Party index must preserve both obligations instead of netting
+         * them away. Here customer credit means we owe the Party 10, while the
+         * supplier advance means the Party owes us 10 at the same time.
+         */
+        $this->getJson(
+            '/api/parties?status=active',
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.0.balance_summary.customer_position',
+                '-10.0000',
+            )
+            ->assertJsonPath(
+                'data.0.balance_summary.supplier_position',
+                '-10.0000',
+            )
+            ->assertJsonPath(
+                'data.0.balance_summary.owed_to_us',
+                '10.0000',
+            )
+            ->assertJsonPath(
+                'data.0.balance_summary.we_owe',
+                '10.0000',
+            )
+            ->assertJsonPath(
+                'data.0.balance_summary.currency',
+                'ILS',
+            );
+
         $this->assertDatabaseHas(
             'finance_audit_events',
             [

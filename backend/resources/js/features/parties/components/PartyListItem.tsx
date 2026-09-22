@@ -18,6 +18,7 @@ import {
     Archive,
     ArrowUpRight,
     Building2,
+    HandCoins,
     Mail,
     MapPin,
     Pencil,
@@ -102,6 +103,32 @@ function partyLabel(
 /**
  * Build a concise Party location for Index presentation.
  */
+function formatBalance(
+    value: string,
+    currency: string,
+    locale: string,
+): string {
+    return new Intl.NumberFormat(
+        locale === 'ar'
+            ? 'ar'
+            : 'en',
+        {
+            style: 'currency',
+            currency,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        },
+    ).format(
+        Math.max(
+            Number(value) || 0,
+            0,
+        ),
+    );
+}
+
+/**
+ * Build a concise Party location for Index presentation.
+ */
 function partyLocation(
     party: Party,
 ): string {
@@ -129,6 +156,7 @@ export function PartyListItem({
     columnOrder = [
         'identity',
         'contact',
+        'balances',
         'location',
         'actions',
     ],
@@ -230,7 +258,7 @@ export function PartyListItem({
                 handleRowDoubleClick
             }
             className={[
-                'ac-index-row group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)] sm:mx-4 lg:m-0 lg:grid-cols-[auto_minmax(220px,1.3fr)_minmax(180px,1fr)_minmax(160px,0.8fr)_auto] lg:items-center lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none xl:px-6',
+                'ac-index-row group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)] sm:mx-4 lg:m-0 lg:grid-cols-[auto_minmax(220px,1.25fr)_minmax(170px,0.95fr)_minmax(220px,1fr)_minmax(150px,0.75fr)_auto] lg:items-center lg:gap-4 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none xl:px-6',
                 rowPadding,
             ].join(' ')}
         >
@@ -385,6 +413,67 @@ export function PartyListItem({
                                 },
                             )}
                     />
+                </div>
+            </div>
+            )}
+
+            {visibleColumn('balances') && (
+            <div
+                style={columnStyle('balances')}
+                className="min-w-0"
+            >
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                    <div
+                        className="rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2.5"
+                        title={
+                            locale === 'ar'
+                                ? 'المبلغ الذي تدين لك به هذه الجهة'
+                                : 'Amount this Party owes you'
+                        }
+                    >
+                        <p className="flex items-center gap-1.5 text-[9px] font-semibold text-[var(--ac-text-muted)]">
+                            <HandCoins size={12} />
+                            {locale === 'ar'
+                                ? 'لي عليه'
+                                : 'Owes me'}
+                        </p>
+
+                        <p className="mt-1 truncate text-[13px] font-bold tabular-nums text-[var(--ac-accent)]">
+                            {party.balance_summary
+                                ? formatBalance(
+                                    party.balance_summary.owed_to_us,
+                                    party.balance_summary.currency,
+                                    locale,
+                                )
+                                : '—'}
+                        </p>
+                    </div>
+
+                    <div
+                        className="rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2.5"
+                        title={
+                            locale === 'ar'
+                                ? 'المبلغ الذي تدين أنت به لهذه الجهة'
+                                : 'Amount you owe this Party'
+                        }
+                    >
+                        <p className="flex items-center gap-1.5 text-[9px] font-semibold text-[var(--ac-text-muted)]">
+                            <HandCoins size={12} />
+                            {locale === 'ar'
+                                ? 'له عليّ'
+                                : 'I owe'}
+                        </p>
+
+                        <p className="mt-1 truncate text-[13px] font-bold tabular-nums text-[var(--ac-text)]">
+                            {party.balance_summary
+                                ? formatBalance(
+                                    party.balance_summary.we_owe,
+                                    party.balance_summary.currency,
+                                    locale,
+                                )
+                                : '—'}
+                        </p>
+                    </div>
                 </div>
             </div>
             )}

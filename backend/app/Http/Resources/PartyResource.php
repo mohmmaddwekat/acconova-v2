@@ -48,6 +48,17 @@ class PartyResource extends JsonResource
 
             'notes' => $this->notes,
 
+            'balance_summary' => array_key_exists(
+                'balance_summary',
+                $this->resource
+                    ->getAttributes(),
+            )
+                ? $this->resource
+                    ->getAttribute(
+                        'balance_summary',
+                    )
+                : null,
+
             'roles' => $this->when(
                 $this->relationLoaded(
                     'roles',
