@@ -53,6 +53,13 @@ final class WorkspaceFeaturePermissions
                         'depends' => ['ai.assistant.use'],
                     ],
                     [
+                        'key' => 'ai.business_data.use',
+                        'label_ar' => 'السماح للذكاء الاصطناعي بقراءة بيانات العمل المصرح بها',
+                        'label_en' => 'Allow AI to read permitted business data',
+                        'depends' => ['ai.assistant.use'],
+                        'builtin' => ['owner', 'admin', 'manager', 'accountant', 'employee'],
+                    ],
+                    [
                         'key' => 'ai.admin.configure',
                         'label_ar' => 'إدارة إعدادات ومزود الذكاء الاصطناعي',
                         'label_en' => 'Configure AI provider and settings',
