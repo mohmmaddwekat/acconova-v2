@@ -25,6 +25,8 @@ export default defineConfig({
             origin: [
                 'http://acconova.test',
                 'https://acconova.test',
+                'http://127.0.0.1:8000',
+                'http://localhost:8000',
             ],
         },
         warmup: {
