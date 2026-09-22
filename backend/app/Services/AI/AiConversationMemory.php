@@ -20,9 +20,7 @@ final class AiConversationMemory
             ->messages()
             ->latest('id')
             ->limit(max(4, (int) config('ai.memory.recent_messages', 20)))
-            ->get()
-            ->reverse()
-            ->values();
+            ->get();
 
         $messages = [
             [
@@ -38,7 +36,39 @@ final class AiConversationMemory
             ];
         }
 
+        $budget = max(
+            12000,
+            (int) config('ai.memory.context_char_budget', 60000),
+        );
+
+        $used = array_sum(
+            array_map(
+                fn (array $message): int => mb_strlen($message['content']),
+                $messages,
+            ),
+        );
+
+        $selected = collect();
+
+        /*
+         * Walk newest-to-oldest so the current user request is always kept.
+         * Then restore chronological order before sending it to the provider.
+         */
         foreach ($recent as $message) {
+            $length = mb_strlen($message->content);
+
+            if (
+                $selected->isNotEmpty()
+                && $used + $length > $budget
+            ) {
+                break;
+            }
+
+            $selected->push($message);
+            $used += $length;
+        }
+
+        foreach ($selected->reverse()->values() as $message) {
             $messages[] = [
                 'role' => $message->role,
                 'content' => $message->content,
