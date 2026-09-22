@@ -98,21 +98,39 @@ final class AiConversationMemory
             return;
         }
 
-        $transcript = $older
+        $characterLimit = max(
+            10000,
+            (int) config('ai.memory.summary_transcript_chars', 60000),
+        );
+
+        $selected = collect();
+        $usedCharacters = 0;
+
+        foreach ($older as $message) {
+            $line = strtoupper($message->role).': '.$message->content;
+            $lineLength = mb_strlen($line) + 2;
+
+            if (
+                $selected->isNotEmpty()
+                && $usedCharacters + $lineLength > $characterLimit
+            ) {
+                break;
+            }
+
+            $selected->push($message);
+            $usedCharacters += $lineLength;
+        }
+
+        if ($selected->isEmpty()) {
+            return;
+        }
+
+        $transcript = $selected
             ->map(
                 fn (AiMessage $message): string =>
                     strtoupper($message->role).': '.$message->content,
             )
             ->implode("\n\n");
-
-        $transcript = mb_substr(
-            $transcript,
-            0,
-            max(
-                10000,
-                (int) config('ai.memory.summary_transcript_chars', 60000),
-            ),
-        );
 
         $summaryRequest = [
             [
@@ -136,7 +154,7 @@ final class AiConversationMemory
 
         $conversation->forceFill([
             'summary' => $summary['content'],
-            'summary_through_message_id' => (int) $older->last()->id,
+            'summary_through_message_id' => (int) $selected->last()->id,
         ])->save();
     }
 }
