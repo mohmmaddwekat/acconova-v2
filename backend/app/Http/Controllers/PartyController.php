@@ -41,21 +41,30 @@ class PartyController extends Controller
         $collection =
             $parties->getCollection();
 
+        $canSales =
+            FinanceAuthorization::allows(
+                $request->user(),
+                'finance.sales.view',
+            );
+
+        $canPurchases =
+            FinanceAuthorization::allows(
+                $request->user(),
+                'finance.purchases.view',
+            );
+
+        $canCash =
+            FinanceAuthorization::allows(
+                $request->user(),
+                'finance.cash.view',
+            );
+
         $balances =
             $partyBalanceSummary->forParties(
                 $collection,
-                FinanceAuthorization::allows(
-                    $request->user(),
-                    'finance.sales.view',
-                ),
-                FinanceAuthorization::allows(
-                    $request->user(),
-                    'finance.purchases.view',
-                ),
-                FinanceAuthorization::allows(
-                    $request->user(),
-                    'finance.cash.view',
-                ),
+                $canSales,
+                $canPurchases,
+                $canCash,
             );
 
         $organization =
@@ -76,7 +85,60 @@ class PartyController extends Controller
         ) use (
             $balances,
             $currency,
+            $canSales,
+            $canPurchases,
+            $canCash,
         ): void {
+            $roles =
+                $party->roles
+                    ->pluck('role')
+                    ->map(
+                        fn ($role): string => $role instanceof \BackedEnum
+                            ? (string) $role->value
+                            : (string) $role,
+                    )
+                    ->all();
+
+            $hasCustomer =
+                in_array(
+                    'customer',
+                    $roles,
+                    true,
+                );
+
+            $hasSupplier =
+                in_array(
+                    'supplier',
+                    $roles,
+                    true,
+                );
+
+            $hasCompleteBalanceAccess =
+                ($hasCustomer || $hasSupplier)
+                && (
+                    ! $hasCustomer
+                    || (
+                        $canSales
+                        && $canCash
+                    )
+                )
+                && (
+                    ! $hasSupplier
+                    || (
+                        $canPurchases
+                        && $canCash
+                    )
+                );
+
+            if (! $hasCompleteBalanceAccess) {
+                $party->setAttribute(
+                    'balance_summary',
+                    null,
+                );
+
+                return;
+            }
+
             $summary =
                 $balances[$party->id]
                 ?? [
