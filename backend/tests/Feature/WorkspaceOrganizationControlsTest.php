@@ -45,8 +45,18 @@ class WorkspaceOrganizationControlsTest extends TestCase
     {
         [$owner,$org] = $this->workspace();
         $user = User::factory()->create();
+        $org->users()->attach($user->id, ['role' => 'employee']);
         $role = $this->postJson('/api/workspace-roles', ['name' => 'Catalog reader', 'base_role' => 'manager', 'is_custom' => true, 'permissions' => ['products.view']])->assertCreated()->assertJsonPath('data.base_role', 'employee')->json('data.id');
-        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role])->assertOk();
+        $confirmedUserId = (int) $this->postJson('/api/workspace-roles/preview', ['email' => $user->email])
+            ->assertOk()
+            ->assertJsonPath('email', $user->email)
+            ->json('id');
+        $this->postJson('/api/workspace-roles/assign', [
+            'confirmed_user_id' => $confirmedUserId,
+            'email' => $user->email,
+            'workspace_role_id' => $role,
+            'current_password' => 'password',
+        ])->assertOk();
         $this->actingAs($user);
         $this->getJson('/api/products')->assertOk();
         $this->postJson('/api/products', [])->assertForbidden();
