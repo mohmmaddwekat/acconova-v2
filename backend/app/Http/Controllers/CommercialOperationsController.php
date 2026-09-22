@@ -1374,9 +1374,19 @@ class CommercialOperationsController extends Controller
                         'quantity' => (string) $line->quantity,
                         'unit_price' => (string) $line->unit_price,
                         'fulfilled_quantity' =>
-                            (string) $line->fulfilled_quantity,
+                            number_format(
+                                (float) $line->fulfilled_quantity,
+                                4,
+                                '.',
+                                '',
+                            ),
                         'invoiced_quantity' =>
-                            (string) $line->invoiced_quantity,
+                            number_format(
+                                (float) $line->invoiced_quantity,
+                                4,
+                                '.',
+                                '',
+                            ),
                         'remaining_quantity' => number_format(
                             max(
                                 (float) $line->quantity
@@ -1411,9 +1421,19 @@ class CommercialOperationsController extends Controller
                         $row->converted_financial_document_id,
                     'quantity' => (string) $row->quantity,
                     'fulfilled_quantity' =>
-                        (string) $row->fulfilled_quantity,
+                        number_format(
+                            (float) $row->fulfilled_quantity,
+                            4,
+                            '.',
+                            '',
+                        ),
                     'invoiced_quantity' =>
-                        (string) $row->invoiced_quantity,
+                        number_format(
+                            (float) $row->invoiced_quantity,
+                            4,
+                            '.',
+                            '',
+                        ),
                     'invoice_count' =>
                         (int) $row->invoice_count,
                     'remaining_quantity' => number_format(
@@ -1487,7 +1507,12 @@ class CommercialOperationsController extends Controller
                 'party' => $row->company_name ?: $row->name,
                 'product' => $row->product_name ?: $row->description,
                 'ordered' => (string) $row->quantity,
-                'fulfilled' => (string) $row->fulfilled_quantity,
+                'fulfilled' => number_format(
+                    (float) $row->fulfilled_quantity,
+                    4,
+                    '.',
+                    '',
+                ),
                 'backorder' => number_format(
                     max(
                         (float) $row->quantity
@@ -1749,6 +1774,12 @@ class CommercialOperationsController extends Controller
             ])
             ->map(fn ($row): array => [
                 ...((array) $row),
+                'quantity' => number_format(
+                    (float) $row->quantity,
+                    4,
+                    '.',
+                    '',
+                ),
                 'expired' =>
                     $row->expiry_date !== null
                     && $row->expiry_date < now()->toDateString(),
