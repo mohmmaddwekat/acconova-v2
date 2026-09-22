@@ -283,7 +283,7 @@ class PartyInsightsController extends Controller
                 : array_sum($priceChanges)
                     / count($priceChanges);
 
-        $receiptStats = DB::table(
+        $receiptRows = DB::table(
             'financial_line_fulfillments as fulfillments',
         )
             ->join(
@@ -306,18 +306,29 @@ class PartyInsightsController extends Controller
                 'receipt_documents.kind',
                 'purchase_invoice',
             )
-            ->selectRaw(
-                'AVG(DATEDIFF(fulfillments.occurred_on, receipt_documents.issue_date)) as avg_receipt_days',
-            )
-            ->first();
+            ->get([
+                'fulfillments.occurred_on',
+                'receipt_documents.issue_date',
+            ]);
+
+        $receiptDayValues = $receiptRows
+            ->map(function ($row): float {
+                return max(
+                    0,
+                    (float) \Carbon\Carbon::parse(
+                        $row->issue_date,
+                    )->diffInDays(
+                        \Carbon\Carbon::parse(
+                            $row->occurred_on,
+                        ),
+                    ),
+                );
+            });
 
         $averageReceiptDays =
-            $receiptStats?->avg_receipt_days !== null
-                ? max(
-                    0,
-                    (float) $receiptStats->avg_receipt_days,
-                )
-                : null;
+            $receiptDayValues->isEmpty()
+                ? null
+                : (float) $receiptDayValues->avg();
 
         $delayedOpenLines = DB::table(
             'financial_document_lines as delayed_lines',
