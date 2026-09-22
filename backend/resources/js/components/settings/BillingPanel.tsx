@@ -2,33 +2,22 @@ import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import {
     Bot,
-    CalendarClock,
-    CheckCircle2,
     CircleAlert,
     CreditCard,
     HardDrive,
     LoaderCircle,
     ReceiptText,
     ShieldCheck,
-    Sparkles,
     UsersRound,
     WalletCards,
 } from 'lucide-react';
 import {
     useEffect,
-    useMemo,
     useState,
 } from 'react';
 
 type BillingOverview = {
-    provider: {
-        name: string;
-        enabled: boolean;
-        state: 'not_configured' | 'credentials_ready' | 'ready_for_sync' | string;
-        credentials_configured: boolean;
-        webhook_configured: boolean;
-        mode: 'test' | 'live' | null;
-    };
+    payments_available: boolean;
     subscription: null | {
         name: string;
         status: string;
@@ -206,29 +195,6 @@ export function BillingPanel() {
         return () => controller.abort();
     }, [ar]);
 
-    const providerLabel = useMemo(() => {
-        if (! overview) return '';
-
-        if (overview.provider.state === 'ready_for_sync') {
-            return text(
-                'بيانات Stripe وWebhook جاهزة',
-                'Stripe credentials and webhook are ready',
-            );
-        }
-
-        if (overview.provider.state === 'credentials_ready') {
-            return text(
-                'بيانات Stripe موجودة — باقي Webhook',
-                'Stripe credentials found — webhook still needed',
-            );
-        }
-
-        return text(
-            'Stripe غير مربوط بعد',
-            'Stripe is not connected yet',
-        );
-    }, [overview, ar]);
-
     if (loading) {
         return (
             <div className={card + ' flex min-h-72 items-center justify-center'}>
@@ -283,42 +249,24 @@ export function BillingPanel() {
                         </span>
 
                         <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <h2 className="text-base font-bold text-[var(--acs-text)]">
-                                    {text('مركز فوترة AccoNova', 'AccoNova Billing Center')}
-                                </h2>
-
-                                <span className={[
-                                    'rounded-full border px-2.5 py-1 text-[9px] font-bold',
-                                    overview.provider.state === 'ready_for_sync'
-                                        ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400'
-                                        : 'border-[var(--acs-line)] bg-[var(--acs-surface-soft)] text-[var(--acs-text-muted)]',
-                                ].join(' ')}>
-                                    {overview.provider.mode === 'test'
-                                        ? text('وضع تجريبي', 'Test mode')
-                                        : overview.provider.mode === 'live'
-                                            ? text('وضع فعلي', 'Live mode')
-                                            : text('غير متصل', 'Not connected')}
-                                </span>
-                            </div>
+                            <h2 className="text-base font-bold text-[var(--acs-text)]">
+                                {text('مركز فوترة AccoNova', 'AccoNova Billing Center')}
+                            </h2>
 
                             <p className="mt-1 max-w-2xl text-[10px] leading-5 text-[var(--acs-text-muted)]">
                                 {text(
-                                    'هنا ستظهر الباقة، الدفعات، الفاتورة القادمة، طرق الدفع والاستهلاك الفعلي بدون أرقام تجريبية.',
-                                    'Plans, payments, the next invoice, payment methods and real usage will live here without fake billing data.',
+                                    'تابع باقتك، الفاتورة القادمة، طريقة الدفع، الفواتير السابقة والاستهلاك من مكان واحد.',
+                                    'Manage your plan, next invoice, payment method, billing history and usage in one place.',
                                 )}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 rounded-[13px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] px-3.5 py-2.5">
-                        {overview.provider.credentials_configured
-                            ? <CheckCircle2 size={16} className="text-emerald-400" />
-                            : <CircleAlert size={16} className="text-amber-500" />}
-                        <span className="text-[10px] font-semibold text-[var(--acs-text-soft)]">
-                            {providerLabel}
-                        </span>
-                    </div>
+                    {overview.subscription && (
+                        <div className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-[9px] font-bold text-emerald-400">
+                            {text('الاشتراك فعّال', 'Subscription active')}
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid border-t border-[var(--acs-line)] md:grid-cols-3">
@@ -328,13 +276,18 @@ export function BillingPanel() {
                         </p>
                         <strong className="mt-2 block text-sm text-[var(--acs-text)]">
                             {overview.subscription?.name
-                                ?? text('لم يتم إنشاء اشتراك بعد', 'No subscription yet')}
+                                ?? text('لا يوجد اشتراك فعّال', 'No active subscription')}
                         </strong>
                         <p className="mt-1 text-[10px] text-[var(--acs-text-muted)]">
-                            {text(
-                                'لن يظهر سعر أو اسم باقة قبل مزامنته فعليًا.',
-                                'No plan or price is shown until it is actually synchronized.',
-                            )}
+                            {overview.subscription
+                                ? text(
+                                    'يمكنك مراجعة تفاصيل باقتك وتجديدها من هنا.',
+                                    'Review and manage your plan from here.',
+                                )
+                                : text(
+                                    'اختر باقة عند توفر الاشتراكات لحسابك.',
+                                    'Choose a plan when subscriptions become available for your account.',
+                                )}
                         </p>
                     </div>
 
@@ -348,10 +301,15 @@ export function BillingPanel() {
                                 : '—'}
                         </strong>
                         <p className="mt-1 text-[10px] text-[var(--acs-text-muted)]">
-                            {text(
-                                'ستظهر تلقائيًا بعد تفعيل أول اشتراك.',
-                                'It will appear automatically after the first subscription is active.',
-                            )}
+                            {overview.next_invoice
+                                ? text(
+                                    'المبلغ المتوقع للفوترة القادمة.',
+                                    'Expected amount for your next billing cycle.',
+                                )
+                                : text(
+                                    'لا توجد فاتورة قادمة حاليًا.',
+                                    'There is no upcoming invoice right now.',
+                                )}
                         </p>
                     </div>
 
@@ -362,12 +320,12 @@ export function BillingPanel() {
                         <strong className="mt-2 block text-sm text-[var(--acs-text)]">
                             {overview.payment_method
                                 ? `${overview.payment_method.brand} •••• ${overview.payment_method.last4}`
-                                : text('لا توجد بطاقة محفوظة', 'No saved payment method')}
+                                : text('لا توجد طريقة دفع محفوظة', 'No saved payment method')}
                         </strong>
                         <p className="mt-1 text-[10px] text-[var(--acs-text-muted)]">
                             {text(
-                                'بيانات البطاقة الحساسة ستبقى عند Stripe وليست داخل AccoNova.',
-                                'Sensitive card data will stay with Stripe, not inside AccoNova.',
+                                'لا يخزن AccoNova بيانات البطاقة الحساسة داخل النظام.',
+                                'AccoNova does not store sensitive card details in the application.',
                             )}
                         </p>
                     </div>
@@ -385,8 +343,8 @@ export function BillingPanel() {
                                 `${number(overview.usage.seats.used)} of ${number(overview.usage.seats.limit)} seats`,
                             )
                             : text(
-                                'استهلاك فعلي — الحد يضاف عند اعتماد الباقات',
-                                'Live usage — the limit will appear once plans are defined',
+                                'عدد المستخدمين الحاليين في مساحة العمل',
+                                'Current users in this workspace',
                             )
                     }
                     progress={seatProgress}
@@ -394,11 +352,11 @@ export function BillingPanel() {
                 />
 
                 <UsageMeter
-                    title={text('استخدام الذكاء الاصطناعي هذا الشهر', 'AI usage this month')}
+                    title={text('استخدام AccoNova AI هذا الشهر', 'AccoNova AI usage this month')}
                     value={number(overview.usage.ai_tokens.used)}
                     meta={text(
-                        `${number(overview.usage.ai_tokens.messages)} رسالة AI مسجلة هذا الشهر`,
-                        `${number(overview.usage.ai_tokens.messages)} AI messages recorded this month`,
+                        `${number(overview.usage.ai_tokens.messages)} رسالة ذكية هذا الشهر`,
+                        `${number(overview.usage.ai_tokens.messages)} AI messages this month`,
                     )}
                     progress={aiProgress}
                     icon={Bot}
@@ -409,10 +367,10 @@ export function BillingPanel() {
                     value={bytes(overview.usage.storage.used_bytes)}
                     meta={
                         overview.usage.storage.available
-                            ? text('استهلاك التخزين الفعلي', 'Live storage usage')
+                            ? text('استهلاك التخزين الحالي', 'Current storage usage')
                             : text(
-                                'سيبدأ القياس بعد ربط Amazon S3',
-                                'Metering starts after Amazon S3 is connected',
+                                'سيظهر استهلاك التخزين عند تفعيل الخدمة لحسابك',
+                                'Storage usage will appear when the service is enabled for your account',
                             )
                     }
                     progress={storageProgress}
@@ -430,8 +388,8 @@ export function BillingPanel() {
                             </h3>
                             <p className="mt-1 text-[9px] text-[var(--acs-text-muted)]">
                                 {text(
-                                    'فواتير AccoNova والمدفوعات المرتبطة بالاشتراك.',
-                                    'AccoNova subscription invoices and payments.',
+                                    'فواتير اشتراك AccoNova والمدفوعات السابقة.',
+                                    'AccoNova subscription invoices and previous payments.',
                                 )}
                             </p>
                         </div>
@@ -441,12 +399,12 @@ export function BillingPanel() {
                         <div className="flex min-h-44 flex-col items-center justify-center px-5 py-8 text-center">
                             <ReceiptText size={23} className="text-[var(--acs-text-muted)]" />
                             <strong className="mt-3 text-xs text-[var(--acs-text)]">
-                                {text('لا توجد فواتير اشتراك حتى الآن', 'No subscription invoices yet')}
+                                {text('لا توجد فواتير حتى الآن', 'No invoices yet')}
                             </strong>
                             <p className="mt-1 max-w-sm text-[9px] leading-5 text-[var(--acs-text-muted)]">
                                 {text(
-                                    'أول فاتورة حقيقية ستظهر هنا تلقائيًا بعد الربط مع Stripe.',
-                                    'The first real invoice will appear here automatically after Stripe is connected.',
+                                    'ستظهر فواتير اشتراكك هنا تلقائيًا بعد أول عملية دفع.',
+                                    'Your subscription invoices will appear here automatically after your first payment.',
                                 )}
                             </p>
                         </div>
@@ -460,12 +418,12 @@ export function BillingPanel() {
                         </span>
                         <div>
                             <h3 className="text-sm font-bold text-[var(--acs-text)]">
-                                {text('جاهزية الدفع', 'Payment readiness')}
+                                {text('إدارة الاشتراك', 'Subscription management')}
                             </h3>
                             <p className="mt-1 text-[9px] leading-5 text-[var(--acs-text-muted)]">
                                 {text(
-                                    'نبني الدفع بحيث Stripe ينفذ العملية، بينما AccoNova يحتفظ بمنطق الباقات والصلاحيات والاستهلاك.',
-                                    'Stripe will execute payments while AccoNova owns plan, entitlement and usage logic.',
+                                    'من هنا ستدير الباقة والدفع والفواتير بدون الحاجة لمغادرة AccoNova.',
+                                    'Manage your plan, payments and invoices here without leaving AccoNova.',
                                 )}
                             </p>
                         </div>
@@ -474,43 +432,27 @@ export function BillingPanel() {
                     <div className="mt-4 space-y-2">
                         {[
                             {
-                                done: overview.provider.credentials_configured,
+                                icon: WalletCards,
+                                ar: 'تغيير الباقة والإضافات',
+                                en: 'Change plan and add-ons',
+                            },
+                            {
                                 icon: CreditCard,
-                                ar: 'بيانات Stripe',
-                                en: 'Stripe credentials',
+                                ar: 'إدارة طريقة الدفع',
+                                en: 'Manage payment method',
                             },
                             {
-                                done: overview.provider.webhook_configured,
-                                icon: Sparkles,
-                                ar: 'Webhook لتحديث الدفع تلقائيًا',
-                                en: 'Webhook for automatic payment updates',
-                            },
-                            {
-                                done: false,
-                                icon: CalendarClock,
-                                ar: 'الباقات والأسعار — بانتظار اعتمادك',
-                                en: 'Plans and pricing — awaiting approval',
+                                icon: ReceiptText,
+                                ar: 'تنزيل ومراجعة الفواتير',
+                                en: 'Review and download invoices',
                             },
                         ].map(item => (
                             <div
                                 key={item.en}
-                                className="flex items-center justify-between gap-3 rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] px-3.5 py-3"
+                                className="flex items-center gap-2 rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] px-3.5 py-3 text-[10px] font-semibold text-[var(--acs-text-soft)]"
                             >
-                                <span className="flex items-center gap-2 text-[10px] font-semibold text-[var(--acs-text-soft)]">
-                                    <item.icon size={14} className="text-[var(--acs-accent)]" />
-                                    {ar ? item.ar : item.en}
-                                </span>
-
-                                <span className={[
-                                    'rounded-full px-2 py-1 text-[8px] font-bold',
-                                    item.done
-                                        ? 'bg-emerald-500/10 text-emerald-400'
-                                        : 'bg-[var(--acs-surface-strong)] text-[var(--acs-text-muted)]',
-                                ].join(' ')}>
-                                    {item.done
-                                        ? text('جاهز', 'Ready')
-                                        : text('قادم', 'Pending')}
-                                </span>
+                                <item.icon size={14} className="text-[var(--acs-accent)]" />
+                                {ar ? item.ar : item.en}
                             </div>
                         ))}
                     </div>

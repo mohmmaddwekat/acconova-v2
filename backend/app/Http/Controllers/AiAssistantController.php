@@ -27,7 +27,12 @@ class AiAssistantController extends Controller
 
         return response()->json([
             'data' => [
-                ...$gateway->status(),
+                /*
+                 * Tenant users only need to know whether AccoNova AI is
+                 * available. Provider names, models and authentication modes
+                 * are platform-operator details and stay server-side.
+                 */
+                'configured' => $gateway->configured(),
                 'memory' => [
                     'recent_messages' => (int) config('ai.memory.recent_messages', 20),
                     'summarize_after_messages' => (int) config('ai.memory.summarize_after_messages', 40),
@@ -122,23 +127,7 @@ class AiAssistantController extends Controller
 
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:12000'],
-            'provider' => ['nullable', 'string', 'max:50'],
         ]);
-
-        $preferredProvider = isset($validated['provider'])
-            ? trim((string) $validated['provider'])
-            : null;
-
-        if (
-            $preferredProvider !== null
-            && $preferredProvider !== ''
-            && ! $gateway->providerAvailable($preferredProvider)
-        ) {
-            return response()->json([
-                'message' => 'The selected AI provider is not available.',
-                'code' => 'AI_PROVIDER_NOT_AVAILABLE',
-            ], 422);
-        }
 
         $userMessage = AiMessage::create([
             'ai_conversation_id' => $conversationRecord->id,
@@ -158,18 +147,14 @@ class AiAssistantController extends Controller
                 $conversationRecord,
                 $request->user(),
                 $memory->context($conversationRecord),
-                $preferredProvider ?: null,
+                null,
             );
         } catch (RuntimeException $exception) {
             report($exception);
 
             return response()->json([
-                'message' => $gateway->configured()
-                    ? 'The AI service is temporarily unavailable.'
-                    : 'The AI gateway is ready but no provider is configured yet.',
-                'code' => $gateway->configured()
-                    ? 'AI_PROVIDER_UNAVAILABLE'
-                    : 'AI_NOT_CONFIGURED',
+                'message' => 'The AI service is temporarily unavailable.',
+                'code' => 'AI_UNAVAILABLE',
                 'user_message_id' => $userMessage->id,
             ], $gateway->configured() ? 502 : 503);
         }
@@ -203,8 +188,6 @@ class AiAssistantController extends Controller
             'data' => [
                 'message' => $assistantMessage,
                 'usage' => [
-                    'provider' => $result['provider'],
-                    'model' => $result['model'],
                     'input_tokens' => $result['input_tokens'],
                     'output_tokens' => $result['output_tokens'],
                     'total_tokens' => $result['total_tokens'],

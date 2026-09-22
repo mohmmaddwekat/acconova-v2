@@ -100,11 +100,13 @@ class AiBusinessToolsTest extends TestCase
             "/api/ai/conversations/{$conversationId}/messages",
             [
                 'message' => 'How much did we sell this month?',
-                'provider' => 'openai',
             ],
         )
             ->assertOk()
-            ->assertJsonPath('data.message.provider', 'openai')
+            ->assertJsonMissingPath('data.message.provider')
+            ->assertJsonMissingPath('data.message.model')
+            ->assertJsonMissingPath('data.usage.provider')
+            ->assertJsonMissingPath('data.usage.model')
             ->assertJsonPath('data.usage.total_tokens', 82)
             ->assertJsonPath('data.usage.tool_calls.0', 'sales_summary');
 
@@ -152,9 +154,15 @@ class AiBusinessToolsTest extends TestCase
         $this->actingInWorkspace($employee, $organization);
         $this->configureProvider();
 
-        $available = $this->getJson('/api/ai/status')
+        $status = $this->getJson('/api/ai/status')
             ->assertOk()
-            ->json('data.tools.available');
+            ->assertJsonPath('data.configured', true)
+            ->assertJsonMissingPath('data.provider')
+            ->assertJsonMissingPath('data.model')
+            ->assertJsonMissingPath('data.providers')
+            ->assertJsonMissingPath('data.auth_mode');
+
+        $available = $status->json('data.tools.available');
 
         $this->assertNotContains('sales_summary', $available);
         $this->assertNotContains('cashflow_summary', $available);

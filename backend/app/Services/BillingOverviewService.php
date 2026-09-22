@@ -26,22 +26,10 @@ final class BillingOverviewService
         $credentialsConfigured = $stripeKey !== '' && $stripeSecret !== '';
         $webhookConfigured = $stripeWebhookSecret !== '';
 
-        $providerState = 'not_configured';
-
-        if ($credentialsConfigured) {
-            $providerState = $webhookConfigured
-                ? 'ready_for_sync'
-                : 'credentials_ready';
-        }
-
-        $mode = null;
-
-        if ($credentialsConfigured) {
-            $mode = str_starts_with($stripeSecret, 'sk_test_')
-                || str_starts_with($stripeKey, 'pk_test_')
-                    ? 'test'
-                    : 'live';
-        }
+        $paymentsAvailable =
+            (bool) config('billing.enabled', false)
+            && $credentialsConfigured
+            && $webhookConfigured;
 
         $periodStart = now()->startOfMonth();
         $periodEnd = now()->endOfMonth();
@@ -70,14 +58,12 @@ final class BillingOverviewService
         }
 
         return [
-            'provider' => [
-                'name' => (string) config('billing.provider', 'stripe'),
-                'enabled' => (bool) config('billing.enabled', false),
-                'state' => $providerState,
-                'credentials_configured' => $credentialsConfigured,
-                'webhook_configured' => $webhookConfigured,
-                'mode' => $mode,
-            ],
+            /*
+             * Deliberately expose only customer-relevant capability state.
+             * Provider names, credential readiness, webhook state and test/live
+             * mode are platform-operator details and never belong in tenant UI.
+             */
+            'payments_available' => $paymentsAvailable,
             'subscription' => null,
             'next_invoice' => null,
             'payment_method' => null,
