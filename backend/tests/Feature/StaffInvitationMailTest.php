@@ -8,13 +8,13 @@ use App\Models\User;
 use App\Notifications\StaffInvitationNotification;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class StaffInvitationMailTest extends TestCase
 {
-    use DatabaseMigrations;
+    use RefreshDatabase;
 
     private function staff(): int
     {
