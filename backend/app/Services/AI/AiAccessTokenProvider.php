@@ -8,52 +8,64 @@ use RuntimeException;
 
 final class AiAccessTokenProvider
 {
-    public function token(): string
+    /**
+     * @param  array<string,mixed>  $auth
+     */
+    public function token(string $provider, array $auth): string
     {
-        $mode = (string) config('ai.auth.mode', 'api_key');
+        $mode = (string) ($auth['mode'] ?? 'api_key');
 
         if ($mode === 'api_key') {
-            $token = (string) config('ai.auth.api_key', '');
+            $token = (string) ($auth['api_key'] ?? '');
 
             if ($token === '') {
-                throw new RuntimeException('AI credentials are not configured.');
+                throw new RuntimeException("AI credentials for [{$provider}] are not configured.");
             }
 
             return $token;
         }
 
         if ($mode !== 'oauth_refresh') {
-            throw new RuntimeException('Unsupported AI authentication mode.');
+            throw new RuntimeException("Unsupported AI authentication mode for [{$provider}].");
         }
 
-        $cacheKey = $this->cacheKey();
+        $cacheKey = $this->cacheKey($provider, $auth);
         $cached = Cache::get($cacheKey);
 
         if (is_string($cached) && $cached !== '') {
             return $cached;
         }
 
-        return $this->refresh();
+        return $this->refresh($provider, $auth);
     }
 
-    public function forget(): void
+    /**
+     * @param  array<string,mixed>  $auth
+     */
+    public function forget(string $provider, array $auth): void
     {
-        if ((string) config('ai.auth.mode') === 'oauth_refresh') {
-            Cache::forget($this->cacheKey());
+        if ($this->usesRefreshTokens($auth)) {
+            Cache::forget($this->cacheKey($provider, $auth));
         }
     }
 
-    public function usesRefreshTokens(): bool
+    /**
+     * @param  array<string,mixed>  $auth
+     */
+    public function usesRefreshTokens(array $auth): bool
     {
-        return (string) config('ai.auth.mode') === 'oauth_refresh';
+        return (string) ($auth['mode'] ?? '') === 'oauth_refresh';
     }
 
-    private function refresh(): string
+    /**
+     * @param  array<string,mixed>  $auth
+     */
+    private function refresh(string $provider, array $auth): string
     {
-        $tokenUrl = (string) config('ai.auth.token_url', '');
-        $clientId = (string) config('ai.auth.client_id', '');
-        $clientSecret = (string) config('ai.auth.client_secret', '');
-        $refreshToken = (string) config('ai.auth.refresh_token', '');
+        $tokenUrl = (string) ($auth['token_url'] ?? '');
+        $clientId = (string) ($auth['client_id'] ?? '');
+        $clientSecret = (string) ($auth['client_secret'] ?? '');
+        $refreshToken = (string) ($auth['refresh_token'] ?? '');
 
         if (
             $tokenUrl === ''
@@ -61,7 +73,7 @@ final class AiAccessTokenProvider
             || $clientSecret === ''
             || $refreshToken === ''
         ) {
-            throw new RuntimeException('AI OAuth refresh credentials are incomplete.');
+            throw new RuntimeException("AI OAuth refresh credentials for [{$provider}] are incomplete.");
         }
 
         $payload = [
@@ -71,7 +83,7 @@ final class AiAccessTokenProvider
             'refresh_token' => $refreshToken,
         ];
 
-        $scope = (string) config('ai.auth.scope', '');
+        $scope = (string) ($auth['scope'] ?? '');
 
         if ($scope !== '') {
             $payload['scope'] = $scope;
@@ -83,27 +95,20 @@ final class AiAccessTokenProvider
             ->post($tokenUrl, $payload);
 
         if (! $response->successful()) {
-            throw new RuntimeException('AI access token refresh failed.');
+            throw new RuntimeException("AI access token refresh failed for [{$provider}].");
         }
 
         $token = (string) $response->json('access_token', '');
 
         if ($token === '') {
-            throw new RuntimeException('AI token endpoint returned no access token.');
+            throw new RuntimeException("AI token endpoint for [{$provider}] returned no access token.");
         }
 
-        $expiresIn = max(
-            120,
-            (int) $response->json('expires_in', 3600),
-        );
-
-        $skew = max(
-            30,
-            (int) config('ai.auth.refresh_skew_seconds', 60),
-        );
+        $expiresIn = max(120, (int) $response->json('expires_in', 3600));
+        $skew = max(30, (int) ($auth['refresh_skew_seconds'] ?? 60));
 
         Cache::put(
-            $this->cacheKey(),
+            $this->cacheKey($provider, $auth),
             $token,
             now()->addSeconds(max(60, $expiresIn - $skew)),
         );
@@ -111,14 +116,17 @@ final class AiAccessTokenProvider
         return $token;
     }
 
-    private function cacheKey(): string
+    /**
+     * @param  array<string,mixed>  $auth
+     */
+    private function cacheKey(string $provider, array $auth): string
     {
         return 'ai:oauth:access-token:'.hash(
             'sha256',
             implode('|', [
-                (string) config('ai.auth.token_url', ''),
-                (string) config('ai.auth.client_id', ''),
-                (string) config('ai.provider', ''),
+                $provider,
+                (string) ($auth['token_url'] ?? ''),
+                (string) ($auth['client_id'] ?? ''),
             ]),
         );
     }
