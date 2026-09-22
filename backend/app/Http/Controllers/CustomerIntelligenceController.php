@@ -28,11 +28,11 @@ class CustomerIntelligenceController extends Controller
             })
             ->where('p.organization_id', $organizationId)
             ->whereNull('p.deleted_at')
-            ->select([
+            ->get([
                 'p.id',
-                DB::raw("COALESCE(NULLIF(p.company_name, ''), NULLIF(p.name, ''), CONCAT('#', p.id)) as name"),
-            ])
-            ->get();
+                'p.name',
+                'p.company_name',
+            ]);
 
         $sales = DB::table('financial_documents')
             ->where('organization_id', $organizationId)
@@ -182,7 +182,11 @@ class CustomerIntelligenceController extends Controller
 
             return [
                 'party_id' => (int) $customer->id,
-                'name' => (string) $customer->name,
+                'name' => (string) (
+                    $customer->company_name
+                    ?: $customer->name
+                    ?: '#'.$customer->id
+                ),
                 'segments' => array_values(
                     array_unique($segments),
                 ),
