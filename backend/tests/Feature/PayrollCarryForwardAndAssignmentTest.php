@@ -69,6 +69,7 @@ class PayrollCarryForwardAndAssignmentTest extends TestCase
         [$owner,$org] = $this->workspace();
         $user = User::factory()->create();
         $other = User::factory()->create();
+        $org->users()->attach($user->id, ['role' => 'employee']);
         $role = $this->postJson('/api/workspace-roles', ['name' => 'Reader', 'base_role' => 'employee', 'is_custom' => true, 'permissions' => ['products.view']])->assertCreated()->json('data.id');
         $this->postJson('/api/workspace-roles/preview', ['email' => $user->email])->assertOk()->assertJsonPath('id', $user->id)->assertJsonPath('name', $user->name);
         $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $other->id, 'current_password' => 'password'])->assertConflict();
