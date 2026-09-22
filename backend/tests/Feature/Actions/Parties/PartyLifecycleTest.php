@@ -13,13 +13,13 @@ use App\Events\PartyUpdated;
 use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\TenantContext;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class PartyLifecycleTest extends TestCase
 {
-    use DatabaseMigrations;
+    use RefreshDatabase;
 
     /**
      * Clear tenant state after every direct Action test.
