@@ -32,30 +32,11 @@ type Message = {
     id: number;
     role: 'user' | 'assistant' | 'system';
     content: string;
-    provider?: string | null;
-    model?: string | null;
-    total_tokens?: number;
     created_at: string;
 };
 
-type AiProviderStatus = {
-    key: string;
-    label: string;
-    driver: string;
-    model: string;
-    auth_mode: string;
-    configured: boolean;
-    is_default: boolean;
-};
-
 type AiStatus = {
-    enabled: boolean;
     configured: boolean;
-    provider: string;
-    model: string;
-    auth_mode: 'api_key' | 'oauth_refresh' | string;
-    fallbacks: string[];
-    providers: AiProviderStatus[];
     memory: {
         recent_messages: number;
         summarize_after_messages: number;
@@ -69,7 +50,6 @@ export default function AiAssistant() {
     const locale = useLocale();
     const ar = locale === 'ar';
     const [status, setStatus] = useState<AiStatus | null>(null);
-    const [selectedProvider, setSelectedProvider] = useState('');
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeId, setActiveId] = useState<number | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -82,18 +62,6 @@ export default function AiAssistant() {
     const activeConversation = useMemo(
         () => conversations.find(item => item.id === activeId) ?? null,
         [conversations, activeId],
-    );
-
-    const availableProviders = useMemo(
-        () => status?.providers.filter(provider => provider.configured) ?? [],
-        [status],
-    );
-
-    const activeProvider = useMemo(
-        () => availableProviders.find(
-            provider => provider.key === selectedProvider,
-        ) ?? availableProviders[0] ?? null,
-        [availableProviders, selectedProvider],
     );
 
     useEffect(() => {
@@ -110,16 +78,6 @@ export default function AiAssistant() {
             .then(([statusResponse, conversationResponse]) => {
                 setStatus(statusResponse.data);
                 setConversations(conversationResponse.data);
-
-                const preferred = statusResponse.data.providers.find(
-                    provider =>
-                        provider.configured
-                        && provider.key === statusResponse.data.provider,
-                ) ?? statusResponse.data.providers.find(
-                    provider => provider.configured,
-                );
-
-                setSelectedProvider(preferred?.key ?? '');
 
                 const first = conversationResponse.data[0];
 
@@ -293,7 +251,6 @@ export default function AiAssistant() {
                     method: 'POST',
                     body: JSON.stringify({
                         message,
-                        provider: selectedProvider || undefined,
                     }),
                 },
             );
@@ -309,8 +266,8 @@ export default function AiAssistant() {
                 failure instanceof ApiError
                     ? failure.message
                     : ar
-                        ? 'تعذر إرسال الرسالة إلى مزود الذكاء الاصطناعي.'
-                        : 'Could not send the message to the AI provider.',
+                        ? 'تعذر إرسال الرسالة إلى AccoNova AI.'
+                        : 'Could not send the message to AccoNova AI.',
             );
         } finally {
             setSending(false);
@@ -378,8 +335,8 @@ export default function AiAssistant() {
                                     </h1>
                                     <span className="rounded-full border border-[var(--ac-line)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.13em] text-[var(--ac-text-muted)]">
                                         {status?.configured
-                                            ? (ar ? 'متصل' : 'Connected')
-                                            : (ar ? 'بانتظار المزود' : 'Provider needed')}
+                                            ? (ar ? 'جاهز' : 'Ready')
+                                            : (ar ? 'غير متاح حاليًا' : 'Unavailable')}
                                     </span>
                                 </div>
 
@@ -410,13 +367,13 @@ export default function AiAssistant() {
                             <div>
                                 <p className="text-sm font-semibold">
                                     {ar
-                                        ? 'البنية متعددة المزودات جاهزة، لكن لم يتم ربط أي مزود بعد.'
-                                        : 'The multi-provider AI infrastructure is ready, but no provider has been connected yet.'}
+                                        ? 'AccoNova AI غير متاح حاليًا.'
+                                        : 'AccoNova AI is currently unavailable.'}
                                 </p>
                                 <p className="mt-1 text-xs leading-5 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'أضف مفتاح OpenAI أو Claude أو Gemini في الخادم؛ المفاتيح لا تصل للمتصفح، ويمكن للنظام التحويل لمزود احتياطي تلقائيًا.'
-                                        : 'Add OpenAI, Claude, or Gemini credentials on the server. Keys stay server-side and AccoNova can fail over automatically.'}
+                                        ? 'حاول مرة أخرى لاحقًا أو تواصل مع الدعم إذا استمرت المشكلة.'
+                                        : 'Try again later or contact support if the issue continues.'}
                                 </p>
                             </div>
                         </section>
@@ -519,46 +476,14 @@ export default function AiAssistant() {
                                                 || (ar ? 'محادثة جديدة' : 'New conversation')}
                                         </p>
                                         <p className="mt-0.5 text-[9px] text-[var(--ac-text-muted)]">
-                                            {activeProvider?.model
-                                                ? `${activeProvider.label} · ${activeProvider.model}`
-                                                : (ar ? 'Gateway داخلي آمن' : 'Secure internal gateway')}
+                                            {ar
+                                                ? 'مساعد AccoNova الذكي'
+                                                : 'AccoNova intelligent assistant'}
                                         </p>
                                     </div>
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-2">
-                                    {availableProviders.length > 0 && (
-                                        <label className="flex items-center gap-2 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2 text-[10px] text-[var(--ac-text-muted)]">
-                                            <Sparkles
-                                                size={13}
-                                                className="text-[var(--ac-accent)]"
-                                            />
-                                            <span className="hidden sm:inline">
-                                                {ar ? 'المزود' : 'Provider'}
-                                            </span>
-                                            <select
-                                                value={selectedProvider}
-                                                onChange={event =>
-                                                    setSelectedProvider(event.target.value)
-                                                }
-                                                disabled={sending}
-                                                className="max-w-[190px] bg-transparent font-semibold text-[var(--ac-text)] outline-none disabled:opacity-50"
-                                            >
-                                                {availableProviders.map(provider => (
-                                                    <option
-                                                        key={provider.key}
-                                                        value={provider.key}
-                                                    >
-                                                        {provider.label}
-                                                        {provider.is_default
-                                                            ? (ar ? ' · افتراضي' : ' · Default')
-                                                            : ''}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </label>
-                                    )}
-
                                     <div className="flex items-center gap-2 rounded-xl border border-[var(--ac-line)] px-3 py-2 text-[10px] text-[var(--ac-text-muted)]">
                                         <ShieldCheck
                                             size={13}
@@ -617,18 +542,6 @@ export default function AiAssistant() {
                                                             {message.content}
                                                         </p>
 
-                                                        {message.role === 'assistant'
-                                                        && (message.total_tokens ?? 0) > 0 && (
-                                                            <p className="mt-2 text-[9px] text-[var(--ac-text-muted)]">
-                                                                {message.provider
-                                                                    ? `${message.provider} · `
-                                                                    : ''}
-                                                                {message.model || 'AI'}
-                                                                {' · '}
-                                                                {message.total_tokens}
-                                                                {' tokens'}
-                                                            </p>
-                                                        )}
                                                     </div>
                                                 </article>
                                             ))}
@@ -676,8 +589,8 @@ export default function AiAssistant() {
                                                     ? 'اسأل AccoNova AI…'
                                                     : 'Ask AccoNova AI…')
                                                 : (ar
-                                                    ? 'اربط مزود الذكاء الاصطناعي أولًا…'
-                                                    : 'Connect an AI provider first…')
+                                                    ? 'AccoNova AI غير متاح حاليًا…'
+                                                    : 'AccoNova AI is currently unavailable…')
                                         }
                                         className="max-h-40 min-h-[48px] flex-1 resize-none bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[var(--ac-text-muted)] disabled:cursor-not-allowed"
                                     />
@@ -705,8 +618,8 @@ export default function AiAssistant() {
 
                                 <p className="mx-auto mt-2 max-w-3xl px-1 text-[9px] leading-4 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? `يحفظ آخر ${status?.memory.recent_messages ?? 20} رسالة مباشرة، وبعد ${status?.memory.summarize_after_messages ?? 40} رسالة يبدأ ضغط التاريخ القديم تلقائيًا.`
-                                        : `Keeps the latest ${status?.memory.recent_messages ?? 20} messages directly and compacts older history after ${status?.memory.summarize_after_messages ?? 40} messages.`}
+                                        ? 'يحافظ AccoNova AI على سياق المحادثة تلقائيًا مع احترام صلاحياتك وحدود مساحة العمل.'
+                                        : 'AccoNova AI keeps conversation context automatically while respecting your permissions and workspace boundaries.'}
                                 </p>
                             </form>
                         </div>
