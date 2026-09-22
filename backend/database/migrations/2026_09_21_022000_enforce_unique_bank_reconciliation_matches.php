@@ -29,6 +29,22 @@ return new class extends Migration
         Schema::table(
             'bank_statement_lines',
             function (Blueprint $table): void {
+                /*
+                 * MySQL may reuse the unique index as the supporting index for
+                 * the matched_cash_movement_id foreign key. Create a normal
+                 * index first so dropping the uniqueness constraint remains
+                 * rollback-safe while preserving the foreign key.
+                 */
+                $table->index(
+                    'matched_cash_movement_id',
+                    'bank_line_cash_match_fk_idx',
+                );
+            },
+        );
+
+        Schema::table(
+            'bank_statement_lines',
+            function (Blueprint $table): void {
                 $table->dropUnique(
                     'bank_line_cash_match_uq',
                 );
