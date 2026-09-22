@@ -384,6 +384,10 @@ function PartiesWorkspace() {
             label: ar ? 'التواصل' : 'Contact',
         },
         {
+            key: 'balances',
+            label: ar ? 'الأرصدة' : 'Balances',
+        },
+        {
             key: 'location',
             label: ar ? 'الموقع' : 'Location',
         },
