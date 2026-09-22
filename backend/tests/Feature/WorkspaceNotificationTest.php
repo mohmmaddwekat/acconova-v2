@@ -13,13 +13,13 @@ use App\Models\Warehouse;
 use App\Services\NotificationCenter;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class WorkspaceNotificationTest extends TestCase
 {
-    use DatabaseMigrations;
+    use RefreshDatabase;
 
     protected function tearDown(): void
     {
