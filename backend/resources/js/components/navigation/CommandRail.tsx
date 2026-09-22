@@ -203,6 +203,22 @@ export function CommandRail({
                 Gauge,
         },
 
+        {
+            label:
+                'AccoNova AI',
+
+            description:
+                locale === 'ar'
+                    ? 'مساعد ذكي بذاكرة وصلاحيات'
+                    : 'AI assistant with memory & permissions',
+
+            href:
+                '/app/ai',
+
+            icon:
+                Sparkles,
+        },
+
         ...(taskManagementHref
             ? [
                   {
@@ -496,6 +512,9 @@ export function CommandRail({
             string,
             string
         > = {
+        '/app/ai':
+            'ai.assistant.use',
+
         '/app/products':
             'products.view',
 

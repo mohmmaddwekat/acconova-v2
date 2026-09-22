@@ -208,6 +208,20 @@ Route::middleware([
     'auth',
     'verified',
 ])->group(function (): void {
+    Route::get(
+        '/app/ai',
+        function (Request $request) {
+            WorkspaceFeaturePermissions::authorize(
+                $request->user(),
+                'ai.assistant.use',
+            );
+
+            return Inertia::render('AiAssistant');
+        },
+    )
+        ->middleware(ResolveOrganization::class)
+        ->name('app.ai');
+
     Route::get('/app/profile', fn () => Inertia::render('Profile'))->name('app.profile');
     Route::get('/app/team-space', fn () => Inertia::render('TeamSpace'))->name('app.team-space');
     Route::get(
@@ -1658,3 +1672,6 @@ Route::middleware(['auth', 'throttle:30,1'])->prefix('api/profile')->group(funct
     Route::post('/email', [ProfileController::class, 'email'])->middleware('throttle:6,1');
     Route::get('/email/confirm', [ProfileController::class, 'confirmEmail'])->middleware('signed')->name('profile.email.confirm');
 });
+
+
+require __DIR__.'/api/ai.php';
