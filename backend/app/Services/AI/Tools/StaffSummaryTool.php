@@ -6,7 +6,6 @@ use App\Models\StaffMember;
 use App\Models\User;
 use App\Services\AI\Contracts\AiBusinessTool;
 use App\Services\WorkspaceFeaturePermissions;
-use Illuminate\Support\Facades\DB;
 
 final class StaffSummaryTool implements AiBusinessTool
 {
