@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\AiConversation;
 use App\Models\AiMessage;
+use App\Services\AI\AiAssistantOrchestrator;
+use App\Services\AI\AiBusinessToolRegistry;
 use App\Services\AI\AiConversationMemory;
 use App\Services\AI\AiGateway;
 use App\Services\WorkspaceFeaturePermissions;
@@ -16,6 +18,7 @@ class AiAssistantController extends Controller
     public function status(
         Request $request,
         AiGateway $gateway,
+        AiBusinessToolRegistry $tools,
     ): JsonResponse {
         WorkspaceFeaturePermissions::authorize(
             $request->user(),
@@ -28,6 +31,13 @@ class AiAssistantController extends Controller
                 'memory' => [
                     'recent_messages' => (int) config('ai.memory.recent_messages', 20),
                     'summarize_after_messages' => (int) config('ai.memory.summarize_after_messages', 40),
+                ],
+                'tools' => [
+                    'enabled' => (bool) config('ai.tools.enabled', true),
+                    'available' => array_map(
+                        fn (array $tool): string => $tool['name'],
+                        $tools->definitionsFor($request->user()),
+                    ),
                 ],
             ],
         ]);
@@ -100,6 +110,7 @@ class AiAssistantController extends Controller
         int $conversation,
         AiGateway $gateway,
         AiConversationMemory $memory,
+        AiAssistantOrchestrator $orchestrator,
     ): JsonResponse {
         WorkspaceFeaturePermissions::authorize(
             $request->user(),
@@ -143,9 +154,11 @@ class AiAssistantController extends Controller
         ])->save();
 
         try {
-            $result = $gateway->chat(
+            $result = $orchestrator->chat(
+                $conversationRecord,
+                $request->user(),
                 $memory->context($conversationRecord),
-                preferredProvider: $preferredProvider ?: null,
+                $preferredProvider ?: null,
             );
         } catch (RuntimeException $exception) {
             report($exception);
@@ -195,6 +208,7 @@ class AiAssistantController extends Controller
                     'input_tokens' => $result['input_tokens'],
                     'output_tokens' => $result['output_tokens'],
                     'total_tokens' => $result['total_tokens'],
+                    'tool_calls' => $result['tool_calls'] ?? [],
                 ],
             ],
         ]);
