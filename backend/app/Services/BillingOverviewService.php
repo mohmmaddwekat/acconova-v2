@@ -13,14 +13,13 @@ final class BillingOverviewService
 {
     public function __construct(
         private readonly StripeBillingGateway $billing,
-    ) {
-    }
+    ) {}
 
     /**
      * Build a tenant-safe billing snapshot. Provider names, credentials and
      * webhook details are deliberately never exposed to tenant users.
      *
-     * @return array<string,mixed>
+     * @return array<string, mixed>
      */
     public function forOrganization(
         Organization $organization,
