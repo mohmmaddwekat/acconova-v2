@@ -42,7 +42,7 @@ class WorkforceOperationsTest extends TestCase
     public function test_attendance_earns_by_basis_and_overtime_without_paying(): void
     {
         $this->workspace();
-        foreach (['day' => ['100', '100'], 'hour' => ['10', '100'], 'piece' => ['2', '20'], 'month' => ['3000', '0']] as $basis => [$rate,$expected]) {
+        foreach (['day' => ['100', '100.0000'], 'hour' => ['10', '100.0000'], 'piece' => ['2', '20.0000'], 'month' => ['3000', '0.0000']] as $basis => [$rate,$expected]) {
             $staff = $this->staff($basis, $rate);
             $this->attendance($staff)->assertCreated();
             $this->getJson('/api/staff/'.$staff.'/ledger')->assertOk()->assertJsonPath('balance', $expected);
@@ -50,7 +50,7 @@ class WorkforceOperationsTest extends TestCase
         }
         $hour = $this->staff('hour', '10');
         $this->attendance($hour, ['overtime_hours' => '2', 'overtime_rate' => '15'])->assertCreated();
-        $this->getJson('/api/staff/'.$hour.'/ledger')->assertJsonPath('balance', '130');
+        $this->getJson('/api/staff/'.$hour.'/ledger')->assertJsonPath('balance', '130.0000');
         $this->assertDatabaseHas('staff_entries', ['staff_member_id' => $hour, 'kind' => 'overtime', 'amount' => '30']);
         $this->assertDatabaseMissing('staff_entries', ['kind' => 'payment']);
     }
@@ -62,7 +62,7 @@ class WorkforceOperationsTest extends TestCase
         $this->attendance($id, ['quantity' => '23', 'overtime_hours' => '2', 'overtime_rate' => '15'])->assertUnprocessable();
         $this->attendance($id, ['status' => 'absent', 'overtime_hours' => '1'])->assertUnprocessable();
         $this->attendance($id, ['status' => 'absent'])->assertCreated();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '0');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '0.0000');
         $this->postJson('/api/staff/'.$id.'/entries', ['request_id' => (string) Str::uuid(), 'kind' => 'work', 'occurred_on' => '2026-09-16', 'quantity' => '10', 'notes' => 'Duplicate'])->assertConflict();
     }
 
@@ -72,10 +72,10 @@ class WorkforceOperationsTest extends TestCase
         $id = $this->staff();
         $entry = ['occurred_on' => '2026-09-15', 'notes' => 'Approved'];
         $this->postJson('/api/staff/'.$id.'/entries', [...$entry, 'request_id' => (string) Str::uuid(), 'kind' => 'advance', 'amount' => '40'])->assertCreated();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '-40');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '-40.0000');
         $this->attendance($id)->assertCreated();
         $this->postJson('/api/staff/'.$id.'/entries', [...$entry, 'request_id' => (string) Str::uuid(), 'kind' => 'payment', 'amount' => '30'])->assertCreated();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '30');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '30.0000');
     }
 
     public function test_recurring_named_adjustments_are_approved_once_and_stop(): void
@@ -86,7 +86,7 @@ class WorkforceOperationsTest extends TestCase
         $this->postJson('/api/staff/'.$id.'/adjustments', ['label' => 'Approved deduction', 'kind' => 'deduction', 'amount' => '10', 'starts_on' => '2026-07-01', 'ends_on' => '2026-07-31'])->assertCreated();
         $this->postJson('/api/staff/'.$id.'/adjustments/accrue', ['through' => '2026-08'])->assertOk()->assertJsonPath('created', 3);
         $this->postJson('/api/staff/'.$id.'/adjustments/accrue', ['through' => '2026-08'])->assertOk()->assertJsonPath('created', 0);
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '90');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '90.0000');
         $this->patchJson('/api/staff/'.$id.'/adjustments/'.$rule, ['ends_on' => '2026-07-01'])->assertUnprocessable();
         $this->patchJson('/api/staff/'.$id.'/adjustments/'.$rule, ['ends_on' => '2026-08-31'])->assertOk();
         $this->postJson('/api/staff/'.$id.'/adjustments/accrue', ['through' => '2026-09'])->assertUnprocessable();
@@ -111,7 +111,7 @@ class WorkforceOperationsTest extends TestCase
         $this->patchJson('/api/staff/'.$id, ['name' => 'Worker day', 'basis' => 'day', 'rate' => '200', 'monthly_allowance' => '0', 'started_on' => '2026-01-01', 'active' => true])->assertOk();
         $this->attendance($id)->assertCreated();
         $this->attendance($id, ['occurred_on' => '2026-09-17'])->assertCreated();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '300');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '300.0000');
         $reader = User::factory()->create();
         Organization::query()->firstOrFail()->users()->attach($reader->id, ['role' => 'employee']);
         $this->actingAs($reader);
