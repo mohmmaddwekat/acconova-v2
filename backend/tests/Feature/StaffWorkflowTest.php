@@ -92,6 +92,7 @@ class StaffWorkflowTest extends TestCase
         $owner = auth()->user();
         $id = $this->employee();
         $user = User::factory()->create();
+        $org->users()->attach($user->id, ['role' => 'employee']);
         $role = $this->postJson('/api/workspace-roles', ['name' => 'Payroll reader', 'base_role' => 'employee', 'permissions' => ['staff.view']])->assertCreated()->json('data.id');
         $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $user->id, 'current_password' => 'password'])->assertOk();
         $this->postJson('/api/workspace-roles/assign', ['email' => $owner->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $owner->id, 'current_password' => 'password'])->assertForbidden();
