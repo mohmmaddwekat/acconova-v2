@@ -2112,6 +2112,25 @@ final class WorkspaceFeaturePermissions
                 return true;
             }
 
+            $legacy = $meta['legacy'] ?? [];
+
+            /*
+             * Explicit legacy umbrella grants remain valid even when the
+             * granular permission lives in another UI group. This preserves
+             * compatibility for focused custom roles such as approval
+             * reviewers and purchase managers without granting unrelated
+             * siblings.
+             */
+            if (
+                $legacy !== []
+                && array_intersect(
+                    $legacy,
+                    $granted,
+                ) !== []
+            ) {
+                return true;
+            }
+
             $group =
                 $meta['group']
                 ?? null;
@@ -2147,8 +2166,6 @@ final class WorkspaceFeaturePermissions
                     $permission,
                 );
             }
-
-            $legacy = $meta['legacy'] ?? [];
 
             if ($legacy === []) {
                 return false;
