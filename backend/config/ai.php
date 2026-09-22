@@ -33,6 +33,7 @@ return [
 
     'memory' => [
         'recent_messages' => (int) env('AI_RECENT_MESSAGES', 20),
+        'context_char_budget' => (int) env('AI_CONTEXT_CHAR_BUDGET', 60000),
         'summarize_after_messages' => (int) env('AI_SUMMARIZE_AFTER_MESSAGES', 40),
         'summary_max_output_tokens' => (int) env('AI_SUMMARY_MAX_OUTPUT_TOKENS', 700),
         'summary_transcript_chars' => (int) env('AI_SUMMARY_TRANSCRIPT_CHARS', 60000),
