@@ -754,7 +754,13 @@ final class WorkspaceFeaturePermissions
                         'key' => 'finance.lookups.view',
                         'label_ar' => 'استخدام بيانات البحث المالية',
                         'label_en' => 'Use finance lookups',
-                        'legacy' => ['finance.sales.view', 'finance.purchases.view', 'finance.cash.view'],
+                        'legacy' => [
+                            'finance.sales.view',
+                            'finance.purchases.view',
+                            'finance.cash.view',
+                            'finance.approvals.review',
+                            'finance.taxes.view',
+                        ],
                     ],
                     [
                         'key' => 'finance.reference_price.view',
@@ -931,20 +937,25 @@ final class WorkspaceFeaturePermissions
                         'label_en' => 'View purchase requisitions',
                         'legacy' => ['finance.purchases.view'],
                         'depends' => ['finance.purchases.view'],
+                        'builtin' => ['employee'],
                     ],
                     [
                         'key' => 'finance.requisitions.create',
                         'label_ar' => 'إنشاء طلب شراء',
                         'label_en' => 'Create purchase requisitions',
                         'legacy' => ['finance.purchases.manage'],
-                        'depends' => ['finance.purchases.view'],
+                        'depends' => ['finance.requisitions.view'],
+                        'builtin' => ['employee'],
                     ],
                     [
                         'key' => 'finance.requisitions.review',
                         'label_ar' => 'مراجعة طلبات الشراء',
                         'label_en' => 'Review purchase requisitions',
-                        'legacy' => ['finance.approvals.review'],
-                        'depends' => ['finance.purchases.view'],
+                        'legacy' => [
+                            'finance.approvals.review',
+                            'finance.purchases.manage',
+                        ],
+                        'depends' => ['finance.requisitions.view'],
                     ],
                     [
                         'key' => 'finance.requisitions.convert',
