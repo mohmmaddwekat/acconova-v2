@@ -126,7 +126,7 @@ export default function AiAssistant() {
                 messages: Message[];
             };
         }>(
-            \`/api/ai/conversations/\${activeId}\`,
+            `/api/ai/conversations/\${activeId}`,
             {
                 signal: controller.signal,
             },
@@ -195,7 +195,7 @@ export default function AiAssistant() {
                 conversation: Conversation;
                 messages: Message[];
             };
-        }>(\`/api/ai/conversations/\${conversationId}\`);
+        }>(`/api/ai/conversations/\${conversationId}`);
 
         setMessages(response.data.messages);
         setConversations(current =>
@@ -252,7 +252,7 @@ export default function AiAssistant() {
             ]);
 
             await apiRequest(
-                \`/api/ai/conversations/\${conversationId}/messages\`,
+                `/api/ai/conversations/\${conversationId}/messages`,
                 {
                     method: 'POST',
                     body: JSON.stringify({
@@ -295,7 +295,7 @@ export default function AiAssistant() {
 
         try {
             await apiRequest(
-                \`/api/ai/conversations/\${conversation.id}\`,
+                `/api/ai/conversations/\${conversation.id}`,
                 {
                     method: 'DELETE',
                 },
@@ -483,7 +483,7 @@ export default function AiAssistant() {
                                         </p>
                                         <p className="mt-0.5 text-[9px] text-[var(--ac-text-muted)]">
                                             {status?.model
-                                                ? \`\${status.provider} · \${status.model}\`
+                                                ? `\${status.provider} · \${status.model}`
                                                 : (ar ? 'Gateway داخلي آمن' : 'Secure internal gateway')}
                                         </p>
                                     </div>
@@ -631,8 +631,8 @@ export default function AiAssistant() {
 
                                 <p className="mx-auto mt-2 max-w-3xl px-1 text-[9px] leading-4 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? \`يحفظ آخر \${status?.memory.recent_messages ?? 20} رسالة مباشرة، وبعد \${status?.memory.summarize_after_messages ?? 40} رسالة يبدأ ضغط التاريخ القديم تلقائيًا.\`
-                                        : \`Keeps the latest \${status?.memory.recent_messages ?? 20} messages directly and compacts older history after \${status?.memory.summarize_after_messages ?? 40} messages.\`}
+                                        ? `يحفظ آخر \${status?.memory.recent_messages ?? 20} رسالة مباشرة، وبعد \${status?.memory.summarize_after_messages ?? 40} رسالة يبدأ ضغط التاريخ القديم تلقائيًا.`
+                                        : `Keeps the latest \${status?.memory.recent_messages ?? 20} messages directly and compacts older history after \${status?.memory.summarize_after_messages ?? 40} messages.`}
                                 </p>
                             </form>
                         </div>
