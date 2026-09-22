@@ -93,15 +93,15 @@ class StaffWorkflowTest extends TestCase
         $id = $this->employee();
         $user = User::factory()->create();
         $role = $this->postJson('/api/workspace-roles', ['name' => 'Payroll reader', 'base_role' => 'employee', 'permissions' => ['staff.view']])->assertCreated()->json('data.id');
-        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role])->assertOk();
-        $this->postJson('/api/workspace-roles/assign', ['email' => $owner->email, 'workspace_role_id' => $role])->assertForbidden();
+        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $user->id, 'current_password' => 'password'])->assertOk();
+        $this->postJson('/api/workspace-roles/assign', ['email' => $owner->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $owner->id, 'current_password' => 'password'])->assertForbidden();
         $this->actingAs($user);
         $this->getJson('/api/staff/'.$id.'/ledger')->assertOk();
         $this->entry($id, 'payment')->assertForbidden();
         $this->postJson('/api/workspace-roles', [])->assertForbidden();
         $this->actingAs($owner);
         $payRole = $this->postJson('/api/workspace-roles', ['name' => 'Payroll clerk', 'base_role' => 'employee', 'permissions' => ['staff.pay']])->assertCreated()->json('data.id');
-        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $payRole])->assertOk();
+        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $payRole, 'confirmed_user_id' => $user->id, 'current_password' => 'password'])->assertOk();
         $this->actingAs($user);
         $this->entry($id, 'payment')->assertCreated();
         $this->postJson('/api/staff', [])->assertForbidden();
