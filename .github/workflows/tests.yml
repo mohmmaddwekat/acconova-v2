@@ -31,6 +31,11 @@ jobs:
         run: docker exec ${{ job.services.mysql.id }} mysql -uroot -plocal-root-only -e "SET GLOBAL log_bin_trust_function_creators = 1"
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env && php artisan key:generate
+      - name: Verify MySQL migration round trip
+        run: |
+          php artisan migrate:fresh --force
+          php artisan migrate:reset --force
+          php artisan migrate --force
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
