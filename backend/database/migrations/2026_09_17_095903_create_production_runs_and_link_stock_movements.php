@@ -100,6 +100,22 @@ return new class extends Migration
         Schema::table(
             'production_run_outputs',
             function (Blueprint $table): void {
+                /*
+                 * MySQL can reuse the composite unique index as the supporting
+                 * index for the production_run_id foreign key. Give that FK a
+                 * dedicated index before removing the uniqueness constraint so
+                 * migration rollbacks remain valid.
+                 */
+                $table->index(
+                    'production_run_id',
+                    'prod_run_output_run_fk_idx',
+                );
+            },
+        );
+
+        Schema::table(
+            'production_run_outputs',
+            function (Blueprint $table): void {
                 $table->dropUnique(
                     'prod_run_output_line_uq',
                 );
