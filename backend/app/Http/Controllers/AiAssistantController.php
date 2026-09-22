@@ -24,11 +24,7 @@ class AiAssistantController extends Controller
 
         return response()->json([
             'data' => [
-                'enabled' => (bool) config('ai.enabled', false),
-                'configured' => $gateway->configured(),
-                'provider' => (string) config('ai.provider', 'openai-compatible'),
-                'model' => (string) config('ai.model', ''),
-                'auth_mode' => (string) config('ai.auth.mode', 'api_key'),
+                ...$gateway->status(),
                 'memory' => [
                     'recent_messages' => (int) config('ai.memory.recent_messages', 20),
                     'summarize_after_messages' => (int) config('ai.memory.summarize_after_messages', 40),
@@ -115,7 +111,23 @@ class AiAssistantController extends Controller
 
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:12000'],
+            'provider' => ['nullable', 'string', 'max:50'],
         ]);
+
+        $preferredProvider = isset($validated['provider'])
+            ? trim((string) $validated['provider'])
+            : null;
+
+        if (
+            $preferredProvider !== null
+            && $preferredProvider !== ''
+            && ! $gateway->providerAvailable($preferredProvider)
+        ) {
+            return response()->json([
+                'message' => 'The selected AI provider is not available.',
+                'code' => 'AI_PROVIDER_NOT_AVAILABLE',
+            ], 422);
+        }
 
         $userMessage = AiMessage::create([
             'ai_conversation_id' => $conversationRecord->id,
@@ -133,6 +145,7 @@ class AiAssistantController extends Controller
         try {
             $result = $gateway->chat(
                 $memory->context($conversationRecord),
+                preferredProvider: $preferredProvider ?: null,
             );
         } catch (RuntimeException $exception) {
             report($exception);
@@ -177,6 +190,8 @@ class AiAssistantController extends Controller
             'data' => [
                 'message' => $assistantMessage,
                 'usage' => [
+                    'provider' => $result['provider'],
+                    'model' => $result['model'],
                     'input_tokens' => $result['input_tokens'],
                     'output_tokens' => $result['output_tokens'],
                     'total_tokens' => $result['total_tokens'],
