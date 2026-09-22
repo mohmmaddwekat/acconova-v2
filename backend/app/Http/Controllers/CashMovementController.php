@@ -305,6 +305,19 @@ class CashMovementController extends Controller
             );
         }
 
+        /*
+         * A correction draft intentionally resembles the movement it replaces.
+         * The source movement must not block its own correction as a duplicate,
+         * while every other similar movement remains protected by the guard.
+         */
+        if ($movement->corrected_from_id) {
+            $duplicateQuery->where(
+                'id',
+                '!=',
+                $movement->corrected_from_id,
+            );
+        }
+
         $duplicates = $duplicateQuery
             ->latest('movement_date')
             ->latest('id')
