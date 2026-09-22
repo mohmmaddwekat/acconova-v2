@@ -4,7 +4,9 @@ use App\Http\Controllers\ApprovalWorkflowController;
 use App\Http\Controllers\AuditCenterController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\BankReconciliationController;
+use App\Http\Controllers\BillingCheckoutController;
 use App\Http\Controllers\BillingOverviewController;
+use App\Http\Controllers\BillingWebhookController;
 use App\Http\Controllers\BulkActionHistoryController;
 use App\Http\Controllers\BusinessControlController;
 use App\Http\Controllers\BusinessPulseController;
@@ -51,6 +53,11 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 require __DIR__.'/tasks.php';
+
+Route::post(
+    '/api/billing/webhook',
+    BillingWebhookController::class,
+)->middleware('throttle:120,1');
 
 Route::get(
     '/join-staff/{token}',
@@ -1479,6 +1486,22 @@ Route::prefix(
                 'show',
             ],
         );
+
+        Route::post(
+            'billing/checkout',
+            [
+                BillingCheckoutController::class,
+                'checkout',
+            ],
+        )->middleware('throttle:12,1');
+
+        Route::post(
+            'billing/portal',
+            [
+                BillingCheckoutController::class,
+                'portal',
+            ],
+        )->middleware('throttle:12,1');
 
         Route::get(
             'workspace-settings',

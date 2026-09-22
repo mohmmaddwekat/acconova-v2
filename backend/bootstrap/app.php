@@ -25,6 +25,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['acconova_locale']);
 
         /*
+         * The billing provider signs webhook bodies independently of Laravel
+         * sessions, so this single endpoint uses signature verification rather
+         * than browser CSRF protection.
+         */
+        $middleware->validateCsrfTokens(except: [
+            'api/billing/webhook',
+        ]);
+
+        /*
      * Inertia is part of the web stack because the application UI uses
      * Laravel sessions, authentication, cookies, and CSRF protection.
      */
