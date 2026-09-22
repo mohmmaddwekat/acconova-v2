@@ -343,7 +343,7 @@ class PartyWorkflowTest extends TestCase
                 'amount' => '60',
                 'currency' => 'ILS',
                 'movement_date' => '2026-01-04',
-                'method' => 'bank_transfer',
+                'method' => 'cash',
                 'reference' => 'Supplier advance',
                 'allocations' => [],
             ],
