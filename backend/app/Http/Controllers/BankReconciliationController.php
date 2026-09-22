@@ -83,7 +83,7 @@ class BankReconciliationController extends Controller
                         [abs((float) $line->amount)],
                     )
                     ->orderByRaw(
-                        'ABS(DATEDIFF(movement_date, ?))',
+                        $this->dateDistanceExpression(),
                         [$line->transaction_date],
                     )
                     ->first();
@@ -275,7 +275,7 @@ class BankReconciliationController extends Controller
                 [$amount],
             )
             ->orderByRaw(
-                'ABS(DATEDIFF(movement_date, ?)) ASC',
+                $this->dateDistanceExpression().' ASC',
                 [$row->transaction_date],
             )
             ->latest('id')
@@ -418,6 +418,13 @@ class BankReconciliationController extends Controller
         return response()->json([
             'ok' => true,
         ]);
+    }
+
+    private function dateDistanceExpression(): string
+    {
+        return DB::connection()->getDriverName() === 'sqlite'
+            ? 'ABS(julianday(movement_date) - julianday(?))'
+            : 'ABS(DATEDIFF(movement_date, ?))';
     }
 
     private function find(string $id): object
