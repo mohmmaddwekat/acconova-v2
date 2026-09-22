@@ -149,13 +149,13 @@ class ApprovalWorkflowService
                     (int) $rule->required_approvals,
                 ),
                 'snapshot' => [
-                    'rule_id' => $rule->id,
-                    'rule_name' => $rule->name,
-                    'field' => $rule->condition_field,
-                    'operator' => $rule->operator,
-                    'threshold' => $rule->threshold,
-                    'actual' => $actual,
-                    'fingerprint' => $documentFingerprint,
+                'rule_id' => $rule->id,
+                'rule_name' => $rule->name,
+                'field' => $rule->condition_field,
+                'operator' => $rule->operator,
+                'threshold' => $rule->threshold,
+                'actual' => $actual,
+                'fingerprint' => $documentFingerprint,
                 ],
             ];
         }
@@ -282,13 +282,13 @@ class ApprovalWorkflowService
                     (int) $rule->required_approvals,
                 ),
                 'snapshot' => [
-                    'rule_id' => $rule->id,
-                    'rule_name' => $rule->name,
-                    'field' => $rule->condition_field,
-                    'operator' => $rule->operator,
-                    'threshold' => $rule->threshold,
-                    'actual' => $actual,
-                    'fingerprint' => $fingerprint,
+                'rule_id' => $rule->id,
+                'rule_name' => $rule->name,
+                'field' => $rule->condition_field,
+                'operator' => $rule->operator,
+                'threshold' => $rule->threshold,
+                'actual' => $actual,
+                'fingerprint' => $fingerprint,
                 ],
             ];
         }
