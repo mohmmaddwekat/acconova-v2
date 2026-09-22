@@ -2134,17 +2134,18 @@ final class WorkspaceFeaturePermissions
                 }
             }
 
-            $builtin = $meta['builtin'] ?? [];
-
-            if (
-                ! $hasGroupSelection
-                && in_array(
+            /*
+             * A custom role only overrides permission groups it explicitly
+             * customizes. Untouched groups continue inheriting the base role
+             * contract; otherwise adding one granular permission would
+             * accidentally strip unrelated access across the workspace.
+             */
+            if (! $hasGroupSelection) {
+                return self::allowsForRole(
                     $baseRole,
-                    $builtin,
-                    true,
-                )
-            ) {
-                return true;
+                    null,
+                    $permission,
+                );
             }
 
             $legacy = $meta['legacy'] ?? [];
