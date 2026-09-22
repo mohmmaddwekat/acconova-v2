@@ -83,7 +83,21 @@ final class AiToolPlanner
             $preferredProvider,
         );
 
-        $decoded = $this->decodePlan($result['content']);
+        try {
+            $decoded = $this->decodePlan($result['content']);
+        } catch (RuntimeException $exception) {
+            report($exception);
+
+            return [
+                'calls' => [],
+                'usage' => [
+                    'input_tokens' => (int) $result['input_tokens'],
+                    'output_tokens' => (int) $result['output_tokens'],
+                    'total_tokens' => (int) $result['total_tokens'],
+                ],
+            ];
+        }
+
         $maxCalls = max(1, (int) config('ai.tools.max_calls', 4));
         $calls = [];
 
