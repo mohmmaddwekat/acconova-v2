@@ -15,7 +15,9 @@ use App\Http\Requests\UpdatePartyNotesRequest;
 use App\Http\Requests\UpdatePartyRequest;
 use App\Http\Resources\PartyResource;
 use App\Queries\Parties\PartyIndexQuery;
+use App\Services\FinanceAuthorization;
 use App\Services\MentionNotifier;
+use App\Services\PartyBalanceSummary;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -29,11 +31,99 @@ class PartyController extends Controller
     public function index(
         IndexPartyRequest $request,
         PartyIndexQuery $partyIndexQuery,
+        PartyBalanceSummary $partyBalanceSummary,
     ): AnonymousResourceCollection {
-        return PartyResource::collection(
+        $parties =
             $partyIndexQuery->execute(
                 $request->validated(),
-            ),
+            );
+
+        $collection =
+            $parties->getCollection();
+
+        $balances =
+            $partyBalanceSummary->forParties(
+                $collection,
+                FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.sales.view',
+                ),
+                FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.purchases.view',
+                ),
+                FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.cash.view',
+                ),
+            );
+
+        $organization =
+            app(TenantContext::class)
+                ->organization();
+
+        $currency =
+            strtoupper(
+                (string) (
+                    $organization
+                        ->preferences['currency']
+                    ?? 'ILS'
+                ),
+            );
+
+        $collection->each(function (
+            $party,
+        ) use (
+            $balances,
+            $currency,
+        ): void {
+            $summary =
+                $balances[$party->id]
+                ?? [
+                    'customer_position' => 0.0,
+                    'supplier_position' => 0.0,
+                    'owed_to_us' => 0.0,
+                    'we_owe' => 0.0,
+                ];
+
+            $party->setAttribute(
+                'balance_summary',
+                [
+                    'customer_position' => number_format(
+                        (float) $summary['customer_position'],
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'supplier_position' => number_format(
+                        (float) $summary['supplier_position'],
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'owed_to_us' => number_format(
+                        (float) $summary['owed_to_us'],
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'we_owe' => number_format(
+                        (float) $summary['we_owe'],
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'currency' => $currency,
+                ],
+            );
+        });
+
+        $parties->setCollection(
+            $collection,
+        );
+
+        return PartyResource::collection(
+            $parties,
         );
     }
 
