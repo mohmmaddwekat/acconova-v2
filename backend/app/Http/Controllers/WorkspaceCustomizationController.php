@@ -87,8 +87,7 @@ class WorkspaceCustomizationController extends Controller
         $id = DB::table(
             'custom_field_definitions',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
+            'organization_id' => $organizationId,
             ...$data,
             'options' => json_encode(
                 $data['options'] ?? [],
@@ -196,8 +195,7 @@ class WorkspaceCustomizationController extends Controller
         $id = DB::table(
             'custom_status_definitions',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
+            'organization_id' => $organizationId,
             ...$data,
             'created_at' => now(),
             'updated_at' => now(),
@@ -297,8 +295,7 @@ class WorkspaceCustomizationController extends Controller
         $id = DB::table(
             'approval_rules',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
+            'organization_id' => $organizationId,
             ...$data,
             'created_at' => now(),
             'updated_at' => now(),
@@ -475,12 +472,10 @@ class WorkspaceCustomizationController extends Controller
             'fields' => $fields,
             'values' => $values,
             'statuses' => $statuses,
-            'status_id' =>
-                $assignment
+            'status_id' => $assignment
                     ? $assignment->custom_status_definition_id
                     : null,
-            'can_edit' =>
-                $entity['can_edit'],
+            'can_edit' => $entity['can_edit'],
         ]);
     }
 
@@ -540,8 +535,7 @@ class WorkspaceCustomizationController extends Controller
 
                 foreach (
                     $data['values']
-                    ?? []
-                    as $definitionId => $value
+                    ?? [] as $definitionId => $value
                 ) {
                     $definition =
                         $definitions->get(
@@ -564,15 +558,12 @@ class WorkspaceCustomizationController extends Controller
                     DB::table(
                         'custom_field_values',
                     )->updateOrInsert([
-                        'organization_id' =>
-                            $organizationId,
-                        'custom_field_definition_id' =>
-                            (int) $definition->id,
+                        'organization_id' => $organizationId,
+                        'custom_field_definition_id' => (int) $definition->id,
                         'entity_type' => $type,
                         'entity_id' => $entity['id'],
                     ], [
-                        'value' =>
-                            $value === ''
+                        'value' => $value === ''
                                 ? null
                                 : $value,
                         'updated_at' => now(),
@@ -642,13 +633,11 @@ class WorkspaceCustomizationController extends Controller
                     DB::table(
                         'custom_status_assignments',
                     )->updateOrInsert([
-                        'organization_id' =>
-                            $organizationId,
+                        'organization_id' => $organizationId,
                         'entity_type' => $type,
                         'entity_id' => $entity['id'],
                     ], [
-                        'custom_status_definition_id' =>
-                            $status->id,
+                        'custom_status_definition_id' => $status->id,
                         'updated_at' => now(),
                         'created_at' => now(),
                     ]);
@@ -743,12 +732,11 @@ class WorkspaceCustomizationController extends Controller
             )
             ->when(
                 $ignoreId,
-                fn ($query) =>
-                    $query->where(
-                        'id',
-                        '!=',
-                        $ignoreId,
-                    ),
+                fn ($query) => $query->where(
+                    'id',
+                    '!=',
+                    $ignoreId,
+                ),
             )
             ->exists();
 
@@ -776,26 +764,22 @@ class WorkspaceCustomizationController extends Controller
 
         return [
             ...$data,
-            'options' =>
-                array_values(
-                    $data['options']
-                    ?? [],
-                ),
-            'required' =>
-                (bool) (
-                    $data['required']
-                    ?? false
-                ),
-            'active' =>
-                (bool) (
-                    $data['active']
-                    ?? true
-                ),
-            'position' =>
-                (int) (
-                    $data['position']
-                    ?? 0
-                ),
+            'options' => array_values(
+                $data['options']
+                ?? [],
+            ),
+            'required' => (bool) (
+                $data['required']
+                ?? false
+            ),
+            'active' => (bool) (
+                $data['active']
+                ?? true
+            ),
+            'position' => (int) (
+                $data['position']
+                ?? 0
+            ),
         ];
     }
 
@@ -864,12 +848,11 @@ class WorkspaceCustomizationController extends Controller
             )
             ->when(
                 $ignoreId,
-                fn ($query) =>
-                    $query->where(
-                        'id',
-                        '!=',
-                        $ignoreId,
-                    ),
+                fn ($query) => $query->where(
+                    'id',
+                    '!=',
+                    $ignoreId,
+                ),
             )
             ->exists();
 
@@ -883,21 +866,18 @@ class WorkspaceCustomizationController extends Controller
 
         return [
             ...$data,
-            'is_closed' =>
-                (bool) (
-                    $data['is_closed']
-                    ?? false
-                ),
-            'active' =>
-                (bool) (
-                    $data['active']
-                    ?? true
-                ),
-            'position' =>
-                (int) (
-                    $data['position']
-                    ?? 0
-                ),
+            'is_closed' => (bool) (
+                $data['is_closed']
+                ?? false
+            ),
+            'active' => (bool) (
+                $data['active']
+                ?? true
+            ),
+            'position' => (int) (
+                $data['position']
+                ?? 0
+            ),
         ];
     }
 
@@ -1167,11 +1147,10 @@ class WorkspaceCustomizationController extends Controller
 
             return [
                 'id' => $model->id,
-                'can_edit' =>
-                    $request->user()->can(
-                        'update',
-                        $model,
-                    ),
+                'can_edit' => $request->user()->can(
+                    'update',
+                    $model,
+                ),
             ];
         }
 
@@ -1191,11 +1170,10 @@ class WorkspaceCustomizationController extends Controller
 
             return [
                 'id' => $model->id,
-                'can_edit' =>
-                    $request->user()->can(
-                        'update',
-                        $model,
-                    ),
+                'can_edit' => $request->user()->can(
+                    'update',
+                    $model,
+                ),
             ];
         }
 
@@ -1229,10 +1207,9 @@ class WorkspaceCustomizationController extends Controller
 
             return [
                 'id' => (int) $row->id,
-                'can_edit' =>
-                    StaffController::allowed(
-                        'staff.manage',
-                    )
+                'can_edit' => StaffController::allowed(
+                    'staff.manage',
+                )
                     || StaffController::allowed(
                         'staff.team_manage',
                     ),

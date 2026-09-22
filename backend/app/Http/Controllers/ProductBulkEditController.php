@@ -69,8 +69,7 @@ class ProductBulkEditController extends Controller
                 'tax_rate',
             ])
             ->map(
-                fn ($value) =>
-                    is_string($value)
+                fn ($value) => is_string($value)
                         ? trim($value)
                         : $value,
             )
@@ -88,8 +87,7 @@ class ProductBulkEditController extends Controller
             $data['product_ids'],
         )
             ->map(
-                fn ($id): int =>
-                    (int) $id,
+                fn ($id): int => (int) $id,
             )
             ->values();
 
@@ -107,16 +105,14 @@ class ProductBulkEditController extends Controller
         );
 
         $ordered = $ids->map(
-            fn (int $id): Product =>
-                $products->get($id),
+            fn (int $id): Product => $products->get($id),
         );
 
         $ordered->each(
-            fn (Product $product) =>
-                Gate::authorize(
-                    'update',
-                    $product,
-                ),
+            fn (Product $product) => Gate::authorize(
+                'update',
+                $product,
+            ),
         );
 
         DB::transaction(
@@ -127,32 +123,23 @@ class ProductBulkEditController extends Controller
                 $request,
             ): void {
                 foreach (
-                    $ordered
-                    as $product
+                    $ordered as $product
                 ) {
                     $updateProduct->execute(
                         $product,
                         [
-                            'type' =>
-                                $product
-                                    ->type
-                                    ->value,
-                            'name' =>
-                                $product->name,
-                            'sku' =>
-                                $product->sku,
-                            'description' =>
-                                $product->description,
-                            'unit' =>
-                                $changes['unit']
+                            'type' => $product
+                                ->type
+                                ->value,
+                            'name' => $product->name,
+                            'sku' => $product->sku,
+                            'description' => $product->description,
+                            'unit' => $changes['unit']
                                 ?? $product->unit,
-                            'unit_price' =>
-                                $changes['unit_price']
+                            'unit_price' => $changes['unit_price']
                                 ?? $product->unit_price,
-                            'cost_price' =>
-                                $product->cost_price,
-                            'tax_rate' =>
-                                $changes['tax_rate']
+                            'cost_price' => $product->cost_price,
+                            'tax_rate' => $changes['tax_rate']
                                 ?? $product->tax_rate,
                         ],
                         $request->user()->id,
@@ -162,35 +149,27 @@ class ProductBulkEditController extends Controller
                 DB::table(
                     'bulk_action_history',
                 )->insert([
-                    'organization_id' =>
-                        app(
-                            TenantContext::class,
-                        )->id(),
-                    'user_id' =>
-                        $request->user()->id,
-                    'entity_type' =>
-                        'product',
-                    'action' =>
-                        'bulk_edit',
-                    'record_count' =>
-                        $ordered->count(),
-                    'record_ids' =>
-                        json_encode(
-                            $ordered
-                                ->pluck('id')
-                                ->map(
-                                    fn ($id): int =>
-                                        (int) $id,
-                                )
-                                ->values()
-                                ->all(),
-                            JSON_THROW_ON_ERROR,
-                        ),
-                    'changes' =>
-                        json_encode(
-                            $changes,
-                            JSON_THROW_ON_ERROR,
-                        ),
+                    'organization_id' => app(
+                        TenantContext::class,
+                    )->id(),
+                    'user_id' => $request->user()->id,
+                    'entity_type' => 'product',
+                    'action' => 'bulk_edit',
+                    'record_count' => $ordered->count(),
+                    'record_ids' => json_encode(
+                        $ordered
+                            ->pluck('id')
+                            ->map(
+                                fn ($id): int => (int) $id,
+                            )
+                            ->values()
+                            ->all(),
+                        JSON_THROW_ON_ERROR,
+                    ),
+                    'changes' => json_encode(
+                        $changes,
+                        JSON_THROW_ON_ERROR,
+                    ),
                     'created_at' => now(),
                 ]);
             },
@@ -199,10 +178,8 @@ class ProductBulkEditController extends Controller
 
         return response()->json([
             'data' => [
-                'affected' =>
-                    $ordered->count(),
-                'changes' =>
-                    $changes,
+                'affected' => $ordered->count(),
+                'changes' => $changes,
             ],
         ]);
     }

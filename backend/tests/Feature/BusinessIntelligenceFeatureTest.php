@@ -499,16 +499,14 @@ class BusinessIntelligenceFeatureTest extends TestCase
 
         $organization =
             Organization::create([
-                'name' =>
-                    $name,
+                'name' => $name,
             ]);
 
         $organization->users()
             ->attach(
                 $user->id,
                 [
-                    'role' =>
-                        'owner',
+                    'role' => 'owner',
                 ],
             );
 
@@ -525,8 +523,7 @@ class BusinessIntelligenceFeatureTest extends TestCase
         $this->actingAs(
             $user,
         )->withSession([
-            OrganizationAccess::SESSION_KEY =>
-                $organization->id,
+            OrganizationAccess::SESSION_KEY => $organization->id,
         ]);
     }
 
@@ -537,10 +534,8 @@ class BusinessIntelligenceFeatureTest extends TestCase
         return (int) $this->postJson(
             '/api/parties',
             [
-                'type' =>
-                    'company',
-                'company_name' =>
-                    $name,
+                'type' => 'company',
+                'company_name' => $name,
                 'roles' => [
                     $role,
                 ],
@@ -558,20 +553,13 @@ class BusinessIntelligenceFeatureTest extends TestCase
         return (int) $this->postJson(
             '/api/products',
             [
-                'type' =>
-                    'product',
-                'name' =>
-                    $name,
-                'sku' =>
-                    null,
-                'unit' =>
-                    'unit',
-                'unit_price' =>
-                    $unitPrice,
-                'cost_price' =>
-                    $costPrice,
-                'tax_rate' =>
-                    '0',
+                'type' => 'product',
+                'name' => $name,
+                'sku' => null,
+                'unit' => 'unit',
+                'unit_price' => $unitPrice,
+                'cost_price' => $costPrice,
+                'tax_rate' => '0',
             ],
         )
             ->assertCreated()
@@ -579,7 +567,7 @@ class BusinessIntelligenceFeatureTest extends TestCase
     }
 
     /**
-     * @param list<array<string, mixed>> $lines
+     * @param  list<array<string, mixed>>  $lines
      */
     private function document(
         string $kind,
@@ -591,19 +579,13 @@ class BusinessIntelligenceFeatureTest extends TestCase
         return (int) $this->postJson(
             '/api/finance/documents',
             [
-                'kind' =>
-                    $kind,
-                'party_id' =>
-                    $partyId,
-                'external_number' =>
-                    $externalNumber,
-                'issue_date' =>
-                    $issueDate
+                'kind' => $kind,
+                'party_id' => $partyId,
+                'external_number' => $externalNumber,
+                'issue_date' => $issueDate
                     ?? today()->toDateString(),
-                'currency' =>
-                    'ILS',
-                'lines' =>
-                    $lines,
+                'currency' => 'ILS',
+                'lines' => $lines,
             ],
         )
             ->assertCreated()
@@ -616,8 +598,7 @@ class BusinessIntelligenceFeatureTest extends TestCase
         return (int) $this->postJson(
             '/api/warehouses',
             [
-                'name' =>
-                    $name,
+                'name' => $name,
             ],
         )
             ->assertCreated()

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\FinanceAuthorization;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -33,6 +33,7 @@ class ReportStudioController extends Controller
                     ->where(fn ($q) => $q->where('created_by', $user->id)->orWhere('shared', true))
                     ->latest('id')->get()->map(function ($row) {
                         $row->layout = json_decode($row->layout ?: '[]', true) ?: [];
+
                         return $row;
                     })
                 : [],
@@ -82,6 +83,7 @@ class ReportStudioController extends Controller
                     ])
                     ->map(function ($row) {
                         $row->mentions = json_decode($row->mentions ?: '[]', true) ?: [];
+
                         return $row;
                     })
                 : [],
@@ -782,6 +784,7 @@ class ReportStudioController extends Controller
         $purchases = (float) DB::table('financial_documents')
             ->where('organization_id', $org)->where('kind', 'purchase_invoice')
             ->whereBetween('issue_date', [$from, $to])->where('status', '!=', 'void')->sum('total');
+
         return [
             'columns' => ['metric', 'value'],
             'rows' => [
@@ -1021,11 +1024,19 @@ class ReportStudioController extends Controller
         $base = collect($this->profitability($from, $to, 'product')['rows']);
         $rows = $base->map(function ($row) {
             $reasons = [];
-            if ($row['margin_percent'] < 10) $reasons[] = 'Low margin';
-            if ($row['discounts'] > $row['revenue'] * 0.15) $reasons[] = 'High discounts';
-            if ($row['cost'] > $row['revenue'] * 0.8) $reasons[] = 'High cost';
+            if ($row['margin_percent'] < 10) {
+                $reasons[] = 'Low margin';
+            }
+            if ($row['discounts'] > $row['revenue'] * 0.15) {
+                $reasons[] = 'High discounts';
+            }
+            if ($row['cost'] > $row['revenue'] * 0.8) {
+                $reasons[] = 'High cost';
+            }
+
             return [...$row, 'leakage_reasons' => implode(', ', $reasons)];
         })->filter(fn ($row) => $row['leakage_reasons'] !== '')->values();
+
         return ['columns' => ['dimension', 'revenue', 'cost', 'discounts', 'gross_profit', 'margin_percent', 'leakage_reasons'], 'rows' => $rows];
     }
 
@@ -1138,8 +1149,7 @@ class ReportStudioController extends Controller
                 $this->historicalOutstandingDocuments(
                     'sale_invoice',
                     $end,
-                )
-                as $document
+                ) as $document
             ) {
                 $balance =
                     (float) $document['historical_balance'];
@@ -1149,6 +1159,7 @@ class ReportStudioController extends Controller
                     || Carbon::parse($document['due_date'])->greaterThan($end)
                 ) {
                     $buckets['current_0_30'] += $balance;
+
                     continue;
                 }
 
@@ -1195,7 +1206,7 @@ class ReportStudioController extends Controller
     /**
      * Reconstruct invoice balances as they actually stood at a historical date.
      *
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>
      */
     private function historicalOutstandingDocuments(
         string $kind,
@@ -1289,8 +1300,7 @@ class ReportStudioController extends Controller
                 ];
             })
             ->filter(
-                fn (array $document): bool =>
-                    $document['historical_balance'] > 0.0001,
+                fn (array $document): bool => $document['historical_balance'] > 0.0001,
             )
             ->values();
     }
@@ -1650,8 +1660,7 @@ class ReportStudioController extends Controller
                     'on_hand' => (float) $row->on_hand,
                     'last_sale_at' => $row->last_sale_at,
                     'days_without_sale' => $days,
-                    'frozen_capital' =>
-                        (float) $row->on_hand
+                    'frozen_capital' => (float) $row->on_hand
                         * (float) $row->cost_price,
                     'bucket' => $days >= 180
                         ? '180+'
@@ -1671,8 +1680,7 @@ class ReportStudioController extends Controller
                 ];
             })
             ->filter(
-                fn (array $row): bool =>
-                    $row['days_without_sale'] >= 30,
+                fn (array $row): bool => $row['days_without_sale'] >= 30,
             )
             ->sortByDesc('days_without_sale')
             ->values();
@@ -1820,8 +1828,7 @@ class ReportStudioController extends Controller
             ])
             ->groupBy('product_id')
             ->map(
-                fn ($items): float =>
-                    (float) $items->first()->unit_price,
+                fn ($items): float => (float) $items->first()->unit_price,
             );
 
         $rows = $baseRows
@@ -2425,6 +2432,7 @@ class ReportStudioController extends Controller
             ->map(function ($row): array {
                 $row = (array) $row;
                 unset($row['_metric']);
+
                 return $row;
             })
             ->values();
@@ -2565,7 +2573,7 @@ class ReportStudioController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>
      */
     private function analysisRows(
         Carbon $from,
@@ -2604,6 +2612,7 @@ class ReportStudioController extends Controller
         $fxRate = 1 + ((float) ($scenario['currency_percent'] ?? 0) / 100);
         $scenarioSales = $sales * $salesRate * $fxRate;
         $scenarioCost = $cost * $costRate * $fxRate;
+
         return ['columns' => ['case', 'sales', 'cost', 'profit', 'margin_percent'], 'rows' => [
             ['case' => 'Baseline', 'sales' => $sales, 'cost' => $cost, 'profit' => $sales - $cost, 'margin_percent' => $sales == 0 ? 0 : (($sales - $cost) / $sales) * 100],
             ['case' => 'Scenario', 'sales' => $scenarioSales, 'cost' => $scenarioCost, 'profit' => $scenarioSales - $scenarioCost, 'margin_percent' => $scenarioSales == 0 ? 0 : (($scenarioSales - $scenarioCost) / $scenarioSales) * 100],
@@ -2621,6 +2630,7 @@ class ReportStudioController extends Controller
         $dso = ($ar / $sales90) * 90;
         $dpo = ($ap / $purchases90) * 90;
         $inventoryDays = ($inventory / $purchases90) * 90;
+
         return ['columns' => ['dso', 'dpo', 'inventory_days', 'cash_conversion_cycle'], 'rows' => [[
             'dso' => $dso, 'dpo' => $dpo, 'inventory_days' => $inventoryDays, 'cash_conversion_cycle' => $dso + $inventoryDays - $dpo,
         ]]];

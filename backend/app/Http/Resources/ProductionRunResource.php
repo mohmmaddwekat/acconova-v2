@@ -118,7 +118,7 @@ class ProductionRunResource extends JsonResource
                                 'unit' => $output
                                     ->product
                                     ->unit,
-                                ],
+                            ],
 
                             'warehouse' => [
                                 'id' => $output
@@ -132,7 +132,7 @@ class ProductionRunResource extends JsonResource
                                 'code' => $output
                                     ->warehouse
                                     ->code,
-                                ],
+                            ],
 
                             'recipe' => $output->recipe
                                     ? [

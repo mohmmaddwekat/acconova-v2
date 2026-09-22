@@ -189,8 +189,7 @@ class WorkflowExpansionFeatureTest extends TestCase
             '/api/scheduled-reports',
             [
                 'name' => 'Daily sales',
-                'report_type' =>
-                    'sales_summary',
+                'report_type' => 'sales_summary',
                 'cadence' => 'daily',
                 'run_hour' => 8,
                 'recipient_user_ids' => [
@@ -211,10 +210,8 @@ class WorkflowExpansionFeatureTest extends TestCase
             'scheduled_report_runs',
             [
                 'id' => $runId,
-                'scheduled_report_id' =>
-                    $scheduleId,
-                'report_type' =>
-                    'sales_summary',
+                'scheduled_report_id' => $scheduleId,
+                'report_type' => 'sales_summary',
             ],
         );
 
@@ -265,20 +262,13 @@ class WorkflowExpansionFeatureTest extends TestCase
         $this->postJson(
             '/api/workspace-customization/approval-rules',
             [
-                'name' =>
-                    'Two reviewers above 100',
-                'subject_type' =>
-                    'financial_document',
-                'condition_field' =>
-                    'total',
-                'operator' =>
-                    'gte',
-                'threshold' =>
-                    '100',
-                'required_approvals' =>
-                    2,
-                'priority' =>
-                    10,
+                'name' => 'Two reviewers above 100',
+                'subject_type' => 'financial_document',
+                'condition_field' => 'total',
+                'operator' => 'gte',
+                'threshold' => '100',
+                'required_approvals' => 2,
+                'priority' => 10,
             ],
         )->assertCreated();
 
@@ -298,8 +288,7 @@ class WorkflowExpansionFeatureTest extends TestCase
         $this->postJson(
             "/api/finance/documents/{$documentId}/issue",
             [
-                'acknowledge_warnings' =>
-                    false,
+                'acknowledge_warnings' => false,
             ],
         )
             ->assertUnprocessable()
@@ -379,8 +368,7 @@ class WorkflowExpansionFeatureTest extends TestCase
         $this->postJson(
             "/api/finance/documents/{$documentId}/issue",
             [
-                'acknowledge_warnings' =>
-                    false,
+                'acknowledge_warnings' => false,
             ],
         )
             ->assertOk()
@@ -407,8 +395,7 @@ class WorkflowExpansionFeatureTest extends TestCase
             ->attach(
                 $user->id,
                 [
-                    'role' =>
-                        'owner',
+                    'role' => 'owner',
                 ],
             );
 
@@ -425,8 +412,7 @@ class WorkflowExpansionFeatureTest extends TestCase
         $this->actingAs(
             $user,
         )->withSession([
-            OrganizationAccess::SESSION_KEY =>
-                $organization->id,
+            OrganizationAccess::SESSION_KEY => $organization->id,
         ]);
     }
 
@@ -458,22 +444,17 @@ class WorkflowExpansionFeatureTest extends TestCase
             [
                 'kind' => $kind,
                 'party_id' => $partyId,
-                'issue_date' =>
-                    today()->toDateString(),
+                'issue_date' => today()->toDateString(),
                 'currency' => 'ILS',
                 'lines' => [
                     [
-                        'description' =>
-                            'Approval test service',
+                        'description' => 'Approval test service',
                         'quantity' => '1',
                         'unit' => 'service',
-                        'unit_price' =>
-                            $unitPrice,
-                        'discount_percent' =>
-                            '0',
+                        'unit_price' => $unitPrice,
+                        'discount_percent' => '0',
                         'tax_rate' => '0',
-                        'affects_inventory' =>
-                            false,
+                        'affects_inventory' => false,
                     ],
                 ],
             ],

@@ -163,18 +163,13 @@ return new class extends Migration
                     DB::table(
                         'trade_document_conversions',
                     )->insertOrIgnore([
-                        'organization_id' =>
-                            $document->organization_id,
-                        'trade_document_id' =>
-                            $document->id,
-                        'financial_document_id' =>
-                            $document->converted_financial_document_id,
+                        'organization_id' => $document->organization_id,
+                        'trade_document_id' => $document->id,
+                        'financial_document_id' => $document->converted_financial_document_id,
                         'converted_quantity' => 0,
-                        'created_at' =>
-                            $document->updated_at
+                        'created_at' => $document->updated_at
                             ?? now(),
-                        'updated_at' =>
-                            $document->updated_at
+                        'updated_at' => $document->updated_at
                             ?? now(),
                     ]);
                 });

@@ -1,11 +1,11 @@
 <?php
 
+use App\Enums\OrganizationRole;
 use App\Models\Organization;
+use App\Services\InvoiceAutomationService;
 use App\Services\NotificationCenter;
 use App\Services\ScheduledReportService;
-use App\Services\InvoiceAutomationService;
 use App\Tenancy\TenantContext;
-use App\Enums\OrganizationRole;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -35,7 +35,6 @@ Artisan::command('reports:sync-scheduled', function (): void {
 Schedule::command('reports:sync-scheduled')
     ->hourly()
     ->withoutOverlapping();
-
 
 Artisan::command('invoices:sync-recurring', function (): void {
     $tenant = app(TenantContext::class);

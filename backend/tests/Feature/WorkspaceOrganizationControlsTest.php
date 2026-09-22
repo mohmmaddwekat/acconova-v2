@@ -100,6 +100,6 @@ class WorkspaceOrganizationControlsTest extends TestCase
         $this->patchJson('/api/departments/'.$dept, ['name' => 'Team', 'manager_id' => $id])->assertOk();
         $this->actingAs($user);
         $this->getJson('/api/staff/'.$other.'/ledger')->assertForbidden();
-        $this->postJson('/api/departments',['name' => 'Unauthorized'])->assertForbidden();
+        $this->postJson('/api/departments', ['name' => 'Unauthorized'])->assertForbidden();
     }
 }

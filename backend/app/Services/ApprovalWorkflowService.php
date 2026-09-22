@@ -144,19 +144,18 @@ class ApprovalWorkflowService
                     $rule->name,
                     $rule->required_approvals,
                 ),
-                'required_approvals' =>
-                    max(
-                        1,
-                        (int) $rule->required_approvals,
-                    ),
+                'required_approvals' => max(
+                    1,
+                    (int) $rule->required_approvals,
+                ),
                 'snapshot' => [
-                    'rule_id' => $rule->id,
-                    'rule_name' => $rule->name,
-                    'field' => $rule->condition_field,
-                    'operator' => $rule->operator,
-                    'threshold' => $rule->threshold,
-                    'actual' => $actual,
-                    'fingerprint' => $documentFingerprint,
+                'rule_id' => $rule->id,
+                'rule_name' => $rule->name,
+                'field' => $rule->condition_field,
+                'operator' => $rule->operator,
+                'threshold' => $rule->threshold,
+                'actual' => $actual,
+                'fingerprint' => $documentFingerprint,
                 ],
             ];
         }
@@ -278,19 +277,18 @@ class ApprovalWorkflowService
                     $rule->name,
                     $rule->required_approvals,
                 ),
-                'required_approvals' =>
-                    max(
-                        1,
-                        (int) $rule->required_approvals,
-                    ),
+                'required_approvals' => max(
+                    1,
+                    (int) $rule->required_approvals,
+                ),
                 'snapshot' => [
-                    'rule_id' => $rule->id,
-                    'rule_name' => $rule->name,
-                    'field' => $rule->condition_field,
-                    'operator' => $rule->operator,
-                    'threshold' => $rule->threshold,
-                    'actual' => $actual,
-                    'fingerprint' => $fingerprint,
+                'rule_id' => $rule->id,
+                'rule_name' => $rule->name,
+                'field' => $rule->condition_field,
+                'operator' => $rule->operator,
+                'threshold' => $rule->threshold,
+                'actual' => $actual,
+                'fingerprint' => $fingerprint,
                 ],
             ];
         }
@@ -325,7 +323,7 @@ class ApprovalWorkflowService
      * Approval is tied to the exact snapshot that was reviewed. Editing the
      * draft after approval invalidates the previous approval automatically.
      *
-     * @param array<string, mixed> $snapshot
+     * @param  array<string, mixed>  $snapshot
      */
     public function approved(
         string $subjectType,
@@ -367,7 +365,7 @@ class ApprovalWorkflowService
     /**
      * Return a pending request ID when approval is still missing.
      *
-     * @param array<string, mixed> $snapshot
+     * @param  array<string, mixed>  $snapshot
      */
     private function requestApproval(
         string $subjectType,
@@ -425,8 +423,7 @@ class ApprovalWorkflowService
                 DB::table('approval_requests')
                     ->where('id', $pending->id)
                     ->update([
-                        'required_approvals' =>
-                            $requiredApprovals,
+                        'required_approvals' => $requiredApprovals,
                         'updated_at' => now(),
                     ]);
             }
@@ -441,11 +438,10 @@ class ApprovalWorkflowService
                 'subject_id' => $subjectId,
                 'category' => $category,
                 'status' => 'pending',
-                'required_approvals' =>
-                    max(
-                        1,
-                        $requiredApprovals,
-                    ),
+                'required_approvals' => max(
+                    1,
+                    $requiredApprovals,
+                ),
                 'approved_count' => 0,
                 'reason' => $reason,
                 'snapshot' => json_encode(
@@ -469,7 +465,7 @@ class ApprovalWorkflowService
     }
 
     /**
-     * @param array<string, mixed> $snapshot
+     * @param  array<string, mixed>  $snapshot
      */
     private function notifyReviewers(
         int $organizationId,
@@ -544,15 +540,13 @@ class ApprovalWorkflowService
             $data = [
                 'name' => 'Approval required',
                 'detail' => $reason,
-                'invoice_total' =>
-                    $snapshot['total']
+                'invoice_total' => $snapshot['total']
                     ?? (
                         ($snapshot['field'] ?? null) === 'total'
                             ? ($snapshot['actual'] ?? null)
                             : null
                     ),
-                'amount_value' =>
-                    $snapshot['amount']
+                'amount_value' => $snapshot['amount']
                     ?? (
                         ($snapshot['field'] ?? null) === 'amount'
                             ? ($snapshot['actual'] ?? null)
@@ -673,10 +667,8 @@ class ApprovalWorkflowService
             ->values()
             ->map(
                 fn ($allocation): array => [
-                    'financial_document_id' =>
-                        $allocation->financial_document_id,
-                    'amount' =>
-                        $allocation->amount,
+                    'financial_document_id' => $allocation->financial_document_id,
+                    'amount' => $allocation->amount,
                 ],
             )
             ->all();
@@ -705,7 +697,7 @@ class ApprovalWorkflowService
     }
 
     /**
-     * @param list<int> $pendingIds
+     * @param  list<int>  $pendingIds
      */
     private function throwIfPending(
         array $pendingIds,

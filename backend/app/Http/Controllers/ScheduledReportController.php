@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\OrganizationRole;
-use App\Services\FinanceAuthorization;
 use App\Services\ScheduledReportService;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
@@ -36,8 +34,7 @@ class ScheduledReportController extends Controller
             ->get()
             ->map(fn ($row): array => [
                 ...((array) $row),
-                'recipient_user_ids' =>
-                    $row->recipient_user_ids
+                'recipient_user_ids' => $row->recipient_user_ids
                         ? json_decode(
                             $row->recipient_user_ids,
                             true,
@@ -72,8 +69,7 @@ class ScheduledReportController extends Controller
             ])
             ->map(fn ($row): array => [
                 ...((array) $row),
-                'snapshot' =>
-                    $row->snapshot
+                'snapshot' => $row->snapshot
                         ? json_decode(
                             $row->snapshot,
                             true,
@@ -101,14 +97,10 @@ class ScheduledReportController extends Controller
             ]);
 
         return response()->json([
-            'schedules' =>
-                $schedules,
-            'runs' =>
-                $runs,
-            'members' =>
-                $members,
-            'can_manage' =>
-                $this->canManage(),
+            'schedules' => $schedules,
+            'runs' => $runs,
+            'members' => $members,
+            'can_manage' => $this->canManage(),
         ]);
     }
 
@@ -128,36 +120,32 @@ class ScheduledReportController extends Controller
         $id = DB::table(
             'scheduled_reports',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
+            'organization_id' => $organizationId,
             ...$data,
-            'recipient_user_ids' =>
-                json_encode(
-                    $data['recipient_user_ids']
-                    ?? [],
-                    JSON_THROW_ON_ERROR,
-                ),
+            'recipient_user_ids' => json_encode(
+                $data['recipient_user_ids']
+                ?? [],
+                JSON_THROW_ON_ERROR,
+            ),
             'active' => true,
             'last_run_at' => null,
-            'next_run_at' =>
-                $reports->nextRunAt(
-                    $data,
-                ),
+            'next_run_at' => $reports->nextRunAt(
+                $data,
+            ),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         return response()->json([
-            'data' =>
-                DB::table(
-                    'scheduled_reports',
+            'data' => DB::table(
+                'scheduled_reports',
+            )
+                ->where(
+                    'organization_id',
+                    $organizationId,
                 )
-                    ->where(
-                        'organization_id',
-                        $organizationId,
-                    )
-                    ->where('id', $id)
-                    ->first(),
+                ->where('id', $id)
+                ->first(),
         ], 201);
     }
 
@@ -226,8 +214,7 @@ class ScheduledReportController extends Controller
             )
             ->update([
                 ...$data,
-                'next_run_at' =>
-                    ($data['active']
+                'next_run_at' => ($data['active']
                     ?? $current->active)
                         ? $reports->nextRunAt(
                             $merged,
@@ -237,15 +224,14 @@ class ScheduledReportController extends Controller
             ]);
 
         return response()->json([
-            'data' =>
-                DB::table(
-                    'scheduled_reports',
+            'data' => DB::table(
+                'scheduled_reports',
+            )
+                ->where(
+                    'id',
+                    $current->id,
                 )
-                    ->where(
-                        'id',
-                        $current->id,
-                    )
-                    ->first(),
+                ->first(),
         ]);
     }
 
@@ -371,8 +357,7 @@ class ScheduledReportController extends Controller
                     'user_id',
                 )
                 ->map(
-                    fn ($id): int =>
-                        (int) $id,
+                    fn ($id): int => (int) $id,
                 )
                 ->sort()
                 ->values()
@@ -384,8 +369,7 @@ class ScheduledReportController extends Controller
                 ],
             )
                 ->map(
-                    fn ($id): int =>
-                        (int) $id,
+                    fn ($id): int => (int) $id,
                 )
                 ->unique()
                 ->sort()
@@ -400,15 +384,13 @@ class ScheduledReportController extends Controller
 
         return [
             ...$data,
-            'day_of_week' =>
-                $data['cadence']
+            'day_of_week' => $data['cadence']
                 === 'weekly'
                     ? $data[
                         'day_of_week'
                     ]
                     : null,
-            'day_of_month' =>
-                $data['cadence']
+            'day_of_month' => $data['cadence']
                 === 'monthly'
                     ? $data[
                         'day_of_month'

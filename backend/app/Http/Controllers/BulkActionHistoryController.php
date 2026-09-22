@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\OrganizationRole;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -73,49 +72,44 @@ class BulkActionHistoryController extends Controller
             ->when(
                 $filters['entity_type']
                 ?? null,
-                fn ($query, $entityType) =>
-                    $query->where(
-                        'history.entity_type',
-                        $entityType,
-                    ),
+                fn ($query, $entityType) => $query->where(
+                    'history.entity_type',
+                    $entityType,
+                ),
             )
             ->when(
                 $filters['action']
                 ?? null,
-                fn ($query, $action) =>
-                    $query->where(
-                        'history.action',
-                        $action,
-                    ),
+                fn ($query, $action) => $query->where(
+                    'history.action',
+                    $action,
+                ),
             )
             ->when(
                 $filters['user_id']
                 ?? null,
-                fn ($query, $userId) =>
-                    $query->where(
-                        'history.user_id',
-                        (int) $userId,
-                    ),
+                fn ($query, $userId) => $query->where(
+                    'history.user_id',
+                    (int) $userId,
+                ),
             )
             ->when(
                 $filters['from']
                 ?? null,
-                fn ($query, $from) =>
-                    $query->whereDate(
-                        'history.created_at',
-                        '>=',
-                        $from,
-                    ),
+                fn ($query, $from) => $query->whereDate(
+                    'history.created_at',
+                    '>=',
+                    $from,
+                ),
             )
             ->when(
                 $filters['to']
                 ?? null,
-                fn ($query, $to) =>
-                    $query->whereDate(
-                        'history.created_at',
-                        '<=',
-                        $to,
-                    ),
+                fn ($query, $to) => $query->whereDate(
+                    'history.created_at',
+                    '<=',
+                    $to,
+                ),
             )
             ->latest(
                 'history.id',
@@ -135,15 +129,13 @@ class BulkActionHistoryController extends Controller
             ->map(
                 fn ($row): array => [
                     ...((array) $row),
-                    'record_ids' =>
-                        $row->record_ids
+                    'record_ids' => $row->record_ids
                             ? json_decode(
                                 $row->record_ids,
                                 true,
                             )
                             : [],
-                    'changes' =>
-                        $row->changes
+                    'changes' => $row->changes
                             ? json_decode(
                                 $row->changes,
                                 true,

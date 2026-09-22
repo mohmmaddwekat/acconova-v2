@@ -108,9 +108,8 @@ class WorkspaceNotificationController extends Controller
                                 'kind' => $notice->kind,
                                 'data' => $notice->data,
                                 'url' => $notice->url,
-                                'created_at' =>
-                                    $notice->created_at
-                                        ->toIso8601String(),
+                                'created_at' => $notice->created_at
+                                    ->toIso8601String(),
                             ],
                         )
                         ->values();
@@ -130,8 +129,7 @@ class WorkspaceNotificationController extends Controller
             'data' => [
                 'total_unread' => $items->count(),
                 'groups' => $groups,
-                'generated_at' =>
-                    now()->toIso8601String(),
+                'generated_at' => now()->toIso8601String(),
             ],
         ]);
     }

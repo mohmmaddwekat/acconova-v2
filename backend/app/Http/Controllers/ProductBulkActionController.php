@@ -57,10 +57,8 @@ class ProductBulkActionController extends Controller
 
         DB::table('bulk_action_history')
             ->insert([
-                'organization_id' =>
-                    app(TenantContext::class)->id(),
-                'user_id' =>
-                    $request->user()->id,
+                'organization_id' => app(TenantContext::class)->id(),
+                'user_id' => $request->user()->id,
                 'entity_type' => 'product',
                 'action' => 'bulk_'.$action,
                 'record_count' => $affected,
@@ -68,8 +66,7 @@ class ProductBulkActionController extends Controller
                     $products
                         ->pluck('id')
                         ->map(
-                            fn ($id): int =>
-                                (int) $id,
+                            fn ($id): int => (int) $id,
                         )
                         ->values()
                         ->all(),

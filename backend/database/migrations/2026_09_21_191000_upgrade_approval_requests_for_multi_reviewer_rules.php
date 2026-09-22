@@ -96,15 +96,11 @@ return new class extends Migration
                     DB::table(
                         'approval_decisions',
                     )->insertOrIgnore([
-                        'organization_id' =>
-                            $row->organization_id,
-                        'approval_request_id' =>
-                            $row->id,
-                        'reviewer_id' =>
-                            $row->reviewed_by,
+                        'organization_id' => $row->organization_id,
+                        'approval_request_id' => $row->id,
+                        'reviewer_id' => $row->reviewed_by,
                         'decision' => 'approved',
-                        'decided_at' =>
-                            $row->reviewed_at
+                        'decided_at' => $row->reviewed_at
                             ?? $row->created_at
                             ?? now(),
                         'created_at' => now(),

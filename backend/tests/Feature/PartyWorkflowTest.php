@@ -205,8 +205,7 @@ class PartyWorkflowTest extends TestCase
 
         $this->actingAs($user)
             ->withSession([
-                OrganizationAccess::SESSION_KEY =>
-                    $organization->id,
+                OrganizationAccess::SESSION_KEY => $organization->id,
             ]);
 
         $partyId = $this->postJson(
@@ -391,12 +390,9 @@ class PartyWorkflowTest extends TestCase
         $this->assertDatabaseHas(
             'finance_audit_events',
             [
-                'auditable_type' =>
-                    'PartyOpeningBalance',
-                'action' =>
-                    'opening_balance_created',
+                'auditable_type' => 'PartyOpeningBalance',
+                'action' => 'opening_balance_created',
             ],
         );
     }
-
 }

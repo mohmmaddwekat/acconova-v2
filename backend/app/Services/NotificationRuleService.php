@@ -13,7 +13,7 @@ class NotificationRuleService
      * category, delivery is allowed. When one or more rules target the event,
      * every matching rule must pass.
      *
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function allows(
         int $organizationId,
@@ -101,32 +101,27 @@ class NotificationRuleService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     private function valueFor(
         string $field,
         array $data,
     ): float|string|null {
         $candidate = match ($field) {
-            'amount' =>
-                $data['amount_value']
+            'amount' => $data['amount_value']
                 ?? $data['amount']
                 ?? null,
-            'stock_quantity' =>
-                $data['stock_quantity']
+            'stock_quantity' => $data['stock_quantity']
                 ?? $data['amount_value']
                 ?? $data['amount']
                 ?? null,
-            'invoice_total' =>
-                $data['invoice_total']
+            'invoice_total' => $data['invoice_total']
                 ?? $data['total']
                 ?? $data['amount_value']
                 ?? null,
-            'count' =>
-                $data['count']
+            'count' => $data['count']
                 ?? null,
-            default =>
-                null,
+            default => null,
         };
 
         if (
@@ -180,10 +175,9 @@ class NotificationRuleService
                 'gte' => $left >= $right,
                 'lt' => $left < $right,
                 'lte' => $left <= $right,
-                'eq' =>
-                    abs(
-                        $left - $right,
-                    ) < 0.00005,
+                'eq' => abs(
+                    $left - $right,
+                ) < 0.00005,
                 default => false,
             };
         }

@@ -10,8 +10,7 @@ final class AiToolPlanner
     public function __construct(
         private readonly AiGateway $gateway,
         private readonly AiBusinessToolRegistry $tools,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<array{role:string,content:string}>  $messages
@@ -52,22 +51,20 @@ final class AiToolPlanner
         $plannerMessages = [
             [
                 'role' => 'system',
-                'content' =>
-                    "You are the AccoNova internal business-tool planner. ".
+                'content' => 'You are the AccoNova internal business-tool planner. '.
                     "Use tools whenever the user's question depends on live AccoNova business data. ".
-                    "Never invent tool names or arguments. Never request SQL, table names, columns, raw database access, credentials, or secrets. ".
-                    "Use only the supplied tool catalog. At most ".
+                    'Never invent tool names or arguments. Never request SQL, table names, columns, raw database access, credentials, or secrets. '.
+                    'Use only the supplied tool catalog. At most '.
                     max(1, (int) config('ai.tools.max_calls', 4)).
-                    " calls. If no business data is needed, return no calls. ".
+                    ' calls. If no business data is needed, return no calls. '.
                     "Resolve relative dates using today's date ".
                     now()->toDateString().
-                    ". Return JSON only, exactly in this shape: ".
+                    '. Return JSON only, exactly in this shape: '.
                     '{"calls":[{"name":"tool_name","arguments":{}}]}.',
             ],
             [
                 'role' => 'user',
-                'content' =>
-                    "Tool catalog:\n".
+                'content' => "Tool catalog:\n".
                     json_encode(
                         $definitions,
                         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,

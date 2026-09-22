@@ -41,14 +41,12 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
         $this->postJson(
             "/api/finance/documents/{$documentId}/issue",
             [
-                'acknowledge_warnings' =>
-                    false,
+                'acknowledge_warnings' => false,
             ],
         )->assertOk();
 
         $definition = [
-            'dataset' =>
-                'sales_invoices',
+            'dataset' => 'sales_invoices',
             'columns' => [
                 'number',
                 'party',
@@ -57,20 +55,14 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
             ],
             'filters' => [
                 [
-                    'field' =>
-                        'status',
-                    'operator' =>
-                        'eq',
-                    'value' =>
-                        'issued',
+                    'field' => 'status',
+                    'operator' => 'eq',
+                    'value' => 'issued',
                 ],
             ],
-            'group_by' =>
-                'status',
-            'sort_by' =>
-                'number',
-            'sort_direction' =>
-                'asc',
+            'group_by' => 'status',
+            'sort_by' => 'number',
+            'sort_direction' => 'asc',
         ];
 
         $this->postJson(
@@ -95,10 +87,8 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
             '/api/report-builder',
             [
                 ...$definition,
-                'name' =>
-                    'Issued sales',
-                'shared' =>
-                    true,
+                'name' => 'Issued sales',
+                'shared' => true,
             ],
         )
             ->assertCreated()
@@ -145,22 +135,17 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
         $this->postJson(
             "/api/finance/documents/{$documentId}/issue",
             [
-                'acknowledge_warnings' =>
-                    false,
+                'acknowledge_warnings' => false,
             ],
         )->assertOk();
 
         $this->postJson(
             '/api/dashboard-intelligence/kpi-targets',
             [
-                'metric' =>
-                    'sales_revenue',
-                'period' =>
-                    'monthly',
-                'target_value' =>
-                    '1000',
-                'currency' =>
-                    'ILS',
+                'metric' => 'sales_revenue',
+                'period' => 'monthly',
+                'target_value' => '1000',
+                'currency' => 'ILS',
             ],
         )->assertCreated();
 
@@ -172,8 +157,7 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
                     'exceptions',
                     'morning_actions',
                 ],
-                'exception_only' =>
-                    true,
+                'exception_only' => true,
             ],
         )
             ->assertOk()
@@ -238,20 +222,13 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
         $this->postJson(
             '/api/notification-rules',
             [
-                'name' =>
-                    'Large approvals only',
-                'category' =>
-                    'activity',
-                'kind' =>
-                    'approval_required',
-                'field' =>
-                    'invoice_total',
-                'operator' =>
-                    'gt',
-                'threshold' =>
-                    '5000',
-                'active' =>
-                    true,
+                'name' => 'Large approvals only',
+                'category' => 'activity',
+                'kind' => 'approval_required',
+                'field' => 'invoice_total',
+                'operator' => 'gt',
+                'threshold' => '5000',
+                'active' => true,
             ],
         )->assertCreated();
 
@@ -267,8 +244,7 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
                 'approval_required',
                 'activity',
                 [
-                    'invoice_total' =>
-                        4000,
+                    'invoice_total' => 4000,
                 ],
             ),
         );
@@ -280,8 +256,7 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
                 'approval_required',
                 'activity',
                 [
-                    'invoice_total' =>
-                        7000,
+                    'invoice_total' => 7000,
                 ],
             ),
         );
@@ -290,54 +265,32 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
             'workspace_notifications',
         )->insert([
             [
-                'organization_id' =>
-                    $organization->id,
-                'user_id' =>
-                    $owner->id,
-                'event_key' =>
-                    'digest-stock-1',
-                'kind' =>
-                    'low_stock',
-                'category' =>
-                    'stock',
-                'data' =>
-                    json_encode([
-                        'name' =>
-                            'Product A',
-                    ], JSON_THROW_ON_ERROR),
-                'url' =>
-                    '/app/inventory',
-                'read_at' =>
-                    null,
-                'created_at' =>
-                    now(),
-                'updated_at' =>
-                    now(),
+                'organization_id' => $organization->id,
+                'user_id' => $owner->id,
+                'event_key' => 'digest-stock-1',
+                'kind' => 'low_stock',
+                'category' => 'stock',
+                'data' => json_encode([
+                    'name' => 'Product A',
+                ], JSON_THROW_ON_ERROR),
+                'url' => '/app/inventory',
+                'read_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
-                'organization_id' =>
-                    $organization->id,
-                'user_id' =>
-                    $owner->id,
-                'event_key' =>
-                    'digest-stock-2',
-                'kind' =>
-                    'out_of_stock',
-                'category' =>
-                    'stock',
-                'data' =>
-                    json_encode([
-                        'name' =>
-                            'Product B',
-                    ], JSON_THROW_ON_ERROR),
-                'url' =>
-                    '/app/inventory',
-                'read_at' =>
-                    null,
-                'created_at' =>
-                    now(),
-                'updated_at' =>
-                    now(),
+                'organization_id' => $organization->id,
+                'user_id' => $owner->id,
+                'event_key' => 'digest-stock-2',
+                'kind' => 'out_of_stock',
+                'category' => 'stock',
+                'data' => json_encode([
+                    'name' => 'Product B',
+                ], JSON_THROW_ON_ERROR),
+                'url' => '/app/inventory',
+                'read_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
         ]);
 
@@ -367,10 +320,8 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
             );
 
         $owner->forceFill([
-            'previous_login_at' =>
-                now()->subHours(2),
-            'last_login_at' =>
-                now(),
+            'previous_login_at' => now()->subHours(2),
+            'last_login_at' => now(),
         ])->save();
 
         $this->actingInWorkspace(
@@ -381,31 +332,22 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
         DB::table(
             'bulk_action_history',
         )->insert([
-            'organization_id' =>
-                $organization->id,
-            'user_id' =>
-                $owner->id,
-            'entity_type' =>
-                'party',
-            'action' =>
-                'bulk_edit',
-            'record_count' =>
-                2,
-            'record_ids' =>
-                json_encode(
-                    [1, 2],
-                    JSON_THROW_ON_ERROR,
-                ),
-            'changes' =>
-                json_encode(
-                    [
-                        'city' =>
-                            'Nablus',
-                    ],
-                    JSON_THROW_ON_ERROR,
-                ),
-            'created_at' =>
-                now()->subHour(),
+            'organization_id' => $organization->id,
+            'user_id' => $owner->id,
+            'entity_type' => 'party',
+            'action' => 'bulk_edit',
+            'record_count' => 2,
+            'record_ids' => json_encode(
+                [1, 2],
+                JSON_THROW_ON_ERROR,
+            ),
+            'changes' => json_encode(
+                [
+                    'city' => 'Nablus',
+                ],
+                JSON_THROW_ON_ERROR,
+            ),
+            'created_at' => now()->subHour(),
         ]);
 
         $this->getJson(
@@ -428,16 +370,14 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
 
         $organization =
             Organization::create([
-                'name' =>
-                    $name,
+                'name' => $name,
             ]);
 
         $organization->users()
             ->attach(
                 $user->id,
                 [
-                    'role' =>
-                        'owner',
+                    'role' => 'owner',
                 ],
             );
 
@@ -454,8 +394,7 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
         $this->actingAs(
             $user,
         )->withSession([
-            OrganizationAccess::SESSION_KEY =>
-                $organization->id,
+            OrganizationAccess::SESSION_KEY => $organization->id,
         ]);
     }
 
@@ -466,10 +405,8 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
         return (int) $this->postJson(
             '/api/parties',
             [
-                'type' =>
-                    'company',
-                'company_name' =>
-                    $name,
+                'type' => 'company',
+                'company_name' => $name,
                 'roles' => [
                     $role,
                 ],
@@ -486,31 +423,20 @@ class BusinessIntelligenceBuilderFeatureTest extends TestCase
         return (int) $this->postJson(
             '/api/finance/documents',
             [
-                'kind' =>
-                    'sale_invoice',
-                'party_id' =>
-                    $partyId,
-                'issue_date' =>
-                    today()
-                        ->toDateString(),
-                'currency' =>
-                    'ILS',
+                'kind' => 'sale_invoice',
+                'party_id' => $partyId,
+                'issue_date' => today()
+                    ->toDateString(),
+                'currency' => 'ILS',
                 'lines' => [
                     [
-                        'description' =>
-                            'BI service',
-                        'quantity' =>
-                            '1',
-                        'unit' =>
-                            'service',
-                        'unit_price' =>
-                            $unitPrice,
-                        'discount_percent' =>
-                            '0',
-                        'tax_rate' =>
-                            '0',
-                        'affects_inventory' =>
-                            false,
+                        'description' => 'BI service',
+                        'quantity' => '1',
+                        'unit' => 'service',
+                        'unit_price' => $unitPrice,
+                        'discount_percent' => '0',
+                        'tax_rate' => '0',
+                        'affects_inventory' => false,
                     ],
                 ],
             ],

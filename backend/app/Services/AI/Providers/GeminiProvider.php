@@ -14,8 +14,7 @@ final class GeminiProvider implements AiProvider
     public function __construct(
         private readonly string $providerKey,
         private readonly array $config,
-    ) {
-    }
+    ) {}
 
     public function key(): string
     {
@@ -146,6 +145,7 @@ final class GeminiProvider implements AiProvider
 
             if ($role === 'system') {
                 $system[] = $content;
+
                 continue;
             }
 
@@ -154,6 +154,7 @@ final class GeminiProvider implements AiProvider
 
             if ($last !== null && $contents[$last]['role'] === $role) {
                 $contents[$last]['parts'][] = ['text' => $content];
+
                 continue;
             }
 

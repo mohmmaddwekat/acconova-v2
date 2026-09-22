@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\FinancialDocument;
+use App\Models\Party;
 use App\Models\PaymentPlan;
 use App\Models\Product;
 use App\Models\Task;
-use App\Models\Party;
 use App\Services\FinanceAuthorization;
 use App\Support\TaskAccess;
 use App\Tenancy\TenantContext;
@@ -69,8 +69,7 @@ class BusinessPulseController extends Controller
                 'low_stock_threshold',
             ])
             ->filter(
-                fn (Product $product) =>
-                    (float) ($product->on_hand_total ?? 0)
+                fn (Product $product) => (float) ($product->on_hand_total ?? 0)
                     <= (float) $product->low_stock_threshold,
             )
             ->count();
@@ -207,8 +206,7 @@ class BusinessPulseController extends Controller
             ->values();
 
         $missingContact = Party::query()
-            ->whereHas('roles', fn ($query) =>
-                $query->where('role', 'customer'),
+            ->whereHas('roles', fn ($query) => $query->where('role', 'customer'),
             )
             ->where(function ($query): void {
                 $query
@@ -440,8 +438,7 @@ class BusinessPulseController extends Controller
             if ($positiveAverage > 0) {
                 $balances
                     ->filter(
-                        fn ($row) =>
-                            (float) $row->outstanding
+                        fn ($row) => (float) $row->outstanding
                             >= $positiveAverage * 3,
                     )
                     ->sortByDesc(
@@ -622,8 +619,7 @@ class BusinessPulseController extends Controller
             if ($average > 0) {
                 $recent
                     ->filter(
-                        fn ($row) =>
-                            (float) $row->amount
+                        fn ($row) => (float) $row->amount
                             >= $average * 3,
                     )
                     ->take(20)
@@ -666,8 +662,7 @@ class BusinessPulseController extends Controller
             ->subDays($days);
 
         return Party::query()
-            ->whereHas('roles', fn ($query) =>
-                $query->where('role', 'customer'),
+            ->whereHas('roles', fn ($query) => $query->where('role', 'customer'),
             )
             ->where('parties.updated_at', '<', $cutoff)
             ->whereNotExists(function ($query) use ($organizationId, $cutoff): void {

@@ -80,7 +80,7 @@ class PurchaseRequisitionController extends Controller
                     'requisitions.quantity',
                     'requisitions.expected_unit_cost',
                     'requisitions.preferred_supplier_id',
-                    DB::raw("COALESCE(suppliers.company_name, suppliers.name) as supplier_name"),
+                    DB::raw('COALESCE(suppliers.company_name, suppliers.name) as supplier_name'),
                     'requisitions.needed_by',
                     'requisitions.status',
                     'requisitions.note',
@@ -110,8 +110,7 @@ class PurchaseRequisitionController extends Controller
                     ->usableForNewBusiness()
                     ->whereHas(
                         'roles',
-                        fn ($query) =>
-                            $query->where('role', 'supplier'),
+                        fn ($query) => $query->where('role', 'supplier'),
                     )
                     ->orderByRaw('COALESCE(company_name, name)')
                     ->limit(500)
@@ -132,8 +131,7 @@ class PurchaseRequisitionController extends Controller
     public function store(
         Request $request,
         FinanceNumberService $numbers,
-    ): JsonResponse
-    {
+    ): JsonResponse {
         abort_unless(
             $request->user(),
             403,
@@ -160,8 +158,7 @@ class PurchaseRequisitionController extends Controller
                 ->usableForNewBusiness()
                 ->whereHas(
                     'roles',
-                    fn ($query) =>
-                        $query->where('role', 'supplier'),
+                    fn ($query) => $query->where('role', 'supplier'),
                 )
                 ->findOrFail((int) $data['preferred_supplier_id']);
         }
@@ -261,8 +258,7 @@ class PurchaseRequisitionController extends Controller
             ->usableForNewBusiness()
             ->whereHas(
                 'roles',
-                fn ($query) =>
-                    $query->where('role', 'supplier'),
+                fn ($query) => $query->where('role', 'supplier'),
             )
             ->findOrFail((int) $row->preferred_supplier_id);
 

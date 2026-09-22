@@ -51,8 +51,7 @@ class AiGatewayTest extends TestCase
 
         Http::assertSentCount(1);
         Http::assertSent(
-            fn ($request): bool =>
-                $request->url() === 'https://auth.example.test/token'
+            fn ($request): bool => $request->url() === 'https://auth.example.test/token'
                 && $request['grant_type'] === 'refresh_token'
                 && $request['refresh_token'] === 'refresh-token',
         );
@@ -113,8 +112,7 @@ class AiGatewayTest extends TestCase
         $this->assertSame(20, $result['total_tokens']);
 
         Http::assertSent(
-            fn ($request): bool =>
-                $request->hasHeader('Authorization', 'Bearer server-only-key')
+            fn ($request): bool => $request->hasHeader('Authorization', 'Bearer server-only-key')
                 && $request['model'] === 'test-model'
                 && $request['max_completion_tokens'] === 500
                 && $request['messages'][0]['content'] === 'Hello',
@@ -190,8 +188,7 @@ class AiGatewayTest extends TestCase
         $this->assertSame(15, $result['total_tokens']);
 
         Http::assertSent(
-            fn ($request): bool =>
-                $request->url() === 'https://anthropic.example.test/v1/messages'
+            fn ($request): bool => $request->url() === 'https://anthropic.example.test/v1/messages'
                 && $request->hasHeader('x-api-key', 'anthropic-key')
                 && $request->hasHeader('anthropic-version', '2023-06-01')
                 && $request['system'] === 'Be concise.'
@@ -257,8 +254,7 @@ class AiGatewayTest extends TestCase
         $this->assertSame(12, $result['total_tokens']);
 
         Http::assertSent(
-            fn ($request): bool =>
-                $request->hasHeader('x-goog-api-key', 'gemini-key')
+            fn ($request): bool => $request->hasHeader('x-goog-api-key', 'gemini-key')
                 && $request['systemInstruction']['parts'][0]['text'] === 'AccoNova system prompt'
                 && $request['contents'][0]['role'] === 'user',
         );

@@ -60,12 +60,12 @@ return new class extends Migration
             DB::table(
                 'production_run_outputs',
             )
-            ->whereNull(
-                'production_recipe_id',
-            )
-            ->exists()
+                ->whereNull(
+                    'production_recipe_id',
+                )
+                ->exists()
         ) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Cannot make production_recipe_id required because recipe-less production outputs exist.',
             );
         }

@@ -8,9 +8,11 @@ use App\Services\ApprovalWorkflowService;
 use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
 use App\Tenancy\TenantContext;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class CashMovementController extends Controller
 {
@@ -117,8 +119,7 @@ class CashMovementController extends Controller
                             'count' => $rows->count(),
                             'amount' => number_format(
                                 (float) $rows->sum(
-                                    fn (CashMovement $row): float =>
-                                        (float) $row->amount,
+                                    fn (CashMovement $row): float => (float) $row->amount,
                                 ),
                                 4,
                                 '.',
@@ -182,7 +183,7 @@ class CashMovementController extends Controller
             'exclude_id' => ['nullable', 'integer'],
         ]);
 
-        $date = \Carbon\Carbon::parse(
+        $date = Carbon::parse(
             $data['movement_date'],
         );
 
@@ -267,8 +268,7 @@ class CashMovementController extends Controller
         string $movement,
         CashMovementService $service,
         ApprovalWorkflowService $approvals,
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $movement = CashMovement::query()->findOrFail($movement);
         $this->authorizeDirection($request, $movement->direction);
 
@@ -338,7 +338,7 @@ class CashMovementController extends Controller
                 ?? false
             )
         ) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'duplicate' => [
                     'Possible duplicate cash movement detected: '
                     .$duplicates
@@ -463,7 +463,7 @@ class CashMovementController extends Controller
         ]);
 
         if (! in_array($data['method'], $allowedMethods, true)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'method' => ['This payment method is disabled in workspace settings.'],
             ]);
         }
@@ -475,7 +475,7 @@ class CashMovementController extends Controller
             && ! empty($data['movement_date'])
             && $data['check_due_date'] < $data['movement_date']
         ) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'check_due_date' => ['Check due date cannot be earlier than the movement date.'],
             ]);
         }
@@ -486,7 +486,7 @@ class CashMovementController extends Controller
             : null;
 
         if (in_array($data['category'], ['customer_receipt', 'supplier_payment'], true) && empty($data['party_id'])) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'party_id' => ['A saved customer or supplier is required for invoice settlements and advance balances.'],
             ]);
         }
@@ -525,8 +525,7 @@ class CashMovementController extends Controller
                 (float) (
                     $movement->allocated_total
                     ?? $movement->allocations->sum(
-                        fn ($allocation): float =>
-                            (float) $allocation->amount,
+                        fn ($allocation): float => (float) $allocation->amount,
                     )
                 ),
                 4,
@@ -539,8 +538,7 @@ class CashMovementController extends Controller
                     - (float) (
                         $movement->allocated_total
                         ?? $movement->allocations->sum(
-                            fn ($allocation): float =>
-                                (float) $allocation->amount,
+                            fn ($allocation): float => (float) $allocation->amount,
                         )
                     ),
                     0,

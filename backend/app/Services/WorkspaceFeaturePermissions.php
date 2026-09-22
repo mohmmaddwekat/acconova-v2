@@ -2050,12 +2050,11 @@ final class WorkspaceFeaturePermissions
     ): array {
         return array_values(array_filter(
             self::keys(),
-            fn (string $permission): bool =>
-                self::allowsForRole(
-                    $baseRole,
-                    $customPermissions,
-                    $permission,
-                ),
+            fn (string $permission): bool => self::allowsForRole(
+                $baseRole,
+                $customPermissions,
+                $permission,
+            ),
         ));
     }
 

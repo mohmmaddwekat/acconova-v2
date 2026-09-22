@@ -278,22 +278,20 @@ final class PartyBalancesTool implements AiBusinessTool
                 )
                 ->when(
                     $search,
-                    fn ($query) =>
-                        $query->whereHas(
-                            'party',
-                            fn ($partyQuery) =>
-                                $partyQuery
-                                    ->where(
-                                        'name',
-                                        'like',
-                                        '%'.$search.'%',
-                                    )
-                                    ->orWhere(
-                                        'company_name',
-                                        'like',
-                                        '%'.$search.'%',
-                                    ),
-                        ),
+                    fn ($query) => $query->whereHas(
+                        'party',
+                        fn ($partyQuery) => $partyQuery
+                            ->where(
+                                'name',
+                                'like',
+                                '%'.$search.'%',
+                            )
+                            ->orWhere(
+                                'company_name',
+                                'like',
+                                '%'.$search.'%',
+                            ),
+                    ),
                 )
                 ->get()
                 ->keyBy(
@@ -303,8 +301,7 @@ final class PartyBalancesTool implements AiBusinessTool
         $balances = [];
 
         foreach (
-            $documentRows
-            as $row
+            $documentRows as $row
         ) {
             $partyId =
                 (int) $row
@@ -336,46 +333,38 @@ final class PartyBalancesTool implements AiBusinessTool
                 .'|'
                 .$currency
             ] = [
-                'party_id' =>
-                    $partyId,
-                'party' =>
-                    $row
-                        ->company_name
+                'party_id' => $partyId,
+                'party' => $row
+                    ->company_name
                     ?: $row
                         ->name,
-                'currency' =>
-                    $currency,
-                'open_invoice_count' =>
-                    (int) $row
-                        ->open_invoice_count,
-                'invoice_outstanding' =>
-                    number_format(
-                        $invoiceOutstanding,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'opening_balance' =>
-                    number_format(
-                        $openingAmount,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'total_outstanding' =>
-                    number_format(
-                        $invoiceOutstanding
-                        + $openingAmount,
-                        4,
-                        '.',
-                        '',
-                    ),
+                'currency' => $currency,
+                'open_invoice_count' => (int) $row
+                    ->open_invoice_count,
+                'invoice_outstanding' => number_format(
+                    $invoiceOutstanding,
+                    4,
+                    '.',
+                    '',
+                ),
+                'opening_balance' => number_format(
+                    $openingAmount,
+                    4,
+                    '.',
+                    '',
+                ),
+                'total_outstanding' => number_format(
+                    $invoiceOutstanding
+                    + $openingAmount,
+                    4,
+                    '.',
+                    '',
+                ),
             ];
         }
 
         foreach (
-            $opening
-            as $partyId => $row
+            $opening as $partyId => $row
         ) {
             $key =
                 ((int) $partyId)
@@ -405,35 +394,28 @@ final class PartyBalancesTool implements AiBusinessTool
             $balances[
                 $key
             ] = [
-                'party_id' =>
-                    (int) $partyId,
-                'party' =>
-                    $row
-                        ->party
-                        ?->company_name
+                'party_id' => (int) $partyId,
+                'party' => $row
+                    ->party
+                    ?->company_name
                     ?: $row
                         ->party
                         ?->name,
-                'currency' =>
-                    $organizationCurrency,
-                'open_invoice_count' =>
-                    0,
-                'invoice_outstanding' =>
-                    '0.0000',
-                'opening_balance' =>
-                    number_format(
-                        $amount,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'total_outstanding' =>
-                    number_format(
-                        $amount,
-                        4,
-                        '.',
-                        '',
-                    ),
+                'currency' => $organizationCurrency,
+                'open_invoice_count' => 0,
+                'invoice_outstanding' => '0.0000',
+                'opening_balance' => number_format(
+                    $amount,
+                    4,
+                    '.',
+                    '',
+                ),
+                'total_outstanding' => number_format(
+                    $amount,
+                    4,
+                    '.',
+                    '',
+                ),
             ];
         }
 
@@ -447,8 +429,7 @@ final class PartyBalancesTool implements AiBusinessTool
             fn (
                 array $a,
                 array $b,
-            ): int =>
-                (float) $b[
+            ): int => (float) $b[
                     'total_outstanding'
                 ]
                 <=>
@@ -458,14 +439,12 @@ final class PartyBalancesTool implements AiBusinessTool
         );
 
         return [
-            'side' =>
-                $side,
-            'balances' =>
-                array_slice(
-                    $balances,
-                    0,
-                    $limit,
-                ),
+            'side' => $side,
+            'balances' => array_slice(
+                $balances,
+                0,
+                $limit,
+            ),
         ];
     }
 }

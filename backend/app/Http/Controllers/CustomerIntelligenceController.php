@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Carbon\Carbon;
-
 use App\Models\Party;
 use App\Tenancy\TenantContext;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -257,8 +256,7 @@ class CustomerIntelligenceController extends Controller
                 ],
                 'customers' => $rows
                     ->sortByDesc(
-                        fn (array $row): float =>
-                            (float) $row['revenue'],
+                        fn (array $row): float => (float) $row['revenue'],
                     )
                     ->values(),
                 'methodology' => [
@@ -275,7 +273,7 @@ class CustomerIntelligenceController extends Controller
     }
 
     /**
-     * @param list<float> $sorted
+     * @param  list<float>  $sorted
      */
     private function percentile(
         array $sorted,

@@ -8,6 +8,7 @@ use App\Models\PaymentRecord;
 use App\Models\Product;
 use App\Models\ServiceOperation;
 use App\Support\InventoryQuantity;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -185,7 +186,7 @@ class NotificationCenter
             ])
             ->each(function ($batch) use ($organizationId): void {
                 $days = today()->diffInDays(
-                    \Carbon\CarbonImmutable::parse(
+                    CarbonImmutable::parse(
                         $batch->expiry_date,
                     ),
                     false,
@@ -209,11 +210,9 @@ class NotificationCenter
                     'inventory_expiry',
                     'stock',
                     [
-                        'name' =>
-                            $batch->product_name
+                        'name' => $batch->product_name
                             ?: 'Inventory batch',
-                        'detail' =>
-                            $batch->lot_code
+                        'detail' => $batch->lot_code
                             .' · '
                             .$batch->expiry_date,
                     ],
@@ -246,7 +245,7 @@ class NotificationCenter
             ])
             ->each(function ($contract) use ($organizationId): void {
                 $days = today()->diffInDays(
-                    \Carbon\CarbonImmutable::parse(
+                    CarbonImmutable::parse(
                         $contract->ends_on,
                     ),
                     false,
@@ -277,8 +276,7 @@ class NotificationCenter
                     'activity',
                     [
                         'name' => $contract->title,
-                        'detail' =>
-                            'Ends '
+                        'detail' => 'Ends '
                             .$contract->ends_on,
                     ],
                     '/app/parties/contracts',
@@ -311,7 +309,7 @@ class NotificationCenter
             ])
             ->each(function ($document) use ($organizationId): void {
                 $days = today()->diffInDays(
-                    \Carbon\CarbonImmutable::parse(
+                    CarbonImmutable::parse(
                         $document->expires_on,
                     ),
                     false,
@@ -341,15 +339,13 @@ class NotificationCenter
                     'document_expiry',
                     'activity',
                     [
-                        'name' =>
-                            $document->document_type,
-                        'detail' =>
-                            (
-                                $document->subject_label
-                                ? $document->subject_label
-                                    .' · '
-                                : ''
-                            )
+                        'name' => $document->document_type,
+                        'detail' => (
+                            $document->subject_label
+                            ? $document->subject_label
+                                .' · '
+                            : ''
+                        )
                             .$document->expires_on,
                     ],
                     '/app/documents/expiry',
@@ -375,11 +371,9 @@ class NotificationCenter
                 );
 
                 $data = [
-                    'name' =>
-                        $reminder->note
+                    'name' => $reminder->note
                         ?: 'Follow-up reminder',
-                    'detail' =>
-                        $reminder->due_at,
+                    'detail' => $reminder->due_at,
                     'count' => 1,
                 ];
 
@@ -419,8 +413,7 @@ class NotificationCenter
         int $organizationId,
         string $type,
         int $recordId,
-    ): string
-    {
+    ): string {
         if ($type === 'party') {
             return '/app/parties?focus='.$recordId;
         }

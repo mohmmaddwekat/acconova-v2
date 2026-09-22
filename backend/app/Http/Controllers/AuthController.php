@@ -41,10 +41,8 @@ class AuthController extends Controller
         Auth::login($user);
 
         $user->forceFill([
-            'previous_login_at' =>
-                $user->last_login_at,
-            'last_login_at' =>
-                now(),
+            'previous_login_at' => $user->last_login_at,
+            'last_login_at' => now(),
         ])->save();
 
         /*
@@ -77,10 +75,8 @@ class AuthController extends Controller
         );
 
         $user->forceFill([
-            'previous_login_at' =>
-                $user->last_login_at,
-            'last_login_at' =>
-                now(),
+            'previous_login_at' => $user->last_login_at,
+            'last_login_at' => now(),
         ])->save();
 
         /*

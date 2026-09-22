@@ -167,8 +167,7 @@ class WorkspaceRoleController extends Controller
                 WorkspaceFeaturePermissions::groups(),
             ),
 
-            'permission_dependencies' =>
-                WorkspaceFeaturePermissions::dependencies(),
+            'permission_dependencies' => WorkspaceFeaturePermissions::dependencies(),
         ]);
     }
 

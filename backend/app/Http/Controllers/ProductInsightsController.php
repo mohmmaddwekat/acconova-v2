@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\FinancialDocumentLine;
 use App\Models\Product;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -156,8 +156,7 @@ class ProductInsightsController extends Controller
             ->limit(160)
             ->get()
             ->filter(fn ($line) => $line->document?->issue_date)
-            ->groupBy(fn ($line) =>
-                $line->document->issue_date->format('Y-m-d')
+            ->groupBy(fn ($line) => $line->document->issue_date->format('Y-m-d')
                 .'|'
                 .$line->document->kind,
             )

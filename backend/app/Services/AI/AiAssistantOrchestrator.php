@@ -13,8 +13,7 @@ final class AiAssistantOrchestrator
         private readonly AiGateway $gateway,
         private readonly AiToolPlanner $planner,
         private readonly AiBusinessToolRegistry $tools,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<array{role:string,content:string}>  $messages
@@ -117,9 +116,8 @@ final class AiAssistantOrchestrator
 
             $toolContext = [
                 'role' => 'system',
-                'content' =>
-                    "Trusted AccoNova business-tool results are below. ".
-                    "They are tenant-scoped and permission-checked by the server. ".
+                'content' => 'Trusted AccoNova business-tool results are below. '.
+                    'They are tenant-scoped and permission-checked by the server. '.
                     "Use these results to answer the user's question. ".
                     "Do not claim data not present in the results and do not ask for raw database access.\n\n".
                     $payload,
@@ -186,35 +184,27 @@ final class AiAssistantOrchestrator
                 $exception,
             ): void {
                 AiToolRun::create([
-                    'ai_conversation_id' =>
-                        $conversation->id,
-                    'user_id' =>
-                        $user->id,
-                    'tool_name' =>
-                        $name,
-                    'arguments' =>
-                        $arguments,
-                    'status' =>
-                        $status,
-                    'result_meta' =>
-                        $result === null
+                    'ai_conversation_id' => $conversation->id,
+                    'user_id' => $user->id,
+                    'tool_name' => $name,
+                    'arguments' => $arguments,
+                    'status' => $status,
+                    'result_meta' => $result === null
                             ? null
                             : $this->resultMeta(
                                 $result,
                             ),
-                    'duration_ms' =>
-                        max(
-                            0,
-                            (int) round(
-                                (
-                                    hrtime(true)
-                                    - $startedAt
-                                )
-                                / 1_000_000,
-                            ),
+                    'duration_ms' => max(
+                        0,
+                        (int) round(
+                            (
+                                hrtime(true)
+                                - $startedAt
+                            )
+                            / 1_000_000,
                         ),
-                    'error' =>
-                        $exception
+                    ),
+                    'error' => $exception
                             ? mb_substr(
                                 $exception
                                     ->getMessage(),
@@ -236,12 +226,11 @@ final class AiAssistantOrchestrator
         array $result,
     ): array {
         $meta = [
-            'keys' =>
-                array_values(
-                    array_keys(
-                        $result,
-                    ),
+            'keys' => array_values(
+                array_keys(
+                    $result,
                 ),
+            ),
         ];
 
         foreach (

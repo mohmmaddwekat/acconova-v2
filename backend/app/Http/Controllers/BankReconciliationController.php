@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\CashMovement;
 use App\Services\FinanceAuthorization;
 use App\Tenancy\TenantContext;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class BankReconciliationController extends Controller
 {
@@ -71,10 +73,10 @@ class BankReconciliationController extends Controller
                     ->where('direction', $direction)
                     ->where('currency', $line->currency)
                     ->whereBetween('movement_date', [
-                        \Carbon\Carbon::parse($line->transaction_date)
+                        Carbon::parse($line->transaction_date)
                             ->subDays(3)
                             ->toDateString(),
-                        \Carbon\Carbon::parse($line->transaction_date)
+                        Carbon::parse($line->transaction_date)
                             ->addDays(3)
                             ->toDateString(),
                     ])
@@ -165,6 +167,7 @@ class BankReconciliationController extends Controller
 
             if ($exists) {
                 $skipped++;
+
                 continue;
             }
 
@@ -218,7 +221,7 @@ class BankReconciliationController extends Controller
         $search = trim(
             (string) ($data['search'] ?? ''),
         );
-        $date = \Carbon\Carbon::parse(
+        $date = Carbon::parse(
             $row->transaction_date,
         );
 
@@ -253,14 +256,13 @@ class BankReconciliationController extends Controller
                     ->orWhere('account_label', 'like', $like)
                     ->orWhereHas(
                         'party',
-                        fn ($party) =>
-                            $party
-                                ->where('name', 'like', $like)
-                                ->orWhere(
-                                    'company_name',
-                                    'like',
-                                    $like,
-                                ),
+                        fn ($party) => $party
+                            ->where('name', 'like', $like)
+                            ->orWhere(
+                                'company_name',
+                                'like',
+                                $like,
+                            ),
                     );
             });
         }
@@ -315,7 +317,7 @@ class BankReconciliationController extends Controller
                     'day_difference' => $movement->movement_date
                         ? abs(
                             $movement->movement_date->diffInDays(
-                                \Carbon\Carbon::parse(
+                                Carbon::parse(
                                     $row->transaction_date,
                                 ),
                             ),
@@ -376,7 +378,7 @@ class BankReconciliationController extends Controller
             ->exists();
 
         if ($alreadyMatched) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'cash_movement_id' => [
                     'This cash movement is already reconciled to another bank statement line.',
                 ],

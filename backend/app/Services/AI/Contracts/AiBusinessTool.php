@@ -16,7 +16,7 @@ interface AiBusinessTool
     public function allowed(User $user): bool;
 
     /** @param array<string,mixed> $arguments
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     public function execute(User $user, array $arguments): array;
 }

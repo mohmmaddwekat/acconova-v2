@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\CashMovement;
-use App\Models\FinancialDocument;
 use App\Models\FinanceAuditEvent;
+use App\Models\FinancialDocument;
 use App\Models\Party;
 use App\Models\PartyOpeningBalance;
 use App\Services\FinanceAuthorization;
@@ -12,6 +12,7 @@ use App\Tenancy\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
@@ -103,8 +104,7 @@ class PartyAccountController extends Controller
             $party->roles
                 ->pluck('role')
                 ->map(
-                    fn ($role): string =>
-                        $role instanceof \BackedEnum
+                    fn ($role): string => $role instanceof \BackedEnum
                             ? (string) $role->value
                             : (string) $role,
                 )
@@ -220,13 +220,12 @@ class PartyAccountController extends Controller
                 )
                 ->when(
                     $customerCutoff,
-                    fn ($query) =>
-                        $query->whereDate(
-                            'issue_date',
-                            '>',
-                            $customerCutoff
-                                ->toDateString(),
-                        ),
+                    fn ($query) => $query->whereDate(
+                        'issue_date',
+                        '>',
+                        $customerCutoff
+                            ->toDateString(),
+                    ),
                 )
                 ->whereDate(
                     'issue_date',
@@ -240,13 +239,12 @@ class PartyAccountController extends Controller
                 ->each(
                     fn (
                         FinancialDocument $document,
-                    ) =>
-                        $entries->push(
-                            $this->documentEntry(
-                                $document,
-                                'customer',
-                            ),
+                    ) => $entries->push(
+                        $this->documentEntry(
+                            $document,
+                            'customer',
                         ),
+                    ),
                 );
         }
 
@@ -266,13 +264,12 @@ class PartyAccountController extends Controller
                 )
                 ->when(
                     $supplierCutoff,
-                    fn ($query) =>
-                        $query->whereDate(
-                            'issue_date',
-                            '>',
-                            $supplierCutoff
-                                ->toDateString(),
-                        ),
+                    fn ($query) => $query->whereDate(
+                        'issue_date',
+                        '>',
+                        $supplierCutoff
+                            ->toDateString(),
+                    ),
                 )
                 ->whereDate(
                     'issue_date',
@@ -286,13 +283,12 @@ class PartyAccountController extends Controller
                 ->each(
                     fn (
                         FinancialDocument $document,
-                    ) =>
-                        $entries->push(
-                            $this->documentEntry(
-                                $document,
-                                'supplier',
-                            ),
+                    ) => $entries->push(
+                        $this->documentEntry(
+                            $document,
+                            'supplier',
                         ),
+                    ),
                 );
         }
 
@@ -383,8 +379,7 @@ class PartyAccountController extends Controller
                 ->sortBy(
                     fn (
                         array $entry,
-                    ): string =>
-                        $entry['date']
+                    ): string => $entry['date']
                         .'|'
                         .$entry['sort_key'],
                 )
@@ -436,8 +431,7 @@ class PartyAccountController extends Controller
             $entries->filter(
                 fn (
                     array $entry,
-                ): bool =>
-                    $scope === 'all'
+                ): bool => $scope === 'all'
                     || $entry['side']
                         === $scope,
             );
@@ -474,11 +468,10 @@ class PartyAccountController extends Controller
                 ->sum(
                     fn (
                         array $entry,
-                    ): float =>
-                        $this->scopeEffect(
-                            $entry,
-                            $scope,
-                        ),
+                    ): float => $this->scopeEffect(
+                        $entry,
+                        $scope,
+                    ),
                 );
 
         $periodRows =
@@ -541,33 +534,30 @@ class PartyAccountController extends Controller
 
                         return [
                             ...$entry,
-                            'debit' =>
-                                number_format(
-                                    max(
-                                        $effect,
-                                        0,
-                                    ),
-                                    4,
-                                    '.',
-                                    '',
+                            'debit' => number_format(
+                                max(
+                                    $effect,
+                                    0,
                                 ),
-                            'credit' =>
-                                number_format(
-                                    max(
-                                        -$effect,
-                                        0,
-                                    ),
-                                    4,
-                                    '.',
-                                    '',
+                                4,
+                                '.',
+                                '',
+                            ),
+                            'credit' => number_format(
+                                max(
+                                    -$effect,
+                                    0,
                                 ),
-                            'balance' =>
-                                number_format(
-                                    $running,
-                                    4,
-                                    '.',
-                                    '',
-                                ),
+                                4,
+                                '.',
+                                '',
+                            ),
+                            'balance' => number_format(
+                                $running,
+                                4,
+                                '.',
+                                '',
+                            ),
                         ];
                     },
                 )
@@ -582,8 +572,7 @@ class PartyAccountController extends Controller
                 ->sum(
                     fn (
                         array $entry,
-                    ): float =>
-                        (float) $entry['amount'],
+                    ): float => (float) $entry['amount'],
                 );
 
         $cashTotal =
@@ -595,8 +584,7 @@ class PartyAccountController extends Controller
                 ->sum(
                     fn (
                         array $entry,
-                    ): float =>
-                        (float) $entry['amount'],
+                    ): float => (float) $entry['amount'],
                 );
 
         /*
@@ -622,129 +610,99 @@ class PartyAccountController extends Controller
                 'type' => $party->type instanceof \BackedEnum
                     ? $party->type->value
                     : (string) $party->type,
-                'name' =>
-                    $party->company_name
+                'name' => $party->company_name
                     ?: $party->name,
-                'company_name' =>
-                    $party->company_name,
-                'contact_name' =>
-                    $party->name,
-                'email' =>
-                    $party->email,
-                'phone' =>
-                    $party->phone,
-                'tax_number' =>
-                    $party->tax_number,
-                'credit_limit' =>
-                    $party->credit_limit,
+                'company_name' => $party->company_name,
+                'contact_name' => $party->name,
+                'email' => $party->email,
+                'phone' => $party->phone,
+                'tax_number' => $party->tax_number,
+                'credit_limit' => $party->credit_limit,
                 'address' => [
-                    'line_1' =>
-                        $party->address_line_1,
-                    'line_2' =>
-                        $party->address_line_2,
-                    'city' =>
-                        $party->city,
-                    'state' =>
-                        $party->state,
-                    'postal_code' =>
-                        $party->postal_code,
-                    'country_code' =>
-                        $party->country_code,
+                    'line_1' => $party->address_line_1,
+                    'line_2' => $party->address_line_2,
+                    'city' => $party->city,
+                    'state' => $party->state,
+                    'postal_code' => $party->postal_code,
+                    'country_code' => $party->country_code,
                 ],
-                'notes' =>
-                    $party->notes,
-                'roles' =>
-                    $roles,
-                'archived' =>
-                    $party->trashed(),
+                'notes' => $party->notes,
+                'roles' => $roles,
+                'archived' => $party->trashed(),
             ],
             'scope' => $scope,
             'currency' => $currency,
             'period' => [
-                'date_from' =>
-                    $dateFrom->toDateString(),
-                'date_to' =>
-                    $dateTo->toDateString(),
+                'date_from' => $dateFrom->toDateString(),
+                'date_to' => $dateTo->toDateString(),
             ],
             'summary' => [
-                'opening_balance' =>
-                    number_format(
-                        (float) $openingBalance,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'invoice_total' =>
-                    number_format(
-                        (float) $invoiceTotal,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'cash_total' =>
-                    number_format(
-                        (float) $cashTotal,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'closing_balance' =>
-                    number_format(
-                        (float) $running,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'transaction_count' =>
-                    $rows->count(),
+                'opening_balance' => number_format(
+                    (float) $openingBalance,
+                    4,
+                    '.',
+                    '',
+                ),
+                'invoice_total' => number_format(
+                    (float) $invoiceTotal,
+                    4,
+                    '.',
+                    '',
+                ),
+                'cash_total' => number_format(
+                    (float) $cashTotal,
+                    4,
+                    '.',
+                    '',
+                ),
+                'closing_balance' => number_format(
+                    (float) $running,
+                    4,
+                    '.',
+                    '',
+                ),
+                'transaction_count' => $rows->count(),
             ],
             'positions' => [
-                'customer' =>
-                    number_format(
-                        $customerPosition,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'supplier' =>
-                    number_format(
-                        $supplierPosition,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'net' =>
-                    number_format(
-                        $customerPosition
-                        - $supplierPosition,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'customer_advance' =>
-                    number_format(
-                        $customerAdvance,
-                        4,
-                        '.',
-                        '',
-                    ),
-                'supplier_advance' =>
-                    number_format(
-                        $supplierAdvance,
-                        4,
-                        '.',
-                        '',
-                    ),
+                'customer' => number_format(
+                    $customerPosition,
+                    4,
+                    '.',
+                    '',
+                ),
+                'supplier' => number_format(
+                    $supplierPosition,
+                    4,
+                    '.',
+                    '',
+                ),
+                'net' => number_format(
+                    $customerPosition
+                    - $supplierPosition,
+                    4,
+                    '.',
+                    '',
+                ),
+                'customer_advance' => number_format(
+                    $customerAdvance,
+                    4,
+                    '.',
+                    '',
+                ),
+                'supplier_advance' => number_format(
+                    $supplierAdvance,
+                    4,
+                    '.',
+                    '',
+                ),
             ],
             'opening_balances' => [
-                'customer' =>
-                    $this->openingPayload(
-                        $customerOpening,
-                    ),
-                'supplier' =>
-                    $this->openingPayload(
-                        $supplierOpening,
-                    ),
+                'customer' => $this->openingPayload(
+                    $customerOpening,
+                ),
+                'supplier' => $this->openingPayload(
+                    $supplierOpening,
+                ),
             ],
             'aging' => $aging,
             'aging_as_of' => $agingAsOf->toDateString(),
@@ -767,34 +725,28 @@ class PartyAccountController extends Controller
             'transactions' => $rows,
             'permissions' => [
                 'sales_view' => $canSales,
-                'sales_manage' =>
-                    FinanceAuthorization::allows(
-                        $request->user(),
-                        'finance.sales.manage',
-                    ),
-                'purchases_view' =>
-                    $canPurchases,
-                'purchases_manage' =>
-                    FinanceAuthorization::allows(
-                        $request->user(),
-                        'finance.purchases.manage',
-                    ),
+                'sales_manage' => FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.sales.manage',
+                ),
+                'purchases_view' => $canPurchases,
+                'purchases_manage' => FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.purchases.manage',
+                ),
                 'cash_view' => $canCash,
-                'cash_receive' =>
-                    FinanceAuthorization::allows(
-                        $request->user(),
-                        'finance.cash.receive',
-                    ),
-                'cash_pay' =>
-                    FinanceAuthorization::allows(
-                        $request->user(),
-                        'finance.cash.pay',
-                    ),
-                'party_edit' =>
-                    $request->user()?->can(
-                        'update',
-                        $party,
-                    )
+                'cash_receive' => FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.cash.receive',
+                ),
+                'cash_pay' => FinanceAuthorization::allows(
+                    $request->user(),
+                    'finance.cash.pay',
+                ),
+                'party_edit' => $request->user()?->can(
+                    'update',
+                    $party,
+                )
                     ?? false,
             ],
         ]);
@@ -904,16 +856,13 @@ class PartyAccountController extends Controller
             $before =
                 $existing
                     ? [
-                        'amount' =>
-                            $existing->amount,
-                        'as_of_date' =>
-                            $existing
-                                ->as_of_date
-                                ?->format(
-                                    'Y-m-d',
-                                ),
-                        'notes' =>
-                            $existing->notes,
+                        'amount' => $existing->amount,
+                        'as_of_date' => $existing
+                            ->as_of_date
+                            ?->format(
+                                'Y-m-d',
+                            ),
+                        'notes' => $existing->notes,
                     ]
                     : null;
 
@@ -921,78 +870,59 @@ class PartyAccountController extends Controller
                 PartyOpeningBalance::query()
                     ->updateOrCreate(
                         [
-                            'party_id' =>
-                                $party->id,
-                            'side' =>
-                                $side,
+                            'party_id' => $party->id,
+                            'side' => $side,
                         ],
                         [
-                            'amount' =>
-                                number_format(
-                                    (float) $data[
-                                        $side
-                                    ]['amount'],
-                                    4,
-                                    '.',
-                                    '',
-                                ),
-                            'as_of_date' =>
-                                $data[
+                            'amount' => number_format(
+                                (float) $data[
+                                    $side
+                                ]['amount'],
+                                4,
+                                '.',
+                                '',
+                            ),
+                            'as_of_date' => $data[
                                     $side
                                 ]['as_of_date'],
-                            'notes' =>
-                                $data[
+                            'notes' => $data[
                                     $side
                                 ]['notes']
                                 ?? null,
-                            'updated_by' =>
-                                $request
-                                    ->user()
-                                    ->id,
+                            'updated_by' => $request
+                                ->user()
+                                ->id,
                         ],
                     );
 
             FinanceAuditEvent::create([
-                'auditable_type' =>
-                    'PartyOpeningBalance',
-                'auditable_id' =>
-                    $opening->id,
-                'action' =>
-                    $existing
+                'auditable_type' => 'PartyOpeningBalance',
+                'auditable_id' => $opening->id,
+                'action' => $existing
                         ? 'opening_balance_updated'
                         : 'opening_balance_created',
-                'reason' =>
-                    $opening->notes,
-                'before_payload' =>
-                    $before,
+                'reason' => $opening->notes,
+                'before_payload' => $before,
                 'after_payload' => [
-                    'party_id' =>
-                        $party->id,
-                    'side' =>
-                        $side,
-                    'amount' =>
-                        $opening->amount,
-                    'as_of_date' =>
-                        $opening
-                            ->as_of_date
-                            ?->format(
-                                'Y-m-d',
-                            ),
-                    'notes' =>
-                        $opening->notes,
+                    'party_id' => $party->id,
+                    'side' => $side,
+                    'amount' => $opening->amount,
+                    'as_of_date' => $opening
+                        ->as_of_date
+                        ?->format(
+                            'Y-m-d',
+                        ),
+                    'notes' => $opening->notes,
                 ],
-                'created_by' =>
-                    $request
-                        ->user()
-                        ->id,
-                'created_at' =>
-                    now(),
+                'created_by' => $request
+                    ->user()
+                    ->id,
+                'created_at' => now(),
             ]);
         }
 
         return response()->json([
-            'message' =>
-                'Opening balances updated.',
+            'message' => 'Opening balances updated.',
         ]);
     }
 
@@ -1000,7 +930,7 @@ class PartyAccountController extends Controller
         Request $request,
         string $party,
         string $side,
-    ): \Illuminate\Http\Response {
+    ): Response {
         $party = Party::withTrashed()
             ->findOrFail($party);
 
@@ -1057,41 +987,28 @@ class PartyAccountController extends Controller
                 ->firstOrFail();
 
         $before = [
-            'party_id' =>
-                $party->id,
-            'side' =>
-                $side,
-            'amount' =>
-                $opening->amount,
-            'as_of_date' =>
-                $opening
-                    ->as_of_date
-                    ?->format(
-                        'Y-m-d',
-                    ),
-            'notes' =>
-                $opening->notes,
+            'party_id' => $party->id,
+            'side' => $side,
+            'amount' => $opening->amount,
+            'as_of_date' => $opening
+                ->as_of_date
+                ?->format(
+                    'Y-m-d',
+                ),
+            'notes' => $opening->notes,
         ];
 
         FinanceAuditEvent::create([
-            'auditable_type' =>
-                'PartyOpeningBalance',
-            'auditable_id' =>
-                $opening->id,
-            'action' =>
-                'opening_balance_removed',
-            'reason' =>
-                'Opening balance removed from Party account.',
-            'before_payload' =>
-                $before,
-            'after_payload' =>
-                null,
-            'created_by' =>
-                $request
-                    ->user()
-                    ->id,
-            'created_at' =>
-                now(),
+            'auditable_type' => 'PartyOpeningBalance',
+            'auditable_id' => $opening->id,
+            'action' => 'opening_balance_removed',
+            'reason' => 'Opening balance removed from Party account.',
+            'before_payload' => $before,
+            'after_payload' => null,
+            'created_by' => $request
+                ->user()
+                ->id,
+            'created_at' => now(),
         ]);
 
         $opening->delete();
@@ -1106,61 +1023,50 @@ class PartyAccountController extends Controller
         string $currency,
     ): array {
         return [
-            'id' =>
-                'opening-'
+            'id' => 'opening-'
                 .$side
                 .'-'
                 .$opening->id,
-            'source_id' =>
-                $opening->id,
+            'source_id' => $opening->id,
             'side' => $side,
-            'type' =>
-                'opening_balance',
-            'date' =>
-                $opening
-                    ->as_of_date
-                    ->format(
-                        'Y-m-d',
-                    ),
-            'reference' =>
-                $side === 'customer'
+            'type' => 'opening_balance',
+            'date' => $opening
+                ->as_of_date
+                ->format(
+                    'Y-m-d',
+                ),
+            'reference' => $side === 'customer'
                     ? 'OPEN-CUSTOMER'
                     : 'OPEN-SUPPLIER',
-            'description' =>
-                $opening->notes
+            'description' => $opening->notes
                 ?: (
                     $side
                     === 'customer'
                         ? 'Customer carried balance'
                         : 'Supplier carried balance'
                 ),
-            'amount' =>
-                number_format(
-                    abs(
-                        (float) $opening
-                            ->amount,
-                    ),
-                    4,
-                    '.',
-                    '',
+            'amount' => number_format(
+                abs(
+                    (float) $opening
+                        ->amount,
                 ),
-            'currency' =>
-                $currency,
-            'effect_customer' =>
-                $side === 'customer'
+                4,
+                '.',
+                '',
+            ),
+            'currency' => $currency,
+            'effect_customer' => $side === 'customer'
                     ? (float) $opening
                         ->amount
                     : 0.0,
-            'effect_supplier' =>
-                $side === 'supplier'
+            'effect_supplier' => $side === 'supplier'
                     ? (float) $opening
                         ->amount
                     : 0.0,
             'url' => null,
             'status' => 'opening',
             'method' => null,
-            'sort_key' =>
-                '0-'
+            'sort_key' => '0-'
                 .str_pad(
                     (string) $opening->id,
                     12,
@@ -1175,50 +1081,38 @@ class PartyAccountController extends Controller
         string $side,
     ): array {
         return [
-            'id' =>
-                'document-'
+            'id' => 'document-'
                 .$document->id,
-            'source_id' =>
-                $document->id,
+            'source_id' => $document->id,
             'side' => $side,
             'type' => 'invoice',
-            'date' =>
-                $document
-                    ->issue_date
-                    ->format(
-                        'Y-m-d',
-                    ),
-            'reference' =>
-                $document->number,
-            'description' =>
-                $side === 'customer'
+            'date' => $document
+                ->issue_date
+                ->format(
+                    'Y-m-d',
+                ),
+            'reference' => $document->number,
+            'description' => $side === 'customer'
                     ? 'Sales invoice'
                     : 'Purchase invoice',
-            'amount' =>
-                $document->total,
-            'currency' =>
-                $document->currency,
-            'effect_customer' =>
-                $side === 'customer'
+            'amount' => $document->total,
+            'currency' => $document->currency,
+            'effect_customer' => $side === 'customer'
                     ? (float) $document
                         ->total
                     : 0.0,
-            'effect_supplier' =>
-                $side === 'supplier'
+            'effect_supplier' => $side === 'supplier'
                     ? (float) $document
                         ->total
                     : 0.0,
-            'url' =>
-                $side === 'customer'
+            'url' => $side === 'customer'
                     ? '/app/invoices/sales/'
                         .$document->id
                     : '/app/invoices/purchases/'
                         .$document->id,
-            'status' =>
-                $document->status,
+            'status' => $document->status,
             'method' => null,
-            'sort_key' =>
-                '1-'
+            'sort_key' => '1-'
                 .str_pad(
                     (string) $document->id,
                     12,
@@ -1261,72 +1155,57 @@ class PartyAccountController extends Controller
                 : 0.0;
 
         return [
-            'id' =>
-                'cash-'
+            'id' => 'cash-'
                 .$movement->id,
-            'source_id' =>
-                $movement->id,
+            'source_id' => $movement->id,
             'side' => $side,
             'type' => 'cash',
-            'date' =>
-                $movement
-                    ->movement_date
-                    ->format(
-                        'Y-m-d',
-                    ),
-            'reference' =>
-                $movement->number,
-            'description' =>
-                $movement->reference
+            'date' => $movement
+                ->movement_date
+                ->format(
+                    'Y-m-d',
+                ),
+            'reference' => $movement->number,
+            'description' => $movement->reference
                 ?: $movement->category,
-            'amount' =>
-                $movement->amount,
-            'currency' =>
-                $movement->currency,
-            'effect_customer' =>
-                $customerEffect,
-            'effect_supplier' =>
-                $supplierEffect,
-            'url' =>
-                $movement->direction
+            'amount' => $movement->amount,
+            'currency' => $movement->currency,
+            'effect_customer' => $customerEffect,
+            'effect_supplier' => $supplierEffect,
+            'url' => $movement->direction
                     === 'incoming'
                     ? '/app/receipts/'
                         .$movement->id
                     : '/app/payments/'
                         .$movement->id,
-            'status' =>
-                $movement->status,
-            'method' =>
-                $movement->method,
-            'allocated' =>
-                number_format(
-                    (float) (
+            'status' => $movement->status,
+            'method' => $movement->method,
+            'allocated' => number_format(
+                (float) (
+                    $movement
+                        ->allocated_total
+                    ?? 0
+                ),
+                4,
+                '.',
+                '',
+            ),
+            'unallocated' => number_format(
+                max(
+                    (float) $movement
+                        ->amount
+                    - (float) (
                         $movement
                             ->allocated_total
                         ?? 0
                     ),
-                    4,
-                    '.',
-                    '',
+                    0,
                 ),
-            'unallocated' =>
-                number_format(
-                    max(
-                        (float) $movement
-                            ->amount
-                        - (float) (
-                            $movement
-                                ->allocated_total
-                            ?? 0
-                        ),
-                        0,
-                    ),
-                    4,
-                    '.',
-                    '',
-                ),
-            'sort_key' =>
-                '2-'
+                4,
+                '.',
+                '',
+            ),
+            'sort_key' => '2-'
                 .str_pad(
                     (string) $movement->id,
                     12,
@@ -1389,8 +1268,7 @@ class PartyAccountController extends Controller
         return match ($scope) {
             'customer' => $customer,
             'supplier' => $supplier,
-            default =>
-                $customer
+            default => $customer
                 - $supplier,
         };
     }
@@ -1404,19 +1282,17 @@ class PartyAccountController extends Controller
             ->filter(
                 fn (
                     array $entry,
-                ): bool =>
-                    Carbon::parse(
-                        $entry['date'],
-                    )->lte($date),
+                ): bool => Carbon::parse(
+                    $entry['date'],
+                )->lte($date),
             )
             ->sum(
                 fn (
                     array $entry,
-                ): float =>
-                    $this->scopeEffect(
-                        $entry,
-                        $scope,
-                    ),
+                ): float => $this->scopeEffect(
+                    $entry,
+                    $scope,
+                ),
             );
     }
 
@@ -1461,13 +1337,12 @@ class PartyAccountController extends Controller
             )
             ->when(
                 $cutoff,
-                fn ($query) =>
-                    $query->whereDate(
-                        'movement_date',
-                        '>',
-                        $cutoff
-                            ->toDateString(),
-                    ),
+                fn ($query) => $query->whereDate(
+                    'movement_date',
+                    '>',
+                    $cutoff
+                        ->toDateString(),
+                ),
             )
             ->where(function ($query): void {
                 $query
@@ -1495,17 +1370,16 @@ class PartyAccountController extends Controller
             ->sum(
                 fn (
                     CashMovement $movement,
-                ): float =>
-                    max(
-                        (float) $movement
-                            ->amount
-                        - (float) (
-                            $movement
-                                ->allocated_total
-                            ?? 0
-                        ),
-                        0,
+                ): float => max(
+                    (float) $movement
+                        ->amount
+                    - (float) (
+                        $movement
+                            ->allocated_total
+                        ?? 0
                     ),
+                    0,
+                ),
             );
     }
 
@@ -1544,13 +1418,12 @@ class PartyAccountController extends Controller
 
         if ($kinds === []) {
             return array_map(
-                fn (): string =>
-                    number_format(
-                        0,
-                        4,
-                        '.',
-                        '',
-                    ),
+                fn (): string => number_format(
+                    0,
+                    4,
+                    '.',
+                    '',
+                ),
                 $buckets,
             );
         }
@@ -1596,16 +1469,11 @@ class PartyAccountController extends Controller
 
                 $key =
                     match (true) {
-                        $days <= 0 =>
-                            'current',
-                        $days <= 30 =>
-                            'days_1_30',
-                        $days <= 60 =>
-                            'days_31_60',
-                        $days <= 90 =>
-                            'days_61_90',
-                        default =>
-                            'over_90',
+                        $days <= 0 => 'current',
+                        $days <= 30 => 'days_1_30',
+                        $days <= 60 => 'days_31_60',
+                        $days <= 90 => 'days_61_90',
+                        default => 'over_90',
                     };
 
                 $buckets[$key] +=
@@ -1617,13 +1485,12 @@ class PartyAccountController extends Controller
             ->map(
                 fn (
                     float $value,
-                ): string =>
-                    number_format(
-                        $value,
-                        4,
-                        '.',
-                        '',
-                    ),
+                ): string => number_format(
+                    $value,
+                    4,
+                    '.',
+                    '',
+                ),
             )
             ->all();
     }
@@ -1636,18 +1503,14 @@ class PartyAccountController extends Controller
         }
 
         return [
-            'id' =>
-                $opening->id,
-            'amount' =>
-                $opening->amount,
-            'as_of_date' =>
-                $opening
-                    ->as_of_date
-                    ->format(
-                        'Y-m-d',
-                    ),
-            'notes' =>
-                $opening->notes,
+            'id' => $opening->id,
+            'amount' => $opening->amount,
+            'as_of_date' => $opening
+                ->as_of_date
+                ->format(
+                    'Y-m-d',
+                ),
+            'notes' => $opening->notes,
         ];
     }
 }

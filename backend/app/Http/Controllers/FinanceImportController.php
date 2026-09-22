@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Models\Party;
 use App\Models\Product;
@@ -9,11 +10,13 @@ use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
 use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use RuntimeException;
@@ -31,7 +34,7 @@ class FinanceImportController extends Controller
         [$headers, $samples] = $this->templateDefinition($type);
         $currency = strtoupper((string) (app(TenantContext::class)->organization()->preferences['currency'] ?? 'ILS'));
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Data');
         $sheet->fromArray($headers, null, 'A1');
@@ -166,6 +169,7 @@ class FinanceImportController extends Controller
             $key = trim((string) ($row['document_key'] ?? ''));
             if ($key === '') {
                 $groups['__invalid_'.$index][] = ['_row' => $index + 2, ...$row];
+
                 continue;
             }
             $groups[$key][] = ['_row' => $index + 2, ...$row];
@@ -210,6 +214,7 @@ class FinanceImportController extends Controller
 
                     if ($duplicate) {
                         $skipped++;
+
                         return;
                     }
 
@@ -404,7 +409,7 @@ class FinanceImportController extends Controller
                     }
 
                     $reference = trim((string) ($row['reference'] ?? '')) ?: $movementKey;
-                    $duplicate = \App\Models\CashMovement::query()
+                    $duplicate = CashMovement::query()
                         ->where('reference', $reference)
                         ->whereDate('movement_date', $movementDate)
                         ->where('amount', $amount)
@@ -412,6 +417,7 @@ class FinanceImportController extends Controller
 
                     if ($duplicate) {
                         $skipped++;
+
                         return;
                     }
 
@@ -711,14 +717,14 @@ class FinanceImportController extends Controller
 
         if (is_numeric($value)) {
             try {
-                return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $value)->format('Y-m-d');
+                return Date::excelToDateTimeObject((float) $value)->format('Y-m-d');
             } catch (Throwable) {
                 return null;
             }
         }
 
         try {
-            return \Carbon\CarbonImmutable::parse((string) $value)->format('Y-m-d');
+            return CarbonImmutable::parse((string) $value)->format('Y-m-d');
         } catch (Throwable) {
             return null;
         }

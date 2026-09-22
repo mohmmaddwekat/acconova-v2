@@ -50,7 +50,7 @@ final class AiBusinessToolRegistry
     }
 
     /** @param array<string,mixed> $arguments
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     public function execute(User $user, string $name, array $arguments): array
     {

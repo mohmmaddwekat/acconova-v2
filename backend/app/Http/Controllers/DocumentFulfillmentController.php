@@ -199,8 +199,7 @@ class DocumentFulfillmentController extends Controller
                 : 'receipt',
             'lines' => $document->lines
                 ->filter(
-                    fn (FinancialDocumentLine $line): bool =>
-                        (bool) $line->affects_inventory,
+                    fn (FinancialDocumentLine $line): bool => (bool) $line->affects_inventory,
                 )
                 ->map(function (
                     FinancialDocumentLine $line,

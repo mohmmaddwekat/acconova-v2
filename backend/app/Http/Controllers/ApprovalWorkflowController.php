@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ApprovalWorkflowController extends Controller
 {
@@ -144,7 +145,7 @@ class ApprovalWorkflowController extends Controller
             (int) $row->requested_by
             === (int) $request->user()->id
         ) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'approval' => [
                     'The requester cannot approve their own request. A different authorized reviewer is required.',
                 ],
@@ -195,7 +196,7 @@ class ApprovalWorkflowController extends Controller
                     ->first();
 
                 if ($existing) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
+                    throw ValidationException::withMessages([
                         'approval' => [
                             'You have already reviewed this approval request.',
                         ],
@@ -205,14 +206,10 @@ class ApprovalWorkflowController extends Controller
                 DB::table(
                     'approval_decisions',
                 )->insert([
-                    'organization_id' =>
-                        $organizationId,
-                    'approval_request_id' =>
-                        $locked->id,
-                    'reviewer_id' =>
-                        $request->user()->id,
-                    'decision' =>
-                        $data['decision'],
+                    'organization_id' => $organizationId,
+                    'approval_request_id' => $locked->id,
+                    'reviewer_id' => $request->user()->id,
+                    'decision' => $data['decision'],
                     'decided_at' => now(),
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -261,15 +258,12 @@ class ApprovalWorkflowController extends Controller
                     )
                     ->update([
                         'status' => $status,
-                        'approved_count' =>
-                            $approvedCount,
-                        'reviewed_by' =>
-                            $status
+                        'approved_count' => $approvedCount,
+                        'reviewed_by' => $status
                             !== 'pending'
                                 ? $request->user()->id
                                 : $locked->reviewed_by,
-                        'reviewed_at' =>
-                            $status
+                        'reviewed_at' => $status
                             !== 'pending'
                                 ? now()
                                 : $locked->reviewed_at,
@@ -331,12 +325,9 @@ class ApprovalWorkflowController extends Controller
 
         DB::table('workspace_notifications')
             ->insertOrIgnore([
-                'organization_id' =>
-                    $organizationId,
-                'user_id' =>
-                    $row->requested_by,
-                'event_key' =>
-                    'approval-review-progress:'
+                'organization_id' => $organizationId,
+                'user_id' => $row->requested_by,
+                'event_key' => 'approval-review-progress:'
                     .$row->id
                     .':'
                     .$updated->approved_count
@@ -345,27 +336,20 @@ class ApprovalWorkflowController extends Controller
                 'kind' => match (
                     $updated->status
                 ) {
-                    'approved' =>
-                        'approval_approved',
-                    'rejected' =>
-                        'approval_rejected',
-                    default =>
-                        'approval_progress',
+                    'approved' => 'approval_approved',
+                    'rejected' => 'approval_rejected',
+                    default => 'approval_progress',
                 },
                 'category' => 'activity',
                 'data' => json_encode([
                     'name' => match (
                         $updated->status
                     ) {
-                        'approved' =>
-                            'Approval approved',
-                        'rejected' =>
-                            'Approval rejected',
-                        default =>
-                            'Approval progress',
+                        'approved' => 'Approval approved',
+                        'rejected' => 'Approval rejected',
+                        default => 'Approval progress',
                     },
-                    'detail' =>
-                        $updated->status
+                    'detail' => $updated->status
                         === 'pending'
                             ? sprintf(
                                 '%d of %d required approvals completed.',
@@ -374,8 +358,7 @@ class ApprovalWorkflowController extends Controller
                             )
                             : $row->reason,
                 ], JSON_THROW_ON_ERROR),
-                'url' =>
-                    '/app/finance/approvals',
+                'url' => '/app/finance/approvals',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

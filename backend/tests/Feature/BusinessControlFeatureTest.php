@@ -493,8 +493,7 @@ class BusinessControlFeatureTest extends TestCase
     ): void {
         $this->actingAs($user)
             ->withSession([
-                OrganizationAccess::SESSION_KEY =>
-                    $organization->id,
+                OrganizationAccess::SESSION_KEY => $organization->id,
             ]);
     }
 

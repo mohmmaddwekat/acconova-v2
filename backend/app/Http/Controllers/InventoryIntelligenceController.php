@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Carbon\Carbon;
-
 use App\Enums\ProductType;
 use App\Enums\StockMovementType;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Tenancy\TenantContext;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -310,31 +309,27 @@ class InventoryIntelligenceController extends Controller
 
         $deadRows = $rows
             ->filter(
-                fn (array $row): bool =>
-                    in_array(
-                        $row['dead_stock_bucket'],
-                        ['30-59', '60-89', '90+'],
-                        true,
-                    ),
+                fn (array $row): bool => in_array(
+                    $row['dead_stock_bucket'],
+                    ['30-59', '60-89', '90+'],
+                    true,
+                ),
             )
             ->sortByDesc('dead_stock_days')
             ->values();
 
         $reorderRows = $rows
             ->filter(
-                fn (array $row): bool =>
-                    (float) $row['reorder_quantity'] > 0.00005,
+                fn (array $row): bool => (float) $row['reorder_quantity'] > 0.00005,
             )
             ->sortByDesc(
-                fn (array $row): float =>
-                    (float) $row['reorder_quantity'],
+                fn (array $row): float => (float) $row['reorder_quantity'],
             )
             ->values();
 
         $stockoutRows = $rows
             ->filter(
-                fn (array $row): bool =>
-                    $row['stockout_days'] !== null
+                fn (array $row): bool => $row['stockout_days'] !== null
                     && $row['stockout_days'] <= 30,
             )
             ->sortBy('stockout_days')
@@ -350,8 +345,7 @@ class InventoryIntelligenceController extends Controller
                     'dead_stock_products' => $deadRows->count(),
                     'dead_stock_capital' => number_format(
                         (float) $deadRows->sum(
-                            fn (array $row): float =>
-                                (float) $row['frozen_capital'],
+                            fn (array $row): float => (float) $row['frozen_capital'],
                         ),
                         4,
                         '.',
@@ -365,8 +359,7 @@ class InventoryIntelligenceController extends Controller
                 'stockout_forecast' => $stockoutRows->take(80)->values(),
                 'aging' => $rows
                     ->filter(
-                        fn (array $row): bool =>
-                            (float) $row['available'] > 0,
+                        fn (array $row): bool => (float) $row['available'] > 0,
                     )
                     ->sortByDesc('inventory_age_days')
                     ->take(80)

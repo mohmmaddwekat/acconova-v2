@@ -1,33 +1,33 @@
 <?php
 
-use App\Http\Controllers\Auth\EmailVerificationController;
-use App\Http\Controllers\PurchaseRequisitionController;
-use App\Http\Controllers\CustomerIntelligenceController;
-use App\Http\Controllers\BankReconciliationController;
 use App\Http\Controllers\ApprovalWorkflowController;
-use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\AuditCenterController;
-use App\Http\Controllers\BusinessPulseController;
-use App\Http\Controllers\DashboardIntelligenceController;
+use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\BankReconciliationController;
 use App\Http\Controllers\BulkActionHistoryController;
 use App\Http\Controllers\BusinessControlController;
+use App\Http\Controllers\BusinessPulseController;
+use App\Http\Controllers\CashMovementController;
 use App\Http\Controllers\CommercialOperationsController;
-use App\Http\Controllers\RestoreCenterController;
-use App\Http\Controllers\ReportBuilderController;
-use App\Http\Controllers\ReportStudioController;
-use App\Http\Controllers\ScheduledReportController;
+use App\Http\Controllers\CustomerIntelligenceController;
+use App\Http\Controllers\DashboardIntelligenceController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DocumentFulfillmentController;
 use App\Http\Controllers\FinanceDocumentController;
 use App\Http\Controllers\FinanceImportController;
 use App\Http\Controllers\FinanceLookupController;
 use App\Http\Controllers\InvoiceAutomationController;
-use App\Http\Controllers\PaymentPlanController;
 use App\Http\Controllers\NotificationRuleController;
 use App\Http\Controllers\PartyPricingController;
+use App\Http\Controllers\PaymentPlanController;
 use App\Http\Controllers\ProfileCenterController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PurchaseRequisitionController;
 use App\Http\Controllers\RecordCollaborationController;
+use App\Http\Controllers\ReportBuilderController;
+use App\Http\Controllers\ReportStudioController;
+use App\Http\Controllers\RestoreCenterController;
+use App\Http\Controllers\ScheduledReportController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StaffCorrectionController;
 use App\Http\Controllers\StaffImportController;
@@ -35,16 +35,16 @@ use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\StaffWorkforceController;
 use App\Http\Controllers\SystemCheckController;
 use App\Http\Controllers\TaxComplianceController;
-use App\Services\FinanceAuthorization;
-use App\Services\WorkspaceFeaturePermissions;
-use App\Http\Controllers\WorkspaceCustomizationController;
 use App\Http\Controllers\WorkspaceConversationController;
 use App\Http\Controllers\WorkspaceConversationSettingsController;
+use App\Http\Controllers\WorkspaceCustomizationController;
 use App\Http\Controllers\WorkspaceMessageMemberController;
 use App\Http\Controllers\WorkspaceNotificationController;
 use App\Http\Controllers\WorkspaceRoleController;
 use App\Http\Controllers\WorkspaceSettingsController;
 use App\Http\Middleware\ResolveOrganization;
+use App\Services\FinanceAuthorization;
+use App\Services\WorkspaceFeaturePermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -361,7 +361,7 @@ Route::middleware([
 
     Route::get(
         '/app/finance',
-        function (\Illuminate\Http\Request $request) {
+        function (Request $request) {
             $hasFinanceAccess =
                 FinanceAuthorization::allows($request->user(), 'finance.sales.view')
                 || FinanceAuthorization::allows($request->user(), 'finance.purchases.view')
@@ -652,7 +652,6 @@ Route::middleware([
         '/app/follow-ups',
         fn () => Inertia::render('FollowUpQueue'),
     )->name('app.follow-ups');
-
 
     Route::get(
         '/app/notifications',
@@ -1672,6 +1671,5 @@ Route::middleware(['auth', 'throttle:30,1'])->prefix('api/profile')->group(funct
     Route::post('/email', [ProfileController::class, 'email'])->middleware('throttle:6,1');
     Route::get('/email/confirm', [ProfileController::class, 'confirmEmail'])->middleware('signed')->name('profile.email.confirm');
 });
-
 
 require __DIR__.'/api/ai.php';

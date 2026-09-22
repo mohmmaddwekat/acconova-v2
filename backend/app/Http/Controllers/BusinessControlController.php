@@ -103,8 +103,7 @@ class BusinessControlController extends Controller
                 ])
                 ->map(fn (Party $party): array => [
                     'id' => $party->id,
-                    'name' =>
-                        $party->company_name
+                    'name' => $party->company_name
                         ?: $party->name,
                 ])
             : collect();
@@ -157,8 +156,7 @@ class BusinessControlController extends Controller
                         'number' => $row->number,
                         'total' => $row->total,
                         'currency' => $row->currency,
-                        'party' =>
-                            $row->company_name
+                        'party' => $row->company_name
                             ?: $row->party_name,
                     ])
                 : collect();
@@ -189,13 +187,11 @@ class BusinessControlController extends Controller
             ),
             'departments' => $departments,
             'parties' => $parties,
-            'purchase_documents' =>
-                $purchaseDocuments,
+            'purchase_documents' => $purchaseDocuments,
             'staff' => $staff,
-            'can_review_expense_claims' =>
-                $this->canReviewExpenseClaims(
-                    $request,
-                ),
+            'can_review_expense_claims' => $this->canReviewExpenseClaims(
+                $request,
+            ),
         ]);
     }
 
@@ -214,51 +210,40 @@ class BusinessControlController extends Controller
         )->id();
 
         $data = match ($feature) {
-            'expiry-alerts' =>
-                $this->expiryAlerts(
-                    $organizationId,
-                ),
-            'landed-costs' =>
-                $this->landedCosts(
-                    $organizationId,
-                ),
-            'exchange-rates' =>
-                $this->exchangeRates(
-                    $organizationId,
-                ),
-            'budgets' =>
-                $this->budgets(
-                    $organizationId,
-                ),
-            'spending-limits' =>
-                $this->spendingLimits(
-                    $organizationId,
-                ),
-            'expense-claims' =>
-                $this->expenseClaims(
-                    $request,
-                    $organizationId,
-                ),
-            'petty-cash' =>
-                $this->pettyCash(
-                    $organizationId,
-                ),
-            'recurring-expenses' =>
-                $this->recurringExpenses(
-                    $organizationId,
-                ),
-            'contracts' =>
-                $this->contracts(
-                    $organizationId,
-                ),
-            'document-expiry' =>
-                $this->expiringDocuments(
-                    $organizationId,
-                ),
-            'data-quality' =>
-                $this->dataQuality(
-                    $organizationId,
-                ),
+            'expiry-alerts' => $this->expiryAlerts(
+                $organizationId,
+            ),
+            'landed-costs' => $this->landedCosts(
+                $organizationId,
+            ),
+            'exchange-rates' => $this->exchangeRates(
+                $organizationId,
+            ),
+            'budgets' => $this->budgets(
+                $organizationId,
+            ),
+            'spending-limits' => $this->spendingLimits(
+                $organizationId,
+            ),
+            'expense-claims' => $this->expenseClaims(
+                $request,
+                $organizationId,
+            ),
+            'petty-cash' => $this->pettyCash(
+                $organizationId,
+            ),
+            'recurring-expenses' => $this->recurringExpenses(
+                $organizationId,
+            ),
+            'contracts' => $this->contracts(
+                $organizationId,
+            ),
+            'document-expiry' => $this->expiringDocuments(
+                $organizationId,
+            ),
+            'data-quality' => $this->dataQuality(
+                $organizationId,
+            ),
             default => abort(404),
         };
 
@@ -282,46 +267,38 @@ class BusinessControlController extends Controller
         )->id();
 
         $record = match ($feature) {
-            'landed-costs' =>
-                $this->storeLandedCost(
-                    $request,
-                    $organizationId,
-                ),
-            'budgets' =>
-                $this->storeBudget(
-                    $request,
-                    $organizationId,
-                ),
-            'spending-limits' =>
-                $this->storeSpendingLimit(
-                    $request,
-                    $organizationId,
-                ),
-            'expense-claims' =>
-                $this->storeExpenseClaim(
-                    $request,
-                    $organizationId,
-                ),
-            'petty-cash' =>
-                $this->storePettyCashFund(
-                    $request,
-                    $organizationId,
-                ),
-            'recurring-expenses' =>
-                $this->storeRecurringExpense(
-                    $request,
-                    $organizationId,
-                ),
-            'contracts' =>
-                $this->storeContract(
-                    $request,
-                    $organizationId,
-                ),
-            'document-expiry' =>
-                $this->storeExpiringDocument(
-                    $request,
-                    $organizationId,
-                ),
+            'landed-costs' => $this->storeLandedCost(
+                $request,
+                $organizationId,
+            ),
+            'budgets' => $this->storeBudget(
+                $request,
+                $organizationId,
+            ),
+            'spending-limits' => $this->storeSpendingLimit(
+                $request,
+                $organizationId,
+            ),
+            'expense-claims' => $this->storeExpenseClaim(
+                $request,
+                $organizationId,
+            ),
+            'petty-cash' => $this->storePettyCashFund(
+                $request,
+                $organizationId,
+            ),
+            'recurring-expenses' => $this->storeRecurringExpense(
+                $request,
+                $organizationId,
+            ),
+            'contracts' => $this->storeContract(
+                $request,
+                $organizationId,
+            ),
+            'document-expiry' => $this->storeExpiringDocument(
+                $request,
+                $organizationId,
+            ),
             default => abort(404),
         };
 
@@ -346,48 +323,41 @@ class BusinessControlController extends Controller
         )->id();
 
         $result = match ($feature) {
-            'landed-costs' =>
-                $this->updateLandedCost(
-                    $request,
-                    $organizationId,
-                    (int) $record,
-                ),
-            'spending-limits' =>
-                $this->updateSpendingLimit(
-                    $request,
-                    $organizationId,
-                    (int) $record,
-                ),
-            'expense-claims' =>
-                $this->updateExpenseClaim(
-                    $request,
-                    $organizationId,
-                    (int) $record,
-                ),
-            'petty-cash' =>
-                $this->updatePettyCashFund(
-                    $request,
-                    $organizationId,
-                    (int) $record,
-                ),
-            'recurring-expenses' =>
-                $this->updateRecurringExpense(
-                    $request,
-                    $organizationId,
-                    (int) $record,
-                ),
-            'contracts' =>
-                $this->updateContract(
-                    $request,
-                    $organizationId,
-                    (int) $record,
-                ),
-            'document-expiry' =>
-                $this->updateExpiringDocument(
-                    $request,
-                    $organizationId,
-                    (int) $record,
-                ),
+            'landed-costs' => $this->updateLandedCost(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'spending-limits' => $this->updateSpendingLimit(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'expense-claims' => $this->updateExpenseClaim(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'petty-cash' => $this->updatePettyCashFund(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'recurring-expenses' => $this->updateRecurringExpense(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'contracts' => $this->updateContract(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
+            'document-expiry' => $this->updateExpiringDocument(
+                $request,
+                $organizationId,
+                (int) $record,
+            ),
             default => abort(404),
         };
 
@@ -467,21 +437,16 @@ class BusinessControlController extends Controller
             ->where('id', $claim->id)
             ->update([
                 'receipt_path' => $path,
-                'receipt_original_name' =>
-                    $file->getClientOriginalName(),
-                'receipt_mime_type' =>
-                    $file->getMimeType(),
-                'receipt_size_bytes' =>
-                    $file->getSize(),
+                'receipt_original_name' => $file->getClientOriginalName(),
+                'receipt_mime_type' => $file->getMimeType(),
+                'receipt_size_bytes' => $file->getSize(),
                 'updated_at' => now(),
             ]);
 
         return response()->json([
             'data' => [
-                'receipt_original_name' =>
-                    $file->getClientOriginalName(),
-                'receipt_url' =>
-                    '/api/control/expense-claims/'
+                'receipt_original_name' => $file->getClientOriginalName(),
+                'receipt_url' => '/api/control/expense-claims/'
                     .$claim->id
                     .'/receipt',
             ],
@@ -522,11 +487,9 @@ class BusinessControlController extends Controller
                 $claim->receipt_original_name
                     ?: 'expense-receipt',
                 [
-                    'Content-Type' =>
-                        $claim->receipt_mime_type
+                    'Content-Type' => $claim->receipt_mime_type
                         ?: 'application/octet-stream',
-                    'Content-Disposition' =>
-                        'inline; filename="'
+                    'Content-Disposition' => 'inline; filename="'
                         .str_replace(
                             '"',
                             '',
@@ -657,33 +620,24 @@ class BusinessControlController extends Controller
                 $id = DB::table(
                     'petty_cash_transactions',
                 )->insertGetId([
-                    'organization_id' =>
-                        $organizationId,
-                    'petty_cash_fund_id' =>
-                        $cashFund->id,
-                    'direction' =>
-                        $data['direction'],
-                    'amount' =>
-                        number_format(
-                            $amount,
-                            4,
-                            '.',
-                            '',
-                        ),
-                    'transaction_date' =>
-                        $data['transaction_date']
+                    'organization_id' => $organizationId,
+                    'petty_cash_fund_id' => $cashFund->id,
+                    'direction' => $data['direction'],
+                    'amount' => number_format(
+                        $amount,
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'transaction_date' => $data['transaction_date']
                         ?? now()->toDateString(),
-                    'category' =>
-                        $data['category']
+                    'category' => $data['category']
                         ?? null,
-                    'reference' =>
-                        $data['reference']
+                    'reference' => $data['reference']
                         ?? null,
-                    'notes' =>
-                        $data['notes']
+                    'notes' => $data['notes']
                         ?? null,
-                    'created_by' =>
-                        $request->user()->id,
+                    'created_by' => $request->user()->id,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -773,10 +727,8 @@ class BusinessControlController extends Controller
 
                 return [
                     ...((array) $row),
-                    'days_until_expiry' =>
-                        $days,
-                    'alert_level' =>
-                        $alert,
+                    'days_until_expiry' => $days,
+                    'alert_level' => $alert,
                 ];
             })
             ->values()
@@ -856,17 +808,15 @@ class BusinessControlController extends Controller
                             return match (
                                 $row->allocation_method
                             ) {
-                                'quantity' =>
-                                    max(
-                                        (float) $line->quantity,
-                                        0,
-                                    ),
+                                'quantity' => max(
+                                    (float) $line->quantity,
+                                    0,
+                                ),
                                 'equal' => 1.0,
-                                default =>
-                                    max(
-                                        (float) $line->line_total,
-                                        0,
-                                    ),
+                                default => max(
+                                    (float) $line->line_total,
+                                    0,
+                                ),
                             };
                         },
                     );
@@ -916,33 +866,27 @@ class BusinessControlController extends Controller
                                 );
 
                             return [
-                                'line_id' =>
-                                    $line->id,
-                                'product_id' =>
-                                    $line->product_id,
-                                'product' =>
-                                    $line->product
+                                'line_id' => $line->id,
+                                'product_id' => $line->product_id,
+                                'product' => $line->product
                                     ?: $line->description,
-                                'quantity' =>
-                                    (string) $line->quantity,
-                                'allocated_cost' =>
-                                    number_format(
-                                        $allocated,
-                                        4,
-                                        '.',
-                                        '',
-                                    ),
-                                'extra_unit_cost' =>
-                                    number_format(
-                                        (float) $line->quantity
-                                            > 0
-                                            ? $allocated
-                                                / (float) $line->quantity
-                                            : 0,
-                                        4,
-                                        '.',
-                                        '',
-                                    ),
+                                'quantity' => (string) $line->quantity,
+                                'allocated_cost' => number_format(
+                                    $allocated,
+                                    4,
+                                    '.',
+                                    '',
+                                ),
+                                'extra_unit_cost' => number_format(
+                                    (float) $line->quantity
+                                        > 0
+                                        ? $allocated
+                                            / (float) $line->quantity
+                                        : 0,
+                                    4,
+                                    '.',
+                                    '',
+                                ),
                             ];
                         },
                     )
@@ -950,13 +894,10 @@ class BusinessControlController extends Controller
 
                 return [
                     ...((array) $row),
-                    'party' =>
-                        $row->company_name
+                    'party' => $row->company_name
                         ?: $row->party_name,
-                    'allocations' =>
-                        $allocation,
-                    'accounting_effect' =>
-                        false,
+                    'allocations' => $allocation,
+                    'accounting_effect' => false,
                 ];
             })
             ->all();
@@ -1002,8 +943,7 @@ class BusinessControlController extends Controller
             ])
             ->map(fn ($row): array => [
                 ...((array) $row),
-                'url' =>
-                    $row->financial_document_id
+                'url' => $row->financial_document_id
                         ? (
                             $row->document_kind
                                 === 'purchase_invoice'
@@ -1061,22 +1001,19 @@ class BusinessControlController extends Controller
 
                     return [
                         ...((array) $row),
-                        'actual' =>
-                            number_format(
-                                $actual,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'variance' =>
-                            number_format(
-                                $budget - $actual,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'usage_percent' =>
-                            $budget > 0
+                        'actual' => number_format(
+                            $actual,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'variance' => number_format(
+                            $budget - $actual,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'usage_percent' => $budget > 0
                                 ? round(
                                     $actual
                                         / $budget
@@ -1135,29 +1072,25 @@ class BusinessControlController extends Controller
 
                     return [
                         ...((array) $row),
-                        'month' =>
-                            $month->format(
-                                'Y-m',
+                        'month' => $month->format(
+                            'Y-m',
+                        ),
+                        'spent' => number_format(
+                            $spent,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'remaining' => number_format(
+                            max(
+                                $limit - $spent,
+                                0,
                             ),
-                        'spent' =>
-                            number_format(
-                                $spent,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'remaining' =>
-                            number_format(
-                                max(
-                                    $limit - $spent,
-                                    0,
-                                ),
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'usage_percent' =>
-                            $limit > 0
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'usage_percent' => $limit > 0
                                 ? round(
                                     $spent
                                         / $limit
@@ -1225,10 +1158,8 @@ class BusinessControlController extends Controller
             ])
             ->map(fn ($row): array => [
                 ...((array) $row),
-                'can_review' =>
-                    $canReview,
-                'receipt_url' =>
-                    $row->receipt_path
+                'can_review' => $canReview,
+                'receipt_url' => $row->receipt_path
                         ? '/api/control/expense-claims/'
                             .$row->id
                             .'/receipt'
@@ -1308,20 +1239,18 @@ class BusinessControlController extends Controller
 
                     return [
                         ...((array) $row),
-                        'balance' =>
-                            number_format(
-                                $balance,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'spent_this_month' =>
-                            number_format(
-                                $outThisMonth,
-                                4,
-                                '.',
-                                '',
-                            ),
+                        'balance' => number_format(
+                            $balance,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'spent_this_month' => number_format(
+                            $outThisMonth,
+                            4,
+                            '.',
+                            '',
+                        ),
                     ];
                 },
             )
@@ -1370,17 +1299,14 @@ class BusinessControlController extends Controller
 
                 return [
                     ...((array) $row),
-                    'party' =>
-                        $row->company_name
+                    'party' => $row->company_name
                         ?: $row->party_name,
-                    'days_until_due' =>
-                        CarbonImmutable::today()
-                            ->diffInDays(
-                                $nextDue,
-                                false,
-                            ),
-                    'forecast_next_30' =>
-                        $row->active
+                    'days_until_due' => CarbonImmutable::today()
+                        ->diffInDays(
+                            $nextDue,
+                            false,
+                        ),
+                    'forecast_next_30' => $row->active
                         && $nextDue->lte(
                             CarbonImmutable::today()
                                 ->addDays(30),
@@ -1450,20 +1376,16 @@ class BusinessControlController extends Controller
                     $days <= 7 => '7_days',
                     $days <= 15 => '15_days',
                     $days <= 30 => '30_days',
-                    $days <= (int) $row->reminder_days =>
-                        'reminder',
+                    $days <= (int) $row->reminder_days => 'reminder',
                     default => 'none',
                 };
 
                 return [
                     ...((array) $row),
-                    'party' =>
-                        $row->company_name
+                    'party' => $row->company_name
                         ?: $row->party_name,
-                    'days_until_expiry' =>
-                        $days,
-                    'alert_level' =>
-                        $alert,
+                    'days_until_expiry' => $days,
+                    'alert_level' => $alert,
                 ];
             })
             ->all();
@@ -1514,15 +1436,13 @@ class BusinessControlController extends Controller
 
                 return [
                     ...((array) $row),
-                    'days_until_expiry' =>
-                        $days,
+                    'days_until_expiry' => $days,
                     'alert_level' => match (true) {
                         $days < 0 => 'expired',
                         $days <= 7 => '7_days',
                         $days <= 15 => '15_days',
                         $days <= 30 => '30_days',
-                        $days <= (int) $row->reminder_days =>
-                            'reminder',
+                        $days <= (int) $row->reminder_days => 'reminder',
                         default => 'none',
                     },
                 ];
@@ -1561,16 +1481,13 @@ class BusinessControlController extends Controller
                 && ! $party->phone
             ) {
                 $issues->push([
-                    'id' =>
-                        'party-contact-'.$party->id,
+                    'id' => 'party-contact-'.$party->id,
                     'entity_type' => 'party',
                     'entity_id' => $party->id,
                     'entity' => $label,
-                    'issue' =>
-                        'Missing phone and email',
+                    'issue' => 'Missing phone and email',
                     'severity' => 'high',
-                    'url' =>
-                        '/app/parties?focus='
+                    'url' => '/app/parties?focus='
                         .$party->id,
                 ]);
             }
@@ -1578,39 +1495,33 @@ class BusinessControlController extends Controller
 
         $partyGroups = $parties
             ->groupBy(
-                fn ($party): string =>
-                    mb_strtolower(
-                        trim(
-                            (string) (
-                                $party->company_name
-                                ?: $party->name
-                                ?: ''
-                            ),
+                fn ($party): string => mb_strtolower(
+                    trim(
+                        (string) (
+                            $party->company_name
+                            ?: $party->name
+                            ?: ''
                         ),
                     ),
+                ),
             )
             ->filter(
-                fn ($group, $key): bool =>
-                    $key !== ''
+                fn ($group, $key): bool => $key !== ''
                     && $group->count() > 1,
             );
 
         foreach ($partyGroups as $group) {
             foreach ($group as $party) {
                 $issues->push([
-                    'id' =>
-                        'party-duplicate-'.$party->id,
+                    'id' => 'party-duplicate-'.$party->id,
                     'entity_type' => 'party',
                     'entity_id' => $party->id,
-                    'entity' =>
-                        $party->company_name
+                    'entity' => $party->company_name
                         ?: $party->name
                         ?: '#'.$party->id,
-                    'issue' =>
-                        'Possible duplicate party name',
+                    'issue' => 'Possible duplicate party name',
                     'severity' => 'warning',
-                    'url' =>
-                        '/app/parties?focus='
+                    'url' => '/app/parties?focus='
                         .$party->id,
                 ]);
             }
@@ -1643,16 +1554,13 @@ class BusinessControlController extends Controller
                 && (float) $product->cost_price <= 0
             ) {
                 $issues->push([
-                    'id' =>
-                        'product-cost-'.$product->id,
+                    'id' => 'product-cost-'.$product->id,
                     'entity_type' => 'product',
                     'entity_id' => $product->id,
                     'entity' => $product->name,
-                    'issue' =>
-                        'Physical product has no cost',
+                    'issue' => 'Physical product has no cost',
                     'severity' => 'high',
-                    'url' =>
-                        '/app/products?focus='
+                    'url' => '/app/products?focus='
                         .$product->id,
                 ]);
             }
@@ -1660,32 +1568,27 @@ class BusinessControlController extends Controller
 
         $productGroups = $products
             ->groupBy(
-                fn ($product): string =>
-                    mb_strtolower(
-                        trim(
-                            (string) $product->name,
-                        ),
+                fn ($product): string => mb_strtolower(
+                    trim(
+                        (string) $product->name,
                     ),
+                ),
             )
             ->filter(
-                fn ($group, $key): bool =>
-                    $key !== ''
+                fn ($group, $key): bool => $key !== ''
                     && $group->count() > 1,
             );
 
         foreach ($productGroups as $group) {
             foreach ($group as $product) {
                 $issues->push([
-                    'id' =>
-                        'product-duplicate-'.$product->id,
+                    'id' => 'product-duplicate-'.$product->id,
                     'entity_type' => 'product',
                     'entity_id' => $product->id,
                     'entity' => $product->name,
-                    'issue' =>
-                        'Possible duplicate product name',
+                    'issue' => 'Possible duplicate product name',
                     'severity' => 'warning',
-                    'url' =>
-                        '/app/products?focus='
+                    'url' => '/app/products?focus='
                         .$product->id,
                 ]);
             }
@@ -1778,26 +1681,17 @@ class BusinessControlController extends Controller
         $id = DB::table(
             'landed_costs',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
-            'purchase_document_id' =>
-                $document->id,
-            'cost_type' =>
-                $data['cost_type'],
-            'title' =>
-                $data['title'],
-            'amount' =>
-                $data['amount'],
-            'currency' =>
-                $document->currency,
-            'allocation_method' =>
-                $data['allocation_method'],
+            'organization_id' => $organizationId,
+            'purchase_document_id' => $document->id,
+            'cost_type' => $data['cost_type'],
+            'title' => $data['title'],
+            'amount' => $data['amount'],
+            'currency' => $document->currency,
+            'allocation_method' => $data['allocation_method'],
             'status' => 'draft',
-            'notes' =>
-                $data['notes']
+            'notes' => $data['notes']
                 ?? null,
-            'created_by' =>
-                $request->user()->id,
+            'created_by' => $request->user()->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -1852,21 +1746,16 @@ class BusinessControlController extends Controller
 
         DB::table('department_budgets')
             ->updateOrInsert([
-                'organization_id' =>
-                    $organizationId,
-                'department_id' =>
-                    (int) $data['department_id'],
+                'organization_id' => $organizationId,
+                'department_id' => (int) $data['department_id'],
                 'month' => $month,
-                'currency' =>
-                    strtoupper(
-                        $data['currency'],
-                    ),
+                'currency' => strtoupper(
+                    $data['currency'],
+                ),
             ], [
-                'amount' =>
-                    $data['amount'],
-                'notes' =>
-                    $data['notes']
-                    ?? null,
+                'amount' => $data['amount'],
+                'notes' => $data['notes']
+                ?? null,
                 'updated_at' => now(),
                 'created_at' => now(),
             ]);
@@ -1929,21 +1818,16 @@ class BusinessControlController extends Controller
         DB::table(
             'department_spending_limits',
         )->updateOrInsert([
-            'organization_id' =>
-                $organizationId,
-            'department_id' =>
-                (int) $data['department_id'],
-            'currency' =>
-                strtoupper(
-                    $data['currency'],
-                ),
+            'organization_id' => $organizationId,
+            'department_id' => (int) $data['department_id'],
+            'currency' => strtoupper(
+                $data['currency'],
+            ),
         ], [
-            'monthly_limit' =>
-                $data['monthly_limit'],
+            'monthly_limit' => $data['monthly_limit'],
             'active' => true,
-            'notes' =>
-                $data['notes']
-                ?? null,
+            'notes' => $data['notes']
+            ?? null,
             'updated_at' => now(),
             'created_at' => now(),
         ]);
@@ -2026,30 +1910,20 @@ class BusinessControlController extends Controller
         $id = DB::table(
             'expense_claims',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
-            'submitted_by' =>
-                $request->user()->id,
-            'department_id' =>
-                $departmentId,
-            'title' =>
-                $data['title'],
-            'amount' =>
-                $data['amount'],
-            'currency' =>
-                strtoupper(
-                    $data['currency'],
-                ),
-            'expense_date' =>
-                $data['expense_date'],
-            'merchant' =>
-                $data['merchant']
+            'organization_id' => $organizationId,
+            'submitted_by' => $request->user()->id,
+            'department_id' => $departmentId,
+            'title' => $data['title'],
+            'amount' => $data['amount'],
+            'currency' => strtoupper(
+                $data['currency'],
+            ),
+            'expense_date' => $data['expense_date'],
+            'merchant' => $data['merchant']
                 ?? null,
-            'reference' =>
-                $data['reference']
+            'reference' => $data['reference']
                 ?? null,
-            'notes' =>
-                $data['notes']
+            'notes' => $data['notes']
                 ?? null,
             'status' => 'submitted',
             'created_at' => now(),
@@ -2135,26 +2009,18 @@ class BusinessControlController extends Controller
         $id = DB::table(
             'petty_cash_funds',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
-            'department_id' =>
-                $data['department_id']
+            'organization_id' => $organizationId,
+            'department_id' => $data['department_id']
                 ?? null,
-            'custodian_user_id' =>
-                $request->user()->id,
-            'name' =>
-                $data['name'],
-            'currency' =>
-                strtoupper(
-                    $data['currency'],
-                ),
-            'limit_amount' =>
-                $data['limit_amount'],
-            'opening_balance' =>
-                $opening,
+            'custodian_user_id' => $request->user()->id,
+            'name' => $data['name'],
+            'currency' => strtoupper(
+                $data['currency'],
+            ),
+            'limit_amount' => $data['limit_amount'],
+            'opening_balance' => $opening,
             'active' => true,
-            'notes' =>
-                $data['notes']
+            'notes' => $data['notes']
                 ?? null,
             'created_at' => now(),
             'updated_at' => now(),
@@ -2234,13 +2100,11 @@ class BusinessControlController extends Controller
         $id = DB::table(
             'recurring_expenses',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
+            'organization_id' => $organizationId,
             ...$data,
-            'currency' =>
-                strtoupper(
-                    $data['currency'],
-                ),
+            'currency' => strtoupper(
+                $data['currency'],
+            ),
             'active' => true,
             'created_at' => now(),
             'updated_at' => now(),
@@ -2356,18 +2220,14 @@ class BusinessControlController extends Controller
         $id = DB::table(
             'party_contracts',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
+            'organization_id' => $organizationId,
             ...$data,
-            'value' =>
-                $data['value']
+            'value' => $data['value']
                 ?? 0,
-            'currency' =>
-                strtoupper(
-                    $data['currency'],
-                ),
-            'reminder_days' =>
-                $data['reminder_days']
+            'currency' => strtoupper(
+                $data['currency'],
+            ),
+            'reminder_days' => $data['reminder_days']
                 ?? 30,
             'status' => 'active',
             'created_at' => now(),
@@ -2515,13 +2375,10 @@ class BusinessControlController extends Controller
         $id = DB::table(
             'expiring_documents',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
+            'organization_id' => $organizationId,
             ...$data,
-            'subject_label' =>
-                $subjectLabel,
-            'reminder_days' =>
-                $data['reminder_days']
+            'subject_label' => $subjectLabel,
+            'reminder_days' => $data['reminder_days']
                 ?? 30,
             'status' => 'active',
             'created_at' => now(),
@@ -2572,8 +2429,7 @@ class BusinessControlController extends Controller
             ->where('id', $record)
             ->update([
                 'status' => $data['status'],
-                'allocated_at' =>
-                    $data['status'] === 'allocated'
+                'allocated_at' => $data['status'] === 'allocated'
                         ? ($current->allocated_at ?? now())
                         : null,
                 'updated_at' => now(),
@@ -2609,8 +2465,7 @@ class BusinessControlController extends Controller
         )
             ->where('id', $record)
             ->update([
-                'active' =>
-                    $data['active'],
+                'active' => $data['active'],
                 'updated_at' => now(),
             ]);
 
@@ -2694,21 +2549,16 @@ class BusinessControlController extends Controller
         DB::table('expense_claims')
             ->where('id', $record)
             ->update([
-                'status' =>
-                    $data['status'],
-                'reviewed_by' =>
-                    $request->user()->id,
+                'status' => $data['status'],
+                'reviewed_by' => $request->user()->id,
                 'reviewed_at' => now(),
-                'rejection_reason' =>
-                    $data['status'] === 'rejected'
+                'rejection_reason' => $data['status'] === 'rejected'
                         ? $data['rejection_reason']
                         : $current->rejection_reason,
-                'payout_reference' =>
-                    $data['status'] === 'paid'
+                'payout_reference' => $data['status'] === 'paid'
                         ? $data['payout_reference']
                         : $current->payout_reference,
-                'paid_at' =>
-                    $data['status'] === 'paid'
+                'paid_at' => $data['status'] === 'paid'
                         ? now()
                         : $current->paid_at,
                 'updated_at' => now(),
@@ -2787,14 +2637,10 @@ class BusinessControlController extends Controller
             $nextDue = match (
                 $current->frequency
             ) {
-                'weekly' =>
-                    $nextDue->addWeek(),
-                'quarterly' =>
-                    $nextDue->addMonths(3),
-                'yearly' =>
-                    $nextDue->addYear(),
-                default =>
-                    $nextDue->addMonth(),
+                'weekly' => $nextDue->addWeek(),
+                'quarterly' => $nextDue->addMonths(3),
+                'yearly' => $nextDue->addYear(),
+                default => $nextDue->addMonth(),
             };
         }
 
@@ -2809,13 +2655,11 @@ class BusinessControlController extends Controller
                         $data,
                     )
                         ? [
-                            'active' =>
-                                $data['active'],
+                            'active' => $data['active'],
                         ]
                         : []
                 ),
-                'next_due_on' =>
-                    $nextDue->toDateString(),
+                'next_due_on' => $nextDue->toDateString(),
                 'updated_at' => now(),
             ]);
 

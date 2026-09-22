@@ -14,22 +14,21 @@ class NotificationRuleController extends Controller
         Request $request,
     ): JsonResponse {
         return response()->json([
-            'data' =>
-                DB::table(
-                    'notification_rules',
+            'data' => DB::table(
+                'notification_rules',
+            )
+                ->where(
+                    'organization_id',
+                    app(
+                        TenantContext::class,
+                    )->id(),
                 )
-                    ->where(
-                        'organization_id',
-                        app(
-                            TenantContext::class,
-                        )->id(),
-                    )
-                    ->where(
-                        'user_id',
-                        $request->user()->id,
-                    )
-                    ->latest('id')
-                    ->get(),
+                ->where(
+                    'user_id',
+                    $request->user()->id,
+                )
+                ->latest('id')
+                ->get(),
             'meta' => [
                 'categories' => [
                     'stock',
@@ -70,29 +69,24 @@ class NotificationRuleController extends Controller
         $id = DB::table(
             'notification_rules',
         )->insertGetId([
-            'organization_id' =>
-                app(
-                    TenantContext::class,
-                )->id(),
-            'user_id' =>
-                $request->user()->id,
+            'organization_id' => app(
+                TenantContext::class,
+            )->id(),
+            'user_id' => $request->user()->id,
             ...$data,
-            'created_at' =>
-                now(),
-            'updated_at' =>
-                now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         return response()->json([
-            'data' =>
-                DB::table(
-                    'notification_rules',
+            'data' => DB::table(
+                'notification_rules',
+            )
+                ->where(
+                    'id',
+                    $id,
                 )
-                    ->where(
-                        'id',
-                        $id,
-                    )
-                    ->first(),
+                ->first(),
         ], 201);
     }
 
@@ -120,20 +114,18 @@ class NotificationRuleController extends Controller
             )
             ->update([
                 ...$data,
-                'updated_at' =>
-                    now(),
+                'updated_at' => now(),
             ]);
 
         return response()->json([
-            'data' =>
-                DB::table(
-                    'notification_rules',
+            'data' => DB::table(
+                'notification_rules',
+            )
+                ->where(
+                    'id',
+                    $row->id,
                 )
-                    ->where(
-                        'id',
-                        $row->id,
-                    )
-                    ->first(),
+                ->first(),
         ]);
     }
 

@@ -68,8 +68,7 @@ class PartyBulkEditController extends Controller
                 'country_code',
             ])
             ->map(
-                fn ($value, $key) =>
-                    $key === 'country_code'
+                fn ($value, $key) => $key === 'country_code'
                     && $value !== null
                         ? strtoupper(
                             trim(
@@ -96,8 +95,7 @@ class PartyBulkEditController extends Controller
             $data['party_ids'],
         )
             ->map(
-                fn ($id): int =>
-                    (int) $id,
+                fn ($id): int => (int) $id,
             )
             ->values();
 
@@ -115,16 +113,14 @@ class PartyBulkEditController extends Controller
         );
 
         $ordered = $ids->map(
-            fn (int $id): Party =>
-                $parties->get($id),
+            fn (int $id): Party => $parties->get($id),
         );
 
         $ordered->each(
-            fn (Party $party) =>
-                Gate::authorize(
-                    'update',
-                    $party,
-                ),
+            fn (Party $party) => Gate::authorize(
+                'update',
+                $party,
+            ),
         );
 
         DB::transaction(
@@ -135,8 +131,7 @@ class PartyBulkEditController extends Controller
                 $request,
             ): void {
                 foreach (
-                    $ordered
-                    as $party
+                    $ordered as $party
                 ) {
                     $updateParty->execute(
                         $party,
@@ -147,35 +142,27 @@ class PartyBulkEditController extends Controller
                 DB::table(
                     'bulk_action_history',
                 )->insert([
-                    'organization_id' =>
-                        app(
-                            TenantContext::class,
-                        )->id(),
-                    'user_id' =>
-                        $request->user()->id,
-                    'entity_type' =>
-                        'party',
-                    'action' =>
-                        'bulk_edit',
-                    'record_count' =>
-                        $ordered->count(),
-                    'record_ids' =>
-                        json_encode(
-                            $ordered
-                                ->pluck('id')
-                                ->map(
-                                    fn ($id): int =>
-                                        (int) $id,
-                                )
-                                ->values()
-                                ->all(),
-                            JSON_THROW_ON_ERROR,
-                        ),
-                    'changes' =>
-                        json_encode(
-                            $changes,
-                            JSON_THROW_ON_ERROR,
-                        ),
+                    'organization_id' => app(
+                        TenantContext::class,
+                    )->id(),
+                    'user_id' => $request->user()->id,
+                    'entity_type' => 'party',
+                    'action' => 'bulk_edit',
+                    'record_count' => $ordered->count(),
+                    'record_ids' => json_encode(
+                        $ordered
+                            ->pluck('id')
+                            ->map(
+                                fn ($id): int => (int) $id,
+                            )
+                            ->values()
+                            ->all(),
+                        JSON_THROW_ON_ERROR,
+                    ),
+                    'changes' => json_encode(
+                        $changes,
+                        JSON_THROW_ON_ERROR,
+                    ),
                     'created_at' => now(),
                 ]);
             },
@@ -184,10 +171,8 @@ class PartyBulkEditController extends Controller
 
         return response()->json([
             'data' => [
-                'affected' =>
-                    $ordered->count(),
-                'changes' =>
-                    $changes,
+                'affected' => $ordered->count(),
+                'changes' => $changes,
             ],
         ]);
     }

@@ -29,10 +29,9 @@ class ScheduledReportService
             ->limit(100)
             ->get()
             ->each(
-                fn ($schedule) =>
-                    $this->runSchedule(
-                        $schedule,
-                    ),
+                fn ($schedule) => $this->runSchedule(
+                    $schedule,
+                ),
             );
     }
 
@@ -72,26 +71,23 @@ class ScheduledReportService
             $value['cadence']
             ?? 'daily'
         ) {
-            'weekly' =>
-                $this->weeklyNext(
-                    $candidate,
-                    $from,
-                    (int) (
-                        $value['day_of_week']
-                        ?? 1
-                    ),
+            'weekly' => $this->weeklyNext(
+                $candidate,
+                $from,
+                (int) (
+                    $value['day_of_week']
+                    ?? 1
                 ),
-            'monthly' =>
-                $this->monthlyNext(
-                    $candidate,
-                    $from,
-                    (int) (
-                        $value['day_of_month']
-                        ?? 1
-                    ),
+            ),
+            'monthly' => $this->monthlyNext(
+                $candidate,
+                $from,
+                (int) (
+                    $value['day_of_month']
+                    ?? 1
                 ),
-            default =>
-                $candidate->lte($from)
+            ),
+            default => $candidate->lte($from)
                     ? $candidate->addDay()
                     : $candidate,
         };
@@ -108,12 +104,9 @@ class ScheduledReportService
         $runId = (int) DB::table(
             'scheduled_report_runs',
         )->insertGetId([
-            'organization_id' =>
-                $schedule->organization_id,
-            'scheduled_report_id' =>
-                $schedule->id,
-            'report_type' =>
-                $schedule->report_type,
+            'organization_id' => $schedule->organization_id,
+            'scheduled_report_id' => $schedule->id,
+            'report_type' => $schedule->report_type,
             'snapshot' => json_encode(
                 $snapshot,
                 JSON_THROW_ON_ERROR,
@@ -132,12 +125,11 @@ class ScheduledReportService
             ->where('id', $schedule->id)
             ->update([
                 'last_run_at' => now(),
-                'next_run_at' =>
-                    $this->nextRunAt(
-                        $schedule,
-                        CarbonImmutable::now()
-                            ->addSecond(),
-                    ),
+                'next_run_at' => $this->nextRunAt(
+                    $schedule,
+                    CarbonImmutable::now()
+                        ->addSecond(),
+                ),
                 'updated_at' => now(),
             ]);
 
@@ -150,31 +142,25 @@ class ScheduledReportService
         string $reportType,
     ): array {
         return match ($reportType) {
-            'sales_summary' =>
-                $this->salesSummary(
-                    $organizationId,
-                ),
-            'ar_aging' =>
-                $this->aging(
-                    $organizationId,
-                    'sale_invoice',
-                ),
-            'ap_aging' =>
-                $this->aging(
-                    $organizationId,
-                    'purchase_invoice',
-                ),
-            'collections' =>
-                $this->collections(
-                    $organizationId,
-                ),
-            'budget_vs_actual' =>
-                $this->budgetVsActual(
-                    $organizationId,
-                ),
+            'sales_summary' => $this->salesSummary(
+                $organizationId,
+            ),
+            'ar_aging' => $this->aging(
+                $organizationId,
+                'sale_invoice',
+            ),
+            'ap_aging' => $this->aging(
+                $organizationId,
+                'purchase_invoice',
+            ),
+            'collections' => $this->collections(
+                $organizationId,
+            ),
+            'budget_vs_actual' => $this->budgetVsActual(
+                $organizationId,
+            ),
             default => [
-                'generated_at' =>
-                    now()->toIso8601String(),
+                'generated_at' => now()->toIso8601String(),
                 'rows' => [],
             ],
         };
@@ -237,36 +223,31 @@ class ScheduledReportService
                             ->sum('balance_due');
 
                     return [
-                        'currency' =>
-                            $currency,
-                        'invoice_count' =>
-                            $currencyRows
-                                ->count(),
-                        'sales_total' =>
-                            number_format(
-                                $total,
-                                4,
-                                '.',
-                                '',
+                        'currency' => $currency,
+                        'invoice_count' => $currencyRows
+                            ->count(),
+                        'sales_total' => number_format(
+                            $total,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'outstanding' => number_format(
+                            $outstanding,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'collected' => number_format(
+                            max(
+                                $total
+                                - $outstanding,
+                                0,
                             ),
-                        'outstanding' =>
-                            number_format(
-                                $outstanding,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'collected' =>
-                            number_format(
-                                max(
-                                    $total
-                                    - $outstanding,
-                                    0,
-                                ),
-                                4,
-                                '.',
-                                '',
-                            ),
+                            4,
+                            '.',
+                            '',
+                        ),
                     ];
                 },
             )
@@ -276,13 +257,10 @@ class ScheduledReportService
         return [
             'title' => 'Sales summary',
             'period' => [
-                'from' =>
-                    $start->toDateString(),
-                'to' =>
-                    $end->toDateString(),
+                'from' => $start->toDateString(),
+                'to' => $end->toDateString(),
             ],
-            'generated_at' =>
-                now()->toIso8601String(),
+            'generated_at' => now()->toIso8601String(),
             'rows' => $rows,
         ];
     }
@@ -334,8 +312,7 @@ class ScheduledReportService
                     ];
 
                     foreach (
-                        $currencyRows
-                        as $row
+                        $currencyRows as $row
                     ) {
                         $days = $row->due_date
                             ? CarbonImmutable::parse(
@@ -347,16 +324,11 @@ class ScheduledReportService
                             : 0;
 
                         $bucket = match (true) {
-                            $days <= 0 =>
-                                'current',
-                            $days <= 30 =>
-                                '0_30',
-                            $days <= 60 =>
-                                '31_60',
-                            $days <= 90 =>
-                                '61_90',
-                            default =>
-                                '90_plus',
+                            $days <= 0 => 'current',
+                            $days <= 30 => '0_30',
+                            $days <= 60 => '31_60',
+                            $days <= 90 => '61_90',
+                            default => '90_plus',
                         };
 
                         $buckets[$bucket] +=
@@ -364,18 +336,16 @@ class ScheduledReportService
                     }
 
                     return [
-                        'currency' =>
-                            $currency,
+                        'currency' => $currency,
                         ...collect(
                             $buckets,
                         )->map(
-                            fn ($value): string =>
-                                number_format(
-                                    $value,
-                                    4,
-                                    '.',
-                                    '',
-                                ),
+                            fn ($value): string => number_format(
+                                $value,
+                                4,
+                                '.',
+                                '',
+                            ),
                         )->all(),
                     ];
                 },
@@ -384,12 +354,10 @@ class ScheduledReportService
             ->all();
 
         return [
-            'title' =>
-                $kind === 'sale_invoice'
+            'title' => $kind === 'sale_invoice'
                     ? 'A/R aging'
                     : 'A/P aging',
-            'generated_at' =>
-                now()->toIso8601String(),
+            'generated_at' => now()->toIso8601String(),
             'rows' => $summary,
         ];
     }
@@ -436,31 +404,26 @@ class ScheduledReportService
                     $currencyRows,
                     $currency,
                 ): array => [
-                    'currency' =>
-                        $currency,
-                    'overdue_invoices' =>
-                        $currencyRows
-                            ->count(),
-                    'overdue_amount' =>
-                        number_format(
-                            (float) $currencyRows
-                                ->sum(
-                                    'balance_due',
-                                ),
-                            4,
-                            '.',
-                            '',
-                        ),
+                    'currency' => $currency,
+                    'overdue_invoices' => $currencyRows
+                        ->count(),
+                    'overdue_amount' => number_format(
+                        (float) $currencyRows
+                            ->sum(
+                                'balance_due',
+                            ),
+                        4,
+                        '.',
+                        '',
+                    ),
                 ],
             )
             ->values()
             ->all();
 
         return [
-            'title' =>
-                'Collections',
-            'generated_at' =>
-                now()->toIso8601String(),
+            'title' => 'Collections',
+            'generated_at' => now()->toIso8601String(),
             'rows' => $rows,
         ];
     }
@@ -536,39 +499,31 @@ class ScheduledReportService
                             ->sum('amount');
 
                     return [
-                        'department' =>
-                            $row->department,
-                        'currency' =>
-                            $row->currency,
-                        'budget' =>
-                            (string) $row->amount,
-                        'actual' =>
-                            number_format(
-                                $actual,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'variance' =>
-                            number_format(
-                                (float) $row->amount
-                                - $actual,
-                                4,
-                                '.',
-                                '',
-                            ),
+                        'department' => $row->department,
+                        'currency' => $row->currency,
+                        'budget' => (string) $row->amount,
+                        'actual' => number_format(
+                            $actual,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'variance' => number_format(
+                            (float) $row->amount
+                            - $actual,
+                            4,
+                            '.',
+                            '',
+                        ),
                     ];
                 },
             )
             ->all();
 
         return [
-            'title' =>
-                'Budget vs actual',
-            'period' =>
-                $month->format('Y-m'),
-            'generated_at' =>
-                now()->toIso8601String(),
+            'title' => 'Budget vs actual',
+            'period' => $month->format('Y-m'),
+            'generated_at' => now()->toIso8601String(),
             'rows' => $rows,
         ];
     }
@@ -614,34 +569,26 @@ class ScheduledReportService
                     'intval',
                     $recipientIds,
                 ),
-            )
-            as $userId
+            ) as $userId
         ) {
             DB::table(
                 'workspace_notifications',
             )->insertOrIgnore([
-                'organization_id' =>
-                    $schedule->organization_id,
+                'organization_id' => $schedule->organization_id,
                 'user_id' => $userId,
-                'event_key' =>
-                    'scheduled-report:'
+                'event_key' => 'scheduled-report:'
                     .$schedule->id
                     .':'
                     .$runId
                     .':'
                     .$userId,
-                'kind' =>
-                    'scheduled_report_ready',
-                'category' =>
-                    'activity',
+                'kind' => 'scheduled_report_ready',
+                'category' => 'activity',
                 'data' => json_encode([
-                    'name' =>
-                        'Scheduled report ready',
-                    'detail' =>
-                        $schedule->name,
+                    'name' => 'Scheduled report ready',
+                    'detail' => $schedule->name,
                 ], JSON_THROW_ON_ERROR),
-                'url' =>
-                    '/app/reports/scheduled?run='
+                'url' => '/app/reports/scheduled?run='
                     .$runId,
                 'created_at' => now(),
                 'updated_at' => now(),

@@ -1,8 +1,8 @@
 <?php
 
+use App\Http\Controllers\PartyAccountController;
 use App\Http\Controllers\PartyBulkActionController;
 use App\Http\Controllers\PartyBulkEditController;
-use App\Http\Controllers\PartyAccountController;
 use App\Http\Controllers\PartyController;
 use App\Http\Controllers\PartyDataTransferController;
 use App\Http\Controllers\PartyInsightsController;

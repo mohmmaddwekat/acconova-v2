@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\OrganizationRole;
 use App\Models\OrganizationSequence;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;

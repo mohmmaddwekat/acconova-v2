@@ -8,8 +8,8 @@ use App\Models\Product;
 use App\Models\Warehouse;
 use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
-use App\Services\WorkspaceFeaturePermissions;
 use App\Services\FinanceDocumentService;
+use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -48,11 +48,10 @@ class CommercialOperationsController extends Controller
             'warranties' => $this->warranties($organizationId),
             'serials' => $this->serials($organizationId),
             'batches' => $this->batches($organizationId),
-            'quotations', 'proformas', 'sales-orders', 'purchase-orders' =>
-                $this->tradeDocuments(
-                    $organizationId,
-                    self::TRADE_KINDS[$feature],
-                ),
+            'quotations', 'proformas', 'sales-orders', 'purchase-orders' => $this->tradeDocuments(
+                $organizationId,
+                self::TRADE_KINDS[$feature],
+            ),
             default => abort(404),
         };
 
@@ -74,12 +73,11 @@ class CommercialOperationsController extends Controller
             'warranties' => $this->storeWarranty($request, $organizationId),
             'serials' => $this->storeSerial($request, $organizationId),
             'batches' => $this->storeBatch($request, $organizationId),
-            'quotations', 'proformas', 'sales-orders', 'purchase-orders' =>
-                $this->storeTradeDocument(
-                    $request,
-                    $organizationId,
-                    self::TRADE_KINDS[$feature],
-                ),
+            'quotations', 'proformas', 'sales-orders', 'purchase-orders' => $this->storeTradeDocument(
+                $request,
+                $organizationId,
+                self::TRADE_KINDS[$feature],
+            ),
             default => abort(404),
         };
 
@@ -130,13 +128,12 @@ class CommercialOperationsController extends Controller
                 $organizationId,
                 (int) $record,
             ),
-            'quotations', 'proformas', 'sales-orders', 'purchase-orders' =>
-                $this->updateTradeDocument(
-                    $request,
-                    $organizationId,
-                    (int) $record,
-                    self::TRADE_KINDS[$feature],
-                ),
+            'quotations', 'proformas', 'sales-orders', 'purchase-orders' => $this->updateTradeDocument(
+                $request,
+                $organizationId,
+                (int) $record,
+                self::TRADE_KINDS[$feature],
+            ),
             default => abort(404),
         };
 
@@ -230,8 +227,7 @@ class CommercialOperationsController extends Controller
                 ];
             })
             ->filter(
-                fn (array $item): bool =>
-                    $item['quantity'] > 0.00005,
+                fn (array $item): bool => $item['quantity'] > 0.00005,
             )
             ->values();
 
@@ -300,8 +296,7 @@ class CommercialOperationsController extends Controller
                     'financial_document_id' => $invoice->id,
                     'converted_quantity' => number_format(
                         (float) $convertible->sum(
-                            fn (array $item): float =>
-                                (float) $item['quantity'],
+                            fn (array $item): float => (float) $item['quantity'],
                         ),
                         4,
                         '.',
@@ -317,8 +312,7 @@ class CommercialOperationsController extends Controller
                         ->where('organization_id', $organizationId)
                         ->where('id', $item['line']->id)
                         ->update([
-                            'invoiced_quantity' =>
-                                (float) $item['line']->invoiced_quantity
+                            'invoiced_quantity' => (float) $item['line']->invoiced_quantity
                                 + $item['quantity'],
                             'updated_at' => now(),
                         ]);
@@ -511,8 +505,7 @@ class CommercialOperationsController extends Controller
             ->where('id', $claimRecord->id)
             ->update([
                 'status' => $data['status'],
-                'resolution' =>
-                    $data['resolution'] ?? null,
+                'resolution' => $data['resolution'] ?? null,
                 'updated_at' => now(),
             ]);
 
@@ -555,8 +548,7 @@ class CommercialOperationsController extends Controller
         $allocated = (float) $movement
             ->allocations
             ->sum(
-                fn ($allocation): float =>
-                    (float) $allocation->amount,
+                fn ($allocation): float => (float) $allocation->amount,
             );
 
         if (
@@ -588,8 +580,7 @@ class CommercialOperationsController extends Controller
     private function unallocated(
         Request $request,
         int $organizationId,
-    ): array
-    {
+    ): array {
         $allocations = DB::table('cash_allocations')
             ->selectRaw(
                 'cash_movement_id, SUM(amount) as allocated',
@@ -663,11 +654,10 @@ class CommercialOperationsController extends Controller
                     ),
                     'currency' => $row->currency,
                     'method' => $row->method,
-                    'can_allocate' =>
-                        FinanceAuthorization::allows(
-                            $request->user(),
-                            'finance.cash.correct',
-                        ),
+                    'can_allocate' => FinanceAuthorization::allows(
+                        $request->user(),
+                        'finance.cash.correct',
+                    ),
                     'url' => '/app/receipts/'.$row->id,
                 ];
             })
@@ -741,8 +731,7 @@ class CommercialOperationsController extends Controller
 
         return $rows
             ->groupBy(
-                fn ($row): string =>
-                    (string) $row->party_id
+                fn ($row): string => (string) $row->party_id
                     .'|'
                     .$row->currency,
             )
@@ -757,8 +746,7 @@ class CommercialOperationsController extends Controller
                     $partyId,
                     collect(),
                 )->filter(
-                    fn ($promise): bool =>
-                        $promise->promise_currency
+                    fn ($promise): bool => $promise->promise_currency
                             ? $promise->promise_currency
                                 === $first->currency
                             : $first->currency
@@ -797,8 +785,7 @@ class CommercialOperationsController extends Controller
                     'invoice_count' => $partyRows->count(),
                     'outstanding' => number_format(
                         (float) $partyRows->sum(
-                            fn ($row): float =>
-                                (float) $row->balance_due,
+                            fn ($row): float => (float) $row->balance_due,
                         ),
                         4,
                         '.',
@@ -813,14 +800,12 @@ class CommercialOperationsController extends Controller
                     'expected_collection' => number_format(
                         min(
                             (float) $partyRows->sum(
-                                fn ($row): float =>
-                                    (float) $row->balance_due,
+                                fn ($row): float => (float) $row->balance_due,
                             ),
                             $nextPromise
                                 ? (float) $nextPromise->amount
                                 : (float) $partyRows->sum(
-                                    fn ($row): float =>
-                                        (float) $row->balance_due,
+                                    fn ($row): float => (float) $row->balance_due,
                                 ),
                         ),
                         4,
@@ -875,8 +860,7 @@ class CommercialOperationsController extends Controller
 
         return $rows
             ->groupBy(
-                fn ($row): string =>
-                    (string) $row->party_id
+                fn ($row): string => (string) $row->party_id
                     .'|'
                     .$row->currency,
             )
@@ -938,8 +922,7 @@ class CommercialOperationsController extends Controller
                 ];
             })
             ->sortByDesc(
-                fn (array $row): float =>
-                    (float) $row['total'],
+                fn (array $row): float => (float) $row['total'],
             )
             ->values()
             ->all();
@@ -992,13 +975,12 @@ class CommercialOperationsController extends Controller
                     )
                     ->where('id', $promise->id)
                     ->update([
-                        'baseline_received_total' =>
-                            number_format(
-                                $currentReceived,
-                                4,
-                                '.',
-                                '',
-                            ),
+                        'baseline_received_total' => number_format(
+                            $currentReceived,
+                            4,
+                            '.',
+                            '',
+                        ),
                         'updated_at' => now(),
                     ]);
 
@@ -1106,44 +1088,33 @@ class CommercialOperationsController extends Controller
                 return [
                     'id' => $row->id,
                     'party_id' => $row->party_id,
-                    'party' =>
-                        $row->company_name
+                    'party' => $row->company_name
                         ?: $row->name,
-                    'financial_document_id' =>
-                        $row->financial_document_id,
-                    'document_number' =>
-                        $row->document_number,
-                    'amount' =>
-                        (string) $row->amount,
-                    'currency' =>
-                        $row->document_currency
+                    'financial_document_id' => $row->financial_document_id,
+                    'document_number' => $row->document_number,
+                    'amount' => (string) $row->amount,
+                    'currency' => $row->document_currency
                         ?: $workspaceCurrency,
-                    'received_since_promise' =>
-                        number_format(
-                            $receivedSincePromise,
-                            4,
-                            '.',
-                            '',
+                    'received_since_promise' => number_format(
+                        $receivedSincePromise,
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'promise_remaining' => number_format(
+                        max(
+                            (float) $row->amount
+                            - $receivedSincePromise,
+                            0,
                         ),
-                    'promise_remaining' =>
-                        number_format(
-                            max(
-                                (float) $row->amount
-                                - $receivedSincePromise,
-                                0,
-                            ),
-                            4,
-                            '.',
-                            '',
-                        ),
-                    'promised_on' =>
-                        $row->promised_on,
-                    'status' =>
-                        $row->status,
-                    'note' =>
-                        $row->note,
-                    'fulfilled_at' =>
-                        $row->fulfilled_at,
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'promised_on' => $row->promised_on,
+                    'status' => $row->status,
+                    'note' => $row->note,
+                    'fulfilled_at' => $row->fulfilled_at,
                 ];
             })
             ->all();
@@ -1349,11 +1320,9 @@ class CommercialOperationsController extends Controller
                         'status' => $invoice->status,
                         'total' => (string) $invoice->total,
                         'currency' => $invoice->currency,
-                        'converted_quantity' =>
-                            (string) $invoice->converted_quantity,
+                        'converted_quantity' => (string) $invoice->converted_quantity,
                         'created_at' => $invoice->created_at,
-                        'url' =>
-                            $invoice->kind === 'sale_invoice'
+                        'url' => $invoice->kind === 'sale_invoice'
                                 ? '/app/invoices/sales/'.$invoice->id
                                 : '/app/invoices/purchases/'.$invoice->id,
                     ])
@@ -1365,28 +1334,25 @@ class CommercialOperationsController extends Controller
                     ->map(fn ($line): array => [
                         'id' => $line->id,
                         'product_id' => $line->product_id,
-                        'product' =>
-                            $line->product_name
+                        'product' => $line->product_name
                             ?: $line->description,
                         'warehouse_id' => $line->warehouse_id,
                         'warehouse' => $line->warehouse_name,
                         'description' => $line->description,
                         'quantity' => (string) $line->quantity,
                         'unit_price' => (string) $line->unit_price,
-                        'fulfilled_quantity' =>
-                            number_format(
-                                (float) $line->fulfilled_quantity,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'invoiced_quantity' =>
-                            number_format(
-                                (float) $line->invoiced_quantity,
-                                4,
-                                '.',
-                                '',
-                            ),
+                        'fulfilled_quantity' => number_format(
+                            (float) $line->fulfilled_quantity,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'invoiced_quantity' => number_format(
+                            (float) $line->invoiced_quantity,
+                            4,
+                            '.',
+                            '',
+                        ),
                         'remaining_quantity' => number_format(
                             max(
                                 (float) $line->quantity
@@ -1397,8 +1363,7 @@ class CommercialOperationsController extends Controller
                             '.',
                             '',
                         ),
-                        'affects_inventory' =>
-                            (bool) $line->affects_inventory,
+                        'affects_inventory' => (bool) $line->affects_inventory,
                     ])
                     ->values()
                     ->all();
@@ -1407,8 +1372,7 @@ class CommercialOperationsController extends Controller
                     'id' => $row->id,
                     'number' => $row->number,
                     'party_id' => $row->party_id,
-                    'party' =>
-                        $row->company_name
+                    'party' => $row->company_name
                         ?: $row->name,
                     'status' => $row->status,
                     'issue_date' => $row->issue_date,
@@ -1417,25 +1381,21 @@ class CommercialOperationsController extends Controller
                     'currency' => $row->currency,
                     'total' => (string) $row->total,
                     'notes' => $row->notes,
-                    'converted_financial_document_id' =>
-                        $row->converted_financial_document_id,
+                    'converted_financial_document_id' => $row->converted_financial_document_id,
                     'quantity' => (string) $row->quantity,
-                    'fulfilled_quantity' =>
-                        number_format(
-                            (float) $row->fulfilled_quantity,
-                            4,
-                            '.',
-                            '',
-                        ),
-                    'invoiced_quantity' =>
-                        number_format(
-                            (float) $row->invoiced_quantity,
-                            4,
-                            '.',
-                            '',
-                        ),
-                    'invoice_count' =>
-                        (int) $row->invoice_count,
+                    'fulfilled_quantity' => number_format(
+                        (float) $row->fulfilled_quantity,
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'invoiced_quantity' => number_format(
+                        (float) $row->invoiced_quantity,
+                        4,
+                        '.',
+                        '',
+                    ),
+                    'invoice_count' => (int) $row->invoice_count,
                     'remaining_quantity' => number_format(
                         max(
                             (float) $row->quantity
@@ -1446,8 +1406,7 @@ class CommercialOperationsController extends Controller
                         '.',
                         '',
                     ),
-                    'first_line_id' =>
-                        $row->first_line_id,
+                    'first_line_id' => $row->first_line_id,
                     'lines' => $lines,
                     'invoices' => $invoices,
                 ];
@@ -1667,11 +1626,9 @@ class CommercialOperationsController extends Controller
 
                 return [
                     ...((array) $row),
-                    'party' =>
-                        $row->company_name
+                    'party' => $row->company_name
                         ?: $row->name,
-                    'expired' =>
-                        $row->ends_on
+                    'expired' => $row->ends_on
                         < now()->toDateString(),
                     'claims' => $history,
                 ];
@@ -1718,8 +1675,7 @@ class CommercialOperationsController extends Controller
             ])
             ->map(fn ($row): array => [
                 ...((array) $row),
-                'customer' =>
-                    $row->customer_company
+                'customer' => $row->customer_company
                     ?: $row->customer_name,
             ])
             ->all();
@@ -1780,8 +1736,7 @@ class CommercialOperationsController extends Controller
                     '.',
                     '',
                 ),
-                'expired' =>
-                    $row->expiry_date !== null
+                'expired' => $row->expiry_date !== null
                     && $row->expiry_date < now()->toDateString(),
             ])
             ->all();
@@ -2019,8 +1974,7 @@ class CommercialOperationsController extends Controller
 
         $total = collect($data['lines'])
             ->sum(
-                fn (array $line): float =>
-                    (float) $line['quantity']
+                fn (array $line): float => (float) $line['quantity']
                     * (float) $line['unit_price'],
             );
 
@@ -2079,8 +2033,7 @@ class CommercialOperationsController extends Controller
                     'unit_price' => $line['unit_price'],
                     'fulfilled_quantity' => 0,
                     'invoiced_quantity' => 0,
-                    'affects_inventory' =>
-                        (bool) ($line['affects_inventory'] ?? false),
+                    'affects_inventory' => (bool) ($line['affects_inventory'] ?? false),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -2599,8 +2552,7 @@ class CommercialOperationsController extends Controller
             ->where('id', $record)
             ->update([
                 'status' => $data['status'],
-                'fulfilled_at' =>
-                    $data['status'] === 'fulfilled'
+                'fulfilled_at' => $data['status'] === 'fulfilled'
                         ? ($current->fulfilled_at ?? now())
                         : null,
                 'updated_at' => now(),
@@ -2738,8 +2690,7 @@ class CommercialOperationsController extends Controller
                 ->where('organization_id', $organizationId)
                 ->where('id', $line->id)
                 ->update([
-                    'fulfilled_quantity' =>
-                        $data['fulfilled_quantity'],
+                    'fulfilled_quantity' => $data['fulfilled_quantity'],
                     'updated_at' => now(),
                 ]);
 
@@ -2761,17 +2712,13 @@ class CommercialOperationsController extends Controller
                 (float) ($totals->invoiced ?? 0);
 
             $status = match (true) {
-                $fulfilled <= 0.00005 =>
-                    $document->status === 'confirmed'
+                $fulfilled <= 0.00005 => $document->status === 'confirmed'
                         ? 'confirmed'
                         : 'draft',
                 $fulfilled + 0.00005 >= $ordered
-                    && $invoiced + 0.00005 >= $fulfilled =>
-                    'invoiced',
-                $invoiced > 0.00005 =>
-                    'partial_invoiced',
-                $fulfilled + 0.00005 >= $ordered =>
-                    'fulfilled',
+                    && $invoiced + 0.00005 >= $fulfilled => 'invoiced',
+                $invoiced > 0.00005 => 'partial_invoiced',
+                $fulfilled + 0.00005 >= $ordered => 'fulfilled',
                 default => 'partial',
             };
 
@@ -3298,8 +3245,7 @@ class CommercialOperationsController extends Controller
                 ...(
                     array_key_exists('quantity', $data)
                         ? [
-                            'quantity' =>
-                                $data['quantity'],
+                            'quantity' => $data['quantity'],
                         ]
                         : []
                 ),
@@ -3498,8 +3444,7 @@ class CommercialOperationsController extends Controller
             ->whereKey($partyId)
             ->whereHas(
                 'roles',
-                fn ($query) =>
-                    $query->where('role', $role),
+                fn ($query) => $query->where('role', $role),
             )
             ->exists();
 

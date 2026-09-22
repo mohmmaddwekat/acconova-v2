@@ -157,8 +157,7 @@ final class AiConversationMemory
 
         $transcript = $selected
             ->map(
-                fn (AiMessage $message): string =>
-                    strtoupper($message->role).': '.$message->content,
+                fn (AiMessage $message): string => strtoupper($message->role).': '.$message->content,
             )
             ->implode("\n\n");
 
@@ -169,8 +168,7 @@ final class AiConversationMemory
             ],
             [
                 'role' => 'user',
-                'content' =>
-                    "Previous summary:\n".
+                'content' => "Previous summary:\n".
                     ($conversation->summary ?: '(none)').
                     "\n\nNew transcript:\n".
                     $transcript,

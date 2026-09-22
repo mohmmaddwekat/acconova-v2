@@ -7,6 +7,7 @@ use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Models\FinancialDocumentLine;
 use App\Models\Party;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -315,10 +316,10 @@ class PartyInsightsController extends Controller
             ->map(function ($row): float {
                 return max(
                     0,
-                    (float) \Carbon\Carbon::parse(
+                    (float) Carbon::parse(
                         $row->issue_date,
                     )->diffInDays(
-                        \Carbon\Carbon::parse(
+                        Carbon::parse(
                             $row->occurred_on,
                         ),
                     ),
@@ -408,8 +409,7 @@ class PartyInsightsController extends Controller
         $purchasedQuantity =
             (float) $purchasePriceRows
                 ->sum(
-                    fn ($row): float =>
-                        (float) $row->quantity,
+                    fn ($row): float => (float) $row->quantity,
                 );
 
         $returnRate =

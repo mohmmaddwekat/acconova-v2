@@ -93,8 +93,7 @@ final class InventoryStatusTool implements AiBusinessTool
             }
         }
 
-        usort($alerts, fn (array $a, array $b): int =>
-            [$a['state'] === 'out_of_stock' ? 0 : 1, (float) $a['available']]
+        usort($alerts, fn (array $a, array $b): int => [$a['state'] === 'out_of_stock' ? 0 : 1, (float) $a['available']]
             <=>
             [$b['state'] === 'out_of_stock' ? 0 : 1, (float) $b['available']]
         );

@@ -59,8 +59,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $organization->users()->attach(
             $reviewer->id,
             [
-                'role' =>
-                    'manager',
+                'role' => 'manager',
             ],
         );
 
@@ -77,30 +76,19 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $documentId = (int) $this->postJson(
             '/api/finance/documents',
             [
-                'kind' =>
-                    'sale_invoice',
-                'party_id' =>
-                    $customerId,
-                'issue_date' =>
-                    '2026-09-21',
-                'currency' =>
-                    'ILS',
+                'kind' => 'sale_invoice',
+                'party_id' => $customerId,
+                'issue_date' => '2026-09-21',
+                'currency' => 'ILS',
                 'lines' => [
                     [
-                        'description' =>
-                            'Approval controlled service',
-                        'quantity' =>
-                            '1',
-                        'unit' =>
-                            'service',
-                        'unit_price' =>
-                            '20000',
-                        'discount_percent' =>
-                            '20',
-                        'tax_rate' =>
-                            '0',
-                        'affects_inventory' =>
-                            false,
+                        'description' => 'Approval controlled service',
+                        'quantity' => '1',
+                        'unit' => 'service',
+                        'unit_price' => '20000',
+                        'discount_percent' => '20',
+                        'tax_rate' => '0',
+                        'affects_inventory' => false,
                     ],
                 ],
             ],
@@ -115,8 +103,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->postJson(
             "/api/finance/documents/{$documentId}/issue",
             [
-                'acknowledge_warnings' =>
-                    false,
+                'acknowledge_warnings' => false,
             ],
         )
             ->assertUnprocessable()
@@ -159,8 +146,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->patchJson(
             "/api/approval-requests/{$firstApprovalId}",
             [
-                'decision' =>
-                    'approved',
+                'decision' => 'approved',
             ],
         )
             ->assertUnprocessable()
@@ -178,8 +164,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
                 '/api/approval-requests/'
                 .$request['id'],
                 [
-                    'decision' =>
-                        'approved',
+                    'decision' => 'approved',
                 ],
             )
                 ->assertOk()
@@ -197,8 +182,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->postJson(
             "/api/finance/documents/{$documentId}/issue",
             [
-                'acknowledge_warnings' =>
-                    false,
+                'acknowledge_warnings' => false,
             ],
         )
             ->assertOk()
@@ -220,8 +204,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $organization->users()->attach(
             $reviewer->id,
             [
-                'role' =>
-                    'manager',
+                'role' => 'manager',
             ],
         );
 
@@ -233,22 +216,14 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $movementId = (int) $this->postJson(
             '/api/finance/cash-movements',
             [
-                'direction' =>
-                    'outgoing',
-                'category' =>
-                    'operating_expense',
-                'amount' =>
-                    '125',
-                'currency' =>
-                    'ILS',
-                'movement_date' =>
-                    '2026-09-21',
-                'method' =>
-                    'bank_transfer',
-                'reference' =>
-                    'BANK-APPROVAL-1',
-                'allocations' =>
-                    [],
+                'direction' => 'outgoing',
+                'category' => 'operating_expense',
+                'amount' => '125',
+                'currency' => 'ILS',
+                'movement_date' => '2026-09-21',
+                'method' => 'bank_transfer',
+                'reference' => 'BANK-APPROVAL-1',
+                'allocations' => [],
             ],
         )
             ->assertCreated()
@@ -280,8 +255,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->patchJson(
             "/api/approval-requests/{$approvalId}",
             [
-                'decision' =>
-                    'approved',
+                'decision' => 'approved',
             ],
         )->assertOk();
 
@@ -312,8 +286,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $organization->users()->attach(
             $reviewer->id,
             [
-                'role' =>
-                    'manager',
+                'role' => 'manager',
             ],
         );
 
@@ -337,36 +310,27 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->patchJson(
             "/api/inventory/products/{$productId}/settings",
             [
-                'track_inventory' =>
-                    true,
-                'low_stock_threshold' =>
-                    '2',
+                'track_inventory' => true,
+                'low_stock_threshold' => '2',
             ],
         )->assertOk();
 
         $this->postJson(
             "/api/inventory/products/{$productId}/opening-stock",
             [
-                'warehouse_id' =>
-                    $sourceId,
-                'quantity' =>
-                    '10',
+                'warehouse_id' => $sourceId,
+                'quantity' => '10',
             ],
         )->assertOk();
 
         $transferId = (int) $this->postJson(
             '/api/inventory/transfer-requests',
             [
-                'product_id' =>
-                    $productId,
-                'source_warehouse_id' =>
-                    $sourceId,
-                'destination_warehouse_id' =>
-                    $destinationId,
-                'quantity' =>
-                    '4',
-                'note' =>
-                    'Move stock to destination',
+                'product_id' => $productId,
+                'source_warehouse_id' => $sourceId,
+                'destination_warehouse_id' => $destinationId,
+                'quantity' => '4',
+                'note' => 'Move stock to destination',
             ],
         )
             ->assertCreated()
@@ -379,12 +343,9 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->assertDatabaseHas(
             'inventory_balances',
             [
-                'product_id' =>
-                    $productId,
-                'warehouse_id' =>
-                    $sourceId,
-                'on_hand' =>
-                    '10.0000',
+                'product_id' => $productId,
+                'warehouse_id' => $sourceId,
+                'on_hand' => '10.0000',
             ],
         );
 
@@ -396,8 +357,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->patchJson(
             "/api/inventory/transfer-requests/{$transferId}",
             [
-                'action' =>
-                    'approve',
+                'action' => 'approve',
             ],
         )
             ->assertOk()
@@ -414,8 +374,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->patchJson(
             "/api/inventory/transfer-requests/{$transferId}",
             [
-                'action' =>
-                    'ship',
+                'action' => 'ship',
             ],
         )
             ->assertOk()
@@ -427,22 +386,17 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->assertDatabaseHas(
             'inventory_balances',
             [
-                'product_id' =>
-                    $productId,
-                'warehouse_id' =>
-                    $sourceId,
-                'on_hand' =>
-                    '10.0000',
-                'reserved' =>
-                    '4.0000',
+                'product_id' => $productId,
+                'warehouse_id' => $sourceId,
+                'on_hand' => '10.0000',
+                'reserved' => '4.0000',
             ],
         );
 
         $this->patchJson(
             "/api/inventory/transfer-requests/{$transferId}",
             [
-                'action' =>
-                    'receive',
+                'action' => 'receive',
             ],
         )
             ->assertOk()
@@ -454,26 +408,19 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->assertDatabaseHas(
             'inventory_balances',
             [
-                'product_id' =>
-                    $productId,
-                'warehouse_id' =>
-                    $sourceId,
-                'on_hand' =>
-                    '6.0000',
-                'reserved' =>
-                    '0.0000',
+                'product_id' => $productId,
+                'warehouse_id' => $sourceId,
+                'on_hand' => '6.0000',
+                'reserved' => '0.0000',
             ],
         );
 
         $this->assertDatabaseHas(
             'inventory_balances',
             [
-                'product_id' =>
-                    $productId,
-                'warehouse_id' =>
-                    $destinationId,
-                'on_hand' =>
-                    '4.0000',
+                'product_id' => $productId,
+                'warehouse_id' => $destinationId,
+                'on_hand' => '4.0000',
             ],
         );
     }
@@ -491,15 +438,13 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $organization->users()->attach(
             $employee->id,
             [
-                'role' =>
-                    'employee',
+                'role' => 'employee',
             ],
         );
         $organization->users()->attach(
             $manager->id,
             [
-                'role' =>
-                    'manager',
+                'role' => 'manager',
             ],
         );
 
@@ -522,18 +467,12 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $requisitionId = (int) $this->postJson(
             '/api/purchase-requisitions',
             [
-                'product_id' =>
-                    $productId,
-                'description' =>
-                    'Requested Product',
-                'quantity' =>
-                    '5',
-                'expected_unit_cost' =>
-                    '7',
-                'needed_by' =>
-                    '2026-10-01',
-                'note' =>
-                    'Needed for operations',
+                'product_id' => $productId,
+                'description' => 'Requested Product',
+                'quantity' => '5',
+                'expected_unit_cost' => '7',
+                'needed_by' => '2026-10-01',
+                'note' => 'Needed for operations',
             ],
         )
             ->assertCreated()
@@ -555,8 +494,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->patchJson(
             "/api/purchase-requisitions/{$requisitionId}/review",
             [
-                'decision' =>
-                    'approved',
+                'decision' => 'approved',
             ],
         )->assertForbidden();
 
@@ -568,8 +506,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->patchJson(
             "/api/purchase-requisitions/{$requisitionId}/review",
             [
-                'decision' =>
-                    'approved',
+                'decision' => 'approved',
             ],
         )
             ->assertOk()
@@ -594,22 +531,14 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $movementId = (int) $this->postJson(
             '/api/finance/cash-movements',
             [
-                'direction' =>
-                    'incoming',
-                'category' =>
-                    'other_income',
-                'amount' =>
-                    '250',
-                'currency' =>
-                    'ILS',
-                'movement_date' =>
-                    '2026-09-21',
-                'method' =>
-                    'cash',
-                'reference' =>
-                    'DEP-250',
-                'allocations' =>
-                    [],
+                'direction' => 'incoming',
+                'category' => 'other_income',
+                'amount' => '250',
+                'currency' => 'ILS',
+                'movement_date' => '2026-09-21',
+                'method' => 'cash',
+                'reference' => 'DEP-250',
+                'allocations' => [],
             ],
         )
             ->assertCreated()
@@ -625,18 +554,12 @@ class OperationalIntelligenceWorkflowTest extends TestCase
             [
                 'lines' => [
                     [
-                        'bank_account_label' =>
-                            'Main bank',
-                        'transaction_date' =>
-                            '2026-09-21',
-                        'description' =>
-                            'Deposit received',
-                        'reference' =>
-                            'DEP-250',
-                        'amount' =>
-                            '250',
-                        'currency' =>
-                            'ILS',
+                        'bank_account_label' => 'Main bank',
+                        'transaction_date' => '2026-09-21',
+                        'description' => 'Deposit received',
+                        'reference' => 'DEP-250',
+                        'amount' => '250',
+                        'currency' => 'ILS',
                     ],
                 ],
             ],
@@ -662,20 +585,16 @@ class OperationalIntelligenceWorkflowTest extends TestCase
             .$line['id']
             .'/match',
             [
-                'cash_movement_id' =>
-                    $movementId,
+                'cash_movement_id' => $movementId,
             ],
         )->assertOk();
 
         $this->assertDatabaseHas(
             'bank_statement_lines',
             [
-                'id' =>
-                    $line['id'],
-                'status' =>
-                    'matched',
-                'matched_cash_movement_id' =>
-                    $movementId,
+                'id' => $line['id'],
+                'status' => 'matched',
+                'matched_cash_movement_id' => $movementId,
             ],
         );
 
@@ -684,18 +603,12 @@ class OperationalIntelligenceWorkflowTest extends TestCase
             [
                 'lines' => [
                     [
-                        'bank_account_label' =>
-                            'Main bank',
-                        'transaction_date' =>
-                            '2026-09-22',
-                        'description' =>
-                            'Second deposit row',
-                        'reference' =>
-                            'DEP-250-B',
-                        'amount' =>
-                            '250',
-                        'currency' =>
-                            'ILS',
+                        'bank_account_label' => 'Main bank',
+                        'transaction_date' => '2026-09-22',
+                        'description' => 'Second deposit row',
+                        'reference' => 'DEP-250-B',
+                        'amount' => '250',
+                        'currency' => 'ILS',
                     ],
                 ],
             ],
@@ -723,8 +636,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         )
             ->assertOk()
             ->assertJsonMissing([
-                'id' =>
-                    $movementId,
+                'id' => $movementId,
             ]);
 
         $this->postJson(
@@ -732,8 +644,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
             .$secondLine['id']
             .'/match',
             [
-                'cash_movement_id' =>
-                    $movementId,
+                'cash_movement_id' => $movementId,
             ],
         )
             ->assertUnprocessable()
@@ -757,22 +668,14 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $firstId = (int) $this->postJson(
             '/api/finance/cash-movements',
             [
-                'direction' =>
-                    'outgoing',
-                'category' =>
-                    'maintenance',
-                'amount' =>
-                    '99.50',
-                'currency' =>
-                    'ILS',
-                'movement_date' =>
-                    '2026-09-21',
-                'method' =>
-                    'cash',
-                'reference' =>
-                    'MAINT-DUP',
-                'allocations' =>
-                    [],
+                'direction' => 'outgoing',
+                'category' => 'maintenance',
+                'amount' => '99.50',
+                'currency' => 'ILS',
+                'movement_date' => '2026-09-21',
+                'method' => 'cash',
+                'reference' => 'MAINT-DUP',
+                'allocations' => [],
             ],
         )
             ->assertCreated()
@@ -781,18 +684,12 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->postJson(
             '/api/finance/cash-movements/duplicate-check',
             [
-                'direction' =>
-                    'outgoing',
-                'party_id' =>
-                    null,
-                'amount' =>
-                    '99.50',
-                'movement_date' =>
-                    '2026-09-22',
-                'method' =>
-                    'cash',
-                'reference' =>
-                    'MAINT-DUP',
+                'direction' => 'outgoing',
+                'party_id' => null,
+                'amount' => '99.50',
+                'movement_date' => '2026-09-22',
+                'method' => 'cash',
+                'reference' => 'MAINT-DUP',
             ],
         )
             ->assertOk()
@@ -812,22 +709,14 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $secondId = (int) $this->postJson(
             '/api/finance/cash-movements',
             [
-                'direction' =>
-                    'outgoing',
-                'category' =>
-                    'maintenance',
-                'amount' =>
-                    '99.50',
-                'currency' =>
-                    'ILS',
-                'movement_date' =>
-                    '2026-09-22',
-                'method' =>
-                    'cash',
-                'reference' =>
-                    'MAINT-DUP-SECOND',
-                'allocations' =>
-                    [],
+                'direction' => 'outgoing',
+                'category' => 'maintenance',
+                'amount' => '99.50',
+                'currency' => 'ILS',
+                'movement_date' => '2026-09-22',
+                'method' => 'cash',
+                'reference' => 'MAINT-DUP-SECOND',
+                'allocations' => [],
             ],
         )
             ->assertCreated()
@@ -845,8 +734,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->postJson(
             "/api/finance/cash-movements/{$secondId}/post",
             [
-                'acknowledge_duplicate' =>
-                    true,
+                'acknowledge_duplicate' => true,
             ],
         )
             ->assertOk()
@@ -1104,7 +992,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
      * Attach one explicit custom workspace role without using owner-only UI
      * endpoints so feature tests can exercise runtime permission resolution.
      *
-     * @param list<string> $permissions
+     * @param  list<string>  $permissions
      */
     private function attachCustomRole(
         Organization $organization,
@@ -1147,16 +1035,14 @@ class OperationalIntelligenceWorkflowTest extends TestCase
 
         $organization =
             Organization::create([
-                'name' =>
-                    $name,
+                'name' => $name,
             ]);
 
         $organization->users()
             ->attach(
                 $user->id,
                 [
-                    'role' =>
-                        $role,
+                    'role' => $role,
                 ],
             );
 
@@ -1173,8 +1059,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $this->actingAs(
             $user,
         )->withSession([
-            OrganizationAccess::SESSION_KEY =>
-                $organization->id,
+            OrganizationAccess::SESSION_KEY => $organization->id,
         ]);
     }
 
@@ -1185,10 +1070,8 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         return (int) $this->postJson(
             '/api/parties',
             [
-                'type' =>
-                    'company',
-                'company_name' =>
-                    $name,
+                'type' => 'company',
+                'company_name' => $name,
                 'roles' => [
                     $role,
                 ],
@@ -1206,20 +1089,13 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         return (int) $this->postJson(
             '/api/products',
             [
-                'type' =>
-                    'product',
-                'name' =>
-                    $name,
-                'sku' =>
-                    null,
-                'unit' =>
-                    'unit',
-                'unit_price' =>
-                    $unitPrice,
-                'cost_price' =>
-                    $costPrice,
-                'tax_rate' =>
-                    '0',
+                'type' => 'product',
+                'name' => $name,
+                'sku' => null,
+                'unit' => 'unit',
+                'unit_price' => $unitPrice,
+                'cost_price' => $costPrice,
+                'tax_rate' => '0',
             ],
         )
             ->assertCreated()
@@ -1232,8 +1108,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         return (int) $this->postJson(
             '/api/warehouses',
             [
-                'name' =>
-                    $name,
+                'name' => $name,
             ],
         )
             ->assertCreated()

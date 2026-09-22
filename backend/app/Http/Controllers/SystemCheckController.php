@@ -35,12 +35,10 @@ class SystemCheckController extends Controller
                 );
 
                 return [
-                    'passed' =>
-                        (int) ($row->ok ?? 0)
+                    'passed' => (int) ($row->ok ?? 0)
                         === 1,
-                    'detail' =>
-                        DB::connection()
-                            ->getDriverName(),
+                    'detail' => DB::connection()
+                        ->getDriverName(),
                 ];
             },
         );
@@ -66,14 +64,12 @@ class SystemCheckController extends Controller
             $checks[] = [
                 'key' => 'table:'.$table,
                 'label' => 'Table '.$table,
-                'passed' =>
-                    Schema::hasTable(
-                        $table,
-                    ),
-                'detail' =>
-                    Schema::hasTable(
-                        $table,
-                    )
+                'passed' => Schema::hasTable(
+                    $table,
+                ),
+                'detail' => Schema::hasTable(
+                    $table,
+                )
                         ? 'ready'
                         : 'missing migration/table',
             ];
@@ -96,14 +92,12 @@ class SystemCheckController extends Controller
             $checks[] = [
                 'key' => 'route:'.$routeName,
                 'label' => 'Route '.$routeName,
-                'passed' =>
-                    Route::has(
-                        $routeName,
-                    ),
-                'detail' =>
-                    Route::has(
-                        $routeName,
-                    )
+                'passed' => Route::has(
+                    $routeName,
+                ),
+                'detail' => Route::has(
+                    $routeName,
+                )
                         ? route(
                             $routeName,
                             [],
@@ -127,8 +121,7 @@ class SystemCheckController extends Controller
                 Route::getRoutes(),
             )
                 ->map(
-                    fn ($route): string =>
-                        $route->uri(),
+                    fn ($route): string => $route->uri(),
                 )
                 ->all();
 
@@ -144,8 +137,7 @@ class SystemCheckController extends Controller
                 'key' => 'api:'.$uri,
                 'label' => 'API /'.$uri,
                 'passed' => $passed,
-                'detail' =>
-                    $passed
+                'detail' => $passed
                         ? 'registered'
                         : 'missing',
             ];
@@ -154,12 +146,10 @@ class SystemCheckController extends Controller
         $checks[] = [
             'key' => 'storage',
             'label' => 'Laravel storage writable',
-            'passed' =>
-                is_writable(
-                    storage_path(),
-                ),
-            'detail' =>
+            'passed' => is_writable(
                 storage_path(),
+            ),
+            'detail' => storage_path(),
         ];
 
         $passed =
@@ -175,32 +165,26 @@ class SystemCheckController extends Controller
         return response()->json([
             'data' => [
                 'workspace' => [
-                    'id' =>
-                        app(TenantContext::class)
-                            ->id(),
-                    'name' =>
-                        app(TenantContext::class)
-                            ->organization()
-                            ->name,
+                    'id' => app(TenantContext::class)
+                        ->id(),
+                    'name' => app(TenantContext::class)
+                        ->organization()
+                        ->name,
                 ],
                 'summary' => [
                     'passed' => $passed,
-                    'failed' =>
-                        count($checks)
+                    'failed' => count($checks)
                         - $passed,
-                    'total' =>
-                        count($checks),
+                    'total' => count($checks),
                 ],
                 'checks' => $checks,
-                'checked_at' =>
-                    now()->toIso8601String(),
+                'checked_at' => now()->toIso8601String(),
             ],
         ]);
     }
 
     /**
-     * @param callable(): array{passed: bool, detail?: string} $callback
-     *
+     * @param  callable(): array{passed: bool, detail?: string}  $callback
      * @return array{key: string, label: string, passed: bool, detail: string}
      */
     private function check(
@@ -215,23 +199,20 @@ class SystemCheckController extends Controller
             return [
                 'key' => $key,
                 'label' => $label,
-                'passed' =>
-                    (bool) $result['passed'],
-                'detail' =>
-                    (string) (
-                        $result['detail']
-                        ?? ''
-                    ),
+                'passed' => (bool) $result['passed'],
+                'detail' => (string) (
+                    $result['detail']
+                    ?? ''
+                ),
             ];
         } catch (Throwable $exception) {
             return [
                 'key' => $key,
                 'label' => $label,
                 'passed' => false,
-                'detail' =>
-                    class_basename(
-                        $exception,
-                    )
+                'detail' => class_basename(
+                    $exception,
+                )
                     .': '
                     .$exception->getMessage(),
             ];

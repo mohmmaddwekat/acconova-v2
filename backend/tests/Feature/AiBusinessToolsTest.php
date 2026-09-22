@@ -56,40 +56,40 @@ class AiBusinessToolsTest extends TestCase
         Http::preventStrayRequests();
         Http::fake([
             'https://ai.example.test/*' => Http::sequence()
-            ->push([
-                'model' => 'tool-test-model',
-                'choices' => [[
-                    'message' => [
-                        'content' => json_encode([
-                            'calls' => [[
-                                'name' => 'sales_summary',
-                                'arguments' => [
-                                    'date_from' => '2026-09-01',
-                                    'date_to' => '2026-09-30',
-                                ],
-                            ]],
-                        ], JSON_THROW_ON_ERROR),
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => [
+                            'content' => json_encode([
+                                'calls' => [[
+                                    'name' => 'sales_summary',
+                                    'arguments' => [
+                                        'date_from' => '2026-09-01',
+                                        'date_to' => '2026-09-30',
+                                    ],
+                                ]],
+                            ], JSON_THROW_ON_ERROR),
+                        ],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 20,
+                        'completion_tokens' => 10,
+                        'total_tokens' => 30,
                     ],
-                ]],
-                'usage' => [
-                    'prompt_tokens' => 20,
-                    'completion_tokens' => 10,
-                    'total_tokens' => 30,
-                ],
-            ])
-            ->push([
-                'model' => 'tool-test-model',
-                'choices' => [[
-                    'message' => [
-                        'content' => 'September issued sales total 100.0000 ILS.',
+                ])
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => [
+                            'content' => 'September issued sales total 100.0000 ILS.',
+                        ],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 40,
+                        'completion_tokens' => 12,
+                        'total_tokens' => 52,
                     ],
-                ]],
-                'usage' => [
-                    'prompt_tokens' => 40,
-                    'completion_tokens' => 12,
-                    'total_tokens' => 52,
-                ],
-            ]),
+                ]),
         ]);
 
         $conversationId = (int) $this->postJson('/api/ai/conversations', [

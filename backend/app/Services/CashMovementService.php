@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\FinancialDocument;
 use App\Models\GovernmentObligation;
 use App\Models\Party;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,8 +30,8 @@ class CashMovementService
                 'number' => $this->numbers->next(
                     $data['direction'] === 'incoming' ? 'cash_receipts' : 'cash_payments',
                     $data['direction'] === 'incoming'
-                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'RCV')
-                        : (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['payment_prefix'] ?? 'PAY'),
+                        ? (string) (app(TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'RCV')
+                        : (string) (app(TenantContext::class)->organization()->preferences['payment_prefix'] ?? 'PAY'),
                 ),
                 'status' => 'draft',
                 'created_by' => $actorId,
@@ -276,8 +277,8 @@ class CashMovementService
                 'number' => $this->numbers->next(
                     $locked->direction === 'incoming' ? 'cash_receipts' : 'cash_payments',
                     $locked->direction === 'incoming'
-                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'RCV')
-                        : (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['payment_prefix'] ?? 'PAY'),
+                        ? (string) (app(TenantContext::class)->organization()->preferences['receipt_prefix'] ?? 'RCV')
+                        : (string) (app(TenantContext::class)->organization()->preferences['payment_prefix'] ?? 'PAY'),
                 ),
                 'direction' => $locked->direction,
                 'status' => 'draft',

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\FinancialDocument;
-use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -11,8 +10,7 @@ class InvoiceAutomationService
 {
     public function __construct(
         private FinanceDocumentService $documents,
-    ) {
-    }
+    ) {}
 
     /**
      * Capture a reusable invoice payload without lifecycle/audit fields.

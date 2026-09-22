@@ -10,6 +10,7 @@ use App\Models\Party;
 use App\Models\Product;
 use App\Models\TaxRule;
 use App\Models\Warehouse;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -33,8 +34,8 @@ class FinanceDocumentService
                 'number' => $this->numbers->next(
                     $kind === 'sale_invoice' ? 'sales_invoice' : 'purchase_invoice',
                     $kind === 'sale_invoice'
-                        ? (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['invoice_prefix'] ?? 'SAL')
-                        : (string) (app(\App\Tenancy\TenantContext::class)->organization()->preferences['purchase_prefix'] ?? 'PUR'),
+                        ? (string) (app(TenantContext::class)->organization()->preferences['invoice_prefix'] ?? 'SAL')
+                        : (string) (app(TenantContext::class)->organization()->preferences['purchase_prefix'] ?? 'PUR'),
                 ),
                 'revision' => 1,
                 'status' => 'draft',
@@ -603,14 +604,12 @@ class FinanceDocumentService
         string $source,
     ): void {
         $organization = app(
-            \App\Tenancy\TenantContext::class,
+            TenantContext::class,
         )->organization();
 
         DB::table('exchange_rate_history')->insert([
-            'organization_id' =>
-                $organization->id,
-            'financial_document_id' =>
-                $document->id,
+            'organization_id' => $organization->id,
+            'financial_document_id' => $document->id,
             'base_currency' => strtoupper(
                 (string) (
                     $organization
@@ -621,8 +620,7 @@ class FinanceDocumentService
             'currency' => strtoupper(
                 (string) $document->currency,
             ),
-            'exchange_rate' =>
-                $document->exchange_rate
+            'exchange_rate' => $document->exchange_rate
                 ?: 1,
             'source' => $source,
             'changed_by' => $actorId,
@@ -872,7 +870,7 @@ class FinanceDocumentService
         $document->loadMissing('party');
 
         $organization =
-            app(\App\Tenancy\TenantContext::class)
+            app(TenantContext::class)
                 ->organization();
 
         $preferences =

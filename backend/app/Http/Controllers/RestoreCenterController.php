@@ -9,7 +9,6 @@ use App\Models\Product;
 use App\Models\Warehouse;
 use App\Services\WarehouseService;
 use App\Services\WorkspaceFeaturePermissions;
-use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -49,15 +48,12 @@ class RestoreCenterController extends Controller
                     $items->push([
                         'type' => 'party',
                         'id' => $party->id,
-                        'name' =>
-                            $party->company_name
+                        'name' => $party->company_name
                             ?: $party->name
                             ?: '#'.$party->id,
-                        'deleted_at' =>
-                            $party->deleted_at
-                                ?->toIso8601String(),
-                        'source_url' =>
-                            '/app/parties',
+                        'deleted_at' => $party->deleted_at
+                            ?->toIso8601String(),
+                        'source_url' => '/app/parties',
                     ]);
                 },
             );
@@ -90,11 +86,9 @@ class RestoreCenterController extends Controller
                         'id' => $product->id,
                         'name' => $product->name,
                         'detail' => $product->sku,
-                        'deleted_at' =>
-                            $product->deleted_at
-                                ?->toIso8601String(),
-                        'source_url' =>
-                            '/app/products',
+                        'deleted_at' => $product->deleted_at
+                            ?->toIso8601String(),
+                        'source_url' => '/app/products',
                     ]);
                 },
             );
@@ -127,11 +121,9 @@ class RestoreCenterController extends Controller
                         'id' => $warehouse->id,
                         'name' => $warehouse->name,
                         'detail' => $warehouse->code,
-                        'deleted_at' =>
-                            $warehouse->deleted_at
-                                ?->toIso8601String(),
-                        'source_url' =>
-                            '/app/inventory',
+                        'deleted_at' => $warehouse->deleted_at
+                            ?->toIso8601String(),
+                        'source_url' => '/app/inventory',
                     ]);
                 },
             );
@@ -143,8 +135,7 @@ class RestoreCenterController extends Controller
                 )
                 ->values()
                 ->all(),
-            'reversible_changes_url' =>
-                '/app/audit',
+            'reversible_changes_url' => '/app/audit',
         ]);
     }
 
@@ -183,24 +174,21 @@ class RestoreCenterController extends Controller
         $id = (int) $record;
 
         $restored = match ($type) {
-            'party' =>
-                $this->restoreParty(
-                    $request,
-                    $id,
-                    $restoreParty,
-                ),
-            'product' =>
-                $this->restoreProduct(
-                    $request,
-                    $id,
-                    $restoreProduct,
-                ),
-            'warehouse' =>
-                $this->restoreWarehouse(
-                    $request,
-                    $id,
-                    $warehouses,
-                ),
+            'party' => $this->restoreParty(
+                $request,
+                $id,
+                $restoreParty,
+            ),
+            'product' => $this->restoreProduct(
+                $request,
+                $id,
+                $restoreProduct,
+            ),
+            'warehouse' => $this->restoreWarehouse(
+                $request,
+                $id,
+                $warehouses,
+            ),
         };
 
         return response()->json([
@@ -231,11 +219,9 @@ class RestoreCenterController extends Controller
         return [
             'type' => 'party',
             'id' => $party->id,
-            'name' =>
-                $party->company_name
+            'name' => $party->company_name
                 ?: $party->name,
-            'url' =>
-                '/app/parties?focus='
+            'url' => '/app/parties?focus='
                 .$party->id,
         ];
     }
@@ -264,8 +250,7 @@ class RestoreCenterController extends Controller
             'type' => 'product',
             'id' => $product->id,
             'name' => $product->name,
-            'url' =>
-                '/app/products?focus='
+            'url' => '/app/products?focus='
                 .$product->id,
         ];
     }

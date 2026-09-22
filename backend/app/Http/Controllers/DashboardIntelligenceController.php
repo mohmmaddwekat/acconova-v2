@@ -84,72 +84,56 @@ class DashboardIntelligenceController extends Controller
 
         $response = [
             'preferences' => [
-                'layout' =>
-                    $preference?->layout
+                'layout' => $preference?->layout
                         ? json_decode(
                             $preference->layout,
                             true,
                         )
                         : self::DEFAULT_LAYOUT,
-                'exception_only' =>
-                    (bool) (
-                        $preference
-                            ? $preference
-                                ->exception_only
-                            : false
-                    ),
+                'exception_only' => (bool) (
+                    $preference
+                        ? $preference
+                            ->exception_only
+                        : false
+                ),
             ],
-            'kpi_targets' =>
-                $kpis,
-            'trends' =>
-                $this->trends(
-                    $request,
-                    $organizationId,
-                ),
-            'profitability' =>
-                $profitability,
-            'changed_today' =>
-                $this->changedSince(
-                    $request,
-                    $organizationId,
-                    $since,
-                ),
-            'changed_since' =>
-                $since
-                    ->toIso8601String(),
-            'morning_actions' =>
-                $this->morningActions(
-                    $request,
-                    $organizationId,
-                ),
-            'exceptions' =>
-                $this->exceptions(
-                    $request,
-                    $organizationId,
-                ),
-            'generated_at' =>
-                now()->toIso8601String(),
+            'kpi_targets' => $kpis,
+            'trends' => $this->trends(
+                $request,
+                $organizationId,
+            ),
+            'profitability' => $profitability,
+            'changed_today' => $this->changedSince(
+                $request,
+                $organizationId,
+                $since,
+            ),
+            'changed_since' => $since
+                ->toIso8601String(),
+            'morning_actions' => $this->morningActions(
+                $request,
+                $organizationId,
+            ),
+            'exceptions' => $this->exceptions(
+                $request,
+                $organizationId,
+            ),
+            'generated_at' => now()->toIso8601String(),
         ];
 
         DB::table(
             'dashboard_visits',
         )->updateOrInsert([
-            'organization_id' =>
-                $organizationId,
-            'user_id' =>
-                $userId,
+            'organization_id' => $organizationId,
+            'user_id' => $userId,
         ], [
-            'last_seen_at' =>
-                now(),
-            'updated_at' =>
-                now(),
-            'created_at' =>
-                now(),
+            'last_seen_at' => now(),
+            'updated_at' => now(),
+            'created_at' => now(),
         ]);
 
         return response()->json([
-            'data' =>
-                $response,
+            'data' => $response,
         ]);
     }
 
@@ -189,30 +173,22 @@ class DashboardIntelligenceController extends Controller
         DB::table(
             'dashboard_preferences',
         )->updateOrInsert([
-            'organization_id' =>
-                $organizationId,
-            'user_id' =>
-                $request->user()->id,
+            'organization_id' => $organizationId,
+            'user_id' => $request->user()->id,
         ], [
-            'layout' =>
-                json_encode(
-                    $layout,
-                    JSON_THROW_ON_ERROR,
-                ),
-            'exception_only' =>
-                $data['exception_only'],
-            'updated_at' =>
-                now(),
-            'created_at' =>
-                now(),
+            'layout' => json_encode(
+                $layout,
+                JSON_THROW_ON_ERROR,
+            ),
+            'exception_only' => $data['exception_only'],
+            'updated_at' => now(),
+            'created_at' => now(),
         ]);
 
         return response()->json([
             'data' => [
-                'layout' =>
-                    $layout,
-                'exception_only' =>
-                    $data[
+                'layout' => $layout,
+                'exception_only' => $data[
                         'exception_only'
                     ],
             ],
@@ -270,15 +246,13 @@ class DashboardIntelligenceController extends Controller
             )
             ->when(
                 $currency === null,
-                fn ($query) =>
-                    $query->whereNull(
-                        'currency',
-                    ),
-                fn ($query) =>
-                    $query->where(
-                        'currency',
-                        $currency,
-                    ),
+                fn ($query) => $query->whereNull(
+                    'currency',
+                ),
+                fn ($query) => $query->where(
+                    'currency',
+                    $currency,
+                ),
             )
             ->first();
 
@@ -291,14 +265,11 @@ class DashboardIntelligenceController extends Controller
                     $existing->id,
                 )
                 ->update([
-                    'target_value' =>
-                        $data[
+                    'target_value' => $data[
                             'target_value'
                         ],
-                    'active' =>
-                        $data['active'],
-                    'updated_at' =>
-                        now(),
+                    'active' => $data['active'],
+                    'updated_at' => now(),
                 ]);
 
             $id =
@@ -307,30 +278,24 @@ class DashboardIntelligenceController extends Controller
             $id = DB::table(
                 'kpi_targets',
             )->insertGetId([
-                'organization_id' =>
-                    $organizationId,
-                'created_by' =>
-                    $request->user()->id,
+                'organization_id' => $organizationId,
+                'created_by' => $request->user()->id,
                 ...$data,
-                'currency' =>
-                    $currency,
-                'created_at' =>
-                    now(),
-                'updated_at' =>
-                    now(),
+                'currency' => $currency,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         }
 
         return response()->json([
-            'data' =>
-                DB::table(
-                    'kpi_targets',
+            'data' => DB::table(
+                'kpi_targets',
+            )
+                ->where(
+                    'id',
+                    $id,
                 )
-                    ->where(
-                        'id',
-                        $id,
-                    )
-                    ->first(),
+                ->first(),
         ], $existing ? 200 : 201);
     }
 
@@ -378,20 +343,18 @@ class DashboardIntelligenceController extends Controller
             )
             ->update([
                 ...$data,
-                'updated_at' =>
-                    now(),
+                'updated_at' => now(),
             ]);
 
         return response()->json([
-            'data' =>
-                DB::table(
-                    'kpi_targets',
+            'data' => DB::table(
+                'kpi_targets',
+            )
+                ->where(
+                    'id',
+                    $row->id,
                 )
-                    ->where(
-                        'id',
-                        $row->id,
-                    )
-                    ->first(),
+                ->first(),
         ]);
     }
 
@@ -556,29 +519,24 @@ class DashboardIntelligenceController extends Controller
                 ->get()
                 ->map(
                     fn ($row): array => [
-                        'id' =>
-                            (int) $row
-                                ->party_id,
-                        'name' =>
-                            $row->name,
-                        'revenue' =>
-                            number_format(
-                                (float) $row
-                                    ->revenue,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'gross_profit' =>
-                            number_format(
-                                (float) $row
-                                    ->gross_profit,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'url' =>
-                            '/app/parties?focus='
+                        'id' => (int) $row
+                            ->party_id,
+                        'name' => $row->name,
+                        'revenue' => number_format(
+                            (float) $row
+                                ->revenue,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'gross_profit' => number_format(
+                            (float) $row
+                                ->gross_profit,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'url' => '/app/parties?focus='
                             .$row
                                 ->party_id,
                     ],
@@ -608,29 +566,24 @@ class DashboardIntelligenceController extends Controller
                 ->get()
                 ->map(
                     fn ($row): array => [
-                        'id' =>
-                            (int) $row
-                                ->product_id,
-                        'name' =>
-                            $row->name,
-                        'revenue' =>
-                            number_format(
-                                (float) $row
-                                    ->revenue,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'gross_profit' =>
-                            number_format(
-                                (float) $row
-                                    ->gross_profit,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'url' =>
-                            '/app/products?focus='
+                        'id' => (int) $row
+                            ->product_id,
+                        'name' => $row->name,
+                        'revenue' => number_format(
+                            (float) $row
+                                ->revenue,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'gross_profit' => number_format(
+                            (float) $row
+                                ->gross_profit,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'url' => '/app/products?focus='
                             .$row
                                 ->product_id,
                     ],
@@ -639,52 +592,44 @@ class DashboardIntelligenceController extends Controller
 
         return [
             'visible' => true,
-            'period' =>
-                $start->format(
-                    'Y-m',
-                ),
-            'revenue' =>
-                number_format(
-                    $revenue,
-                    4,
-                    '.',
-                    '',
-                ),
-            'cogs' =>
-                number_format(
-                    $cogs,
-                    4,
-                    '.',
-                    '',
-                ),
-            'gross_profit' =>
-                number_format(
-                    $profit,
-                    4,
-                    '.',
-                    '',
-                ),
-            'margin_percent' =>
-                number_format(
-                    $margin,
-                    2,
-                    '.',
-                    '',
-                ),
-            'currency' =>
-                (string) (
-                    $summary->currency
-                    ?? ''
-                ),
-            'top_customers' =>
-                $topCustomers,
-            'top_products' =>
-                $topProducts,
+            'period' => $start->format(
+                'Y-m',
+            ),
+            'revenue' => number_format(
+                $revenue,
+                4,
+                '.',
+                '',
+            ),
+            'cogs' => number_format(
+                $cogs,
+                4,
+                '.',
+                '',
+            ),
+            'gross_profit' => number_format(
+                $profit,
+                4,
+                '.',
+                '',
+            ),
+            'margin_percent' => number_format(
+                $margin,
+                2,
+                '.',
+                '',
+            ),
+            'currency' => (string) (
+                $summary->currency
+                ?? ''
+            ),
+            'top_customers' => $topCustomers,
+            'top_products' => $topProducts,
         ];
     }
 
     /**
-     * @param array<string, mixed> $profitability
+     * @param  array<string, mixed>  $profitability
      * @return list<array<string, mixed>>
      */
     private function kpiProgress(
@@ -723,29 +668,26 @@ class DashboardIntelligenceController extends Controller
                     $current = match (
                         $target->metric
                     ) {
-                        'sales_revenue' =>
-                            FinanceAuthorization::allows(
-                                $request->user(),
-                                'finance.sales.view',
-                            )
+                        'sales_revenue' => FinanceAuthorization::allows(
+                            $request->user(),
+                            'finance.sales.view',
+                        )
                                 ? (float) $profitability[
                                     'revenue'
                                 ]
                                 : 0,
-                        'gross_profit' =>
-                            FinanceAuthorization::allows(
-                                $request->user(),
-                                'finance.sales.view',
-                            )
+                        'gross_profit' => FinanceAuthorization::allows(
+                            $request->user(),
+                            'finance.sales.view',
+                        )
                                 ? (float) $profitability[
                                     'gross_profit'
                                 ]
                                 : 0,
-                        'collections' =>
-                            FinanceAuthorization::allows(
-                                $request->user(),
-                                'finance.cash.view',
-                            )
+                        'collections' => FinanceAuthorization::allows(
+                            $request->user(),
+                            'finance.cash.view',
+                        )
                                 ? (float) DB::table(
                                     'cash_movements',
                                 )
@@ -775,13 +717,12 @@ class DashboardIntelligenceController extends Controller
                                         'amount',
                                     )
                                 : 0,
-                        'new_customers' =>
-                            Gate::forUser(
-                                $request->user(),
-                            )->allows(
-                                'viewAny',
-                                Party::class,
-                            )
+                        'new_customers' => Gate::forUser(
+                            $request->user(),
+                        )->allows(
+                            'viewAny',
+                            Party::class,
+                        )
                                 ? (float) DB::table(
                                     'parties',
                                 )
@@ -802,8 +743,7 @@ class DashboardIntelligenceController extends Controller
                                     )
                                     ->count()
                                 : 0,
-                        default =>
-                            0,
+                        default => 0,
                     };
 
                     $targetValue =
@@ -811,24 +751,18 @@ class DashboardIntelligenceController extends Controller
                             ->target_value;
 
                     return [
-                        'id' =>
-                            (int) $target->id,
-                        'metric' =>
-                            $target->metric,
-                        'period' =>
-                            $target->period,
-                        'target_value' =>
-                            (string) $target
-                                ->target_value,
-                        'current_value' =>
-                            number_format(
-                                $current,
-                                4,
-                                '.',
-                                '',
-                            ),
-                        'achievement_percent' =>
-                            $targetValue > 0
+                        'id' => (int) $target->id,
+                        'metric' => $target->metric,
+                        'period' => $target->period,
+                        'target_value' => (string) $target
+                            ->target_value,
+                        'current_value' => number_format(
+                            $current,
+                            4,
+                            '.',
+                            '',
+                        ),
+                        'achievement_percent' => $targetValue > 0
                                 ? round(
                                     min(
                                         $current
@@ -839,8 +773,7 @@ class DashboardIntelligenceController extends Controller
                                     2,
                                 )
                                 : 0,
-                        'currency' =>
-                            $target->currency,
+                        'currency' => $target->currency,
                     ];
                 },
             )
@@ -1003,39 +936,33 @@ class DashboardIntelligenceController extends Controller
             );
 
         return [
-            'metric' =>
-                $metric,
-            'current' =>
-                number_format(
-                    $current,
-                    4,
-                    '.',
-                    '',
-                ),
-            'previous_month' =>
-                number_format(
-                    $previous,
-                    4,
-                    '.',
-                    '',
-                ),
-            'previous_year' =>
-                number_format(
-                    $year,
-                    4,
-                    '.',
-                    '',
-                ),
-            'vs_previous_month_percent' =>
-                $this->deltaPercent(
-                    $current,
-                    $previous,
-                ),
-            'vs_previous_year_percent' =>
-                $this->deltaPercent(
-                    $current,
-                    $year,
-                ),
+            'metric' => $metric,
+            'current' => number_format(
+                $current,
+                4,
+                '.',
+                '',
+            ),
+            'previous_month' => number_format(
+                $previous,
+                4,
+                '.',
+                '',
+            ),
+            'previous_year' => number_format(
+                $year,
+                4,
+                '.',
+                '',
+            ),
+            'vs_previous_month_percent' => $this->deltaPercent(
+                $current,
+                $previous,
+            ),
+            'vs_previous_year_percent' => $this->deltaPercent(
+                $current,
+                $year,
+            ),
         ];
     }
 
@@ -1101,39 +1028,33 @@ class DashboardIntelligenceController extends Controller
             );
 
         return [
-            'metric' =>
-                'collections',
-            'current' =>
-                number_format(
-                    $current,
-                    4,
-                    '.',
-                    '',
-                ),
-            'previous_month' =>
-                number_format(
-                    $previous,
-                    4,
-                    '.',
-                    '',
-                ),
-            'previous_year' =>
-                number_format(
-                    $year,
-                    4,
-                    '.',
-                    '',
-                ),
-            'vs_previous_month_percent' =>
-                $this->deltaPercent(
-                    $current,
-                    $previous,
-                ),
-            'vs_previous_year_percent' =>
-                $this->deltaPercent(
-                    $current,
-                    $year,
-                ),
+            'metric' => 'collections',
+            'current' => number_format(
+                $current,
+                4,
+                '.',
+                '',
+            ),
+            'previous_month' => number_format(
+                $previous,
+                4,
+                '.',
+                '',
+            ),
+            'previous_year' => number_format(
+                $year,
+                4,
+                '.',
+                '',
+            ),
+            'vs_previous_month_percent' => $this->deltaPercent(
+                $current,
+                $previous,
+            ),
+            'vs_previous_year_percent' => $this->deltaPercent(
+                $current,
+                $year,
+            ),
         ];
     }
 
@@ -1162,61 +1083,54 @@ class DashboardIntelligenceController extends Controller
         $finance =
             $canViewFinance
                 ? DB::table(
-            'finance_audit_events as audit',
-        )
-            ->leftJoin(
-                'users as user',
-                'user.id',
-                '=',
-                'audit.created_by',
-            )
-            ->where(
-                'audit.organization_id',
-                $organizationId,
-            )
-            ->where(
-                'audit.created_at',
-                '>',
-                $since,
-            )
-            ->latest(
-                'audit.id',
-            )
-            ->limit(12)
-            ->get([
-                'audit.id',
-                'audit.auditable_type',
-                'audit.auditable_id',
-                'audit.action',
-                'audit.reason',
-                'audit.created_at',
-                'user.name as actor',
-            ])
-            ->map(
-                fn ($row): array => [
-                    'key' =>
-                        'finance-'
-                        .$row->id,
-                    'kind' =>
-                        'finance',
-                    'title' =>
-                        $row->action
-                        .' · '
-                        .$row
-                            ->auditable_type
-                        .' #'
-                        .$row
-                            ->auditable_id,
-                    'detail' =>
-                        $row->reason,
-                    'actor' =>
-                        $row->actor,
-                    'created_at' =>
-                        $row->created_at,
-                    'url' =>
-                        '/app/audit',
-                ],
-            )
+                    'finance_audit_events as audit',
+                )
+                    ->leftJoin(
+                        'users as user',
+                        'user.id',
+                        '=',
+                        'audit.created_by',
+                    )
+                    ->where(
+                        'audit.organization_id',
+                        $organizationId,
+                    )
+                    ->where(
+                        'audit.created_at',
+                        '>',
+                        $since,
+                    )
+                    ->latest(
+                        'audit.id',
+                    )
+                    ->limit(12)
+                    ->get([
+                        'audit.id',
+                        'audit.auditable_type',
+                        'audit.auditable_id',
+                        'audit.action',
+                        'audit.reason',
+                        'audit.created_at',
+                        'user.name as actor',
+                    ])
+                    ->map(
+                        fn ($row): array => [
+                            'key' => 'finance-'
+                                .$row->id,
+                            'kind' => 'finance',
+                            'title' => $row->action
+                                .' · '
+                                .$row
+                                    ->auditable_type
+                                .' #'
+                                .$row
+                                    ->auditable_id,
+                            'detail' => $row->reason,
+                            'actor' => $row->actor,
+                            'created_at' => $row->created_at,
+                            'url' => '/app/audit',
+                        ],
+                    )
                 : collect();
 
         $canViewBulkAudit =
@@ -1235,60 +1149,53 @@ class DashboardIntelligenceController extends Controller
         $bulk =
             $canViewBulkAudit
                 ? DB::table(
-            'bulk_action_history as history',
-        )
-            ->leftJoin(
-                'users as user',
-                'user.id',
-                '=',
-                'history.user_id',
-            )
-            ->where(
-                'history.organization_id',
-                $organizationId,
-            )
-            ->where(
-                'history.created_at',
-                '>',
-                $since,
-            )
-            ->latest(
-                'history.id',
-            )
-            ->limit(8)
-            ->get([
-                'history.id',
-                'history.entity_type',
-                'history.action',
-                'history.record_count',
-                'history.created_at',
-                'user.name as actor',
-            ])
-            ->map(
-                fn ($row): array => [
-                    'key' =>
-                        'bulk-'
-                        .$row->id,
-                    'kind' =>
-                        'bulk',
-                    'title' =>
-                        $row->action
-                        .' · '
-                        .$row
-                            ->record_count
-                        .' '
-                        .$row
-                            ->entity_type,
-                    'detail' =>
-                        null,
-                    'actor' =>
-                        $row->actor,
-                    'created_at' =>
-                        $row->created_at,
-                    'url' =>
-                        '/app/audit/bulk-actions',
-                ],
-            )
+                    'bulk_action_history as history',
+                )
+                    ->leftJoin(
+                        'users as user',
+                        'user.id',
+                        '=',
+                        'history.user_id',
+                    )
+                    ->where(
+                        'history.organization_id',
+                        $organizationId,
+                    )
+                    ->where(
+                        'history.created_at',
+                        '>',
+                        $since,
+                    )
+                    ->latest(
+                        'history.id',
+                    )
+                    ->limit(8)
+                    ->get([
+                        'history.id',
+                        'history.entity_type',
+                        'history.action',
+                        'history.record_count',
+                        'history.created_at',
+                        'user.name as actor',
+                    ])
+                    ->map(
+                        fn ($row): array => [
+                            'key' => 'bulk-'
+                                .$row->id,
+                            'kind' => 'bulk',
+                            'title' => $row->action
+                                .' · '
+                                .$row
+                                    ->record_count
+                                .' '
+                                .$row
+                                    ->entity_type,
+                            'detail' => null,
+                            'actor' => $row->actor,
+                            'created_at' => $row->created_at,
+                            'url' => '/app/audit/bulk-actions',
+                        ],
+                    )
                 : collect();
 
         $parties =
@@ -1319,24 +1226,17 @@ class DashboardIntelligenceController extends Controller
                         fn (
                             Party $row,
                         ): array => [
-                            'key' =>
-                                'party-'
+                            'key' => 'party-'
                                 .$row->id,
-                            'kind' =>
-                                'party',
-                            'title' =>
-                                $row->company_name
+                            'kind' => 'party',
+                            'title' => $row->company_name
                                 ?: $row->name
                                 ?: 'Party #'
                                     .$row->id,
-                            'detail' =>
-                                'Customer / supplier record updated',
-                            'actor' =>
-                                null,
-                            'created_at' =>
-                                $row->updated_at,
-                            'url' =>
-                                '/app/parties?focus='
+                            'detail' => 'Customer / supplier record updated',
+                            'actor' => null,
+                            'created_at' => $row->updated_at,
+                            'url' => '/app/parties?focus='
                                 .$row->id,
                         ],
                     )
@@ -1368,21 +1268,14 @@ class DashboardIntelligenceController extends Controller
                         fn (
                             Product $row,
                         ): array => [
-                            'key' =>
-                                'product-'
+                            'key' => 'product-'
                                 .$row->id,
-                            'kind' =>
-                                'product',
-                            'title' =>
-                                $row->name,
-                            'detail' =>
-                                'Product record updated',
-                            'actor' =>
-                                null,
-                            'created_at' =>
-                                $row->updated_at,
-                            'url' =>
-                                '/app/products?focus='
+                            'kind' => 'product',
+                            'title' => $row->name,
+                            'detail' => 'Product record updated',
+                            'actor' => null,
+                            'created_at' => $row->updated_at,
+                            'url' => '/app/products?focus='
                                 .$row->id,
                         ],
                     )
@@ -1413,21 +1306,14 @@ class DashboardIntelligenceController extends Controller
                     fn (
                         Task $row,
                     ): array => [
-                        'key' =>
-                            'task-'
+                        'key' => 'task-'
                             .$row->id,
-                        'kind' =>
-                            'task',
-                        'title' =>
-                            $row->title,
-                        'detail' =>
-                            $row->status,
-                        'actor' =>
-                            null,
-                        'created_at' =>
-                            $row->updated_at,
-                        'url' =>
-                            '/app/task-management/'
+                        'kind' => 'task',
+                        'title' => $row->title,
+                        'detail' => $row->status,
+                        'actor' => null,
+                        'created_at' => $row->updated_at,
+                        'url' => '/app/task-management/'
                             .$row->id,
                     ],
                 );
@@ -1440,8 +1326,7 @@ class DashboardIntelligenceController extends Controller
             ->sortByDesc(
                 fn (
                     array $row,
-                ) =>
-                    $row['created_at'],
+                ) => $row['created_at'],
             )
             ->take(20)
             ->values()
@@ -1489,16 +1374,11 @@ class DashboardIntelligenceController extends Controller
 
             if ($count) {
                 $items->push([
-                    'kind' =>
-                        'overdue_sales',
-                    'title' =>
-                        'Collect overdue sales invoices',
-                    'count' =>
-                        $count,
-                    'priority' =>
-                        'high',
-                    'url' =>
-                        '/app/reports/ar-aging',
+                    'kind' => 'overdue_sales',
+                    'title' => 'Collect overdue sales invoices',
+                    'count' => $count,
+                    'priority' => 'high',
+                    'url' => '/app/reports/ar-aging',
                 ]);
             }
         }
@@ -1526,16 +1406,11 @@ class DashboardIntelligenceController extends Controller
             > 0
         ) {
             $items->push([
-                'kind' =>
-                    'overdue_tasks',
-                'title' =>
-                    'Review overdue tasks',
-                'count' =>
-                    $overdueTasks,
-                'priority' =>
-                    'high',
-                'url' =>
-                    '/app/task-management',
+                'kind' => 'overdue_tasks',
+                'title' => 'Review overdue tasks',
+                'count' => $overdueTasks,
+                'priority' => 'high',
+                'url' => '/app/task-management',
             ]);
         }
 
@@ -1566,16 +1441,11 @@ class DashboardIntelligenceController extends Controller
             $followUps > 0
         ) {
             $items->push([
-                'kind' =>
-                    'follow_ups',
-                'title' =>
-                    'Complete due follow-ups',
-                'count' =>
-                    $followUps,
-                'priority' =>
-                    'medium',
-                'url' =>
-                    '/app/notifications',
+                'kind' => 'follow_ups',
+                'title' => 'Complete due follow-ups',
+                'count' => $followUps,
+                'priority' => 'medium',
+                'url' => '/app/notifications',
             ]);
         }
 
@@ -1606,16 +1476,11 @@ class DashboardIntelligenceController extends Controller
                 $duePayments > 0
             ) {
                 $items->push([
-                    'kind' =>
-                        'due_payments',
-                    'title' =>
-                        'Process due payments',
-                    'count' =>
-                        $duePayments,
-                    'priority' =>
-                        'medium',
-                    'url' =>
-                        '/app/payments?view=recurring',
+                    'kind' => 'due_payments',
+                    'title' => 'Process due payments',
+                    'count' => $duePayments,
+                    'priority' => 'medium',
+                    'url' => '/app/payments?view=recurring',
                 ]);
             }
         }
@@ -1637,16 +1502,11 @@ class DashboardIntelligenceController extends Controller
                 $lowStock > 0
             ) {
                 $items->push([
-                    'kind' =>
-                        'low_stock',
-                    'title' =>
-                        'Replenish low stock',
-                    'count' =>
-                        $lowStock,
-                    'priority' =>
-                        'medium',
-                    'url' =>
-                        '/app/inventory/intelligence',
+                    'kind' => 'low_stock',
+                    'title' => 'Replenish low stock',
+                    'count' => $lowStock,
+                    'priority' => 'medium',
+                    'url' => '/app/inventory/intelligence',
                 ]);
             }
         }
@@ -1674,16 +1534,11 @@ class DashboardIntelligenceController extends Controller
             $approvals > 0
         ) {
             $items->push([
-                'kind' =>
-                    'approvals',
-                'title' =>
-                    'Review pending approvals',
-                'count' =>
-                    $approvals,
-                'priority' =>
-                    'high',
-                'url' =>
-                    '/app/finance/approvals',
+                'kind' => 'approvals',
+                'title' => 'Review pending approvals',
+                'count' => $approvals,
+                'priority' => 'high',
+                'url' => '/app/finance/approvals',
             ]);
         }
 
@@ -1692,8 +1547,7 @@ class DashboardIntelligenceController extends Controller
                 ->sortBy(
                     fn (
                         array $item,
-                    ): int =>
-                        $item['priority']
+                    ): int => $item['priority']
                         === 'high'
                             ? 0
                             : 1,
@@ -1701,14 +1555,12 @@ class DashboardIntelligenceController extends Controller
                 ->values();
 
         return [
-            'total_actions' =>
-                (int) $ordered
-                    ->sum(
-                        'count',
-                    ),
-            'items' =>
-                $ordered
-                    ->all(),
+            'total_actions' => (int) $ordered
+                ->sum(
+                    'count',
+                ),
+            'items' => $ordered
+                ->all(),
         ];
     }
 
@@ -1736,16 +1588,11 @@ class DashboardIntelligenceController extends Controller
 
             if ($lowStock) {
                 $items->push([
-                    'kind' =>
-                        'low_stock',
-                    'severity' =>
-                        'warning',
-                    'title' =>
-                        'Products below low-stock threshold',
-                    'count' =>
-                        $lowStock,
-                    'url' =>
-                        '/app/inventory/intelligence',
+                    'kind' => 'low_stock',
+                    'severity' => 'warning',
+                    'title' => 'Products below low-stock threshold',
+                    'count' => $lowStock,
+                    'url' => '/app/inventory/intelligence',
                 ]);
             }
         }
@@ -1771,16 +1618,11 @@ class DashboardIntelligenceController extends Controller
 
         if ($approvals) {
             $items->push([
-                'kind' =>
-                    'approval',
-                'severity' =>
-                    'decision',
-                'title' =>
-                    'Transactions awaiting approval',
-                'count' =>
-                    $approvals,
-                'url' =>
-                    '/app/finance/approvals',
+                'kind' => 'approval',
+                'severity' => 'decision',
+                'title' => 'Transactions awaiting approval',
+                'count' => $approvals,
+                'url' => '/app/finance/approvals',
             ]);
         }
 
@@ -1817,16 +1659,11 @@ class DashboardIntelligenceController extends Controller
 
             if ($overdue) {
                 $items->push([
-                    'kind' =>
-                        'overdue_receivables',
-                    'severity' =>
-                        'critical',
-                    'title' =>
-                        'Overdue customer invoices',
-                    'count' =>
-                        $overdue,
-                    'url' =>
-                        '/app/reports/ar-aging',
+                    'kind' => 'overdue_receivables',
+                    'severity' => 'critical',
+                    'title' => 'Overdue customer invoices',
+                    'count' => $overdue,
+                    'url' => '/app/reports/ar-aging',
                 ]);
             }
         }
@@ -1871,29 +1708,22 @@ class DashboardIntelligenceController extends Controller
             > 0
         ) {
             $items->push([
-                'kind' =>
-                    'expired_documents',
-                'severity' =>
-                    'critical',
-                'title' =>
-                    'Expired tracked documents',
-                'count' =>
-                    $expiredDocuments,
-                'url' =>
-                    '/app/documents/expiry',
+                'kind' => 'expired_documents',
+                'severity' => 'critical',
+                'title' => 'Expired tracked documents',
+                'count' => $expiredDocuments,
+                'url' => '/app/documents/expiry',
             ]);
         }
 
         return [
-            'total' =>
-                (int) $items
-                    ->sum(
-                        'count',
-                    ),
-            'items' =>
-                $items
-                    ->values()
-                    ->all(),
+            'total' => (int) $items
+                ->sum(
+                    'count',
+                ),
+            'items' => $items
+                ->values()
+                ->all(),
         ];
     }
 
@@ -1925,12 +1755,11 @@ class DashboardIntelligenceController extends Controller
             ->filter(
                 fn (
                     Product $product,
-                ): bool =>
-                    (float) (
-                        $product
-                            ->on_hand_total
-                        ?? 0
-                    )
+                ): bool => (float) (
+                    $product
+                        ->on_hand_total
+                    ?? 0
+                )
                     <= (float) $product
                         ->low_stock_threshold,
             )

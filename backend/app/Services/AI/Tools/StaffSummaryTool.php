@@ -23,7 +23,7 @@ final class StaffSummaryTool implements AiBusinessTool
     {
         return [
             'type' => 'object',
-            'properties' => new \stdClass(),
+            'properties' => new \stdClass,
             'additionalProperties' => false,
         ];
     }

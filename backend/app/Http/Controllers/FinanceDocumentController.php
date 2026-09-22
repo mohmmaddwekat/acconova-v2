@@ -5,14 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\CashMovement;
 use App\Models\FinanceAuditEvent;
 use App\Models\FinancialDocument;
-use App\Services\CashMovementService;
 use App\Services\ApprovalWorkflowService;
+use App\Services\CashMovementService;
 use App\Services\FinanceAuthorization;
 use App\Services\FinanceDocumentService;
 use App\Services\MentionNotifier;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
 
 class FinanceDocumentController extends Controller
@@ -259,8 +260,7 @@ class FinanceDocumentController extends Controller
         Request $request,
         FinanceDocumentService $service,
         MentionNotifier $mentions,
-    ): JsonResponse
-    {
+    ): JsonResponse {
         abort_unless(
             FinanceAuthorization::allows($request->user(), 'finance.sales.manage')
             || FinanceAuthorization::allows($request->user(), 'finance.purchases.manage'),
@@ -290,8 +290,7 @@ class FinanceDocumentController extends Controller
         string $document,
         FinanceDocumentService $service,
         MentionNotifier $mentions,
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
         $data = $this->validatedDocument($request, $document->kind);
@@ -310,7 +309,7 @@ class FinanceDocumentController extends Controller
         return response()->json(['data' => $this->detail($document, $service)]);
     }
 
-    public function destroy(Request $request, string $document, FinanceDocumentService $service): \Illuminate\Http\Response
+    public function destroy(Request $request, string $document, FinanceDocumentService $service): Response
     {
         $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
@@ -324,8 +323,7 @@ class FinanceDocumentController extends Controller
         string $document,
         FinanceDocumentService $service,
         ApprovalWorkflowService $approvals,
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
         $data = $request->validate([

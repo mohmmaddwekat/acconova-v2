@@ -95,49 +95,44 @@ class AuditCenterController extends Controller
             ->when(
                 $data['user_id']
                 ?? null,
-                fn ($query, $userId) =>
-                    $query->where(
-                        'audit.created_by',
-                        (int) $userId,
-                    ),
+                fn ($query, $userId) => $query->where(
+                    'audit.created_by',
+                    (int) $userId,
+                ),
             )
             ->when(
                 $data['type']
                 ?? null,
-                fn ($query, $type) =>
-                    $query->where(
-                        'audit.auditable_type',
-                        $type,
-                    ),
+                fn ($query, $type) => $query->where(
+                    'audit.auditable_type',
+                    $type,
+                ),
             )
             ->when(
                 $data['action']
                 ?? null,
-                fn ($query, $action) =>
-                    $query->where(
-                        'audit.action',
-                        $action,
-                    ),
+                fn ($query, $action) => $query->where(
+                    'audit.action',
+                    $action,
+                ),
             )
             ->when(
                 $data['from']
                 ?? null,
-                fn ($query, $from) =>
-                    $query->whereDate(
-                        'audit.created_at',
-                        '>=',
-                        $from,
-                    ),
+                fn ($query, $from) => $query->whereDate(
+                    'audit.created_at',
+                    '>=',
+                    $from,
+                ),
             )
             ->when(
                 $data['to']
                 ?? null,
-                fn ($query, $to) =>
-                    $query->whereDate(
-                        'audit.created_at',
-                        '<=',
-                        $to,
-                    ),
+                fn ($query, $to) => $query->whereDate(
+                    'audit.created_at',
+                    '<=',
+                    $to,
+                ),
             )
             ->when(
                 $data['search']
@@ -309,28 +304,19 @@ class AuditCenterController extends Controller
 
                     return [
                         'id' => $row->id,
-                        'auditable_type' =>
-                            $row->auditable_type,
-                        'auditable_id' =>
-                            $row->auditable_id,
-                        'record_label' =>
-                            $recordLabel,
-                        'action' =>
-                            $row->action,
-                        'reason' =>
-                            $row->reason,
-                        'created_by' =>
-                            $row->created_by,
-                        'created_by_name' =>
-                            $row->created_by_name,
-                        'created_at' =>
-                            $row->created_at,
+                        'auditable_type' => $row->auditable_type,
+                        'auditable_id' => $row->auditable_id,
+                        'record_label' => $recordLabel,
+                        'action' => $row->action,
+                        'reason' => $row->reason,
+                        'created_by' => $row->created_by,
+                        'created_by_name' => $row->created_by_name,
+                        'created_at' => $row->created_at,
                         'url' => $url,
-                        'diff' =>
-                            $this->diff(
-                                $before,
-                                $after,
-                            ),
+                        'diff' => $this->diff(
+                            $before,
+                            $after,
+                        ),
                     ];
                 },
             )
@@ -362,22 +348,20 @@ class AuditCenterController extends Controller
             'data' => $rows,
             'filters' => [
                 'users' => $users,
-                'types' =>
-                    collect($rows)
-                        ->pluck(
-                            'auditable_type',
-                        )
-                        ->filter()
-                        ->unique()
-                        ->values(),
-                'actions' =>
-                    collect($rows)
-                        ->pluck(
-                            'action',
-                        )
-                        ->filter()
-                        ->unique()
-                        ->values(),
+                'types' => collect($rows)
+                    ->pluck(
+                        'auditable_type',
+                    )
+                    ->filter()
+                    ->unique()
+                    ->values(),
+                'actions' => collect($rows)
+                    ->pluck(
+                        'action',
+                    )
+                    ->filter()
+                    ->unique()
+                    ->values(),
             ],
         ]);
     }
@@ -405,8 +389,8 @@ class AuditCenterController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $before
-     * @param array<string, mixed> $after
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $after
      * @return list<array<string, mixed>>
      */
     private function diff(
@@ -424,23 +408,20 @@ class AuditCenterController extends Controller
 
         return $keys
             ->filter(
-                fn (string $key): bool =>
-                    ($before[$key] ?? null)
+                fn (string $key): bool => ($before[$key] ?? null)
                     != ($after[$key] ?? null),
             )
             ->map(
                 fn (string $key): array => [
                     'field' => $key,
-                    'before' =>
-                        $this->presentValue(
-                            $before[$key]
-                            ?? null,
-                        ),
-                    'after' =>
-                        $this->presentValue(
-                            $after[$key]
-                            ?? null,
-                        ),
+                    'before' => $this->presentValue(
+                        $before[$key]
+                        ?? null,
+                    ),
+                    'after' => $this->presentValue(
+                        $after[$key]
+                        ?? null,
+                    ),
                 ],
             )
             ->values()

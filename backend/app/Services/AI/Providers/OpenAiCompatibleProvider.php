@@ -18,8 +18,7 @@ final class OpenAiCompatibleProvider implements AiProvider
         private readonly string $providerKey,
         private readonly array $config,
         private readonly AiAccessTokenProvider $tokens,
-    ) {
-    }
+    ) {}
 
     public function key(): string
     {

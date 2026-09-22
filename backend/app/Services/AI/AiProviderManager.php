@@ -13,8 +13,7 @@ final class AiProviderManager
 {
     public function __construct(
         private readonly AiAccessTokenProvider $tokens,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<array{role:string,content:string}>  $messages

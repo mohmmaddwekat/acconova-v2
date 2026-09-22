@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -128,8 +129,7 @@ class CommercialOperationsFeatureTest extends TestCase
 
         $customer = collect($collections)
             ->first(
-                fn (array $row): bool =>
-                    (int) $row['party_id']
+                fn (array $row): bool => (int) $row['party_id']
                         === $customerId
                     && $row['currency']
                         === 'ILS',
@@ -152,8 +152,7 @@ class CommercialOperationsFeatureTest extends TestCase
 
         $receivable = collect($receivables)
             ->first(
-                fn (array $row): bool =>
-                    (int) $row['party_id']
+                fn (array $row): bool => (int) $row['party_id']
                         === $customerId
                     && $row['currency']
                         === 'ILS',
@@ -1453,8 +1452,7 @@ class CommercialOperationsFeatureTest extends TestCase
     ): void {
         $this->actingAs($user)
             ->withSession([
-                OrganizationAccess::SESSION_KEY =>
-                    $organization->id,
+                OrganizationAccess::SESSION_KEY => $organization->id,
             ]);
     }
 
@@ -1505,7 +1503,7 @@ class CommercialOperationsFeatureTest extends TestCase
     ): int {
         $issueDate = min(
             today()->toDateString(),
-            \Carbon\CarbonImmutable::parse($dueDate)
+            CarbonImmutable::parse($dueDate)
                 ->subDays(15)
                 ->toDateString(),
         );

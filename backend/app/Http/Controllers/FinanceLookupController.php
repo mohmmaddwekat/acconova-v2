@@ -15,6 +15,7 @@ use App\Services\WorkspacePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FinanceLookupController extends Controller
 {
@@ -42,7 +43,7 @@ class FinanceLookupController extends Controller
             ->findOrFail((int) $data['product_id']);
 
         if ($data['kind'] === 'sale_invoice') {
-            $override = \Illuminate\Support\Facades\DB::table('party_product_prices')
+            $override = DB::table('party_product_prices')
                 ->where('organization_id', app(TenantContext::class)->id())
                 ->where('party_id', $party->id)
                 ->where('product_id', $product->id)

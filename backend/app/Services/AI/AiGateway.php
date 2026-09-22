@@ -6,8 +6,7 @@ final class AiGateway
 {
     public function __construct(
         private readonly AiProviderManager $providers,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<array{role:string,content:string}>  $messages

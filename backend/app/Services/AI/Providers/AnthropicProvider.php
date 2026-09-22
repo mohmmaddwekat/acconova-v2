@@ -14,8 +14,7 @@ final class AnthropicProvider implements AiProvider
     public function __construct(
         private readonly string $providerKey,
         private readonly array $config,
-    ) {
-    }
+    ) {}
 
     public function key(): string
     {
@@ -135,6 +134,7 @@ final class AnthropicProvider implements AiProvider
 
             if ($role === 'system') {
                 $system[] = $content;
+
                 continue;
             }
 
@@ -143,6 +143,7 @@ final class AnthropicProvider implements AiProvider
 
             if ($last !== null && $conversation[$last]['role'] === $role) {
                 $conversation[$last]['content'] .= "\n\n".$content;
+
                 continue;
             }
 

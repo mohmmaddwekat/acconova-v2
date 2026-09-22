@@ -29,14 +29,10 @@ class FinanceNumberService
             )->organization()->preferences ?? [];
 
             $patternKey = match ($name) {
-                'sales_invoice' =>
-                    'invoice_number_pattern',
-                'purchase_invoice' =>
-                    'purchase_number_pattern',
-                'cash_receipts' =>
-                    'receipt_number_pattern',
-                'cash_payments' =>
-                    'payment_number_pattern',
+                'sales_invoice' => 'invoice_number_pattern',
+                'purchase_invoice' => 'purchase_number_pattern',
+                'cash_receipts' => 'receipt_number_pattern',
+                'cash_payments' => 'payment_number_pattern',
                 default => null,
             };
 
@@ -74,19 +70,18 @@ class FinanceNumberService
 
         return preg_replace_callback(
             '/\\{SEQ:(\\d{1,2})\\}/',
-            fn (array $match): string =>
-                str_pad(
-                    (string) $sequence,
-                    max(
-                        1,
-                        min(
-                            12,
-                            (int) $match[1],
-                        ),
+            fn (array $match): string => str_pad(
+                (string) $sequence,
+                max(
+                    1,
+                    min(
+                        12,
+                        (int) $match[1],
                     ),
-                    '0',
-                    STR_PAD_LEFT,
                 ),
+                '0',
+                STR_PAD_LEFT,
+            ),
             $rendered,
         ) ?? $rendered;
     }

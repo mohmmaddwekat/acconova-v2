@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -33,11 +34,10 @@ class ReportBuilderController extends Controller
                 fn (
                     array $dataset,
                     string $key,
-                ): bool =>
-                    $this->canUseDataset(
-                        $request,
-                        $key,
-                    ),
+                ): bool => $this->canUseDataset(
+                    $request,
+                    $key,
+                ),
             )
             ->map(
                 fn (
@@ -45,26 +45,21 @@ class ReportBuilderController extends Controller
                     string $key,
                 ): array => [
                     'key' => $key,
-                    'label' =>
-                        $dataset['label'],
-                    'columns' =>
-                        collect(
-                            $dataset['columns'],
+                    'label' => $dataset['label'],
+                    'columns' => collect(
+                        $dataset['columns'],
+                    )
+                        ->map(
+                            fn (
+                                array $column,
+                                string $columnKey,
+                            ): array => [
+                                'key' => $columnKey,
+                                'label' => $column['label'],
+                                'type' => $column['type'],
+                            ],
                         )
-                            ->map(
-                                fn (
-                                    array $column,
-                                    string $columnKey,
-                                ): array => [
-                                    'key' =>
-                                        $columnKey,
-                                    'label' =>
-                                        $column['label'],
-                                    'type' =>
-                                        $column['type'],
-                                ],
-                            )
-                            ->values(),
+                        ->values(),
                 ],
             )
             ->values();
@@ -96,18 +91,15 @@ class ReportBuilderController extends Controller
             ->latest('id')
             ->get()
             ->map(
-                fn ($row): array =>
-                    $this->presentReport(
-                        $row,
-                        $request->user()->id,
-                    ),
+                fn ($row): array => $this->presentReport(
+                    $row,
+                    $request->user()->id,
+                ),
             );
 
         return response()->json([
-            'datasets' =>
-                $available,
-            'reports' =>
-                $reports,
+            'datasets' => $available,
+            'reports' => $reports,
         ]);
     }
 
@@ -134,43 +126,31 @@ class ReportBuilderController extends Controller
         $id = DB::table(
             'custom_reports',
         )->insertGetId([
-            'organization_id' =>
-                $organizationId,
-            'created_by' =>
-                $request->user()->id,
-            'name' =>
-                $data['name'],
-            'dataset' =>
-                $data['dataset'],
-            'columns' =>
-                json_encode(
-                    $data['columns'],
-                    JSON_THROW_ON_ERROR,
-                ),
-            'filters' =>
-                json_encode(
-                    $data['filters']
-                    ?? [],
-                    JSON_THROW_ON_ERROR,
-                ),
-            'group_by' =>
-                $data['group_by']
+            'organization_id' => $organizationId,
+            'created_by' => $request->user()->id,
+            'name' => $data['name'],
+            'dataset' => $data['dataset'],
+            'columns' => json_encode(
+                $data['columns'],
+                JSON_THROW_ON_ERROR,
+            ),
+            'filters' => json_encode(
+                $data['filters']
+                ?? [],
+                JSON_THROW_ON_ERROR,
+            ),
+            'group_by' => $data['group_by']
                 ?? null,
-            'sort_by' =>
-                $data['sort_by']
+            'sort_by' => $data['sort_by']
                 ?? null,
-            'sort_direction' =>
-                $data['sort_direction']
+            'sort_direction' => $data['sort_direction']
                 ?? 'asc',
-            'shared' =>
-                (bool) (
-                    $data['shared']
-                    ?? false
-                ),
-            'created_at' =>
-                now(),
-            'updated_at' =>
-                now(),
+            'shared' => (bool) (
+                $data['shared']
+                ?? false
+            ),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         $this->saveVersion(
@@ -179,21 +159,20 @@ class ReportBuilderController extends Controller
         );
 
         return response()->json([
-            'data' =>
-                $this->presentReport(
-                    DB::table(
-                        'custom_reports',
+            'data' => $this->presentReport(
+                DB::table(
+                    'custom_reports',
+                )
+                    ->where(
+                        'organization_id',
+                        $organizationId,
                     )
-                        ->where(
-                            'organization_id',
-                            $organizationId,
-                        )
-                        ->where(
-                            'id',
-                            $id,
-                        )
-                        ->first(),
-                ),
+                    ->where(
+                        'id',
+                        $id,
+                    )
+                    ->first(),
+            ),
         ], 201);
     }
 
@@ -248,37 +227,28 @@ class ReportBuilderController extends Controller
                 $current->id,
             )
             ->update([
-                'name' =>
-                    $data['name'],
-                'dataset' =>
-                    $data['dataset'],
-                'columns' =>
-                    json_encode(
-                        $data['columns'],
-                        JSON_THROW_ON_ERROR,
-                    ),
-                'filters' =>
-                    json_encode(
-                        $data['filters']
-                        ?? [],
-                        JSON_THROW_ON_ERROR,
-                    ),
-                'group_by' =>
-                    $data['group_by']
+                'name' => $data['name'],
+                'dataset' => $data['dataset'],
+                'columns' => json_encode(
+                    $data['columns'],
+                    JSON_THROW_ON_ERROR,
+                ),
+                'filters' => json_encode(
+                    $data['filters']
+                    ?? [],
+                    JSON_THROW_ON_ERROR,
+                ),
+                'group_by' => $data['group_by']
                     ?? null,
-                'sort_by' =>
-                    $data['sort_by']
+                'sort_by' => $data['sort_by']
                     ?? null,
-                'sort_direction' =>
-                    $data['sort_direction']
+                'sort_direction' => $data['sort_direction']
                     ?? 'asc',
-                'shared' =>
-                    (bool) (
-                        $data['shared']
-                        ?? false
-                    ),
-                'updated_at' =>
-                    now(),
+                'shared' => (bool) (
+                    $data['shared']
+                    ?? false
+                ),
+                'updated_at' => now(),
             ]);
 
         $this->saveVersion(
@@ -287,17 +257,16 @@ class ReportBuilderController extends Controller
         );
 
         return response()->json([
-            'data' =>
-                $this->presentReport(
-                    DB::table(
-                        'custom_reports',
+            'data' => $this->presentReport(
+                DB::table(
+                    'custom_reports',
+                )
+                    ->where(
+                        'id',
+                        $current->id,
                     )
-                        ->where(
-                            'id',
-                            $current->id,
-                        )
-                        ->first(),
-                ),
+                    ->first(),
+            ),
         ]);
     }
 
@@ -370,8 +339,7 @@ class ReportBuilderController extends Controller
 
         foreach (
             $data['filters']
-            ?? []
-            as $filter
+            ?? [] as $filter
         ) {
             $this->applyFilter(
                 $query,
@@ -439,8 +407,7 @@ class ReportBuilderController extends Controller
                 ->limit(1000)
                 ->get()
                 ->map(
-                    fn ($row): array =>
-                        (array) $row,
+                    fn ($row): array => (array) $row,
                 )
                 ->values();
 
@@ -455,8 +422,7 @@ class ReportBuilderController extends Controller
                 ->filter(
                     fn (
                         string $column,
-                    ): bool =>
-                        $definition[
+                    ): bool => $definition[
                             'columns'
                         ][$column][
                             'type'
@@ -471,13 +437,12 @@ class ReportBuilderController extends Controller
                     ->groupBy(
                         fn (
                             array $row,
-                        ) =>
-                            (string) (
-                                $row[
-                                    $groupBy
-                                ]
-                                ?? '—'
-                            ),
+                        ) => (string) (
+                            $row[
+                                $groupBy
+                            ]
+                            ?? '—'
+                        ),
                     )
                     ->map(
                         function (
@@ -489,8 +454,7 @@ class ReportBuilderController extends Controller
                             $totals = [];
 
                             foreach (
-                                $numericColumns
-                                as $column
+                                $numericColumns as $column
                             ) {
                                 $totals[
                                     $column
@@ -501,13 +465,12 @@ class ReportBuilderController extends Controller
                                         )->sum(
                                             fn (
                                                 array $row,
-                                            ): float =>
-                                                (float) (
-                                                    $row[
-                                                        $column
-                                                    ]
-                                                    ?? 0
-                                                ),
+                                            ): float => (float) (
+                                                $row[
+                                                    $column
+                                                ]
+                                                ?? 0
+                                            ),
                                         ),
                                         4,
                                         '.',
@@ -516,19 +479,15 @@ class ReportBuilderController extends Controller
                             }
 
                             return [
-                                'key' =>
-                                    $key,
-                                'count' =>
-                                    count(
-                                        $groupRows,
-                                    ),
-                                'totals' =>
-                                    $totals,
-                                'rows' =>
-                                    array_values(
-                                        $groupRows
-                                            ->all(),
-                                    ),
+                                'key' => $key,
+                                'count' => count(
+                                    $groupRows,
+                                ),
+                                'totals' => $totals,
+                                'rows' => array_values(
+                                    $groupRows
+                                        ->all(),
+                                ),
                             ];
                         },
                     )
@@ -537,39 +496,31 @@ class ReportBuilderController extends Controller
 
         return response()->json([
             'data' => [
-                'columns' =>
-                    collect(
-                        $columns,
+                'columns' => collect(
+                    $columns,
+                )
+                    ->map(
+                        fn (
+                            string $column,
+                        ): array => [
+                            'key' => $column,
+                            'label' => $definition[
+                                    'columns'
+                                ][$column][
+                                    'label'
+                                ],
+                            'type' => $definition[
+                                    'columns'
+                                ][$column][
+                                    'type'
+                                ],
+                        ],
                     )
-                        ->map(
-                            fn (
-                                string $column,
-                            ): array => [
-                                'key' =>
-                                    $column,
-                                'label' =>
-                                    $definition[
-                                        'columns'
-                                    ][$column][
-                                        'label'
-                                    ],
-                                'type' =>
-                                    $definition[
-                                        'columns'
-                                    ][$column][
-                                        'type'
-                                    ],
-                            ],
-                        )
-                        ->values(),
-                'rows' =>
-                    $rows,
-                'groups' =>
-                    $groups,
-                'group_by' =>
-                    $groupBy,
-                'limited' =>
-                    $rows->count()
+                    ->values(),
+                'rows' => $rows,
+                'groups' => $groups,
+                'group_by' => $groupBy,
+                'limited' => $rows->count()
                     >= 1000,
             ],
         ]);
@@ -665,7 +616,7 @@ class ReportBuilderController extends Controller
         int $reportId,
         int $userId,
     ): void {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('report_versions')) {
+        if (! Schema::hasTable('report_versions')) {
             return;
         }
 
@@ -806,8 +757,7 @@ class ReportBuilderController extends Controller
             );
 
         foreach (
-            $data['columns']
-            as $column
+            $data['columns'] as $column
         ) {
             if (
                 ! in_array(
@@ -826,8 +776,7 @@ class ReportBuilderController extends Controller
 
         foreach (
             $data['filters']
-            ?? []
-            as $filter
+            ?? [] as $filter
         ) {
             if (
                 ! in_array(
@@ -848,8 +797,7 @@ class ReportBuilderController extends Controller
             [
                 'group_by',
                 'sort_by',
-            ]
-            as $key
+            ] as $key
         ) {
             if (
                 ! empty(
@@ -913,43 +861,38 @@ class ReportBuilderController extends Controller
                 'operator'
             ]
         ) {
-            'eq' =>
-                $query->whereRaw(
-                    $expression
-                    .' = ?',
-                    [$value],
-                ),
-            'neq' =>
-                $query->whereRaw(
-                    $expression
-                    .' != ?',
-                    [$value],
-                ),
-            'contains' =>
-                $query->whereRaw(
-                    'LOWER(CAST('
-                    .$expression
-                    .' AS CHAR)) LIKE ?',
-                    [
-                        '%'
-                        .mb_strtolower(
-                            $value,
-                        )
-                        .'%',
-                    ],
-                ),
-            'gte' =>
-                $query->whereRaw(
-                    $expression
-                    .' >= ?',
-                    [$value],
-                ),
-            'lte' =>
-                $query->whereRaw(
-                    $expression
-                    .' <= ?',
-                    [$value],
-                ),
+            'eq' => $query->whereRaw(
+                $expression
+                .' = ?',
+                [$value],
+            ),
+            'neq' => $query->whereRaw(
+                $expression
+                .' != ?',
+                [$value],
+            ),
+            'contains' => $query->whereRaw(
+                'LOWER(CAST('
+                .$expression
+                .' AS CHAR)) LIKE ?',
+                [
+                    '%'
+                    .mb_strtolower(
+                        $value,
+                    )
+                    .'%',
+                ],
+            ),
+            'gte' => $query->whereRaw(
+                $expression
+                .' >= ?',
+                [$value],
+            ),
+            'lte' => $query->whereRaw(
+                $expression
+                .' <= ?',
+                [$value],
+            ),
         };
     }
 
@@ -1053,37 +996,31 @@ class ReportBuilderController extends Controller
         string $dataset,
     ): bool {
         return match ($dataset) {
-            'sales_invoices' =>
-                FinanceAuthorization::allows(
-                    $request->user(),
-                    'finance.sales.view',
-                ),
-            'purchase_invoices' =>
-                FinanceAuthorization::allows(
-                    $request->user(),
-                    'finance.purchases.view',
-                ),
-            'cash_movements' =>
-                FinanceAuthorization::allows(
-                    $request->user(),
-                    'finance.cash.view',
-                ),
-            'parties' =>
-                Gate::forUser(
-                    $request->user(),
-                )->allows(
-                    'viewAny',
-                    Party::class,
-                ),
-            'products' =>
-                Gate::forUser(
-                    $request->user(),
-                )->allows(
-                    'viewAny',
-                    Product::class,
-                ),
-            default =>
-                false,
+            'sales_invoices' => FinanceAuthorization::allows(
+                $request->user(),
+                'finance.sales.view',
+            ),
+            'purchase_invoices' => FinanceAuthorization::allows(
+                $request->user(),
+                'finance.purchases.view',
+            ),
+            'cash_movements' => FinanceAuthorization::allows(
+                $request->user(),
+                'finance.cash.view',
+            ),
+            'parties' => Gate::forUser(
+                $request->user(),
+            )->allows(
+                'viewAny',
+                Party::class,
+            ),
+            'products' => Gate::forUser(
+                $request->user(),
+            )->allows(
+                'viewAny',
+                Product::class,
+            ),
+            default => false,
         };
     }
 
@@ -1096,321 +1033,221 @@ class ReportBuilderController extends Controller
             'number' => [
                 'label' => 'Document number',
                 'type' => 'text',
-                'expression' =>
-                    'document.number',
+                'expression' => 'document.number',
             ],
             'party' => [
                 'label' => 'Customer / supplier',
                 'type' => 'text',
-                'expression' =>
-                    "COALESCE(party.company_name, party.name, '')",
+                'expression' => "COALESCE(party.company_name, party.name, '')",
             ],
             'issue_date' => [
                 'label' => 'Issue date',
                 'type' => 'date',
-                'expression' =>
-                    'document.issue_date',
+                'expression' => 'document.issue_date',
             ],
             'due_date' => [
                 'label' => 'Due date',
                 'type' => 'date',
-                'expression' =>
-                    'document.due_date',
+                'expression' => 'document.due_date',
             ],
             'status' => [
                 'label' => 'Status',
                 'type' => 'text',
-                'expression' =>
-                    'document.status',
+                'expression' => 'document.status',
             ],
             'subtotal' => [
                 'label' => 'Subtotal',
                 'type' => 'number',
-                'expression' =>
-                    'document.subtotal',
+                'expression' => 'document.subtotal',
             ],
             'discount_total' => [
                 'label' => 'Discount',
                 'type' => 'number',
-                'expression' =>
-                    'document.discount_total',
+                'expression' => 'document.discount_total',
             ],
             'tax_total' => [
                 'label' => 'Tax',
                 'type' => 'number',
-                'expression' =>
-                    'document.tax_total',
+                'expression' => 'document.tax_total',
             ],
             'total' => [
                 'label' => 'Total',
                 'type' => 'number',
-                'expression' =>
-                    'document.total',
+                'expression' => 'document.total',
             ],
             'paid_total' => [
                 'label' => 'Paid',
                 'type' => 'number',
-                'expression' =>
-                    'document.paid_total',
+                'expression' => 'document.paid_total',
             ],
             'balance_due' => [
                 'label' => 'Balance due',
                 'type' => 'number',
-                'expression' =>
-                    'document.balance_due',
+                'expression' => 'document.balance_due',
             ],
             'currency' => [
                 'label' => 'Currency',
                 'type' => 'text',
-                'expression' =>
-                    'document.currency',
+                'expression' => 'document.currency',
             ],
         ];
 
         return [
             'sales_invoices' => [
-                'label' =>
-                    'Sales invoices',
-                'columns' =>
-                    $documentColumns,
+                'label' => 'Sales invoices',
+                'columns' => $documentColumns,
             ],
             'purchase_invoices' => [
-                'label' =>
-                    'Purchase invoices',
-                'columns' =>
-                    $documentColumns,
+                'label' => 'Purchase invoices',
+                'columns' => $documentColumns,
             ],
             'cash_movements' => [
-                'label' =>
-                    'Cash movements',
+                'label' => 'Cash movements',
                 'columns' => [
                     'number' => [
-                        'label' =>
-                            'Movement number',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'movement.number',
+                        'label' => 'Movement number',
+                        'type' => 'text',
+                        'expression' => 'movement.number',
                     ],
                     'party' => [
-                        'label' =>
-                            'Counterparty',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            "COALESCE(party.company_name, party.name, '')",
+                        'label' => 'Counterparty',
+                        'type' => 'text',
+                        'expression' => "COALESCE(party.company_name, party.name, '')",
                     ],
                     'movement_date' => [
-                        'label' =>
-                            'Date',
-                        'type' =>
-                            'date',
-                        'expression' =>
-                            'movement.movement_date',
+                        'label' => 'Date',
+                        'type' => 'date',
+                        'expression' => 'movement.movement_date',
                     ],
                     'direction' => [
-                        'label' =>
-                            'Direction',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'movement.direction',
+                        'label' => 'Direction',
+                        'type' => 'text',
+                        'expression' => 'movement.direction',
                     ],
                     'status' => [
-                        'label' =>
-                            'Status',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'movement.status',
+                        'label' => 'Status',
+                        'type' => 'text',
+                        'expression' => 'movement.status',
                     ],
                     'category' => [
-                        'label' =>
-                            'Category',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'movement.category',
+                        'label' => 'Category',
+                        'type' => 'text',
+                        'expression' => 'movement.category',
                     ],
                     'amount' => [
-                        'label' =>
-                            'Amount',
-                        'type' =>
-                            'number',
-                        'expression' =>
-                            'movement.amount',
+                        'label' => 'Amount',
+                        'type' => 'number',
+                        'expression' => 'movement.amount',
                     ],
                     'currency' => [
-                        'label' =>
-                            'Currency',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'movement.currency',
+                        'label' => 'Currency',
+                        'type' => 'text',
+                        'expression' => 'movement.currency',
                     ],
                     'method' => [
-                        'label' =>
-                            'Method',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'movement.method',
+                        'label' => 'Method',
+                        'type' => 'text',
+                        'expression' => 'movement.method',
                     ],
                     'reference' => [
-                        'label' =>
-                            'Reference',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'movement.reference',
+                        'label' => 'Reference',
+                        'type' => 'text',
+                        'expression' => 'movement.reference',
                     ],
                 ],
             ],
             'parties' => [
-                'label' =>
-                    'Customers & suppliers',
+                'label' => 'Customers & suppliers',
                 'columns' => [
                     'name' => [
-                        'label' =>
-                            'Name',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            "COALESCE(party.company_name, party.name, '')",
+                        'label' => 'Name',
+                        'type' => 'text',
+                        'expression' => "COALESCE(party.company_name, party.name, '')",
                     ],
                     'type' => [
-                        'label' =>
-                            'Type',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'party.type',
+                        'label' => 'Type',
+                        'type' => 'text',
+                        'expression' => 'party.type',
                     ],
                     'email' => [
-                        'label' =>
-                            'Email',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'party.email',
+                        'label' => 'Email',
+                        'type' => 'text',
+                        'expression' => 'party.email',
                     ],
                     'phone' => [
-                        'label' =>
-                            'Phone',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'party.phone',
+                        'label' => 'Phone',
+                        'type' => 'text',
+                        'expression' => 'party.phone',
                     ],
                     'city' => [
-                        'label' =>
-                            'City',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'party.city',
+                        'label' => 'City',
+                        'type' => 'text',
+                        'expression' => 'party.city',
                     ],
                     'country_code' => [
-                        'label' =>
-                            'Country',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'party.country_code',
+                        'label' => 'Country',
+                        'type' => 'text',
+                        'expression' => 'party.country_code',
                     ],
                     'credit_limit' => [
-                        'label' =>
-                            'Credit limit',
-                        'type' =>
-                            'number',
-                        'expression' =>
-                            'party.credit_limit',
+                        'label' => 'Credit limit',
+                        'type' => 'number',
+                        'expression' => 'party.credit_limit',
                     ],
                     'created_at' => [
-                        'label' =>
-                            'Created at',
-                        'type' =>
-                            'date',
-                        'expression' =>
-                            'party.created_at',
+                        'label' => 'Created at',
+                        'type' => 'date',
+                        'expression' => 'party.created_at',
                     ],
                 ],
             ],
             'products' => [
-                'label' =>
-                    'Products',
+                'label' => 'Products',
                 'columns' => [
                     'name' => [
-                        'label' =>
-                            'Name',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'product.name',
+                        'label' => 'Name',
+                        'type' => 'text',
+                        'expression' => 'product.name',
                     ],
                     'sku' => [
-                        'label' =>
-                            'SKU',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'product.sku',
+                        'label' => 'SKU',
+                        'type' => 'text',
+                        'expression' => 'product.sku',
                     ],
                     'type' => [
-                        'label' =>
-                            'Type',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'product.type',
+                        'label' => 'Type',
+                        'type' => 'text',
+                        'expression' => 'product.type',
                     ],
                     'unit' => [
-                        'label' =>
-                            'Unit',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'product.unit',
+                        'label' => 'Unit',
+                        'type' => 'text',
+                        'expression' => 'product.unit',
                     ],
                     'unit_price' => [
-                        'label' =>
-                            'Selling price',
-                        'type' =>
-                            'number',
-                        'expression' =>
-                            'product.unit_price',
+                        'label' => 'Selling price',
+                        'type' => 'number',
+                        'expression' => 'product.unit_price',
                     ],
                     'cost_price' => [
-                        'label' =>
-                            'Cost price',
-                        'type' =>
-                            'number',
-                        'expression' =>
-                            'product.cost_price',
+                        'label' => 'Cost price',
+                        'type' => 'number',
+                        'expression' => 'product.cost_price',
                     ],
                     'tax_rate' => [
-                        'label' =>
-                            'Tax rate',
-                        'type' =>
-                            'number',
-                        'expression' =>
-                            'product.tax_rate',
+                        'label' => 'Tax rate',
+                        'type' => 'number',
+                        'expression' => 'product.tax_rate',
                     ],
                     'track_inventory' => [
-                        'label' =>
-                            'Tracks inventory',
-                        'type' =>
-                            'text',
-                        'expression' =>
-                            'product.track_inventory',
+                        'label' => 'Tracks inventory',
+                        'type' => 'text',
+                        'expression' => 'product.track_inventory',
                     ],
                     'created_at' => [
-                        'label' =>
-                            'Created at',
-                        'type' =>
-                            'date',
-                        'expression' =>
-                            'product.created_at',
+                        'label' => 'Created at',
+                        'type' => 'date',
+                        'expression' => 'product.created_at',
                     ],
                 ],
             ],
@@ -1426,25 +1263,21 @@ class ReportBuilderController extends Controller
     ): array {
         return [
             ...((array) $row),
-            'can_edit' =>
-                $userId !== null
+            'can_edit' => $userId !== null
                 && (int) $row->created_by
                     === $userId,
-            'columns' =>
-                json_decode(
-                    $row->columns,
-                    true,
-                )
+            'columns' => json_decode(
+                $row->columns,
+                true,
+            )
                 ?: [],
-            'filters' =>
-                json_decode(
-                    $row->filters
-                    ?: '[]',
-                    true,
-                )
+            'filters' => json_decode(
+                $row->filters
+                ?: '[]',
+                true,
+            )
                 ?: [],
-            'configuration' =>
-                isset($row->configuration)
+            'configuration' => isset($row->configuration)
                 && $row->configuration
                     ? (
                         json_decode(
@@ -1454,8 +1287,7 @@ class ReportBuilderController extends Controller
                         ?: null
                     )
                     : null,
-            'visualization' =>
-                isset($row->visualization)
+            'visualization' => isset($row->visualization)
                 && $row->visualization
                     ? (
                         json_decode(
