@@ -68,6 +68,24 @@ Route::middleware([
             'production.index',
         );
 
+    /*
+     * Backwards-compatible recording endpoint. ProductionController delegates
+     * to ProductionRunService so there remains one authoritative stock path.
+     */
+    Route::post(
+        'products/{product}/production',
+        [
+            ProductionController::class,
+            'store',
+        ],
+    )
+        ->whereNumber(
+            'product',
+        )
+        ->name(
+            'production.store',
+        );
+
     Route::get(
         'products/{product}/service-operations',
         [
