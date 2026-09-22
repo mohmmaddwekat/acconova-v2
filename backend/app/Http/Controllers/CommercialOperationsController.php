@@ -2521,10 +2521,21 @@ class CommercialOperationsController extends Controller
             'updated_at' => now(),
         ]);
 
-        return DB::table('inventory_batches')
+        $batch = DB::table('inventory_batches')
             ->where('organization_id', $organizationId)
             ->where('id', $id)
             ->first();
+
+        if ($batch) {
+            $batch->quantity = number_format(
+                (float) $batch->quantity,
+                4,
+                '.',
+                '',
+            );
+        }
+
+        return $batch;
     }
 
     private function updatePromise(
@@ -3295,10 +3306,21 @@ class CommercialOperationsController extends Controller
                 'updated_at' => now(),
             ]);
 
-        return DB::table('inventory_batches')
+        $batch = DB::table('inventory_batches')
             ->where('organization_id', $organizationId)
             ->where('id', $record)
             ->first();
+
+        if ($batch) {
+            $batch->quantity = number_format(
+                (float) $batch->quantity,
+                4,
+                '.',
+                '',
+            );
+        }
+
+        return $batch;
     }
 
     private function activeInvoiceReceiptTotal(
