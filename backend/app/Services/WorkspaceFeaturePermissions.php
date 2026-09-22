@@ -1889,7 +1889,7 @@ final class WorkspaceFeaturePermissions
                         'key' => 'workspace.settings.view',
                         'label_ar' => 'عرض إعدادات الشركة',
                         'label_en' => 'View workspace settings',
-                        'builtin' => ['owner', 'admin'],
+                        'builtin' => ['owner', 'admin', 'manager', 'accountant', 'employee'],
                     ],
                     [
                         'key' => 'workspace.settings.manage',
