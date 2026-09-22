@@ -25,6 +25,42 @@ final class WorkspaceFeaturePermissions
     public static function groups(): array
     {
         return [
+            'ai' => [
+                'key' => 'ai',
+                'title_ar' => 'الذكاء الاصطناعي',
+                'title_en' => 'AI Assistant',
+                'description_ar' => 'مساعد AccoNova، المحادثات، الذاكرة، الملفات وإدارة الوصول للذكاء الاصطناعي.',
+                'description_en' => 'AccoNova assistant, conversations, memory, files and AI access administration.',
+                'icon' => 'sparkles',
+                'permissions' => [
+                    [
+                        'key' => 'ai.assistant.use',
+                        'label_ar' => 'استخدام مساعد AccoNova AI',
+                        'label_en' => 'Use AccoNova AI assistant',
+                        'builtin' => ['owner', 'admin', 'manager', 'accountant', 'employee'],
+                    ],
+                    [
+                        'key' => 'ai.conversations.manage',
+                        'label_ar' => 'إدارة محادثات الذكاء الاصطناعي الشخصية',
+                        'label_en' => 'Manage personal AI conversations',
+                        'depends' => ['ai.assistant.use'],
+                        'builtin' => ['owner', 'admin', 'manager', 'accountant', 'employee'],
+                    ],
+                    [
+                        'key' => 'ai.files.use',
+                        'label_ar' => 'استخدام الملفات مع الذكاء الاصطناعي',
+                        'label_en' => 'Use files with AI',
+                        'depends' => ['ai.assistant.use'],
+                    ],
+                    [
+                        'key' => 'ai.admin.configure',
+                        'label_ar' => 'إدارة إعدادات ومزود الذكاء الاصطناعي',
+                        'label_en' => 'Configure AI provider and settings',
+                        'depends' => ['ai.assistant.use'],
+                        'builtin' => ['owner', 'admin'],
+                    ],
+                ],
+            ],
             'tasks' => [
                 'key' => 'tasks',
                 'title_ar' => 'إدارة المهام والمشاريع',
