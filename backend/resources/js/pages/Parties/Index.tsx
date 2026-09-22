@@ -812,7 +812,11 @@ function PartiesWorkspace() {
                         ...current,
                         data: current.data.map((item) =>
                             item.id === updated.id
-                                ? updated
+                                ? {
+                                    ...updated,
+                                    balance_summary:
+                                        item.balance_summary,
+                                }
                                 : item,
                         ),
                     }
@@ -820,7 +824,11 @@ function PartiesWorkspace() {
             );
 
             if (detailParty?.id === updated.id) {
-                setDetailParty(updated);
+                setDetailParty({
+                    ...updated,
+                    balance_summary:
+                        detailParty.balance_summary,
+                });
             }
 
             showToast(
