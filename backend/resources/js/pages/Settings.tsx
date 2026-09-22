@@ -1,3 +1,4 @@
+import { BillingPanel } from '@/components/settings/BillingPanel';
 import { NotificationRulesPanel } from '@/components/settings/NotificationRulesPanel';
 import { AppShell } from '@/layouts/AppShell';
 import {
@@ -1964,17 +1965,7 @@ function SettingsWorkspace() {
                             )}
 
                             {section === 'billing' && (
-                                <SettingsCard title={text('الفوترة والاشتراك', 'Billing & subscription')} description={text('لا نعرض مبالغ أو بطاقات تجريبية غير مرتبطة باشتراك حقيقي.', 'No fake plans, cards, or billing history are shown.')} icon={WalletCards}>
-                                    <div className="rounded-[14px] border border-dashed border-[var(--acs-line-strong)] bg-[var(--acs-surface-soft)] p-8 text-center">
-                                        <WalletCards size={26} className="mx-auto text-[var(--acs-accent)]" />
-                                        <strong className="mt-3 block text-sm text-[var(--acs-text)]">
-                                            {text('إدارة الاشتراك غير مربوطة بعد بمصدر فوترة حقيقي', 'Subscription management is not connected to a real billing source yet')}
-                                        </strong>
-                                        <p className="mx-auto mt-2 max-w-xl text-[10px] leading-5 text-[var(--acs-text-muted)]">
-                                            {text('تم حذف البيانات التجريبية من هذه الصفحة حتى لا تظهر كمعلومات حقيقية.', 'Sample billing data was removed so it cannot be mistaken for real information.')}
-                                        </p>
-                                    </div>
-                                </SettingsCard>
+                                <BillingPanel />
                             )}
 
                             {section === 'appearance' && (
