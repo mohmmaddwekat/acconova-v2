@@ -24,6 +24,42 @@ const pages = import.meta.glob<InertiaPageModule>(
 const pageReloadKey =
     'acconova:inertia-page-import-reload';
 
+function readReloadMarker(): string | null {
+    try {
+        return window.sessionStorage
+            .getItem(
+                pageReloadKey,
+            );
+    } catch {
+        return null;
+    }
+}
+
+function writeReloadMarker(
+    value: string,
+): void {
+    try {
+        window.sessionStorage
+            .setItem(
+                pageReloadKey,
+                value,
+            );
+    } catch {
+        // Storage restrictions must never block application boot.
+    }
+}
+
+function clearReloadMarker(): void {
+    try {
+        window.sessionStorage
+            .removeItem(
+                pageReloadKey,
+            );
+    } catch {
+        // Storage restrictions must never block application boot.
+    }
+}
+
 /**
  * Resolve an Inertia page and recover once from a stale Vite/HMR module.
  *
@@ -51,10 +87,7 @@ async function resolvePage(
             typeof window !==
             'undefined'
         ) {
-            window.sessionStorage
-                .removeItem(
-                    pageReloadKey,
-                );
+            clearReloadMarker();
         }
 
         return module.default;
@@ -64,18 +97,13 @@ async function resolvePage(
             'undefined'
         ) {
             const alreadyReloaded =
-                window.sessionStorage
-                    .getItem(
-                        pageReloadKey,
-                    ) ===
+                readReloadMarker() ===
                 window.location.pathname;
 
             if (! alreadyReloaded) {
-                window.sessionStorage
-                    .setItem(
-                        pageReloadKey,
-                        window.location.pathname,
-                    );
+                writeReloadMarker(
+                    window.location.pathname,
+                );
 
                 window.location.reload();
 
@@ -87,10 +115,7 @@ async function resolvePage(
                 );
             }
 
-            window.sessionStorage
-                .removeItem(
-                    pageReloadKey,
-                );
+            clearReloadMarker();
         }
 
         throw error;
