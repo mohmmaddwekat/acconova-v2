@@ -1946,6 +1946,7 @@ final class WorkspaceFeaturePermissions
                         'key' => 'notifications.read.manage',
                         'label_ar' => 'تحديث حالة قراءة الإشعارات',
                         'label_en' => 'Manage notification read state',
+                        'legacy' => ['notifications.view'],
                         'depends' => ['notifications.view'],
                     ],
                 ],
