@@ -12,13 +12,13 @@ use App\Events\OrganizationRestored;
 use App\Events\OrganizationUpdated;
 use App\Models\User;
 use Illuminate\Database\QueryException;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class OrganizationActionsTest extends TestCase
 {
-    use DatabaseMigrations;
+    use RefreshDatabase;
 
     /**
      * Verify that organization creation produces exactly one Owner and emits
