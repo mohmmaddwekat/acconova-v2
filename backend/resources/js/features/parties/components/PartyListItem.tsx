@@ -22,6 +22,7 @@ import {
     MapPin,
     Pencil,
     Phone,
+    ReceiptText,
     RotateCcw,
     UserRound,
 } from 'lucide-react';
@@ -499,17 +500,19 @@ export function PartyListItem({
             >
                 <a
                     href={'/app/parties/' + String(party.id)}
-                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] px-3 text-[9px] font-bold text-[var(--ac-accent)] transition hover:border-[var(--ac-accent)]"
+                    aria-label={
+                        locale === 'ar'
+                            ? 'فتح الحساب الكامل'
+                            : 'Open full account'
+                    }
                     title={
                         locale === 'ar'
                             ? 'فتح الحساب الكامل'
                             : 'Open full account'
                     }
+                    className="flex size-10 shrink-0 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)] transition duration-200 hover:border-[var(--ac-accent)] hover:bg-[var(--ac-surface-soft)]"
                 >
-                    <ArrowUpRight size={13} />
-                    {locale === 'ar'
-                        ? 'الحساب'
-                        : 'Account'}
+                    <ReceiptText size={15} />
                 </a>
 
                 <button
