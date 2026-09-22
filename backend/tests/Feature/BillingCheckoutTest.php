@@ -28,8 +28,7 @@ class BillingCheckoutTest extends TestCase
 
         Http::preventStrayRequests();
         Http::fake([
-            'https://billing.example.test/v1/checkout/sessions' =>
-                Http::response([
+            'https://billing.example.test/v1/checkout/sessions' => Http::response([
                     'id' => 'cs_test_123',
                     'url' => 'https://checkout.example.test/session',
                 ]),
@@ -99,14 +98,13 @@ class BillingCheckoutTest extends TestCase
             'billing.stripe.webhook_secret' => 'whsec_test',
             'billing.stripe.api_base' => 'https://billing.example.test',
             'billing.trial_days' => 0,
-            'billing.plans.starter.prices.month' =>
-                'price_starter_monthly',
+            'billing.plans.starter.prices.month' => 'price_starter_monthly',
             'billing.plans.starter.prices.year' => null,
         ]);
     }
 
     /**
-     * @return array{0:User,1:Organization}
+     * @return array{0: User, 1: Organization}
      */
     private function workspace(): array
     {
