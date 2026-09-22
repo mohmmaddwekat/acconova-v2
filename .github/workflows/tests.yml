@@ -38,6 +38,8 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npm run build
+      - name: Targeted AI gateway test
+        run: php artisan test --filter=AiGatewayTest
       - name: Targeted finance workflow test
         run: php artisan test --filter=FinanceWorkflowTest
       - name: Targeted operational intelligence workflow test
