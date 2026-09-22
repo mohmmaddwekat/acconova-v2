@@ -388,10 +388,14 @@ final class StripeBillingGateway
             );
         }
 
+        /*
+         * Do not automatically retry POST requests here: checkout/session
+         * creation is a money-moving workflow and duplicate provider objects
+         * are worse than asking the user to retry once.
+         */
         return Http::withToken($secret)
             ->acceptJson()
-            ->timeout(20)
-            ->retry(2, 250);
+            ->timeout(20);
     }
 
     private function url(string $path): string
