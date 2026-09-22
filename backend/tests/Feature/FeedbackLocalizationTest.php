@@ -21,7 +21,12 @@ class FeedbackLocalizationTest extends TestCase
         foreach (['en', 'ar'] as $locale) {
             $this->withHeader('X-Locale', $locale)->getJson('/api/feedback-test')
                 ->assertStatus(500)
-                ->assertExactJson(['code' => 'unexpected', 'message' => __('feedback.unexpected', [], $locale)])
+                ->assertJsonPath('code', 'server')
+                ->assertJsonPath('message', __('feedback.server', [], $locale))
+                ->assertJsonPath(
+                    'error_id',
+                    fn (string $errorId): bool => strlen($errorId) === 10,
+                )
                 ->assertDontSee('SQLSTATE');
         }
     }
@@ -76,7 +81,7 @@ class FeedbackLocalizationTest extends TestCase
 
         $this->withHeader('X-Locale', 'ar')->get('/feedback-test')->assertStatus(500)
             ->assertSee('dir="rtl"', false)
-            ->assertSee(__('feedback.unexpected', [], 'ar'))
+            ->assertSee(__('feedback.server', [], 'ar'))
             ->assertDontSee('SQLSTATE');
     }
 }
