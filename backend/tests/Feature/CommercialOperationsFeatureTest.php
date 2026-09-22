@@ -1503,12 +1503,19 @@ class CommercialOperationsFeatureTest extends TestCase
         ?int $productId = null,
         string $currency = 'ILS',
     ): int {
+        $issueDate = min(
+            today()->toDateString(),
+            \Carbon\CarbonImmutable::parse($dueDate)
+                ->subDays(15)
+                ->toDateString(),
+        );
+
         return (int) $this->postJson(
             '/api/finance/documents',
             [
                 'kind' => $kind,
                 'party_id' => $partyId,
-                'issue_date' => today()->subDays(60)->toDateString(),
+                'issue_date' => $issueDate,
                 'due_date' => $dueDate,
                 'currency' => $currency,
                 'lines' => [
