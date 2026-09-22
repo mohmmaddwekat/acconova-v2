@@ -50,7 +50,7 @@ class StaffWorkflowTest extends TestCase
         $this->entry($id, 'bonus')->assertCreated();
         $this->entry($id, 'deduction', ['amount' => '2'])->assertCreated();
         $this->entry($id, 'payment', ['amount' => '5'])->assertCreated();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertOk()->assertJsonPath('balance', '10.5');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertOk()->assertJsonPath('balance', '10.5000');
     }
 
     public function test_monthly_entries_are_unique_and_rate_changes_preserve_history(): void
