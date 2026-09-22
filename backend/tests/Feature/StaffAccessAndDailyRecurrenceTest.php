@@ -49,9 +49,10 @@ class StaffAccessAndDailyRecurrenceTest extends TestCase
 
     public function test_create_permission_does_not_grant_edit_or_payroll_access(): void
     {
-        [$owner] = $this->workspace();
+        [$owner, $org] = $this->workspace();
         $id = $this->role(['parties.create']);
         $user = User::factory()->create();
+        $org->users()->attach($user->id, ['role' => 'employee']);
         $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $id, 'confirmed_user_id' => $user->id, 'current_password' => 'password'])->assertOk();
         $party = $this->postJson('/api/parties', ['name' => 'Customer', 'type' => 'person', 'roles' => ['customer']])->assertCreated()->json('data.id');
         $this->actingAs($user);
