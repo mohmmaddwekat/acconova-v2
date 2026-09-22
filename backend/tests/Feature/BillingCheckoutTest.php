@@ -29,9 +29,9 @@ class BillingCheckoutTest extends TestCase
         Http::preventStrayRequests();
         Http::fake([
             'https://billing.example.test/v1/checkout/sessions' => Http::response([
-                    'id' => 'cs_test_123',
-                    'url' => 'https://checkout.example.test/session',
-                ]),
+                'id' => 'cs_test_123',
+                'url' => 'https://checkout.example.test/session',
+            ]),
         ]);
 
         $this
