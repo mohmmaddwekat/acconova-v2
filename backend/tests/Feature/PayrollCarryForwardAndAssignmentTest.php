@@ -39,10 +39,10 @@ class PayrollCarryForwardAndAssignmentTest extends TestCase
         $id = $this->postJson('/api/staff', $this->data())->assertCreated()->json('data.id');
         $this->postJson('/api/staff/'.$id.'/accrue', ['through' => '2026-02'])->assertOk()->assertJsonPath('created', 4);
         $this->postJson('/api/staff/'.$id.'/entries', ['request_id' => (string) Str::uuid(), 'kind' => 'payment', 'amount' => '700', 'occurred_on' => '2026-02-28', 'notes' => 'Partial payment'])->assertCreated();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertOk()->assertJsonPath('balance', '1500');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertOk()->assertJsonPath('balance', '1500.0000');
         $this->postJson('/api/staff/'.$id.'/accrue', ['through' => '2026-02'])->assertOk()->assertJsonPath('created', 0);
         $this->postJson('/api/staff/'.$id.'/accrue', ['through' => '2026-03'])->assertOk()->assertJsonPath('created', 2);
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertOk()->assertJsonPath('balance', '2600');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertOk()->assertJsonPath('balance', '2600.0000');
         $this->postJson('/api/staff/'.$id.'/accrue', ['through' => '2026-04'])->assertUnprocessable();
     }
 
@@ -55,7 +55,7 @@ class PayrollCarryForwardAndAssignmentTest extends TestCase
         $this->patchJson('/api/staff/'.$id, [...$this->data(), 'rate' => '2000'])->assertOk();
         $this->travelTo(now()->setDate(2026, 3, 1));
         $this->postJson('/api/staff/'.$id.'/accrue', ['through' => '2026-02'])->assertOk();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '3200');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '3200.0000');
         $employee = User::factory()->create();
         $org->users()->attach($employee->id, ['role' => 'employee']);
         $this->actingAs($employee);
@@ -71,8 +71,8 @@ class PayrollCarryForwardAndAssignmentTest extends TestCase
         $other = User::factory()->create();
         $role = $this->postJson('/api/workspace-roles', ['name' => 'Reader', 'base_role' => 'employee', 'is_custom' => true, 'permissions' => ['products.view']])->assertCreated()->json('data.id');
         $this->postJson('/api/workspace-roles/preview', ['email' => $user->email])->assertOk()->assertJsonPath('id', $user->id)->assertJsonPath('name', $user->name);
-        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $other->id])->assertConflict();
-        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $user->id])->assertOk();
+        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $other->id, 'current_password' => 'password'])->assertConflict();
+        $this->postJson('/api/workspace-roles/assign', ['email' => $user->email, 'workspace_role_id' => $role, 'confirmed_user_id' => $user->id, 'current_password' => 'password'])->assertOk();
         $staff = $this->postJson('/api/staff', [...$this->data(), 'user_id' => $user->id])->assertCreated()->json('data.id');
         $membership = Membership::withoutGlobalScopes()->where('organization_id', $org->id)->where('user_id', $user->id)->firstOrFail();
         $this->deleteJson('/api/organizations/'.$org->id.'/memberships/'.$membership->id)->assertNoContent();
