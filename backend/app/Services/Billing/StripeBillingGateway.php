@@ -21,7 +21,7 @@ final class StripeBillingGateway
     }
 
     /**
-     * @return list<array<string,mixed>>
+     * @return list<array<string, mixed>>
      */
     public function publicPlanCatalog(): array
     {
@@ -172,7 +172,7 @@ final class StripeBillingGateway
     }
 
     /**
-     * @return array<string,mixed>
+     * @return array<string, mixed>
      */
     public function subscription(
         string $subscriptionId,
@@ -188,7 +188,7 @@ final class StripeBillingGateway
     }
 
     /**
-     * @return array<string,mixed>|null
+     * @return array<string, mixed>|null
      */
     public function paymentMethod(
         ?string $paymentMethodId,
@@ -259,7 +259,7 @@ final class StripeBillingGateway
     }
 
     /**
-     * @return array<string,mixed>
+     * @return array<string, mixed>
      */
     private function publicPrice(
         mixed $priceId,
@@ -321,9 +321,9 @@ final class StripeBillingGateway
     }
 
     /**
-     * @param array<string,mixed> $query
+     * @param  array<string, mixed>  $query
      *
-     * @return array<string,mixed>
+     * @return array<string, mixed>
      */
     private function get(
         string $path,
@@ -348,9 +348,9 @@ final class StripeBillingGateway
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string, mixed>  $payload
      *
-     * @return array<string,mixed>
+     * @return array<string, mixed>
      */
     private function post(
         string $path,
