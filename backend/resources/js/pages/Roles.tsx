@@ -973,6 +973,7 @@ function RoleWorkspace() {
             governance: ShieldCheck,
             reports: BriefcaseBusiness,
             dashboard: Sparkles,
+            sparkles: Sparkles,
             operations: BriefcaseBusiness,
             controls: KeyRound,
             audit: ShieldCheck,
