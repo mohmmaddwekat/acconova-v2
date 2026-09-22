@@ -44,5 +44,7 @@ jobs:
             echo "No formatting changes."
           else
             git commit -m "style: apply Laravel Pint"
+            git fetch origin main
+            git rebase origin/main
             git push origin HEAD:main
           fi
