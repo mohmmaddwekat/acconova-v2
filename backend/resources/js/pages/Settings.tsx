@@ -388,7 +388,19 @@ function SettingsWorkspace() {
         [ar],
     );
 
-    const [section, setSection] = useState<SettingsSection>('general');
+    const [section, setSection] = useState<SettingsSection>(() => {
+        if (typeof window === 'undefined') {
+            return 'general';
+        }
+
+        const requested = new URLSearchParams(
+            window.location.search,
+        ).get('section');
+
+        return navItems.some(item => item.key === requested)
+            ? requested as SettingsSection
+            : 'general';
+    });
     const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
     const [profilePreferences, setProfilePreferences] =
         useState<ProfilePreferences>(defaultProfilePreferences());
