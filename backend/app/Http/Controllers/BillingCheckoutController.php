@@ -9,7 +9,7 @@ use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use RuntimeException;
+use Throwable;
 
 class BillingCheckoutController extends Controller
 {
@@ -74,7 +74,7 @@ class BillingCheckoutController extends Controller
                 (string) $data['plan'],
                 (string) $data['interval'],
             );
-        } catch (RuntimeException $exception) {
+        } catch (Throwable $exception) {
             report($exception);
 
             return response()->json([
@@ -103,7 +103,7 @@ class BillingCheckoutController extends Controller
             $url = $billing->portalUrl(
                 app(TenantContext::class)->organization(),
             );
-        } catch (RuntimeException $exception) {
+        } catch (Throwable $exception) {
             report($exception);
 
             return response()->json([
