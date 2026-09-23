@@ -1,3 +1,4 @@
+import { BillingGrowthCenter } from '@/components/settings/BillingGrowthCenter';
 import { BillingPanel } from '@/components/settings/BillingPanel';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
@@ -26,6 +27,13 @@ export default function BillingRequired() {
     const Arrow = ar ? ArrowRight : ArrowLeft;
 
     useEffect(() => {
+        if (
+            typeof window === 'undefined'
+            || new URLSearchParams(window.location.search).get('checkout') !== 'success'
+        ) {
+            return;
+        }
+
         let cancelled = false;
         let attempts = 0;
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -40,12 +48,8 @@ export default function BillingRequired() {
 
                 const status = overview.data.subscription?.status;
 
-                if (
-                    status === 'active'
-                    || status === 'trialing'
-                ) {
+                if (status === 'active' || status === 'trialing') {
                     window.location.replace('/app');
-
                     return;
                 }
             } catch {
@@ -66,7 +70,6 @@ export default function BillingRequired() {
 
         return () => {
             cancelled = true;
-
             if (timer) clearTimeout(timer);
         };
     }, []);
@@ -112,14 +115,14 @@ export default function BillingRequired() {
                         <div>
                             <h1 className="text-base font-bold tracking-tight sm:text-lg">
                                 {text(
-                                    'فعّل مساحة عملك وابدأ باستخدام AccoNova',
-                                    'Activate your workspace and start using AccoNova',
+                                    'إدارة اشتراك AccoNova',
+                                    'Manage your AccoNova subscription',
                                 )}
                             </h1>
                             <p className="mt-1 max-w-2xl text-[9px] leading-5 text-[var(--acs-text-muted)]">
                                 {text(
-                                    'اختر الباقة المناسبة. بعد تأكيد الاشتراك يتم فتح النظام تلقائيًا لأعضاء مساحة العمل حسب صلاحياتهم.',
-                                    'Choose the right plan. Once the subscription is confirmed, the workspace unlocks automatically for members according to their permissions.',
+                                    'اختر الباقة المناسبة وأدر التجديد والاستخدام وصحة الدفع والاستمرارية من مكان واحد.',
+                                    'Choose the right plan and manage renewal, usage, billing health, and continuity in one place.',
                                 )}
                             </p>
                         </div>
@@ -131,6 +134,9 @@ export default function BillingRequired() {
                     </section>
 
                     <BillingPanel />
+                    <div className="mt-4">
+                        <BillingGrowthCenter />
+                    </div>
                 </div>
             </main>
         </>
