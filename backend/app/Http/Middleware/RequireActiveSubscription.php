@@ -20,7 +20,7 @@ final class RequireActiveSubscription
         Closure $next,
     ): Response {
         if (
-            ! $this->subscriptions->enforced()
+            !$this->subscriptions->enforced()
             || $this->subscriptions->requestIsExempt($request)
         ) {
             return $next($request);
@@ -28,7 +28,7 @@ final class RequireActiveSubscription
 
         $user = $request->user();
 
-        if (! $user) {
+        if (!$user) {
             return $next($request);
         }
 
@@ -44,7 +44,7 @@ final class RequireActiveSubscription
          * reach the dashboard on the request that restores their session.
          */
         if (
-            ! is_numeric($organizationId)
+            !is_numeric($organizationId)
             || (int) $organizationId <= 0
         ) {
             $memberships = DB::table('memberships')
@@ -80,7 +80,7 @@ final class RequireActiveSubscription
             )
             ->value('role');
 
-        if (! is_string($role)) {
+        if (!is_string($role)) {
             $request->session()->forget(
                 OrganizationAccess::SESSION_KEY,
             );
