@@ -53,6 +53,21 @@ type BillingPlan = {
     year: BillingPrice;
 };
 
+type BillingAddon = {
+    key: string;
+    name_ar: string;
+    name_en: string;
+    description_ar: string;
+    description_en: string;
+    unit: string;
+    quantity_per_pack: number;
+    amount_minor: number;
+    currency: string;
+    interval: 'month' | 'year';
+    active_quantity: number;
+    available: boolean;
+};
+
 type BillingOverview = {
     payments_available: boolean;
     plans: BillingPlan[];
@@ -92,6 +107,15 @@ type BillingOverview = {
         paid_at: string | null;
         url: string | null;
     }>;
+    addons: {
+        catalog: BillingAddon[];
+        active: Record<string, {
+            quantity: number;
+            entitlement: number;
+            amount_minor: number;
+            currency: string;
+        }>;
+    };
     currency: string;
     usage: {
         period: {
@@ -196,6 +220,7 @@ function ResourceCard({
     meta,
     usagePercent,
     actionLabel,
+    addonHint,
     onAction,
     disabled,
     busy,
@@ -206,12 +231,13 @@ function ResourceCard({
     meta: string;
     usagePercent: number | null;
     actionLabel: string;
+    addonHint?: string;
     onAction: () => void;
     disabled: boolean;
     busy: boolean;
 }) {
     return (
-        <article className={panel + ' flex min-h-[180px] flex-col p-4'}>
+        <article className={panel + ' flex min-h-[190px] flex-col p-4'}>
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <p className="text-[9px] font-bold text-[var(--acs-text-soft)]">
@@ -229,9 +255,7 @@ function ResourceCard({
             <div className="mt-3">
                 <div className="flex items-center justify-between gap-2 text-[8px] font-bold text-[var(--acs-text-muted)]">
                     <span>{meta}</span>
-                    {usagePercent !== null && (
-                        <span>{Math.round(usagePercent)}%</span>
-                    )}
+                    {usagePercent !== null && <span>{Math.round(usagePercent)}%</span>}
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--acs-surface-strong)]">
                     <div
@@ -239,6 +263,11 @@ function ResourceCard({
                         style={{ width: `${usagePercent ?? 0}%` }}
                     />
                 </div>
+                {addonHint && (
+                    <p className="mt-2 text-[8px] font-semibold text-[var(--acs-accent)]">
+                        {addonHint}
+                    </p>
+                )}
             </div>
 
             <button
@@ -247,11 +276,7 @@ function ResourceCard({
                 onClick={onAction}
                 disabled={disabled}
             >
-                {busy ? (
-                    <LoaderCircle size={13} className="animate-spin" />
-                ) : (
-                    <Plus size={13} />
-                )}
+                {busy ? <LoaderCircle size={13} className="animate-spin" /> : <Plus size={13} />}
                 {actionLabel}
             </button>
         </article>
@@ -262,8 +287,7 @@ export function BillingPanel() {
     const locale = useLocale();
     const ar = locale === 'ar';
     const text = useCallback(
-        (arabic: string, english: string): string =>
-            ar ? arabic : english,
+        (arabic: string, english: string): string => ar ? arabic : english,
         [ar],
     );
 
@@ -271,6 +295,7 @@ export function BillingPanel() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [actionError, setActionError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
     const [actionLoading, setActionLoading] = useState('');
     const [interval, setInterval] = useState<'month' | 'year'>('month');
     const [showAllInvoices, setShowAllInvoices] = useState(false);
@@ -282,30 +307,23 @@ export function BillingPanel() {
                 { signal },
             );
 
-            if (! signal?.aborted) {
-                setOverview(response.data);
-            }
+            if (! signal?.aborted) setOverview(response.data);
         },
         [],
     );
 
     useEffect(() => {
         const controller = new AbortController();
-
         setLoading(true);
         setError('');
 
         loadOverview(controller.signal)
             .catch((failure: unknown) => {
                 if (controller.signal.aborted) return;
-
                 setError(
                     failure instanceof ApiError
                         ? failure.message
-                        : text(
-                            'تعذر تحميل معلومات الاشتراك.',
-                            'Could not load subscription information.',
-                        ),
+                        : text('تعذر تحميل معلومات الاشتراك.', 'Could not load subscription information.'),
                 );
             })
             .finally(() => {
@@ -317,26 +335,23 @@ export function BillingPanel() {
 
     const checkoutState = useMemo(() => {
         if (typeof window === 'undefined') return null;
-
         return new URLSearchParams(window.location.search).get('checkout');
     }, []);
 
     async function refreshOverview(): Promise<void> {
         if (actionLoading) return;
-
         setActionLoading('sync');
         setActionError('');
+        setSuccessMessage('');
 
         try {
             await loadOverview();
+            setSuccessMessage(text('تمت مزامنة بيانات الفوترة.', 'Billing data synced.'));
         } catch (failure) {
             setActionError(
                 failure instanceof ApiError
                     ? failure.message
-                    : text(
-                        'تعذرت مزامنة بيانات الفوترة.',
-                        'Could not sync billing data.',
-                    ),
+                    : text('تعذرت مزامنة بيانات الفوترة.', 'Could not sync billing data.'),
             );
         } finally {
             setActionLoading('');
@@ -345,30 +360,23 @@ export function BillingPanel() {
 
     async function startCheckout(plan: BillingPlan): Promise<void> {
         if (actionLoading) return;
-
         setActionLoading(`checkout:${plan.key}`);
         setActionError('');
 
         try {
-            const response = await apiRequest<{
-                data: { url: string };
-            }>('/api/billing/checkout', {
-                method: 'POST',
-                body: JSON.stringify({
-                    plan: plan.key,
-                    interval,
-                }),
-            });
-
+            const response = await apiRequest<{ data: { url: string } }>(
+                '/api/billing/checkout',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ plan: plan.key, interval }),
+                },
+            );
             window.location.assign(response.data.url);
         } catch (failure) {
             setActionError(
                 failure instanceof ApiError
                     ? failure.message
-                    : text(
-                        'تعذر بدء الدفع. حاول مرة أخرى.',
-                        'Could not start checkout. Please try again.',
-                    ),
+                    : text('تعذر بدء الدفع. حاول مرة أخرى.', 'Could not start checkout. Please try again.'),
             );
             setActionLoading('');
         }
@@ -376,27 +384,84 @@ export function BillingPanel() {
 
     async function openSubscriptionManagement(action = 'portal'): Promise<void> {
         if (actionLoading) return;
-
         setActionLoading(action);
         setActionError('');
 
         try {
-            const response = await apiRequest<{
-                data: { url: string };
-            }>('/api/billing/portal', {
-                method: 'POST',
-            });
-
+            const response = await apiRequest<{ data: { url: string } }>(
+                '/api/billing/portal',
+                { method: 'POST' },
+            );
             window.location.assign(response.data.url);
         } catch (failure) {
             setActionError(
                 failure instanceof ApiError
                     ? failure.message
-                    : text(
-                        'تعذر فتح إدارة الاشتراك. حاول مرة أخرى.',
-                        'Could not open subscription management. Please try again.',
-                    ),
+                    : text('تعذر فتح إدارة الاشتراك. حاول مرة أخرى.', 'Could not open subscription management. Please try again.'),
             );
+            setActionLoading('');
+        }
+    }
+
+    function addon(key: string): BillingAddon | null {
+        return overview?.addons.catalog.find(item => item.key === key) ?? null;
+    }
+
+    async function purchaseAddon(key: string): Promise<void> {
+        if (! overview || actionLoading) return;
+
+        const selected = addon(key);
+
+        if (! selected || ! selected.available) {
+            setActionError(text(
+                'هذه الإضافة غير جاهزة للشراء بعد. شغّل مزامنة إضافات Stripe أولًا.',
+                'This add-on is not ready for purchase yet. Sync the Stripe add-on catalog first.',
+            ));
+            return;
+        }
+
+        const intervalLabel = selected.interval === 'year'
+            ? text('سنويًا', 'per year')
+            : text('شهريًا', 'per month');
+        const confirmed = window.confirm(text(
+            `سيتم إضافة ${selected.name_ar} مقابل ${money(selected.amount_minor, selected.currency, locale)} ${intervalLabel}. قد يتم احتساب مبلغ نسبي للفترة الحالية. هل تريد المتابعة؟`,
+            `Add ${selected.name_en} for ${money(selected.amount_minor, selected.currency, locale)} ${intervalLabel}. A prorated charge may apply for the current period. Continue?`,
+        ));
+
+        if (! confirmed) return;
+
+        setActionLoading(`addon:${key}`);
+        setActionError('');
+        setSuccessMessage('');
+
+        try {
+            const response = await apiRequest<{
+                data: {
+                    payment_url: string | null;
+                    pending: boolean;
+                };
+            }>('/api/billing/addons/purchase', {
+                method: 'POST',
+                body: JSON.stringify({ addon: key, quantity: 1 }),
+            });
+
+            if (response.data.payment_url) {
+                window.location.assign(response.data.payment_url);
+                return;
+            }
+
+            await loadOverview();
+            setSuccessMessage(text(
+                'تمت إضافة السعة إلى اشتراكك بنجاح.',
+                'The extra capacity was added to your subscription.',
+            ));
+        } catch (failure) {
+            setActionError(
+                failure instanceof ApiError
+                    ? failure.message
+                    : text('تعذر شراء الإضافة. حاول مرة أخرى.', 'Could not purchase the add-on. Please try again.'),
+            );
+        } finally {
             setActionLoading('');
         }
     }
@@ -404,10 +469,7 @@ export function BillingPanel() {
     if (loading) {
         return (
             <div className={panel + ' flex min-h-64 items-center justify-center'}>
-                <LoaderCircle
-                    size={24}
-                    className="animate-spin text-[var(--acs-accent)]"
-                />
+                <LoaderCircle size={24} className="animate-spin text-[var(--acs-accent)]" />
             </div>
         );
     }
@@ -420,9 +482,7 @@ export function BillingPanel() {
                     <strong className="text-xs text-[var(--acs-text)]">
                         {text('تعذر تحميل الاشتراك', 'Subscription unavailable')}
                     </strong>
-                    <p className="mt-1 text-[10px] text-[var(--acs-text-muted)]">
-                        {error}
-                    </p>
+                    <p className="mt-1 text-[10px] text-[var(--acs-text-muted)]">{error}</p>
                 </div>
             </div>
         );
@@ -433,6 +493,15 @@ export function BillingPanel() {
     const manageable = overview.subscription
         && ! [null, 'canceled', 'incomplete_expired'].includes(status);
     const showPlans = ! manageable;
+    const seatsPercent = percent(overview.usage.seats.used, overview.usage.seats.limit);
+    const aiPercent = percent(overview.usage.ai_tokens.used, overview.usage.ai_tokens.limit);
+    const storagePercent = overview.usage.storage.available
+        ? percent(overview.usage.storage.used_bytes, overview.usage.storage.limit_bytes)
+        : null;
+
+    const seatsAddon = addon('extra_seats_5');
+    const aiAddon = addon('ai_tokens_500k');
+    const storageAddon = addon('storage_25gb');
 
     const statusLabel = (() => {
         switch (status) {
@@ -445,21 +514,6 @@ export function BillingPanel() {
         }
     })();
 
-    const seatsPercent = percent(
-        overview.usage.seats.used,
-        overview.usage.seats.limit,
-    );
-    const aiPercent = percent(
-        overview.usage.ai_tokens.used,
-        overview.usage.ai_tokens.limit,
-    );
-    const storagePercent = overview.usage.storage.available
-        ? percent(
-            overview.usage.storage.used_bytes,
-            overview.usage.storage.limit_bytes,
-        )
-        : null;
-
     const invoiceStatus = (value: string | null): string => {
         switch (value) {
             case 'paid': return text('مدفوع', 'Paid');
@@ -470,56 +524,32 @@ export function BillingPanel() {
         }
     };
 
-    const faq = [
-        {
-            q: text('هل أقدر أغيّر أو أخفض الباقة لاحقًا؟', 'Can I upgrade or downgrade later?'),
-            a: text(
-                'نعم. استخدم زر تغيير / خفض الباقة لإدارة الباقة والتجديد من مركز الاشتراك.',
-                'Yes. Use Change / downgrade plan to manage your plan and renewal from the subscription center.',
-            ),
-        },
-        {
-            q: text('كيف أزيد عدد الموظفين أو حصة AI أو التخزين؟', 'How do I increase seats, AI quota, or storage?'),
-            a: text(
-                'استخدم زر الزيادة داخل بطاقة المورد المطلوبة. سيتم نقلك مباشرة إلى إدارة اشتراكك لتطبيق الزيادة المتاحة على حسابك.',
-                'Use the add button on the resource you need. You will be taken directly to subscription management to apply the available increase.',
-            ),
-        },
-        {
-            q: text('هل أقدر ألغي التجديد؟', 'Can I cancel renewal?'),
-            a: text(
-                'نعم. عند إيقاف التجديد يبقى الوصول متاحًا حتى نهاية الفترة المدفوعة ما لم تنص حالة اشتراكك على غير ذلك.',
-                'Yes. When renewal is stopped, access remains available through the paid period unless your subscription state says otherwise.',
-            ),
-        },
-        {
-            q: text('هل AccoNova يخزن رقم البطاقة الكامل؟', 'Does AccoNova store my full card number?'),
-            a: text(
-                'لا. AccoNova لا يخزن رقم البطاقة الكامل داخل قاعدة بيانات النظام.',
-                'No. AccoNova does not store the full card number in the application database.',
-            ),
-        },
-    ];
-
     return (
         <div className="space-y-4">
             {checkoutState === 'success' && (
                 <div className="flex items-center gap-2.5 rounded-[14px] border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-[9px] text-[var(--acs-text)]">
                     <ShieldCheck size={16} className="shrink-0 text-emerald-500" />
-                    {text(
-                        'تمت عملية الدفع، وسيتم تأكيد الاشتراك تلقائيًا.',
-                        'Payment completed. Your subscription will be confirmed automatically.',
-                    )}
+                    {text('تمت عملية الدفع، وسيتم تأكيد الاشتراك تلقائيًا.', 'Payment completed. Your subscription will be confirmed automatically.')}
                 </div>
             )}
 
             {checkoutState === 'cancelled' && (
                 <div className="flex items-center gap-2 rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] px-4 py-3 text-[9px] text-[var(--acs-text-muted)]">
                     <CircleAlert size={15} />
-                    {text(
-                        'لم يتم إكمال الدفع ولم يتغير اشتراكك.',
-                        'Checkout was not completed and your subscription was not changed.',
-                    )}
+                    {text('لم يتم إكمال الدفع ولم يتغير اشتراكك.', 'Checkout was not completed and your subscription was not changed.')}
+                </div>
+            )}
+
+            {successMessage && (
+                <div className="flex items-center gap-2 rounded-[14px] border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-[9px] text-emerald-600">
+                    <ShieldCheck size={15} />
+                    {successMessage}
+                </div>
+            )}
+
+            {actionError && (
+                <div role="alert" className="rounded-[12px] border border-red-400/25 bg-red-500/8 px-3.5 py-2.5 text-[9px] text-red-500">
+                    {actionError}
                 </div>
             )}
 
@@ -535,10 +565,7 @@ export function BillingPanel() {
                                     {text('اختر الباقة المناسبة لشركتك', 'Choose the right plan for your company')}
                                 </h2>
                                 <p className="mt-1 text-[9px] text-[var(--acs-text-muted)]">
-                                    {text(
-                                        'اختر السعة والمزايا التي تناسب فريقك ويمكنك تغييرها لاحقًا.',
-                                        'Choose the capacity and features that fit your team. You can change them later.',
-                                    )}
+                                    {text('اختر السعة والمزايا التي تناسب فريقك ويمكنك تغييرها لاحقًا.', 'Choose the capacity and features that fit your team. You can change them later.')}
                                 </p>
                             </div>
                         </div>
@@ -556,9 +583,7 @@ export function BillingPanel() {
                                             : 'text-[var(--acs-text-muted)] hover:text-[var(--acs-text)]',
                                     ].join(' ')}
                                 >
-                                    {item === 'month'
-                                        ? text('شهري', 'Monthly')
-                                        : text('سنوي', 'Yearly')}
+                                    {item === 'month' ? text('شهري', 'Monthly') : text('سنوي', 'Yearly')}
                                 </button>
                             ))}
                         </div>
@@ -585,52 +610,30 @@ export function BillingPanel() {
                                             {text('الأكثر اختيارًا', 'Most popular')}
                                         </span>
                                     )}
-
                                     <div className="pe-20">
-                                        <h3 className="text-lg font-bold text-[var(--acs-text)]">
-                                            {ar ? plan.name_ar : plan.name_en}
-                                        </h3>
-                                        <p className="mt-1 min-h-10 text-[9px] leading-5 text-[var(--acs-text-muted)]">
-                                            {ar ? plan.description_ar : plan.description_en}
-                                        </p>
+                                        <h3 className="text-lg font-bold text-[var(--acs-text)]">{ar ? plan.name_ar : plan.name_en}</h3>
+                                        <p className="mt-1 min-h-10 text-[9px] leading-5 text-[var(--acs-text-muted)]">{ar ? plan.description_ar : plan.description_en}</p>
                                     </div>
-
                                     <div className="mt-5 flex items-end gap-1.5">
-                                        <strong className="text-3xl font-extrabold tracking-[-0.04em] text-[var(--acs-text)]">
-                                            {money(price.amount_minor, price.currency, locale)}
-                                        </strong>
-                                        <span className="mb-1 text-[9px] font-semibold text-[var(--acs-text-muted)]">
-                                            / {interval === 'month' ? text('شهر', 'month') : text('سنة', 'year')}
-                                        </span>
+                                        <strong className="text-3xl font-extrabold tracking-[-0.04em] text-[var(--acs-text)]">{money(price.amount_minor, price.currency, locale)}</strong>
+                                        <span className="mb-1 text-[9px] font-semibold text-[var(--acs-text-muted)]">/ {interval === 'month' ? text('شهر', 'month') : text('سنة', 'year')}</span>
                                     </div>
-
                                     <div className="my-5 h-px bg-[var(--acs-line)]" />
-
                                     <ul className="flex-1 space-y-2.5">
                                         {features.map(feature => (
-                                            <li
-                                                key={feature}
-                                                className="flex items-start gap-2 text-[9px] leading-5 text-[var(--acs-text-soft)]"
-                                            >
-                                                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
-                                                    <Check size={10} strokeWidth={3} />
-                                                </span>
+                                            <li key={feature} className="flex items-start gap-2 text-[9px] leading-5 text-[var(--acs-text-soft)]">
+                                                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500"><Check size={10} strokeWidth={3} /></span>
                                                 <span>{feature}</span>
                                             </li>
                                         ))}
                                     </ul>
-
                                     <button
                                         type="button"
                                         disabled={! price.available || actionLoading !== ''}
                                         onClick={() => void startCheckout(plan)}
                                         className={(plan.recommended ? primaryButton : outlineButton) + ' mt-5 w-full'}
                                     >
-                                        {busy ? (
-                                            <LoaderCircle size={14} className="animate-spin" />
-                                        ) : (
-                                            <Zap size={14} />
-                                        )}
+                                        {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Zap size={14} />}
                                         {text(`ابدأ مع ${plan.name_ar}`, `Choose ${plan.name_en}`)}
                                     </button>
                                 </article>
@@ -645,197 +648,89 @@ export function BillingPanel() {
                     <section className={panel + ' overflow-hidden'}>
                         <div className="relative overflow-hidden px-5 py-5 lg:px-6 lg:py-6">
                             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(38,132,255,.09),transparent_34%)]" />
-
                             <div className="relative grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
                                 <div className="flex items-start gap-4">
-                                    <span className="flex size-14 shrink-0 items-center justify-center rounded-[17px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)] shadow-[0_10px_25px_rgba(35,120,220,.08)]">
+                                    <span className="flex size-14 shrink-0 items-center justify-center rounded-[17px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
                                         <WalletCards size={24} />
                                     </span>
-
                                     <div>
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="text-[9px] font-bold text-[var(--acs-text-muted)]">
-                                                {text('الباقة الحالية', 'Current plan')}
-                                            </span>
+                                            <span className="text-[9px] font-bold text-[var(--acs-text-muted)]">{text('الباقة الحالية', 'Current plan')}</span>
                                             <span className={[
                                                 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-bold',
-                                                unlocked
-                                                    ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-500'
-                                                    : 'border-amber-400/25 bg-amber-500/10 text-amber-500',
+                                                unlocked ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-500' : 'border-amber-400/25 bg-amber-500/10 text-amber-500',
                                             ].join(' ')}>
-                                                <span className="size-1.5 rounded-full bg-current" />
-                                                {statusLabel}
+                                                <span className="size-1.5 rounded-full bg-current" />{statusLabel}
                                             </span>
                                         </div>
-
-                                        <h2 className="mt-1 text-lg font-extrabold text-[var(--acs-text)] sm:text-xl">
-                                            {ar
-                                                ? overview.subscription?.name_ar
-                                                : overview.subscription?.name_en}
-                                        </h2>
-
-                                        <p className="mt-1 max-w-xl text-[9px] leading-5 text-[var(--acs-text-muted)]">
-                                            {text(
-                                                'إدارة الباقة والموارد وطريقة الدفع والفواتير من مكان واحد.',
-                                                'Manage your plan, resources, payment method and invoices in one place.',
-                                            )}
-                                        </p>
-
+                                        <h2 className="mt-1 text-lg font-extrabold text-[var(--acs-text)] sm:text-xl">{ar ? overview.subscription?.name_ar : overview.subscription?.name_en}</h2>
+                                        <p className="mt-1 max-w-xl text-[9px] leading-5 text-[var(--acs-text-muted)]">{text('إدارة الباقة والموارد وطريقة الدفع والفواتير من مكان واحد.', 'Manage your plan, resources, payment method and invoices in one place.')}</p>
                                         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
                                             <div>
-                                                <span className="block text-[8px] font-semibold text-[var(--acs-text-muted)]">
-                                                    {text('السعر الحالي', 'Current price')}
-                                                </span>
+                                                <span className="block text-[8px] font-semibold text-[var(--acs-text-muted)]">{text('السعر الحالي', 'Current price')}</span>
                                                 <strong className="mt-0.5 block text-sm text-[var(--acs-text)]">
-                                                    {money(
-                                                        overview.subscription?.amount_minor ?? null,
-                                                        overview.subscription?.currency ?? overview.currency,
-                                                        locale,
-                                                    )}
-                                                    {' '}
-                                                    <span className="text-[9px] font-semibold text-[var(--acs-text-muted)]">
-                                                        / {overview.subscription?.interval === 'year'
-                                                            ? text('سنويًا', 'year')
-                                                            : text('شهريًا', 'month')}
-                                                    </span>
+                                                    {money(overview.subscription?.amount_minor ?? null, overview.subscription?.currency ?? overview.currency, locale)}{' '}
+                                                    <span className="text-[9px] font-semibold text-[var(--acs-text-muted)]">/ {overview.subscription?.interval === 'year' ? text('سنويًا', 'year') : text('شهريًا', 'month')}</span>
                                                 </strong>
                                             </div>
-
                                             <div className="border-s border-[var(--acs-line)] ps-5">
-                                                <span className="flex items-center gap-1.5 text-[8px] font-semibold text-[var(--acs-text-muted)]">
-                                                    <CalendarDays size={11} />
-                                                    {overview.subscription?.cancel_at_period_end
-                                                        ? text('ينتهي الاشتراك', 'Subscription ends')
-                                                        : text('التجديد القادم', 'Next renewal')}
-                                                </span>
-                                                <strong className="mt-0.5 block text-[10px] text-[var(--acs-text)]">
-                                                    {dateLabel(overview.subscription?.renews_at ?? null, locale)}
-                                                </strong>
+                                                <span className="flex items-center gap-1.5 text-[8px] font-semibold text-[var(--acs-text-muted)]"><CalendarDays size={11} />{overview.subscription?.cancel_at_period_end ? text('ينتهي الاشتراك', 'Subscription ends') : text('التجديد القادم', 'Next renewal')}</span>
+                                                <strong className="mt-0.5 block text-[10px] text-[var(--acs-text)]">{dateLabel(overview.subscription?.renews_at ?? null, locale)}</strong>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-
                                 <div className="grid min-w-[245px] gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                                    <button
-                                        type="button"
-                                        className={primaryButton}
-                                        disabled={actionLoading !== '' || ! overview.payments_available}
-                                        onClick={() => void openSubscriptionManagement('upgrade')}
-                                    >
-                                        {actionLoading === 'upgrade' ? (
-                                            <LoaderCircle size={13} className="animate-spin" />
-                                        ) : (
-                                            <Crown size={13} />
-                                        )}
-                                        {text('ترقية الباقة', 'Upgrade plan')}
+                                    <button type="button" className={primaryButton} disabled={actionLoading !== '' || ! overview.payments_available} onClick={() => void openSubscriptionManagement('upgrade')}>
+                                        {actionLoading === 'upgrade' ? <LoaderCircle size={13} className="animate-spin" /> : <Crown size={13} />}{text('ترقية الباقة', 'Upgrade plan')}
                                     </button>
-                                    <button
-                                        type="button"
-                                        className={outlineButton}
-                                        disabled={actionLoading !== '' || ! overview.payments_available}
-                                        onClick={() => void openSubscriptionManagement('change-plan')}
-                                    >
-                                        {actionLoading === 'change-plan' ? (
-                                            <LoaderCircle size={13} className="animate-spin" />
-                                        ) : (
-                                            <RefreshCw size={13} />
-                                        )}
-                                        {text('تغيير / خفض الباقة', 'Change / downgrade')}
+                                    <button type="button" className={outlineButton} disabled={actionLoading !== '' || ! overview.payments_available} onClick={() => void openSubscriptionManagement('change-plan')}>
+                                        {actionLoading === 'change-plan' ? <LoaderCircle size={13} className="animate-spin" /> : <RefreshCw size={13} />}{text('تغيير / خفض الباقة', 'Change / downgrade')}
                                     </button>
-                                    <button
-                                        type="button"
-                                        className={outlineButton + ' sm:col-span-2 lg:col-span-1 xl:col-span-2'}
-                                        disabled={actionLoading !== ''}
-                                        onClick={() => void refreshOverview()}
-                                    >
-                                        {actionLoading === 'sync' ? (
-                                            <LoaderCircle size={13} className="animate-spin" />
-                                        ) : (
-                                            <RefreshCw size={13} />
-                                        )}
-                                        {text('مزامنة الفوترة', 'Sync billing')}
+                                    <button type="button" className={outlineButton + ' sm:col-span-2 lg:col-span-1 xl:col-span-2'} disabled={actionLoading !== ''} onClick={() => void refreshOverview()}>
+                                        {actionLoading === 'sync' ? <LoaderCircle size={13} className="animate-spin" /> : <RefreshCw size={13} />}{text('مزامنة الفوترة', 'Sync billing')}
                                     </button>
                                 </div>
                             </div>
                         </div>
-
-                        {! unlocked && (
-                            <div className="border-t border-amber-400/20 bg-amber-500/5 px-5 py-3 text-[9px] text-amber-500 lg:px-6">
-                                {text(
-                                    'الوصول للنظام متوقف حاليًا. حدّث طريقة الدفع لاستعادة الوصول.',
-                                    'Workspace access is currently paused. Update payment details to restore access.',
-                                )}
-                            </div>
-                        )}
                     </section>
-
-                    {actionError && (
-                        <div
-                            role="alert"
-                            className="rounded-[12px] border border-red-400/25 bg-red-500/8 px-3.5 py-2.5 text-[9px] text-red-500"
-                        >
-                            {actionError}
-                        </div>
-                    )}
 
                     <section className="grid gap-3 md:grid-cols-3">
                         <ResourceCard
                             icon={UsersRound}
                             label={text('الموظفون / المقاعد', 'Employees / seats')}
                             value={`${overview.usage.seats.used} / ${overview.usage.seats.limit ?? '∞'}`}
-                            meta={text(
-                                overview.usage.seats.limit !== null
-                                    && overview.usage.seats.used >= overview.usage.seats.limit
-                                    ? 'تم استخدام جميع المقاعد المتاحة.'
-                                    : 'استخدام المقاعد المتاحة في باقتك.',
-                                overview.usage.seats.limit !== null
-                                    && overview.usage.seats.used >= overview.usage.seats.limit
-                                    ? 'All available seats are in use.'
-                                    : 'Seat usage in your current plan.',
-                            )}
+                            meta={text('استخدام المقاعد المتاحة في باقتك.', 'Seat usage in your current plan.')}
                             usagePercent={seatsPercent}
-                            actionLabel={text('زيادة المقاعد', 'Add seats')}
-                            onAction={() => void openSubscriptionManagement('seats')}
-                            disabled={actionLoading !== '' || ! overview.payments_available}
-                            busy={actionLoading === 'seats'}
+                            actionLabel={text('شراء 5 مقاعد إضافية', 'Buy 5 more seats')}
+                            addonHint={seatsAddon ? `${money(seatsAddon.amount_minor, seatsAddon.currency, locale)} / ${seatsAddon.interval === 'year' ? text('سنة', 'year') : text('شهر', 'month')}` : undefined}
+                            onAction={() => void purchaseAddon('extra_seats_5')}
+                            disabled={actionLoading !== '' || ! overview.payments_available || ! seatsAddon?.available}
+                            busy={actionLoading === 'addon:extra_seats_5'}
                         />
-
                         <ResourceCard
                             icon={Bot}
                             label={text('استخدام AccoNova AI', 'AccoNova AI usage')}
                             value={`${compactNumber(overview.usage.ai_tokens.used, locale)} / ${overview.usage.ai_tokens.limit === null ? '∞' : compactNumber(overview.usage.ai_tokens.limit, locale)} Tokens`}
-                            meta={text(
-                                'استهلاكك الشهري من رصيد الذكاء الاصطناعي.',
-                                'Your monthly AI token usage.',
-                            )}
+                            meta={text('استهلاكك الشهري من رصيد الذكاء الاصطناعي.', 'Your monthly AI token usage.')}
                             usagePercent={aiPercent}
-                            actionLabel={text('زيادة حصة AI', 'Increase AI quota')}
-                            onAction={() => void openSubscriptionManagement('ai')}
-                            disabled={actionLoading !== '' || ! overview.payments_available}
-                            busy={actionLoading === 'ai'}
+                            actionLabel={text('شراء 500 ألف Token', 'Buy 500K tokens')}
+                            addonHint={aiAddon ? `${money(aiAddon.amount_minor, aiAddon.currency, locale)} / ${aiAddon.interval === 'year' ? text('سنة', 'year') : text('شهر', 'month')}` : undefined}
+                            onAction={() => void purchaseAddon('ai_tokens_500k')}
+                            disabled={actionLoading !== '' || ! overview.payments_available || ! aiAddon?.available}
+                            busy={actionLoading === 'addon:ai_tokens_500k'}
                         />
-
                         <ResourceCard
                             icon={HardDrive}
                             label={text('التخزين', 'Storage')}
-                            value={overview.usage.storage.available
-                                ? `${bytes(overview.usage.storage.used_bytes)} / ${bytes(overview.usage.storage.limit_bytes)}`
-                                : bytes(overview.usage.storage.limit_bytes)}
-                            meta={overview.usage.storage.available
-                                ? text(
-                                    'المساحة المستخدمة من إجمالي التخزين.',
-                                    'Storage used from your total allocation.',
-                                )
-                                : text(
-                                    'سعة التخزين المشمولة في الباقة الحالية.',
-                                    'Storage included in your current plan.',
-                                )}
+                            value={overview.usage.storage.available ? `${bytes(overview.usage.storage.used_bytes)} / ${bytes(overview.usage.storage.limit_bytes)}` : bytes(overview.usage.storage.limit_bytes)}
+                            meta={text('سعة التخزين المشمولة في الباقة الحالية.', 'Storage included in your current plan.')}
                             usagePercent={storagePercent}
-                            actionLabel={text('زيادة التخزين', 'Increase storage')}
-                            onAction={() => void openSubscriptionManagement('storage')}
-                            disabled={actionLoading !== '' || ! overview.payments_available}
-                            busy={actionLoading === 'storage'}
+                            actionLabel={text('شراء 25 GB إضافية', 'Buy 25 GB more')}
+                            addonHint={storageAddon ? `${money(storageAddon.amount_minor, storageAddon.currency, locale)} / ${storageAddon.interval === 'year' ? text('سنة', 'year') : text('شهر', 'month')}` : undefined}
+                            onAction={() => void purchaseAddon('storage_25gb')}
+                            disabled={actionLoading !== '' || ! overview.payments_available || ! storageAddon?.available}
+                            busy={actionLoading === 'addon:storage_25gb'}
                         />
                     </section>
 
@@ -843,140 +738,34 @@ export function BillingPanel() {
                         <article className={panel + ' overflow-hidden'}>
                             <div className="flex items-start justify-between gap-3 border-b border-[var(--acs-line)] px-5 py-4">
                                 <div className="flex items-start gap-3">
-                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
-                                        <CreditCard size={17} />
-                                    </span>
-                                    <div>
-                                        <h3 className="text-xs font-bold text-[var(--acs-text)]">
-                                            {text('طريقة الدفع', 'Payment method')}
-                                        </h3>
-                                        <p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">
-                                            {text(
-                                                'وسيلة الدفع المستخدمة للاشتراك والفوترة الدورية.',
-                                                'Payment method used for recurring subscription billing.',
-                                            )}
-                                        </p>
-                                    </div>
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><CreditCard size={17} /></span>
+                                    <div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('طريقة الدفع', 'Payment method')}</h3><p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('وسيلة الدفع المستخدمة للاشتراك والفواتير الدورية.', 'Payment method used for subscription billing.')}</p></div>
                                 </div>
-                                <ShieldCheck size={16} className="text-emerald-500" />
                             </div>
-
-                            <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="flex items-center gap-3">
-                                    <span className="flex size-11 items-center justify-center rounded-full border border-[var(--acs-line)] bg-[var(--acs-surface-soft)]">
-                                        <CreditCard size={19} className="text-[var(--acs-accent)]" />
-                                    </span>
-                                    <div>
-                                        <strong className="block text-[11px] text-[var(--acs-text)]">
-                                            {overview.payment_method
-                                                ? `${(overview.payment_method.brand ?? text('بطاقة', 'Card')).toUpperCase()} •••• ${overview.payment_method.last4}`
-                                                : text('لا توجد بطاقة محفوظة', 'No saved card')}
-                                        </strong>
-                                        <span className="mt-1 block text-[8px] text-[var(--acs-text-muted)]">
-                                            {overview.payment_method?.expires_month && overview.payment_method.expires_year
-                                                ? text(
-                                                    `تنتهي ${overview.payment_method.expires_month}/${overview.payment_method.expires_year}`,
-                                                    `Expires ${overview.payment_method.expires_month}/${overview.payment_method.expires_year}`,
-                                                )
-                                                : text('تدار بأمان من مركز الدفع', 'Securely managed from billing')}
-                                        </span>
-                                    </div>
+                            <div className="flex items-center justify-between gap-3 p-5">
+                                <div>
+                                    <strong className="text-[10px] text-[var(--acs-text)]">{overview.payment_method ? `${overview.payment_method.brand ?? text('بطاقة', 'Card')} •••• ${overview.payment_method.last4}` : text('لا توجد بطاقة محفوظة', 'No saved card')}</strong>
+                                    {overview.payment_method?.expires_month && overview.payment_method.expires_year && <p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('تنتهي', 'Expires')} {overview.payment_method.expires_month}/{overview.payment_method.expires_year}</p>}
                                 </div>
-
-                                <button
-                                    type="button"
-                                    className={outlineButton}
-                                    disabled={actionLoading !== '' || ! overview.payments_available}
-                                    onClick={() => void openSubscriptionManagement('payment')}
-                                >
-                                    {actionLoading === 'payment' ? (
-                                        <LoaderCircle size={13} className="animate-spin" />
-                                    ) : (
-                                        <CreditCard size={13} />
-                                    )}
-                                    {text('تحديث وسيلة الدفع', 'Update payment method')}
-                                </button>
+                                <button type="button" className={outlineButton} disabled={actionLoading !== '' || ! overview.payments_available} onClick={() => void openSubscriptionManagement('payment')}><CreditCard size={12} />{text('تحديث وسيلة الدفع', 'Update payment')}</button>
                             </div>
                         </article>
 
                         <article className={panel + ' overflow-hidden'}>
                             <div className="flex items-start justify-between gap-3 border-b border-[var(--acs-line)] px-5 py-4">
                                 <div className="flex items-start gap-3">
-                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
-                                        <ReceiptText size={17} />
-                                    </span>
-                                    <div>
-                                        <h3 className="text-xs font-bold text-[var(--acs-text)]">
-                                            {text('الفواتير السابقة', 'Previous invoices')}
-                                        </h3>
-                                        <p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">
-                                            {text(
-                                                'آخر الفواتير والمدفوعات الخاصة باشتراكك.',
-                                                'Recent invoices and payments for your subscription.',
-                                            )}
-                                        </p>
-                                    </div>
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><ReceiptText size={17} /></span>
+                                    <div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('الفواتير السابقة', 'Previous invoices')}</h3><p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('آخر الفواتير والمدفوعات الخاصة باشتراكك.', 'Recent invoices and subscription payments.')}</p></div>
                                 </div>
-
-                                {overview.invoices.length > 2 && (
-                                    <button
-                                        type="button"
-                                        className={outlineButton}
-                                        onClick={() => setShowAllInvoices(current => ! current)}
-                                    >
-                                        <FileText size={12} />
-                                        {showAllInvoices
-                                            ? text('عرض أقل', 'Show less')
-                                            : text('عرض جميع الفواتير', 'View all invoices')}
-                                    </button>
-                                )}
+                                {overview.invoices.length > 2 && <button type="button" className={outlineButton} onClick={() => setShowAllInvoices(current => ! current)}><FileText size={12} />{showAllInvoices ? text('عرض أقل', 'Show less') : text('عرض الكل', 'View all')}</button>}
                             </div>
-
-                            {overview.invoices.length === 0 ? (
-                                <div className="p-5 text-[9px] text-[var(--acs-text-muted)]">
-                                    {text('لا توجد فواتير سابقة بعد.', 'No previous invoices yet.')}
-                                </div>
-                            ) : (
+                            {overview.invoices.length === 0 ? <div className="p-5 text-[9px] text-[var(--acs-text-muted)]">{text('لا توجد فواتير سابقة بعد.', 'No previous invoices yet.')}</div> : (
                                 <div className="divide-y divide-[var(--acs-line)]">
-                                    {(showAllInvoices
-                                        ? overview.invoices
-                                        : overview.invoices.slice(0, 2)
-                                    ).map(invoice => (
-                                        <div
-                                            key={invoice.id}
-                                            className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-5 py-3"
-                                        >
-                                            <div className="min-w-0">
-                                                <strong className="block truncate text-[9px] text-[var(--acs-text)]">
-                                                    {invoice.number ?? text('فاتورة اشتراك', 'Subscription invoice')}
-                                                </strong>
-                                                <span className="mt-0.5 block text-[8px] text-[var(--acs-text-muted)]">
-                                                    {dateLabel(invoice.issued_at, locale)}
-                                                </span>
-                                            </div>
-
-                                            <div className="text-end">
-                                                <strong className="block text-[9px] text-[var(--acs-text)]">
-                                                    {money(invoice.amount_due_minor, invoice.currency, locale)}
-                                                </strong>
-                                                <span className="mt-0.5 inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[7px] font-bold text-emerald-500">
-                                                    {invoiceStatus(invoice.status)}
-                                                </span>
-                                            </div>
-
-                                            {invoice.url ? (
-                                                <a
-                                                    href={invoice.url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    aria-label={text('فتح الفاتورة', 'Open invoice')}
-                                                    className="flex size-8 items-center justify-center rounded-[9px] border border-[var(--acs-line)] text-[var(--acs-accent)] transition hover:border-[var(--acs-accent)] hover:bg-[var(--acs-accent-soft)]"
-                                                >
-                                                    <ExternalLink size={12} />
-                                                </a>
-                                            ) : (
-                                                <span className="size-8" />
-                                            )}
+                                    {(showAllInvoices ? overview.invoices : overview.invoices.slice(0, 2)).map(invoice => (
+                                        <div key={invoice.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-5 py-3">
+                                            <div className="min-w-0"><strong className="block truncate text-[9px] text-[var(--acs-text)]">{invoice.number ?? text('فاتورة اشتراك', 'Subscription invoice')}</strong><span className="mt-0.5 block text-[8px] text-[var(--acs-text-muted)]">{dateLabel(invoice.issued_at, locale)}</span></div>
+                                            <div className="text-end"><strong className="block text-[9px] text-[var(--acs-text)]">{money(invoice.amount_due_minor, invoice.currency, locale)}</strong><span className="mt-0.5 inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[7px] font-bold text-emerald-500">{invoiceStatus(invoice.status)}</span></div>
+                                            {invoice.url ? <a href={invoice.url} target="_blank" rel="noreferrer" className="flex size-8 items-center justify-center rounded-[9px] border border-[var(--acs-line)] text-[var(--acs-accent)] transition hover:border-[var(--acs-accent)] hover:bg-[var(--acs-accent-soft)]"><ExternalLink size={12} /></a> : <span className="size-8" />}
                                         </div>
                                     ))}
                                 </div>
@@ -986,76 +775,18 @@ export function BillingPanel() {
 
                     <section className={panel + ' p-5'}>
                         <div className="flex items-start gap-3">
-                            <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
-                                <Puzzle size={17} />
-                            </span>
-                            <div>
-                                <h3 className="text-xs font-bold text-[var(--acs-text)]">
-                                    {text('إدارة الباقة والإضافات', 'Plan & add-ons')}
-                                </h3>
-                                <p className="mt-1 text-[8px] leading-4 text-[var(--acs-text-muted)]">
-                                    {text(
-                                        'زد الموارد التي تحتاجها من نفس المكان بدون البحث داخل صفحات الإعدادات.',
-                                        'Increase the resources you need from one place without digging through settings.',
-                                    )}
-                                </p>
-                            </div>
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><Puzzle size={17} /></span>
+                            <div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('إدارة الباقة والإضافات', 'Plan & add-ons')}</h3><p className="mt-1 text-[8px] leading-4 text-[var(--acs-text-muted)]">{text('كل إضافة تصبح بندًا متكررًا على نفس اشتراك Stripe ويمكن زيادتها عند الحاجة.', 'Each add-on becomes a recurring item on the same Stripe subscription and can be increased when needed.')}</p></div>
                         </div>
-
                         <div className="mt-4 grid gap-3 md:grid-cols-3">
-                            {[
-                                {
-                                    icon: UsersRound,
-                                    title: text('مقاعد إضافية', 'Extra seats'),
-                                    copy: text('أضف أعضاء فريق جدد إلى حسابك.', 'Add more team members to your account.'),
-                                    action: text('إضافة مقاعد', 'Add seats'),
-                                    key: 'addon-seats',
-                                },
-                                {
-                                    icon: Bot,
-                                    title: text('حصة AI إضافية', 'Extra AI quota'),
-                                    copy: text('ارفع رصيد الذكاء الاصطناعي المتاح لفريقك.', 'Increase the AI allowance available to your team.'),
-                                    action: text('زيادة رصيد AI', 'Increase AI quota'),
-                                    key: 'addon-ai',
-                                },
-                                {
-                                    icon: HardDrive,
-                                    title: text('مساحة تخزين إضافية', 'Extra storage'),
-                                    copy: text('زد المساحة المتاحة للملفات والمرفقات.', 'Increase storage for files and attachments.'),
-                                    action: text('إضافة تخزين', 'Add storage'),
-                                    key: 'addon-storage',
-                                },
-                            ].map(item => (
-                                <div
-                                    key={item.key}
-                                    className="flex items-center justify-between gap-3 rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-3.5"
-                                >
-                                    <div className="flex min-w-0 items-center gap-3">
-                                        <span className="flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
-                                            <item.icon size={15} />
-                                        </span>
-                                        <div className="min-w-0">
-                                            <strong className="block text-[9px] text-[var(--acs-text)]">
-                                                {item.title}
-                                            </strong>
-                                            <p className="mt-0.5 text-[7px] leading-4 text-[var(--acs-text-muted)]">
-                                                {item.copy}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        className="inline-flex shrink-0 items-center gap-1.5 rounded-[9px] border border-[var(--acs-line-strong)] px-2.5 py-2 text-[8px] font-bold text-[var(--acs-accent)] transition hover:border-[var(--acs-accent)] hover:bg-[var(--acs-accent-soft)] disabled:opacity-45"
-                                        disabled={actionLoading !== '' || ! overview.payments_available}
-                                        onClick={() => void openSubscriptionManagement(item.key)}
-                                    >
-                                        {actionLoading === item.key ? (
-                                            <LoaderCircle size={11} className="animate-spin" />
-                                        ) : (
-                                            <Plus size={11} />
-                                        )}
-                                        {item.action}
+                            {overview.addons.catalog.map(item => (
+                                <div key={item.key} className="rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-3.5">
+                                    <strong className="block text-[9px] text-[var(--acs-text)]">{ar ? item.name_ar : item.name_en}</strong>
+                                    <p className="mt-1 min-h-8 text-[8px] leading-4 text-[var(--acs-text-muted)]">{ar ? item.description_ar : item.description_en}</p>
+                                    <div className="mt-3 flex items-end justify-between gap-2"><span className="text-[10px] font-extrabold text-[var(--acs-text)]">{money(item.amount_minor, item.currency, locale)}</span><span className="text-[7px] text-[var(--acs-text-muted)]">{item.interval === 'year' ? text('/ سنة', '/ year') : text('/ شهر', '/ month')}</span></div>
+                                    {item.active_quantity > 0 && <p className="mt-2 text-[8px] font-bold text-emerald-500">{text(`لديك ${item.active_quantity} حزمة إضافية`, `${item.active_quantity} extra pack(s) active`)}</p>}
+                                    <button type="button" className={outlineButton + ' mt-3 w-full'} disabled={actionLoading !== '' || ! item.available || ! overview.payments_available} onClick={() => void purchaseAddon(item.key)}>
+                                        {actionLoading === `addon:${item.key}` ? <LoaderCircle size={12} className="animate-spin" /> : <Plus size={12} />}{text('شراء حزمة إضافية', 'Buy another pack')}
                                     </button>
                                 </div>
                             ))}
@@ -1067,50 +798,37 @@ export function BillingPanel() {
             {! overview.payments_available && (
                 <div className="flex items-center gap-2 rounded-[12px] border border-amber-400/20 bg-amber-500/5 px-3.5 py-2.5 text-[9px] text-[var(--acs-text-muted)]">
                     <CircleAlert size={14} className="shrink-0 text-amber-500" />
-                    {text(
-                        'الدفع الإلكتروني غير متاح مؤقتًا. بيانات الاشتراك ستبقى ظاهرة ويمكنك المحاولة لاحقًا.',
-                        'Online billing is temporarily unavailable. Your subscription details remain visible; please try again later.',
-                    )}
+                    {text('الدفع الإلكتروني غير متاح مؤقتًا. بيانات الاشتراك ستبقى ظاهرة ويمكنك المحاولة لاحقًا.', 'Online billing is temporarily unavailable. Your subscription details remain visible; please try again later.')}
                 </div>
             )}
 
             <section className={panel + ' p-5'}>
                 <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                        <span className="flex size-10 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
-                            <CircleHelp size={17} />
-                        </span>
-                        <div>
-                            <h3 className="text-xs font-bold text-[var(--acs-text)]">
-                                {text('الأسئلة الشائعة', 'Frequently asked questions')}
-                            </h3>
-                            <p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">
-                                {text(
-                                    'إجابات سريعة عن الاشتراك والإضافات والدفع.',
-                                    'Quick answers about subscriptions, add-ons and billing.',
-                                )}
-                            </p>
-                        </div>
-                    </div>
+                    <div className="flex items-start gap-3"><span className="flex size-10 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><CircleHelp size={17} /></span><div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('الأسئلة الشائعة', 'Frequently asked questions')}</h3><p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('إجابات سريعة عن الاشتراك والإضافات والدفع.', 'Quick answers about subscriptions, add-ons and billing.')}</p></div></div>
                     <ShieldCheck size={17} className="text-[var(--acs-accent)]" />
                 </div>
-
                 <div className="mt-4 grid gap-2 lg:grid-cols-2">
-                    {faq.map(item => (
-                        <details
-                            key={item.q}
-                            className="group rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)]"
-                        >
-                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3 text-[9px] font-bold text-[var(--acs-text)]">
-                                {item.q}
-                                <ChevronDown
-                                    size={13}
-                                    className="shrink-0 text-[var(--acs-text-muted)] transition group-open:rotate-180"
-                                />
-                            </summary>
-                            <p className="border-t border-[var(--acs-line)] px-3.5 py-3 text-[9px] leading-5 text-[var(--acs-text-muted)]">
-                                {item.a}
-                            </p>
+                    {[
+                        {
+                            q: text('كيف تعمل الإضافات؟', 'How do add-ons work?'),
+                            a: text('عند الشراء نضيف بندًا متكررًا إلى اشتراكك الحالي ونرفع الحد فور تأكيد الدفع. الزيادة التالية ترفع كمية نفس البند بدل إنشاء اشتراك جديد.', 'Purchasing adds a recurring item to your existing subscription and raises the limit after payment is confirmed. Future purchases increase the same item quantity instead of creating another subscription.'),
+                        },
+                        {
+                            q: text('هل أدفع المبلغ كاملًا إذا اشتريت منتصف الشهر؟', 'Do I pay the full amount when buying mid-cycle?'),
+                            a: text('Stripe يحسب الفرق النسبي للفترة الحالية، ثم تدخل الإضافة في التجديد الدوري مع باقتك.', 'Stripe prorates the current period, then the add-on renews with your plan.'),
+                        },
+                        {
+                            q: text('هل أقدر أغيّر أو أخفض الباقة؟', 'Can I change or downgrade the plan?'),
+                            a: text('نعم، استخدم إدارة الاشتراك لتغيير الباقة وطريقة الدفع والتجديد.', 'Yes. Use subscription management to change the plan, payment method and renewal.'),
+                        },
+                        {
+                            q: text('هل AccoNova يخزن رقم البطاقة الكامل؟', 'Does AccoNova store my full card number?'),
+                            a: text('لا. بيانات البطاقة الكاملة لا تُخزن داخل قاعدة بيانات AccoNova.', 'No. Full card details are not stored in the AccoNova database.'),
+                        },
+                    ].map(item => (
+                        <details key={item.q} className="group rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)]">
+                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3 text-[9px] font-bold text-[var(--acs-text)]">{item.q}<ChevronDown size={13} className="shrink-0 text-[var(--acs-text-muted)] transition group-open:rotate-180" /></summary>
+                            <p className="border-t border-[var(--acs-line)] px-3.5 py-3 text-[9px] leading-5 text-[var(--acs-text-muted)]">{item.a}</p>
                         </details>
                     ))}
                 </div>
