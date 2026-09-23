@@ -23,6 +23,9 @@ return [
      * workspace's existing subscription. The lookup keys let
      * `php artisan billing:sync-addons` create/reuse the catalog without
      * hard-coding provider IDs in application code.
+     *
+     * `amount_minor` mirrors the monthly amount for the older growth-center
+     * forecast while `prices` is the canonical month/year purchase catalog.
      */
     'addons' => [
         'extra_seats_5' => [
@@ -32,6 +35,7 @@ return [
             'description_en' => 'Add capacity for up to 5 additional workspace members.',
             'unit' => 'seats',
             'quantity' => 5,
+            'amount_minor' => max(0, (int) env('BILLING_ADDON_EXTRA_SEATS_5_MONTHLY_MINOR', 2000)),
             'currency' => 'USD',
             'prices' => [
                 'month' => [
@@ -53,6 +57,7 @@ return [
             'description_en' => 'Increase the monthly AI allowance by 500,000 tokens.',
             'unit' => 'ai_tokens',
             'quantity' => 500000,
+            'amount_minor' => max(0, (int) env('BILLING_ADDON_AI_500K_MONTHLY_MINOR', 1000)),
             'currency' => 'USD',
             'prices' => [
                 'month' => [
@@ -74,6 +79,7 @@ return [
             'description_en' => 'Add 25 GB for workspace files and attachments.',
             'unit' => 'storage_bytes',
             'quantity' => 25 * 1024 * 1024 * 1024,
+            'amount_minor' => max(0, (int) env('BILLING_ADDON_STORAGE_25GB_MONTHLY_MINOR', 500)),
             'currency' => 'USD',
             'prices' => [
                 'month' => [
