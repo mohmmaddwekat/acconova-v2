@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -36,6 +37,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Route::middleware('web')->group(base_path('routes/billing-growth.php'));
+
         Gate::before([WorkspacePermissions::class, 'decide']);
         Event::listen(StockMovementRecorded::class, function (StockMovementRecorded $event): void {
             rescue(fn () => app(NotificationCenter::class)->stock($event));
