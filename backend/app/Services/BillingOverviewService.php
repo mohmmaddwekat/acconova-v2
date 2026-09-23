@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BillingAccount;
 use App\Models\BillingInvoice;
 use App\Models\Organization;
+use App\Services\Billing\BillingAddonService;
 use App\Services\Billing\StripeBillingGateway;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -13,6 +14,7 @@ final class BillingOverviewService
 {
     public function __construct(
         private readonly StripeBillingGateway $billing,
+        private readonly BillingAddonService $addons,
     ) {}
 
     /**
@@ -73,10 +75,44 @@ final class BillingOverviewService
         $seatLimit = isset($limits['seats'])
             ? max(0, (int) $limits['seats'])
             : null;
-
+        $aiTokenLimit = isset($limits['ai_tokens'])
+            ? max(0, (int) $limits['ai_tokens'])
+            : null;
         $storageLimit = isset($limits['storage_bytes'])
             ? max(0, (int) $limits['storage_bytes'])
             : null;
+
+        $activeAddons = Schema::hasTable('billing_growth_addons')
+            ? $this->addons->activeForOrganization($organizationId)
+            : [];
+        $addonConfig = (array) config('billing_growth.addons', []);
+        $addonRecurringTotal = 0;
+
+        foreach ($activeAddons as $key => $active) {
+            $config = $addonConfig[$key] ?? null;
+
+            if (! is_array($config)) {
+                continue;
+            }
+
+            $entitlement = max(0, (int) ($active['entitlement'] ?? 0));
+            $unit = (string) ($config['unit'] ?? '');
+
+            if ($unit === 'seats' && $seatLimit !== null) {
+                $seatLimit += $entitlement;
+            }
+
+            if ($unit === 'ai_tokens' && $aiTokenLimit !== null) {
+                $aiTokenLimit += $entitlement;
+            }
+
+            if ($unit === 'storage_bytes' && $storageLimit !== null) {
+                $storageLimit += $entitlement;
+            }
+
+            $addonRecurringTotal += max(0, (int) ($active['amount_minor'] ?? 0))
+                * max(0, (int) ($active['quantity'] ?? 0));
+        }
 
         $subscription = $account
             ? [
@@ -116,8 +152,8 @@ final class BillingOverviewService
                 true,
             )
             ? [
-                'amount_minor' => (int) $account->amount_minor
-                    * max(1, (int) $account->quantity),
+                'amount_minor' => ((int) $account->amount_minor
+                    * max(1, (int) $account->quantity)) + $addonRecurringTotal,
                 'currency' => $account->currency,
                 'due_at' => $account->current_period_end->toIso8601String(),
                 'estimated' => true,
@@ -164,7 +200,13 @@ final class BillingOverviewService
             'next_invoice' => $nextInvoice,
             'payment_method' => $paymentMethod,
             'invoices' => $invoices,
-            'addons' => [],
+            'addons' => [
+                'catalog' => $this->addons->publicCatalog(
+                    $account?->billing_interval,
+                    $organizationId,
+                ),
+                'active' => $activeAddons,
+            ],
             'currency' => (string) ($preferences['currency'] ?? 'ILS'),
             'usage' => [
                 'period' => [
@@ -178,7 +220,7 @@ final class BillingOverviewService
                 'ai_tokens' => [
                     'used' => $aiTokensUsed,
                     'messages' => $aiMessages,
-                    'limit' => null,
+                    'limit' => $aiTokenLimit,
                 ],
                 'storage' => [
                     'available' => false,
