@@ -6,7 +6,6 @@ use App\Models\BillingAccount;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Throwable;
@@ -21,6 +20,9 @@ final class StripeBillingGateway
     }
 
     /**
+     * Customer-facing plan information is owned by AccoNova. Provider price
+     * IDs are only checkout execution references and are never exposed.
+     *
      * @return list<array<string, mixed>>
      */
     public function publicPlanCatalog(): array
@@ -42,14 +44,53 @@ final class StripeBillingGateway
                 ? $plan['prices']
                 : [];
 
+            $display = is_array($plan['display'] ?? null)
+                ? $plan['display']
+                : [];
+
+            $limits = is_array($plan['limits'] ?? null)
+                ? $plan['limits']
+                : [];
+
+            $currency = strtoupper((string) ($display['currency'] ?? 'USD'));
+
             $catalog[] = [
                 'key' => (string) $key,
                 'name_ar' => (string) ($plan['name_ar'] ?? $key),
                 'name_en' => (string) ($plan['name_en'] ?? $key),
                 'description_ar' => (string) ($plan['description_ar'] ?? ''),
                 'description_en' => (string) ($plan['description_en'] ?? ''),
-                'month' => $this->publicPrice($prices['month'] ?? null),
-                'year' => $this->publicPrice($prices['year'] ?? null),
+                'recommended' => (bool) ($plan['recommended'] ?? false),
+                'features_ar' => array_values(
+                    array_filter(
+                        (array) ($plan['features_ar'] ?? []),
+                        'is_string',
+                    ),
+                ),
+                'features_en' => array_values(
+                    array_filter(
+                        (array) ($plan['features_en'] ?? []),
+                        'is_string',
+                    ),
+                ),
+                'limits' => [
+                    'seats' => isset($limits['seats'])
+                        ? max(0, (int) $limits['seats'])
+                        : null,
+                    'storage_bytes' => isset($limits['storage_bytes'])
+                        ? max(0, (int) $limits['storage_bytes'])
+                        : null,
+                ],
+                'month' => $this->publicPrice(
+                    $display['month_amount_minor'] ?? null,
+                    $currency,
+                    $prices['month'] ?? null,
+                ),
+                'year' => $this->publicPrice(
+                    $display['year_amount_minor'] ?? null,
+                    $currency,
+                    $prices['year'] ?? null,
+                ),
             ];
         }
 
@@ -259,56 +300,26 @@ final class StripeBillingGateway
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{available: bool, amount_minor: int|null, currency: string}
      */
     private function publicPrice(
-        mixed $priceId,
+        mixed $amountMinor,
+        string $currency,
+        mixed $providerPriceId,
     ): array {
-        $priceId = trim((string) $priceId);
+        $amount = is_numeric($amountMinor)
+            ? max(0, (int) $amountMinor)
+            : null;
 
-        if ($priceId === '') {
-            return [
-                'available' => false,
-                'amount_minor' => null,
-                'currency' => null,
-            ];
-        }
+        $priceConfigured = trim((string) $providerPriceId) !== '';
 
-        if (! $this->configured()) {
-            return [
-                'available' => false,
-                'amount_minor' => null,
-                'currency' => null,
-            ];
-        }
-
-        try {
-            $price = Cache::remember(
-                'billing-price:'.hash('sha256', $priceId),
-                now()->addMinutes(15),
-                fn (): array => $this->get(
-                    '/v1/prices/'.rawurlencode($priceId),
-                ),
-            );
-
-            return [
-                'available' => (bool) ($price['active'] ?? true),
-                'amount_minor' => isset($price['unit_amount'])
-                    ? (int) $price['unit_amount']
-                    : null,
-                'currency' => isset($price['currency'])
-                    ? strtoupper((string) $price['currency'])
-                    : null,
-            ];
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return [
-                'available' => true,
-                'amount_minor' => null,
-                'currency' => null,
-            ];
-        }
+        return [
+            'available' => $this->configured()
+                && $priceConfigured
+                && $amount !== null,
+            'amount_minor' => $amount,
+            'currency' => $currency,
+        ];
     }
 
     private function ensureConfigured(): void
