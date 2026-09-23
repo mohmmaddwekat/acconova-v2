@@ -2,6 +2,7 @@
 
 use App\Enums\OrganizationRole;
 use App\Models\Organization;
+use App\Services\Billing\BillingGrowthLifecycleService;
 use App\Services\Billing\BillingGrowthService;
 use App\Services\InvoiceAutomationService;
 use App\Services\NotificationCenter;
@@ -55,6 +56,7 @@ Schedule::command('invoices:sync-recurring')->hourly()->withoutOverlapping();
 Artisan::command('billing:growth-sync', function (): void {
     Organization::query()->chunkById(100, function ($organizations): void {
         foreach ($organizations as $organization) {
+            app(BillingGrowthLifecycleService::class)->process($organization);
             app(BillingGrowthService::class)->syncOrganization($organization);
         }
     });
