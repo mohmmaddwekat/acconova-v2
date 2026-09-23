@@ -53,6 +53,7 @@ return [
             ],
             'limits' => [
                 'seats' => 3,
+                'ai_tokens' => 250000,
                 'storage_bytes' => 5 * 1024 * 1024 * 1024,
             ],
             'features_ar' => [
@@ -87,6 +88,7 @@ return [
             ],
             'limits' => [
                 'seats' => 10,
+                'ai_tokens' => 1000000,
                 'storage_bytes' => 25 * 1024 * 1024 * 1024,
             ],
             'features_ar' => [
@@ -123,6 +125,7 @@ return [
             ],
             'limits' => [
                 'seats' => 30,
+                'ai_tokens' => 3000000,
                 'storage_bytes' => 100 * 1024 * 1024 * 1024,
             ],
             'features_ar' => [
