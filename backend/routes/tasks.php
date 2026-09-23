@@ -37,3 +37,5 @@ Route::middleware(['auth', 'verified', ResolveOrganization::class])->group(funct
         Route::get('/tasks/{task}/attachments/{attachment}', [TaskManagementController::class, 'downloadAttachment'])->whereNumber(['task', 'attachment'])->name('tasks.attachments.download');
     });
 });
+
+require __DIR__.'/billing-growth.php';
