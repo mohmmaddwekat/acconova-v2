@@ -76,6 +76,8 @@ final class BillingAddonService
         $items = is_array($items) ? $items : [];
         $catalog = (array) config('billing_growth.addons', []);
         $seen = [];
+        $baseItem = null;
+        $basePlanKey = null;
 
         foreach ($items as $item) {
             if (! is_array($item)) {
@@ -87,6 +89,13 @@ final class BillingAddonService
                 : [];
             $priceId = trim((string) ($price['id'] ?? ''));
             $lookupKey = trim((string) ($price['lookup_key'] ?? ''));
+            $detectedPlan = $this->gateway->planForPrice($priceId);
+
+            if ($detectedPlan && $baseItem === null) {
+                $baseItem = $item;
+                $basePlanKey = $detectedPlan;
+            }
+
             $addonKey = $this->addonKeyForPrice($priceId, $lookupKey, $catalog);
 
             if (! $addonKey) {
@@ -104,6 +113,34 @@ final class BillingAddonService
                 max(0, (int) ($price['unit_amount'] ?? 0)),
                 strtoupper((string) ($price['currency'] ?? 'USD')),
             );
+        }
+
+        /*
+         * Stripe subscriptions may contain several items after add-ons are
+         * purchased. Keep BillingAccount anchored to the actual base-plan item
+         * even if a webhook happens to list an add-on first.
+         */
+        if (is_array($baseItem)) {
+            $basePrice = is_array($baseItem['price'] ?? null)
+                ? $baseItem['price']
+                : [];
+
+            BillingAccount::query()
+                ->whereKey($account->id)
+                ->update([
+                    'plan_key' => $basePlanKey ?: $account->plan_key,
+                    'price_id' => trim((string) ($basePrice['id'] ?? '')) ?: $account->price_id,
+                    'quantity' => max(1, (int) ($baseItem['quantity'] ?? 1)),
+                    'amount_minor' => isset($basePrice['unit_amount'])
+                        ? max(0, (int) $basePrice['unit_amount'])
+                        : $account->amount_minor,
+                    'currency' => isset($basePrice['currency'])
+                        ? strtoupper((string) $basePrice['currency'])
+                        : $account->currency,
+                    'billing_interval' => data_get($basePrice, 'recurring.interval')
+                        ?: $account->billing_interval,
+                    'updated_at' => now(),
+                ]);
         }
 
         $inactive = DB::table('billing_growth_addons')
