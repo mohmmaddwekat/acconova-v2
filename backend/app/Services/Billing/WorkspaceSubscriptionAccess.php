@@ -36,6 +36,16 @@ final class WorkspaceSubscriptionAccess
             return true;
         }
 
+        if (Schema::hasTable('billing_growth_profiles')) {
+            $readOnly = DB::table('billing_growth_profiles')
+                ->where('organization_id', $organizationId)
+                ->value('read_only');
+
+            if ((bool) $readOnly) {
+                return false;
+            }
+        }
+
         $account = BillingAccount::query()
             ->where('organization_id', $organizationId)
             ->first();
