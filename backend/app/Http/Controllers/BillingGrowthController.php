@@ -23,6 +23,35 @@ final class BillingGrowthController extends Controller
         ]);
     }
 
+    public function purchaseAddon(Request $request, BillingGrowthService $growth): JsonResponse
+    {
+        $this->authorizeManage($request);
+        $keys = array_keys((array) config('billing_growth.addons', []));
+        $data = $request->validate([
+            'addon' => ['required', 'string', Rule::in($keys)],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        try {
+            return response()->json([
+                'data' => $growth->purchaseAddon(
+                    app(TenantContext::class)->organization(),
+                    (string) $data['addon'],
+                    (int) ($data['quantity'] ?? 1),
+                ),
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => $exception->getMessage() !== ''
+                    ? $exception->getMessage()
+                    : 'Could not purchase the add-on.',
+                'code' => 'BILLING_ADDON_PURCHASE_FAILED',
+            ], 422);
+        }
+    }
+
     public function extendTrial(Request $request, BillingGrowthService $growth): JsonResponse
     {
         $this->authorizeManage($request);
