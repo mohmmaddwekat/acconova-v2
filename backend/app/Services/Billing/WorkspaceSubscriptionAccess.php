@@ -5,28 +5,23 @@ namespace App\Services\Billing;
 use App\Enums\OrganizationRole;
 use App\Models\BillingAccount;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
 final class WorkspaceSubscriptionAccess
 {
-    /**
-     * Subscription enforcement only starts when billing itself is enabled.
-     * This keeps local setup and emergency billing maintenance controllable.
-     */
     public function enforced(): bool
     {
         return (bool) config('billing.enabled', false)
             && (bool) config('billing.enforce_subscription', true);
     }
 
-    /**
-     * Billing, profile, onboarding, and tenant-switching surfaces must remain
-     * reachable even when the current workspace subscription is inactive.
-     */
     public function requestIsExempt(Request $request): bool
     {
         return $request->is(
             'app/billing',
+            'app/billing/*',
             'app/subscription-required',
             'app/profile',
             'onboarding/workspace',
@@ -41,35 +36,40 @@ final class WorkspaceSubscriptionAccess
             return true;
         }
 
-        return BillingAccount::query()
+        $account = BillingAccount::query()
             ->where('organization_id', $organizationId)
-            ->whereIn('status', [
-                'active',
-                'trialing',
-            ])
-            ->exists();
+            ->first();
+
+        if (in_array($account?->status, ['active', 'trialing'], true)) {
+            return true;
+        }
+
+        if (
+            in_array($account?->status, ['past_due', 'unpaid'], true)
+            && Schema::hasTable('billing_growth_profiles')
+        ) {
+            $graceEndsAt = DB::table('billing_growth_profiles')
+                ->where('organization_id', $organizationId)
+                ->value('grace_ends_at');
+
+            if ($graceEndsAt && now()->lt($graceEndsAt)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    public function roleCanManageBilling(
-        OrganizationRole|string|null $role,
-    ): bool {
-        $value = $role instanceof OrganizationRole
-            ? $role->value
-            : $role;
+    public function roleCanManageBilling(OrganizationRole|string|null $role): bool
+    {
+        $value = $role instanceof OrganizationRole ? $role->value : $role;
 
-        return in_array(
-            $value,
-            [
-                OrganizationRole::Owner->value,
-                OrganizationRole::Admin->value,
-            ],
-            true,
-        );
+        return in_array($value, [
+            OrganizationRole::Owner->value,
+            OrganizationRole::Admin->value,
+        ], true);
     }
 
-    /**
-     * Return a blocking response when this request requires a paid workspace.
-     */
     public function blockedResponse(
         Request $request,
         int $organizationId,
@@ -83,13 +83,22 @@ final class WorkspaceSubscriptionAccess
             return null;
         }
 
+        /*
+         * Soft lock preserves visibility and exports after cancellation or an
+         * exhausted grace period. Only writes are blocked until billing is
+         * recovered. This avoids holding customer data hostage.
+         */
         if (
-            $request->is('api/*')
-            || $request->expectsJson()
+            (bool) config('billing_growth.soft_lock', true)
+            && in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)
         ) {
+            return null;
+        }
+
+        if ($request->is('api/*') || $request->expectsJson()) {
             return response()->json([
-                'message' => 'An active AccoNova subscription is required for this workspace.',
-                'code' => 'SUBSCRIPTION_REQUIRED',
+                'message' => 'This workspace is read-only until its AccoNova subscription is restored.',
+                'code' => 'SUBSCRIPTION_READ_ONLY',
                 'billing_url' => $this->roleCanManageBilling($role)
                     ? '/app/billing'
                     : '/app/subscription-required',
