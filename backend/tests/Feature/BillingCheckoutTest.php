@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BillingAccount;
 use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
@@ -68,6 +69,69 @@ class BillingCheckoutTest extends TestCase
         );
     }
 
+    public function test_checkout_recovers_from_stale_provider_customer_reference(): void
+    {
+        [$owner, $organization] = $this->workspace();
+
+        $this->configureBilling();
+
+        BillingAccount::query()->create([
+            'organization_id' => $organization->id,
+            'provider_customer_id' => 'cus_stale',
+            'status' => null,
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fakeSequence()
+            ->push([
+                'error' => [
+                    'code' => 'resource_missing',
+                    'param' => 'customer',
+                ],
+            ], 400)
+            ->push([
+                'id' => 'cs_test_recovered',
+                'url' => 'https://checkout.example.test/recovered',
+            ]);
+
+        $this
+            ->actingAs($owner)
+            ->withSession([
+                OrganizationAccess::SESSION_KEY => $organization->id,
+            ])
+            ->postJson('/api/billing/checkout', [
+                'plan' => 'starter',
+                'interval' => 'month',
+            ])
+            ->assertOk()
+            ->assertJsonPath(
+                'data.url',
+                'https://checkout.example.test/recovered',
+            );
+
+        $this->assertNull(
+            BillingAccount::query()
+                ->where('organization_id', $organization->id)
+                ->value('provider_customer_id'),
+        );
+
+        Http::assertSentCount(2);
+
+        $requests = Http::recorded();
+
+        $this->assertSame(
+            'cus_stale',
+            data_get($requests[0][0]->data(), 'customer'),
+        );
+        $this->assertNull(
+            data_get($requests[1][0]->data(), 'customer'),
+        );
+        $this->assertSame(
+            $owner->email,
+            data_get($requests[1][0]->data(), 'customer_email'),
+        );
+    }
+
     public function test_checkout_rejects_unconfigured_plan_interval(): void
     {
         [$owner, $organization] = $this->workspace();
@@ -108,18 +172,18 @@ class BillingCheckoutTest extends TestCase
      */
     private function workspace(): array
     {
-        $owner = User::factory()->create();
+        $user = User::factory()->create();
         $organization = Organization::create([
             'name' => 'Billing Checkout Workspace',
         ]);
 
         $organization->users()->attach(
-            $owner->id,
+            $user->id,
             [
                 'role' => 'owner',
             ],
         );
 
-        return [$owner, $organization];
+        return [$user, $organization];
     }
 }
