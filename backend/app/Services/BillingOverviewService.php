@@ -66,6 +66,18 @@ final class BillingOverviewService
             )
             : [];
 
+        $limits = is_array($plan['limits'] ?? null)
+            ? $plan['limits']
+            : [];
+
+        $seatLimit = isset($limits['seats'])
+            ? max(0, (int) $limits['seats'])
+            : null;
+
+        $storageLimit = isset($limits['storage_bytes'])
+            ? max(0, (int) $limits['storage_bytes'])
+            : null;
+
         $subscription = $account
             ? [
                 'plan_key' => $account->plan_key,
@@ -161,7 +173,7 @@ final class BillingOverviewService
                 ],
                 'seats' => [
                     'used' => $seatsUsed,
-                    'limit' => null,
+                    'limit' => $seatLimit,
                 ],
                 'ai_tokens' => [
                     'used' => $aiTokensUsed,
@@ -171,7 +183,7 @@ final class BillingOverviewService
                 'storage' => [
                     'available' => false,
                     'used_bytes' => null,
-                    'limit_bytes' => null,
+                    'limit_bytes' => $storageLimit,
                 ],
             ],
         ];
