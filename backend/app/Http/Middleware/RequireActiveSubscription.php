@@ -11,24 +11,24 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class RequireActiveSubscription
 {
-    public function __construct(
-        private readonly WorkspaceSubscriptionAccess $subscriptions,
-    ) {}
-
     public function handle(
         Request $request,
         Closure $next,
     ): Response {
+        $subscriptions = app(
+            WorkspaceSubscriptionAccess::class,
+        );
+
         if (
-            !$this->subscriptions->enforced()
-            || $this->subscriptions->requestIsExempt($request)
+            ! $subscriptions->enforced()
+            || $subscriptions->requestIsExempt($request)
         ) {
             return $next($request);
         }
 
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return $next($request);
         }
 
@@ -44,7 +44,7 @@ final class RequireActiveSubscription
          * reach the dashboard on the request that restores their session.
          */
         if (
-            !is_numeric($organizationId)
+            ! is_numeric($organizationId)
             || (int) $organizationId <= 0
         ) {
             $memberships = DB::table('memberships')
@@ -80,7 +80,7 @@ final class RequireActiveSubscription
             )
             ->value('role');
 
-        if (!is_string($role)) {
+        if (! is_string($role)) {
             $request->session()->forget(
                 OrganizationAccess::SESSION_KEY,
             );
@@ -88,7 +88,7 @@ final class RequireActiveSubscription
             return redirect('/onboarding/workspace');
         }
 
-        return $this->subscriptions->blockedResponse(
+        return $subscriptions->blockedResponse(
             $request,
             (int) $organizationId,
             $role,
