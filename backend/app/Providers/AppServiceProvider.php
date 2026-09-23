@@ -3,9 +3,11 @@
 namespace App\Providers;
 
 use App\Events\StockMovementRecorded;
+use App\Models\BillingAccount;
 use App\Models\PaymentPlan;
 use App\Models\PaymentRecord;
 use App\Models\ServiceOperation;
+use App\Services\Billing\BillingAddonService;
 use App\Services\NotificationCenter;
 use App\Services\WorkspacePermissions;
 use App\Tenancy\TenantContext;
@@ -38,6 +40,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::middleware('web')->group(base_path('routes/billing-growth.php'));
+
+        BillingAccount::saved(function (BillingAccount $account): void {
+            if (! $account->provider_subscription_id) {
+                return;
+            }
+
+            DB::afterCommit(function () use ($account): void {
+                rescue(fn () => app(BillingAddonService::class)->reconcileAccount($account));
+            });
+        });
 
         Gate::before([WorkspacePermissions::class, 'decide']);
         Event::listen(StockMovementRecorded::class, function (StockMovementRecorded $event): void {
