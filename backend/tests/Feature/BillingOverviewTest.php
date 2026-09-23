@@ -78,6 +78,7 @@ class BillingOverviewTest extends TestCase
             ->assertJsonPath('data.plans.0.month.amount_minor', 1900)
             ->assertJsonPath('data.plans.0.month.currency', 'USD')
             ->assertJsonPath('data.plans.0.month.available', true)
+            ->assertJsonPath('data.plans.0.features_ar.0', 'حتى 3 مستخدمين')
             ->assertJsonPath('data.plans.1.key', 'business')
             ->assertJsonPath('data.plans.1.month.amount_minor', 4900)
             ->assertJsonPath('data.plans.1.recommended', true)
@@ -86,7 +87,6 @@ class BillingOverviewTest extends TestCase
 
         $payload = $response->getContent();
 
-        $this->assertStringContainsString('حتى 3 مستخدمين', $payload);
         $this->assertStringNotContainsString('price_starter_monthly', $payload);
         $this->assertStringNotContainsString('sk_test_super_secret', $payload);
         $this->assertStringNotContainsString('whsec_super_secret', $payload);
