@@ -5,8 +5,8 @@ import { Head, Link } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
+    CreditCard,
     ShieldCheck,
-    Sparkles,
 } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -49,7 +49,7 @@ export default function BillingRequired() {
                     return;
                 }
             } catch {
-                // BillingPanel surfaces load errors; this check only unlocks.
+                // BillingPanel handles visible load errors.
             }
 
             attempts += 1;
@@ -67,9 +67,7 @@ export default function BillingRequired() {
         return () => {
             cancelled = true;
 
-            if (timer) {
-                clearTimeout(timer);
-            }
+            if (timer) clearTimeout(timer);
         };
     }, []);
 
@@ -83,59 +81,52 @@ export default function BillingRequired() {
             />
 
             <main className="min-h-screen bg-[var(--acs-bg)] text-[var(--acs-text)]">
-                <header className="border-b border-[var(--acs-line)] bg-[var(--acs-surface)]">
-                    <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 lg:px-8">
-                        <div className="flex items-center gap-3">
-                            <span className="flex size-10 items-center justify-center rounded-[13px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
-                                <Sparkles size={17} />
+                <header className="sticky top-0 z-20 border-b border-[var(--acs-line)] bg-[var(--acs-surface)]/95 backdrop-blur">
+                    <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+                        <div className="flex items-center gap-2.5">
+                            <span className="flex size-9 items-center justify-center rounded-[11px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
+                                <CreditCard size={15} />
                             </span>
                             <div>
-                                <strong className="block text-sm font-bold">
+                                <strong className="block text-xs font-bold">
                                     AccoNova
                                 </strong>
-                                <span className="text-[9px] text-[var(--acs-text-muted)]">
-                                    {text(
-                                        'إدارة الاشتراك',
-                                        'Subscription',
-                                    )}
+                                <span className="text-[8px] text-[var(--acs-text-muted)]">
+                                    {text('الاشتراك والفوترة', 'Subscription & billing')}
                                 </span>
                             </div>
                         </div>
 
                         <Link
                             href="/app/profile"
-                            className="inline-flex items-center gap-2 rounded-[12px] border border-[var(--acs-line-strong)] bg-transparent px-3.5 py-2.5 text-[10px] font-bold transition hover:border-[var(--acs-accent)] hover:bg-[var(--acs-accent-soft)]"
+                            className="inline-flex items-center justify-center gap-2 rounded-[11px] border border-[var(--acs-line-strong)] bg-transparent px-3.5 py-2 text-[9px] font-bold transition hover:border-[var(--acs-accent)] hover:bg-[var(--acs-accent-soft)]"
                         >
-                            <Arrow size={13} />
-                            {text(
-                                'الملف الشخصي',
-                                'Profile',
-                            )}
+                            <Arrow size={12} />
+                            {text('الملف الشخصي', 'Profile')}
                         </Link>
                     </div>
                 </header>
 
-                <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
-                    <section className="mb-5 rounded-[20px] border border-[var(--acs-line)] bg-[var(--acs-surface)] p-5 shadow-[0_10px_28px_rgba(30,75,140,.045)]">
-                        <div className="flex items-start gap-4">
-                            <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
-                                <ShieldCheck size={18} />
-                            </span>
+                <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+                    <section className="mb-4 flex flex-col gap-3 rounded-[18px] border border-[var(--acs-line)] bg-[var(--acs-surface)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h1 className="text-base font-bold tracking-tight sm:text-lg">
+                                {text(
+                                    'فعّل مساحة عملك وابدأ باستخدام AccoNova',
+                                    'Activate your workspace and start using AccoNova',
+                                )}
+                            </h1>
+                            <p className="mt-1 max-w-2xl text-[9px] leading-5 text-[var(--acs-text-muted)]">
+                                {text(
+                                    'اختر الباقة المناسبة. بعد تأكيد الاشتراك يتم فتح النظام تلقائيًا لأعضاء مساحة العمل حسب صلاحياتهم.',
+                                    'Choose the right plan. Once the subscription is confirmed, the workspace unlocks automatically for members according to their permissions.',
+                                )}
+                            </p>
+                        </div>
 
-                            <div>
-                                <h1 className="text-lg font-bold tracking-tight">
-                                    {text(
-                                        'أكمل اشتراكك للدخول إلى AccoNova',
-                                        'Complete your subscription to enter AccoNova',
-                                    )}
-                                </h1>
-                                <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[var(--acs-text-muted)]">
-                                    {text(
-                                        'اختر الباقة المناسبة لمساحة العمل. بعد تأكيد الاشتراك سيفتح النظام تلقائيًا لجميع أعضاء مساحة العمل حسب صلاحياتهم.',
-                                        'Choose the right plan for this workspace. After the subscription is confirmed, AccoNova opens automatically for workspace members according to their permissions.',
-                                    )}
-                                </p>
-                            </div>
+                        <div className="flex shrink-0 items-center gap-2 rounded-[11px] border border-emerald-400/20 bg-emerald-500/8 px-3 py-2 text-[8px] font-semibold text-emerald-400">
+                            <ShieldCheck size={13} />
+                            {text('دفع آمن · تفعيل تلقائي', 'Secure checkout · automatic activation')}
                         </div>
                     </section>
 
