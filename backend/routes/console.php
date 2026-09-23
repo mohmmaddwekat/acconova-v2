@@ -4,6 +4,7 @@ use App\Enums\OrganizationRole;
 use App\Models\Organization;
 use App\Services\Billing\BillingGrowthLifecycleService;
 use App\Services\Billing\BillingGrowthService;
+use App\Services\Billing\StripeSubscriptionManager;
 use App\Services\InvoiceAutomationService;
 use App\Services\NotificationCenter;
 use App\Services\ScheduledReportService;
@@ -63,6 +64,24 @@ Artisan::command('billing:growth-sync', function (): void {
 })->purpose('Refresh AccoNova billing health, grace, retention and recovery signals');
 
 Schedule::command('billing:growth-sync')->hourly()->withoutOverlapping();
+
+Artisan::command('billing:sync-addons', function (): void {
+    $rows = [];
+
+    foreach (app(StripeSubscriptionManager::class)->syncAddonCatalog() as $addon) {
+        foreach ((array) ($addon['prices'] ?? []) as $interval => $price) {
+            $rows[] = [
+                (string) ($addon['key'] ?? '—'),
+                (string) $interval,
+                (string) ($price['price_id'] ?? '—'),
+                (bool) ($price['created'] ?? false) ? 'created' : 'existing',
+            ];
+        }
+    }
+
+    $this->table(['Add-on', 'Interval', 'Stripe Price', 'Status'], $rows);
+    $this->info('AccoNova Stripe add-on catalog is ready.');
+})->purpose('Create or reuse recurring Stripe products and prices for capacity add-ons');
 
 Artisan::command('billing:revenue-report', function (): void {
     $metrics = app(BillingGrowthService::class)->platformMetrics();
