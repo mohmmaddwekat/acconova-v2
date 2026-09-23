@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BillingInvoice;
+use App\Services\Billing\BillingAddonService;
 use App\Services\Billing\BillingGrowthService;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
@@ -23,7 +24,7 @@ final class BillingGrowthController extends Controller
         ]);
     }
 
-    public function purchaseAddon(Request $request, BillingGrowthService $growth): JsonResponse
+    public function purchaseAddon(Request $request, BillingAddonService $addons): JsonResponse
     {
         $this->authorizeManage($request);
         $keys = array_keys((array) config('billing_growth.addons', []));
@@ -34,7 +35,7 @@ final class BillingGrowthController extends Controller
 
         try {
             return response()->json([
-                'data' => $growth->purchaseAddon(
+                'data' => $addons->purchase(
                     app(TenantContext::class)->organization(),
                     (string) $data['addon'],
                     (int) ($data['quantity'] ?? 1),
