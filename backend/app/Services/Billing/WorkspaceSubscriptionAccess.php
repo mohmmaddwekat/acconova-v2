@@ -36,14 +36,8 @@ final class WorkspaceSubscriptionAccess
             return true;
         }
 
-        if (Schema::hasTable('billing_growth_profiles')) {
-            $readOnly = DB::table('billing_growth_profiles')
-                ->where('organization_id', $organizationId)
-                ->value('read_only');
-
-            if ((bool) $readOnly) {
-                return false;
-            }
+        if ($this->organizationIsReadOnly($organizationId)) {
+            return false;
         }
 
         $account = BillingAccount::query()
@@ -93,13 +87,16 @@ final class WorkspaceSubscriptionAccess
             return null;
         }
 
+        $readOnly = $this->organizationIsReadOnly($organizationId);
+
         /*
-         * Soft lock preserves visibility and exports after cancellation or an
-         * exhausted grace period. Only writes are blocked until billing is
-         * recovered. This avoids holding customer data hostage.
+         * Soft lock is an explicit lifecycle state. It preserves reads and
+         * exports only after a workspace has actually entered read-only mode.
+         * New or otherwise unsubscribed workspaces remain fully gated.
          */
         if (
-            (bool) config('billing_growth.soft_lock', true)
+            $readOnly
+            && (bool) config('billing_growth.soft_lock', true)
             && in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)
         ) {
             return null;
@@ -107,8 +104,12 @@ final class WorkspaceSubscriptionAccess
 
         if ($request->is('api/*') || $request->expectsJson()) {
             return response()->json([
-                'message' => 'This workspace is read-only until its AccoNova subscription is restored.',
-                'code' => 'SUBSCRIPTION_READ_ONLY',
+                'message' => $readOnly
+                    ? 'This workspace is read-only until its AccoNova subscription is restored.'
+                    : 'An active AccoNova subscription is required for this workspace.',
+                'code' => $readOnly
+                    ? 'SUBSCRIPTION_READ_ONLY'
+                    : 'SUBSCRIPTION_REQUIRED',
                 'billing_url' => $this->roleCanManageBilling($role)
                     ? '/app/billing'
                     : '/app/subscription-required',
@@ -120,5 +121,16 @@ final class WorkspaceSubscriptionAccess
                 ? '/app/billing'
                 : '/app/subscription-required',
         );
+    }
+
+    private function organizationIsReadOnly(int $organizationId): bool
+    {
+        if (! Schema::hasTable('billing_growth_profiles')) {
+            return false;
+        }
+
+        return (bool) DB::table('billing_growth_profiles')
+            ->where('organization_id', $organizationId)
+            ->value('read_only');
     }
 }
