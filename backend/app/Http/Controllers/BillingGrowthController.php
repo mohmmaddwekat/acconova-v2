@@ -26,6 +26,7 @@ final class BillingGrowthController extends Controller
     public function extendTrial(Request $request, BillingGrowthService $growth): JsonResponse
     {
         $this->authorizeManage($request);
+
         return $this->run(fn () => $growth->requestTrialExtension(app(TenantContext::class)->organization()));
     }
 
@@ -47,6 +48,7 @@ final class BillingGrowthController extends Controller
     public function resumeRenewal(Request $request, BillingGrowthService $growth): JsonResponse
     {
         $this->authorizeManage($request);
+
         return $this->run(fn () => $growth->resumeRenewal(app(TenantContext::class)->organization()));
     }
 
@@ -54,12 +56,14 @@ final class BillingGrowthController extends Controller
     {
         $this->authorizeManage($request);
         $data = $request->validate(['days' => ['required', 'integer', Rule::in([30, 60, 90])]]);
+
         return $this->run(fn () => $growth->pause(app(TenantContext::class)->organization(), (int) $data['days']));
     }
 
     public function resume(Request $request, BillingGrowthService $growth): JsonResponse
     {
         $this->authorizeManage($request);
+
         return $this->run(fn () => $growth->resume(app(TenantContext::class)->organization()));
     }
 
@@ -136,9 +140,11 @@ final class BillingGrowthController extends Controller
     {
         try {
             $callback();
+
             return response()->json(['ok' => true]);
         } catch (Throwable $exception) {
             report($exception);
+
             return response()->json([
                 'message' => 'Subscription management is temporarily unavailable.',
                 'code' => 'BILLING_GROWTH_ACTION_FAILED',
