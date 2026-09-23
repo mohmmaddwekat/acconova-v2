@@ -2,6 +2,8 @@
 
 use App\Enums\OrganizationRole;
 use App\Models\Organization;
+use App\Services\Billing\BillingGrowthLifecycleService;
+use App\Services\Billing\BillingGrowthService;
 use App\Services\InvoiceAutomationService;
 use App\Services\NotificationCenter;
 use App\Services\ScheduledReportService;
@@ -32,9 +34,7 @@ Artisan::command('reports:sync-scheduled', function (): void {
     });
 })->purpose('Generate due scheduled report snapshots and notify recipients');
 
-Schedule::command('reports:sync-scheduled')
-    ->hourly()
-    ->withoutOverlapping();
+Schedule::command('reports:sync-scheduled')->hourly()->withoutOverlapping();
 
 Artisan::command('invoices:sync-recurring', function (): void {
     $tenant = app(TenantContext::class);
@@ -42,15 +42,8 @@ Artisan::command('invoices:sync-recurring', function (): void {
     Organization::query()->chunkById(100, function ($organizations) use ($tenant): void {
         foreach ($organizations as $organization) {
             try {
-                $tenant->set(
-                    $organization,
-                    OrganizationRole::Owner,
-                );
-
-                app(InvoiceAutomationService::class)
-                    ->syncDue(
-                        $organization->id,
-                    );
+                $tenant->set($organization, OrganizationRole::Owner);
+                app(InvoiceAutomationService::class)->syncDue($organization->id);
             } finally {
                 $tenant->clear();
             }
@@ -58,6 +51,22 @@ Artisan::command('invoices:sync-recurring', function (): void {
     });
 })->purpose('Create review-only drafts for due recurring invoice profiles');
 
-Schedule::command('invoices:sync-recurring')
-    ->hourly()
-    ->withoutOverlapping();
+Schedule::command('invoices:sync-recurring')->hourly()->withoutOverlapping();
+
+Artisan::command('billing:growth-sync', function (): void {
+    Organization::query()->chunkById(100, function ($organizations): void {
+        foreach ($organizations as $organization) {
+            app(BillingGrowthLifecycleService::class)->process($organization);
+            app(BillingGrowthService::class)->syncOrganization($organization);
+        }
+    });
+})->purpose('Refresh AccoNova billing health, grace, retention and recovery signals');
+
+Schedule::command('billing:growth-sync')->hourly()->withoutOverlapping();
+
+Artisan::command('billing:revenue-report', function (): void {
+    $metrics = app(BillingGrowthService::class)->platformMetrics();
+    $this->table(['Metric', 'Value'], collect($metrics)->map(
+        fn ($value, $key): array => [(string) $key, (string) $value],
+    )->values()->all());
+})->purpose('Show internal AccoNova subscription revenue and recovery metrics');
