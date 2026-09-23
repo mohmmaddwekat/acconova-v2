@@ -318,6 +318,7 @@ final class BillingGrowthService
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
         return $code;
     }
 
@@ -329,10 +330,14 @@ final class BillingGrowthService
             ->whereNull('redeemed_at')
             ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->first();
-        if (! $offer) return false;
+
+        if (! $offer) {
+            return false;
+        }
 
         DB::transaction(function () use ($organization, $offer): void {
             DB::table('billing_growth_offers')->where('id', $offer->id)->update(['redeemed_at' => now(), 'updated_at' => now()]);
+
             if ((int) $offer->value_minor > 0) {
                 DB::table('billing_growth_ledger')->insertOrIgnore([
                     'organization_id' => $organization->id,
@@ -346,6 +351,7 @@ final class BillingGrowthService
                 ]);
             }
         });
+
         return true;
     }
 
@@ -360,6 +366,7 @@ final class BillingGrowthService
                 ? (int) round(((int) $a->amount_minor * max(1, (int) $a->quantity)) / 12)
                 : (int) $a->amount_minor * max(1, (int) $a->quantity),
         );
+
         return [
             'active_workspaces' => $active,
             'payment_attention' => $pastDue,
@@ -374,6 +381,7 @@ final class BillingGrowthService
     {
         $account = BillingAccount::query()->where('organization_id', $organization->id)->first();
         abort_unless($account?->provider_subscription_id, 422, 'No subscription can be managed.');
+
         return $account;
     }
 
@@ -388,6 +396,7 @@ final class BillingGrowthService
     private function planPreviews(?BillingAccount $account): array
     {
         $result = [];
+
         foreach ((array) config('billing.plans', []) as $key => $plan) {
             $month = (int) ($plan['display']['month_amount_minor'] ?? 0);
             $year = (int) ($plan['display']['year_amount_minor'] ?? 0);
@@ -395,11 +404,13 @@ final class BillingGrowthService
                 ? (int) round(((int) $account->amount_minor) / 12)
                 : (int) ($account?->amount_minor ?? 0);
             $fraction = 1.0;
+
             if ($account?->current_period_start && $account?->current_period_end && $account->current_period_end->isFuture()) {
                 $total = max(1, $account->current_period_start->diffInSeconds($account->current_period_end));
                 $remaining = max(0, now()->diffInSeconds($account->current_period_end, false));
                 $fraction = min(1, max(0, $remaining / $total));
             }
+
             $result[] = [
                 'plan_key' => $key,
                 'name_ar' => $plan['name_ar'] ?? $key,
@@ -410,6 +421,7 @@ final class BillingGrowthService
                 'estimated' => true,
             ];
         }
+
         return $result;
     }
 
@@ -417,9 +429,14 @@ final class BillingGrowthService
     private function recommendPlan(int $seats, ?int $limit, ?string $current): array
     {
         $target = $current ?: 'starter';
-        if ($seats > 10) $target = 'scale';
-        elseif ($seats > 3) $target = 'business';
-        elseif ($limit && $seats / max(1, $limit) >= .85 && $current === 'starter') $target = 'business';
+
+        if ($seats > 10) {
+            $target = 'scale';
+        } elseif ($seats > 3) {
+            $target = 'business';
+        } elseif ($limit && $seats / max(1, $limit) >= 0.85 && $current === 'starter') {
+            $target = 'business';
+        }
 
         return [
             'plan_key' => $target,
@@ -432,6 +449,7 @@ final class BillingGrowthService
     private function downgradeReadiness(int $seats): array
     {
         $plans = [];
+
         foreach ((array) config('billing.plans', []) as $key => $plan) {
             $maxSeats = (int) ($plan['limits']['seats'] ?? 0);
             $plans[$key] = [
@@ -440,16 +458,21 @@ final class BillingGrowthService
                     ? [['type' => 'seats', 'used' => $seats, 'limit' => $maxSeats]] : [],
             ];
         }
+
         return $plans;
     }
 
     /** @return array<string, mixed> */
     private function aiUsage(int $organizationId): array
     {
-        if (! Schema::hasTable('ai_messages')) return ['tokens' => 0, 'messages' => 0];
+        if (! Schema::hasTable('ai_messages')) {
+            return ['tokens' => 0, 'messages' => 0];
+        }
+
         $row = DB::table('ai_messages')->where('organization_id', $organizationId)
             ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
             ->selectRaw('COALESCE(SUM(total_tokens),0) tokens, COUNT(*) messages')->first();
+
         return ['tokens' => (int) ($row?->tokens ?? 0), 'messages' => (int) ($row?->messages ?? 0)];
     }
 
@@ -457,9 +480,11 @@ final class BillingGrowthService
     private function addonCatalog(): array
     {
         $items = [];
+
         foreach ((array) config('billing_growth.addons', []) as $key => $addon) {
             $items[] = ['key' => $key] + $addon + ['enabled' => (int) ($addon['amount_minor'] ?? 0) > 0];
         }
+
         return $items;
     }
 
@@ -478,13 +503,17 @@ final class BillingGrowthService
     {
         $eligible = $account?->status === 'active' && $account?->billing_interval === 'month'
             && $account->created_at?->lte(now()->subMonths((int) config('billing_growth.annual_nudge_after_months', 3)));
+
         return ['eligible' => (bool) $eligible, 'plan_key' => $account?->plan_key];
     }
 
     /** @return array<int, array<string, mixed>> */
     private function renewalCalendar(?BillingAccount $account): array
     {
-        if (! $account?->current_period_end || $account->cancel_at_period_end) return [];
+        if (! $account?->current_period_end || $account->cancel_at_period_end) {
+            return [];
+        }
+
         return [[
             'date' => $account->current_period_end->toDateString(),
             'amount_minor' => (int) $account->amount_minor * max(1, (int) $account->quantity),
@@ -506,9 +535,13 @@ final class BillingGrowthService
 
     private function cardExpiryRisk(?BillingAccount $account): bool
     {
-        if (! $account?->payment_exp_month || ! $account?->payment_exp_year) return false;
+        if (! $account?->payment_exp_month || ! $account?->payment_exp_year) {
+            return false;
+        }
+
         $expiry = now()->setDate((int) $account->payment_exp_year, (int) $account->payment_exp_month, 1)->endOfMonth();
         $days = max((array) config('billing_growth.card_expiry_warning_days', [30]));
+
         return $expiry->isBetween(now(), now()->addDays((int) $days), true);
     }
 
