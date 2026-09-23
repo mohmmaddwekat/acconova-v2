@@ -2,6 +2,7 @@ import {
     t,
     type TranslationKey,
 } from './i18n';
+import { getLocale } from './locale';
 
 const statusKeys:
     Record<number, TranslationKey> = {
@@ -26,6 +27,24 @@ const trustedServerValidationCodes =
         'permanent_delete_requires_archive',
         'permanent_delete_blocked',
     ]);
+
+const safeBusinessMessages: Record<
+    string,
+    { ar: string; en: string }
+> = {
+    BILLING_UNAVAILABLE: {
+        ar: 'تعذر بدء الدفع حاليًا. تحقق من إعداد الاشتراك ثم حاول مرة أخرى.',
+        en: 'Checkout could not be started right now. Check the subscription setup and try again.',
+    },
+    BILLING_PORTAL_UNAVAILABLE: {
+        ar: 'تعذر فتح إدارة الاشتراك حاليًا. حاول مرة أخرى بعد قليل.',
+        en: 'Subscription management could not be opened right now. Please try again shortly.',
+    },
+    SUBSCRIPTION_ALREADY_EXISTS: {
+        ar: 'لديك اشتراك موجود بالفعل. استخدم إدارة الاشتراك بدل إنشاء اشتراك جديد.',
+        en: 'This workspace already has a subscription. Manage it instead of starting another one.',
+    },
+};
 
 /**
  * Normalize transport failures into translated, user-safe feedback.
@@ -190,18 +209,27 @@ export function normalizeApiError(
             ? input.error_id
             : '';
 
-    const baseMessage =
-        t(
-            statusKeys[
-                status
-            ] ??
-                (
-                    status ===
-                    0
-                        ? 'errors.network'
-                        : 'errors.unexpected'
-                ),
-        );
+    const code =
+        typeof input.code === 'string'
+            ? input.code
+            : '';
+
+    const safeBusinessMessage =
+        safeBusinessMessages[code];
+
+    const baseMessage = safeBusinessMessage
+        ? safeBusinessMessage[getLocale()]
+        : t(
+              statusKeys[
+                  status
+              ] ??
+                  (
+                      status ===
+                      0
+                          ? 'errors.network'
+                          : 'errors.unexpected'
+                  ),
+          );
 
     return {
         generalMessage:
