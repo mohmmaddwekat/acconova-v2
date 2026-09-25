@@ -171,6 +171,117 @@ final class StripeBillingGateway
         return $url;
     }
 
+    public function aiCreditCheckoutUrl(
+        Organization $organization,
+        int $tokens,
+        int $amountMinor,
+        string $currency,
+        bool $autoRecharge,
+        int $thresholdTokens,
+    ): string {
+        $this->ensureConfigured();
+
+        $account = BillingAccount::query()
+            ->where('organization_id', $organization->id)
+            ->first();
+
+        if (! $account?->provider_customer_id) {
+            throw new RuntimeException(
+                'A billing customer is required before purchasing AI credits.',
+            );
+        }
+
+        $metadata = [
+            'purpose' => 'ai_credit_topup',
+            'organization_id' => (string) $organization->id,
+            'tokens' => (string) max(1, $tokens),
+            'amount_minor' => (string) max(1, $amountMinor),
+            'currency' => strtoupper($currency),
+            'auto_recharge' => $autoRecharge ? 'true' : 'false',
+            'auto_recharge_threshold_tokens' => (string) max(1, $thresholdTokens),
+        ];
+
+        $session = $this->post('/v1/checkout/sessions', [
+            'mode' => 'payment',
+            'customer' => $account->provider_customer_id,
+            'success_url' => url('/app/billing?credit=success&session_id={CHECKOUT_SESSION_ID}'),
+            'cancel_url' => url('/app/billing?credit=cancelled'),
+            'client_reference_id' => (string) $organization->id,
+            'line_items' => [[
+                'price_data' => [
+                    'currency' => strtolower($currency),
+                    'unit_amount' => max(1, $amountMinor),
+                    'product_data' => [
+                        'name' => 'AccoNova AI Credits',
+                        'description' => number_format(max(1, $tokens)).' AI tokens',
+                    ],
+                ],
+                'quantity' => 1,
+            ]],
+            'metadata' => $metadata,
+            'payment_intent_data' => [
+                'setup_future_usage' => 'off_session',
+                'metadata' => $metadata,
+            ],
+            'allow_promotion_codes' => (bool) config(
+                'billing.allow_promotion_codes',
+                true,
+            ) ? 'true' : 'false',
+            'submit_type' => 'pay',
+        ]);
+
+        $url = trim((string) ($session['url'] ?? ''));
+
+        if ($url === '') {
+            throw new RuntimeException(
+                'The AI credit checkout session did not return a redirect URL.',
+            );
+        }
+
+        return $url;
+    }
+
+    /** @return array<string, mixed> */
+    public function chargeAiCreditsOffSession(
+        BillingAccount $account,
+        int $tokens,
+        int $amountMinor,
+        string $currency,
+    ): array {
+        $this->ensureConfigured();
+
+        if (! $account->provider_customer_id || ! $account->provider_subscription_id) {
+            throw new RuntimeException('The workspace does not have a reusable billing profile.');
+        }
+
+        $subscription = $this->subscription((string) $account->provider_subscription_id);
+        $paymentMethod = $subscription['default_payment_method'] ?? null;
+        $paymentMethodId = is_array($paymentMethod)
+            ? trim((string) ($paymentMethod['id'] ?? ''))
+            : trim((string) $paymentMethod);
+
+        if ($paymentMethodId === '') {
+            throw new RuntimeException(
+                'Automatic recharge requires a saved default payment method.',
+            );
+        }
+
+        return $this->post('/v1/payment_intents', [
+            'amount' => max(1, $amountMinor),
+            'currency' => strtolower($currency),
+            'customer' => $account->provider_customer_id,
+            'payment_method' => $paymentMethodId,
+            'confirm' => 'true',
+            'off_session' => 'true',
+            'description' => 'AccoNova AI automatic credit recharge',
+            'metadata' => [
+                'purpose' => 'ai_credit_auto_recharge',
+                'organization_id' => (string) $account->organization_id,
+                'tokens' => (string) max(1, $tokens),
+            ],
+        ]);
+    }
+
     public function portalUrl(Organization $organization): string
     {
         $this->ensureConfigured();
