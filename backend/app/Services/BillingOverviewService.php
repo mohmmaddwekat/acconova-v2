@@ -63,6 +63,24 @@ final class BillingOverviewService
                 ->first()
             : null;
 
+        /*
+         * A seat/storage purchase can require additional customer
+         * authentication. Once the customer returns from Stripe, reconcile the
+         * canonical subscription before calculating entitlements so a pending
+         * update becomes visible immediately without waiting for a scheduler.
+         */
+        if (
+            $account?->provider_subscription_id
+            && $this->billing->configured()
+            && Schema::hasTable('billing_growth_addons')
+        ) {
+            rescue(
+                fn () => $this->addons->reconcileAccount($account),
+                report: true,
+            );
+            $account->refresh();
+        }
+
         $plan = $account?->plan_key
             ? (array) config(
                 'billing.plans.'.$account->plan_key,
