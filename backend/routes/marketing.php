@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MarketingPageController;
+use App\Http\Controllers\MarketingSolutionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [MarketingPageController::class, 'home'])
@@ -25,11 +26,27 @@ Route::get('/privacy', [MarketingPageController::class, 'privacy'])
 Route::get('/terms', [MarketingPageController::class, 'terms'])
     ->name('marketing.terms');
 
+Route::get('/small-business-erp', [MarketingSolutionController::class, 'smallBusinessErp'])
+    ->name('marketing.solutions.erp');
+Route::get('/crm-for-small-business', [MarketingSolutionController::class, 'crm'])
+    ->name('marketing.solutions.crm');
+Route::get('/inventory-management-software', [MarketingSolutionController::class, 'inventory'])
+    ->name('marketing.solutions.inventory');
+Route::get('/invoicing-and-payments', [MarketingSolutionController::class, 'invoicing'])
+    ->name('marketing.solutions.invoicing');
+Route::get('/business-reporting-software', [MarketingSolutionController::class, 'reporting'])
+    ->name('marketing.solutions.reporting');
+
 Route::get('/sitemap.xml', function () {
     $paths = [
         '/',
         '/features',
         '/pricing',
+        '/small-business-erp',
+        '/crm-for-small-business',
+        '/inventory-management-software',
+        '/invoicing-and-payments',
+        '/business-reporting-software',
         '/about',
         '/security',
         '/faq',
@@ -84,6 +101,13 @@ Route::get('/llms.txt', function () {
         '- FAQ: '.$base.'/faq',
         '- About: '.$base.'/about',
         '- Contact: '.$base.'/contact',
+        '',
+        '## Topic pages',
+        '- Small business ERP: '.$base.'/small-business-erp',
+        '- CRM for small business: '.$base.'/crm-for-small-business',
+        '- Inventory management: '.$base.'/inventory-management-software',
+        '- Invoicing and payments: '.$base.'/invoicing-and-payments',
+        '- Business reporting: '.$base.'/business-reporting-software',
         '',
         '## Core capabilities',
         '- CRM and party management for customers, suppliers and contacts',
