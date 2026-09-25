@@ -17,3 +17,23 @@
         'Segoe UI Symbol',
         'Noto Color Emoji';
 }
+
+/*
+ * Application dialogs must sit above the authenticated shell (top bar + rail)
+ * and keep their title/close controls visible while long billing forms scroll.
+ */
+[role='dialog'][aria-modal='true'] {
+    z-index: 9999 !important;
+}
+
+[role='dialog'][aria-modal='true'] > section {
+    max-height: calc(100dvh - 2rem) !important;
+    margin-block: auto;
+}
+
+[role='dialog'][aria-modal='true'] > section > header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--acs-surface, var(--ac-surface, #ffffff));
+}
