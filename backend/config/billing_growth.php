@@ -68,12 +68,13 @@ return [
         'ai_tokens_500k' => [
             'name_ar' => '500 ألف Token إضافي لـ AccoNova AI',
             'name_en' => '500K extra AccoNova AI tokens',
-            'description_ar' => 'ارفع رصيد الذكاء الاصطناعي الشهري بمقدار 500 ألف Token.',
-            'description_en' => 'Increase the monthly AI allowance by 500,000 tokens.',
+            'description_ar' => 'إضافة دورية قديمة. الشراء الجديد يتم الآن من رصيد AccoNova AI المرن.',
+            'description_en' => 'Legacy recurring add-on. New purchases now use the flexible AccoNova AI wallet.',
             'unit' => 'ai_tokens',
             'quantity' => 500000,
             'amount_minor' => max(0, (int) env('BILLING_ADDON_AI_500K_MONTHLY_MINOR', 1000)),
             'currency' => 'USD',
+            'customer_visible' => false,
             'prices' => [
                 'month' => [
                     'amount_minor' => max(0, (int) env('BILLING_ADDON_AI_500K_MONTHLY_MINOR', 1000)),
