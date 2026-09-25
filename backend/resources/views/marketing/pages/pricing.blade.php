@@ -32,7 +32,10 @@
                             <li>{{ $feature }}</li>
                         @endforeach
                     </ul>
-                    <a class="button {{ $plan['recommended'] ? 'button-primary' : 'button-secondary' }}" href="/register">Start with {{ $plan['name'] }}</a>
+                    <a
+                        class="button {{ $plan['recommended'] ? 'button-primary' : 'button-secondary' }}"
+                        href="/register?source=pricing&plan={{ urlencode($plan['key']) }}&interval=month"
+                    >Start with {{ $plan['name'] }}</a>
                 </article>
             @endforeach
         </div>
