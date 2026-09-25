@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BillingAccount;
 use App\Services\Billing\StripeBillingGateway;
+use App\Services\Billing\StripePaymentMethodPortal;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -92,7 +93,7 @@ class BillingCheckoutController extends Controller
 
     public function portal(
         Request $request,
-        StripeBillingGateway $billing,
+        StripePaymentMethodPortal $paymentMethods,
     ): JsonResponse {
         WorkspaceFeaturePermissions::authorize(
             $request->user(),
@@ -100,14 +101,14 @@ class BillingCheckoutController extends Controller
         );
 
         try {
-            $url = $billing->portalUrl(
+            $url = $paymentMethods->url(
                 app(TenantContext::class)->organization(),
             );
         } catch (Throwable $exception) {
             report($exception);
 
             return response()->json([
-                'message' => 'Subscription management is temporarily unavailable.',
+                'message' => 'Payment settings are temporarily unavailable.',
                 'code' => 'BILLING_PORTAL_UNAVAILABLE',
             ], 503);
         }
