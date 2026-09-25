@@ -15,6 +15,7 @@ final class BillingWebhookService
 {
     public function __construct(
         private readonly StripeBillingGateway $gateway,
+        private readonly AiCreditService $credits,
     ) {}
 
     /**
@@ -210,6 +211,8 @@ final class BillingWebhookService
         match ($type) {
             'checkout.session.completed' => $this->checkoutCompleted($object),
 
+            'payment_intent.succeeded' => $this->credits->completeAutoRecharge($object),
+
             'customer.subscription.created',
             'customer.subscription.updated',
             'customer.subscription.deleted' => $this->subscriptionChanged($object),
@@ -235,6 +238,12 @@ final class BillingWebhookService
     private function checkoutCompleted(
         array $session,
     ): void {
+        if ((string) data_get($session, 'metadata.purpose', '') === 'ai_credit_topup') {
+            $this->credits->completeCheckout($session);
+
+            return;
+        }
+
         $organizationId = $this->positiveInt(
             $session['metadata']['organization_id']
                 ?? $session['client_reference_id']
