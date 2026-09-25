@@ -29,6 +29,11 @@ import {
     useMemo,
     useState,
 } from 'react';
+import {
+    BillingPurchaseDialog,
+    type BillingAiCredits,
+    type BillingPurchaseKind,
+} from './BillingPurchaseDialog';
 
 type BillingPrice = {
     available: boolean;
@@ -116,6 +121,7 @@ type BillingOverview = {
             currency: string;
         }>;
     };
+    ai_credits: BillingAiCredits;
     currency: string;
     usage: {
         period: {
@@ -157,7 +163,6 @@ function money(
 
     try {
         const hasCents = Math.abs(amountMinor) % 100 !== 0;
-
         return new Intl.NumberFormat(locale, {
             style: 'currency',
             currency,
@@ -171,9 +176,7 @@ function money(
 
 function dateLabel(value: string | null, locale: string): string {
     if (! value) return '—';
-
     const date = new Date(value);
-
     if (Number.isNaN(date.getTime())) return '—';
 
     return new Intl.DateTimeFormat(locale, {
@@ -209,7 +212,6 @@ function compactNumber(value: number, locale: string): string {
 
 function percent(used: number | null, limit: number | null): number | null {
     if (used === null || limit === null || limit <= 0) return null;
-
     return Math.min(100, Math.max(0, used / limit * 100));
 }
 
@@ -240,12 +242,8 @@ function ResourceCard({
         <article className={panel + ' flex min-h-[190px] flex-col p-4'}>
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <p className="text-[9px] font-bold text-[var(--acs-text-soft)]">
-                        {label}
-                    </p>
-                    <strong className="mt-1.5 block text-lg font-extrabold tracking-tight text-[var(--acs-text)] sm:text-xl">
-                        {value}
-                    </strong>
+                    <p className="text-[9px] font-bold text-[var(--acs-text-soft)]">{label}</p>
+                    <strong className="mt-1.5 block text-lg font-extrabold tracking-tight text-[var(--acs-text)] sm:text-xl">{value}</strong>
                 </div>
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
                     <Icon size={17} />
@@ -264,9 +262,7 @@ function ResourceCard({
                     />
                 </div>
                 {addonHint && (
-                    <p className="mt-2 text-[8px] font-semibold text-[var(--acs-accent)]">
-                        {addonHint}
-                    </p>
+                    <p className="mt-2 text-[8px] font-semibold text-[var(--acs-accent)]">{addonHint}</p>
                 )}
             </div>
 
@@ -299,6 +295,7 @@ export function BillingPanel() {
     const [actionLoading, setActionLoading] = useState('');
     const [interval, setInterval] = useState<'month' | 'year'>('month');
     const [showAllInvoices, setShowAllInvoices] = useState(false);
+    const [purchaseKind, setPurchaseKind] = useState<BillingPurchaseKind | null>(null);
 
     const loadOverview = useCallback(
         async (signal?: AbortSignal): Promise<void> => {
@@ -336,6 +333,11 @@ export function BillingPanel() {
     const checkoutState = useMemo(() => {
         if (typeof window === 'undefined') return null;
         return new URLSearchParams(window.location.search).get('checkout');
+    }, []);
+
+    const creditState = useMemo(() => {
+        if (typeof window === 'undefined') return null;
+        return new URLSearchParams(window.location.search).get('credit');
     }, []);
 
     async function refreshOverview(): Promise<void> {
@@ -407,65 +409,6 @@ export function BillingPanel() {
         return overview?.addons.catalog.find(item => item.key === key) ?? null;
     }
 
-    async function purchaseAddon(key: string): Promise<void> {
-        if (! overview || actionLoading) return;
-
-        const selected = addon(key);
-
-        if (! selected || ! selected.available) {
-            setActionError(text(
-                'هذه الإضافة غير جاهزة للشراء بعد. شغّل مزامنة إضافات Stripe أولًا.',
-                'This add-on is not ready for purchase yet. Sync the Stripe add-on catalog first.',
-            ));
-            return;
-        }
-
-        const intervalLabel = selected.interval === 'year'
-            ? text('سنويًا', 'per year')
-            : text('شهريًا', 'per month');
-        const confirmed = window.confirm(text(
-            `سيتم إضافة ${selected.name_ar} مقابل ${money(selected.amount_minor, selected.currency, locale)} ${intervalLabel}. قد يتم احتساب مبلغ نسبي للفترة الحالية. هل تريد المتابعة؟`,
-            `Add ${selected.name_en} for ${money(selected.amount_minor, selected.currency, locale)} ${intervalLabel}. A prorated charge may apply for the current period. Continue?`,
-        ));
-
-        if (! confirmed) return;
-
-        setActionLoading(`addon:${key}`);
-        setActionError('');
-        setSuccessMessage('');
-
-        try {
-            const response = await apiRequest<{
-                data: {
-                    payment_url: string | null;
-                    pending: boolean;
-                };
-            }>('/api/billing/addons/purchase', {
-                method: 'POST',
-                body: JSON.stringify({ addon: key, quantity: 1 }),
-            });
-
-            if (response.data.payment_url) {
-                window.location.assign(response.data.payment_url);
-                return;
-            }
-
-            await loadOverview();
-            setSuccessMessage(text(
-                'تمت إضافة السعة إلى اشتراكك بنجاح.',
-                'The extra capacity was added to your subscription.',
-            ));
-        } catch (failure) {
-            setActionError(
-                failure instanceof ApiError
-                    ? failure.message
-                    : text('تعذر شراء الإضافة. حاول مرة أخرى.', 'Could not purchase the add-on. Please try again.'),
-            );
-        } finally {
-            setActionLoading('');
-        }
-    }
-
     if (loading) {
         return (
             <div className={panel + ' flex min-h-64 items-center justify-center'}>
@@ -479,9 +422,7 @@ export function BillingPanel() {
             <div className={panel + ' flex items-start gap-3 p-5'}>
                 <CircleAlert className="mt-0.5 shrink-0 text-amber-500" size={18} />
                 <div>
-                    <strong className="text-xs text-[var(--acs-text)]">
-                        {text('تعذر تحميل الاشتراك', 'Subscription unavailable')}
-                    </strong>
+                    <strong className="text-xs text-[var(--acs-text)]">{text('تعذر تحميل الاشتراك', 'Subscription unavailable')}</strong>
                     <p className="mt-1 text-[10px] text-[var(--acs-text-muted)]">{error}</p>
                 </div>
             </div>
@@ -500,7 +441,6 @@ export function BillingPanel() {
         : null;
 
     const seatsAddon = addon('extra_seats_5');
-    const aiAddon = addon('ai_tokens_500k');
     const storageAddon = addon('storage_25gb');
 
     const statusLabel = (() => {
@@ -540,6 +480,20 @@ export function BillingPanel() {
                 </div>
             )}
 
+            {creditState === 'success' && (
+                <div className="flex items-center gap-2.5 rounded-[14px] border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-[9px] text-[var(--acs-text)]">
+                    <ShieldCheck size={16} className="shrink-0 text-emerald-500" />
+                    {text('تم دفع رصيد AccoNova AI. سيظهر الرصيد بعد تأكيد Stripe مباشرة.', 'AccoNova AI credits were paid. The balance appears as soon as Stripe confirms the payment.')}
+                </div>
+            )}
+
+            {creditState === 'cancelled' && (
+                <div className="flex items-center gap-2 rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] px-4 py-3 text-[9px] text-[var(--acs-text-muted)]">
+                    <CircleAlert size={15} />
+                    {text('تم إلغاء شراء رصيد AI ولم يتم خصم أي مبلغ.', 'AI credit purchase was cancelled and no charge was completed.')}
+                </div>
+            )}
+
             {successMessage && (
                 <div className="flex items-center gap-2 rounded-[14px] border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-[9px] text-emerald-600">
                     <ShieldCheck size={15} />
@@ -557,16 +511,10 @@ export function BillingPanel() {
                 <section className={panel + ' overflow-hidden'}>
                     <div className="flex flex-col gap-4 border-b border-[var(--acs-line)] px-5 py-5 sm:flex-row sm:items-end sm:justify-between lg:px-6">
                         <div className="flex items-center gap-3">
-                            <span className="flex size-10 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
-                                <Sparkles size={17} />
-                            </span>
+                            <span className="flex size-10 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><Sparkles size={17} /></span>
                             <div>
-                                <h2 className="text-base font-bold text-[var(--acs-text)]">
-                                    {text('اختر الباقة المناسبة لشركتك', 'Choose the right plan for your company')}
-                                </h2>
-                                <p className="mt-1 text-[9px] text-[var(--acs-text-muted)]">
-                                    {text('اختر السعة والمزايا التي تناسب فريقك ويمكنك تغييرها لاحقًا.', 'Choose the capacity and features that fit your team. You can change them later.')}
-                                </p>
+                                <h2 className="text-base font-bold text-[var(--acs-text)]">{text('اختر الباقة المناسبة لشركتك', 'Choose the right plan for your company')}</h2>
+                                <p className="mt-1 text-[9px] text-[var(--acs-text-muted)]">{text('اختر السعة والمزايا التي تناسب فريقك ويمكنك تغييرها لاحقًا.', 'Choose the capacity and features that fit your team. You can change them later.')}</p>
                             </div>
                         </div>
 
@@ -606,9 +554,7 @@ export function BillingPanel() {
                                     ].join(' ')}
                                 >
                                     {plan.recommended && (
-                                        <span className="absolute end-4 top-4 rounded-full border border-[var(--acs-accent)]/30 bg-[var(--acs-surface)] px-2.5 py-1 text-[8px] font-bold text-[var(--acs-accent)]">
-                                            {text('الأكثر اختيارًا', 'Most popular')}
-                                        </span>
+                                        <span className="absolute end-4 top-4 rounded-full border border-[var(--acs-accent)]/30 bg-[var(--acs-surface)] px-2.5 py-1 text-[8px] font-bold text-[var(--acs-accent)]">{text('الأكثر اختيارًا', 'Most popular')}</span>
                                     )}
                                     <div className="pe-20">
                                         <h3 className="text-lg font-bold text-[var(--acs-text)]">{ar ? plan.name_ar : plan.name_en}</h3>
@@ -650,9 +596,7 @@ export function BillingPanel() {
                             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(38,132,255,.09),transparent_34%)]" />
                             <div className="relative grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
                                 <div className="flex items-start gap-4">
-                                    <span className="flex size-14 shrink-0 items-center justify-center rounded-[17px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]">
-                                        <WalletCards size={24} />
-                                    </span>
+                                    <span className="flex size-14 shrink-0 items-center justify-center rounded-[17px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><WalletCards size={24} /></span>
                                     <div>
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className="text-[9px] font-bold text-[var(--acs-text-muted)]">{text('الباقة الحالية', 'Current plan')}</span>
@@ -702,23 +646,23 @@ export function BillingPanel() {
                             value={`${overview.usage.seats.used} / ${overview.usage.seats.limit ?? '∞'}`}
                             meta={text('استخدام المقاعد المتاحة في باقتك.', 'Seat usage in your current plan.')}
                             usagePercent={seatsPercent}
-                            actionLabel={text('شراء 5 مقاعد إضافية', 'Buy 5 more seats')}
-                            addonHint={seatsAddon ? `${money(seatsAddon.amount_minor, seatsAddon.currency, locale)} / ${seatsAddon.interval === 'year' ? text('سنة', 'year') : text('شهر', 'month')}` : undefined}
-                            onAction={() => void purchaseAddon('extra_seats_5')}
+                            actionLabel={text('زيادة المقاعد', 'Add seats')}
+                            addonHint={seatsAddon ? `${money(seatsAddon.amount_minor, seatsAddon.currency, locale)} / ${seatsAddon.interval === 'year' ? text('سنة لكل 5 مقاعد', 'year per 5 seats') : text('شهر لكل 5 مقاعد', 'month per 5 seats')}` : undefined}
+                            onAction={() => setPurchaseKind('seats')}
                             disabled={actionLoading !== '' || ! overview.payments_available || ! seatsAddon?.available}
-                            busy={actionLoading === 'addon:extra_seats_5'}
+                            busy={false}
                         />
                         <ResourceCard
                             icon={Bot}
                             label={text('استخدام AccoNova AI', 'AccoNova AI usage')}
                             value={`${compactNumber(overview.usage.ai_tokens.used, locale)} / ${overview.usage.ai_tokens.limit === null ? '∞' : compactNumber(overview.usage.ai_tokens.limit, locale)} Tokens`}
-                            meta={text('استهلاكك الشهري من رصيد الذكاء الاصطناعي.', 'Your monthly AI token usage.')}
+                            meta={text('استهلاك الباقة الشهرية، وبعدها يُستخدم رصيدك الإضافي.', 'Monthly included usage, then your purchased wallet is used.')}
                             usagePercent={aiPercent}
-                            actionLabel={text('شراء 500 ألف Token', 'Buy 500K tokens')}
-                            addonHint={aiAddon ? `${money(aiAddon.amount_minor, aiAddon.currency, locale)} / ${aiAddon.interval === 'year' ? text('سنة', 'year') : text('شهر', 'month')}` : undefined}
-                            onAction={() => void purchaseAddon('ai_tokens_500k')}
-                            disabled={actionLoading !== '' || ! overview.payments_available || ! aiAddon?.available}
-                            busy={actionLoading === 'addon:ai_tokens_500k'}
+                            actionLabel={text('إضافة رصيد', 'Add credits')}
+                            addonHint={`${text('الرصيد الإضافي', 'Extra balance')}: ${compactNumber(overview.ai_credits.balance_tokens, locale)} Tokens`}
+                            onAction={() => setPurchaseKind('ai')}
+                            disabled={actionLoading !== '' || ! overview.payments_available}
+                            busy={false}
                         />
                         <ResourceCard
                             icon={HardDrive}
@@ -726,11 +670,11 @@ export function BillingPanel() {
                             value={overview.usage.storage.available ? `${bytes(overview.usage.storage.used_bytes)} / ${bytes(overview.usage.storage.limit_bytes)}` : bytes(overview.usage.storage.limit_bytes)}
                             meta={text('سعة التخزين المشمولة في الباقة الحالية.', 'Storage included in your current plan.')}
                             usagePercent={storagePercent}
-                            actionLabel={text('شراء 25 GB إضافية', 'Buy 25 GB more')}
-                            addonHint={storageAddon ? `${money(storageAddon.amount_minor, storageAddon.currency, locale)} / ${storageAddon.interval === 'year' ? text('سنة', 'year') : text('شهر', 'month')}` : undefined}
-                            onAction={() => void purchaseAddon('storage_25gb')}
+                            actionLabel={text('زيادة التخزين', 'Add storage')}
+                            addonHint={storageAddon ? `${money(storageAddon.amount_minor, storageAddon.currency, locale)} / ${storageAddon.interval === 'year' ? text('سنة لكل 25 GB', 'year per 25 GB') : text('شهر لكل 25 GB', 'month per 25 GB')}` : undefined}
+                            onAction={() => setPurchaseKind('storage')}
                             disabled={actionLoading !== '' || ! overview.payments_available || ! storageAddon?.available}
-                            busy={actionLoading === 'addon:storage_25gb'}
+                            busy={false}
                         />
                     </section>
 
@@ -739,7 +683,7 @@ export function BillingPanel() {
                             <div className="flex items-start justify-between gap-3 border-b border-[var(--acs-line)] px-5 py-4">
                                 <div className="flex items-start gap-3">
                                     <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><CreditCard size={17} /></span>
-                                    <div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('طريقة الدفع', 'Payment method')}</h3><p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('وسيلة الدفع المستخدمة للاشتراك والفواتير الدورية.', 'Payment method used for subscription billing.')}</p></div>
+                                    <div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('طريقة الدفع', 'Payment method')}</h3><p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('وسيلة الدفع المستخدمة للاشتراك وإعادة شحن AI عند تفعيلها.', 'Payment method used for the subscription and AI auto-recharge when enabled.')}</p></div>
                                 </div>
                             </div>
                             <div className="flex items-center justify-between gap-3 p-5">
@@ -776,20 +720,42 @@ export function BillingPanel() {
                     <section className={panel + ' p-5'}>
                         <div className="flex items-start gap-3">
                             <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><Puzzle size={17} /></span>
-                            <div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('إدارة الباقة والإضافات', 'Plan & add-ons')}</h3><p className="mt-1 text-[8px] leading-4 text-[var(--acs-text-muted)]">{text('كل إضافة تصبح بندًا متكررًا على نفس اشتراك Stripe ويمكن زيادتها عند الحاجة.', 'Each add-on becomes a recurring item on the same Stripe subscription and can be increased when needed.')}</p></div>
+                            <div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('إدارة السعة الإضافية', 'Extra capacity')}</h3><p className="mt-1 text-[8px] leading-4 text-[var(--acs-text-muted)]">{text('المقاعد والتخزين إضافات دورية على الاشتراك، بينما رصيد AI شراء مرن مرة واحدة ويمكن تفعيل إعادة شحنه.', 'Seats and storage are recurring subscription add-ons, while AI credits are flexible one-time purchases with optional auto-recharge.')}</p></div>
                         </div>
                         <div className="mt-4 grid gap-3 md:grid-cols-3">
-                            {overview.addons.catalog.map(item => (
-                                <div key={item.key} className="rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-3.5">
-                                    <strong className="block text-[9px] text-[var(--acs-text)]">{ar ? item.name_ar : item.name_en}</strong>
-                                    <p className="mt-1 min-h-8 text-[8px] leading-4 text-[var(--acs-text-muted)]">{ar ? item.description_ar : item.description_en}</p>
-                                    <div className="mt-3 flex items-end justify-between gap-2"><span className="text-[10px] font-extrabold text-[var(--acs-text)]">{money(item.amount_minor, item.currency, locale)}</span><span className="text-[7px] text-[var(--acs-text-muted)]">{item.interval === 'year' ? text('/ سنة', '/ year') : text('/ شهر', '/ month')}</span></div>
-                                    {item.active_quantity > 0 && <p className="mt-2 text-[8px] font-bold text-emerald-500">{text(`لديك ${item.active_quantity} حزمة إضافية`, `${item.active_quantity} extra pack(s) active`)}</p>}
-                                    <button type="button" className={outlineButton + ' mt-3 w-full'} disabled={actionLoading !== '' || ! item.available || ! overview.payments_available} onClick={() => void purchaseAddon(item.key)}>
-                                        {actionLoading === `addon:${item.key}` ? <LoaderCircle size={12} className="animate-spin" /> : <Plus size={12} />}{text('شراء حزمة إضافية', 'Buy another pack')}
-                                    </button>
-                                </div>
-                            ))}
+                            {overview.addons.catalog.map(item => {
+                                const resourceKind: BillingPurchaseKind | null = item.unit === 'seats'
+                                    ? 'seats'
+                                    : item.unit === 'storage_bytes'
+                                        ? 'storage'
+                                        : null;
+
+                                return (
+                                    <div key={item.key} className="rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-3.5">
+                                        <strong className="block text-[9px] text-[var(--acs-text)]">{ar ? item.name_ar : item.name_en}</strong>
+                                        <p className="mt-1 min-h-8 text-[8px] leading-4 text-[var(--acs-text-muted)]">{ar ? item.description_ar : item.description_en}</p>
+                                        <div className="mt-3 flex items-end justify-between gap-2"><span className="text-[10px] font-extrabold text-[var(--acs-text)]">{money(item.amount_minor, item.currency, locale)}</span><span className="text-[7px] text-[var(--acs-text-muted)]">{item.interval === 'year' ? text('/ سنة', '/ year') : text('/ شهر', '/ month')}</span></div>
+                                        {item.active_quantity > 0 && <p className="mt-2 text-[8px] font-bold text-emerald-500">{text(`لديك ${item.active_quantity} حزمة إضافية`, `${item.active_quantity} extra pack(s) active`)}</p>}
+                                        <button
+                                            type="button"
+                                            className={outlineButton + ' mt-3 w-full'}
+                                            disabled={actionLoading !== '' || ! item.available || ! overview.payments_available || ! resourceKind}
+                                            onClick={() => resourceKind && setPurchaseKind(resourceKind)}
+                                        >
+                                            <Plus size={12} />{text('اختيار الكمية', 'Choose quantity')}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+
+                            <div className="rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-3.5">
+                                <strong className="block text-[9px] text-[var(--acs-text)]">{text('رصيد AccoNova AI', 'AccoNova AI credits')}</strong>
+                                <p className="mt-1 min-h-8 text-[8px] leading-4 text-[var(--acs-text-muted)]">{text('اشترِ المبلغ الذي تحتاجه فقط، مع خيار إعادة الشحن التلقائي.', 'Buy only the amount you need, with optional automatic recharge.')}</p>
+                                <div className="mt-3 flex items-end justify-between gap-2"><span className="text-[10px] font-extrabold text-[var(--acs-text)]">{compactNumber(overview.ai_credits.balance_tokens, locale)} Tokens</span><span className="text-[7px] text-[var(--acs-text-muted)]">{overview.ai_credits.auto_recharge.enabled ? text('إعادة الشحن مفعلة', 'Auto-recharge on') : text('شراء مرن', 'Flexible top-up')}</span></div>
+                                <button type="button" className={outlineButton + ' mt-3 w-full'} disabled={actionLoading !== '' || ! overview.payments_available} onClick={() => setPurchaseKind('ai')}>
+                                    <Plus size={12} />{text('إضافة رصيد', 'Add credits')}
+                                </button>
+                            </div>
                         </div>
                     </section>
                 </>
@@ -810,20 +776,20 @@ export function BillingPanel() {
                 <div className="mt-4 grid gap-2 lg:grid-cols-2">
                     {[
                         {
-                            q: text('كيف تعمل الإضافات؟', 'How do add-ons work?'),
-                            a: text('عند الشراء نضيف بندًا متكررًا إلى اشتراكك الحالي ونرفع الحد فور تأكيد الدفع. الزيادة التالية ترفع كمية نفس البند بدل إنشاء اشتراك جديد.', 'Purchasing adds a recurring item to your existing subscription and raises the limit after payment is confirmed. Future purchases increase the same item quantity instead of creating another subscription.'),
+                            q: text('كيف يعمل رصيد AccoNova AI؟', 'How do AccoNova AI credits work?'),
+                            a: text('تُستخدم حصة باقتك الشهرية أولًا، وبعد انتهائها يبدأ الخصم من الرصيد الإضافي الذي اشتريته. ويمكنك تفعيل إعادة الشحن التلقائي عند انخفاض الرصيد.', 'Your included monthly allowance is used first. After it is exhausted, usage is deducted from purchased credits. You can enable automatic recharge when the balance gets low.'),
                         },
                         {
-                            q: text('هل أدفع المبلغ كاملًا إذا اشتريت منتصف الشهر؟', 'Do I pay the full amount when buying mid-cycle?'),
-                            a: text('Stripe يحسب الفرق النسبي للفترة الحالية، ثم تدخل الإضافة في التجديد الدوري مع باقتك.', 'Stripe prorates the current period, then the add-on renews with your plan.'),
+                            q: text('كيف تعمل زيادة المقاعد والتخزين؟', 'How do seat and storage upgrades work?'),
+                            a: text('تختار الكمية من نافذة الشراء، ثم نزيد كمية الإضافة على نفس اشتراك Stripe بدل إنشاء اشتراك جديد.', 'Choose the quantity in the purchase dialog, then we increase that add-on on the same Stripe subscription instead of creating a second subscription.'),
                         },
                         {
-                            q: text('هل أقدر أغيّر أو أخفض الباقة؟', 'Can I change or downgrade the plan?'),
-                            a: text('نعم، استخدم إدارة الاشتراك لتغيير الباقة وطريقة الدفع والتجديد.', 'Yes. Use subscription management to change the plan, payment method and renewal.'),
+                            q: text('هل أدفع المبلغ كاملًا إذا زدت المقاعد منتصف الشهر؟', 'Do I pay the full amount for seats added mid-cycle?'),
+                            a: text('Stripe يحسب الفرق النسبي للفترة الحالية تلقائيًا، وبعدها تدخل الإضافة في التجديد الدوري مع باقتك.', 'Stripe automatically prorates the current period, then the add-on renews with your plan.'),
                         },
                         {
                             q: text('هل AccoNova يخزن رقم البطاقة الكامل؟', 'Does AccoNova store my full card number?'),
-                            a: text('لا. بيانات البطاقة الكاملة لا تُخزن داخل قاعدة بيانات AccoNova.', 'No. Full card details are not stored in the AccoNova database.'),
+                            a: text('لا. الدفع يتم عبر Stripe ولا نخزن رقم البطاقة الكامل داخل قاعدة بيانات AccoNova.', 'No. Payments run through Stripe and full card details are not stored in the AccoNova database.'),
                         },
                     ].map(item => (
                         <details key={item.q} className="group rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)]">
@@ -833,6 +799,23 @@ export function BillingPanel() {
                     ))}
                 </div>
             </section>
+
+            <BillingPurchaseDialog
+                open={purchaseKind !== null}
+                kind={purchaseKind}
+                addon={purchaseKind === 'seats'
+                    ? seatsAddon
+                    : purchaseKind === 'storage'
+                        ? storageAddon
+                        : null}
+                credits={overview.ai_credits}
+                locale={locale}
+                onClose={() => setPurchaseKind(null)}
+                onCompleted={async message => {
+                    await loadOverview();
+                    setSuccessMessage(message);
+                }}
+            />
         </div>
     );
 }
