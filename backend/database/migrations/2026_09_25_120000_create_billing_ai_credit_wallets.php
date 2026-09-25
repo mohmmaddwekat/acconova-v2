@@ -33,14 +33,16 @@ return new class extends Migration
             $table->unsignedBigInteger('balance_after_tokens')->default(0);
             $table->unsignedBigInteger('amount_minor')->default(0);
             $table->string('currency', 3)->default('USD');
-            $table->string('provider_checkout_session_id', 140)->nullable()->unique();
-            $table->string('provider_payment_intent_id', 140)->nullable()->unique();
+            $table->string('provider_checkout_session_id', 140)->nullable();
+            $table->string('provider_payment_intent_id', 140)->nullable();
             $table->string('reference', 191)->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
 
-            $table->index(['organization_id', 'created_at']);
-            $table->index(['organization_id', 'kind']);
+            $table->unique('provider_checkout_session_id', 'billing_ai_credit_checkout_unique');
+            $table->unique('provider_payment_intent_id', 'billing_ai_credit_intent_unique');
+            $table->index(['organization_id', 'created_at'], 'billing_ai_credit_org_created_idx');
+            $table->index(['organization_id', 'kind'], 'billing_ai_credit_org_kind_idx');
         });
     }
 
