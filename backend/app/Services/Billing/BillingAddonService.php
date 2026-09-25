@@ -58,20 +58,38 @@ final class BillingAddonService
             ! $account->provider_subscription_id
             || in_array($account->status, ['canceled', 'incomplete_expired'], true)
         ) {
-            DB::table('billing_growth_addons')
-                ->where('organization_id', $organizationId)
-                ->update([
-                    'quantity' => 0,
-                    'status' => 'inactive',
-                    'updated_at' => now(),
-                ]);
+            $this->deactivateAll($organizationId);
 
             return;
         }
 
-        $subscription = $this->gateway->subscription(
-            (string) $account->provider_subscription_id,
+        $this->reconcileSubscription(
+            $account,
+            $this->gateway->subscription((string) $account->provider_subscription_id),
         );
+    }
+
+    /**
+     * Reconcile a Stripe subscription payload without performing another
+     * provider request. This is used by subscription webhooks so add-on
+     * entitlement changes become available immediately and the base plan does
+     * not depend on Stripe item ordering.
+     *
+     * @param array<string, mixed> $subscription
+     */
+    public function reconcileSubscription(
+        BillingAccount $account,
+        array $subscription,
+    ): void {
+        $organizationId = (int) $account->organization_id;
+        $status = (string) ($subscription['status'] ?? $account->status ?? '');
+
+        if (in_array($status, ['canceled', 'incomplete_expired'], true)) {
+            $this->deactivateAll($organizationId);
+
+            return;
+        }
+
         $items = data_get($subscription, 'items.data', []);
         $items = is_array($items) ? $items : [];
         $catalog = (array) config('billing_growth.addons', []);
@@ -115,11 +133,6 @@ final class BillingAddonService
             );
         }
 
-        /*
-         * Stripe subscriptions may contain several items after add-ons are
-         * purchased. Keep BillingAccount anchored to the actual base-plan item
-         * even if a webhook happens to list an add-on first.
-         */
         if (is_array($baseItem)) {
             $basePrice = is_array($baseItem['price'] ?? null)
                 ? $baseItem['price']
@@ -295,5 +308,16 @@ final class BillingAddonService
                 'updated_at' => now(),
             ],
         );
+    }
+
+    private function deactivateAll(int $organizationId): void
+    {
+        DB::table('billing_growth_addons')
+            ->where('organization_id', $organizationId)
+            ->update([
+                'quantity' => 0,
+                'status' => 'inactive',
+                'updated_at' => now(),
+            ]);
     }
 }
