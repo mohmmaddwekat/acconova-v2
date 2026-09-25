@@ -85,6 +85,14 @@
             <a href="{{ route('marketing.faq') }}">FAQ</a>
         </div>
         <div>
+            <h2>Solutions</h2>
+            <a href="{{ route('marketing.solutions.erp') }}">Small business ERP</a>
+            <a href="{{ route('marketing.solutions.crm') }}">CRM for small business</a>
+            <a href="{{ route('marketing.solutions.inventory') }}">Inventory management</a>
+            <a href="{{ route('marketing.solutions.invoicing') }}">Invoicing & payments</a>
+            <a href="{{ route('marketing.solutions.reporting') }}">Business reporting</a>
+        </div>
+        <div>
             <h2>Company</h2>
             <a href="{{ route('marketing.about') }}">About</a>
             <a href="{{ route('marketing.contact') }}">Contact</a>
