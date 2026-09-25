@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BillingInvoice;
+use App\Services\Billing\AiCreditService;
 use App\Services\Billing\BillingAddonService;
 use App\Services\Billing\BillingGrowthService;
 use App\Services\WorkspaceFeaturePermissions;
@@ -49,6 +50,36 @@ final class BillingGrowthController extends Controller
                     ? $exception->getMessage()
                     : 'Could not purchase the add-on.',
                 'code' => 'BILLING_ADDON_PURCHASE_FAILED',
+            ], 422);
+        }
+    }
+
+    public function purchaseAiCredits(Request $request, AiCreditService $credits): JsonResponse
+    {
+        $this->authorizeManage($request);
+        $data = $request->validate([
+            'amount_minor' => ['required', 'integer', 'min:100', 'max:10000000'],
+            'auto_recharge' => ['required', 'boolean'],
+            'threshold_tokens' => ['required', 'integer', 'min:1', 'max:1000000000'],
+        ]);
+
+        try {
+            return response()->json([
+                'data' => $credits->checkout(
+                    app(TenantContext::class)->organization(),
+                    (int) $data['amount_minor'],
+                    (bool) $data['auto_recharge'],
+                    (int) $data['threshold_tokens'],
+                ),
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => $exception->getMessage() !== ''
+                    ? $exception->getMessage()
+                    : 'Could not start AI credit checkout.',
+                'code' => 'AI_CREDIT_CHECKOUT_FAILED',
             ], 422);
         }
     }
