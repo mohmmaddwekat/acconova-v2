@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\PlatformAdminController;
+use App\Http\Controllers\PlatformFeatureAdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])
@@ -13,6 +14,11 @@ Route::middleware(['auth', 'verified'])
         )
             ->whereNumber('message')
             ->name('contacts.status');
+
+        Route::get(
+            '/features',
+            PlatformFeatureAdminController::class,
+        )->name('features');
 
         Route::get(
             '/{section?}',
