@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AiCreditSettingsController;
 use App\Http\Controllers\BillingGrowthController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
@@ -8,6 +9,7 @@ Route::middleware(['auth', 'verified', ResolveOrganization::class])->group(funct
     Route::get('/api/billing/growth', [BillingGrowthController::class, 'show']);
     Route::post('/api/billing/addons/purchase', [BillingGrowthController::class, 'purchaseAddon'])->middleware('throttle:10,1');
     Route::post('/api/billing/ai-credits/checkout', [BillingGrowthController::class, 'purchaseAiCredits'])->middleware('throttle:10,1');
+    Route::put('/api/billing/ai-credits/auto-recharge', [AiCreditSettingsController::class, 'update'])->middleware('throttle:20,1');
     Route::post('/api/billing/growth/trial/extend', [BillingGrowthController::class, 'extendTrial'])->middleware('throttle:5,1');
     Route::post('/api/billing/growth/cancel', [BillingGrowthController::class, 'cancel'])->middleware('throttle:5,1');
     Route::post('/api/billing/growth/resume-renewal', [BillingGrowthController::class, 'resumeRenewal'])->middleware('throttle:5,1');
