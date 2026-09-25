@@ -19,6 +19,21 @@ return [
     'cancel_save_credit_minor' => max(0, (int) env('BILLING_CANCEL_SAVE_CREDIT_MINOR', 0)),
 
     /*
+     * AI credits are one-time wallet top-ups, separate from the recurring
+     * workspace subscription. 50K tokens per $1 keeps the same unit economics
+     * as the original 500K / $10 add-on while allowing flexible amounts.
+     */
+    'ai_credits' => [
+        'currency' => env('BILLING_AI_CREDIT_CURRENCY', 'USD'),
+        'tokens_per_dollar' => max(1, (int) env('BILLING_AI_CREDIT_TOKENS_PER_DOLLAR', 50000)),
+        'minimum_amount_minor' => max(100, (int) env('BILLING_AI_CREDIT_MINIMUM_MINOR', 500)),
+        'maximum_amount_minor' => max(100, (int) env('BILLING_AI_CREDIT_MAXIMUM_MINOR', 100000)),
+        'preset_amounts_minor' => [1000, 5000, 10000, 20000],
+        'default_threshold_tokens' => max(1, (int) env('BILLING_AI_AUTO_RECHARGE_THRESHOLD', 100000)),
+        'threshold_options' => [100000, 250000, 500000],
+    ],
+
+    /*
      * Recurring capacity add-ons are separate Stripe subscription items on the
      * workspace's existing subscription. The lookup keys let
      * `php artisan billing:sync-addons` create/reuse the catalog without
