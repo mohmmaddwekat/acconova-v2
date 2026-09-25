@@ -8,7 +8,9 @@ use App\Services\AI\AiAssistantOrchestrator;
 use App\Services\AI\AiBusinessToolRegistry;
 use App\Services\AI\AiConversationMemory;
 use App\Services\AI\AiGateway;
+use App\Services\Billing\AiCreditService;
 use App\Services\WorkspaceFeaturePermissions;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -116,6 +118,7 @@ class AiAssistantController extends Controller
         AiGateway $gateway,
         AiConversationMemory $memory,
         AiAssistantOrchestrator $orchestrator,
+        AiCreditService $credits,
     ): JsonResponse {
         WorkspaceFeaturePermissions::authorize(
             $request->user(),
@@ -128,6 +131,16 @@ class AiAssistantController extends Controller
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:12000'],
         ]);
+
+        $organization = app(TenantContext::class)->organization();
+
+        if (! $credits->ensureAvailable($organization)) {
+            return response()->json([
+                'message' => 'Your included AccoNova AI allowance is exhausted. Add AI credits to continue.',
+                'code' => 'AI_CREDITS_REQUIRED',
+                'billing_url' => '/app/billing',
+            ], 402);
+        }
 
         $userMessage = AiMessage::create([
             'ai_conversation_id' => $conversationRecord->id,
@@ -158,6 +171,18 @@ class AiAssistantController extends Controller
                 'user_message_id' => $userMessage->id,
             ], $gateway->configured() ? 502 : 503);
         }
+
+        /*
+         * Included monthly tokens are consumed first. Only the portion above
+         * the plan allowance is debited from the purchased wallet.
+         */
+        rescue(
+            fn () => $credits->consumeOverage(
+                $organization,
+                (int) $result['total_tokens'],
+            ),
+            report: true,
+        );
 
         $assistantMessage = AiMessage::create([
             'ai_conversation_id' => $conversationRecord->id,
