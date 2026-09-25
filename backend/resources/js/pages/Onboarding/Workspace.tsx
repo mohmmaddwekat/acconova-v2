@@ -27,7 +27,7 @@ function readCheckoutIntent(): CheckoutIntent | null {
     if (typeof window === 'undefined') return null;
 
     try {
-        const raw = window.sessionStorage.getItem(checkoutIntentKey);
+        const raw = window.localStorage.getItem(checkoutIntentKey);
         if (! raw) return null;
 
         const value = JSON.parse(raw) as Partial<CheckoutIntent>;
@@ -36,7 +36,7 @@ function readCheckoutIntent(): CheckoutIntent | null {
             || ! /^[a-z0-9_-]+$/i.test(value.plan)
             || ! ['month', 'year'].includes(value.interval ?? '')
         ) {
-            window.sessionStorage.removeItem(checkoutIntentKey);
+            window.localStorage.removeItem(checkoutIntentKey);
             return null;
         }
 
@@ -82,7 +82,7 @@ export default function WorkspaceOnboarding() {
         );
 
         try {
-            window.sessionStorage.removeItem(checkoutIntentKey);
+            window.localStorage.removeItem(checkoutIntentKey);
         } catch {
             // Redirecting to Stripe is more important than clearing a blocked store.
         }
