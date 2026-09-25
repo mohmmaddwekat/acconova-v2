@@ -1,5 +1,6 @@
 <!doctype html>
-<html lang="en">
+@php($isArabic = app()->getLocale() === 'ar')
+<html lang="{{ app()->getLocale() }}" dir="{{ $isArabic ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,14 +10,17 @@
     <meta name="author" content="AccoNova">
     <link rel="canonical" href="{{ $seo['canonical'] }}">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="stylesheet" href="/marketing.css?v=1">
+    <link rel="stylesheet" href="/marketing.css?v=2">
+    @if ($isArabic)
+        <link rel="stylesheet" href="/marketing-rtl.css?v=1">
+    @endif
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="AccoNova">
     <meta property="og:title" content="{{ $seo['title'] }}">
     <meta property="og:description" content="{{ $seo['description'] }}">
     <meta property="og:url" content="{{ $seo['canonical'] }}">
-    <meta property="og:locale" content="en_US">
+    <meta property="og:locale" content="{{ $isArabic ? 'ar_AR' : 'en_US' }}">
 
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="{{ $seo['title'] }}">
@@ -44,6 +48,11 @@
         </nav>
 
         <div class="header-actions">
+            <a
+                class="language-switch"
+                href="{{ route('marketing.language', ['locale' => $isArabic ? 'en' : 'ar', 'return' => request()->getRequestUri()]) }}"
+                aria-label="{{ $isArabic ? 'Switch to English' : 'التبديل إلى العربية' }}"
+            >{{ $isArabic ? 'EN' : 'العربية' }}</a>
             <a class="text-link" href="/login">Sign in</a>
             <a class="button button-primary button-small" href="/register">Start with AccoNova</a>
         </div>
@@ -57,6 +66,7 @@
                 <a href="{{ route('marketing.about') }}">About</a>
                 <a href="{{ route('marketing.faq') }}">FAQ</a>
                 <a href="{{ route('marketing.contact') }}">Contact</a>
+                <a href="{{ route('marketing.language', ['locale' => $isArabic ? 'en' : 'ar', 'return' => request()->getRequestUri()]) }}">{{ $isArabic ? 'English' : 'العربية' }}</a>
                 <a href="/login">Sign in</a>
                 <a class="button button-primary" href="/register">Start with AccoNova</a>
             </nav>

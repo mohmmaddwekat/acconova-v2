@@ -1,8 +1,31 @@
 <?php
 
+use App\Http\Controllers\MarketingContactController;
 use App\Http\Controllers\MarketingPageController;
 use App\Http\Controllers\MarketingSolutionController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/language/{locale}', function (Request $request, string $locale) {
+    abort_unless(in_array($locale, ['en', 'ar'], true), 404);
+
+    $return = (string) $request->query('return', '/');
+    if (! str_starts_with($return, '/') || str_starts_with($return, '//')) {
+        $return = '/';
+    }
+
+    return redirect($return)->withCookie(cookie(
+        'acconova_locale',
+        $locale,
+        60 * 24 * 365 * 5,
+        '/',
+        null,
+        $request->isSecure(),
+        false,
+        false,
+        'Lax',
+    ));
+})->whereIn('locale', ['en', 'ar'])->name('marketing.language');
 
 Route::get('/', [MarketingPageController::class, 'home'])
     ->name('marketing.home');
@@ -18,7 +41,7 @@ Route::get('/faq', [MarketingPageController::class, 'faq'])
     ->name('marketing.faq');
 Route::get('/contact', [MarketingPageController::class, 'contact'])
     ->name('marketing.contact');
-Route::post('/contact', [MarketingPageController::class, 'submitContact'])
+Route::post('/contact', MarketingContactController::class)
     ->middleware('throttle:5,1')
     ->name('marketing.contact.submit');
 Route::get('/privacy', [MarketingPageController::class, 'privacy'])
@@ -72,6 +95,7 @@ Route::get('/robots.txt', function () {
         'Allow: /',
         'Disallow: /app/',
         'Disallow: /api/',
+        'Disallow: /admin/',
         'Disallow: /login',
         'Disallow: /register',
         'Disallow: /forgot-password',

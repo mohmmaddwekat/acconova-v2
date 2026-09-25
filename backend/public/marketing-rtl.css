@@ -1,0 +1,88 @@
+html[dir="rtl"] body {
+    direction: rtl;
+    text-align: right;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+html[dir="rtl"] .header-inner,
+html[dir="rtl"] .brand,
+html[dir="rtl"] .desktop-nav,
+html[dir="rtl"] .header-actions,
+html[dir="rtl"] .hero-actions,
+html[dir="rtl"] .trust-item,
+html[dir="rtl"] .check-row,
+html[dir="rtl"] .contact-point,
+html[dir="rtl"] .footer-bottom,
+html[dir="rtl"] .breadcrumbs {
+    direction: rtl;
+}
+
+html[dir="rtl"] .desktop-nav a.active::after {
+    left: 0;
+    right: 0;
+}
+
+html[dir="rtl"] .feature-card li {
+    padding-left: 0;
+    padding-right: 20px;
+}
+
+html[dir="rtl"] .feature-card li::before {
+    left: auto;
+    right: 0;
+}
+
+html[dir="rtl"] .hero::before {
+    right: auto;
+    left: -220px;
+}
+
+html[dir="rtl"] .product-frame::after {
+    inset: 14% 18% -9% -10%;
+}
+
+html[dir="rtl"] .ai-panel::before {
+    right: auto;
+    left: 22px;
+}
+
+html[dir="rtl"] .cta-actions {
+    justify-content: flex-start;
+}
+
+html[dir="rtl"] .contact-form,
+html[dir="rtl"] .prose,
+html[dir="rtl"] .pricing-card,
+html[dir="rtl"] .feature-card,
+html[dir="rtl"] .contact-card,
+html[dir="rtl"] .faq-item,
+html[dir="rtl"] .copy-block,
+html[dir="rtl"] .section-header {
+    text-align: right;
+}
+
+.language-switch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: #405167;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.language-switch:hover {
+    border-color: var(--blue);
+    color: var(--blue-dark);
+}
+
+@media (max-width: 860px) {
+    html[dir="rtl"] .mobile-menu {
+        margin-left: 0;
+        margin-right: auto;
+    }
+}
