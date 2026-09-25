@@ -9,7 +9,7 @@ import {
     ShieldCheck,
     Sparkles,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 type Permission = {
     key: string;
@@ -140,7 +140,7 @@ export default function PlatformFeatures({
     );
 }
 
-function Stat({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+function Stat({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
     return (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-center justify-between gap-3">
