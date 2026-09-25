@@ -9,6 +9,7 @@ import {
     UserPlus,
 } from 'lucide-react';
 import {
+    useEffect,
     useState,
     type FormEvent,
 } from 'react';
@@ -18,11 +19,40 @@ import { AuthInput } from '@/features/auth/components/AuthInput';
 import { ApiError } from '@/lib/http';
 import { AuthShell } from '@/layouts/AuthShell';
 
+type CheckoutIntent = {
+    plan: string;
+    interval: 'month' | 'year';
+};
+
+const checkoutIntentKey = 'acconova.checkoutIntent';
+
+function checkoutIntentFromPricing(): CheckoutIntent | null {
+    if (typeof window === 'undefined') return null;
+
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get('plan')?.trim() ?? '';
+    const interval = params.get('interval') === 'year' ? 'year' : 'month';
+    const source = params.get('source');
+
+    if (
+        source !== 'pricing'
+        || ! /^[a-z0-9_-]+$/i.test(plan)
+    ) {
+        return null;
+    }
+
+    return { plan, interval };
+}
+
 /**
  * Render the AccoNova account registration experience.
  */
 export default function Register() {
     useLocale();
+    const [checkoutIntent] = useState<CheckoutIntent | null>(
+        checkoutIntentFromPricing,
+    );
+
     const [name, setName] =
         useState('');
 
@@ -47,6 +77,23 @@ export default function Register() {
 
     const [message, setMessage] =
         useState<string | null>(null);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        try {
+            if (checkoutIntent) {
+                window.sessionStorage.setItem(
+                    checkoutIntentKey,
+                    JSON.stringify(checkoutIntent),
+                );
+            } else {
+                window.sessionStorage.removeItem(checkoutIntentKey);
+            }
+        } catch {
+            // Registration still works if private browsing blocks storage.
+        }
+    }, [checkoutIntent]);
 
     /**
      * Register and authenticate a new user before beginning workspace setup.
@@ -95,6 +142,10 @@ export default function Register() {
             setBusy(false);
         }
     }
+
+    const loginHref = checkoutIntent
+        ? `/login?source=pricing&plan=${encodeURIComponent(checkoutIntent.plan)}&interval=${checkoutIntent.interval}`
+        : '/login';
 
     return (
         <>
@@ -195,7 +246,7 @@ export default function Register() {
                     </p>
 
                     <Link
-                        href="/login"
+                        href={loginHref}
                         className="text-sm font-semibold text-[var(--ac-accent-strong)]"
                     >
                         {t('ui.sign_in')}
