@@ -69,6 +69,51 @@ class BillingCheckoutTest extends TestCase
         );
     }
 
+    public function test_update_payment_opens_dedicated_stripe_payment_method_flow(): void
+    {
+        [$owner, $organization] = $this->workspace();
+
+        $this->configureBilling();
+
+        BillingAccount::query()->create([
+            'organization_id' => $organization->id,
+            'provider_customer_id' => 'cus_payment_update',
+            'status' => 'active',
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://billing.example.test/v1/billing_portal/sessions' => Http::response([
+                'id' => 'bps_test_123',
+                'url' => 'https://billing.stripe.test/payment-method',
+            ]),
+        ]);
+
+        $this
+            ->actingAs($owner)
+            ->withSession([
+                OrganizationAccess::SESSION_KEY => $organization->id,
+            ])
+            ->postJson('/api/billing/portal')
+            ->assertOk()
+            ->assertJsonPath(
+                'data.url',
+                'https://billing.stripe.test/payment-method',
+            );
+
+        Http::assertSent(
+            fn ($request): bool =>
+                $request->url() === 'https://billing.example.test/v1/billing_portal/sessions'
+                && data_get($request->data(), 'customer') === 'cus_payment_update'
+                && data_get($request->data(), 'flow_data.type') === 'payment_method_update'
+                && data_get($request->data(), 'flow_data.after_completion.type') === 'redirect'
+                && str_ends_with(
+                    (string) data_get($request->data(), 'flow_data.after_completion.redirect.return_url'),
+                    '/app/billing',
+                ),
+        );
+    }
+
     public function test_checkout_recovers_from_stale_provider_customer_reference(): void
     {
         [$owner, $organization] = $this->workspace();
