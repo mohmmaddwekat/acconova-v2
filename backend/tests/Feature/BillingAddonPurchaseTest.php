@@ -22,7 +22,7 @@ class BillingAddonPurchaseTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_owner_can_buy_seat_pack_on_existing_subscription(): void
+    public function test_owner_can_set_exact_seat_quantity_reduce_it_and_remove_it(): void
     {
         $owner = User::factory()->create();
         $organization = Organization::create([
@@ -39,18 +39,24 @@ class BillingAddonPurchaseTest extends TestCase
             'billing.stripe.api_base' => 'https://billing-provider.test',
             'billing.plans.starter.prices.month' => 'price_starter_monthly',
             'billing_growth.addons.extra_seats_5.prices.month.price_id' => null,
-            'billing_growth.addons.extra_seats_5.prices.month.lookup_key' => 'acconova_extra_seats_5_month',
+            'billing_growth.addons.extra_seats_5.prices.month.lookup_key' => 'acconova_extra_seat_v2_month',
+            'billing_growth.addons.extra_seats_5.prices.month.amount_minor' => 200,
+            'billing_growth.addons.extra_seats_5.quantity' => 1,
+            'billing_growth.addons.extra_seats_5.display_bundle_quantity' => 5,
+            'billing_growth.addons.extra_seats_5.max_quantity' => 500,
         ]);
 
+        $providerSeatQuantity = 5;
+
         Http::preventStrayRequests();
-        Http::fake(function (Request $request) {
+        Http::fake(function (Request $request) use (&$providerSeatQuantity) {
             if (str_contains($request->url(), '/v1/prices')) {
                 return Http::response([
                     'data' => [[
-                        'id' => 'price_extra_seats_5_month',
+                        'id' => 'price_extra_seat_month',
                         'product' => 'prod_seats',
-                        'lookup_key' => 'acconova_extra_seats_5_month',
-                        'unit_amount' => 2000,
+                        'lookup_key' => 'acconova_extra_seat_v2_month',
+                        'unit_amount' => 200,
                         'currency' => 'usd',
                         'recurring' => ['interval' => 'month'],
                     ]],
@@ -61,62 +67,16 @@ class BillingAddonPurchaseTest extends TestCase
                 $request->method() === 'POST'
                 && str_contains($request->url(), '/v1/subscriptions/sub_addon')
             ) {
-                return Http::response([
-                    'id' => 'sub_addon',
-                    'status' => 'active',
-                    'items' => [
-                        'data' => [
-                            [
-                                'id' => 'si_base',
-                                'quantity' => 1,
-                                'price' => [
-                                    'id' => 'price_starter_monthly',
-                                    'unit_amount' => 1900,
-                                    'currency' => 'usd',
-                                    'recurring' => ['interval' => 'month'],
-                                ],
-                            ],
-                            [
-                                'id' => 'si_seats',
-                                'quantity' => 1,
-                                'price' => [
-                                    'id' => 'price_extra_seats_5_month',
-                                    'lookup_key' => 'acconova_extra_seats_5_month',
-                                    'unit_amount' => 2000,
-                                    'currency' => 'usd',
-                                    'recurring' => ['interval' => 'month'],
-                                ],
-                            ],
-                        ],
-                    ],
-                    'latest_invoice' => [
-                        'id' => 'in_addon',
-                        'status' => 'paid',
-                        'hosted_invoice_url' => 'https://billing-provider.test/invoices/in_addon',
-                    ],
-                    'pending_update' => null,
-                ]);
+                $item = $request['items'][0] ?? [];
+                $providerSeatQuantity = ($item['deleted'] ?? null) === 'true'
+                    ? 0
+                    : max(0, (int) ($item['quantity'] ?? $providerSeatQuantity));
+
+                return Http::response($this->subscriptionPayload($providerSeatQuantity));
             }
 
             if (str_contains($request->url(), '/v1/subscriptions/sub_addon')) {
-                return Http::response([
-                    'id' => 'sub_addon',
-                    'customer' => 'cus_addon',
-                    'status' => 'active',
-                    'items' => [
-                        'data' => [[
-                            'id' => 'si_base',
-                            'quantity' => 1,
-                            'price' => [
-                                'id' => 'price_starter_monthly',
-                                'unit_amount' => 1900,
-                                'currency' => 'usd',
-                                'recurring' => ['interval' => 'month'],
-                            ],
-                        ]],
-                    ],
-                    'default_payment_method' => null,
-                ]);
+                return Http::response($this->subscriptionPayload($providerSeatQuantity));
             }
 
             return Http::response([], 404);
@@ -141,37 +101,118 @@ class BillingAddonPurchaseTest extends TestCase
             OrganizationAccess::SESSION_KEY => $organization->id,
         ];
 
+        /* Existing Stripe quantity is 5; customer chooses the exact final value 3. */
         $this->actingAs($owner)
             ->withSession($session)
             ->postJson('/api/billing/addons/purchase', [
                 'addon' => 'extra_seats_5',
-                'quantity' => 1,
+                'target_quantity' => 3,
             ])
             ->assertOk()
-            ->assertJsonPath('data.quantity', 1)
+            ->assertJsonPath('data.previous_quantity', 5)
+            ->assertJsonPath('data.quantity', 3)
+            ->assertJsonPath('data.quantity_delta', -2)
             ->assertJsonPath('data.pending', false);
 
         $this->assertDatabaseHas('billing_growth_addons', [
             'organization_id' => $organization->id,
             'addon_key' => 'extra_seats_5',
-            'quantity' => 1,
+            'quantity' => 3,
             'status' => 'active',
             'provider_subscription_item_id' => 'si_seats',
-            'price_id' => 'price_extra_seats_5_month',
+            'price_id' => 'price_extra_seat_month',
+            'amount_minor' => 200,
         ]);
 
         $this->actingAs($owner)
             ->withSession($session)
             ->getJson('/api/billing/overview')
             ->assertOk()
-            ->assertJsonPath('data.usage.seats.limit', 8)
-            ->assertJsonPath('data.addons.catalog.0.active_quantity', 1);
+            ->assertJsonPath('data.usage.seats.limit', 6)
+            ->assertJsonPath('data.addons.catalog.0.active_quantity', 3)
+            ->assertJsonPath('data.addons.catalog.0.amount_minor', 1000)
+            ->assertJsonPath('data.addons.catalog.0.unit_amount_minor', 200);
+
+        /* Quantity zero removes the recurring Stripe item completely. */
+        $this->actingAs($owner)
+            ->withSession($session)
+            ->postJson('/api/billing/addons/purchase', [
+                'addon' => 'extra_seats_5',
+                'target_quantity' => 0,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.previous_quantity', 3)
+            ->assertJsonPath('data.quantity', 0)
+            ->assertJsonPath('data.quantity_delta', -3);
+
+        $this->assertDatabaseHas('billing_growth_addons', [
+            'organization_id' => $organization->id,
+            'addon_key' => 'extra_seats_5',
+            'quantity' => 0,
+            'status' => 'inactive',
+        ]);
+
+        $this->actingAs($owner)
+            ->withSession($session)
+            ->getJson('/api/billing/overview')
+            ->assertOk()
+            ->assertJsonPath('data.usage.seats.limit', 3);
 
         Http::assertSent(function (Request $request): bool {
             return $request->method() === 'POST'
                 && str_contains($request->url(), '/v1/subscriptions/sub_addon')
+                && (int) data_get($request->data(), 'items.0.quantity') === 3
                 && $request['proration_behavior'] === 'always_invoice'
                 && $request['payment_behavior'] === 'pending_if_incomplete';
         });
+
+        Http::assertSent(function (Request $request): bool {
+            return $request->method() === 'POST'
+                && str_contains($request->url(), '/v1/subscriptions/sub_addon')
+                && data_get($request->data(), 'items.0.deleted') === 'true';
+        });
+    }
+
+    /** @return array<string, mixed> */
+    private function subscriptionPayload(int $seatQuantity): array
+    {
+        $items = [[
+            'id' => 'si_base',
+            'quantity' => 1,
+            'price' => [
+                'id' => 'price_starter_monthly',
+                'unit_amount' => 1900,
+                'currency' => 'usd',
+                'recurring' => ['interval' => 'month'],
+            ],
+        ]];
+
+        if ($seatQuantity > 0) {
+            $items[] = [
+                'id' => 'si_seats',
+                'quantity' => $seatQuantity,
+                'price' => [
+                    'id' => 'price_extra_seat_month',
+                    'lookup_key' => 'acconova_extra_seat_v2_month',
+                    'unit_amount' => 200,
+                    'currency' => 'usd',
+                    'recurring' => ['interval' => 'month'],
+                ],
+            ];
+        }
+
+        return [
+            'id' => 'sub_addon',
+            'customer' => 'cus_addon',
+            'status' => 'active',
+            'items' => ['data' => $items],
+            'default_payment_method' => null,
+            'latest_invoice' => [
+                'id' => 'in_addon',
+                'status' => 'paid',
+                'hosted_invoice_url' => 'https://billing-provider.test/invoices/in_addon',
+            ],
+            'pending_update' => null,
+        ];
     }
 }
