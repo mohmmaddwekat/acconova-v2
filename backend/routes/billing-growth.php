@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\AiCreditSettingsController;
 use App\Http\Controllers\BillingGrowthController;
+use App\Http\Controllers\BillingPlanController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified', ResolveOrganization::class])->group(function (): void {
     Route::get('/api/billing/growth', [BillingGrowthController::class, 'show']);
+    Route::post('/api/billing/change-plan', [BillingPlanController::class, 'update'])->middleware('throttle:8,1');
     Route::post('/api/billing/addons/purchase', [BillingGrowthController::class, 'purchaseAddon'])->middleware('throttle:10,1');
     Route::post('/api/billing/ai-credits/checkout', [BillingGrowthController::class, 'purchaseAiCredits'])->middleware('throttle:10,1');
     Route::put('/api/billing/ai-credits/auto-recharge', [AiCreditSettingsController::class, 'update'])->middleware('throttle:20,1');
