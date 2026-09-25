@@ -31,24 +31,32 @@ final class BillingGrowthController extends Controller
         $keys = array_keys((array) config('billing_growth.addons', []));
         $data = $request->validate([
             'addon' => ['required', 'string', Rule::in($keys)],
-            'quantity' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'target_quantity' => ['nullable', 'integer', 'min:0', 'max:10000'],
         ]);
 
         try {
-            return response()->json([
-                'data' => $addons->purchase(
-                    app(TenantContext::class)->organization(),
+            $organization = app(TenantContext::class)->organization();
+            $result = isset($data['target_quantity'])
+                ? $addons->setQuantity(
+                    $organization,
+                    (string) $data['addon'],
+                    (int) $data['target_quantity'],
+                )
+                : $addons->purchase(
+                    $organization,
                     (string) $data['addon'],
                     (int) ($data['quantity'] ?? 1),
-                ),
-            ]);
+                );
+
+            return response()->json(['data' => $result]);
         } catch (Throwable $exception) {
             report($exception);
 
             return response()->json([
                 'message' => $exception->getMessage() !== ''
                     ? $exception->getMessage()
-                    : 'Could not purchase the add-on.',
+                    : 'Could not update the add-on.',
                 'code' => 'BILLING_ADDON_PURCHASE_FAILED',
             ], 422);
         }
