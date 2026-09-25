@@ -83,12 +83,12 @@ export default function Register() {
 
         try {
             if (checkoutIntent) {
-                window.sessionStorage.setItem(
+                window.localStorage.setItem(
                     checkoutIntentKey,
                     JSON.stringify(checkoutIntent),
                 );
             } else {
-                window.sessionStorage.removeItem(checkoutIntentKey);
+                window.localStorage.removeItem(checkoutIntentKey);
             }
         } catch {
             // Registration still works if private browsing blocks storage.
