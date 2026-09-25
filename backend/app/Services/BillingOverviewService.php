@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BillingAccount;
 use App\Models\BillingInvoice;
 use App\Models\Organization;
+use App\Services\Billing\AiCreditService;
 use App\Services\Billing\BillingAddonService;
 use App\Services\Billing\StripeBillingGateway;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ final class BillingOverviewService
     public function __construct(
         private readonly StripeBillingGateway $billing,
         private readonly BillingAddonService $addons,
+        private readonly AiCreditService $credits,
     ) {}
 
     /**
@@ -207,6 +209,7 @@ final class BillingOverviewService
                 ),
                 'active' => $activeAddons,
             ],
+            'ai_credits' => $this->credits->snapshot($organization),
             'currency' => (string) ($preferences['currency'] ?? 'ILS'),
             'usage' => [
                 'period' => [
