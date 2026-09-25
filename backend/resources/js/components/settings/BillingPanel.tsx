@@ -8,13 +8,11 @@ import {
     CircleAlert,
     CircleHelp,
     CreditCard,
-    Crown,
     ExternalLink,
     FileText,
     HardDrive,
     LoaderCircle,
     Pencil,
-    Plus,
     ReceiptText,
     RefreshCw,
     ShieldCheck,
@@ -23,40 +21,16 @@ import {
     WalletCards,
     Zap,
 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-} from 'react';
+    BillingPlanDialog,
+    type BillingPlanOption,
+} from './BillingPlanDialog';
 import {
     BillingPurchaseDialog,
     type BillingAiCredits,
     type BillingPurchaseKind,
 } from './BillingPurchaseDialog';
-
-type BillingPrice = {
-    available: boolean;
-    amount_minor: number | null;
-    currency: string | null;
-};
-
-type BillingPlan = {
-    key: string;
-    name_ar: string;
-    name_en: string;
-    description_ar: string;
-    description_en: string;
-    recommended: boolean;
-    features_ar: string[];
-    features_en: string[];
-    limits: {
-        seats: number | null;
-        storage_bytes: number | null;
-    };
-    month: BillingPrice;
-    year: BillingPrice;
-};
 
 type BillingAddon = {
     key: string;
@@ -80,7 +54,7 @@ type BillingAddon = {
 
 type BillingOverview = {
     payments_available: boolean;
-    plans: BillingPlan[];
+    plans: BillingPlanOption[];
     subscription: null | {
         plan_key: string | null;
         name_ar: string;
@@ -168,19 +142,13 @@ const outlineButton =
 const primaryButton =
     'inline-flex items-center justify-center gap-2 rounded-[11px] border border-[var(--acs-accent)] bg-[var(--acs-accent)] px-4 py-2.5 text-[9px] font-bold text-white shadow-[0_8px_20px_rgba(35,120,220,.18)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45';
 
-function money(
-    amountMinor: number | null,
-    currency: string | null,
-    locale: string,
-): string {
+function money(amountMinor: number | null, currency: string | null, locale: string): string {
     if (amountMinor === null || ! currency) return '—';
 
     try {
-        const hasCents = Math.abs(amountMinor) % 100 !== 0;
         return new Intl.NumberFormat(locale, {
             style: 'currency',
             currency,
-            minimumFractionDigits: hasCents ? 2 : 0,
             maximumFractionDigits: 2,
         }).format(amountMinor / 100);
     } catch {
@@ -202,7 +170,6 @@ function dateLabel(value: string | null, locale: string): string {
 
 function bytes(value: number | null): string {
     if (value === null) return '—';
-
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     let current = value;
     let unit = 0;
@@ -243,8 +210,7 @@ function unitAmount(item: BillingAddon): number {
     return Math.max(
         0,
         Math.round(
-            item.amount_minor /
-            Math.max(1, item.display_bundle_quantity ?? 1),
+            item.amount_minor / Math.max(1, item.display_bundle_quantity ?? 1),
         ),
     );
 }
@@ -325,9 +291,10 @@ export function BillingPanel() {
     const [actionError, setActionError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [actionLoading, setActionLoading] = useState('');
-    const [interval, setInterval] = useState<'month' | 'year'>('month');
+    const [checkoutInterval, setCheckoutInterval] = useState<'month' | 'year'>('month');
     const [showAllInvoices, setShowAllInvoices] = useState(false);
     const [purchaseKind, setPurchaseKind] = useState<BillingPurchaseKind | null>(null);
+    const [planDialogOpen, setPlanDialogOpen] = useState(false);
 
     const loadOverview = useCallback(
         async (signal?: AbortSignal): Promise<void> => {
@@ -335,7 +302,6 @@ export function BillingPanel() {
                 '/api/billing/overview',
                 { signal },
             );
-
             if (! signal?.aborted) setOverview(response.data);
         },
         [],
@@ -372,15 +338,16 @@ export function BillingPanel() {
         return new URLSearchParams(window.location.search).get('credit');
     }, []);
 
-    async function refreshOverview(): Promise<void> {
+    async function refreshOverview(showMessage = true): Promise<void> {
         if (actionLoading) return;
         setActionLoading('sync');
         setActionError('');
-        setSuccessMessage('');
 
         try {
             await loadOverview();
-            setSuccessMessage(text('تمت مزامنة بيانات الفوترة.', 'Billing data synced.'));
+            if (showMessage) {
+                setSuccessMessage(text('تمت مزامنة بيانات الفوترة.', 'Billing data synced.'));
+            }
         } catch (failure) {
             setActionError(
                 failure instanceof ApiError
@@ -392,7 +359,7 @@ export function BillingPanel() {
         }
     }
 
-    async function startCheckout(plan: BillingPlan): Promise<void> {
+    async function startCheckout(plan: BillingPlanOption): Promise<void> {
         if (actionLoading) return;
         setActionLoading(`checkout:${plan.key}`);
         setActionError('');
@@ -402,7 +369,7 @@ export function BillingPanel() {
                 '/api/billing/checkout',
                 {
                     method: 'POST',
-                    body: JSON.stringify({ plan: plan.key, interval }),
+                    body: JSON.stringify({ plan: plan.key, interval: checkoutInterval }),
                 },
             );
             window.location.assign(response.data.url);
@@ -416,9 +383,9 @@ export function BillingPanel() {
         }
     }
 
-    async function openSubscriptionManagement(action = 'portal'): Promise<void> {
+    async function openPaymentPortal(): Promise<void> {
         if (actionLoading) return;
-        setActionLoading(action);
+        setActionLoading('payment');
         setActionError('');
 
         try {
@@ -431,7 +398,7 @@ export function BillingPanel() {
             setActionError(
                 failure instanceof ApiError
                     ? failure.message
-                    : text('تعذر فتح إدارة الاشتراك. حاول مرة أخرى.', 'Could not open subscription management. Please try again.'),
+                    : text('تعذر فتح إعدادات الدفع. حاول مرة أخرى.', 'Could not open payment settings. Please try again.'),
             );
             setActionLoading('');
         }
@@ -476,7 +443,6 @@ export function BillingPanel() {
 
     const seatsAddon = addon('extra_seats_5');
     const storageAddon = addon('storage_25gb');
-
     const billingInterval = overview.subscription?.interval === 'year' ? 'year' : 'month';
     const intervalText = billingInterval === 'year'
         ? text('سنويًا', 'year')
@@ -488,7 +454,6 @@ export function BillingPanel() {
         .filter(item => item.active_quantity > 0)
         .map(item => {
             const amount = unitAmount(item) * item.active_quantity;
-            const kind = addonKind(item);
             let detail = text(
                 `${item.active_quantity} وحدة إضافية`,
                 `${item.active_quantity} extra unit(s)`,
@@ -506,8 +471,8 @@ export function BillingPanel() {
                 );
                 const totalGb = item.active_quantity * gbPerUnit;
                 detail = text(
-                    `${totalGb} GB إضافية × ${money(unitAmount(item), item.currency, locale)}`,
-                    `${totalGb} extra GB × ${money(unitAmount(item), item.currency, locale)}`,
+                    `${totalGb} GB إضافية`,
+                    `${totalGb} extra GB`,
                 );
             }
 
@@ -517,7 +482,7 @@ export function BillingPanel() {
                 detail,
                 amountMinor: amount,
                 currency: item.currency,
-                kind,
+                kind: addonKind(item),
             };
         });
 
@@ -526,8 +491,7 @@ export function BillingPanel() {
         0,
     );
     const calculatedRecurringTotal = baseAmount + addonRecurringTotal;
-    const recurringTotal = overview.next_invoice?.amount_minor
-        ?? calculatedRecurringTotal;
+    const recurringTotal = overview.next_invoice?.amount_minor ?? calculatedRecurringTotal;
     const recurringCurrency = overview.next_invoice?.currency ?? baseCurrency;
 
     const statusLabel = (() => {
@@ -556,7 +520,7 @@ export function BillingPanel() {
             {checkoutState === 'success' && (
                 <div className="flex items-center gap-2.5 rounded-[14px] border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-[9px] text-[var(--acs-text)]">
                     <ShieldCheck size={16} className="shrink-0 text-emerald-500" />
-                    {text('تمت عملية الدفع، وسيتم تحديث اشتراكك تلقائيًا.', 'Payment completed. Your subscription will update automatically.')}
+                    {text('تمت عملية الدفع وسيتم تحديث اشتراكك تلقائيًا.', 'Payment completed. Your subscription will update automatically.')}
                 </div>
             )}
 
@@ -597,16 +561,15 @@ export function BillingPanel() {
                                 <p className="mt-1 text-[9px] text-[var(--acs-text-muted)]">{text('يمكنك تغيير الباقة وإدارة السعة الإضافية لاحقًا.', 'You can change plans and manage extra capacity later.')}</p>
                             </div>
                         </div>
-
                         <div className="inline-flex rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-1">
                             {(['month', 'year'] as const).map(item => (
                                 <button
                                     key={item}
                                     type="button"
-                                    onClick={() => setInterval(item)}
+                                    onClick={() => setCheckoutInterval(item)}
                                     className={[
                                         'rounded-[9px] px-3.5 py-2 text-[9px] font-bold transition',
-                                        interval === item
+                                        checkoutInterval === item
                                             ? 'bg-[var(--acs-surface)] text-[var(--acs-text)] shadow-sm ring-1 ring-[var(--acs-line-strong)]'
                                             : 'text-[var(--acs-text-muted)] hover:text-[var(--acs-text)]',
                                     ].join(' ')}
@@ -619,7 +582,7 @@ export function BillingPanel() {
 
                     <div className="grid gap-3 p-4 lg:grid-cols-3 lg:p-6">
                         {overview.plans.map(plan => {
-                            const price = plan[interval];
+                            const price = plan[checkoutInterval];
                             const features = ar ? plan.features_ar : plan.features_en;
                             const busy = actionLoading === `checkout:${plan.key}`;
 
@@ -642,7 +605,7 @@ export function BillingPanel() {
                                     </div>
                                     <div className="mt-5 flex items-end gap-1.5">
                                         <strong className="text-3xl font-extrabold tracking-[-0.04em] text-[var(--acs-text)]">{money(price.amount_minor, price.currency, locale)}</strong>
-                                        <span className="mb-1 text-[9px] font-semibold text-[var(--acs-text-muted)]">/ {interval === 'month' ? text('شهر', 'month') : text('سنة', 'year')}</span>
+                                        <span className="mb-1 text-[9px] font-semibold text-[var(--acs-text-muted)]">/ {checkoutInterval === 'month' ? text('شهر', 'month') : text('سنة', 'year')}</span>
                                     </div>
                                     <div className="my-5 h-px bg-[var(--acs-line)]" />
                                     <ul className="flex-1 space-y-2.5">
@@ -674,7 +637,7 @@ export function BillingPanel() {
                     <section className={panel + ' overflow-hidden'}>
                         <div className="relative overflow-hidden px-5 py-5 lg:px-6 lg:py-6">
                             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(38,132,255,.09),transparent_34%)]" />
-                            <div className="relative grid gap-5 lg:grid-cols-[1fr_auto] lg:items-start">
+                            <div className="relative grid gap-5 lg:grid-cols-[1fr_340px] lg:items-start">
                                 <div className="flex items-start gap-4">
                                     <span className="flex size-14 shrink-0 items-center justify-center rounded-[17px] border border-[var(--acs-line)] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><WalletCards size={24} /></span>
                                     <div>
@@ -682,21 +645,18 @@ export function BillingPanel() {
                                             <span className="text-[9px] font-bold text-[var(--acs-text-muted)]">{text('الباقة الحالية', 'Current plan')}</span>
                                             <span className={[
                                                 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-bold',
-                                                unlocked
-                                                    ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-500'
-                                                    : 'border-amber-400/25 bg-amber-500/10 text-amber-500',
+                                                unlocked ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-500' : 'border-amber-400/25 bg-amber-500/10 text-amber-500',
                                             ].join(' ')}>
                                                 <span className="size-1.5 rounded-full bg-current" />{statusLabel}
                                             </span>
                                         </div>
                                         <h2 className="mt-1 text-lg font-extrabold text-[var(--acs-text)] sm:text-xl">{ar ? overview.subscription?.name_ar : overview.subscription?.name_en}</h2>
-                                        <p className="mt-1 max-w-xl text-[9px] leading-5 text-[var(--acs-text-muted)]">{text('الباقة الأساسية والإضافات كلها داخل نفس اشتراك Stripe.', 'Your base plan and recurring add-ons all stay on the same Stripe subscription.')}</p>
-
+                                        <p className="mt-1 max-w-xl text-[9px] leading-5 text-[var(--acs-text-muted)]">{text('الباقة الأساسية والإضافات والتجديد في فاتورة واحدة.', 'Base plan, add-ons and renewal are managed as one subscription.')}</p>
                                         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
                                             <div>
-                                                <span className="block text-[8px] font-semibold text-[var(--acs-text-muted)]">{text('الإجمالي الدوري المتوقع', 'Expected recurring total')}</span>
-                                                <strong className="mt-0.5 block text-base text-[var(--acs-text)]">
-                                                    {money(recurringTotal, recurringCurrency, locale)}{' '}
+                                                <span className="block text-[8px] font-semibold text-[var(--acs-text-muted)]">{text('سعر الباقة الأساسية', 'Base plan price')}</span>
+                                                <strong className="mt-0.5 block text-sm text-[var(--acs-text)]">
+                                                    {money(baseAmount, baseCurrency, locale)}{' '}
                                                     <span className="text-[9px] font-semibold text-[var(--acs-text-muted)]">/ {intervalText}</span>
                                                 </strong>
                                             </div>
@@ -708,85 +668,67 @@ export function BillingPanel() {
                                     </div>
                                 </div>
 
-                                <div className="grid min-w-[245px] gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                                    <button type="button" className={primaryButton} disabled={actionLoading !== '' || ! overview.payments_available} onClick={() => void openSubscriptionManagement('upgrade')}>
-                                        {actionLoading === 'upgrade' ? <LoaderCircle size={13} className="animate-spin" /> : <Crown size={13} />}{text('ترقية الباقة', 'Upgrade plan')}
-                                    </button>
-                                    <button type="button" className={outlineButton} disabled={actionLoading !== '' || ! overview.payments_available} onClick={() => void openSubscriptionManagement('change-plan')}>
-                                        {actionLoading === 'change-plan' ? <LoaderCircle size={13} className="animate-spin" /> : <RefreshCw size={13} />}{text('تغيير / خفض الباقة', 'Change / downgrade')}
-                                    </button>
-                                    <button type="button" className={outlineButton + ' sm:col-span-2 lg:col-span-1 xl:col-span-2'} disabled={actionLoading !== ''} onClick={() => void refreshOverview()}>
-                                        {actionLoading === 'sync' ? <LoaderCircle size={13} className="animate-spin" /> : <RefreshCw size={13} />}{text('مزامنة الفوترة', 'Sync billing')}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="border-t border-[var(--acs-line)] bg-[var(--acs-surface-soft)] px-5 py-4 lg:px-6">
-                            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                                <div className="min-w-0 flex-1">
-                                    <div className="mb-2 flex items-center justify-between gap-3">
-                                        <div>
-                                            <strong className="block text-[10px] text-[var(--acs-text)]">{text('تفاصيل المبلغ الدوري', 'Recurring price breakdown')}</strong>
-                                            <span className="mt-0.5 block text-[8px] text-[var(--acs-text-muted)]">{text('هنا يظهر سعر الباقة وكل إضافة على حدة ثم المجموع الذي سيتكرر مع التجديد.', 'See the base plan, every add-on, and the total that repeats on renewal.')}</span>
-                                        </div>
+                                <div className="rounded-[16px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <strong className="text-[10px] text-[var(--acs-text)]">{text('تفاصيل التجديد', 'Renewal breakdown')}</strong>
+                                        <span className="text-[8px] text-[var(--acs-text-muted)]">{intervalText}</span>
                                     </div>
-
-                                    <div className="overflow-hidden rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface)]">
-                                        <div className="flex items-center justify-between gap-4 px-4 py-3">
+                                    <div className="mt-3 space-y-2.5">
+                                        <div className="flex items-start justify-between gap-3">
                                             <div>
-                                                <strong className="block text-[9px] text-[var(--acs-text)]">{ar ? overview.subscription?.name_ar : overview.subscription?.name_en}</strong>
-                                                <span className="mt-0.5 block text-[8px] text-[var(--acs-text-muted)]">{text('الباقة الأساسية', 'Base plan')}</span>
+                                                <span className="block text-[9px] font-bold text-[var(--acs-text)]">{ar ? overview.subscription?.name_ar : overview.subscription?.name_en}</span>
+                                                <span className="mt-0.5 block text-[7px] text-[var(--acs-text-muted)]">{text('الباقة الأساسية', 'Base plan')}</span>
                                             </div>
-                                            <strong className="shrink-0 text-[10px] text-[var(--acs-text)]">{money(baseAmount, baseCurrency, locale)} / {intervalText}</strong>
+                                            <strong className="text-[9px] text-[var(--acs-text)]">{money(baseAmount, baseCurrency, locale)}</strong>
                                         </div>
-
                                         {recurringLines.map(line => (
-                                            <div key={line.key} className="flex items-center justify-between gap-4 border-t border-[var(--acs-line)] px-4 py-3">
-                                                <div className="min-w-0">
-                                                    <strong className="block text-[9px] text-[var(--acs-text)]">{line.title}</strong>
-                                                    <span className="mt-0.5 block text-[8px] text-[var(--acs-text-muted)]">{line.detail}</span>
+                                            <div key={line.key} className="flex items-start justify-between gap-3 border-t border-[var(--acs-line)] pt-2.5">
+                                                <div>
+                                                    <span className="block text-[9px] font-bold text-[var(--acs-text)]">{line.title}</span>
+                                                    <span className="mt-0.5 block text-[7px] text-[var(--acs-text-muted)]">{line.detail}</span>
                                                 </div>
-                                                <div className="flex shrink-0 items-center gap-2">
-                                                    <strong className="text-[10px] text-[var(--acs-text)]">{money(line.amountMinor, line.currency, locale)} / {intervalText}</strong>
+                                                <div className="text-end">
+                                                    <strong className="block text-[9px] text-[var(--acs-text)]">{money(line.amountMinor, line.currency, locale)}</strong>
                                                     {line.kind && (
                                                         <button
                                                             type="button"
-                                                            className="inline-flex items-center gap-1 rounded-[9px] border border-[var(--acs-line)] px-2 py-1.5 text-[8px] font-bold text-[var(--acs-accent)] transition hover:border-[var(--acs-accent)] hover:bg-[var(--acs-accent-soft)]"
+                                                            className="mt-1 text-[7px] font-bold text-[var(--acs-accent)] hover:underline"
                                                             onClick={() => setPurchaseKind(line.kind)}
                                                         >
-                                                            <Pencil size={10} />
                                                             {text('تعديل / إلغاء', 'Edit / remove')}
                                                         </button>
                                                     )}
                                                 </div>
                                             </div>
                                         ))}
-
-                                        {recurringLines.length === 0 && (
-                                            <div className="border-t border-[var(--acs-line)] px-4 py-3 text-[8px] text-[var(--acs-text-muted)]">
-                                                {text('لا توجد إضافات دورية حاليًا.', 'No recurring add-ons are active.')}
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center justify-between gap-4 border-t-2 border-[var(--acs-line-strong)] bg-[var(--acs-accent-soft)] px-4 py-3.5">
-                                            <div>
-                                                <strong className="block text-[10px] text-[var(--acs-text)]">{text('الإجمالي عند التجديد', 'Renewal total')}</strong>
-                                                <span className="mt-0.5 block text-[8px] text-[var(--acs-text-muted)]">{text('لا يشمل مشتريات AI لمرة واحدة أو فروقات الـ proration الحالية.', 'Excludes one-time AI purchases and current-cycle proration adjustments.')}</span>
-                                            </div>
-                                            <strong className="shrink-0 text-base font-extrabold text-[var(--acs-accent)]">{money(recurringTotal, recurringCurrency, locale)} / {intervalText}</strong>
+                                    </div>
+                                    <div className="mt-3 border-t border-[var(--acs-line-strong)] pt-3">
+                                        <div className="flex items-end justify-between gap-3">
+                                            <span className="text-[9px] font-bold text-[var(--acs-text)]">{text('الإجمالي عند التجديد', 'Total at renewal')}</span>
+                                            <strong className="text-lg font-extrabold text-[var(--acs-accent)]">{money(recurringTotal, recurringCurrency, locale)}</strong>
                                         </div>
+                                        <p className="mt-1 text-[7px] leading-4 text-[var(--acs-text-muted)]">{text('قد تختلف فاتورة اليوم بسبب الفرق النسبي الذي يحسبه Stripe.', 'Today’s invoice can differ because Stripe applies proration.')}</p>
+                                    </div>
+                                    <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                                        <button
+                                            type="button"
+                                            className={primaryButton}
+                                            disabled={actionLoading !== '' || ! overview.payments_available}
+                                            onClick={() => setPlanDialogOpen(true)}
+                                        >
+                                            <Sparkles size={13} />{text('تغيير / ترقية الباقة', 'Change / upgrade plan')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={outlineButton}
+                                            disabled={actionLoading !== ''}
+                                            onClick={() => void refreshOverview()}
+                                        >
+                                            {actionLoading === 'sync' ? <LoaderCircle size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                                            {text('مزامنة', 'Sync')}
+                                        </button>
                                     </div>
                                 </div>
-
-                                {overview.ai_credits.auto_recharge.enabled && (
-                                    <div className="rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface)] px-4 py-3 lg:w-[260px]">
-                                        <span className="block text-[8px] font-semibold text-[var(--acs-text-muted)]">{text('إعادة شحن AI التلقائية', 'AI auto-recharge')}</span>
-                                        <strong className="mt-1 block text-[10px] text-[var(--acs-text)]">{money(overview.ai_credits.auto_recharge.recharge_amount_minor, overview.ai_credits.auto_recharge.currency, locale)}</strong>
-                                        <p className="mt-1 text-[8px] leading-4 text-[var(--acs-text-muted)]">{text('مبلغ متغير يُخصم فقط عندما يصل الرصيد إلى الحد المحدد، لذلك لا يدخل في الإجمالي الدوري الثابت.', 'Variable charge triggered only at your balance threshold, so it is not included in the fixed recurring total.')}</p>
-                                        <button type="button" className={outlineButton + ' mt-2 w-full'} onClick={() => setPurchaseKind('ai')}>{text('إدارة الشحن التلقائي', 'Manage auto-recharge')}</button>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </section>
@@ -796,10 +738,10 @@ export function BillingPanel() {
                             icon={UsersRound}
                             label={text('الموظفون / المقاعد', 'Employees / seats')}
                             value={`${overview.usage.seats.used} / ${overview.usage.seats.limit ?? '∞'}`}
-                            meta={text('استخدام المقاعد المتاحة في باقتك.', 'Seat usage in your current plan.')}
+                            meta={text('المقاعد المستخدمة من الحد المتاح.', 'Seats used from the available limit.')}
                             usagePercent={seatsPercent}
-                            actionLabel={seatsAddon && seatsAddon.active_quantity > 0 ? text('إدارة المقاعد', 'Manage seats') : text('زيادة المقاعد', 'Add seats')}
-                            addonHint={seatsAddon ? `${money(unitAmount(seatsAddon), seatsAddon.currency, locale)} ${text('لكل مقعد', 'per seat')} / ${seatsAddon.interval === 'year' ? text('سنة', 'year') : text('شهر', 'month')}` : undefined}
+                            actionLabel={seatsAddon?.active_quantity ? text('إدارة المقاعد', 'Manage seats') : text('زيادة المقاعد', 'Add seats')}
+                            addonHint={seatsAddon ? `${money(unitAmount(seatsAddon), seatsAddon.currency, locale)} / ${seatsAddon.interval === 'year' ? text('سنة لكل مقعد', 'year per seat') : text('شهر لكل مقعد', 'month per seat')}` : undefined}
                             onAction={() => setPurchaseKind('seats')}
                             disabled={actionLoading !== '' || ! overview.payments_available || ! seatsAddon?.available}
                         />
@@ -807,7 +749,7 @@ export function BillingPanel() {
                             icon={Bot}
                             label={text('استخدام AccoNova AI', 'AccoNova AI usage')}
                             value={`${compactNumber(overview.usage.ai_tokens.used, locale)} / ${overview.usage.ai_tokens.limit === null ? '∞' : compactNumber(overview.usage.ai_tokens.limit, locale)} Tokens`}
-                            meta={text('حصة الباقة أولًا ثم الرصيد الإضافي.', 'Included allowance first, then purchased credits.')}
+                            meta={text('تُستهلك حصة الباقة أولًا ثم الرصيد الإضافي.', 'Included monthly usage is consumed before purchased credits.')}
                             usagePercent={aiPercent}
                             actionLabel={text('إدارة رصيد AI', 'Manage AI credits')}
                             addonHint={`${text('الرصيد الإضافي', 'Extra balance')}: ${compactNumber(overview.ai_credits.balance_tokens, locale)} Tokens`}
@@ -818,10 +760,10 @@ export function BillingPanel() {
                             icon={HardDrive}
                             label={text('التخزين', 'Storage')}
                             value={overview.usage.storage.available ? `${bytes(overview.usage.storage.used_bytes)} / ${bytes(overview.usage.storage.limit_bytes)}` : bytes(overview.usage.storage.limit_bytes)}
-                            meta={text('سعة التخزين الإجمالية المتاحة.', 'Total storage capacity available.')}
+                            meta={text('سعة التخزين المتاحة في الباقة مع الإضافات.', 'Available storage including recurring add-ons.')}
                             usagePercent={storagePercent}
-                            actionLabel={storageAddon && storageAddon.active_quantity > 0 ? text('إدارة التخزين', 'Manage storage') : text('زيادة التخزين', 'Add storage')}
-                            addonHint={storageAddon ? `${money(unitAmount(storageAddon), storageAddon.currency, locale)} ${text('لكل GB', 'per GB')} / ${storageAddon.interval === 'year' ? text('سنة', 'year') : text('شهر', 'month')}` : undefined}
+                            actionLabel={storageAddon?.active_quantity ? text('إدارة التخزين', 'Manage storage') : text('زيادة التخزين', 'Add storage')}
+                            addonHint={storageAddon ? `${money(unitAmount(storageAddon), storageAddon.currency, locale)} / ${storageAddon.interval === 'year' ? text('سنة لكل GB', 'year per GB') : text('شهر لكل GB', 'month per GB')}` : undefined}
                             onAction={() => setPurchaseKind('storage')}
                             disabled={actionLoading !== '' || ! overview.payments_available || ! storageAddon?.available}
                         />
@@ -829,16 +771,31 @@ export function BillingPanel() {
 
                     <section className="grid gap-3 lg:grid-cols-2">
                         <article className={panel + ' overflow-hidden'}>
-                            <div className="flex items-start gap-3 border-b border-[var(--acs-line)] px-5 py-4">
-                                <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><CreditCard size={17} /></span>
-                                <div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('طريقة الدفع', 'Payment method')}</h3><p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('وسيلة الدفع للاشتراك والإضافات.', 'Payment method for your plan and add-ons.')}</p></div>
+                            <div className="flex items-start justify-between gap-3 border-b border-[var(--acs-line)] px-5 py-4">
+                                <div className="flex items-start gap-3">
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><CreditCard size={17} /></span>
+                                    <div>
+                                        <h3 className="text-xs font-bold text-[var(--acs-text)]">{text('طريقة الدفع', 'Payment method')}</h3>
+                                        <p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('وسيلة الدفع المستخدمة للاشتراك والإضافات.', 'Payment method used for the subscription and add-ons.')}</p>
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex items-center justify-between gap-3 p-5">
                                 <div>
                                     <strong className="text-[10px] text-[var(--acs-text)]">{overview.payment_method ? `${overview.payment_method.brand ?? text('بطاقة', 'Card')} •••• ${overview.payment_method.last4}` : text('لا توجد بطاقة محفوظة', 'No saved card')}</strong>
-                                    {overview.payment_method?.expires_month && overview.payment_method.expires_year && <p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('تنتهي', 'Expires')} {overview.payment_method.expires_month}/{overview.payment_method.expires_year}</p>}
+                                    {overview.payment_method?.expires_month && overview.payment_method.expires_year && (
+                                        <p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('تنتهي', 'Expires')} {overview.payment_method.expires_month}/{overview.payment_method.expires_year}</p>
+                                    )}
                                 </div>
-                                <button type="button" className={outlineButton} disabled={actionLoading !== '' || ! overview.payments_available} onClick={() => void openSubscriptionManagement('payment')}><CreditCard size={12} />{text('تحديث وسيلة الدفع', 'Update payment')}</button>
+                                <button
+                                    type="button"
+                                    className={outlineButton}
+                                    disabled={actionLoading !== '' || ! overview.payments_available}
+                                    onClick={() => void openPaymentPortal()}
+                                >
+                                    {actionLoading === 'payment' ? <LoaderCircle size={12} className="animate-spin" /> : <CreditCard size={12} />}
+                                    {text('تحديث وسيلة الدفع', 'Update payment')}
+                                </button>
                             </div>
                         </article>
 
@@ -846,9 +803,16 @@ export function BillingPanel() {
                             <div className="flex items-start justify-between gap-3 border-b border-[var(--acs-line)] px-5 py-4">
                                 <div className="flex items-start gap-3">
                                     <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><ReceiptText size={17} /></span>
-                                    <div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('الفواتير السابقة', 'Previous invoices')}</h3><p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('آخر الفواتير والمدفوعات الخاصة باشتراكك.', 'Recent subscription invoices and payments.')}</p></div>
+                                    <div>
+                                        <h3 className="text-xs font-bold text-[var(--acs-text)]">{text('الفواتير السابقة', 'Previous invoices')}</h3>
+                                        <p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('آخر الفواتير والمدفوعات الخاصة باشتراكك.', 'Recent invoices and subscription payments.')}</p>
+                                    </div>
                                 </div>
-                                {overview.invoices.length > 2 && <button type="button" className={outlineButton} onClick={() => setShowAllInvoices(current => ! current)}><FileText size={12} />{showAllInvoices ? text('عرض أقل', 'Show less') : text('عرض الكل', 'View all')}</button>}
+                                {overview.invoices.length > 2 && (
+                                    <button type="button" className={outlineButton} onClick={() => setShowAllInvoices(current => ! current)}>
+                                        <FileText size={12} />{showAllInvoices ? text('عرض أقل', 'Show less') : text('عرض الكل', 'View all')}
+                                    </button>
+                                )}
                             </div>
                             {overview.invoices.length === 0 ? (
                                 <div className="p-5 text-[9px] text-[var(--acs-text-muted)]">{text('لا توجد فواتير سابقة بعد.', 'No previous invoices yet.')}</div>
@@ -856,14 +820,74 @@ export function BillingPanel() {
                                 <div className="divide-y divide-[var(--acs-line)]">
                                     {(showAllInvoices ? overview.invoices : overview.invoices.slice(0, 2)).map(invoice => (
                                         <div key={invoice.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-5 py-3">
-                                            <div className="min-w-0"><strong className="block truncate text-[9px] text-[var(--acs-text)]">{invoice.number ?? text('فاتورة اشتراك', 'Subscription invoice')}</strong><span className="mt-0.5 block text-[8px] text-[var(--acs-text-muted)]">{dateLabel(invoice.issued_at, locale)}</span></div>
-                                            <div className="text-end"><strong className="block text-[9px] text-[var(--acs-text)]">{money(invoice.amount_due_minor, invoice.currency, locale)}</strong><span className="mt-0.5 inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[7px] font-bold text-emerald-500">{invoiceStatus(invoice.status)}</span></div>
-                                            {invoice.url ? <a href={invoice.url} target="_blank" rel="noreferrer" className="flex size-8 items-center justify-center rounded-[9px] border border-[var(--acs-line)] text-[var(--acs-accent)] transition hover:border-[var(--acs-accent)] hover:bg-[var(--acs-accent-soft)]"><ExternalLink size={12} /></a> : <span className="size-8" />}
+                                            <div className="min-w-0">
+                                                <strong className="block truncate text-[9px] text-[var(--acs-text)]">{invoice.number ?? text('فاتورة اشتراك', 'Subscription invoice')}</strong>
+                                                <span className="mt-0.5 block text-[8px] text-[var(--acs-text-muted)]">{dateLabel(invoice.issued_at, locale)}</span>
+                                            </div>
+                                            <div className="text-end">
+                                                <strong className="block text-[9px] text-[var(--acs-text)]">{money(invoice.amount_due_minor, invoice.currency, locale)}</strong>
+                                                <span className="mt-0.5 inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[7px] font-bold text-emerald-500">{invoiceStatus(invoice.status)}</span>
+                                            </div>
+                                            {invoice.url ? (
+                                                <a href={invoice.url} target="_blank" rel="noreferrer" className="flex size-8 items-center justify-center rounded-[9px] border border-[var(--acs-line)] text-[var(--acs-accent)] transition hover:border-[var(--acs-accent)] hover:bg-[var(--acs-accent-soft)]">
+                                                    <ExternalLink size={12} />
+                                                </a>
+                                            ) : <span className="size-8" />}
                                         </div>
                                     ))}
                                 </div>
                             )}
                         </article>
+                    </section>
+
+                    <section className={panel + ' p-5'}>
+                        <div className="flex items-start gap-3">
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><Sparkles size={17} /></span>
+                            <div>
+                                <h3 className="text-xs font-bold text-[var(--acs-text)]">{text('الإضافات الحالية', 'Current add-ons')}</h3>
+                                <p className="mt-1 text-[8px] leading-4 text-[var(--acs-text-muted)]">{text('عدّل أو ألغِ المقاعد والتخزين من هنا. رصيد AI شراء مرن منفصل عن التجديد الشهري.', 'Edit or remove seats and storage here. AI credits are flexible purchases outside recurring renewal.')}</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 grid gap-3 md:grid-cols-3">
+                            {overview.addons.catalog.map(item => {
+                                const kind = addonKind(item);
+                                return (
+                                    <div key={item.key} className="rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-3.5">
+                                        <strong className="block text-[9px] text-[var(--acs-text)]">{ar ? item.name_ar : item.name_en}</strong>
+                                        <p className="mt-1 min-h-8 text-[8px] leading-4 text-[var(--acs-text-muted)]">{ar ? item.description_ar : item.description_en}</p>
+                                        <div className="mt-3 flex items-end justify-between gap-2">
+                                            <span className="text-[10px] font-extrabold text-[var(--acs-text)]">{money(unitAmount(item), item.currency, locale)}</span>
+                                            <span className="text-[7px] text-[var(--acs-text-muted)]">{item.interval === 'year' ? text('/ وحدة / سنة', '/ unit / year') : text('/ وحدة / شهر', '/ unit / month')}</span>
+                                        </div>
+                                        <p className={['mt-2 text-[8px] font-bold', item.active_quantity > 0 ? 'text-emerald-500' : 'text-[var(--acs-text-muted)]'].join(' ')}>
+                                            {item.active_quantity > 0
+                                                ? text(`الكمية الحالية: ${item.active_quantity}`, `Current quantity: ${item.active_quantity}`)
+                                                : text('لا توجد إضافة فعالة', 'No active add-on')}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            className={outlineButton + ' mt-3 w-full'}
+                                            disabled={actionLoading !== '' || ! item.available || ! overview.payments_available || ! kind}
+                                            onClick={() => kind && setPurchaseKind(kind)}
+                                        >
+                                            <Pencil size={12} />{text('تعديل الكمية', 'Edit quantity')}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+
+                            <div className="rounded-[14px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] p-3.5">
+                                <strong className="block text-[9px] text-[var(--acs-text)]">{text('رصيد AccoNova AI', 'AccoNova AI credits')}</strong>
+                                <p className="mt-1 min-h-8 text-[8px] leading-4 text-[var(--acs-text-muted)]">{text('اشترِ الرصيد الذي تحتاجه فقط مع خيار إعادة الشحن التلقائي.', 'Buy only the credits you need with optional automatic recharge.')}</p>
+                                <div className="mt-3 flex items-end justify-between gap-2">
+                                    <span className="text-[10px] font-extrabold text-[var(--acs-text)]">{compactNumber(overview.ai_credits.balance_tokens, locale)} Tokens</span>
+                                    <span className="text-[7px] text-[var(--acs-text-muted)]">{overview.ai_credits.auto_recharge.enabled ? text('إعادة الشحن مفعلة', 'Auto-recharge on') : text('شراء مرن', 'Flexible top-up')}</span>
+                                </div>
+                                <button type="button" className={outlineButton + ' mt-3 w-full'} disabled={actionLoading !== '' || ! overview.payments_available} onClick={() => setPurchaseKind('ai')}>
+                                    <Pencil size={12} />{text('إدارة الرصيد', 'Manage credits')}
+                                </button>
+                            </div>
+                        </div>
                     </section>
                 </>
             )}
@@ -877,30 +901,38 @@ export function BillingPanel() {
 
             <section className={panel + ' p-5'}>
                 <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3"><span className="flex size-10 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><CircleHelp size={17} /></span><div><h3 className="text-xs font-bold text-[var(--acs-text)]">{text('الأسئلة الشائعة', 'Frequently asked questions')}</h3><p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('إجابات سريعة عن التخفيض والإضافات والدفع.', 'Quick answers about downgrades, add-ons and billing.')}</p></div></div>
+                    <div className="flex items-start gap-3">
+                        <span className="flex size-10 items-center justify-center rounded-[12px] bg-[var(--acs-accent-soft)] text-[var(--acs-accent)]"><CircleHelp size={17} /></span>
+                        <div>
+                            <h3 className="text-xs font-bold text-[var(--acs-text)]">{text('الأسئلة الشائعة', 'Frequently asked questions')}</h3>
+                            <p className="mt-1 text-[8px] text-[var(--acs-text-muted)]">{text('إجابات سريعة عن الباقة والإضافات والدفع.', 'Quick answers about plans, add-ons and billing.')}</p>
+                        </div>
+                    </div>
                     <ShieldCheck size={17} className="text-[var(--acs-accent)]" />
                 </div>
                 <div className="mt-4 grid gap-2 lg:grid-cols-2">
                     {[
                         {
-                            q: text('كيف أخفض أو ألغي المقاعد أو التخزين الإضافي؟', 'How do I reduce or remove extra seats or storage?'),
-                            a: text('اضغط إدارة المقاعد أو إدارة التخزين، ثم اختر العدد النهائي الذي تريده. يمكنك اختيار عدد أقل أو مخصص، أو الضغط على إزالة الإضافة بالكامل. التعديل يتم على نفس اشتراك Stripe.', 'Open Manage seats or Manage storage and choose the final quantity. You can reduce it, enter a custom amount, or remove the add-on completely. The same Stripe subscription is updated.'),
+                            q: text('ماذا يحدث عند تغيير الباقة؟', 'What happens when I change plans?'),
+                            a: text('نغيّر عنصر الباقة الأساسية داخل نفس اشتراك Stripe، وتبقى المقاعد والتخزين الإضافيان كما هما. Stripe يحسب الفرق النسبي للفترة الحالية تلقائيًا.', 'We replace only the base plan item on the same Stripe subscription. Extra seats and storage stay in place, and Stripe calculates proration automatically.'),
                         },
                         {
-                            q: text('كيف أخفض الباقة الأساسية؟', 'How do I downgrade the base plan?'),
-                            a: text('استخدم زر تغيير / خفض الباقة. يتم فتح إدارة اشتراك Stripe لتغيير الباقة الأساسية بشكل آمن، بينما الإضافات تظل قابلة للإدارة بشكل مستقل من هذه الصفحة.', 'Use Change / downgrade plan. Stripe subscription management opens for the base plan, while add-ons remain independently manageable from this page.'),
+                            q: text('هل أستطيع خفض الباقة؟', 'Can I downgrade?'),
+                            a: text('نعم، طالما أن عدد المستخدمين الحالي لا يتجاوز الحد الجديد بعد احتساب المقاعد الإضافية. إذا تجاوزه، سيطلب منك تقليل المستخدمين أو الاحتفاظ بمقاعد إضافية كافية.', 'Yes, as long as current seat usage fits the new limit after extra seats are included. Otherwise you must remove members or keep enough extra seats first.'),
                         },
                         {
-                            q: text('هل يتغير المبلغ إذا عدلت منتصف الشهر؟', 'What happens if I change capacity mid-cycle?'),
-                            a: text('Stripe يحسب فرق الفترة الحالية تلقائيًا. الرقم الكبير في الأعلى هو الإجمالي الدوري المتوقع عند التجديد العادي، وليس بالضرورة مبلغ الـ proration الفوري.', 'Stripe automatically calculates the current-cycle proration. The large total above is the expected normal renewal total, not necessarily the immediate proration amount.'),
+                            q: text('هل الإضافات تصبح اشتراكًا ثانيًا؟', 'Do add-ons create a second subscription?'),
+                            a: text('لا. المقاعد والتخزين الإضافيان مرتبطان بنفس الاشتراك الرئيسي ويظهران مع الباقة في التجديد.', 'No. Extra seats and storage are attached to the same main subscription and renew with the plan.'),
                         },
                         {
                             q: text('هل AccoNova يخزن رقم البطاقة الكامل؟', 'Does AccoNova store my full card number?'),
-                            a: text('لا. الدفع يتم عبر Stripe ولا نخزن رقم البطاقة الكامل داخل AccoNova.', 'No. Payments run through Stripe and AccoNova does not store the full card number.'),
+                            a: text('لا. الدفع يتم عبر Stripe ولا نخزن رقم البطاقة الكامل داخل قاعدة بيانات AccoNova.', 'No. Payments run through Stripe and full card details are not stored in the AccoNova database.'),
                         },
                     ].map(item => (
                         <details key={item.q} className="group rounded-[12px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)]">
-                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3 text-[9px] font-bold text-[var(--acs-text)]">{item.q}<ChevronDown size={13} className="shrink-0 text-[var(--acs-text-muted)] transition group-open:rotate-180" /></summary>
+                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3 text-[9px] font-bold text-[var(--acs-text)]">
+                                {item.q}<ChevronDown size={13} className="shrink-0 text-[var(--acs-text-muted)] transition group-open:rotate-180" />
+                            </summary>
                             <p className="border-t border-[var(--acs-line)] px-3.5 py-3 text-[9px] leading-5 text-[var(--acs-text-muted)]">{item.a}</p>
                         </details>
                     ))}
@@ -918,6 +950,21 @@ export function BillingPanel() {
                 credits={overview.ai_credits}
                 locale={locale}
                 onClose={() => setPurchaseKind(null)}
+                onCompleted={async message => {
+                    await loadOverview();
+                    setSuccessMessage(message);
+                }}
+            />
+
+            <BillingPlanDialog
+                open={planDialogOpen}
+                plans={overview.plans}
+                currentPlanKey={overview.subscription?.plan_key ?? null}
+                currentInterval={overview.subscription?.interval ?? null}
+                usedSeats={overview.usage.seats.used}
+                currentSeatLimit={overview.usage.seats.limit}
+                locale={locale}
+                onClose={() => setPlanDialogOpen(false)}
                 onCompleted={async message => {
                     await loadOverview();
                     setSuccessMessage(message);
