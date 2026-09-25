@@ -129,19 +129,17 @@ export function BillingPurchaseDialog({
     const resource = useMemo(() => {
         if (! addon) return null;
         const perPack = Math.max(1, addon.quantity_per_pack);
-        const packOptions = [1, 2, 4];
+        const displayPerPack = kind === 'storage' ? gb(perPack) : perPack;
 
         return {
             perPack,
-            packOptions,
+            displayPerPack,
+            packOptions: [1, 2, 4],
             baseLabel: kind === 'storage'
-                ? `${gb(perPack)} GB`
-                : String(perPack),
-            unitLabel: kind === 'storage'
-                ? 'GB'
-                : text('مقعد', 'seats'),
+                ? `${displayPerPack} GB`
+                : String(displayPerPack),
         };
-    }, [addon, kind, ar]);
+    }, [addon, kind]);
 
     if (! open || ! kind) return null;
 
@@ -159,13 +157,13 @@ export function BillingPurchaseDialog({
     ));
 
     let resourcePacks = selectedPack;
-    let resourceUnits = resource ? resource.perPack * selectedPack : 0;
+    let resourceUnits = resource ? resource.displayPerPack * selectedPack : 0;
 
     if (customMode && resource && Number.isFinite(Number(customUnits))) {
         const requested = Math.max(0, Math.floor(Number(customUnits)));
         resourceUnits = requested;
-        resourcePacks = requested > 0 && requested % resource.perPack === 0
-            ? requested / resource.perPack
+        resourcePacks = requested > 0 && requested % resource.displayPerPack === 0
+            ? requested / resource.displayPerPack
             : 0;
     }
 
@@ -377,7 +375,7 @@ export function BillingPurchaseDialog({
                                         <strong className="block text-[10px] text-[var(--acs-text)]">{text('فعّل إعادة الشحن التلقائي', 'Enable automatic recharge')}</strong>
                                         <p className="mt-1 text-[8px] leading-4 text-[var(--acs-text-muted)]">
                                             {text(
-                                                `عندما ينخفض رصيدك عن الحد المحدد، سنشتري تلقائيًا نفس قيمة الرصيد المختارة باستخدام وسيلة الدفع المحفوظة.`,
+                                                'عندما ينخفض رصيدك عن الحد المحدد، سنشتري تلقائيًا نفس قيمة الرصيد المختارة باستخدام وسيلة الدفع المحفوظة.',
                                                 'When your balance falls below the selected threshold, we will automatically buy the same selected credit amount using your saved payment method.',
                                             )}
                                         </p>
@@ -415,7 +413,7 @@ export function BillingPurchaseDialog({
                             </strong>
                             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                                 {resource?.packOptions.map(pack => {
-                                    const units = resource.perPack * pack;
+                                    const units = resource.displayPerPack * pack;
                                     return (
                                         <button
                                             key={pack}
@@ -432,7 +430,7 @@ export function BillingPurchaseDialog({
                                             ].join(' ')}
                                         >
                                             <strong className="block text-base font-extrabold text-[var(--acs-text)]">
-                                                {kind === 'storage' ? `${gb(units)} GB` : `+${units}`}
+                                                {kind === 'storage' ? `${units} GB` : `+${units}`}
                                             </strong>
                                             <span className="mt-1 block text-[8px] text-[var(--acs-text-muted)]">
                                                 {money((addon?.amount_minor ?? 0) * pack, addon?.currency ?? 'USD', locale)} / {addon?.interval === 'year' ? text('سنة', 'year') : text('شهر', 'month')}
@@ -462,8 +460,8 @@ export function BillingPurchaseDialog({
                                     <input
                                         autoFocus
                                         type="number"
-                                        min={kind === 'storage' ? gb(resource.perPack) : resource.perPack}
-                                        step={kind === 'storage' ? gb(resource.perPack) : resource.perPack}
+                                        min={resource.displayPerPack}
+                                        step={resource.displayPerPack}
                                         value={customUnits}
                                         onChange={event => setCustomUnits(event.target.value)}
                                         className="mt-2 w-full rounded-[11px] border border-[var(--acs-line)] bg-[var(--acs-surface)] px-3 py-2.5 text-sm font-bold text-[var(--acs-text)] outline-none focus:border-[var(--acs-accent)]"
@@ -478,7 +476,7 @@ export function BillingPurchaseDialog({
                                 <div className="flex items-center justify-between gap-3">
                                     <span className="text-[9px] text-[var(--acs-text-muted)]">{text('الإضافة المختارة', 'Selected capacity')}</span>
                                     <strong className="text-[10px] text-[var(--acs-text)]">
-                                        {kind === 'storage' ? `${gb(resourceUnits)} GB` : `${resourceUnits} ${text('مقعد', 'seats')}`}
+                                        {kind === 'storage' ? `${resourceUnits} GB` : `${resourceUnits} ${text('مقعد', 'seats')}`}
                                     </strong>
                                 </div>
                                 <div className="mt-2 flex items-center justify-between gap-3">
