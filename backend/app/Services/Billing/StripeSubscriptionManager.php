@@ -57,8 +57,8 @@ final class StripeSubscriptionManager
     }
 
     /**
-     * Add quantity to one recurring capacity item on the existing workspace
-     * subscription. Stripe invoices the prorated difference immediately.
+     * Backwards-compatible increment operation. New UI flows use
+     * setAddonQuantity() so customers can increase, reduce or remove capacity.
      *
      * @return array<string, mixed>
      */
@@ -67,15 +67,52 @@ final class StripeSubscriptionManager
         string $addonKey,
         int $quantity,
     ): array {
+        return $this->mutateAddonQuantity(
+            $account,
+            $addonKey,
+            max(1, $quantity),
+            false,
+        );
+    }
+
+    /**
+     * Set the exact provider quantity for one recurring capacity item on the
+     * existing workspace subscription. Zero removes the item. Stripe prorates
+     * both increases and decreases against the current billing period.
+     *
+     * @return array<string, mixed>
+     */
+    public function setAddonQuantity(
+        BillingAccount $account,
+        string $addonKey,
+        int $targetQuantity,
+    ): array {
+        return $this->mutateAddonQuantity(
+            $account,
+            $addonKey,
+            max(0, $targetQuantity),
+            true,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mutateAddonQuantity(
+        BillingAccount $account,
+        string $addonKey,
+        int $requestedQuantity,
+        bool $absolute,
+    ): array {
         if (! in_array($account->status, ['active', 'trialing'], true)) {
-            throw new RuntimeException('The subscription must be active before buying add-ons.');
+            throw new RuntimeException('The subscription must be active before changing add-ons.');
         }
 
-        $quantity = max(1, min(100, $quantity));
         $interval = in_array($account->billing_interval, ['month', 'year'], true)
             ? (string) $account->billing_interval
             : 'month';
         $addon = $this->addon($addonKey);
+        $maximum = max(1, (int) ($addon['max_quantity'] ?? 100));
         $price = $this->addonPrice($addonKey, $interval, $addon);
         $priceId = $this->resolvePriceId($price);
         $subscription = $this->subscriptionGet($account);
@@ -103,16 +140,65 @@ final class StripeSubscriptionManager
         }
 
         $currentQuantity = max(0, (int) ($existingItem['quantity'] ?? 0));
-        $targetQuantity = $currentQuantity + $quantity;
-        $itemPayload = $existingItem
-            ? [
+        $targetQuantity = $absolute
+            ? min($maximum, $requestedQuantity)
+            : min($maximum, $currentQuantity + max(1, $requestedQuantity));
+        $delta = $targetQuantity - $currentQuantity;
+
+        if ($targetQuantity === $currentQuantity) {
+            return [
+                'addon_key' => $addonKey,
+                'quantity' => $targetQuantity,
+                'previous_quantity' => $currentQuantity,
+                'quantity_delta' => 0,
+                'purchased_quantity' => 0,
+                'entitlement_per_unit' => max(0, (int) ($addon['quantity'] ?? 0)),
+                'amount_minor' => max(0, (int) ($price['amount_minor'] ?? 0)),
+                'currency' => strtoupper((string) ($addon['currency'] ?? 'USD')),
+                'billing_interval' => $interval,
+                'price_id' => $priceId,
+                'subscription_item_id' => $existingItem['id'] ?? null,
+                'pending' => false,
+                'payment_url' => null,
+                'changed' => false,
+            ];
+        }
+
+        if ($targetQuantity <= 0 && ! $existingItem) {
+            return [
+                'addon_key' => $addonKey,
+                'quantity' => 0,
+                'previous_quantity' => 0,
+                'quantity_delta' => 0,
+                'purchased_quantity' => 0,
+                'entitlement_per_unit' => max(0, (int) ($addon['quantity'] ?? 0)),
+                'amount_minor' => max(0, (int) ($price['amount_minor'] ?? 0)),
+                'currency' => strtoupper((string) ($addon['currency'] ?? 'USD')),
+                'billing_interval' => $interval,
+                'price_id' => $priceId,
+                'subscription_item_id' => null,
+                'pending' => false,
+                'payment_url' => null,
+                'changed' => false,
+            ];
+        }
+
+        if ($targetQuantity <= 0) {
+            $itemPayload = [
+                'id' => (string) ($existingItem['id'] ?? ''),
+                'deleted' => 'true',
+            ];
+        } elseif ($existingItem) {
+            $itemPayload = [
                 'id' => (string) ($existingItem['id'] ?? ''),
                 'quantity' => $targetQuantity,
-            ]
-            : [
+            ];
+        } else {
+            $itemPayload = [
                 'price' => $priceId,
                 'quantity' => $targetQuantity,
             ];
+        }
 
         $updated = $this->subscriptionPost($account, [
             'items' => [$itemPayload],
@@ -133,15 +219,20 @@ final class StripeSubscriptionManager
         return [
             'addon_key' => $addonKey,
             'quantity' => $targetQuantity,
-            'purchased_quantity' => $quantity,
+            'previous_quantity' => $currentQuantity,
+            'quantity_delta' => $delta,
+            'purchased_quantity' => max(0, $delta),
             'entitlement_per_unit' => max(0, (int) ($addon['quantity'] ?? 0)),
             'amount_minor' => max(0, (int) ($price['amount_minor'] ?? 0)),
             'currency' => strtoupper((string) ($addon['currency'] ?? 'USD')),
             'billing_interval' => $interval,
             'price_id' => $priceId,
-            'subscription_item_id' => $this->findAddonItemId($updated, $priceId, (string) ($price['lookup_key'] ?? '')),
+            'subscription_item_id' => $targetQuantity > 0
+                ? $this->findAddonItemId($updated, $priceId, (string) ($price['lookup_key'] ?? ''))
+                : null,
             'pending' => $pending,
             'payment_url' => $paymentUrl !== '' ? $paymentUrl : null,
+            'changed' => true,
         ];
     }
 
