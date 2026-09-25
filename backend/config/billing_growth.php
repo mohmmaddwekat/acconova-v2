@@ -34,34 +34,36 @@ return [
     ],
 
     /*
-     * Recurring capacity add-ons are separate Stripe subscription items on the
-     * workspace's existing subscription. The lookup keys let
-     * `php artisan billing:sync-addons` create/reuse the catalog without
-     * hard-coding provider IDs in application code.
+     * Recurring capacity add-ons live as extra items on the workspace's
+     * existing Stripe subscription. Provider quantity is the exact number of
+     * seats / GB, so customers can move from 5 seats to 3 (or to zero) without
+     * being forced into packs. Stripe handles the proration on each change.
      *
-     * `amount_minor` mirrors the monthly amount for the older growth-center
-     * forecast while `prices` is the canonical month/year purchase catalog.
+     * The public display bundle keeps the UI easy to scan: 5 seats = $10/mo
+     * and 25 GB = $5/mo, while the canonical Stripe price remains per unit.
      */
     'addons' => [
         'extra_seats_5' => [
-            'name_ar' => '5 مقاعد إضافية',
-            'name_en' => '5 extra seats',
-            'description_ar' => 'أضف حتى 5 موظفين إضافيين إلى مساحة العمل.',
-            'description_en' => 'Add capacity for up to 5 additional workspace members.',
+            'name_ar' => 'مقاعد إضافية',
+            'name_en' => 'Extra seats',
+            'description_ar' => 'اختر العدد الدقيق الذي تحتاجه. السعر 2$ لكل مقعد شهريًا؛ 5 مقاعد = 10$.',
+            'description_en' => 'Choose the exact number you need. $2 per seat/month; 5 seats = $10.',
             'unit' => 'seats',
-            'quantity' => 5,
-            'amount_minor' => max(0, (int) env('BILLING_ADDON_EXTRA_SEATS_5_MONTHLY_MINOR', 2000)),
+            'quantity' => 1,
+            'display_bundle_quantity' => 5,
+            'max_quantity' => 500,
+            'amount_minor' => max(0, (int) env('BILLING_ADDON_EXTRA_SEAT_MONTHLY_MINOR', 200)),
             'currency' => 'USD',
             'prices' => [
                 'month' => [
-                    'amount_minor' => max(0, (int) env('BILLING_ADDON_EXTRA_SEATS_5_MONTHLY_MINOR', 2000)),
-                    'price_id' => env('BILLING_ADDON_EXTRA_SEATS_5_MONTHLY_PRICE'),
-                    'lookup_key' => 'acconova_extra_seats_5_month',
+                    'amount_minor' => max(0, (int) env('BILLING_ADDON_EXTRA_SEAT_MONTHLY_MINOR', 200)),
+                    'price_id' => env('BILLING_ADDON_EXTRA_SEAT_MONTHLY_PRICE'),
+                    'lookup_key' => 'acconova_extra_seat_v2_month',
                 ],
                 'year' => [
-                    'amount_minor' => max(0, (int) env('BILLING_ADDON_EXTRA_SEATS_5_YEARLY_MINOR', 20000)),
-                    'price_id' => env('BILLING_ADDON_EXTRA_SEATS_5_YEARLY_PRICE'),
-                    'lookup_key' => 'acconova_extra_seats_5_year',
+                    'amount_minor' => max(0, (int) env('BILLING_ADDON_EXTRA_SEAT_YEARLY_MINOR', 2000)),
+                    'price_id' => env('BILLING_ADDON_EXTRA_SEAT_YEARLY_PRICE'),
+                    'lookup_key' => 'acconova_extra_seat_v2_year',
                 ],
             ],
         ],
@@ -89,24 +91,26 @@ return [
             ],
         ],
         'storage_25gb' => [
-            'name_ar' => '25 GB تخزين إضافي',
-            'name_en' => '25 GB extra storage',
-            'description_ar' => 'أضف 25 GB للملفات والمرفقات في مساحة العمل.',
-            'description_en' => 'Add 25 GB for workspace files and attachments.',
+            'name_ar' => 'تخزين إضافي',
+            'name_en' => 'Extra storage',
+            'description_ar' => 'اختر المساحة الدقيقة بالـ GB. السعر 0.20$ لكل GB شهريًا؛ 25 GB = 5$.',
+            'description_en' => 'Choose the exact GB you need. $0.20 per GB/month; 25 GB = $5.',
             'unit' => 'storage_bytes',
-            'quantity' => 25 * 1024 * 1024 * 1024,
-            'amount_minor' => max(0, (int) env('BILLING_ADDON_STORAGE_25GB_MONTHLY_MINOR', 500)),
+            'quantity' => 1024 * 1024 * 1024,
+            'display_bundle_quantity' => 25,
+            'max_quantity' => 10000,
+            'amount_minor' => max(0, (int) env('BILLING_ADDON_STORAGE_1GB_MONTHLY_MINOR', 20)),
             'currency' => 'USD',
             'prices' => [
                 'month' => [
-                    'amount_minor' => max(0, (int) env('BILLING_ADDON_STORAGE_25GB_MONTHLY_MINOR', 500)),
-                    'price_id' => env('BILLING_ADDON_STORAGE_25GB_MONTHLY_PRICE'),
-                    'lookup_key' => 'acconova_storage_25gb_month',
+                    'amount_minor' => max(0, (int) env('BILLING_ADDON_STORAGE_1GB_MONTHLY_MINOR', 20)),
+                    'price_id' => env('BILLING_ADDON_STORAGE_1GB_MONTHLY_PRICE'),
+                    'lookup_key' => 'acconova_storage_1gb_v2_month',
                 ],
                 'year' => [
-                    'amount_minor' => max(0, (int) env('BILLING_ADDON_STORAGE_25GB_YEARLY_MINOR', 5000)),
-                    'price_id' => env('BILLING_ADDON_STORAGE_25GB_YEARLY_PRICE'),
-                    'lookup_key' => 'acconova_storage_25gb_year',
+                    'amount_minor' => max(0, (int) env('BILLING_ADDON_STORAGE_1GB_YEARLY_MINOR', 200)),
+                    'price_id' => env('BILLING_ADDON_STORAGE_1GB_YEARLY_PRICE'),
+                    'lookup_key' => 'acconova_storage_1gb_v2_year',
                 ],
             ],
         ],
