@@ -8,12 +8,22 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function (): void {
+            /*
+             * Marketing routes are intentionally registered after the legacy
+             * web routes so the public home page replaces the old JSON root
+             * without coupling the marketing site to the protected app graph.
+             */
+            Route::middleware('web')
+                ->group(base_path('routes/marketing.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         /*
