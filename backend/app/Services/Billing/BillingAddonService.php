@@ -203,7 +203,7 @@ final class BillingAddonService
         $catalog = [];
 
         foreach ((array) config('billing_growth.addons', []) as $key => $addon) {
-            if (! is_array($addon)) {
+            if (! is_array($addon) || ($addon['customer_visible'] ?? true) === false) {
                 continue;
             }
 
