@@ -7,12 +7,40 @@ export type Locale = keyof typeof locales;
 const listeners = new Set<() => void>();
 let locale: Locale = 'en';
 
-/** Read only a supported preference; storage availability never blocks the UI. */
+function cookieLocale(): Locale | null {
+    if (typeof document === 'undefined') return null;
+
+    const match = document.cookie
+        .split(';')
+        .map((part) => part.trim())
+        .find((part) => part.startsWith('acconova_locale='));
+
+    if (! match) return null;
+
+    const value = decodeURIComponent(match.slice('acconova_locale='.length));
+    return value in locales ? value as Locale : null;
+}
+
+/**
+ * Resolve the saved language across both the public Blade site and the Inertia
+ * application. Local storage is preferred for existing app users; the shared
+ * cookie lets a visitor choose Arabic on the marketing site and keep Arabic on
+ * login, registration and the protected application without choosing it again.
+ */
 export function initializeLocale(): void {
+    let saved: Locale | null = null;
+
     try {
-        const saved = localStorage.getItem('acconova.locale');
-        if (saved && saved in locales) locale = saved as Locale;
+        const stored = localStorage.getItem('acconova.locale');
+        if (stored && stored in locales) saved = stored as Locale;
     } catch { /* Private browsing can disable preference storage. */ }
+
+    locale = saved ?? cookieLocale() ?? 'en';
+
+    if (! saved) {
+        try { localStorage.setItem('acconova.locale', locale); } catch { /* Cookie remains the fallback. */ }
+    }
+
     applyDirection();
 }
 
