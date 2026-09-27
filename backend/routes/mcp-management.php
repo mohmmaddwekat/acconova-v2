@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\McpManagementController;
+use App\Http\Middleware\EnsureMcpAdmin;
 use App\Http\Middleware\RequireActiveSubscription;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
@@ -10,6 +11,7 @@ Route::middleware([
     'verified',
     RequireActiveSubscription::class,
     ResolveOrganization::class,
+    EnsureMcpAdmin::class,
 ])->group(function (): void {
     Route::get('/app/mcp', [McpManagementController::class, 'page'])->name('app.mcp');
 
