@@ -261,6 +261,11 @@ final class PlatformAdminController extends Controller
     /** @return array<string, mixed> */
     private function system(): array
     {
+        $platformAdminCount = User::query()
+            ->whereIn('platform_role', [User::PLATFORM_ROLE_ADMIN, User::PLATFORM_ROLE_SUPER_ADMIN])
+            ->count();
+        $legacyAdminEmailCount = count((array) config('platform_admin.emails', []));
+
         return [
             'environment' => app()->environment(),
             'app_url' => (string) config('app.url'),
@@ -271,10 +276,12 @@ final class PlatformAdminController extends Controller
             'contact_email_configured' => trim((string) config('marketing.contact_email')) !== '',
             'mail_driver' => (string) config('mail.default'),
             'queue_driver' => (string) config('queue.default'),
-            'platform_admin_count' => User::query()
-                ->whereIn('platform_role', [User::PLATFORM_ROLE_ADMIN, User::PLATFORM_ROLE_SUPER_ADMIN])
-                ->count(),
-            'legacy_admin_email_count' => count((array) config('platform_admin.emails', [])),
+            'platform_admin_count' => $platformAdminCount,
+            'legacy_admin_email_count' => $legacyAdminEmailCount,
+            // Temporary compatibility for the current Platform Admin UI while
+            // the primary source of truth is users.platform_role.
+            'admin_email_count' => $legacyAdminEmailCount,
+            'local_admin_bypass' => false,
             'contact_storage_ready' => Schema::hasTable('marketing_contact_messages'),
             'database_connection' => (string) config('database.default'),
         ];
