@@ -20,7 +20,9 @@ jobs:
           coverage: none
       - name: Resolve Laravel MCP and Passport
         working-directory: backend
-        run: composer require 'laravel/mcp:^1.0' 'laravel/passport:^13.8' --with-all-dependencies --no-interaction --prefer-dist
+        run: |
+          composer require 'laravel/mcp:^1.0' 'laravel/passport:^13.8' --with-all-dependencies --no-interaction --prefer-dist
+          composer require --dev 'laravel/boost:^2.10' --with-all-dependencies --no-interaction --prefer-dist
       - name: Publish Passport migrations and MCP authorization view
         working-directory: backend
         run: |
