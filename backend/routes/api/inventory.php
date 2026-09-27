@@ -1,12 +1,12 @@
 <?php
 
-use App\Http\Controllers\InventoryIntelligenceController;
-use App\Http\Controllers\InventoryOverviewController;
-use App\Http\Controllers\InventoryTransferWorkflowController;
-use App\Http\Controllers\ProductInventoryController;
-use App\Http\Controllers\ProductionRunController;
-use App\Http\Controllers\WarehouseController;
-use App\Http\Controllers\WarehouseInventoryController;
+use App\Http\Controllers\Inventory\InventoryIntelligenceController;
+use App\Http\Controllers\Inventory\InventoryOverviewController;
+use App\Http\Controllers\Inventory\InventoryTransferWorkflowController;
+use App\Http\Controllers\Inventory\ProductInventoryController;
+use App\Http\Controllers\Inventory\WarehouseController;
+use App\Http\Controllers\Inventory\WarehouseInventoryController;
+use App\Http\Controllers\Production\ProductionRunController;
 use App\Http\Middleware\EnsureInventoryPermission;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;

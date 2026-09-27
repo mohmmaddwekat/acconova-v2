@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\McpProtocolController;
+use App\Http\Controllers\Mcp\McpProtocolController;
 use App\Http\Middleware\McpProtocolCompatibility;
 use App\Http\Middleware\ResolveMcpOAuthConnection;
 use App\Http\Middleware\ResolveMcpToken;

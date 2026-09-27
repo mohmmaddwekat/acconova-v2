@@ -10,7 +10,7 @@ use App\Models\PaymentRecord;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\NotificationCenter;
+use App\Services\Notifications\NotificationCenter;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;

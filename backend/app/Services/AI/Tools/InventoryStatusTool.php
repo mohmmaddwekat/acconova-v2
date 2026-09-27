@@ -7,7 +7,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Services\AI\Contracts\AiBusinessTool;
 use App\Services\AI\Tools\Concerns\NormalizesToolInput;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 
 final class InventoryStatusTool implements AiBusinessTool
 {

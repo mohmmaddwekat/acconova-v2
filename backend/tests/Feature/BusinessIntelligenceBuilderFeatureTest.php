@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\NotificationRuleService;
+use App\Services\Notifications\NotificationRuleService;
 use App\Tenancy\OrganizationAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;

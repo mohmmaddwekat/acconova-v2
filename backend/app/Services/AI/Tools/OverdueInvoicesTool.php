@@ -6,7 +6,7 @@ use App\Models\FinancialDocument;
 use App\Models\User;
 use App\Services\AI\Contracts\AiBusinessTool;
 use App\Services\AI\Tools\Concerns\NormalizesToolInput;
-use App\Services\FinanceAuthorization;
+use App\Services\Finance\FinanceAuthorization;
 
 final class OverdueInvoicesTool implements AiBusinessTool
 {

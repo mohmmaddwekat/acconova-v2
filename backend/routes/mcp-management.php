@@ -1,9 +1,9 @@
 <?php
 
-use App\Http\Controllers\McpApprovalController;
-use App\Http\Controllers\McpManagementController;
-use App\Http\Controllers\McpOAuthConnectionController;
-use App\Http\Controllers\McpTokenController;
+use App\Http\Controllers\Mcp\McpApprovalController;
+use App\Http\Controllers\Mcp\McpManagementController;
+use App\Http\Controllers\Mcp\McpOAuthConnectionController;
+use App\Http\Controllers\Mcp\McpTokenController;
 use App\Http\Middleware\EnsureMcpAdmin;
 use App\Http\Middleware\RequireActiveSubscription;
 use App\Http\Middleware\ResolveOrganization;

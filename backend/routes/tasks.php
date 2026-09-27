@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\TaskManagementController;
+use App\Http\Controllers\Tasks\TaskManagementController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 

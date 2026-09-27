@@ -5,7 +5,7 @@ namespace App\Services\AI\Tools;
 use App\Models\StaffMember;
 use App\Models\User;
 use App\Services\AI\Contracts\AiBusinessTool;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 
 final class StaffSummaryTool implements AiBusinessTool
 {

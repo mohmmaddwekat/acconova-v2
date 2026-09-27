@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\MembershipController;
+use App\Http\Controllers\Workspace\MembershipController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 

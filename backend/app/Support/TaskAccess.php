@@ -2,11 +2,11 @@
 
 namespace App\Support;
 
-use App\Http\Controllers\StaffController;
+use App\Http\Controllers\Staff\StaffController;
 use App\Models\StaffMember;
 use App\Models\Task;
 use App\Models\User;
-use App\Services\WorkspacePermissions;
+use App\Services\Workspace\WorkspacePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 

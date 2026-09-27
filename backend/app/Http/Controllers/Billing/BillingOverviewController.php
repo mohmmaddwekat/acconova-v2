@@ -1,0 +1,29 @@
+<?php
+
+namespace App\Http\Controllers\Billing;
+
+use App\Http\Controllers\Controller;
+use App\Services\Billing\BillingOverviewService;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
+use App\Tenancy\TenantContext;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class BillingOverviewController extends Controller
+{
+    public function show(
+        Request $request,
+        BillingOverviewService $overview,
+    ): JsonResponse {
+        WorkspaceFeaturePermissions::authorize(
+            $request->user(),
+            'workspace.settings.view',
+        );
+
+        $organization = app(TenantContext::class)->organization();
+
+        return response()->json([
+            'data' => $overview->forOrganization($organization),
+        ]);
+    }
+}

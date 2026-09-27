@@ -3,9 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\Organization;
-use App\Services\TaskAccess;
-use App\Services\WorkspaceFeaturePermissions;
-use App\Services\WorkspacePermissions;
+use App\Services\Tasks\TaskAccess;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
+use App\Services\Workspace\WorkspacePermissions;
 use App\Tenancy\OrganizationAccess;
 use Illuminate\Http\Request;
 use Inertia\Middleware;

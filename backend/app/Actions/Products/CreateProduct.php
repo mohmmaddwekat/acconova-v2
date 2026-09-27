@@ -4,7 +4,7 @@ namespace App\Actions\Products;
 
 use App\Events\ProductCreated;
 use App\Models\Product;
-use App\Services\ProductSkuGenerator;
+use App\Services\Products\ProductSkuGenerator;
 use Illuminate\Support\Facades\DB;
 
 class CreateProduct
