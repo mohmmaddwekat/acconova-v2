@@ -3,10 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\OrganizationRole;
-use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
+use App\Tenancy\OrganizationAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -18,12 +19,15 @@ class SecurityManagementTest extends TestCase
     {
         [$owner, $organization] = $this->workspaceUser(OrganizationRole::Owner);
         [$employee] = $this->workspaceUser(OrganizationRole::Employee, $organization);
-        $membership = Membership::query()->where('user_id', $employee->id)->firstOrFail();
+        $membershipId = $this->membershipId($employee, $organization);
 
-        $response = $this->actingAs($owner)->postJson(
-            "/api/security/members/{$membership->id}/temporary-password",
-            ['current_password' => 'Password!12345'],
-        );
+        $response = $this
+            ->withSession([OrganizationAccess::SESSION_KEY => $organization->id])
+            ->actingAs($owner)
+            ->postJson(
+                "/api/security/members/{$membershipId}/temporary-password",
+                ['current_password' => 'Password!12345'],
+            );
 
         $response->assertOk()->assertJsonStructure(['temporary_password', 'expires_at']);
         $temporary = $response->json('temporary_password');
@@ -40,15 +44,19 @@ class SecurityManagementTest extends TestCase
         [$admin] = $this->workspaceUser(OrganizationRole::Admin, $organization);
         [$otherAdmin] = $this->workspaceUser(OrganizationRole::Admin, $organization);
 
-        $ownerMembership = Membership::query()->where('user_id', $owner->id)->firstOrFail();
-        $adminMembership = Membership::query()->where('user_id', $otherAdmin->id)->firstOrFail();
+        $ownerMembershipId = $this->membershipId($owner, $organization);
+        $adminMembershipId = $this->membershipId($otherAdmin, $organization);
 
-        $this->actingAs($admin)
-            ->postJson("/api/security/members/{$ownerMembership->id}/temporary-password", ['current_password' => 'Password!12345'])
+        $this
+            ->withSession([OrganizationAccess::SESSION_KEY => $organization->id])
+            ->actingAs($admin)
+            ->postJson("/api/security/members/{$ownerMembershipId}/temporary-password", ['current_password' => 'Password!12345'])
             ->assertForbidden();
 
-        $this->actingAs($admin)
-            ->postJson("/api/security/members/{$adminMembership->id}/temporary-password", ['current_password' => 'Password!12345'])
+        $this
+            ->withSession([OrganizationAccess::SESSION_KEY => $organization->id])
+            ->actingAs($admin)
+            ->postJson("/api/security/members/{$adminMembershipId}/temporary-password", ['current_password' => 'Password!12345'])
             ->assertForbidden();
     }
 
@@ -57,28 +65,39 @@ class SecurityManagementTest extends TestCase
         [$owner, $organization] = $this->workspaceUser(OrganizationRole::Owner);
         [$employee] = $this->workspaceUser(OrganizationRole::Employee, $organization);
         [$admin] = $this->workspaceUser(OrganizationRole::Admin, $organization);
-        $membership = Membership::query()->where('user_id', $employee->id)->firstOrFail();
+        $membershipId = $this->membershipId($employee, $organization);
 
-        $this->actingAs($admin)
-            ->putJson("/api/security/members/{$membership->id}/role", ['role' => 'admin', 'current_password' => 'Password!12345'])
+        $this
+            ->withSession([OrganizationAccess::SESSION_KEY => $organization->id])
+            ->actingAs($admin)
+            ->putJson("/api/security/members/{$membershipId}/role", ['role' => 'admin', 'current_password' => 'Password!12345'])
             ->assertForbidden();
 
-        $this->actingAs($owner)
-            ->putJson("/api/security/members/{$membership->id}/role", ['role' => 'admin', 'current_password' => 'Password!12345'])
+        $this
+            ->withSession([OrganizationAccess::SESSION_KEY => $organization->id])
+            ->actingAs($owner)
+            ->putJson("/api/security/members/{$membershipId}/role", ['role' => 'admin', 'current_password' => 'Password!12345'])
             ->assertOk();
 
-        $this->assertSame('admin', $membership->fresh()->role->value);
+        $this->assertDatabaseHas('memberships', [
+            'id' => $membershipId,
+            'role' => 'admin',
+        ]);
     }
 
     public function test_flagged_user_is_forced_to_change_password_and_can_complete_flow(): void
     {
-        [$user] = $this->workspaceUser(OrganizationRole::Employee);
+        [$user, $organization] = $this->workspaceUser(OrganizationRole::Employee);
         $user->forceFill([
             'must_change_password' => true,
             'temporary_password_expires_at' => now()->addHour(),
         ])->save();
 
-        $this->actingAs($user)->get('/app')->assertRedirect('/password-change-required');
+        $this
+            ->withSession([OrganizationAccess::SESSION_KEY => $organization->id])
+            ->actingAs($user)
+            ->get('/app')
+            ->assertRedirect('/password-change-required');
 
         $this->actingAs($user)->postJson('/api/security/change-required-password', [
             'password' => 'NewSecure!Password123',
@@ -87,6 +106,7 @@ class SecurityManagementTest extends TestCase
 
         $user->refresh();
         $this->assertFalse($user->must_change_password);
+        $this->assertNull($user->temporary_password_expires_at);
         $this->assertTrue(Hash::check('NewSecure!Password123', $user->password));
     }
 
@@ -94,18 +114,41 @@ class SecurityManagementTest extends TestCase
         OrganizationRole $role,
         ?Organization $organization = null,
     ): array {
-        $organization ??= Organization::factory()->create();
+        $organization ??= Organization::create([
+            'name' => 'Security Test '.uniqid('', true),
+        ]);
+
         $user = User::factory()->create([
-            'password' => Hash::make('Password!12345'),
+            'password' => 'Password!12345',
             'email_verified_at' => now(),
         ]);
 
-        Membership::factory()->create([
-            'organization_id' => $organization->id,
-            'user_id' => $user->id,
+        $hasOwner = $organization->users()
+            ->wherePivot('role', OrganizationRole::Owner->value)
+            ->exists();
+
+        if (! $hasOwner && $role !== OrganizationRole::Owner) {
+            $owner = User::factory()->create([
+                'password' => 'Password!12345',
+                'email_verified_at' => now(),
+            ]);
+            $organization->users()->attach($owner->id, [
+                'role' => OrganizationRole::Owner->value,
+            ]);
+        }
+
+        $organization->users()->attach($user->id, [
             'role' => $role->value,
         ]);
 
         return [$user, $organization];
+    }
+
+    private function membershipId(User $user, Organization $organization): int
+    {
+        return (int) DB::table('memberships')
+            ->where('organization_id', $organization->id)
+            ->where('user_id', $user->id)
+            ->value('id');
     }
 }
