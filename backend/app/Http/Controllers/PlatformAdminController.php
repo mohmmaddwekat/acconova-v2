@@ -76,18 +76,7 @@ final class PlatformAdminController extends Controller
 
     private function authorizeAdmin(Request $request): void
     {
-        $user = $request->user();
-        abort_unless($user, 401);
-
-        $email = strtolower(trim((string) $user->email));
-        $emails = array_values(array_filter(array_map(
-            static fn ($value): string => strtolower(trim((string) $value)),
-            (array) config('platform_admin.emails', []),
-        )));
-        $localAllowed = app()->environment('local')
-            && (bool) config('platform_admin.allow_any_authenticated_user_locally', true);
-
-        abort_unless($localAllowed || in_array($email, $emails, true), 403);
+        abort_unless($request->user()?->isPlatformAdmin(), 403);
     }
 
     /** @return array<string, mixed> */
@@ -162,6 +151,7 @@ final class PlatformAdminController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'platform_role' => $user->platform_role,
                 'verified' => $user->email_verified_at !== null,
                 'memberships' => (int) $user->memberships_count,
                 'last_login_at' => $user->last_login_at?->toIso8601String(),
@@ -281,9 +271,10 @@ final class PlatformAdminController extends Controller
             'contact_email_configured' => trim((string) config('marketing.contact_email')) !== '',
             'mail_driver' => (string) config('mail.default'),
             'queue_driver' => (string) config('queue.default'),
-            'admin_email_count' => count((array) config('platform_admin.emails', [])),
-            'local_admin_bypass' => app()->environment('local')
-                && (bool) config('platform_admin.allow_any_authenticated_user_locally', true),
+            'platform_admin_count' => User::query()
+                ->whereIn('platform_role', [User::PLATFORM_ROLE_ADMIN, User::PLATFORM_ROLE_SUPER_ADMIN])
+                ->count(),
+            'legacy_admin_email_count' => count((array) config('platform_admin.emails', [])),
             'contact_storage_ready' => Schema::hasTable('marketing_contact_messages'),
             'database_connection' => (string) config('database.default'),
         ];
