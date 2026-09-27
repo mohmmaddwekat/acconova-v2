@@ -72,4 +72,13 @@ Route::middleware('auth')->group(function (): void {
         'logout',
         [AuthController::class, 'logout'],
     );
+
+    /*
+     * Backwards-compatible alias used by the Platform Admin shell.
+     * Keep both paths session-authenticated and handled by the same action.
+     */
+    Route::post(
+        'auth/logout',
+        [AuthController::class, 'logout'],
+    );
 });
