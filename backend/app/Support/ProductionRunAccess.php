@@ -4,7 +4,7 @@ namespace App\Support;
 
 use App\Enums\OrganizationRole;
 use App\Models\User;
-use App\Services\WorkspacePermissions;
+use App\Services\Workspace\WorkspacePermissions;
 use App\Tenancy\TenantContext;
 use LogicException;
 

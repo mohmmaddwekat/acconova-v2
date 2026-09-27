@@ -6,8 +6,8 @@ use App\Models\PartyOpeningBalance;
 use App\Models\User;
 use App\Services\AI\Contracts\AiBusinessTool;
 use App\Services\AI\Tools\Concerns\NormalizesToolInput;
-use App\Services\FinanceAuthorization;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Finance\FinanceAuthorization;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 

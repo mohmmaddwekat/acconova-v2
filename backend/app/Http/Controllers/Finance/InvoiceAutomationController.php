@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Models\FinancialDocument;
-use App\Services\FinanceAuthorization;
-use App\Services\InvoiceAutomationService;
+use App\Services\Finance\FinanceAuthorization;
+use App\Services\Finance\InvoiceAutomationService;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

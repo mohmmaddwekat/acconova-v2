@@ -6,7 +6,7 @@ use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
 use App\Models\Party;
 use App\Models\Product;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

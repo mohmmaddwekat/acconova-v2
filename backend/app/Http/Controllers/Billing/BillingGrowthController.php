@@ -7,7 +7,7 @@ use App\Models\BillingInvoice;
 use App\Services\Billing\AiCreditService;
 use App\Services\Billing\BillingAddonService;
 use App\Services\Billing\BillingGrowthService;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Mcp;
 use App\Http\Controllers\Controller;
 use App\Services\Mcp\McpCapabilityCatalog;
 use App\Services\Mcp\McpTokenService;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

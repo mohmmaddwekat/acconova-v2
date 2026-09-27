@@ -8,7 +8,7 @@ use App\Events\ProductTypeChanged;
 use App\Events\ProductUpdated;
 use App\Exceptions\SafeValidationException;
 use App\Models\Product;
-use App\Services\ProductSkuGenerator;
+use App\Services\Products\ProductSkuGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 

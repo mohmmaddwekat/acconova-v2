@@ -10,7 +10,7 @@ use App\Services\AI\Tools\OverdueInvoicesTool;
 use App\Services\AI\Tools\PartyBalancesTool;
 use App\Services\AI\Tools\SalesSummaryTool;
 use App\Services\AI\Tools\StaffSummaryTool;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 use RuntimeException;
 
 final class AiBusinessToolRegistry

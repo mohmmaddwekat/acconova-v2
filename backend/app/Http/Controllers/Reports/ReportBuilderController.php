@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Reports;
 use App\Http\Controllers\Controller;
 use App\Models\Party;
 use App\Models\Product;
-use App\Services\FinanceAuthorization;
+use App\Services\Finance\FinanceAuthorization;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;

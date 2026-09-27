@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Workspace;
 
 use App\Http\Controllers\Controller;
-use App\Services\ConversationAdmins;
+use App\Services\Collaboration\ConversationAdmins;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;

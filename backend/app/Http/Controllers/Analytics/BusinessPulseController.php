@@ -8,7 +8,7 @@ use App\Models\Party;
 use App\Models\PaymentPlan;
 use App\Models\Product;
 use App\Models\Task;
-use App\Services\FinanceAuthorization;
+use App\Services\Finance\FinanceAuthorization;
 use App\Support\TaskAccess;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;

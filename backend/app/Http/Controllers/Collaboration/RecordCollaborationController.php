@@ -9,7 +9,7 @@ use App\Models\Party;
 use App\Models\Product;
 use App\Models\StaffMember;
 use App\Models\Task;
-use App\Services\FinanceAuthorization;
+use App\Services\Finance\FinanceAuthorization;
 use App\Support\TaskAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Model;

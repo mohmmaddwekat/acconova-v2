@@ -3,7 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Billing\WorkspaceSubscriptionAccess;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Closure;

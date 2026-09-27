@@ -8,7 +8,7 @@ use App\Models\StaffMember;
 use App\Models\Task;
 use App\Models\TaskProject;
 use App\Models\TaskTeam;
-use App\Services\MentionNotifier;
+use App\Services\Collaboration\MentionNotifier;
 use App\Support\TaskAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;

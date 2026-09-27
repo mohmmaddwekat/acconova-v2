@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\NotificationCenter;
+use App\Services\Notifications\NotificationCenter;
 use App\Tenancy\OrganizationAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;

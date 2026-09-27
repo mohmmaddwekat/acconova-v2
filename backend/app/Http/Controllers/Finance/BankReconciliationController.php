@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Models\CashMovement;
-use App\Services\FinanceAuthorization;
+use App\Services\Finance\FinanceAuthorization;
 use App\Tenancy\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;

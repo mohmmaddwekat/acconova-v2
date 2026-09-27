@@ -10,7 +10,7 @@ use App\Services\AI\AiBusinessToolRegistry;
 use App\Services\AI\AiConversationMemory;
 use App\Services\AI\AiGateway;
 use App\Services\Billing\AiCreditService;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

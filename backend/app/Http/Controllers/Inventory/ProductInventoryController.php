@@ -13,7 +13,7 @@ use App\Models\InventoryBalance;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
-use App\Services\InventoryStockService;
+use App\Services\Inventory\InventoryStockService;
 use App\Support\InventoryQuantity;
 use Illuminate\Http\JsonResponse;
 

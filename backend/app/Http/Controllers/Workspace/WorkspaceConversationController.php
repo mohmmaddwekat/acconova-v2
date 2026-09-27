@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Workspace;
 
 use App\Http\Controllers\Controller;
-use App\Services\ConversationAdmins;
-use App\Services\MessageRestrictions;
-use App\Services\NotificationCenter;
-use App\Services\WorkspaceFeaturePermissions;
+use App\Services\Collaboration\ConversationAdmins;
+use App\Services\Collaboration\MessageRestrictions;
+use App\Services\Notifications\NotificationCenter;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

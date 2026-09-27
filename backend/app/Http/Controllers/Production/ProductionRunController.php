@@ -10,7 +10,7 @@ use App\Http\Requests\ReverseProductionRunRequest;
 use App\Http\Requests\SaveProductionRunRequest;
 use App\Http\Resources\ProductionRunResource;
 use App\Models\ProductionRun;
-use App\Services\ProductionRunService;
+use App\Services\Production\ProductionRunService;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Documents;
 use App\Http\Controllers\Controller;
 use App\Models\FinancialDocument;
 use App\Models\FinancialDocumentLine;
-use App\Services\FinanceAuthorization;
+use App\Services\Finance\FinanceAuthorization;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

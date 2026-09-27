@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SaveProductionRecipeRequest;
 use App\Models\Product;
 use App\Models\ProductionRecipe;
-use App\Services\ProductionRecipeService;
+use App\Services\Production\ProductionRecipeService;
 use App\Support\MeasurementUnits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

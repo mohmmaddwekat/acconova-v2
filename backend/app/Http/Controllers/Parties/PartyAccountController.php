@@ -8,7 +8,7 @@ use App\Models\FinanceAuditEvent;
 use App\Models\FinancialDocument;
 use App\Models\Party;
 use App\Models\PartyOpeningBalance;
-use App\Services\FinanceAuthorization;
+use App\Services\Finance\FinanceAuthorization;
 use App\Tenancy\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
