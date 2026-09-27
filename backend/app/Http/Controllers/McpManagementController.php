@@ -12,7 +12,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -113,6 +112,7 @@ final class McpManagementController extends Controller
         }
 
         $created = $tokens->create($context->id(), $request->user()->id, $data);
+
         return response()->json([
             'token' => $created['token'],
             'record' => $this->publicToken($created['record']),
@@ -124,6 +124,7 @@ final class McpManagementController extends Controller
     {
         $this->authorizeAdmin($request->user());
         abort_unless($tokens->revoke($context->id(), $token), 404);
+
         return response()->json(['ok' => true]);
     }
 
@@ -162,6 +163,7 @@ final class McpManagementController extends Controller
             'status' => 'rejected', 'reviewed_by' => $request->user()->id, 'review_note' => $data['note'] ?? null, 'reviewed_at' => now(), 'updated_at' => now(),
         ]);
         abort_unless($updated, 404);
+
         return response()->json(['ok' => true]);
     }
 
@@ -195,6 +197,7 @@ final class McpManagementController extends Controller
         } else {
             $id = DB::table('mcp_connections')->insertGetId([...$payload, 'created_at' => now()]);
         }
+
         return response()->json(['ok' => true, 'id' => $id], $existing ? 200 : 201);
     }
 
@@ -202,6 +205,7 @@ final class McpManagementController extends Controller
     {
         $this->authorizeAdmin($request->user());
         abort_unless(DB::table('mcp_connections')->where('organization_id', $context->id())->where('id', $connection)->delete(), 404);
+
         return response()->json(['ok' => true]);
     }
 
@@ -244,6 +248,7 @@ final class McpManagementController extends Controller
         } else {
             $id = DB::table('mcp_custom_tools')->insertGetId([...$payload, 'created_at' => now()]);
         }
+
         return response()->json(['ok' => true, 'id' => $id, 'tool_name' => 'custom.'.$data['slug']], $existing ? 200 : 201);
     }
 
@@ -251,6 +256,7 @@ final class McpManagementController extends Controller
     {
         $this->authorizeAdmin($request->user());
         abort_unless(DB::table('mcp_custom_tools')->where('organization_id', $context->id())->where('id', $tool)->delete(), 404);
+
         return response()->json(['ok' => true]);
     }
 
@@ -280,6 +286,7 @@ final class McpManagementController extends Controller
         } else {
             $id = DB::table('mcp_workflows')->insertGetId([...$payload, 'created_at' => now()]);
         }
+
         return response()->json(['ok' => true, 'id' => $id], $existing ? 200 : 201);
     }
 
@@ -287,6 +294,7 @@ final class McpManagementController extends Controller
     {
         $this->authorizeAdmin($request->user());
         abort_unless(DB::table('mcp_workflows')->where('organization_id', $context->id())->where('id', $workflow)->delete(), 404);
+
         return response()->json(['ok' => true]);
     }
 
@@ -308,6 +316,7 @@ final class McpManagementController extends Controller
             }
         }
         DB::table('mcp_workflows')->where('id', $row->id)->update(['last_run_at' => now(), 'updated_at' => now()]);
+
         return response()->json(['ok' => true, 'results' => $results]);
     }
 
@@ -315,6 +324,7 @@ final class McpManagementController extends Controller
     {
         WorkspaceFeaturePermissions::authorize($request->user(), 'ai.business_data.use');
         $data = $request->validate(['tool' => ['required', 'string', 'max:120'], 'arguments' => ['nullable', 'array']]);
+
         return response()->json($executor->execute($data['tool'], $data['arguments'] ?? [], $request->user(), null, true));
     }
 
@@ -327,6 +337,7 @@ final class McpManagementController extends Controller
     {
         try {
             WorkspaceFeaturePermissions::authorize($user, 'ai.admin.configure');
+
             return true;
         } catch (\Throwable) {
             return false;
@@ -360,6 +371,7 @@ final class McpManagementController extends Controller
         foreach ($jsonFields as $field) {
             $data[$field] = isset($data[$field]) && $data[$field] !== null ? (json_decode((string) $data[$field], true) ?: []) : null;
         }
+
         return $data;
     }
 

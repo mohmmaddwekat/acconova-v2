@@ -102,8 +102,7 @@ class BillingCheckoutTest extends TestCase
             );
 
         Http::assertSent(
-            fn ($request): bool =>
-                $request->url() === 'https://billing.example.test/v1/billing_portal/sessions'
+            fn ($request): bool => $request->url() === 'https://billing.example.test/v1/billing_portal/sessions'
                 && data_get($request->data(), 'customer') === 'cus_payment_update'
                 && data_get($request->data(), 'flow_data.type') === 'payment_method_update'
                 && data_get($request->data(), 'flow_data.after_completion.type') === 'redirect'

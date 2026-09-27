@@ -88,8 +88,7 @@ final class PlatformAdminController extends Controller
                 ->where('status', 'active')
                 ->where('billing_interval', 'month')
                 ->get(['amount_minor', 'quantity'])
-                ->sum(fn (BillingAccount $account): int =>
-                    max(0, (int) ($account->amount_minor ?? 0))
+                ->sum(fn (BillingAccount $account): int => max(0, (int) ($account->amount_minor ?? 0))
                     * max(1, (int) ($account->quantity ?? 1))
                 );
         }
@@ -127,6 +126,7 @@ final class PlatformAdminController extends Controller
             ->get()
             ->map(function (Organization $organization) use ($billing): array {
                 $account = $billing->get($organization->id);
+
                 return [
                     'id' => $organization->id,
                     'name' => $organization->name,
@@ -163,7 +163,9 @@ final class PlatformAdminController extends Controller
     /** @return list<array<string, mixed>> */
     private function subscriptions(): array
     {
-        if (! Schema::hasTable('billing_accounts')) return [];
+        if (! Schema::hasTable('billing_accounts')) {
+            return [];
+        }
 
         return BillingAccount::query()
             ->with('organization:id,name')
@@ -194,6 +196,7 @@ final class PlatformAdminController extends Controller
         return collect((array) config('billing.plans', []))
             ->map(function ($plan, string $key): array {
                 $plan = is_array($plan) ? $plan : [];
+
                 return [
                     'key' => $key,
                     'name_ar' => (string) ($plan['name_ar'] ?? $key),
@@ -236,7 +239,9 @@ final class PlatformAdminController extends Controller
     /** @return list<array<string, mixed>> */
     private function contacts(): array
     {
-        if (! Schema::hasTable('marketing_contact_messages')) return [];
+        if (! Schema::hasTable('marketing_contact_messages')) {
+            return [];
+        }
 
         return MarketingContactMessage::query()
             ->latest('id')

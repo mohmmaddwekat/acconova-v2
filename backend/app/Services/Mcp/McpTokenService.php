@@ -146,6 +146,7 @@ final class McpTokenService
         }
 
         $number = (int) $value;
+
         return $number > 0 ? $number : null;
     }
 }

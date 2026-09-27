@@ -189,7 +189,7 @@ final class BillingPlanChangeService
     }
 
     /**
-     * @param list<mixed> $items
+     * @param  list<mixed>  $items
      * @return array<string, mixed>|null
      */
     private function findBaseItem(array $items, BillingAccount $account): ?array

@@ -24,6 +24,7 @@ Artisan::command('user:make-platform-admin {email} {--super}', function (): int 
 
     if (! $user) {
         $this->error("No user exists with email {$email}.");
+
         return 1;
     }
 
@@ -34,6 +35,7 @@ Artisan::command('user:make-platform-admin {email} {--super}', function (): int 
     $user->forceFill(['platform_role' => $role])->save();
 
     $this->info("{$user->email} is now a {$role}.");
+
     return 0;
 })->purpose('Grant a user AccoNova platform administration access');
 
@@ -43,12 +45,14 @@ Artisan::command('user:remove-platform-admin {email}', function (): int {
 
     if (! $user) {
         $this->error("No user exists with email {$email}.");
+
         return 1;
     }
 
     $user->forceFill(['platform_role' => User::PLATFORM_ROLE_USER])->save();
 
     $this->info("Platform administration access removed from {$user->email}.");
+
     return 0;
 })->purpose('Remove AccoNova platform administration access from a user');
 

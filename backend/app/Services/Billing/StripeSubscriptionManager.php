@@ -376,7 +376,7 @@ final class StripeSubscriptionManager
     }
 
     /**
-     * @param array<string, mixed> $addon
+     * @param  array<string, mixed>  $addon
      * @return array<string, mixed>
      */
     private function addonPrice(string $addonKey, string $interval, array $addon): array
@@ -412,7 +412,7 @@ final class StripeSubscriptionManager
     }
 
     /**
-     * @param array<string, mixed> $price
+     * @param  array<string, mixed>  $price
      * @return array<string, mixed>|null
      */
     private function findPrice(array $price): ?array
@@ -440,7 +440,7 @@ final class StripeSubscriptionManager
     }
 
     /**
-     * @param array<string, mixed> $subscription
+     * @param  array<string, mixed>  $subscription
      */
     private function findAddonItemId(
         array $subscription,

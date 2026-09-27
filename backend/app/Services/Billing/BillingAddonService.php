@@ -80,7 +80,7 @@ final class BillingAddonService
      * entitlement changes become available immediately and the base plan does
      * not depend on Stripe item ordering.
      *
-     * @param array<string, mixed> $subscription
+     * @param  array<string, mixed>  $subscription
      */
     public function reconcileSubscription(
         BillingAccount $account,
@@ -259,7 +259,7 @@ final class BillingAddonService
     }
 
     /**
-     * @param array<string, mixed> $catalog
+     * @param  array<string, mixed>  $catalog
      */
     private function addonKeyForPrice(
         string $priceId,

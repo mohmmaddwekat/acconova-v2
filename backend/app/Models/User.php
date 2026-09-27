@@ -17,7 +17,9 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable implements MustVerifyEmail
 {
     public const PLATFORM_ROLE_USER = 'user';
+
     public const PLATFORM_ROLE_ADMIN = 'admin';
+
     public const PLATFORM_ROLE_SUPER_ADMIN = 'super_admin';
 
     /** @use HasFactory<UserFactory> */
