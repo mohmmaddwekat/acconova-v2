@@ -70,8 +70,19 @@ function clearReloadMarker(): void {
 async function resolvePage(
     name: string,
 ): Promise<ResolvedComponent> {
+    /*
+     * TeamSpaceCompact keeps the established messaging behavior/API intact
+     * while presenting the redesigned two-column UI and on-demand details
+     * drawer. The server route can continue rendering the stable TeamSpace
+     * Inertia page name.
+     */
+    const resolvedName =
+        name === 'TeamSpace'
+            ? 'TeamSpaceCompact'
+            : name;
+
     const loadPage =
-        pages[`./pages/${name}.tsx`];
+        pages[`./pages/${resolvedName}.tsx`];
 
     if (! loadPage) {
         throw new Error(
