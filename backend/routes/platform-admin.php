@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\PlatformAdminController;
-use App\Http\Controllers\PlatformFeatureAdminController;
+use App\Http\Controllers\Platform\PlatformAdminController;
+use App\Http\Controllers\Platform\PlatformFeatureAdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'platform.admin'])

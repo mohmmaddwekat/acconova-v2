@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\AiCreditSettingsController;
-use App\Http\Controllers\BillingGrowthController;
-use App\Http\Controllers\BillingPlanController;
+use App\Http\Controllers\AI\AiCreditSettingsController;
+use App\Http\Controllers\Billing\BillingGrowthController;
+use App\Http\Controllers\Billing\BillingPlanController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 

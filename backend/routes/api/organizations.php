@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\ActiveOrganizationController;
-use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\Workspace\ActiveOrganizationController;
+use App\Http\Controllers\Workspace\OrganizationController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 

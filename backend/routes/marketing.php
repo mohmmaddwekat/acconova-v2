@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\MarketingContactController;
-use App\Http\Controllers\MarketingPageController;
-use App\Http\Controllers\MarketingSolutionController;
+use App\Http\Controllers\Marketing\MarketingContactController;
+use App\Http\Controllers\Marketing\MarketingPageController;
+use App\Http\Controllers\Marketing\MarketingSolutionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 

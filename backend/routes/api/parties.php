@@ -1,12 +1,12 @@
 <?php
 
-use App\Http\Controllers\PartyAccountController;
-use App\Http\Controllers\PartyBulkActionController;
-use App\Http\Controllers\PartyBulkEditController;
-use App\Http\Controllers\PartyController;
-use App\Http\Controllers\PartyDataTransferController;
-use App\Http\Controllers\PartyInsightsController;
-use App\Http\Controllers\PartyPermanentDeletionController;
+use App\Http\Controllers\Parties\PartyAccountController;
+use App\Http\Controllers\Parties\PartyBulkActionController;
+use App\Http\Controllers\Parties\PartyBulkEditController;
+use App\Http\Controllers\Parties\PartyController;
+use App\Http\Controllers\Parties\PartyDataTransferController;
+use App\Http\Controllers\Parties\PartyInsightsController;
+use App\Http\Controllers\Parties\PartyPermanentDeletionController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 

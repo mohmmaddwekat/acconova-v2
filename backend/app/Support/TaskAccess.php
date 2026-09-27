@@ -2,7 +2,7 @@
 
 namespace App\Support;
 
-use App\Http\Controllers\StaffController;
+use App\Http\Controllers\Staff\StaffController;
 use App\Models\StaffMember;
 use App\Models\Task;
 use App\Models\User;

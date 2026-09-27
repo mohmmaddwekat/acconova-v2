@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\AiAssistantController;
+use App\Http\Controllers\AI\AiAssistantController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
