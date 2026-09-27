@@ -79,21 +79,22 @@ final class WorkspaceSecurityController extends Controller
         ]);
     }
 
-    public function issueTemporaryPassword(Request $request, Membership $membership): JsonResponse
+    public function issueTemporaryPassword(Request $request, int $membership): JsonResponse
     {
         $actor = $request->user();
         $actorRole = $this->context->role();
+        $membershipRecord = Membership::query()->findOrFail($membership);
 
         abort_unless(in_array($actorRole, [OrganizationRole::Owner, OrganizationRole::Admin], true), 403);
-        abort_unless((int) $membership->organization_id === $this->context->id(), 404);
-        abort_if((int) $membership->user_id === (int) $actor->id, 422, 'Use account security to change your own password.');
-        abort_unless($this->canResetRole($actorRole, $membership->role), 403);
+        abort_unless((int) $membershipRecord->organization_id === $this->context->id(), 404);
+        abort_if((int) $membershipRecord->user_id === (int) $actor->id, 422, 'Use account security to change your own password.');
+        abort_unless($this->canResetRole($actorRole, $membershipRecord->role), 403);
 
         $request->validate([
             'current_password' => ['required', 'current_password'],
         ]);
 
-        $target = User::query()->findOrFail($membership->user_id);
+        $target = User::query()->findOrFail($membershipRecord->user_id);
         $credential = $this->passwords->issueTemporaryPassword(
             actor: $actor,
             target: $target,
@@ -108,23 +109,25 @@ final class WorkspaceSecurityController extends Controller
         ]);
     }
 
-    public function updateRole(Request $request, Membership $membership): JsonResponse
+    public function updateRole(Request $request, int $membership): JsonResponse
     {
+        $membershipRecord = Membership::query()->findOrFail($membership);
+
         abort_unless($this->context->role() === OrganizationRole::Owner, 403);
-        abort_unless((int) $membership->organization_id === $this->context->id(), 404);
-        abort_if($membership->role === OrganizationRole::Owner, 403);
+        abort_unless((int) $membershipRecord->organization_id === $this->context->id(), 404);
+        abort_if($membershipRecord->role === OrganizationRole::Owner, 403);
 
         $data = $request->validate([
             'role' => ['required', Rule::in(OrganizationRole::assignableBy(OrganizationRole::Owner))],
             'current_password' => ['required', 'current_password'],
         ]);
 
-        $previous = $membership->role->value;
-        $membership->role = OrganizationRole::from($data['role']);
-        $membership->workspace_role_id = null;
-        $membership->save();
+        $previous = $membershipRecord->role->value;
+        $membershipRecord->role = OrganizationRole::from($data['role']);
+        $membershipRecord->workspace_role_id = null;
+        $membershipRecord->save();
 
-        $target = User::query()->findOrFail($membership->user_id);
+        $target = User::query()->findOrFail($membershipRecord->user_id);
         $this->passwords->audit(
             event: 'workspace.role_changed',
             actor: $request->user(),
