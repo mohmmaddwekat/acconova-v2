@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Platform\PlatformAdminController;
 use App\Http\Controllers\Platform\PlatformFeatureAdminController;
+use App\Http\Controllers\Platform\PlatformUserSecurityController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'platform.admin'])
@@ -14,6 +15,11 @@ Route::middleware(['auth', 'platform.admin'])
         )
             ->whereNumber('message')
             ->name('contacts.status');
+
+        Route::post(
+            '/users/{user}/temporary-password',
+            [PlatformUserSecurityController::class, 'issueTemporaryPassword'],
+        )->whereNumber('user')->middleware('throttle:12,1')->name('users.temporary-password');
 
         Route::get(
             '/features',

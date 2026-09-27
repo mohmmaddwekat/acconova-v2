@@ -19,6 +19,7 @@ import {
     Factory,
     Gauge,
     ListTodo,
+    Network,
     PanelLeftClose,
     PanelLeftOpen,
     ReceiptText,
@@ -183,6 +184,10 @@ export function CommandRail({
                             ? '/app/task-management/team'
                             : null;
 
+    const canAdminMcp = customPermissions
+        ? customPermissions.includes('ai.admin.configure')
+        : ['owner', 'admin'].includes(activeOrganization?.role ?? '');
+
     const navigationItems:
         NavigationItem[] = [
         {
@@ -218,6 +223,17 @@ export function CommandRail({
             icon:
                 Sparkles,
         },
+
+        ...(canAdminMcp
+            ? [{
+                label: 'MCP Hub',
+                description: locale === 'ar'
+                    ? 'ربط ChatGPT وClaude وCursor'
+                    : 'Connect ChatGPT, Claude & Cursor',
+                href: '/app/mcp',
+                icon: Network,
+            }]
+            : []),
 
         ...(taskManagementHref
             ? [
@@ -514,6 +530,9 @@ export function CommandRail({
         > = {
         '/app/ai':
             'ai.assistant.use',
+
+        '/app/mcp':
+            'ai.admin.configure',
 
         '/app/products':
             'products.view',

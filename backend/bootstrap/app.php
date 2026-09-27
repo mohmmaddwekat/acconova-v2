@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\ClearTenantContext;
 use App\Http\Middleware\EnsurePlatformAdmin;
+use App\Http\Middleware\ForcePasswordChange;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetUserLocale;
 use App\Http\Middleware\TranslateMarketingResponse;
@@ -66,6 +67,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
+            ForcePasswordChange::class,
             HandleInertiaRequests::class,
         ]);
     })

@@ -190,7 +190,11 @@ function formatDate(value: string | null): string {
 export default function McpHub() {
     const locale = useLocale();
     const ar = locale === 'ar';
-    const [tab, setTab] = useState<Tab>('overview');
+    const [tab, setTab] = useState<Tab>(() => {
+        if (typeof window === 'undefined') return 'overview';
+        const requested = new URLSearchParams(window.location.search).get('tab');
+        return tabs.some(item => item.key === requested) ? requested as Tab : 'overview';
+    });
     const [data, setData] = useState<DashboardResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
@@ -486,13 +490,13 @@ export default function McpHub() {
                                 <Stat icon={KeyRound} label={ar ? 'مفاتيح فعالة' : 'Active keys'} value={data.tokens.filter(item => !item.revoked_at).length} />
 
                                 <section className={`${cardClass} lg:col-span-2`}>
-                                    <h2 className="mb-3 text-base font-bold text-[var(--ac-text)]">{ar ? 'MCP Endpoint' : 'MCP Endpoint'}</h2>
+                                    <h2 className="mb-3 text-base font-bold text-[var(--ac-text)]">{ar ? 'Legacy Bearer Endpoint' : 'Legacy Bearer Endpoint'}</h2>
                                     <div className="flex gap-2">
                                         <code className="min-w-0 flex-1 overflow-x-auto rounded-xl bg-[var(--ac-bg)] px-3 py-2 text-xs text-[var(--ac-text)]">{data.endpoint}</code>
                                         <button className={buttonClass} onClick={() => void navigator.clipboard.writeText(data.endpoint)}><Clipboard className="h-4 w-4" /></button>
                                     </div>
                                     <p className="mt-3 text-xs text-[var(--ac-text-muted)]">
-                                        {ar ? 'استخدم Bearer Token من قسم المفاتيح. كل مفتاح مربوط بـWorkspace واحد.' : 'Use a Bearer Token from Keys. Every key is locked to one workspace.'}
+                                        {ar ? 'هذا الرابط للمفاتيح التقليدية فقط. ChatGPT وClaude وCursor يستخدمون رابط OAuth مميزاً لكل اتصال من تبويب الاتصالات.' : 'This endpoint is for legacy keys only. ChatGPT, Claude and Cursor use a unique OAuth URL per connection from Connections.'}
                                     </p>
                                 </section>
 
@@ -600,6 +604,16 @@ export default function McpHub() {
                                         <div className="mb-4">
                                             <div className="mb-2 flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-emerald-500" /><h2 className="font-bold text-[var(--ac-text)]">{ar ? 'ربط ChatGPT / Claude / Cursor' : 'Connect ChatGPT / Claude / Cursor'}</h2></div>
                                             <p className="text-xs leading-5 text-[var(--ac-text-muted)]">{ar ? 'OAuth 2.1 + PKCE. كل رابط مربوط بهذا المستخدم والـWorkspace، ويمكن إلغاؤه بأي وقت.' : 'OAuth 2.1 + PKCE. Each URL is bound to this user and workspace and can be revoked at any time.'}</p>
+                                            <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/10 p-3 text-xs leading-6 text-[var(--ac-text)]">
+                                                <strong>{ar ? 'طريقة الربط:' : 'How to connect:'}</strong>
+                                                <ol className="mt-1 list-decimal space-y-1 ps-5 text-[var(--ac-text-muted)]">
+                                                    <li>{ar ? 'اختر ChatGPT أو Claude أو Cursor وأنشئ اتصال OAuth.' : 'Choose ChatGPT, Claude or Cursor and create an OAuth connection.'}</li>
+                                                    <li>{ar ? 'انسخ الرابط المميز الذي سيظهر في القائمة على اليمين.' : 'Copy the unique URL shown in the connection list.'}</li>
+                                                    <li>{ar ? 'الصقه في خانة Remote MCP / MCP Server URL داخل العميل المتوافق.' : 'Paste it into the compatible client’s Remote MCP / MCP Server URL field.'}</li>
+                                                    <li>{ar ? 'سيتم فتح تسجيل دخول وموافقة AccoNova عبر OAuth؛ لا تحتاج Secret Key ثابت لهذا النوع.' : 'AccoNova OAuth sign-in/consent opens automatically; no static secret key is required for this connection type.'}</li>
+                                                </ol>
+                                                <p className="mt-2 text-amber-500">{ar ? 'إذا كان العميل يطلب Bearer Token يدويًا استخدم تبويب المفاتيح بدل OAuth.' : 'If the client explicitly requires a manual Bearer token, use the Keys tab instead of OAuth.'}</p>
+                                            </div>
                                         </div>
                                         <div className="space-y-3">
                                             <input className={inputClass} value={oauthName} onChange={e => setOauthName(e.target.value)} placeholder={ar ? 'اسم الاتصال' : 'Connection name'} required />

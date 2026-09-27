@@ -1946,31 +1946,30 @@ function SettingsWorkspace() {
                             )}
 
                             {section === 'integrations' && (
-                                <SettingsCard title={text('التكاملات', 'Integrations')} description={text('لن نعرض اتصالات وهمية. هذه الصفحة تعرض فقط التكاملات المتاحة فعلياً في النظام.', 'No fake connections are shown here; only real available integrations are listed.')} icon={Link2}>
-                                    <div className="rounded-[14px] border border-dashed border-[var(--acs-line-strong)] bg-[var(--acs-surface-soft)] p-8 text-center">
-                                        <Mail size={26} className="mx-auto text-[var(--acs-accent)]" />
-                                        <strong className="mt-3 block text-sm text-[var(--acs-text)]">
-                                            {text('لا توجد تكاملات قابلة للإدارة من هذه الصفحة حالياً', 'No integrations are managed from this page yet')}
-                                        </strong>
-                                        <p className="mx-auto mt-2 max-w-xl text-[10px] leading-5 text-[var(--acs-text-muted)]">
-                                            {text(
-                                                'لن نضع أزرار ربط شكلية. عندما نضيف تكامل فعلي مثل Stripe أو Google Drive سيظهر هنا بحالته الحقيقية.',
-                                                'We will not show decorative connect buttons. Real integrations will appear here with real connection state.',
-                                            )}
-                                        </p>
-                                    </div>
-                                </SettingsCard>
+                                <div className="space-y-4">
+                                    <SettingsCard title={text('تكاملات الذكاء الاصطناعي وMCP', 'AI & MCP integrations')} description={text('تكاملات فعلية مرتبطة بمساحة العمل وليست أزراراً شكلية.', 'Real workspace-bound integrations, not decorative connect buttons.')} icon={Link2}>
+                                        <div className="grid gap-3 xl:grid-cols-2">
+                                            <SectionLink href="/app/mcp?tab=connections" icon={Link2} title={text('ChatGPT / Claude / Cursor', 'ChatGPT / Claude / Cursor')} description={text('أنشئ اتصال OAuth منفصل لكل عميل، انسخ رابطه المميز وألغِه في أي وقت.', 'Create a separate OAuth connection for each client, copy its unique URL and revoke it any time.')} />
+                                            <SectionLink href="/app/mcp?tab=keys" icon={LockKeyhole} title={text('MCP Keys التقليدية', 'Legacy MCP keys')} description={text('لعملاء Bearer Token اليدويين فقط. المفتاح السري يظهر مرة واحدة عند الإنشاء.', 'For manual Bearer-token clients only. The secret is shown once at creation.')} />
+                                            <SectionLink href="/app/mcp?tab=connections" icon={Globe2} title={text('MCP Servers خارجية', 'External MCP servers')} description={text('اربط AccoNova بخادم MCP خارجي مع Endpoint وSecret اختياري.', 'Connect AccoNova to an external MCP server with an endpoint and optional secret.')} />
+                                            <SectionLink href="/app/settings?section=billing" icon={CreditCard} title={text('Stripe والفوترة', 'Stripe & billing')} description={text('إدارة الدفع والاشتراك من مركز الفوترة الحقيقي.', 'Manage payment and subscription integration from the real billing center.')} />
+                                        </div>
+                                    </SettingsCard>
+                                    <SettingsCard title={text('البريد والإشعارات', 'Email & notifications')} description={text('استرداد كلمة المرور والتنبيهات تعتمد على قناة البريد المضبوطة للنظام.', 'Password recovery and notifications use the configured application mail channel.')} icon={Mail}>
+                                        <SectionLink href="/app/settings?section=notifications" icon={Bell} title={text('إعدادات التنبيهات', 'Notification settings')} description={text('قواعد الإشعارات وتنبيهات الجهاز متصلة بالنظام فعلياً.', 'Notification rules and device alerts are connected to the live system.')} />
+                                    </SettingsCard>
+                                </div>
                             )}
 
                             {section === 'security' && (
                                 <div className="grid gap-4 xl:grid-cols-2">
-                                    <SettingsCard title={text('أمان الحساب', 'Account security')} description={text('كلمة المرور والجلسات من مركز الحساب الحقيقي.', 'Password and sessions from the real account center.')} icon={LockKeyhole}>
-                                        <SectionLink href="/app/profile" icon={LockKeyhole} title={text('فتح أمان الحساب', 'Open account security')} description={text('تغيير كلمة المرور ومراجعة إعدادات الحساب.', 'Change password and manage account security.')} />
+                                    <SettingsCard title={text('مركز الأمان والوصول', 'Security & access center')} description={text('إدارة الاسترداد وكلمات المرور المؤقتة والأدوار وسجل الأمان.', 'Manage recovery, temporary passwords, roles and the security audit trail.')} icon={ShieldCheck}>
+                                        <SectionLink href="/app/security" icon={ShieldCheck} title={text('فتح مركز الأمان', 'Open security center')} description={text('المالك والمدير يستطيعان إدارة أعضاء المؤسسة ضمن تسلسل صلاحيات آمن.', 'Owners and admins can manage workspace members within a secure role hierarchy.')} />
                                     </SettingsCard>
-                                    <SettingsCard title={text('صلاحيات مساحة العمل', 'Workspace access')} description={text('منع المستخدم العادي من الوصول للإعدادات مطبق من الخادم والواجهة.', 'Regular users are blocked from settings at both UI and server.')} icon={ShieldCheck}>
-                                        <div className="rounded-[12px] border border-emerald-400/25 bg-emerald-500/10 p-4 text-xs leading-6 text-emerald-200">
-                                            <CheckCircle2 size={17} className="mb-2" />
-                                            {text('صفحة الإعدادات متاحة فقط للمالك والمدير.', 'Settings are available only to workspace owners and admins.')}
+                                    <SettingsCard title={text('أمان حسابك الشخصي', 'Personal account security')} description={text('تغيير كلمة المرور أو إرسال رابط استرداد آمن لبريدك.', 'Change your password or send a secure recovery link to your email.')} icon={LockKeyhole}>
+                                        <div className="grid gap-3">
+                                            <SectionLink href="/app/profile" icon={LockKeyhole} title={text('تغيير كلمة المرور', 'Change password')} description={text('غيّر كلمة مرور حسابك من مركز الحساب.', 'Change your account password from the account center.')} />
+                                            <SectionLink href="/forgot-password" icon={Mail} title={text('استرداد عبر البريد', 'Email recovery')} description={text('التدفق الرسمي يستخدم رابطاً مؤقتاً وموقعاً بدل إرسال كلمة المرور بالبريد.', 'The official recovery flow uses an expiring signed token instead of emailing a password.')} />
                                         </div>
                                     </SettingsCard>
                                 </div>

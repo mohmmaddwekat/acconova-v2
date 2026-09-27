@@ -43,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
         Passport::authorizationView('mcp.authorize');
 
         Route::middleware('web')->group(base_path('routes/billing-growth.php'));
+        Route::middleware('web')->group(base_path('routes/security.php'));
 
         BillingAccount::saved(function (BillingAccount $account): void {
             if (! $account->provider_subscription_id) {

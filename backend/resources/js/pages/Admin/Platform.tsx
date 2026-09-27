@@ -52,6 +52,9 @@ type UserRow = {
     name: string;
     email: string;
     verified: boolean;
+    platform_role: string;
+    must_change_password: boolean;
+    temporary_password_expires_at: string | null;
     memberships: number;
     last_login_at: string | null;
     created_at: string | null;
@@ -176,6 +179,9 @@ export default function PlatformAdmin(props: Props) {
     const [busyContact, setBusyContact] = useState<number | null>(null);
     const [query, setQuery] = useState('');
     const [logoutBusy, setLogoutBusy] = useState(false);
+    const [supportPassword, setSupportPassword] = useState('');
+    const [securityBusyUser, setSecurityBusyUser] = useState<number | null>(null);
+    const [temporaryCredential, setTemporaryCredential] = useState<{ name: string; email: string; password: string; expiresAt: string } | null>(null);
 
     const nav = [
         ['overview', text('نظرة عامة', 'Overview'), LayoutDashboard],
@@ -220,6 +226,25 @@ export default function PlatformAdmin(props: Props) {
             window.location.assign('/');
         } finally {
             setLogoutBusy(false);
+        }
+    }
+
+    async function issueTemporaryPassword(user: UserRow): Promise<void> {
+        if (!supportPassword || securityBusyUser) return;
+        setSecurityBusyUser(user.id);
+        try {
+            const response = await apiRequest<{ user: { name: string; email: string }; temporary_password: string; expires_at: string }>(
+                `/admin/users/${user.id}/temporary-password`,
+                { method: 'POST', body: JSON.stringify({ current_password: supportPassword }) },
+            );
+            setTemporaryCredential({
+                name: response.user.name,
+                email: response.user.email,
+                password: response.temporary_password,
+                expiresAt: response.expires_at,
+            });
+        } finally {
+            setSecurityBusyUser(null);
         }
     }
 
@@ -377,7 +402,16 @@ export default function PlatformAdmin(props: Props) {
                                 </div>
                                 {props.section === 'organizations'
                                     ? <OrganizationsTable rows={filteredOrganizations} locale={locale} ar={ar} />
-                                    : <UsersTable rows={filteredUsers} locale={locale} ar={ar} />}
+                                    : <>
+                                        <section className={`${card} p-4`}>
+                                            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                                                <div><h2 className="font-extrabold">{text('دعم أمان المستخدمين', 'User security support')}</h2><p className="mt-1 text-xs text-slate-500">{text('إصدار كلمة مؤقتة يتطلب كلمة مرور Platform Admin الحالية، يلغي جلسات المستخدم ويجبره على إنشاء كلمة جديدة عند أول دخول.', 'Issuing a temporary password requires your current Platform Admin password, revokes the user sessions and forces a new password on first login.')}</p></div>
+                                                <label className="w-full max-w-sm text-xs font-bold">{text('كلمة مرورك الحالية', 'Your current password')}<input type="password" value={supportPassword} onChange={event => setSupportPassword(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-transparent px-3 py-2.5 outline-none focus:border-sky-500 dark:border-slate-700" autoComplete="current-password" /></label>
+                                            </div>
+                                            {temporaryCredential && <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><div className="flex flex-wrap items-center justify-between gap-2"><div><strong>{text('كلمة مؤقتة — تظهر مرة واحدة', 'Temporary password — shown once')}</strong><p className="mt-1 text-xs">{temporaryCredential.name} · {temporaryCredential.email} · {new Date(temporaryCredential.expiresAt).toLocaleString()}</p></div><button onClick={() => void navigator.clipboard.writeText(temporaryCredential.password)} className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-bold dark:border-amber-700">{text('نسخ', 'Copy')}</button></div><code dir="ltr" className="mt-3 block break-all rounded-lg bg-white/70 p-3 font-bold dark:bg-black/20">{temporaryCredential.password}</code></div>}
+                                        </section>
+                                        <UsersTable rows={filteredUsers} locale={locale} ar={ar} onReset={user => void issueTemporaryPassword(user)} busyUser={securityBusyUser} canReset={supportPassword.length > 0} />
+                                    </>}
                             </div>
                         )}
 
@@ -538,8 +572,8 @@ function OrganizationsTable({ rows, locale, ar }: { rows: OrganizationRow[]; loc
     return <section className={`${card} overflow-x-auto`}><table className="w-full min-w-[760px] text-sm"><thead className="bg-slate-50 text-xs text-slate-500 dark:bg-slate-800"><tr><th className="p-3 text-start">ID</th><th className="p-3 text-start">{ar ? 'المؤسسة' : 'Organization'}</th><th className="p-3 text-start">{ar ? 'الأعضاء' : 'Members'}</th><th className="p-3 text-start">{ar ? 'الباقة' : 'Plan'}</th><th className="p-3 text-start">{ar ? 'الاشتراك' : 'Subscription'}</th><th className="p-3 text-start">{ar ? 'أُنشئت' : 'Created'}</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{rows.map(row => <tr key={row.id}><td className="p-3 text-slate-500">{row.id}</td><td className="p-3 font-bold">{row.name}</td><td className="p-3">{row.members}</td><td className="p-3">{row.plan ?? '—'}</td><td className="p-3"><StatusBadge status={(row.subscription_status ?? 'none') as any} ar={ar} /></td><td className="p-3 text-slate-500">{formatDate(row.created_at, locale)}</td></tr>)}</tbody></table></section>;
 }
 
-function UsersTable({ rows, locale, ar }: { rows: UserRow[]; locale: string; ar: boolean }) {
-    return <section className={`${card} overflow-x-auto`}><table className="w-full min-w-[820px] text-sm"><thead className="bg-slate-50 text-xs text-slate-500 dark:bg-slate-800"><tr><th className="p-3 text-start">ID</th><th className="p-3 text-start">{ar ? 'المستخدم' : 'User'}</th><th className="p-3 text-start">{ar ? 'التحقق' : 'Verified'}</th><th className="p-3 text-start">{ar ? 'العضويات' : 'Memberships'}</th><th className="p-3 text-start">{ar ? 'آخر دخول' : 'Last login'}</th><th className="p-3 text-start">{ar ? 'أُنشئ' : 'Created'}</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{rows.map(row => <tr key={row.id}><td className="p-3 text-slate-500">{row.id}</td><td className="p-3"><strong className="block">{row.name}</strong><span className="text-xs text-slate-500">{row.email}</span></td><td className="p-3">{row.verified ? '✓' : '—'}</td><td className="p-3">{row.memberships}</td><td className="p-3 text-slate-500">{formatDate(row.last_login_at, locale)}</td><td className="p-3 text-slate-500">{formatDate(row.created_at, locale)}</td></tr>)}</tbody></table></section>;
+function UsersTable({ rows, locale, ar, onReset, busyUser, canReset }: { rows: UserRow[]; locale: string; ar: boolean; onReset: (user: UserRow) => void; busyUser: number | null; canReset: boolean }) {
+    return <section className={`${card} overflow-x-auto`}><table className="w-full min-w-[1040px] text-sm"><thead className="bg-slate-50 text-xs text-slate-500 dark:bg-slate-800"><tr><th className="p-3 text-start">ID</th><th className="p-3 text-start">{ar ? 'المستخدم' : 'User'}</th><th className="p-3 text-start">{ar ? 'التحقق' : 'Verified'}</th><th className="p-3 text-start">{ar ? 'العضويات' : 'Memberships'}</th><th className="p-3 text-start">{ar ? 'حالة الأمان' : 'Security'}</th><th className="p-3 text-start">{ar ? 'آخر دخول' : 'Last login'}</th><th className="p-3 text-start">{ar ? 'إجراء' : 'Action'}</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{rows.map(row => <tr key={row.id}><td className="p-3 text-slate-500">{row.id}</td><td className="p-3"><strong className="block">{row.name}</strong><span className="text-xs text-slate-500">{row.email}</span><span className="mt-1 block text-[10px] text-sky-600">{row.platform_role}</span></td><td className="p-3">{row.verified ? '✓' : '—'}</td><td className="p-3">{row.memberships}</td><td className="p-3">{row.must_change_password ? <span className="rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">{ar ? 'تغيير مطلوب' : 'Change required'}</span> : <span className="text-xs text-emerald-600">{ar ? 'طبيعي' : 'Normal'}</span>}</td><td className="p-3 text-slate-500">{formatDate(row.last_login_at, locale)}</td><td className="p-3"><button disabled={!canReset || busyUser === row.id} onClick={() => onReset(row)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold hover:border-sky-400 disabled:opacity-40 dark:border-slate-700">{busyUser === row.id ? '…' : (ar ? 'كلمة مؤقتة' : 'Temp password')}</button></td></tr>)}</tbody></table></section>;
 }
 
 function SubscriptionsTable({ rows, locale, ar }: { rows: SubscriptionRow[]; locale: string; ar: boolean }) {

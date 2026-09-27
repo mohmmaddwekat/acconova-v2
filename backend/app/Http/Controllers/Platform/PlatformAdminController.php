@@ -154,6 +154,8 @@ final class PlatformAdminController extends Controller
                 'email' => $user->email,
                 'platform_role' => $user->platform_role,
                 'verified' => $user->email_verified_at !== null,
+                'must_change_password' => (bool) $user->must_change_password,
+                'temporary_password_expires_at' => $user->temporary_password_expires_at?->toIso8601String(),
                 'memberships' => (int) $user->memberships_count,
                 'last_login_at' => $user->last_login_at?->toIso8601String(),
                 'created_at' => $user->created_at?->toIso8601String(),
