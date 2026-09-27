@@ -16,6 +16,10 @@ use Illuminate\Notifications\Notifiable;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
+    public const PLATFORM_ROLE_USER = 'user';
+    public const PLATFORM_ROLE_ADMIN = 'admin';
+    public const PLATFORM_ROLE_SUPER_ADMIN = 'super_admin';
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -33,6 +37,32 @@ class User extends Authenticatable implements MustVerifyEmail
 
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Determine whether this identity can administer the AccoNova platform.
+     *
+     * Platform roles intentionally live on users rather than memberships:
+     * membership roles control one organization, while this role controls the
+     * SaaS platform itself. The configured email list remains a temporary
+     * backwards-compatible bootstrap path for existing installations.
+     */
+    public function isPlatformAdmin(): bool
+    {
+        if (in_array($this->platform_role, [
+            self::PLATFORM_ROLE_ADMIN,
+            self::PLATFORM_ROLE_SUPER_ADMIN,
+        ], true)) {
+            return true;
+        }
+
+        $email = strtolower(trim((string) $this->email));
+        $legacyAdminEmails = array_values(array_filter(array_map(
+            static fn ($value): string => strtolower(trim((string) $value)),
+            (array) config('platform_admin.emails', []),
+        )));
+
+        return in_array($email, $legacyAdminEmails, true);
     }
 
     /**
