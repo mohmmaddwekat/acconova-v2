@@ -78,6 +78,25 @@ class McpProtocolTest extends TestCase
             ->assertJsonPath('error.code', -32003);
     }
 
+    public function test_invalid_json_rpc_envelope_returns_protocol_error(): void
+    {
+        [$user, $organization] = $this->workspace();
+        $token = $this->token($organization, $user, 'read', ['business.morning_brief']);
+
+        $this->postJson('/mcp', [
+            'jsonrpc' => '1.0',
+            'id' => 91,
+            'params' => [],
+        ], [
+            'Authorization' => 'Bearer '.$token['token'],
+        ])
+            ->assertOk()
+            ->assertJsonPath('jsonrpc', '2.0')
+            ->assertJsonPath('id', 91)
+            ->assertJsonPath('error.code', -32600)
+            ->assertJsonPath('error.message', 'Invalid JSON-RPC request.');
+    }
+
     public function test_usage_resource_isolated_to_current_token(): void
     {
         [$user, $organization] = $this->workspace();
