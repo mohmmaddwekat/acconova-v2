@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\McpApprovalController;
 use App\Http\Controllers\McpManagementController;
+use App\Http\Controllers\McpOAuthConnectionController;
 use App\Http\Controllers\McpTokenController;
 use App\Http\Middleware\EnsureMcpAdmin;
 use App\Http\Middleware\RequireActiveSubscription;
@@ -23,6 +24,10 @@ Route::middleware([
 
         Route::post('/tokens', [McpTokenController::class, 'store']);
         Route::delete('/tokens/{token}', [McpTokenController::class, 'destroy']);
+
+        Route::get('/oauth-connections', [McpOAuthConnectionController::class, 'index']);
+        Route::post('/oauth-connections', [McpOAuthConnectionController::class, 'store']);
+        Route::delete('/oauth-connections/{connection}', [McpOAuthConnectionController::class, 'destroy']);
 
         Route::post('/approvals/{approval}/approve', [McpApprovalController::class, 'approve']);
         Route::post('/approvals/{approval}/reject', [McpApprovalController::class, 'reject']);
