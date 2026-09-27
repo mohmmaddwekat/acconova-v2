@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class MarketingSiteTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_public_marketing_pages_are_server_rendered_and_indexable(): void
     {
         $this->get('/')
