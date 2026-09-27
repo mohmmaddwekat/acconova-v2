@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class McpApprovalController extends Controller
 {
@@ -21,6 +22,10 @@ final class McpApprovalController extends Controller
     ): JsonResponse {
         WorkspaceFeaturePermissions::authorize($request->user(), 'ai.admin.configure');
 
+        $data = $request->validate([
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
         $row = DB::table('mcp_approvals')
             ->where('organization_id', $context->id())
             ->where('id', $approval)
@@ -31,7 +36,9 @@ final class McpApprovalController extends Controller
 
         if ($row->expires_at && now()->isAfter($row->expires_at)) {
             DB::table('mcp_approvals')
+                ->where('organization_id', $context->id())
                 ->where('id', $row->id)
+                ->where('status', 'pending')
                 ->update([
                     'status' => 'expired',
                     'updated_at' => now(),
@@ -72,26 +79,51 @@ final class McpApprovalController extends Controller
             }
         }
 
-        $input = json_decode((string) $row->input, true) ?: [];
-
-        $result = $executor->execute(
-            $row->capability,
-            $input,
-            $executionUser,
-            $token,
-            false,
-            true,
-        );
-
-        DB::table('mcp_approvals')
+        $claimed = DB::table('mcp_approvals')
             ->where('organization_id', $context->id())
             ->where('id', $row->id)
             ->where('status', 'pending')
             ->update([
-                'status' => 'approved',
+                'status' => 'processing',
                 'reviewed_by' => $request->user()->id,
-                'review_note' => $request->input('note'),
+                'review_note' => $data['note'] ?? null,
                 'reviewed_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        abort_unless($claimed === 1, 409, 'This MCP approval is already being processed.');
+
+        $input = json_decode((string) $row->input, true) ?: [];
+
+        try {
+            $result = $executor->execute(
+                $row->capability,
+                $input,
+                $executionUser,
+                $token,
+                false,
+                true,
+            );
+        } catch (Throwable $exception) {
+            DB::table('mcp_approvals')
+                ->where('organization_id', $context->id())
+                ->where('id', $row->id)
+                ->where('status', 'processing')
+                ->update([
+                    'status' => 'failed',
+                    'review_note' => $data['note'] ?? 'Execution failed. Review the MCP audit log before retrying.',
+                    'updated_at' => now(),
+                ]);
+
+            throw $exception;
+        }
+
+        DB::table('mcp_approvals')
+            ->where('organization_id', $context->id())
+            ->where('id', $row->id)
+            ->where('status', 'processing')
+            ->update([
+                'status' => 'approved',
                 'updated_at' => now(),
             ]);
 
