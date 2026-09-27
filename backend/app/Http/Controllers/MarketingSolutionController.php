@@ -157,12 +157,12 @@ class MarketingSolutionController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $content
+     * @param  array<string, mixed>  $content
      */
     private function page(string $slug, array $content): View
     {
         $canonical = rtrim((string) config('app.url'), '/').'/'.$slug;
-        $home = rtrim((string) config('app.url'), '/').'/';
+        $home = rtrim((string) config('app.url'), '/').'/' ;
 
         $schema = [
             [
