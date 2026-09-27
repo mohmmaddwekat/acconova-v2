@@ -56,6 +56,13 @@ final class McpProtocolCompatibility
 
             if (isset($payload['result']) && is_array($payload['result'])) {
                 $payload['result']['protocolVersion'] = $selectedVersion;
+
+                foreach (['tools', 'resources', 'prompts'] as $capability) {
+                    if (isset($payload['result']['capabilities'][$capability])) {
+                        $payload['result']['capabilities'][$capability]['listChanged'] = false;
+                    }
+                }
+
                 $response->setData($payload);
             }
         }
