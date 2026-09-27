@@ -66,8 +66,8 @@ class PasswordRecoveryTest extends TestCase
     }
 
     /**
-     * Verify a valid broker token replaces the password and emits Laravel's
-     * standard PasswordReset event.
+     * Verify a valid broker token replaces the password, clears temporary
+     * credential state and emits Laravel's standard PasswordReset event.
      */
     public function test_password_can_be_reset_with_valid_token(): void
     {
@@ -75,6 +75,8 @@ class PasswordRecoveryTest extends TestCase
 
         $user = User::factory()->create([
             'password' => 'CurrentPassword123!',
+            'must_change_password' => true,
+            'temporary_password_expires_at' => now()->addHour(),
         ]);
 
         $this->postJson(
@@ -121,12 +123,17 @@ class PasswordRecoveryTest extends TestCase
             ],
         )->assertOk();
 
+        $user->refresh();
+
         $this->assertTrue(
             Hash::check(
                 $newPassword,
-                $user->fresh()->password,
+                $user->password,
             ),
         );
+        $this->assertFalse($user->must_change_password);
+        $this->assertNull($user->temporary_password_expires_at);
+        $this->assertNotNull($user->password_changed_at);
 
         Event::assertDispatched(
             PasswordReset::class,
