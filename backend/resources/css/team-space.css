@@ -1,0 +1,202 @@
+.team-space-page {
+    display: contents;
+}
+
+/*
+ * Team Space is a two-column messaging workspace by default:
+ * conversation list + active thread. Conversation details are an overlay drawer
+ * so opening them never crushes the message area into a narrow third column.
+ */
+.team-space-page main[class*="max-w-[1840px]"] {
+    max-width: 1680px;
+    padding-block: 1rem;
+}
+
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"][class*="overflow-hidden"] {
+    border-radius: 22px !important;
+    box-shadow: var(--ac-shadow-panel) !important;
+}
+
+@media (min-width: 1024px) {
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"][class*="overflow-hidden"] > div.grid {
+        grid-template-columns: 350px minmax(0, 1fr) !important;
+    }
+}
+
+/* Conversation list: one deliberate scroll area instead of nested scrollbars. */
+@media (min-width: 1024px) {
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type {
+        display: flex !important;
+        min-width: 0;
+        flex-direction: column;
+        overflow: hidden !important;
+        background: var(--ac-surface);
+    }
+
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type > div:first-child,
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type > div:nth-child(2) {
+        flex: 0 0 auto;
+    }
+
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type > div:last-child {
+        min-height: 0;
+        flex: 1 1 auto;
+        overflow-y: auto !important;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: var(--ac-line-strong) transparent;
+    }
+}
+
+/* Search and conversation-list header get calmer spacing. */
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type > div:first-child {
+    padding: 1.1rem !important;
+}
+
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type h1 {
+    letter-spacing: -0.025em !important;
+}
+
+/* Five filters fit cleanly without the ugly horizontal browser scrollbar. */
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type div[class*="overflow-x-auto"][class*="rounded-[13px]"] {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.3rem !important;
+    overflow: visible !important;
+    padding: 0.35rem !important;
+    background: var(--ac-surface-soft) !important;
+    border: 1px solid var(--ac-line);
+}
+
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type div[class*="overflow-x-auto"][class*="rounded-[13px]"] > button {
+    min-width: 0 !important;
+    padding: 0.55rem 0.25rem !important;
+    border: 1px solid transparent;
+    border-radius: 9px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type div[class*="overflow-x-auto"][class*="rounded-[13px]"] > button:hover {
+    background: var(--ac-button-hover-bg) !important;
+    border-color: var(--ac-line-strong);
+    color: var(--ac-text) !important;
+}
+
+/* Conversation rows: cleaner selected/hover hierarchy. */
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type section > div > button {
+    margin-block: 0.2rem;
+    border: 1px solid transparent;
+    border-radius: 15px !important;
+    padding: 0.75rem !important;
+    transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type section > div > button:hover {
+    background: var(--ac-button-hover-bg) !important;
+    border-color: var(--ac-line);
+}
+
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type section > div > button[class*="bg-[var(--ac-accent-soft)]"] {
+    border-color: color-mix(in srgb, var(--ac-accent) 45%, var(--ac-line));
+    box-shadow: inset 3px 0 0 var(--ac-accent);
+}
+
+[dir='rtl'] .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type section > div > button[class*="bg-[var(--ac-accent-soft)]"] {
+    box-shadow: inset -3px 0 0 var(--ac-accent);
+}
+
+/* Thread header action buttons use the same product hover state everywhere. */
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > section > div:first-child button[class*="size-10"] {
+    color: var(--ac-text-soft);
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > section > div:first-child button[class*="size-10"]:hover {
+    background: var(--ac-button-hover-bg) !important;
+    border-color: var(--ac-accent) !important;
+    color: var(--ac-accent);
+}
+
+/* Give messages and the composer more useful horizontal room. */
+.team-space-page main[class*="max-w-[1840px]"] [class*="max-w-[820px]"] {
+    max-width: 980px !important;
+}
+
+.team-space-page main[class*="max-w-[1840px]"] form[class*="border-t"] {
+    padding: 0.9rem 1rem !important;
+}
+
+.team-space-page main[class*="max-w-[1840px]"] form[class*="border-t"] div[class*="rounded-[18px]"][class*="focus-within"] {
+    border-color: var(--ac-line-strong);
+    border-radius: 16px !important;
+    box-shadow: 0 8px 26px rgba(1, 20, 35, 0.08);
+}
+
+.team-space-page main[class*="max-w-[1840px]"] form textarea {
+    min-height: 72px !important;
+    padding: 0.9rem 1rem !important;
+}
+
+.team-space-page main[class*="max-w-[1840px]"] form button:hover:not(:disabled) {
+    background-color: var(--ac-button-hover-bg);
+}
+
+.team-space-page main[class*="max-w-[1840px]"] form button[class*="bg-[var(--ac-accent-strong)]"]:hover:not(:disabled) {
+    background-color: var(--ac-accent-hover) !important;
+    color: var(--ac-accent-solid-text) !important;
+}
+
+/*
+ * Details drawer. Even when opened on a wide desktop it overlays the thread
+ * instead of creating a cramped permanent third column.
+ */
+.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:nth-of-type(2) {
+    position: fixed !important;
+    inset-block: 5.5rem 1rem !important;
+    inset-inline-start: auto !important;
+    inset-inline-end: 1rem !important;
+    width: min(380px, calc(100vw - 2rem)) !important;
+    max-width: 380px !important;
+    z-index: 90 !important;
+    border: 1px solid var(--ac-line) !important;
+    border-radius: 20px !important;
+    background: var(--ac-surface) !important;
+    box-shadow:
+        0 0 0 100vmax rgba(1, 20, 35, 0.34),
+        0 24px 70px rgba(1, 20, 35, 0.28) !important;
+}
+
+@media (max-width: 639px) {
+    .team-space-page main[class*="max-w-[1840px]"] {
+        padding: 0.5rem !important;
+    }
+
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"][class*="overflow-hidden"] {
+        border-radius: 16px !important;
+    }
+
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:nth-of-type(2) {
+        inset-block: 4.75rem 0.5rem !important;
+        inset-inline: 0.5rem !important;
+        width: auto !important;
+        max-width: none !important;
+        border-radius: 16px !important;
+    }
+
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type div[class*="overflow-x-auto"][class*="rounded-[13px]"] {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* Dark mode keeps every interactive state on the approved AccoNova palette. */
+html[data-ac-resolved-theme='dark'] .team-space-page main[class*="max-w-[1840px]"] form button:hover:not(:disabled),
+html[data-ac-resolved-theme='dark'] .team-space-page main[class*="max-w-[1840px]"] section button:hover:not(:disabled) {
+    color: var(--ac-text) !important;
+}
+
+html[data-ac-resolved-theme='dark'] .team-space-page main[class*="max-w-[1840px]"] form button[class*="bg-[var(--ac-accent-strong)]"]:hover:not(:disabled) {
+    color: var(--ac-accent-solid-text) !important;
+}
