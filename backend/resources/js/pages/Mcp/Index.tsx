@@ -66,6 +66,27 @@ type ConnectionRow = {
     status: string;
 };
 
+type OAuthConnectionRow = {
+    id: number;
+    public_id: string;
+    name: string;
+    provider: 'chatgpt' | 'claude' | 'cursor' | 'custom';
+    status: string;
+    mode: 'read' | 'write' | 'approve';
+    scopes: string[];
+    endpoint_url: string;
+    last_used_at: string | null;
+    expires_at: string | null;
+    revoked_at: string | null;
+    created_at: string;
+};
+
+type OAuthConnectionsResponse = {
+    oauth_enabled: boolean;
+    authorization_server: string;
+    connections: OAuthConnectionRow[];
+};
+
 type CustomToolRow = {
     id: number;
     name: string;
@@ -188,6 +209,12 @@ export default function McpHub() {
     const [connectionUrl, setConnectionUrl] = useState('');
     const [connectionSecret, setConnectionSecret] = useState('');
 
+    const [oauthData, setOauthData] = useState<OAuthConnectionsResponse | null>(null);
+    const [oauthName, setOauthName] = useState('AI Assistant');
+    const [oauthProvider, setOauthProvider] = useState<'chatgpt' | 'claude' | 'cursor' | 'custom'>('chatgpt');
+    const [oauthMode, setOauthMode] = useState<'read' | 'write' | 'approve'>('read');
+    const [oauthScopes, setOauthScopes] = useState<string[]>(['*']);
+
     const [toolName, setToolName] = useState('');
     const [toolSlug, setToolSlug] = useState('');
     const [toolUrl, setToolUrl] = useState('');
@@ -208,7 +235,12 @@ export default function McpHub() {
         setLoading(true);
         setError('');
         try {
-            setData(await apiRequest<DashboardResponse>('/api/mcp/dashboard'));
+            const [dashboard, oauth] = await Promise.all([
+                apiRequest<DashboardResponse>('/api/mcp/dashboard'),
+                apiRequest<OAuthConnectionsResponse>('/api/mcp/oauth-connections'),
+            ]);
+            setData(dashboard);
+            setOauthData(oauth);
         } catch (failure) {
             setError(messageFor(failure, ar));
         } finally {
@@ -262,6 +294,31 @@ export default function McpHub() {
     async function reviewApproval(id: number, decision: 'approve' | 'reject') {
         await runAction(async () => {
             await apiRequest(`/api/mcp/approvals/${id}/${decision}`, { method: 'POST' });
+            await load();
+        });
+    }
+
+    async function createOAuthConnection(event: FormEvent) {
+        event.preventDefault();
+        await runAction(async () => {
+            await apiRequest('/api/mcp/oauth-connections', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: oauthName,
+                    provider: oauthProvider,
+                    mode: oauthMode,
+                    scopes: oauthScopes.length ? oauthScopes : ['*'],
+                }),
+            });
+            setNotice(ar ? 'تم إنشاء اتصال OAuth. انسخ رابط MCP وأضفه في عميل الذكاء الاصطناعي.' : 'OAuth connection created. Copy the MCP URL into your AI client.');
+            await load();
+        });
+    }
+
+    async function revokeOAuthConnection(id: number) {
+        await runAction(async () => {
+            await apiRequest(`/api/mcp/oauth-connections/${id}`, { method: 'DELETE' });
+            setNotice(ar ? 'تم إلغاء اتصال OAuth.' : 'OAuth connection revoked.');
             await load();
         });
     }
@@ -537,12 +594,39 @@ export default function McpHub() {
                         )}
 
                         {tab === 'connections' && (
-                            <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
-                                <form className={cardClass} onSubmit={saveConnection}>
-                                    <h2 className="mb-4 font-bold text-[var(--ac-text)]">{ar ? 'إضافة MCP Server خارجي' : 'Add external MCP server'}</h2>
-                                    <div className="space-y-3"><input className={inputClass} value={connectionName} onChange={e => setConnectionName(e.target.value)} placeholder={ar ? 'الاسم' : 'Name'} required /><input className={inputClass} value={connectionProvider} onChange={e => setConnectionProvider(e.target.value)} placeholder="Provider" required /><input className={inputClass} type="url" value={connectionUrl} onChange={e => setConnectionUrl(e.target.value)} placeholder="https://..." required /><input className={inputClass} type="password" value={connectionSecret} onChange={e => setConnectionSecret(e.target.value)} placeholder={ar ? 'Secret اختياري' : 'Optional secret'} /><button className={primaryButtonClass} disabled={busy || !data.can_admin}><Plus className="h-4 w-4" />{ar ? 'إضافة الاتصال' : 'Add connection'}</button></div>
-                                </form>
-                                <section className={cardClass}><div className="space-y-3">{data.connections.map(connection => <div key={connection.id} className="rounded-xl border border-[var(--ac-line)] p-3"><div className="font-semibold text-[var(--ac-text)]">{connection.name}</div><div className="mt-1 text-xs text-[var(--ac-text-muted)]">{connection.provider} · {connection.status}</div><code className="mt-2 block overflow-x-auto text-xs text-[var(--ac-text-muted)]">{connection.endpoint_url}</code></div>)}{data.connections.length === 0 && <Empty ar={ar} />}</div></section>
+                            <div className="space-y-4">
+                                <section className="grid gap-4 xl:grid-cols-[420px_1fr]">
+                                    <form className={cardClass} onSubmit={createOAuthConnection}>
+                                        <div className="mb-4">
+                                            <div className="mb-2 flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-emerald-500" /><h2 className="font-bold text-[var(--ac-text)]">{ar ? 'ربط ChatGPT / Claude / Cursor' : 'Connect ChatGPT / Claude / Cursor'}</h2></div>
+                                            <p className="text-xs leading-5 text-[var(--ac-text-muted)]">{ar ? 'OAuth 2.1 + PKCE. كل رابط مربوط بهذا المستخدم والـWorkspace، ويمكن إلغاؤه بأي وقت.' : 'OAuth 2.1 + PKCE. Each URL is bound to this user and workspace and can be revoked at any time.'}</p>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <input className={inputClass} value={oauthName} onChange={e => setOauthName(e.target.value)} placeholder={ar ? 'اسم الاتصال' : 'Connection name'} required />
+                                            <select className={inputClass} value={oauthProvider} onChange={e => setOauthProvider(e.target.value as 'chatgpt' | 'claude' | 'cursor' | 'custom')}><option value="chatgpt">ChatGPT</option><option value="claude">Claude</option><option value="cursor">Cursor</option><option value="custom">{ar ? 'عميل آخر' : 'Other client'}</option></select>
+                                            <select className={inputClass} value={oauthMode} onChange={e => setOauthMode(e.target.value as 'read' | 'write' | 'approve')}><option value="read">Read only</option><option value="write">Read + Write</option><option value="approve">Approval mode</option></select>
+                                            <div className="rounded-xl border border-[var(--ac-line)] p-2">
+                                                <label className="flex items-center gap-2 text-sm text-[var(--ac-text)]"><input type="checkbox" checked={oauthScopes.includes('*')} onChange={() => setOauthScopes(current => current.includes('*') ? [] : ['*'])} />{ar ? 'كل أدوات MCP المسموحة للمستخدم' : 'All MCP tools allowed for this user'}</label>
+                                            </div>
+                                            <button className={primaryButtonClass} disabled={busy || !data.can_admin || oauthScopes.length === 0}><Plus className="h-4 w-4" />{ar ? 'إنشاء اتصال OAuth' : 'Create OAuth connection'}</button>
+                                        </div>
+                                    </form>
+                                    <section className={cardClass}>
+                                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-bold text-[var(--ac-text)]">{ar ? 'اتصالات AI الواردة' : 'Inbound AI connections'}</h2><p className="mt-1 text-xs text-[var(--ac-text-muted)]">{ar ? 'انسخ رابط MCP فقط؛ عميل الذكاء الاصطناعي يكتشف OAuth تلقائيًا.' : 'Copy the MCP URL; compatible AI clients discover OAuth automatically.'}</p></div><span className="rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-500">OAuth 2.1</span></div>
+                                        <div className="space-y-3">
+                                            {(oauthData?.connections ?? []).map(connection => <div key={connection.id} className="rounded-xl border border-[var(--ac-line)] p-3"><div className="flex flex-col justify-between gap-3 md:flex-row md:items-start"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><div className="font-semibold text-[var(--ac-text)]">{connection.name}</div><span className="rounded-full bg-sky-500/10 px-2 py-1 text-[11px] font-semibold text-sky-500">{connection.provider}</span><span className="rounded-full bg-[var(--ac-bg)] px-2 py-1 text-[11px] text-[var(--ac-text-muted)]">{connection.mode}</span></div><div className="mt-2 flex gap-2"><code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-[var(--ac-bg)] px-2 py-2 text-xs text-[var(--ac-text-muted)]">{connection.endpoint_url}</code><button className={buttonClass} type="button" onClick={() => void navigator.clipboard.writeText(connection.endpoint_url)}><Clipboard className="h-4 w-4" /></button></div><div className="mt-2 text-xs text-[var(--ac-text-muted)]">{ar ? 'آخر استخدام' : 'Last used'}: {formatDate(connection.last_used_at)}</div></div>{!connection.revoked_at && <button className={buttonClass} type="button" disabled={busy || !data.can_admin} onClick={() => void revokeOAuthConnection(connection.id)}><Trash2 className="h-4 w-4" />{ar ? 'إلغاء' : 'Revoke'}</button>}</div></div>)}
+                                            {(oauthData?.connections.length ?? 0) === 0 && <Empty ar={ar} />}
+                                        </div>
+                                    </section>
+                                </section>
+
+                                <section className="grid gap-4 xl:grid-cols-[420px_1fr]">
+                                    <form className={cardClass} onSubmit={saveConnection}>
+                                        <h2 className="mb-4 font-bold text-[var(--ac-text)]">{ar ? 'إضافة MCP Server خارجي إلى AccoNova' : 'Add external MCP server to AccoNova'}</h2>
+                                        <div className="space-y-3"><input className={inputClass} value={connectionName} onChange={e => setConnectionName(e.target.value)} placeholder={ar ? 'الاسم' : 'Name'} required /><input className={inputClass} value={connectionProvider} onChange={e => setConnectionProvider(e.target.value)} placeholder="Provider" required /><input className={inputClass} type="url" value={connectionUrl} onChange={e => setConnectionUrl(e.target.value)} placeholder="https://..." required /><input className={inputClass} type="password" value={connectionSecret} onChange={e => setConnectionSecret(e.target.value)} placeholder={ar ? 'Secret اختياري' : 'Optional secret'} /><button className={primaryButtonClass} disabled={busy || !data.can_admin}><Plus className="h-4 w-4" />{ar ? 'إضافة الاتصال' : 'Add connection'}</button></div>
+                                    </form>
+                                    <section className={cardClass}><div className="space-y-3">{data.connections.map(connection => <div key={connection.id} className="rounded-xl border border-[var(--ac-line)] p-3"><div className="font-semibold text-[var(--ac-text)]">{connection.name}</div><div className="mt-1 text-xs text-[var(--ac-text-muted)]">{connection.provider} · {connection.status}</div><code className="mt-2 block overflow-x-auto text-xs text-[var(--ac-text-muted)]">{connection.endpoint_url}</code></div>)}{data.connections.length === 0 && <Empty ar={ar} />}</div></section>
+                                </section>
                             </div>
                         )}
 
