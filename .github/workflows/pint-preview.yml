@@ -1,0 +1,32 @@
+name: Pint Preview
+
+on:
+  push:
+    branches:
+      - pint-format-preview-20260927
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - name: Apply Pint formatting in runner
+        run: vendor/bin/pint
+
+      - name: Print exact formatting diff
+        run: git diff --no-ext-diff --unified=3
