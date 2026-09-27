@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Marketing;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\MarketingContactMessage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

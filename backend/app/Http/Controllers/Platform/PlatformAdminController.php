@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Platform;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\BillingAccount;
 use App\Models\MarketingContactMessage;
 use App\Models\Organization;

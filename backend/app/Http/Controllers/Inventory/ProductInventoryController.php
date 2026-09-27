@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\AdjustStockRequest;
 use App\Http\Requests\RecordOpeningStockRequest;
 use App\Http\Requests\ShowInventoryProductRequest;

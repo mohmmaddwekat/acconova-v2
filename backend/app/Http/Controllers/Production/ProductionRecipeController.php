@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Production;
 
-use App\Http\Controllers\Controller;
-
 use App\Enums\ProductType;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\SaveProductionRecipeRequest;
 use App\Models\Product;
 use App\Models\ProductionRecipe;

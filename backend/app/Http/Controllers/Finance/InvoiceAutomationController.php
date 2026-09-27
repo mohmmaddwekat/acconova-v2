@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\FinancialDocument;
 use App\Services\FinanceAuthorization;
 use App\Services\InvoiceAutomationService;

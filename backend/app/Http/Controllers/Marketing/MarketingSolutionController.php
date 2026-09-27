@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Marketing;
 
 use App\Http\Controllers\Controller;
-
 use Illuminate\View\View;
 
 class MarketingSolutionController extends Controller

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Billing;
 
 use App\Http\Controllers\Controller;
-
 use App\Services\Billing\BillingWebhookService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

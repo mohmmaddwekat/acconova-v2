@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Billing;
 
 use App\Http\Controllers\Controller;
-
 use App\Services\Billing\BillingPlanChangeService;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;

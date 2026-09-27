@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Workspace;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Organizations\SwitchActiveOrganization;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\SwitchActiveOrganizationRequest;
 use App\Http\Resources\OrganizationResource;
 use App\Tenancy\OrganizationAccess;

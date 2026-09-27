@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\DeleteWarehouseRequest;
 use App\Http\Requests\ForceDeleteWarehouseRequest;
 use App\Http\Requests\IndexWarehouseRequest;

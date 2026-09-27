@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Workspace;
 
 use App\Http\Controllers\Controller;
-
 use App\Services\ConversationAdmins;
 use App\Services\MessageRestrictions;
 use App\Services\NotificationCenter;

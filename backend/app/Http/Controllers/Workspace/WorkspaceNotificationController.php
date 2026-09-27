@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Workspace;
 
-use App\Http\Controllers\Controller;
-
 use App\Enums\OrganizationRole;
+use App\Http\Controllers\Controller;
 use App\Http\Resources\WorkspaceNotificationResource;
 use App\Models\WorkspaceNotification;
 use App\Services\NotificationCenter;

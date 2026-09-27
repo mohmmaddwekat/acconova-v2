@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Analytics;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\FinancialDocument;
 use App\Models\Party;
 use App\Models\PaymentPlan;

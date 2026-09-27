@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Products;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Products\UpdateProduct;
+use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Billing;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\BillingAccount;
 use App\Services\Billing\StripeBillingGateway;
 use App\Services\Billing\StripePaymentMethodPortal;

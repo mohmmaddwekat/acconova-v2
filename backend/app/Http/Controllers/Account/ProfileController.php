@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Account;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\User;
 use App\Notifications\ProfileEmailChangeNotification;
 use App\Tenancy\OrganizationAccess;

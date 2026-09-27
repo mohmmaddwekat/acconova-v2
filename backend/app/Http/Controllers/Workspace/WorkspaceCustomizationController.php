@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Workspace;
 
-use App\Http\Controllers\Controller;
-
 use App\Enums\OrganizationRole;
+use App\Http\Controllers\Controller;
 use App\Models\Party;
 use App\Models\Product;
 use App\Services\WorkspaceFeaturePermissions;

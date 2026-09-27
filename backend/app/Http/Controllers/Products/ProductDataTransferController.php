@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers\Products;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Products\ImportProductsFromSpreadsheet;
 use App\Exports\ProductImportTemplateExport;
 use App\Exports\ProductsExport;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\ExportProductRequest;
 use App\Http\Requests\ProductImportRequest;
 use App\Imports\ProductWorkbookRows;

@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Parties;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Parties\BulkPartyAction;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\BulkPartyActionRequest;
 use App\Models\Party;
 use App\Tenancy\TenantContext;

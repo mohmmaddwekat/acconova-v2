@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers\Workspace;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Memberships\CreateMembership;
 use App\Actions\Memberships\DeleteMembership;
 use App\Actions\Memberships\UpdateMembership;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\DeleteMembershipRequest;
 use App\Http\Requests\StoreMembershipRequest;
 use App\Http\Requests\UpdateMembershipRequest;

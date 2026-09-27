@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Products;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Products\ForceDeleteProduct;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\ForceDeleteProductRequest;
 use Illuminate\Http\Response;
 

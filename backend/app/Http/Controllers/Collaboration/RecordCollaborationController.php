@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Collaboration;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\FinancialDocument;
 use App\Models\Membership;
 use App\Models\Party;

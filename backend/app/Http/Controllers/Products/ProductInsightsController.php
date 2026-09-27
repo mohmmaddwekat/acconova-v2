@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Products;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\FinancialDocumentLine;
 use App\Models\Product;
 use App\Tenancy\TenantContext;

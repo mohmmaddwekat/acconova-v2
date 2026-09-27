@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Products;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Products\CreateProduct;
 use App\Actions\Products\DeleteProduct;
 use App\Actions\Products\RestoreProduct;
 use App\Actions\Products\UpdateProduct;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\DeleteProductRequest;
 use App\Http\Requests\IndexProductRequest;
 use App\Http\Requests\RestoreProductRequest;

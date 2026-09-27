@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Parties;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Parties\CreateParty;
 use App\Actions\Parties\DeleteParty;
 use App\Actions\Parties\RestoreParty;
 use App\Actions\Parties\UpdateParty;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\DeletePartyRequest;
 use App\Http\Requests\IndexPartyRequest;
 use App\Http\Requests\RestorePartyRequest;

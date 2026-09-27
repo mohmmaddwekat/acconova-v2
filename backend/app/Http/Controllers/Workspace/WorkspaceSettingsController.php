@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Workspace;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\OrganizationSequence;
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;

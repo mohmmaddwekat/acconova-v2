@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Documents;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\FinancialDocument;
 use App\Models\FinancialDocumentLine;
 use App\Services\FinanceAuthorization;

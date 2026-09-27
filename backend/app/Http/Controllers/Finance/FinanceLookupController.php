@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\Department;
 use App\Models\FinancialDocument;
 use App\Models\FinancialDocumentLine;

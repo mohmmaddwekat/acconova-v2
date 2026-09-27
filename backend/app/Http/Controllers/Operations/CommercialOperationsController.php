@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Operations;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\CashMovement;
 use App\Models\Party;
 use App\Models\Product;

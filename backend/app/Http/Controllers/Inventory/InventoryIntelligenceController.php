@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Inventory;
 
-use App\Http\Controllers\Controller;
-
 use App\Enums\ProductType;
 use App\Enums\StockMovementType;
+use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Tenancy\TenantContext;

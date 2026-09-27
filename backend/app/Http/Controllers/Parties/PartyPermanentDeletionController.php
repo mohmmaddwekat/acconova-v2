@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Parties;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Parties\ForceDeleteParty;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\ForceDeletePartyRequest;
 use Illuminate\Http\Response;
 

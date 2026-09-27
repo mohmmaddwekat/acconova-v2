@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\Department;
 use App\Models\Membership;
 use App\Models\StaffEntry;

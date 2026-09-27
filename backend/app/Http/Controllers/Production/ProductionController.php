@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Production;
 
-use App\Http\Controllers\Controller;
-
 use App\Enums\StockMovementType;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\RecordProductionRequest;
 use App\Http\Resources\ProductionResource;
 use App\Models\Product;

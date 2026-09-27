@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\AI;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Services\AI\AiAssistantOrchestrator;

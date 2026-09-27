@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Products;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Products\BulkProductAction;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\BulkProductActionRequest;
 use App\Models\Product;
 use App\Tenancy\TenantContext;

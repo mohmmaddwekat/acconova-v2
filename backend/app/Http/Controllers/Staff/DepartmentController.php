@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\Department;
 use App\Models\StaffMember;
 use App\Tenancy\TenantContext;

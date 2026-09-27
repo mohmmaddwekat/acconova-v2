@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Governance;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Parties\RestoreParty;
 use App\Actions\Products\RestoreProduct;
+use App\Http\Controllers\Controller;
 use App\Models\Party;
 use App\Models\Product;
 use App\Models\Warehouse;

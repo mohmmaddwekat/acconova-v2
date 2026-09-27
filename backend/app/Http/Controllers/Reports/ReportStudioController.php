@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Reports;
 
 use App\Http\Controllers\Controller;
-
 use App\Services\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;

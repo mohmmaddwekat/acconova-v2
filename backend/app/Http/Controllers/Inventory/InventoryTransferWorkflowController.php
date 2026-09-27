@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\InventoryBalance;
 use App\Models\Product;
 use App\Models\Warehouse;

@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Workspace;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Organizations\TransferOrganizationOwnership;
 use App\Enums\OrganizationRole;
+use App\Http\Controllers\Controller;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

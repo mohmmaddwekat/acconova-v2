@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\CashMovement;
 use App\Models\FinanceAuditEvent;
 use App\Models\FinancialDocument;

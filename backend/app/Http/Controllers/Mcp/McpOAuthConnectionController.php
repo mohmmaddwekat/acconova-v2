@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Mcp;
 
 use App\Http\Controllers\Controller;
-
 use App\Services\Mcp\McpTokenService;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;

@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Operations;
 
-use App\Http\Controllers\Controller;
-
 use App\Enums\ProductType;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreServiceOperationRequest;
 use App\Http\Resources\ServiceOperationResource;
 use App\Models\Party;

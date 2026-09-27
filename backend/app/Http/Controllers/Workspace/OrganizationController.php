@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Workspace;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Organizations\CreateOrganization;
 use App\Actions\Organizations\DeleteOrganization;
 use App\Actions\Organizations\RestoreOrganization;
 use App\Actions\Organizations\UpdateOrganization;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\DeleteOrganizationRequest;
 use App\Http\Requests\RestoreOrganizationRequest;
 use App\Http\Requests\StoreOrganizationRequest;

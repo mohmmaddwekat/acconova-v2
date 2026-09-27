@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Production;
 
-use App\Http\Controllers\Controller;
-
 use App\Enums\OrganizationRole;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\DeleteProductionRunRequest;
 use App\Http\Requests\PostProductionRunRequest;
 use App\Http\Requests\ReverseProductionRunRequest;

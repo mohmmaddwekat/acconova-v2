@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\RecordPaymentRequest;
 use App\Http\Requests\StorePaymentPlanRequest;
 use App\Http\Resources\PaymentPlanResource;

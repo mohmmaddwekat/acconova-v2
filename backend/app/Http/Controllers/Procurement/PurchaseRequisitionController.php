@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Procurement;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\Party;
 use App\Models\Product;
 use App\Models\Warehouse;

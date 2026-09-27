@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Parties;
 
-use App\Http\Controllers\Controller;
-
 use App\Actions\Parties\UpdateParty;
+use App\Http\Controllers\Controller;
 use App\Models\Party;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;

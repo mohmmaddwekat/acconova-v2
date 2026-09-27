@@ -1,14 +1,14 @@
 <?php
 
+use App\Http\Controllers\Operations\ServiceOperationController;
+use App\Http\Controllers\Production\ProductionController;
+use App\Http\Controllers\Production\ProductionRecipeController;
 use App\Http\Controllers\Products\ProductBulkActionController;
 use App\Http\Controllers\Products\ProductBulkEditController;
 use App\Http\Controllers\Products\ProductController;
 use App\Http\Controllers\Products\ProductDataTransferController;
 use App\Http\Controllers\Products\ProductInsightsController;
-use App\Http\Controllers\Production\ProductionController;
-use App\Http\Controllers\Production\ProductionRecipeController;
 use App\Http\Controllers\Products\ProductPermanentDeletionController;
-use App\Http\Controllers\Operations\ServiceOperationController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 

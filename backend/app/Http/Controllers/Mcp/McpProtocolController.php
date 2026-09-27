@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Mcp;
 
 use App\Http\Controllers\Controller;
-
 use App\Services\Mcp\McpCapabilityCatalog;
 use App\Services\Mcp\McpExecutor;
 use App\Services\Mcp\McpTokenService;

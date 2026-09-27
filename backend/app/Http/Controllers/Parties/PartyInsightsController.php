@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Parties;
 
-use App\Http\Controllers\Controller;
-
 use App\Enums\StockMovementType;
+use App\Http\Controllers\Controller;
 use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Models\FinancialDocumentLine;

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Workspace;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\Membership;
 use App\Models\User;
 use App\Models\WorkspaceRole;
