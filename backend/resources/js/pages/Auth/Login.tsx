@@ -19,6 +19,26 @@ import { ApiError } from '@/lib/http';
 import { AuthShell } from '@/layouts/AuthShell';
 
 /**
+ * Return a same-origin post-login target. Any malformed or external value
+ * falls back to the normal application entry point.
+ */
+function postLoginTarget(): string {
+    const redirect = new URLSearchParams(
+        window.location.search,
+    ).get('redirect');
+
+    if (
+        !redirect
+        || !redirect.startsWith('/')
+        || redirect.startsWith('//')
+    ) {
+        return '/app';
+    }
+
+    return redirect;
+}
+
+/**
  * Render the AccoNova login experience.
  */
 export default function Login() {
@@ -41,7 +61,7 @@ export default function Login() {
         useState<string | null>(null);
 
     /**
-     * Authenticate the user and enter the protected application.
+     * Authenticate the user and enter the originally requested protected page.
      */
     async function handleSubmit(
         event: FormEvent<HTMLFormElement>,
@@ -59,7 +79,9 @@ export default function Login() {
                 password,
             });
 
-            window.location.assign('/app');
+            window.location.assign(
+                postLoginTarget(),
+            );
         } catch (error) {
             if (
                 error instanceof ApiError
