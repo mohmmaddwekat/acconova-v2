@@ -4,7 +4,7 @@ use App\Http\Controllers\PlatformAdminController;
 use App\Http\Controllers\PlatformFeatureAdminController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])
+Route::middleware(['auth', 'verified', 'platform.admin'])
     ->prefix('admin')
     ->name('platform-admin.')
     ->group(function (): void {
