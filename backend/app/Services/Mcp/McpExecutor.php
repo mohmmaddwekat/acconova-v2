@@ -68,6 +68,7 @@ final class McpExecutor
                 'arguments' => $this->safeInput($arguments),
             ];
             $this->audit($tool['tool'], 'sandbox', $arguments, $result, $user, $token, $started);
+
             return $result;
         }
 
@@ -103,6 +104,7 @@ final class McpExecutor
             };
 
             $this->audit($tool['tool'], 'success', $arguments, $result, $user, $token, $started);
+
             return ['ok' => true, 'status' => 'success', 'data' => $result];
         } catch (\Throwable $exception) {
             $this->audit($tool['tool'], 'error', $arguments, ['error' => $exception->getMessage()], $user, $token, $started);
@@ -164,6 +166,7 @@ final class McpExecutor
         }
 
         $settings = DB::table('mcp_workspace_settings')->where('organization_id', $this->context->id())->first();
+
         return ! $settings || (bool) $settings->require_approval_for_financial_writes;
     }
 
@@ -233,6 +236,7 @@ final class McpExecutor
         ];
 
         $document = $this->financeDocuments->createDraft($data, $user->id);
+
         return [
             'id' => $document->id,
             'number' => $document->number,
@@ -253,6 +257,7 @@ final class McpExecutor
         }
 
         $documents = FinancialDocument::query()->where('party_id', $party->id)->latest('issue_date')->limit(25)->get();
+
         return [
             'party' => $party->only(['id', 'name', 'company_name', 'email', 'phone', 'credit_limit', 'city', 'country_code', 'notes']),
             'roles' => $roleNames,
@@ -273,6 +278,7 @@ final class McpExecutor
     private function collectionsQueue(array $arguments): array
     {
         $limit = min(max((int) ($arguments['limit'] ?? 30), 1), 100);
+
         return FinancialDocument::query()->with('party:id,name,company_name,email,phone')
             ->where('kind', 'sale_invoice')->whereIn('status', ['issued', 'partially_paid'])
             ->where('balance_due', '>', 0)->whereDate('due_date', '<', today())
@@ -297,6 +303,7 @@ final class McpExecutor
     private function inventoryAnalysis(array $arguments): array
     {
         $limit = min(max((int) ($arguments['limit'] ?? 50), 1), 100);
+
         return Product::query()->withSum('inventoryBalances as available_stock', 'available')->where('active', true)->orderBy('name')->limit($limit)->get()->map(fn (Product $p) => [
             'id' => $p->id, 'sku' => $p->sku, 'name' => $p->name, 'available' => (float) ($p->available_stock ?? 0),
             'low_stock_threshold' => (float) ($p->low_stock_threshold ?? 0), 'reorder_level' => (float) ($p->reorder_level ?? 0), 'reorder_qty' => (float) ($p->reorder_qty ?? 0),
@@ -307,10 +314,12 @@ final class McpExecutor
     {
         return collect($this->inventoryAnalysis(['limit' => 100]))->filter(function (array $row): bool {
             $threshold = max($row['low_stock_threshold'], $row['reorder_level']);
+
             return $threshold > 0 && $row['available'] <= $threshold;
         })->map(function (array $row): array {
             $target = max($row['reorder_qty'], $row['reorder_level'] * 2, $row['low_stock_threshold'] * 2);
             $row['suggested_order_qty'] = max($target - $row['available'], 0);
+
             return $row;
         })->values()->all();
     }
@@ -324,12 +333,14 @@ final class McpExecutor
             'product_id' => $p->id, 'sku' => $p->sku, 'name' => $p->name, 'quantity' => 1,
             'unit_price' => (float) ($p->sale_price ?? $p->price ?? 0), 'tax_rate' => (float) ($p->tax_rate ?? 0),
         ]);
+
         return ['draft_only' => true, 'party' => ['id' => $party->id, 'name' => $party->company_name ?: $party->name], 'lines' => $lines, 'subtotal' => $lines->sum('unit_price')];
     }
 
     private function profitability(array $arguments): array
     {
         $limit = min(max((int) ($arguments['limit'] ?? 20), 1), 100);
+
         return DB::table('financial_documents as d')->join('financial_document_lines as l', 'l.financial_document_id', '=', 'd.id')
             ->leftJoin('parties as p', 'p.id', '=', 'd.party_id')
             ->where('d.organization_id', $this->context->id())->where('d.kind', 'sale_invoice')->whereIn('d.status', ['issued', 'partially_paid', 'paid'])
@@ -344,6 +355,7 @@ final class McpExecutor
         $base = FinancialDocument::query()->whereIn('status', ['issued', 'partially_paid'])->where('balance_due', '>', 0)->whereDate('due_date', '<=', $to);
         $inflow = (clone $base)->where('kind', 'sale_invoice')->sum('balance_due');
         $outflow = (clone $base)->where('kind', 'purchase_invoice')->sum('balance_due');
+
         return ['days' => $days, 'expected_inflow' => (float) $inflow, 'expected_outflow' => (float) $outflow, 'net_expected' => (float) $inflow - (float) $outflow];
     }
 
@@ -354,6 +366,7 @@ final class McpExecutor
         $previousFrom = (clone $from)->subDays($days);
         $current = (float) FinancialDocument::query()->where('kind', 'purchase_invoice')->whereIn('status', ['issued', 'partially_paid', 'paid'])->whereBetween('issue_date', [$from, today()])->sum('total');
         $previous = (float) FinancialDocument::query()->where('kind', 'purchase_invoice')->whereIn('status', ['issued', 'partially_paid', 'paid'])->whereBetween('issue_date', [$previousFrom, $from->copy()->subDay()])->sum('total');
+
         return ['days' => $days, 'current' => $current, 'previous' => $previous, 'change_percent' => $previous > 0 ? round((($current - $previous) / $previous) * 100, 2) : null];
     }
 
@@ -361,6 +374,7 @@ final class McpExecutor
     {
         $average = (float) FinancialDocument::query()->whereIn('status', ['issued', 'partially_paid', 'paid'])->where('issue_date', '>=', today()->subDays(90))->avg('total');
         $large = FinancialDocument::query()->with('party:id,name,company_name')->where('total', '>', max($average * 3, 0))->where('issue_date', '>=', today()->subDays(90))->latest('issue_date')->limit(20)->get(['id', 'number', 'party_id', 'kind', 'total', 'issue_date']);
+
         return ['average_document_total_90d' => $average, 'unusually_large_documents' => $large, 'overdue_receivables' => $this->receivableSummary(), 'low_stock_count' => count($this->reorderSuggestions())];
     }
 
@@ -394,6 +408,7 @@ final class McpExecutor
             'due_on' => $arguments['due_on'] ?? null,
             'created_by' => $user->id,
         ]);
+
         return ['id' => $task->id, 'title' => $task->title, 'status' => $task->status, 'due_on' => $task->due_on?->toDateString(), 'url' => '/app/task-management'];
     }
 
@@ -401,6 +416,7 @@ final class McpExecutor
     {
         $party = Party::query()->findOrFail((int) ($arguments['party_id'] ?? 0));
         $id = $this->contextRecord('meeting', 'party', $party->id, 'Meeting note', (string) ($arguments['summary'] ?? ''), null, ['next_action' => $arguments['next_action'] ?? null], $user);
+
         return ['id' => $id, 'party_id' => $party->id];
     }
 
@@ -409,6 +425,7 @@ final class McpExecutor
         $from = strtolower(trim((string) ($arguments['from'] ?? '')));
         $party = $from !== '' ? Party::query()->whereRaw('LOWER(email) = ?', [$from])->first() : null;
         $id = $this->contextRecord('email', $party ? 'party' : null, $party?->id, (string) ($arguments['subject'] ?? 'Email intake'), (string) ($arguments['body'] ?? ''), null, ['from' => $from], $user);
+
         return ['id' => $id, 'matched_party' => $party ? ['id' => $party->id, 'name' => $party->company_name ?: $party->name] : null, 'suggested_action' => $party ? 'Review customer 360 and create a follow-up task or draft quote.' : 'Create or match a party before starting a commercial workflow.'];
     }
 
@@ -419,6 +436,7 @@ final class McpExecutor
             throw ValidationException::withMessages(['url' => ['A valid document URL is required.']]);
         }
         $id = $this->contextRecord('document', (string) ($arguments['entity_type'] ?? ''), isset($arguments['entity_id']) ? (int) $arguments['entity_id'] : null, (string) ($arguments['title'] ?? 'Document'), null, $url ?: null, [], $user);
+
         return ['id' => $id, 'url' => $url ?: null];
     }
 
@@ -431,6 +449,7 @@ final class McpExecutor
     {
         $sales30 = (float) FinancialDocument::query()->where('kind', 'sale_invoice')->whereIn('status', ['issued', 'partially_paid', 'paid'])->whereDate('issue_date', '>=', today()->subDays(29))->sum('total');
         $purchases30 = (float) FinancialDocument::query()->where('kind', 'purchase_invoice')->whereIn('status', ['issued', 'partially_paid', 'paid'])->whereDate('issue_date', '>=', today()->subDays(29))->sum('total');
+
         return [
             'sales_30d' => $sales30,
             'purchases_30d' => $purchases30,
@@ -447,6 +466,7 @@ final class McpExecutor
     private function salesOpportunities(array $arguments): array
     {
         $limit = min(max((int) ($arguments['limit'] ?? 20), 1), 100);
+
         return DB::table('parties as p')->leftJoin('financial_documents as d', function ($join): void {
             $join->on('d.party_id', '=', 'p.id')->where('d.kind', '=', 'sale_invoice');
         })->where('p.organization_id', $this->context->id())->whereNull('p.deleted_at')
@@ -457,10 +477,12 @@ final class McpExecutor
     private function churnRisk(): array
     {
         $rows = $this->salesOpportunities(['limit' => 100]);
+
         return collect($rows)->map(function (array $row): array {
             $days = $row['last_sale_on'] ? Carbon::parse($row['last_sale_on'])->diffInDays(today()) : null;
             $row['days_since_last_sale'] = $days;
             $row['risk'] = $days === null ? 'new_or_no_history' : ($days >= 90 ? 'high' : ($days >= 45 ? 'medium' : 'low'));
+
             return $row;
         })->sortByDesc(fn (array $row) => $row['days_since_last_sale'] ?? 9999)->values()->all();
     }
@@ -471,6 +493,7 @@ final class McpExecutor
         Party::query()->findOrFail($partyId);
         $limit = min(max((int) ($arguments['limit'] ?? 10), 1), 30);
         $bought = DB::table('financial_document_lines as l')->join('financial_documents as d', 'd.id', '=', 'l.financial_document_id')->where('d.organization_id', $this->context->id())->where('d.party_id', $partyId)->where('d.kind', 'sale_invoice')->whereNotNull('l.product_id')->pluck('l.product_id');
+
         return Product::query()->where('active', true)->whereNotIn('id', $bought)->orderByDesc('sale_price')->limit($limit)->get(['id', 'sku', 'name', 'sale_price', 'price'])->toArray();
     }
 
@@ -482,6 +505,7 @@ final class McpExecutor
         $recent = DB::table('financial_document_lines as l')->join('financial_documents as d', 'd.id', '=', 'l.financial_document_id')->where('d.organization_id', $this->context->id())->where('d.kind', 'sale_invoice')->where('d.party_id', $partyId)->where('l.product_id', $product->id)->orderByDesc('d.issue_date')->value('l.unit_price');
         $price = (float) ($product->sale_price ?? $product->price ?? 0);
         $cost = (float) ($product->cost ?? $product->purchase_price ?? 0);
+
         return ['product_id' => $product->id, 'quantity' => (float) ($arguments['quantity'] ?? 1), 'list_price' => $price, 'cost' => $cost, 'recent_customer_price' => $recent !== null ? (float) $recent : null, 'list_margin_percent' => $price > 0 ? round((($price - $cost) / $price) * 100, 2) : null];
     }
 
@@ -494,18 +518,21 @@ final class McpExecutor
     {
         $staff = StaffMember::query()->limit(100)->get();
         $openByAssignee = Task::query()->operational()->whereNotIn('status', ['done', 'completed'])->whereNotNull('primary_assignee_id')->selectRaw('primary_assignee_id, COUNT(*) as open_tasks')->groupBy('primary_assignee_id')->pluck('open_tasks', 'primary_assignee_id');
+
         return $staff->map(fn (StaffMember $member) => ['id' => $member->id, 'name' => $member->name ?? $member->full_name ?? null, 'email' => $member->email ?? null, 'job_title' => $member->job_title ?? null, 'open_tasks' => (int) ($openByAssignee[$member->id] ?? 0)])->all();
     }
 
     private function receivableSummary(): array
     {
         $query = FinancialDocument::query()->where('kind', 'sale_invoice')->whereIn('status', ['issued', 'partially_paid'])->where('balance_due', '>', 0);
+
         return ['total' => (float) (clone $query)->sum('balance_due'), 'overdue' => (float) (clone $query)->whereDate('due_date', '<', today())->sum('balance_due'), 'documents' => (clone $query)->count()];
     }
 
     private function payableSummary(): array
     {
         $query = FinancialDocument::query()->where('kind', 'purchase_invoice')->whereIn('status', ['issued', 'partially_paid'])->where('balance_due', '>', 0);
+
         return ['total' => (float) (clone $query)->sum('balance_due'), 'overdue' => (float) (clone $query)->whereDate('due_date', '<', today())->sum('balance_due'), 'documents' => (clone $query)->count()];
     }
 
@@ -536,11 +563,13 @@ final class McpExecutor
         if ($sandbox) {
             $result = ['ok' => true, 'status' => 'sandbox', 'would_execute' => $scope, 'endpoint_host' => parse_url($tool->endpoint_url, PHP_URL_HOST)];
             $this->audit($scope, 'sandbox', $arguments, $result, $user, $token, $started);
+
             return $result;
         }
         if ((bool) $tool->approval_required && ! $bypassApproval) {
             $approval = $this->queueApproval($scope, $arguments, $user, $token);
             $this->audit($scope, 'approval_required', $arguments, ['approval_id' => $approval], $user, $token, $started);
+
             return ['ok' => true, 'status' => 'approval_required', 'approval_id' => $approval];
         }
 
@@ -552,6 +581,7 @@ final class McpExecutor
         $response->throw();
         $result = ['http_status' => $response->status(), 'data' => $response->json() ?? Str::limit($response->body(), 8000)];
         $this->audit($scope, 'success', $arguments, $result, $user, $token, $started);
+
         return ['ok' => true, 'status' => 'success', 'data' => $result];
     }
 
@@ -592,6 +622,7 @@ final class McpExecutor
                 $input[$key] = '[redacted]';
             }
         }
+
         return $input;
     }
 
@@ -601,6 +632,7 @@ final class McpExecutor
         if ($json === false || strlen($json) <= 12000) {
             return $output;
         }
+
         return ['summary' => Str::limit($json, 12000), 'truncated' => true];
     }
 
@@ -610,6 +642,7 @@ final class McpExecutor
         foreach ($jsonFields as $field) {
             $data[$field] = isset($data[$field]) ? (json_decode((string) $data[$field], true) ?: []) : null;
         }
+
         return $data;
     }
 }

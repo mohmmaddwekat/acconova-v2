@@ -15,6 +15,7 @@ final class PlatformAdminSeeder extends Seeder
 
         if ($password === '') {
             $this->command?->warn('PLATFORM_ADMIN_SEED_PASSWORD is empty; platform admin was not created.');
+
             return;
         }
 

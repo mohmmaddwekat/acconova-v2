@@ -162,7 +162,7 @@ class MarketingSolutionController extends Controller
     private function page(string $slug, array $content): View
     {
         $canonical = rtrim((string) config('app.url'), '/').'/'.$slug;
-        $home = rtrim((string) config('app.url'), '/').'/' ;
+        $home = rtrim((string) config('app.url'), '/').'/';
 
         $schema = [
             [
