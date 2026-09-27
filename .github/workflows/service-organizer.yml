@@ -1,0 +1,175 @@
+name: Service Organizer
+
+on:
+  push:
+    branches: [refactor-controller-modules-20260927]
+    paths: [.github/workflows/service-organizer.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  organize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor-controller-modules-20260927
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Organize root services by domain
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+
+          root = Path('backend/app/Services')
+          mapping = {
+              'ApprovalWorkflowService.php': 'Governance',
+              'BillingOverviewService.php': 'Billing',
+              'CashMovementService.php': 'Finance',
+              'ConversationAdmins.php': 'Collaboration',
+              'FinanceAuditService.php': 'Finance',
+              'FinanceAuthorization.php': 'Finance',
+              'FinanceDocumentService.php': 'Finance',
+              'FinanceInventoryService.php': 'Finance',
+              'FinanceNumberService.php': 'Finance',
+              'InventoryStockService.php': 'Inventory',
+              'InvoiceAutomationService.php': 'Finance',
+              'MentionNotifier.php': 'Collaboration',
+              'MessageRestrictions.php': 'Collaboration',
+              'NotificationCenter.php': 'Notifications',
+              'NotificationRuleService.php': 'Notifications',
+              'OrganizationSequenceService.php': 'Workspace',
+              'PartyBalanceSummary.php': 'Parties',
+              'ProductSkuGenerator.php': 'Products',
+              'ProductionRecipeService.php': 'Production',
+              'ProductionRunNumberGenerator.php': 'Production',
+              'ProductionRunService.php': 'Production',
+              'ProductionRunStockService.php': 'Production',
+              'ScheduledReportService.php': 'Reports',
+              'TaskAccess.php': 'Tasks',
+              'WarehouseCodeGenerator.php': 'Inventory',
+              'WarehouseService.php': 'Inventory',
+              'WorkspaceFeaturePermissions.php': 'Workspace',
+              'WorkspacePermissions.php': 'Workspace',
+              'WorkspaceRoleCatalog.php': 'Workspace',
+          }
+
+          fqcn_map = {}
+          domain_by_class = {}
+          for filename, domain in mapping.items():
+              cls = filename[:-4]
+              fqcn_map[f'App\\Services\\{cls}'] = f'App\\Services\\{domain}\\{cls}'
+              domain_by_class[cls] = domain
+
+          # Move files and update their own namespaces.
+          moved_paths = []
+          for filename, domain in mapping.items():
+              src = root / filename
+              if not src.exists():
+                  raise SystemExit(f'Missing expected service: {src}')
+              dst = root / domain / filename
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              subprocess.run(['git', 'mv', str(src), str(dst)], check=True)
+              text = dst.read_text(encoding='utf-8')
+              old_ns = 'namespace App\\Services;'
+              new_ns = f'namespace App\\Services\\{domain};'
+              if old_ns not in text:
+                  raise SystemExit(f'Unexpected namespace in {dst}')
+              text = text.replace(old_ns, new_ns, 1)
+              dst.write_text(text, encoding='utf-8')
+              moved_paths.append((dst, domain, filename[:-4]))
+
+          # Update all explicit FQCN references throughout backend PHP.
+          for path in Path('backend').rglob('*.php'):
+              if any(part in {'vendor', 'node_modules'} for part in path.parts):
+                  continue
+              text = path.read_text(encoding='utf-8')
+              updated = text
+              for old, new in fqcn_map.items():
+                  updated = updated.replace(old, new)
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8')
+
+          # Services used to share one namespace, so cross-domain bare references
+          # need explicit imports after the split.
+          reference_patterns = [
+              lambda cls: rf'\bnew\s+{re.escape(cls)}\b',
+              lambda cls: rf'\b{re.escape(cls)}::',
+              lambda cls: rf'(?<![\\\w])\??{re.escape(cls)}\s+\$',
+              lambda cls: rf'(?<![\\\w]){re.escape(cls)}\s*[|&]',
+              lambda cls: rf'[|&]\s*{re.escape(cls)}\b',
+          ]
+          for path, current_domain, own_class in moved_paths:
+              text = path.read_text(encoding='utf-8')
+              imports = []
+              for cls, target_domain in domain_by_class.items():
+                  if cls == own_class or target_domain == current_domain:
+                      continue
+                  if any(re.search(factory(cls), text) for factory in reference_patterns):
+                      fqcn = f'App\\Services\\{target_domain}\\{cls}'
+                      if f'use {fqcn};' not in text:
+                          imports.append(f'use {fqcn};')
+              if imports:
+                  ns = f'namespace App\\Services\\{current_domain};'
+                  block = ns + '\n\n' + '\n'.join(sorted(set(imports)))
+                  text = text.replace(ns, block, 1)
+                  path.write_text(text, encoding='utf-8')
+
+          inventory = root / 'SERVICE_INVENTORY.tmp'
+          if inventory.exists():
+              subprocess.run(['git', 'rm', str(inventory)], check=True)
+
+          domains = {}
+          for filename, domain in mapping.items():
+              domains.setdefault(domain, []).append(filename[:-4])
+          readme = [
+              '# Service modules',
+              '',
+              'Application services are grouped by business/domain ownership. Existing `AI`, `Billing`, and `Mcp` modules remain first-class service modules.',
+              'Shared infrastructure should stay at the `Services` root only when it truly has no single domain owner.',
+              '',
+          ]
+          for domain in sorted(domains):
+              readme.append(f'- **{domain}** — ' + ', '.join(sorted(domains[domain])))
+          readme += ['', 'When moving a service, update its namespace and every consumer/import at the same time.', '']
+          (root / 'README.md').write_text('\n'.join(readme), encoding='utf-8')
+
+          # Guard explicit stale FQCN references and flat service files.
+          stale = []
+          for path in Path('backend').rglob('*.php'):
+              if any(part in {'vendor', 'node_modules'} for part in path.parts):
+                  continue
+              text = path.read_text(encoding='utf-8')
+              for old in fqcn_map:
+                  if old in text:
+                      stale.append(f'{path}: {old}')
+          if stale:
+              raise SystemExit('Stale service references remain:\n' + '\n'.join(stale))
+
+          root_php = sorted(p.name for p in root.glob('*.php'))
+          if root_php:
+              raise SystemExit('Unexpected PHP services still at root: ' + ', '.join(root_php))
+
+          print(f'Organized {len(mapping)} services across {len(domains)} domain folders.')
+          PY
+      - name: Install dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+      - name: Format changed PHP
+        working-directory: backend
+        run: vendor/bin/pint app/Services app/Http/Controllers routes tests
+      - name: Commit organized services
+        run: |
+          git config user.name "mohmmaddwekat"
+          git config user.email "57283690+mohmmaddwekat@users.noreply.github.com"
+          git add -A
+          git diff --cached --stat
+          git commit -m "Organize services by domain"
+          git push origin HEAD:refactor-controller-modules-20260927
