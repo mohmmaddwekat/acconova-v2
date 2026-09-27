@@ -11,10 +11,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Passport\Contracts\OAuthenticatable;
+use Laravel\Passport\HasApiTokens;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
 {
     public const PLATFORM_ROLE_USER = 'user';
 
@@ -23,7 +25,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public const PLATFORM_ROLE_SUPER_ADMIN = 'super_admin';
 
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * Cast persisted authentication attributes into their application types.

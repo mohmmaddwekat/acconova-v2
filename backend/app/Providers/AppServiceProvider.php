@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Passport;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,6 +40,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Passport::authorizationView('mcp.authorize');
+
         Route::middleware('web')->group(base_path('routes/billing-growth.php'));
 
         BillingAccount::saved(function (BillingAccount $account): void {
