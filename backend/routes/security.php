@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Workspace\WorkspaceSecurityController;
-use App\Http\Middleware\RequireActiveSubscription;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -32,7 +31,6 @@ Route::middleware('auth')->group(function (): void {
 Route::middleware([
     'auth',
     'verified',
-    RequireActiveSubscription::class,
     ResolveOrganization::class,
 ])->group(function (): void {
     Route::get('/app/security', fn () => Inertia::render('SecurityCenter'))
