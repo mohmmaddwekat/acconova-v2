@@ -1,0 +1,35 @@
+name: MCP OAuth Bootstrap
+
+on:
+  push:
+    branches:
+      - mcp-oauth-bootstrap-20260927
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    if: github.event.head_commit.message != 'Resolve MCP OAuth dependencies'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Resolve Laravel MCP and Passport
+        working-directory: backend
+        run: composer require 'laravel/mcp:^1.0' 'laravel/passport:^13.8' --with-all-dependencies --no-interaction --prefer-dist
+      - name: Publish Passport migrations and MCP authorization view
+        working-directory: backend
+        run: |
+          php artisan vendor:publish --tag=passport-migrations --force
+          php artisan vendor:publish --tag=mcp-views --force
+      - name: Commit resolved dependency files
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/composer.json backend/composer.lock backend/database/migrations backend/resources/views
+          git commit -m 'Resolve MCP OAuth dependencies'
+          git push
