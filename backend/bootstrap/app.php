@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ClearTenantContext;
+use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetUserLocale;
 use App\Http\Middleware\TranslateMarketingResponse;
@@ -46,6 +47,24 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(ClearTenantContext::class);
         $middleware->prepend(SetUserLocale::class);
         $middleware->encryptCookies(except: ['acconova_locale']);
+
+        $middleware->alias([
+            'platform.admin' => EnsurePlatformAdmin::class,
+        ]);
+
+        /*
+         * Preserve the requested platform-admin URL through the JSON login
+         * flow. The login page validates that the redirect stays same-origin.
+         */
+        $middleware->redirectGuestsTo(function (Request $request): string {
+            if ($request->is('admin') || $request->is('admin/*')) {
+                return route('login', [
+                    'redirect' => $request->getRequestUri(),
+                ]);
+            }
+
+            return route('login');
+        });
 
         /*
          * The billing provider signs webhook bodies independently of Laravel
