@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Workspace\WorkspaceSecurityController;
-use App\Http\Middleware\ResolveOrganization;
+use App\Http\Middleware\ResolveSecurityOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -31,7 +31,7 @@ Route::middleware('auth')->group(function (): void {
 Route::middleware([
     'auth',
     'verified',
-    ResolveOrganization::class,
+    ResolveSecurityOrganization::class,
 ])->group(function (): void {
     Route::get('/app/security', fn () => Inertia::render('SecurityCenter'))
         ->name('app.security');
