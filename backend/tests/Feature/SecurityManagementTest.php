@@ -110,6 +110,24 @@ class SecurityManagementTest extends TestCase
         $this->assertTrue(Hash::check('NewSecure!Password123', $user->password));
     }
 
+    public function test_expired_temporary_password_cannot_authenticate(): void
+    {
+        [$user] = $this->workspaceUser(OrganizationRole::Employee);
+        $user->forceFill([
+            'must_change_password' => true,
+            'temporary_password_expires_at' => now()->subMinute(),
+        ])->save();
+
+        $this->postJson('/api/login', [
+            'email' => $user->email,
+            'password' => 'Password!12345',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertGuest();
+    }
+
     private function workspaceUser(
         OrganizationRole $role,
         ?Organization $organization = null,
