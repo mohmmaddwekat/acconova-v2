@@ -1,0 +1,33 @@
+name: Apply security integrations patch
+
+on:
+  push:
+    branches:
+      - security-integrations-mcp-ux-20260927
+    paths:
+      - backend/scripts/apply_security_integrations_patch.py
+      - .github/workflows/security-integrations-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: security-integrations-mcp-ux-20260927
+      - name: Apply patch
+        run: python backend/scripts/apply_security_integrations_patch.py
+      - name: Commit generated changes
+        run: |
+          git config user.name "mohmmaddwekat"
+          git config user.email "57283690+mohmmaddwekat@users.noreply.github.com"
+          git add backend
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+          else
+            git commit -m "Build security and integration center"
+            git push
+          fi
