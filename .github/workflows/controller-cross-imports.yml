@@ -1,0 +1,93 @@
+name: Controller Cross Import Repair
+
+on:
+  push:
+    branches: [refactor-controller-modules-20260927]
+    paths: [.github/workflows/controller-cross-imports.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor-controller-modules-20260927
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Repair cross-module controller imports
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('backend/app/Http/Controllers')
+          php_files = [p for p in root.rglob('*.php') if p.name != 'Controller.php']
+
+          classes = {}
+          file_meta = {}
+          for path in php_files:
+              text = path.read_text(encoding='utf-8')
+              ns_match = re.search(r'^namespace\s+([^;]+);', text, re.M)
+              class_match = re.search(r'\b(?:final\s+)?class\s+(\w+)', text)
+              if not ns_match or not class_match:
+                  continue
+              namespace = ns_match.group(1)
+              cls = class_match.group(1)
+              fqcn = namespace + '\\' + cls
+              classes[cls] = fqcn
+              file_meta[path] = (namespace, cls)
+
+          changed = []
+          for path, (namespace, own_cls) in file_meta.items():
+              text = path.read_text(encoding='utf-8')
+              imports = []
+              for cls, fqcn in classes.items():
+                  if cls == own_cls or fqcn.startswith(namespace + '\\'):
+                      continue
+                  # Only add imports for syntactic class references, not prose/string mentions.
+                  patterns = [
+                      rf'\b{re.escape(cls)}::',
+                      rf'\bnew\s+{re.escape(cls)}\b',
+                      rf'(?<![\\\w])\??{re.escape(cls)}\s+\$',
+                      rf'(?<![\\\w]){re.escape(cls)}\s*[|&]',
+                      rf'[|&]\s*{re.escape(cls)}\b',
+                      rf'\binstanceof\s+{re.escape(cls)}\b',
+                  ]
+                  if any(re.search(pattern, text) for pattern in patterns):
+                      if f'use {fqcn};' not in text:
+                          imports.append(f'use {fqcn};')
+
+              if imports:
+                  ns_line = f'namespace {namespace};'
+                  insertion = ns_line + '\n\n' + '\n'.join(sorted(set(imports)))
+                  text = text.replace(ns_line, insertion, 1)
+                  path.write_text(text, encoding='utf-8')
+                  changed.append((str(path), imports))
+
+          print(f'Repaired {len(changed)} controller files.')
+          for path, imports in changed:
+              print(path)
+              for item in imports:
+                  print('  ' + item)
+          PY
+      - name: Install dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+      - name: Format repaired controllers
+        working-directory: backend
+        run: vendor/bin/pint app/Http/Controllers
+      - name: Commit repairs
+        run: |
+          git config user.name "mohmmaddwekat"
+          git config user.email "57283690+mohmmaddwekat@users.noreply.github.com"
+          git add -A
+          git diff --cached --stat
+          git commit -m "Repair cross-module controller imports"
+          git push origin HEAD:refactor-controller-modules-20260927
