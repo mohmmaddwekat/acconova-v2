@@ -43,10 +43,7 @@ final class McpProtocolCompatibility
 
         if (
             $request->input('id') === null
-            && in_array($method, [
-                'notifications/initialized',
-                'notifications/cancelled',
-            ], true)
+            && str_starts_with($method, 'notifications/')
         ) {
             return response('', 202)
                 ->header('MCP-Protocol-Version', $selectedVersion);
