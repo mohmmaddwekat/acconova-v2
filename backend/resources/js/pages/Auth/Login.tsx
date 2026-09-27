@@ -20,22 +20,26 @@ import { AuthShell } from '@/layouts/AuthShell';
 
 /**
  * Return a same-origin post-login target. Any malformed or external value
- * falls back to the normal application entry point.
+ * falls back to the correct home for the authenticated identity.
  */
-function postLoginTarget(): string {
+function postLoginTarget(
+    isPlatformAdmin: boolean,
+): string {
     const redirect = new URLSearchParams(
         window.location.search,
     ).get('redirect');
 
     if (
-        !redirect
-        || !redirect.startsWith('/')
-        || redirect.startsWith('//')
+        redirect
+        && redirect.startsWith('/')
+        && !redirect.startsWith('//')
     ) {
-        return '/app';
+        return redirect;
     }
 
-    return redirect;
+    return isPlatformAdmin
+        ? '/admin'
+        : '/app';
 }
 
 /**
@@ -61,7 +65,7 @@ export default function Login() {
         useState<string | null>(null);
 
     /**
-     * Authenticate the user and enter the originally requested protected page.
+     * Authenticate the user and enter the correct protected area.
      */
     async function handleSubmit(
         event: FormEvent<HTMLFormElement>,
@@ -74,13 +78,15 @@ export default function Login() {
         setMessage(null);
 
         try {
-            await login({
+            const response = await login({
                 email,
                 password,
             });
 
             window.location.assign(
-                postLoginTarget(),
+                postLoginTarget(
+                    response.user.is_platform_admin,
+                ),
             );
         } catch (error) {
             if (
