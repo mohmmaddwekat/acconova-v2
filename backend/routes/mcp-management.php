@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\McpApprovalController;
 use App\Http\Controllers\McpManagementController;
+use App\Http\Controllers\McpTokenController;
 use App\Http\Middleware\EnsureMcpAdmin;
 use App\Http\Middleware\RequireActiveSubscription;
 use App\Http\Middleware\ResolveOrganization;
@@ -20,8 +21,8 @@ Route::middleware([
         Route::get('/dashboard', [McpManagementController::class, 'dashboard']);
         Route::put('/settings', [McpManagementController::class, 'updateSettings']);
 
-        Route::post('/tokens', [McpManagementController::class, 'createToken']);
-        Route::delete('/tokens/{token}', [McpManagementController::class, 'revokeToken']);
+        Route::post('/tokens', [McpTokenController::class, 'store']);
+        Route::delete('/tokens/{token}', [McpTokenController::class, 'destroy']);
 
         Route::post('/approvals/{approval}/approve', [McpApprovalController::class, 'approve']);
         Route::post('/approvals/{approval}/reject', [McpApprovalController::class, 'reject']);
