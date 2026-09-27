@@ -49,7 +49,7 @@ class BillingGrowthEngineTest extends TestCase
             ->assertJsonPath('data.usage.seats.used', 1)
             ->assertJsonPath('data.soft_lock.read_only', false)
             ->assertJsonPath('data.recovery.required', false)
-            ->assertJsonPath('data.addons.catalog.0.enabled', false);
+            ->assertJsonPath('data.addons.catalog.0.enabled', true);
 
         $payload = strtolower($response->getContent());
 
