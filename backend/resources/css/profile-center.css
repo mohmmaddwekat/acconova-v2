@@ -1,40 +1,55 @@
 .profile-center {
     color: var(--ac-text);
-    --ac-text: #172554;
-    --ac-text-muted: #7383a7;
-    --ac-surface-soft: #f8fafc;
-    --ac-line: #e6edf5;
-}
 
-.profile-center[data-theme='dark'] {
-    color-scheme: dark;
+    /*
+     * Profile Center must inherit the product-wide appearance tokens.
+     * Never redefine --ac-* here: doing that forced light-mode text, borders
+     * and hover fills into the dark application shell.
+     */
     --profile-surface: var(--ac-surface);
     --profile-tint: var(--ac-surface-soft);
     --profile-accent: var(--ac-accent);
 }
 
-@media (prefers-color-scheme: dark) {
-    .profile-center[data-theme='system'] {
-        color-scheme: dark;
-        --profile-surface: var(--ac-surface);
-        --profile-tint: var(--ac-surface-soft);
-        --profile-accent: var(--ac-accent);
-    }
+.profile-center[data-theme='dark'],
+.profile-center[data-theme='system'] {
+    color-scheme: inherit;
 }
 
+/* Keep the legacy utility classes used inside Profile Center on AccoNova's
+ * active light/dark palette instead of hard-coded white/teal surfaces. */
 .profile-center .bg-white {
-    background-color: var(--profile-surface, white);
+    background-color: var(--profile-surface) !important;
 }
 
 .profile-center :is(.bg-slate-50, .bg-teal-50) {
-    background-color: var(--profile-tint, revert-layer);
+    background-color: var(--profile-tint) !important;
 }
 
 .profile-center :is(.text-teal-600, .text-teal-700, .text-teal-800) {
-    color: var(--profile-accent, revert-layer);
+    color: var(--profile-accent) !important;
 }
 
-.profile-center button:not(:disabled), .profile-center a {
+.profile-center :is(
+    [class~='hover:bg-teal-50']:hover,
+    [class~='hover:bg-slate-50']:hover,
+    [class~='hover:bg-white']:hover
+) {
+    background-color: var(--ac-button-hover-bg) !important;
+    color: var(--ac-text) !important;
+    border-color: var(--ac-line-strong) !important;
+}
+
+.profile-center :is(
+    [class~='hover:border-teal-200']:hover,
+    [class~='hover:border-teal-300']:hover,
+    [class~='hover:border-teal-500']:hover
+) {
+    border-color: var(--ac-accent) !important;
+}
+
+.profile-center button:not(:disabled),
+.profile-center a {
     cursor: pointer;
 }
 

@@ -37,3 +37,13 @@
     z-index: 20;
     background: var(--acs-surface, var(--ac-surface, #ffffff));
 }
+
+/*
+ * The Platform Admin is already an internal control surface. The public-site
+ * and app jump buttons duplicated normal navigation and were intentionally
+ * removed from the visible admin header.
+ */
+main.min-w-0.p-4.sm\:p-6.lg\:p-8 > header.mb-6 a[href='/'][target='_blank'],
+main.min-w-0.p-4.sm\:p-6.lg\:p-8 > header.mb-6 a[href='/app'] {
+    display: none !important;
+}
