@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\McpApprovalController;
 use App\Http\Controllers\McpManagementController;
 use App\Http\Middleware\EnsureMcpAdmin;
 use App\Http\Middleware\RequireActiveSubscription;
@@ -22,8 +23,8 @@ Route::middleware([
         Route::post('/tokens', [McpManagementController::class, 'createToken']);
         Route::delete('/tokens/{token}', [McpManagementController::class, 'revokeToken']);
 
-        Route::post('/approvals/{approval}/approve', [McpManagementController::class, 'approve']);
-        Route::post('/approvals/{approval}/reject', [McpManagementController::class, 'reject']);
+        Route::post('/approvals/{approval}/approve', [McpApprovalController::class, 'approve']);
+        Route::post('/approvals/{approval}/reject', [McpApprovalController::class, 'reject']);
 
         Route::post('/connections', [McpManagementController::class, 'saveConnection']);
         Route::put('/connections/{connection}', [McpManagementController::class, 'saveConnection']);
