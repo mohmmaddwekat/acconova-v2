@@ -155,14 +155,24 @@ class McpProtocolTest extends TestCase
         $this->assertSame(2, $usage['cost_units_30d']);
     }
 
-    public function test_token_is_rejected_after_owner_loses_workspace_membership(): void
+    public function test_token_is_rejected_after_token_user_loses_workspace_membership(): void
     {
-        [$user, $organization] = $this->workspace();
-        $token = $this->token($organization, $user, 'read', ['business.morning_brief']);
+        [, $organization] = $this->workspace();
+        $member = User::factory()->create();
+
+        DB::table('memberships')->insert([
+            'organization_id' => $organization->id,
+            'user_id' => $member->id,
+            'role' => 'employee',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $token = $this->token($organization, $member, 'read', ['business.morning_brief']);
 
         DB::table('memberships')
             ->where('organization_id', $organization->id)
-            ->where('user_id', $user->id)
+            ->where('user_id', $member->id)
             ->delete();
 
         $this->mcp($token['token'], 'ping')->assertForbidden();
