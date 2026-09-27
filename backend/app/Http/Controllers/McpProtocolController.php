@@ -47,14 +47,8 @@ final class McpProtocolController extends Controller
             };
 
             return response()->json(['jsonrpc' => '2.0', 'id' => $id, 'result' => $result]);
-        } catch (\RuntimeException $exception) {
-            if ($exception->getMessage() === 'METHOD_NOT_FOUND') {
-                return $this->error($id, -32601, 'Method not found.');
-            }
-            return $this->error($id, -32603, 'Internal MCP error.');
-        } catch (\Throwable $exception) {
-            $code = $exception instanceof HttpExceptionInterface ? $exception->getStatusCode() : 500;
-            $rpcCode = match ($code) {
+        } catch (HttpExceptionInterface $exception) {
+            $rpcCode = match ($exception->getStatusCode()) {
                 401 => -32001,
                 403 => -32003,
                 404 => -32004,
@@ -62,7 +56,16 @@ final class McpProtocolController extends Controller
                 429 => -32029,
                 default => -32603,
             };
+
             return $this->error($id, $rpcCode, $exception->getMessage() ?: 'MCP request failed.');
+        } catch (\RuntimeException $exception) {
+            if ($exception->getMessage() === 'METHOD_NOT_FOUND') {
+                return $this->error($id, -32601, 'Method not found.');
+            }
+
+            return $this->error($id, -32603, 'Internal MCP error.');
+        } catch (\Throwable $exception) {
+            return $this->error($id, -32603, $exception->getMessage() ?: 'MCP request failed.');
         }
     }
 
