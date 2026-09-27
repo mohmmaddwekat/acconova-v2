@@ -2,6 +2,7 @@
 
 use App\Enums\OrganizationRole;
 use App\Models\Organization;
+use App\Models\User;
 use App\Services\Billing\BillingGrowthLifecycleService;
 use App\Services\Billing\BillingGrowthService;
 use App\Services\Billing\StripeSubscriptionManager;
@@ -16,6 +17,40 @@ use Illuminate\Support\Facades\Schedule;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('user:make-platform-admin {email} {--super}', function (): int {
+    $email = strtolower(trim((string) $this->argument('email')));
+    $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+    if (! $user) {
+        $this->error("No user exists with email {$email}.");
+        return 1;
+    }
+
+    $role = $this->option('super')
+        ? User::PLATFORM_ROLE_SUPER_ADMIN
+        : User::PLATFORM_ROLE_ADMIN;
+
+    $user->forceFill(['platform_role' => $role])->save();
+
+    $this->info("{$user->email} is now a {$role}.");
+    return 0;
+})->purpose('Grant a user AccoNova platform administration access');
+
+Artisan::command('user:remove-platform-admin {email}', function (): int {
+    $email = strtolower(trim((string) $this->argument('email')));
+    $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+    if (! $user) {
+        $this->error("No user exists with email {$email}.");
+        return 1;
+    }
+
+    $user->forceFill(['platform_role' => User::PLATFORM_ROLE_USER])->save();
+
+    $this->info("Platform administration access removed from {$user->email}.");
+    return 0;
+})->purpose('Remove AccoNova platform administration access from a user');
 
 Artisan::command('notifications:sync', function (): void {
     Organization::query()->chunkById(100, function ($organizations): void {
