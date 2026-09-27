@@ -97,6 +97,44 @@ class McpProtocolTest extends TestCase
             ->assertJsonPath('error.message', 'Invalid JSON-RPC request.');
     }
 
+    public function test_initialize_negotiates_modern_streamable_http_protocol_version(): void
+    {
+        [$user, $organization] = $this->workspace();
+        $token = $this->token($organization, $user, 'read', ['*']);
+
+        $response = $this->mcp($token['token'], 'initialize', [
+            'protocolVersion' => '2025-11-25',
+            'capabilities' => [],
+            'clientInfo' => [
+                'name' => 'AccoNova feature test',
+                'version' => '1.0.0',
+            ],
+        ])->assertOk();
+
+        $response
+            ->assertHeader('MCP-Protocol-Version', '2025-11-25')
+            ->assertJsonPath('result.protocolVersion', '2025-11-25')
+            ->assertJsonPath('result.serverInfo.name', 'AccoNova MCP');
+    }
+
+    public function test_initialized_notification_is_acknowledged_without_json_rpc_response(): void
+    {
+        [$user, $organization] = $this->workspace();
+        $token = $this->token($organization, $user, 'read', ['*']);
+
+        $this->postJson('/mcp', [
+            'jsonrpc' => '2.0',
+            'method' => 'notifications/initialized',
+            'params' => [],
+        ], [
+            'Authorization' => 'Bearer '.$token['token'],
+            'MCP-Protocol-Version' => '2025-11-25',
+        ])
+            ->assertStatus(202)
+            ->assertHeader('MCP-Protocol-Version', '2025-11-25')
+            ->assertContent('');
+    }
+
     public function test_usage_resource_isolated_to_current_token(): void
     {
         [$user, $organization] = $this->workspace();
