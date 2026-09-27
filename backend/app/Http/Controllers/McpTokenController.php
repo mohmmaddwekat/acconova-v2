@@ -79,7 +79,10 @@ final class McpTokenController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** @param list<string> $requestedScopes @return list<string> */
+    /**
+     * @param  list<string>  $requestedScopes
+     * @return list<string>
+     */
     private function validatedScopes(int $organizationId, string $mode, array $requestedScopes): array
     {
         if (in_array('*', $requestedScopes, true)) {
