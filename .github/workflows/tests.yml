@@ -36,6 +36,8 @@ jobs:
         run: docker exec ${{ job.services.mysql.id }} mysql -uroot -plocal-root-only -e "SET GLOBAL log_bin_trust_function_creators = 1"
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env && php artisan key:generate
+      - name: Generate Passport test keys
+        run: php artisan passport:keys --force
       - name: Verify MySQL migration round trip
         env:
           DB_CONNECTION: mysql
@@ -55,6 +57,8 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npm run build
+      - name: Targeted MCP OAuth test
+        run: php artisan test --filter=McpOAuthTest
       - name: Targeted AI gateway test
         run: php artisan test --filter=AiGatewayTest
       - name: Targeted AI business tools test
