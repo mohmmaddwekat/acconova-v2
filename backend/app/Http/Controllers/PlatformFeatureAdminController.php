@@ -48,17 +48,6 @@ final class PlatformFeatureAdminController extends Controller
 
     private function authorizeAdmin(Request $request): void
     {
-        $user = $request->user();
-        abort_unless($user, 401);
-
-        $email = strtolower(trim((string) $user->email));
-        $emails = array_values(array_filter(array_map(
-            static fn ($value): string => strtolower(trim((string) $value)),
-            (array) config('platform_admin.emails', []),
-        )));
-        $localAllowed = app()->environment('local')
-            && (bool) config('platform_admin.allow_any_authenticated_user_locally', true);
-
-        abort_unless($localAllowed || in_array($email, $emails, true), 403);
+        abort_unless($request->user()?->isPlatformAdmin(), 403);
     }
 }
