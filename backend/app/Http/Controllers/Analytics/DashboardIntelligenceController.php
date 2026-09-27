@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Analytics;
 
 use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Staff\StaffController;
 use App\Models\FinancialDocument;
 use App\Models\Party;
 use App\Models\PaymentPlan;

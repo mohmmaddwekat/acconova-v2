@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Analytics;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Staff\StaffController;
 use App\Models\Party;
 use App\Models\Product;
 use App\Services\Finance\FinanceAuthorization;

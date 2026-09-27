@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tasks;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Staff\StaffController;
 use App\Models\Department;
 use App\Models\StaffMember;
 use App\Models\Task;

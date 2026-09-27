@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Workspace;
 
 use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Staff\StaffController;
 use App\Models\Party;
 use App\Models\Product;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
