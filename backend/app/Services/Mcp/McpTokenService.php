@@ -52,7 +52,43 @@ final class McpTokenService
             ->where('token_hash', hash('sha256', $plain))
             ->first();
 
-        if (! $record || $record->revoked_at !== null) {
+        if (! $record) {
+            throw new HttpException(401, 'The MCP token is invalid or revoked.');
+        }
+
+        return $this->validateAndTouch($record);
+    }
+
+    public function resolveStoredToken(int $tokenId): object
+    {
+        $record = DB::table('mcp_access_tokens')->where('id', $tokenId)->first();
+
+        if (! $record) {
+            throw new HttpException(401, 'The MCP connection is no longer valid.');
+        }
+
+        return $this->validateAndTouch($record);
+    }
+
+    public function canUse(object $token, string $capability): bool
+    {
+        $scopes = json_decode((string) ($token->scopes ?? '[]'), true) ?: [];
+
+        return in_array('*', $scopes, true) || in_array($capability, $scopes, true);
+    }
+
+    public function revoke(int $organizationId, int $tokenId): bool
+    {
+        return DB::table('mcp_access_tokens')
+            ->where('organization_id', $organizationId)
+            ->where('id', $tokenId)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now(), 'updated_at' => now()]) > 0;
+    }
+
+    private function validateAndTouch(object $record): object
+    {
+        if ($record->revoked_at !== null) {
             throw new HttpException(401, 'The MCP token is invalid or revoked.');
         }
 
@@ -79,22 +115,6 @@ final class McpTokenService
             ->update(['last_used_at' => now(), 'updated_at' => now()]);
 
         return $record;
-    }
-
-    public function canUse(object $token, string $capability): bool
-    {
-        $scopes = json_decode((string) ($token->scopes ?? '[]'), true) ?: [];
-
-        return in_array('*', $scopes, true) || in_array($capability, $scopes, true);
-    }
-
-    public function revoke(int $organizationId, int $tokenId): bool
-    {
-        return DB::table('mcp_access_tokens')
-            ->where('organization_id', $organizationId)
-            ->where('id', $tokenId)
-            ->whereNull('revoked_at')
-            ->update(['revoked_at' => now(), 'updated_at' => now()]) > 0;
     }
 
     private function assertQuota(object $token, ?object $settings): void
