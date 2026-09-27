@@ -5,6 +5,16 @@ export type LoginPayload = {
     password: string;
 };
 
+export type LoginResponse = {
+    user: {
+        id: number;
+        name: string;
+        email: string;
+        platform_role: string | null;
+        is_platform_admin: boolean;
+    };
+};
+
 export type RegisterPayload = {
     name: string;
     email: string;
@@ -24,8 +34,8 @@ export type ResetPasswordPayload = {
  */
 export async function login(
     payload: LoginPayload,
-): Promise<void> {
-    await apiRequest('/api/login', {
+): Promise<LoginResponse> {
+    return apiRequest<LoginResponse>('/api/login', {
         method: 'POST',
         body: JSON.stringify(payload),
     });
