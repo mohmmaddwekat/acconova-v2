@@ -30,6 +30,16 @@ return Application::configure(basePath: dirname(__DIR__))
             ])->group(base_path('routes/marketing.php'));
 
             /*
+             * MCP deliberately has two surfaces. The protocol endpoint uses
+             * bearer-token tenant resolution and must not inherit browser CSRF
+             * middleware, while the management UI remains a normal authenticated
+             * AccoNova web surface.
+             */
+            Route::group([], base_path('routes/mcp-protocol.php'));
+            Route::middleware('web')
+                ->group(base_path('routes/mcp-management.php'));
+
+            /*
              * Platform administration is intentionally separate from tenant
              * subscription middleware. A SaaS operator must still be able to
              * inspect billing or recovery state when one customer subscription
@@ -86,6 +96,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->respond(SafeErrorResponse::render(...));
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*')
+                || $request->is('mcp')
+                || $request->expectsJson(),
         );
     })->create();
