@@ -65,10 +65,11 @@ final class PlatformAdminAccessController extends Controller
 
         $user->platform_role = User::PLATFORM_ROLE_ADMIN;
         $user->save();
+        $user->refresh();
 
         return response()->json([
             'ok' => true,
-            'admin' => $this->adminRow($user->fresh()),
+            'admin' => $this->adminRow($user),
         ]);
     }
 
