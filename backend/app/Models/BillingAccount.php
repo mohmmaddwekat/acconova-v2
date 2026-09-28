@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BillingAccount extends Model
 {
@@ -19,6 +20,7 @@ class BillingAccount extends Model
             'current_period_end' => 'datetime',
             'trial_ends_at' => 'datetime',
             'canceled_at' => 'datetime',
+            'last_manual_payment_at' => 'datetime',
             'payment_exp_month' => 'integer',
             'payment_exp_year' => 'integer',
         ];
@@ -27,5 +29,10 @@ class BillingAccount extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    public function manualPayments(): HasMany
+    {
+        return $this->hasMany(BillingManualPayment::class);
     }
 }
