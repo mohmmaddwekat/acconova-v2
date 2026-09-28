@@ -127,7 +127,6 @@ final class PlatformManualPaymentController extends Controller
 
             if (
                 $account?->provider_subscription_id
-                && $account->billing_source !== 'manual'
                 && in_array($account->status, ['active', 'trialing', 'past_due', 'unpaid'], true)
             ) {
                 throw ValidationException::withMessages([
@@ -145,6 +144,17 @@ final class PlatformManualPaymentController extends Controller
                 ? $serviceStart->addYears($periodCount)
                 : $serviceStart->addMonthsNoOverflow($periodCount);
 
+            $accountPeriodStart = $serviceStart;
+
+            if (
+                $account?->billing_source === 'manual'
+                && $account->current_period_start
+                && $account->current_period_end
+                && $account->current_period_end->isAfter($paidAt)
+            ) {
+                $accountPeriodStart = CarbonImmutable::instance($account->current_period_start);
+            }
+
             $account ??= new BillingAccount([
                 'organization_id' => $organizationId,
             ]);
@@ -159,7 +169,7 @@ final class PlatformManualPaymentController extends Controller
                 'quantity' => 1,
                 'amount_minor' => (int) round($amountMinor / $periodCount),
                 'currency' => $currency,
-                'current_period_start' => $serviceStart,
+                'current_period_start' => $accountPeriodStart,
                 'current_period_end' => $serviceEnd,
                 'cancel_at_period_end' => false,
                 'trial_ends_at' => null,
