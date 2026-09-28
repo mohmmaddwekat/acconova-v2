@@ -3,6 +3,7 @@
 use App\Http\Controllers\Platform\PlatformAdminAccessController;
 use App\Http\Controllers\Platform\PlatformAdminController;
 use App\Http\Controllers\Platform\PlatformFeatureAdminController;
+use App\Http\Controllers\Platform\PlatformManualPaymentController;
 use App\Http\Controllers\Platform\PlatformUserSecurityController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +32,12 @@ Route::middleware(['auth', 'platform.admin'])
             ->whereNumber('user')
             ->middleware('throttle:20,1')
             ->name('admins.destroy');
+
+        Route::get('/manual-payments', [PlatformManualPaymentController::class, 'index'])
+            ->name('manual-payments.index');
+        Route::post('/manual-payments', [PlatformManualPaymentController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('manual-payments.store');
 
         Route::get(
             '/features',
