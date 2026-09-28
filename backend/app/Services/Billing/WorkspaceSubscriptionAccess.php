@@ -44,6 +44,12 @@ final class WorkspaceSubscriptionAccess
             ->where('organization_id', $organizationId)
             ->first();
 
+        if ($account?->billing_source === 'manual') {
+            return in_array($account->status, ['active', 'trialing'], true)
+                && $account->current_period_end !== null
+                && now()->lt($account->current_period_end);
+        }
+
         if (in_array($account?->status, ['active', 'trialing'], true)) {
             return true;
         }
