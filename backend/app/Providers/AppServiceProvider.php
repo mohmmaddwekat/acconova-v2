@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -40,6 +41,26 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $stripeCaBundle = trim((string) config('billing.stripe.ca_bundle', ''));
+
+        if ($stripeCaBundle !== '') {
+            $resolvedCaBundle = realpath($stripeCaBundle) ?: $stripeCaBundle;
+
+            if (is_file($resolvedCaBundle) && is_readable($resolvedCaBundle)) {
+                /*
+                 * Guzzle/cURL checks CURL_CA_BUNDLE when resolving its trusted
+                 * CA store. This keeps TLS verification enabled while avoiding
+                 * local WAMP php.ini differences between CLI and Apache.
+                 */
+                putenv('CURL_CA_BUNDLE='.$resolvedCaBundle);
+                putenv('SSL_CERT_FILE='.$resolvedCaBundle);
+            } else {
+                Log::warning('The configured Stripe CA bundle is not readable.', [
+                    'path' => $stripeCaBundle,
+                ]);
+            }
+        }
+
         Passport::authorizationView('mcp.authorize');
 
         Route::middleware('web')->group(base_path('routes/billing-growth.php'));

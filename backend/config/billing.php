@@ -156,6 +156,9 @@ return [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'api_base' => env('STRIPE_API_BASE', 'https://api.stripe.com'),
+        // Optional explicit CA bundle for local stacks (for example WAMP).
+        // TLS verification remains enabled; this only selects the trust store.
+        'ca_bundle' => env('STRIPE_CA_BUNDLE'),
         'webhook_tolerance_seconds' => max(
             60,
             (int) env('STRIPE_WEBHOOK_TOLERANCE_SECONDS', 300),
