@@ -11,4 +11,9 @@ return [
         'PLATFORM_ADMIN_ALLOW_LOCAL',
         false,
     ),
+    'super_admin' => [
+        'email' => env('PLATFORM_SUPER_ADMIN_EMAIL', 'admin@acconova.com'),
+        'name' => env('PLATFORM_SUPER_ADMIN_NAME', 'AccoNova Super Admin'),
+        'password' => env('PLATFORM_SUPER_ADMIN_PASSWORD'),
+    ],
 ];
