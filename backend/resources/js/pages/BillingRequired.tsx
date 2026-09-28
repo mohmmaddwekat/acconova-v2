@@ -20,6 +20,28 @@ type BillingAccessOverview = {
     };
 };
 
+const checkoutIntentKey = 'acconova.checkoutIntent';
+
+function hasOnboardingCheckoutIntent(): boolean {
+    if (typeof window === 'undefined') return false;
+
+    try {
+        const raw = window.localStorage.getItem(checkoutIntentKey);
+        if (! raw) return false;
+
+        const value = JSON.parse(raw) as {
+            plan?: unknown;
+            interval?: unknown;
+        };
+
+        return typeof value.plan === 'string'
+            && /^[a-z0-9_-]+$/i.test(value.plan)
+            && (value.interval === 'month' || value.interval === 'year');
+    } catch {
+        return false;
+    }
+}
+
 export default function BillingRequired() {
     const locale = useLocale();
     const ar = locale === 'ar';
@@ -28,12 +50,27 @@ export default function BillingRequired() {
     const Arrow = ar ? ArrowLeft : ArrowRight;
 
     useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const checkout = new URLSearchParams(window.location.search).get('checkout');
+
+        /*
+         * A pricing signup reaches Stripe through onboarding. Stripe's normal
+         * success/cancel URLs land on this billing surface, so send only those
+         * sessions back to onboarding to finish naming (or retrying) the same
+         * provisional workspace. Existing-workspace checkouts stay here.
+         */
         if (
-            typeof window === 'undefined'
-            || new URLSearchParams(window.location.search).get('checkout') !== 'success'
+            (checkout === 'success' || checkout === 'cancelled')
+            && hasOnboardingCheckoutIntent()
         ) {
+            window.location.replace(
+                `/onboarding/workspace?checkout=${checkout}`,
+            );
             return;
         }
+
+        if (checkout !== 'success') return;
 
         let cancelled = false;
         let attempts = 0;
