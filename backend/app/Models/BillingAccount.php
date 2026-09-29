@@ -10,6 +10,15 @@ class BillingAccount extends Model
 {
     protected $guarded = [];
 
+    protected static function booted(): void
+    {
+        static::saving(function (BillingAccount $account): void {
+            if (filled($account->provider_subscription_id)) {
+                $account->billing_source = 'stripe';
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [

@@ -38,6 +38,14 @@ Route::middleware(['auth', 'platform.admin'])
         Route::post('/manual-payments', [PlatformManualPaymentController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('manual-payments.store');
+        Route::post('/manual-payments/{payment}/approve', [PlatformManualPaymentController::class, 'approve'])
+            ->whereNumber('payment')
+            ->middleware('throttle:30,1')
+            ->name('manual-payments.approve');
+        Route::post('/manual-payments/{payment}/reject', [PlatformManualPaymentController::class, 'reject'])
+            ->whereNumber('payment')
+            ->middleware('throttle:30,1')
+            ->name('manual-payments.reject');
 
         Route::get(
             '/features',
