@@ -44,6 +44,14 @@ const safeBusinessMessages: Record<
         ar: 'لديك اشتراك موجود بالفعل. استخدم إدارة الاشتراك بدل إنشاء اشتراك جديد.',
         en: 'This workspace already has a subscription. Manage it instead of starting another one.',
     },
+    AI_UNAVAILABLE: {
+        ar: 'خدمة AccoNova AI غير متاحة مؤقتًا. حاول مرة أخرى بعد قليل.',
+        en: 'AccoNova AI is temporarily unavailable. Please try again shortly.',
+    },
+    AI_CREDITS_REQUIRED: {
+        ar: 'انتهى رصيد AccoNova AI المتاح لهذه المساحة. أضف رصيد AI للمتابعة.',
+        en: 'This workspace has used its available AccoNova AI credits. Add AI credits to continue.',
+    },
 };
 
 /**
