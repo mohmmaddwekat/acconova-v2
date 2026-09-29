@@ -84,7 +84,8 @@ function shouldShowLauncher(): boolean {
 
     return window.location.pathname === '/app/settings'
         || window.location.pathname === '/app/billing'
-        || window.location.pathname === '/app/subscription-required';
+        || window.location.pathname === '/app/subscription-required'
+        || window.location.pathname === '/onboarding/workspace';
 }
 
 export function ManualPaymentRequestLauncher() {
@@ -353,11 +354,11 @@ export function ManualPaymentRequestLauncher() {
                                         </label>
                                     </div>
 
-                                    {selectedPrice?.amount_minor !== null && selectedPrice && (
+                                    {selectedPrice && selectedPrice.amount_minor !== null && (
                                         <div className="flex items-center justify-between rounded-[13px] border border-[var(--acs-line)] bg-[var(--acs-surface-soft)] px-4 py-3">
                                             <span className="text-[9px] font-semibold text-[var(--acs-text-muted)]">{text('المبلغ المتوقع', 'Expected amount')}</span>
                                             <strong className="text-sm text-[var(--acs-text)]">
-                                                {money(selectedPrice.amount_minor ?? 0, selectedPrice.currency, locale)}
+                                                {money(selectedPrice.amount_minor, selectedPrice.currency, locale)}
                                             </strong>
                                         </div>
                                     )}
