@@ -19,7 +19,8 @@ final class AiImageAnalyzer
      *     model:string,
      *     input_tokens:int,
      *     output_tokens:int,
-     *     total_tokens:int
+     *     total_tokens:int,
+     *     image_hash:string
      * }
      */
     public function analyze(array $image, string $userQuestion): array
@@ -29,7 +30,7 @@ final class AiImageAnalyzer
         }
 
         $dataUrl = trim((string) ($image['data_url'] ?? ''));
-        $this->assertSafeImage($dataUrl);
+        $metadata = $this->validateAndDescribe($dataUrl);
 
         $providerConfig = config('ai.providers.openai', []);
 
@@ -62,7 +63,7 @@ final class AiImageAnalyzer
             $question = 'Analyze this image for the user.';
         }
 
-        return $provider->chat([
+        $result = $provider->chat([
             [
                 'role' => 'system',
                 'content' => 'You are the image-reading layer for AccoNova AI. Extract only clearly visible, factual information that is useful for the user question. For invoices, receipts, statements, screenshots, dashboards, or documents, capture readable labels, dates, names, totals, amounts, statuses, errors, and important line items. Never invent unreadable text or hidden facts. Keep the result concise because it will be reused as text context so the image does not need to be sent again.',
@@ -84,9 +85,30 @@ final class AiImageAnalyzer
                 ],
             ],
         ], (int) config('ai-image.max_output_tokens', 320));
+
+        $result['image_hash'] = $metadata['hash'];
+
+        return $result;
     }
 
-    private function assertSafeImage(string $dataUrl): void
+    /**
+     * Return a stable fingerprint after the same validation used for analysis.
+     * This lets a conversation reuse an earlier text observation if the exact
+     * compressed image is uploaded again, avoiding another vision charge.
+     *
+     * @param  array{data_url:string,name?:string,mime?:string}  $image
+     */
+    public function fingerprint(array $image): string
+    {
+        return $this->validateAndDescribe(
+            trim((string) ($image['data_url'] ?? '')),
+        )['hash'];
+    }
+
+    /**
+     * @return array{hash:string,width:int,height:int,mime:string}
+     */
+    private function validateAndDescribe(string $dataUrl): array
     {
         if (! preg_match(
             '/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+\/=\r\n]+)$/',
@@ -131,5 +153,12 @@ final class AiImageAnalyzer
         ) {
             throw new RuntimeException('Image dimensions are outside the allowed range.');
         }
+
+        return [
+            'hash' => hash('sha256', $binary),
+            'width' => $width,
+            'height' => $height,
+            'mime' => $detectedMime,
+        ];
     }
 }
