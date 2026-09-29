@@ -341,13 +341,6 @@ class StaffImportController extends Controller
                         throw new RuntimeException('Overtime cannot be recorded for an absence or holiday.');
                     }
 
-                    if (
-                        Decimal::toUnits($overtimeHours) > 0
-                        && Decimal::toUnits($overtimeRate) <= 0
-                    ) {
-                        throw new RuntimeException('Overtime rate is required when overtime hours are present.');
-                    }
-
                     $existing = DB::table('staff_attendances')
                         ->where('staff_member_id', $member->id)
                         ->whereDate('occurred_on', $date)
