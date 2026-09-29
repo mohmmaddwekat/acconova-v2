@@ -3,6 +3,7 @@
 use App\Http\Controllers\ImportSourceController;
 use App\Http\Controllers\Staff\StaffImportController;
 use App\Http\Controllers\Staff\StaffImportTemplateController;
+use App\Http\Controllers\Staff\StaffSalaryChangeController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,28 @@ Route::prefix('api')
             'staff-import/template',
             StaffImportTemplateController::class,
         )->name('staff-import.template');
+
+        Route::get(
+            'staff/{staff}/salary-changes',
+            [
+                StaffSalaryChangeController::class,
+                'index',
+            ],
+        )
+            ->whereNumber('staff')
+            ->middleware('throttle:60,1')
+            ->name('staff.salary-changes.index');
+
+        Route::post(
+            'staff/{staff}/salary-changes',
+            [
+                StaffSalaryChangeController::class,
+                'store',
+            ],
+        )
+            ->whereNumber('staff')
+            ->middleware('throttle:30,1')
+            ->name('staff.salary-changes.store');
 
         /*
          * This route intentionally replaces the legacy 6/min registration from
