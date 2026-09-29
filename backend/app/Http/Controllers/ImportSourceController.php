@@ -116,6 +116,25 @@ class ImportSourceController extends Controller
             }
 
             $id = $matches[1];
+            $gid = $this->googleSheetGid($parts);
+
+            /*
+             * A normal Google Sheets share URL points at a specific tab through
+             * ?gid=... or #gid=.... Respect that tab instead of exporting the
+             * whole workbook and silently previewing the first worksheet.
+             *
+             * This matters especially for migration workbooks that keep
+             * Employees, Attendance and Payroll in separate tabs.
+             */
+            if ($gid !== null) {
+                return [
+                    'https://docs.google.com/spreadsheets/d/'
+                    .rawurlencode($id)
+                    .'/export?format=csv&gid='
+                    .rawurlencode($gid),
+                    'google-sheet-'.$id.'-gid-'.$gid.'.csv',
+                ];
+            }
 
             return [
                 'https://docs.google.com/spreadsheets/d/'.rawurlencode($id).'/export?format=xlsx',
@@ -152,6 +171,36 @@ class ImportSourceController extends Controller
         throw ValidationException::withMessages([
             'source_url' => ['Only Google Sheets and Google Drive links are accepted here.'],
         ]);
+    }
+
+    /**
+     * Read the selected Google Sheets tab id from either query or fragment.
+     *
+     * @param  array<string, mixed>  $parts
+     */
+    private function googleSheetGid(array $parts): ?string
+    {
+        $candidates = [];
+
+        parse_str((string) ($parts['query'] ?? ''), $query);
+        if (isset($query['gid'])) {
+            $candidates[] = $query['gid'];
+        }
+
+        parse_str((string) ($parts['fragment'] ?? ''), $fragment);
+        if (isset($fragment['gid'])) {
+            $candidates[] = $fragment['gid'];
+        }
+
+        foreach ($candidates as $candidate) {
+            $gid = trim((string) $candidate);
+
+            if ($gid !== '' && preg_match('/^\d+$/', $gid) === 1) {
+                return $gid;
+            }
+        }
+
+        return null;
     }
 
     private function filename(
