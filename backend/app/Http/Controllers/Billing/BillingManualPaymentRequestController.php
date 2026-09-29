@@ -99,6 +99,23 @@ final class BillingManualPaymentRequestController extends Controller
             ->latest('id')
             ->first();
 
+        if ($reference) {
+            $duplicateReference = BillingManualPayment::query()
+                ->where('organization_id', $organization->id)
+                ->where('reference', $reference)
+                ->when(
+                    $payment,
+                    fn ($query) => $query->where('id', '!=', $payment->id),
+                )
+                ->exists();
+
+            if ($duplicateReference) {
+                throw ValidationException::withMessages([
+                    'reference' => 'This payment reference has already been used for this workspace.',
+                ]);
+            }
+        }
+
         $attributes = [
             'billing_account_id' => BillingAccount::query()
                 ->where('organization_id', $organization->id)
