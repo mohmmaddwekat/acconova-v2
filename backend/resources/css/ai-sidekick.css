@@ -1,0 +1,25 @@
+/*
+ * Keep AccoNova AI on the logical end side of the viewport.
+ *
+ * The command rail lives on logical start: right in Arabic/RTL and left in
+ * English/LTR. Using inset-inline-end therefore keeps the AI button and panel
+ * on the opposite side in both languages without hard-coding left or right.
+ */
+[data-ai-sidekick] > section {
+    left: auto !important;
+    right: auto !important;
+    inset-inline-end: 0.75rem !important;
+}
+
+[data-ai-sidekick] > button {
+    left: auto !important;
+    right: auto !important;
+    inset-inline-end: 1rem !important;
+}
+
+@media (min-width: 640px) {
+    [data-ai-sidekick] > section,
+    [data-ai-sidekick] > button {
+        inset-inline-end: 1.5rem !important;
+    }
+}
