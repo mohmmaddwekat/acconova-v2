@@ -42,8 +42,9 @@ class StaffEntry extends Model
      * monthly salary instead of exceeding it in 27-workday months.
      *
      * The intended monthly salary is inferred from the stored hourly rate using the
-     * standard 208 monthly hours (26 days x 8 hours), then rounded to the nearest
-     * whole currency unit. Attendance still reduces the entitlement proportionally.
+     * standard 208 monthly hours (26 days x 8 hours). Near-clean salary values are
+     * snapped to the nearest 10 currency units so legacy rates such as 14.42 still
+     * resolve to 3000 instead of 2999. Attendance reduces entitlement proportionally.
      */
     private function normalizeImportedAttendanceMonth(): void
     {
@@ -88,9 +89,16 @@ class StaffEntry extends Model
             return;
         }
 
-        // 208 = 26 normal work days x 8 hours. This converts the hourly rate back
-        // to the employee's intended monthly salary, e.g. 14.4231 -> 3000.
-        $monthlySalaryUnits = (int) round(($rateUnits * 208) / 10000) * 10000;
+        // 208 = 26 normal work days x 8 hours.
+        $rawMonthlySalaryUnits = $rateUnits * 208;
+        $nearestWholeUnits = (int) round($rawMonthlySalaryUnits / 10000) * 10000;
+        $nearestTenUnits = (int) round($rawMonthlySalaryUnits / 100000) * 100000;
+
+        // If the inferred salary is within one currency unit of a clean multiple
+        // of 10, use the clean target: 2999.36 -> 3000, 4999.904 -> 5000.
+        $monthlySalaryUnits = abs($rawMonthlySalaryUnits - $nearestTenUnits) <= 10000
+            ? $nearestTenUnits
+            : $nearestWholeUnits;
 
         $expectedWorkDays = 0;
         for ($cursor = $date->startOfMonth(); $cursor->lte($date->endOfMonth()); $cursor = $cursor->addDay()) {
@@ -119,7 +127,7 @@ class StaffEntry extends Model
                 $expectedHoursUnits,
             );
 
-            // Payroll cards should show clean whole-currency totals: 2999.9 -> 3000.
+            // Payroll cards show clean whole-currency totals: 2999.9 -> 3000.
             $desiredMonthUnits = intdiv($proratedUnits + 5000, 10000) * 10000;
         }
 
