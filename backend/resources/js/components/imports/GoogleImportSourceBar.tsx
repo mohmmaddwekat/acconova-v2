@@ -1,4 +1,3 @@
-import { ApiError } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import {
     CheckCircle2,
@@ -12,8 +11,8 @@ import {
 } from 'react';
 
 /**
- * Add a Google Sheets / Drive source to every import screen without forcing
- * each importer to duplicate remote-download logic.
+ * Add a Google Sheets / Drive source to import screens without forcing each
+ * importer to duplicate remote-download logic.
  *
  * The downloaded Google file is injected into the existing file input and its
  * normal change handler is dispatched, so every importer keeps using its own
@@ -40,7 +39,10 @@ export function GoogleImportSourceBar() {
 
         const input = Array.from(
             document.querySelectorAll<HTMLInputElement>('input[type="file"]'),
-        ).find(candidate => ! candidate.disabled);
+        ).find(candidate => (
+            ! candidate.disabled
+            && ! candidate.closest('[data-ai-sidekick]')
+        ));
 
         if (! input) {
             setError(text(
@@ -93,9 +95,10 @@ export function GoogleImportSourceBar() {
                 const detail = payload.errors?.source_url?.[0]
                     ?? payload.message;
 
-                throw detail
-                    ? new Error(detail)
-                    : new ApiError(response.status, payload);
+                throw new Error(detail ?? text(
+                    'تعذر جلب الملف من Google. تحقق من الرابط وصلاحية المشاركة.',
+                    'Could not fetch the Google file. Check the link and sharing access.',
+                ));
             }
 
             const blob = await response.blob();
