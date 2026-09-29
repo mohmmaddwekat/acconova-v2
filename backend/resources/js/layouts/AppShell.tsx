@@ -33,7 +33,8 @@ export function AppShell({ children }: PropsWithChildren) {
     const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
     const page = usePage();
     const currentPath = page.url.split('?')[0];
-    const isImportPage = currentPath.endsWith('/import');
+    const supportsGoogleImportSource = currentPath.endsWith('/import')
+        || currentPath === '/app/finance/bank-reconciliation';
 
     /*
      * Global fallback form guard.
@@ -210,7 +211,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 />
 
                 <div className="min-w-0">
-                    {isImportPage && <GoogleImportSourceBar />}
+                    {supportsGoogleImportSource && <GoogleImportSourceBar />}
                     {children}
                 </div>
             </div>
