@@ -32,14 +32,14 @@ export function AdminManualPaymentReviewLauncher() {
         <a
             href="/admin/manual-payments"
             dir={ar ? 'rtl' : 'ltr'}
-            className="fixed bottom-5 start-5 z-[80] inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-400/40 bg-[#162235] px-4 text-xs font-extrabold text-white shadow-2xl shadow-slate-950/25 transition hover:-translate-y-0.5 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-400"
+            className="fixed bottom-4 left-4 z-[80] inline-flex min-h-10 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-xl border border-sky-400/35 bg-[#162235] px-3 text-[11px] font-extrabold text-white shadow-xl shadow-slate-950/20 transition hover:-translate-y-0.5 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-400 sm:bottom-6 sm:left-6"
             title={ar ? 'فتح طلبات الدفع اليدوي ومراجعتها' : 'Open and review manual payment requests'}
         >
-            <span className="grid size-7 place-items-center rounded-lg bg-sky-500/20 text-sky-300">
-                <Banknote size={16} />
+            <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-sky-500/20 text-sky-300">
+                <Banknote size={15} />
             </span>
-            <span>{ar ? 'مراجعة طلبات الدفع' : 'Review payment requests'}</span>
-            <ExternalLink size={14} className="opacity-70" />
+            <span className="truncate">{ar ? 'مراجعة طلبات الدفع' : 'Review payment requests'}</span>
+            <ExternalLink size={13} className="shrink-0 opacity-70" />
         </a>
     );
 }
