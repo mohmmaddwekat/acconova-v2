@@ -3,6 +3,7 @@ import { ManualPaymentRequestLauncher } from '@/components/billing/ManualPayment
 import { ToastProvider } from '@/components/feedback/ToastProvider';
 import { initializeLocale } from '@/lib/locale';
 import '../css/app.css';
+import '../css/ai-sidekick.css';
 
 import { createInertiaApp } from '@inertiajs/react';
 import type { ResolvedComponent } from '@inertiajs/react';
