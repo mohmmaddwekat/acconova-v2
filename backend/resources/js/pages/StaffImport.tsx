@@ -13,10 +13,11 @@ import {
     ShieldCheck,
     UploadCloud,
     UsersRound,
+    WalletCards,
 } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 
-type ImportType = 'employees' | 'attendance';
+type ImportType = 'employees' | 'attendance' | 'transactions';
 
 type SheetPreview = {
     name: string;
@@ -78,6 +79,13 @@ const definitions: Record<ImportType, FieldDefinition[]> = {
         { key: 'overtime_hours', ar: 'ساعات إضافية', en: 'Overtime hours', aliases: ['overtime', 'overtime hours', 'overtime_hours', 'ساعات إضافية', 'الإضافي'] },
         { key: 'overtime_rate', ar: 'أجر ساعة الإضافي', en: 'Overtime rate', aliases: ['overtime rate', 'overtime_rate', 'أجر الإضافي', 'سعر الإضافي'] },
         { key: 'notes', ar: 'ملاحظات', en: 'Notes', aliases: ['notes', 'note', 'comment', 'ملاحظات', 'ملاحظة'] },
+    ],
+    transactions: [
+        { key: 'employee', required: true, ar: 'معرّف الموظف', en: 'Employee identifier', aliases: ['employee', 'employee name', 'name', 'phone', 'email', 'الموظف', 'اسم الموظف', 'الهاتف', 'البريد'] },
+        { key: 'kind', required: true, ar: 'نوع الحركة', en: 'Transaction type', aliases: ['kind', 'type', 'entry type', 'transaction type', 'نوع العملية', 'نوع الحركة', 'النوع'] },
+        { key: 'occurred_on', required: true, ar: 'التاريخ', en: 'Date', aliases: ['date', 'occurred_on', 'transaction date', 'payment date', 'التاريخ', 'تاريخ العملية', 'تاريخ الدفعة'] },
+        { key: 'amount', required: true, ar: 'المبلغ', en: 'Amount', aliases: ['amount', 'value', 'total', 'payment amount', 'المبلغ', 'القيمة'] },
+        { key: 'notes', ar: 'البيان / الملاحظات', en: 'Description / notes', aliases: ['notes', 'description', 'memo', 'reference', 'البيان', 'ملاحظات', 'الوصف', 'المرجع'] },
     ],
 };
 
@@ -228,10 +236,21 @@ export default function StaffImportPage() {
             id: 'attendance',
             ar: 'الحضور والدوام',
             en: 'Attendance',
-            helpAr: 'الحضور، الغياب، الساعات والإضافي. النظام يحسب الاستحقاق تلقائيًا من هذه البيانات.',
-            helpEn: 'Attendance, absences, hours and overtime. AccoNova calculates salary entitlement from this data.',
+            helpAr: 'الحضور، الغياب، الساعات والإضافي. النظام يحسب الراتب المستحق تلقائيًا.',
+            helpEn: 'Attendance, absences, hours and overtime. AccoNova calculates salary entitlement automatically.',
+        },
+        {
+            id: 'transactions',
+            ar: 'الدفعات والحركات المالية',
+            en: 'Payments & adjustments',
+            helpAr: 'استيراد الدفعات والخصومات والمكافآت والبدلات والسلف القديمة فقط.',
+            helpEn: 'Import historical payments, deductions, bonuses, allowances and advances only.',
         },
     ];
+
+    const matchLabel = type === 'employees'
+        ? (ar ? 'اكتشاف الموظف بواسطة' : 'Match employee by')
+        : (ar ? 'مطابقة السجل بالموظف بواسطة' : 'Match record to employee by');
 
     return (
         <AppShell>
@@ -248,12 +267,12 @@ export default function StaffImportPage() {
                                     {ar ? 'مركز نقل البيانات' : 'Migration center'}
                                 </p>
                                 <h1 className="mt-1 text-xl font-semibold tracking-[-0.03em] sm:text-2xl">
-                                    {ar ? 'استيراد الموظفين والحضور فقط' : 'Import employees and attendance only'}
+                                    {ar ? 'انقل الموظفين والحضور والدفعات القديمة' : 'Import employees, attendance and old payments'}
                                 </h1>
                                 <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'المستحقات نفسها لا تُرفع بملف. AccoNova يحسب ما يستحقه الموظف من الحضور ونوع أجره، وأنت تسجل فقط الدفعات والخصومات والمكافآت والبدلات والسلف.'
-                                        : 'Salary entitlement is not uploaded. AccoNova derives what the employee is owed from attendance and pay terms; you only record payments, deductions, bonuses, allowances and advances.'}
+                                        ? 'الراتب المستحق نفسه لا يُرفع بملف؛ AccoNova يحسبه من الحضور وشروط الأجر. لكن يمكنك رفع الدفعات والخصومات والمكافآت والبدلات والسلف القديمة.'
+                                        : 'Salary entitlement itself is never uploaded; AccoNova derives it from attendance and pay terms. Historical payments, deductions, bonuses, allowances and advances can be imported.'}
                                 </p>
                             </div>
                         </div>
@@ -267,11 +286,11 @@ export default function StaffImportPage() {
                 <div className="mt-4"><StaffModuleNav /></div>
 
                 <section className="mt-6 rounded-[20px] border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-[var(--ac-text)]">
-                    <strong>{ar ? 'طريقة العمل الجديدة:' : 'New payroll flow:'}</strong>
+                    <strong>{ar ? 'القاعدة:' : 'Rule:'}</strong>
                     <span className="ms-2">
                         {ar
-                            ? 'الحضور → احتساب الراتب المستحق تلقائيًا → إضافة دفعة/خصم/مكافأة/بدل/سلفة عند الحاجة.'
-                            : 'Attendance → automatic salary entitlement → record payment/deduction/bonus/allowance/advance when needed.'}
+                            ? 'الحضور → الراتب المستحق تلقائيًا. ملف الحركات المالية → فقط ما تم دفعه أو إضافته أو خصمه يدويًا.'
+                            : 'Attendance → automatic salary entitlement. Financial transaction files → only manual payments/additions/deductions.'}
                     </span>
                 </section>
 
@@ -283,11 +302,11 @@ export default function StaffImportPage() {
                                 <div>
                                     <h2 className="text-sm font-bold">{ar ? '1. اختر البيانات' : '1. Choose data'}</h2>
                                     <p className="mt-1 text-[10px] leading-5 text-[var(--ac-text-muted)]">
-                                        {ar ? 'ابدأ بالموظفين، ثم استورد الحضور والدوام.' : 'Import employees first, then attendance.'}
+                                        {ar ? 'الموظفون أولًا، ثم الحضور، وبعدها الحركات المالية القديمة إن وجدت.' : 'Employees first, then attendance, then historical financial transactions if needed.'}
                                     </p>
                                 </div>
                             </div>
-                            <div className="grid gap-3 md:grid-cols-2">
+                            <div className="grid gap-3 md:grid-cols-3">
                                 {cards.map((card) => (
                                     <button
                                         type="button"
@@ -306,6 +325,22 @@ export default function StaffImportPage() {
                                 ))}
                             </div>
                         </section>
+
+                        {type === 'transactions' && (
+                            <section className="rounded-[20px] border border-amber-500/20 bg-amber-500/10 p-4 text-xs leading-6 text-[var(--ac-text)]">
+                                <div className="flex items-start gap-3">
+                                    <WalletCards size={18} className="mt-0.5 shrink-0" />
+                                    <div>
+                                        <strong>{ar ? 'القيم المسموحة في نوع الحركة:' : 'Allowed transaction types:'}</strong>
+                                        <p className="mt-1">
+                                            {ar
+                                                ? 'دفعة، خصم، مكافأة، بدل، سلفة. إذا وجد راتب / work / salary أو إضافي في الملف سيتم رفض ذلك الصف لأن النظام يحسبهم من الحضور.'
+                                                : 'Payment, deduction, bonus, allowance, advance. Salary/work/overtime rows are rejected because AccoNova derives them from attendance.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
 
                         <section className={panel}>
                             <h2 className="text-sm font-bold">{ar ? '2. ارفع الملف' : '2. Upload file'}</h2>
@@ -395,28 +430,35 @@ export default function StaffImportPage() {
                                 <h2 className="text-sm font-bold">{ar ? '4. المطابقة والتكرار' : '4. Matching & duplicates'}</h2>
                                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                                     <label className="text-xs font-semibold">
-                                        {type === 'employees' ? (ar ? 'اكتشاف الموظف بواسطة' : 'Match employee by') : (ar ? 'مطابقة الحضور بالموظف بواسطة' : 'Match attendance to employee by')}
+                                        {matchLabel}
                                         <select value={matchBy} onChange={(event) => setMatchBy(event.target.value as 'name' | 'phone' | 'email')} className={`${field} mt-2`}>
                                             <option value="phone">{ar ? 'رقم الهاتف' : 'Phone'}</option>
                                             <option value="email">{ar ? 'البريد الإلكتروني' : 'Email'}</option>
                                             <option value="name">{ar ? 'الاسم' : 'Name'}</option>
                                         </select>
                                     </label>
-                                    <label className="text-xs font-semibold">
-                                        {ar ? 'إذا وجد سجل مكرر' : 'When duplicate exists'}
-                                        <select value={duplicateStrategy} onChange={(event) => setDuplicateStrategy(event.target.value as 'skip' | 'update')} className={`${field} mt-2`}>
-                                            <option value="skip">{ar ? 'تخطيه بدون تغيير' : 'Skip'}</option>
-                                            <option value="update">{ar ? 'تحديث الموجود' : 'Update existing'}</option>
-                                        </select>
-                                    </label>
+
+                                    {type !== 'transactions' ? (
+                                        <label className="text-xs font-semibold">
+                                            {ar ? 'إذا وجد سجل مكرر' : 'When duplicate exists'}
+                                            <select value={duplicateStrategy} onChange={(event) => setDuplicateStrategy(event.target.value as 'skip' | 'update')} className={`${field} mt-2`}>
+                                                <option value="skip">{ar ? 'تخطيه بدون تغيير' : 'Skip'}</option>
+                                                <option value="update">{ar ? 'تحديث الموجود' : 'Update existing'}</option>
+                                            </select>
+                                        </label>
+                                    ) : (
+                                        <div className="rounded-[15px] bg-[var(--ac-surface-soft)] p-4 text-xs leading-5 text-[var(--ac-text-muted)]">
+                                            {ar
+                                                ? 'الحركة المطابقة تمامًا لنفس الموظف والنوع والتاريخ والمبلغ والبيان يتم تخطيها تلقائيًا حتى لا تتكرر الدفعة.'
+                                                : 'An identical transaction for the same employee, type, date, amount and note is skipped automatically to prevent duplicate payments.'}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {type === 'employees' && (
                                     <label className="mt-4 flex items-center gap-3 rounded-[15px] bg-[var(--ac-surface-soft)] p-4 text-xs">
                                         <input type="checkbox" checked={createDepartments} onChange={(event) => setCreateDepartments(event.target.checked)} />
-                                        <span>
-                                            <strong className="block">{ar ? 'إنشاء الأقسام غير الموجودة تلقائيًا' : 'Create missing departments automatically'}</strong>
-                                        </span>
+                                        <span><strong className="block">{ar ? 'إنشاء الأقسام غير الموجودة تلقائيًا' : 'Create missing departments automatically'}</strong></span>
                                     </label>
                                 )}
 
@@ -464,24 +506,28 @@ export default function StaffImportPage() {
                                     <h2 className="text-sm font-bold">{ar ? 'المستحقات تُحسب تلقائيًا' : 'Entitlements are automatic'}</h2>
                                     <p className="mt-2 text-[10px] leading-6 text-[var(--ac-text-muted)]">
                                         {ar
-                                            ? 'للموظف بالساعة أو اليوم أو القطعة، كل سجل حضور ينشئ راتبه المستحق تلقائيًا حسب الكمية × معدل الموظف، والإضافي ينشأ تلقائيًا أيضًا. لا يوجد استيراد مستقل للمستحقات.'
-                                            : 'For hourly, daily and piece-rate employees, attendance creates salary entitlement automatically from quantity × rate. Overtime is also generated automatically. There is no separate entitlement import.'}
+                                            ? 'الحضور ينشئ استحقاق الراتب والإضافي تلقائيًا حسب نوع أجر الموظف. لذلك لا نسمح برفع salary/work أو overtime من ملف الحركات المالية.'
+                                            : 'Attendance creates salary and overtime entitlement automatically according to the employee pay basis, so salary/work and overtime cannot be imported as manual transactions.'}
                                     </p>
                                 </div>
                             </div>
                         </section>
 
                         <section className={panel}>
-                            <h2 className="text-sm font-bold">{ar ? 'ما الذي تدخله يدويًا؟' : 'What do you enter manually?'}</h2>
+                            <h2 className="text-sm font-bold">{ar ? 'شو ممكن ترفع؟' : 'What can you import?'}</h2>
                             <p className="mt-2 text-xs leading-6 text-[var(--ac-text-muted)]">
-                                {ar ? 'الدفعات، الخصومات، المكافآت، البدلات والسلف فقط. الراتب المستحق نفسه يأتي من النظام.' : 'Only payments, deductions, bonuses, allowances and advances. Salary entitlement itself comes from the system.'}
+                                {ar ? 'دفعات رواتب قديمة، خصومات، مكافآت، بدلات وسلف. كل هذه تدخل في كشف حساب الموظف وتؤثر على الرصيد.' : 'Historical salary payments, deductions, bonuses, allowances and advances. These post to the employee ledger and affect the balance.'}
                             </p>
                         </section>
 
                         <section className={panel}>
                             <h2 className="text-sm font-bold">{ar ? 'ترتيب النقل المقترح' : 'Recommended migration order'}</h2>
                             <div className="mt-4 space-y-3 text-xs">
-                                {[ar ? '1. الموظفون والأقسام' : '1. Employees & departments', ar ? '2. الحضور والدوام' : '2. Attendance'].map((item) => (
+                                {[
+                                    ar ? '1. الموظفون والأقسام' : '1. Employees & departments',
+                                    ar ? '2. الحضور والدوام' : '2. Attendance',
+                                    ar ? '3. الدفعات والحركات المالية القديمة' : '3. Historical payments & adjustments',
+                                ].map((item) => (
                                     <div key={item} className="rounded-[14px] bg-[var(--ac-surface-soft)] p-3">{item}</div>
                                 ))}
                             </div>
