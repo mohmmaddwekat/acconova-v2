@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AiConversation;
 use App\Models\Organization;
 use App\Models\User;
+use App\Tenancy\OrganizationAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -15,7 +16,9 @@ class AiContextualSidekickTest extends TestCase
     public function test_page_context_is_bounded_before_ai_processing(): void
     {
         $user = User::factory()->create();
-        $organization = Organization::factory()->create();
+        $organization = Organization::create([
+            'name' => 'AI contextual sidekick',
+        ]);
         $organization->users()->attach($user->id, [
             'role' => 'owner',
         ]);
@@ -28,7 +31,7 @@ class AiContextualSidekickTest extends TestCase
 
         $this->actingAs($user)
             ->withSession([
-                'organization_id' => $organization->id,
+                OrganizationAccess::SESSION_KEY => $organization->id,
             ])
             ->postJson(
                 "/api/ai/conversations/{$conversation->id}/messages",
