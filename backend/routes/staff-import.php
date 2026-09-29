@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ImportSourceController;
 use App\Http\Controllers\Staff\StaffImportController;
 use App\Http\Controllers\Staff\StaffImportTemplateController;
 use App\Http\Middleware\ResolveOrganization;
@@ -12,6 +13,13 @@ Route::prefix('api')
         ResolveOrganization::class,
     ])
     ->group(function (): void {
+        Route::post(
+            'import-source/google',
+            ImportSourceController::class,
+        )
+            ->middleware('throttle:10,1')
+            ->name('import-source.google');
+
         Route::get(
             'staff-import/template',
             StaffImportTemplateController::class,
