@@ -60,6 +60,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 ! form
                 || form.dataset.acManagedDirty === 'true'
                 || form.dataset.acUnsavedGuard === 'off'
+                || form.closest('[data-ai-sidekick]')
             ) {
                 return null;
             }
