@@ -12,6 +12,7 @@ import { AiSidekick } from '@/components/ai/AiSidekick';
 import { GoogleImportSourceBar } from '@/components/imports/GoogleImportSourceBar';
 import { CommandRail } from '@/components/navigation/CommandRail';
 import { ContextBar } from '@/components/navigation/ContextBar';
+import { StaffSalaryAdjuster } from '@/components/staff/StaffSalaryAdjuster';
 import { apiRequest } from '@/lib/http';
 import {
     applyProfilePreferences,
@@ -35,6 +36,8 @@ export function AppShell({ children }: PropsWithChildren) {
     const currentPath = page.url.split('?')[0];
     const supportsGoogleImportSource = currentPath.endsWith('/import')
         || currentPath === '/app/finance/bank-reconciliation';
+    const supportsStaffSalaryAdjuster = currentPath.startsWith('/app/staff')
+        && ! currentPath.endsWith('/import');
 
     /*
      * Global fallback form guard.
@@ -212,6 +215,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
                 <div className="min-w-0">
                     {supportsGoogleImportSource && <GoogleImportSourceBar />}
+                    {supportsStaffSalaryAdjuster && <StaffSalaryAdjuster />}
                     {children}
                 </div>
             </div>
