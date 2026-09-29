@@ -1,5 +1,6 @@
-import { initializeLocale } from '@/lib/locale';
+import { ManualPaymentRequestLauncher } from '@/components/billing/ManualPaymentRequestLauncher';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
+import { initializeLocale } from '@/lib/locale';
 import '../css/app.css';
 
 import { createInertiaApp } from '@inertiajs/react';
@@ -148,6 +149,7 @@ void createInertiaApp({
         createRoot(el).render(
             <ToastProvider>
                 <App {...props} />
+                <ManualPaymentRequestLauncher />
             </ToastProvider>,
         );
     },
