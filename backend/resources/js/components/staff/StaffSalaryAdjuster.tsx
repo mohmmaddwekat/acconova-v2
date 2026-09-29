@@ -22,14 +22,6 @@ type Employee = {
     basis: 'hour' | 'day' | 'month' | 'piece';
     rate: string;
     currency: string;
-    active: boolean;
-};
-
-type StaffResponse = {
-    data: {
-        data: Employee[];
-    };
-    can_manage: boolean;
 };
 
 type SalaryChange = {
@@ -37,21 +29,20 @@ type SalaryChange = {
     effective_on: string;
     old_rate: string;
     new_rate: string;
-    difference: string;
-    notes: string | null;
-    created_at: string | null;
+};
+
+type StaffResponse = {
+    data: { data: Employee[] };
+    can_manage: boolean;
 };
 
 type SalaryHistoryResponse = {
-    member: Employee;
-    can_manage: boolean;
     history: SalaryChange[];
 };
 
-function errorMessage(error: unknown, ar: boolean): string {
+function failureText(error: unknown, ar: boolean): string {
     if (error instanceof ApiError) {
-        const fieldMessage = Object.values(error.errors).flat()[0];
-        return fieldMessage ?? error.message;
+        return Object.values(error.errors).flat()[0] ?? error.message;
     }
 
     return ar
@@ -60,8 +51,9 @@ function errorMessage(error: unknown, ar: boolean): string {
 }
 
 /**
- * Give payroll managers a clear, auditable salary-change action instead of
- * forcing them to overwrite the employee profile rate without context.
+ * Explicit salary-change workflow with an audit trail. It is shared by the
+ * staff directory and payroll screens so managers do not need to overwrite a
+ * profile silently when somebody receives a raise.
  */
 export function StaffSalaryAdjuster() {
     const ar = useLocale() === 'ar';
@@ -77,7 +69,7 @@ export function StaffSalaryAdjuster() {
     const [error, setError] = useState('');
 
     const selected = useMemo(
-        () => employees.find(employee => String(employee.id) === selectedId) ?? null,
+        () => employees.find(item => String(item.id) === selectedId) ?? null,
         [employees, selectedId],
     );
 
@@ -106,7 +98,6 @@ export function StaffSalaryAdjuster() {
         setNewRate(selected.rate);
         setError('');
         setHistoryBusy(true);
-
         const controller = new AbortController();
 
         apiRequest<SalaryHistoryResponse>(
@@ -128,10 +119,6 @@ export function StaffSalaryAdjuster() {
     const requestedRate = Number(newRate || 0);
     const difference = requestedRate - currentRate;
 
-    const basisLabel = selected?.basis === 'month'
-        ? (ar ? 'الراتب الشهري' : 'Monthly salary')
-        : (ar ? 'معدل الأجر' : 'Pay rate');
-
     async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
 
@@ -144,9 +131,7 @@ export function StaffSalaryAdjuster() {
 
         try {
             const response = await apiRequest<{
-                data: {
-                    rate: string;
-                };
+                data: { rate: string };
             }>(`/api/staff/${selected.id}/salary-changes`, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -155,20 +140,19 @@ export function StaffSalaryAdjuster() {
                 }),
             });
 
-            setEmployees(current => current.map(employee =>
-                employee.id === selected.id
-                    ? { ...employee, rate: response.data.rate }
-                    : employee,
+            setEmployees(items => items.map(item =>
+                item.id === selected.id
+                    ? { ...item, rate: response.data.rate }
+                    : item,
             ));
-
             setNotes('');
             setOpen(false);
 
-            window.setTimeout(() => {
-                window.location.reload();
-            }, 250);
+            // Payroll summary is API-driven, so reload it immediately after
+            // the successful salary change instead of showing stale totals.
+            window.setTimeout(() => window.location.reload(), 200);
         } catch (failure) {
-            setError(errorMessage(failure, ar));
+            setError(failureText(failure, ar));
         } finally {
             setBusy(false);
         }
@@ -191,8 +175,8 @@ export function StaffSalaryAdjuster() {
                             </p>
                             <p className="mt-0.5 text-xs text-[var(--ac-text-muted)]">
                                 {ar
-                                    ? 'الراتب القديم يبقى محفوظًا في السجل، والجديد يطبق من اليوم.'
-                                    : 'The previous salary stays in history and the new rate applies from today.'}
+                                    ? 'الراتب القديم يبقى محفوظًا، والجديد يطبق من اليوم.'
+                                    : 'The previous salary stays in history; the new rate applies from today.'}
                             </p>
                         </div>
                     </div>
@@ -214,6 +198,7 @@ export function StaffSalaryAdjuster() {
                     className="fixed inset-0 z-[190] flex items-end justify-center bg-black/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
                 >
                     <form
+                        data-ac-unsaved-guard="off"
                         onSubmit={submit}
                         className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-[26px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-2xl sm:rounded-[26px] sm:p-6"
                     >
@@ -222,13 +207,12 @@ export function StaffSalaryAdjuster() {
                                 <h2 className="text-lg font-bold text-[var(--ac-text)]">
                                     {ar ? 'زيادة / تعديل الراتب' : 'Salary adjustment'}
                                 </h2>
-                                <p className="mt-1 text-xs leading-5 text-[var(--ac-text-muted)]">
+                                <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'اختر الموظف وأدخل الراتب الجديد. لن يتم تغيير أي حركة راتب قديمة.'
-                                        : 'Choose an employee and enter the new rate. Existing payroll entries are not changed.'}
+                                        ? 'التعديل لا يغير حركات الرواتب القديمة.'
+                                        : 'Existing payroll entries will not be changed.'}
                                 </p>
                             </div>
-
                             <button
                                 type="button"
                                 onClick={() => {
@@ -265,7 +249,9 @@ export function StaffSalaryAdjuster() {
                                 <>
                                     <div className="rounded-[15px] bg-[var(--ac-surface-soft)] p-4">
                                         <p className="text-[10px] text-[var(--ac-text-muted)]">
-                                            {ar ? 'الحالي' : 'Current'} · {basisLabel}
+                                            {ar
+                                                ? selected.basis === 'month' ? 'الراتب الحالي' : 'الأجر الحالي'
+                                                : selected.basis === 'month' ? 'Current salary' : 'Current rate'}
                                         </p>
                                         <p className="mt-1 text-lg font-bold text-[var(--ac-text)]">
                                             {selected.rate} {selected.currency}
@@ -288,23 +274,25 @@ export function StaffSalaryAdjuster() {
 
                                     {Number.isFinite(difference) && difference !== 0 && (
                                         <div className="flex items-center gap-2 rounded-[13px] border border-[var(--ac-line)] px-3 py-2 text-xs sm:col-span-2">
-                                            {difference > 0 ? (
-                                                <ArrowUpRight size={16} className="text-emerald-500" />
-                                            ) : (
-                                                <ArrowDownRight size={16} className="text-amber-500" />
-                                            )}
+                                            {difference > 0
+                                                ? <ArrowUpRight size={16} className="text-emerald-500" />
+                                                : <ArrowDownRight size={16} className="text-amber-500" />}
                                             <span className="text-[var(--ac-text-soft)]">
                                                 {difference > 0
                                                     ? (ar ? 'زيادة' : 'Increase')
                                                     : (ar ? 'تخفيض' : 'Decrease')}
                                                 {' '}
-                                                <strong>{Math.abs(difference).toLocaleString(undefined, { maximumFractionDigits: 4 })} {selected.currency}</strong>
+                                                <strong>
+                                                    {Math.abs(difference).toLocaleString(undefined, {
+                                                        maximumFractionDigits: 4,
+                                                    })} {selected.currency}
+                                                </strong>
                                             </span>
                                         </div>
                                     )}
 
                                     <label className="text-xs font-semibold text-[var(--ac-text)] sm:col-span-2">
-                                        {ar ? 'ملاحظة أو سبب التعديل (اختياري)' : 'Reason / note (optional)'}
+                                        {ar ? 'سبب التعديل (اختياري)' : 'Reason (optional)'}
                                         <textarea
                                             rows={3}
                                             maxLength={1000}
@@ -319,32 +307,25 @@ export function StaffSalaryAdjuster() {
                                             <History size={15} />
                                             {ar ? 'سجل تغييرات الراتب' : 'Salary history'}
                                         </div>
-
                                         <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
                                             {historyBusy && (
-                                                <div className="flex items-center gap-2 rounded-[12px] bg-[var(--ac-surface-soft)] p-3 text-xs text-[var(--ac-text-muted)]">
+                                                <p className="flex items-center gap-2 rounded-[12px] bg-[var(--ac-surface-soft)] p-3 text-xs text-[var(--ac-text-muted)]">
                                                     <LoaderCircle size={14} className="animate-spin" />
                                                     {ar ? 'جاري تحميل السجل...' : 'Loading history...'}
-                                                </div>
+                                                </p>
                                             )}
-
                                             {! historyBusy && history.slice(0, 6).map(change => (
                                                 <div
                                                     key={change.id}
                                                     className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] bg-[var(--ac-surface-soft)] px-3 py-2 text-xs"
                                                 >
-                                                    <span className="text-[var(--ac-text)]">
-                                                        {change.old_rate} → <strong>{change.new_rate}</strong> {selected.currency}
-                                                    </span>
-                                                    <span className="text-[var(--ac-text-muted)]">
-                                                        {change.effective_on}
-                                                    </span>
+                                                    <span>{change.old_rate} → <strong>{change.new_rate}</strong> {selected.currency}</span>
+                                                    <span className="text-[var(--ac-text-muted)]">{change.effective_on}</span>
                                                 </div>
                                             ))}
-
                                             {! historyBusy && history.length === 0 && (
                                                 <p className="rounded-[12px] border border-dashed border-[var(--ac-line)] p-3 text-center text-xs text-[var(--ac-text-muted)]">
-                                                    {ar ? 'لا توجد زيادات أو تعديلات سابقة.' : 'No previous salary changes.'}
+                                                    {ar ? 'لا توجد تعديلات سابقة.' : 'No previous salary changes.'}
                                                 </p>
                                             )}
                                         </div>
