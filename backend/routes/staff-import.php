@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ImportSourceController;
+use App\Http\Controllers\Staff\StaffAutoAccrualController;
 use App\Http\Controllers\Staff\StaffImportCommitController;
 use App\Http\Controllers\Staff\StaffImportTemplateController;
 use App\Http\Controllers\Staff\StaffSalaryChangeController;
@@ -57,4 +58,26 @@ Route::prefix('api')
             'staff-import/commit',
             StaffImportCommitController::class,
         )->middleware('throttle:15,1');
+
+        /*
+         * These routes replace the generic staff read routes registered in
+         * web.php. Before returning payroll balances, fixed monthly salaries are
+         * accrued automatically through the previous completed month. Hour/day/
+         * piece salaries are already generated directly from attendance rows.
+         */
+        Route::get(
+            'staff-overview',
+            [
+                StaffAutoAccrualController::class,
+                'overview',
+            ],
+        );
+
+        Route::get(
+            'staff/{staff}/ledger',
+            [
+                StaffAutoAccrualController::class,
+                'ledger',
+            ],
+        )->whereNumber('staff');
     });
