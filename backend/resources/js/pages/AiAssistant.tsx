@@ -1,10 +1,18 @@
 import { AppShell } from '@/layouts/AppShell';
+import {
+    aiImageErrorMessage,
+    aiMessageHasImage,
+    prepareAiImage,
+    visibleAiMessageContent,
+    type AiPreparedImage,
+} from '@/lib/ai-image';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import { Head } from '@inertiajs/react';
 import {
     Bot,
     CircleAlert,
+    ImagePlus,
     LoaderCircle,
     MessageSquare,
     Plus,
@@ -12,12 +20,14 @@ import {
     ShieldCheck,
     Sparkles,
     Trash2,
+    X,
 } from 'lucide-react';
 import {
     useEffect,
     useMemo,
     useRef,
     useState,
+    type ChangeEvent,
     type FormEvent,
 } from 'react';
 
@@ -41,6 +51,12 @@ type AiStatus = {
         recent_messages: number;
         summarize_after_messages: number;
     };
+    vision?: {
+        enabled: boolean;
+        max_images_per_message: number;
+        max_upload_bytes: number;
+        detail: string;
+    };
 };
 
 const outlineButton =
@@ -54,15 +70,19 @@ export default function AiAssistant() {
     const [activeId, setActiveId] = useState<number | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [draft, setDraft] = useState('');
+    const [image, setImage] = useState<AiPreparedImage | null>(null);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [preparingImage, setPreparingImage] = useState(false);
     const [error, setError] = useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
 
     const activeConversation = useMemo(
         () => conversations.find(item => item.id === activeId) ?? null,
         [conversations, activeId],
     );
+    const visionEnabled = status?.vision?.enabled !== false;
 
     useEffect(() => {
         const controller = new AbortController();
@@ -80,10 +100,7 @@ export default function AiAssistant() {
                 setConversations(conversationResponse.data);
 
                 const first = conversationResponse.data[0];
-
-                if (first) {
-                    setActiveId(first.id);
-                }
+                if (first) setActiveId(first.id);
             })
             .catch((failure: unknown) => {
                 if (! controller.signal.aborted) {
@@ -97,9 +114,7 @@ export default function AiAssistant() {
                 }
             })
             .finally(() => {
-                if (! controller.signal.aborted) {
-                    setLoading(false);
-                }
+                if (! controller.signal.aborted) setLoading(false);
             });
 
         return () => controller.abort();
@@ -119,15 +134,10 @@ export default function AiAssistant() {
                 conversation: Conversation;
                 messages: Message[];
             };
-        }>(
-            `/api/ai/conversations/${activeId}`,
-            {
-                signal: controller.signal,
-            },
-        )
-            .then(response => {
-                setMessages(response.data.messages);
-            })
+        }>(`/api/ai/conversations/${activeId}`, {
+            signal: controller.signal,
+        })
+            .then(response => setMessages(response.data.messages))
             .catch((failure: unknown) => {
                 if (! controller.signal.aborted) {
                     setError(
@@ -150,11 +160,17 @@ export default function AiAssistant() {
         });
     }, [messages, sending]);
 
+    function clearImage(): void {
+        setImage(null);
+        if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+
     function newConversation(): void {
         setActiveId(null);
         setMessages([]);
         setDraft('');
         setError('');
+        clearImage();
     }
 
     async function createConversation(
@@ -165,19 +181,13 @@ export default function AiAssistant() {
             {
                 method: 'POST',
                 body: JSON.stringify({
-                    title: firstMessage
-                        ? firstMessage.slice(0, 80)
-                        : null,
+                    title: firstMessage ? firstMessage.slice(0, 80) : null,
                 }),
             },
         );
 
-        setConversations(current => [
-            response.data,
-            ...current,
-        ]);
+        setConversations(current => [response.data, ...current]);
         setActiveId(response.data.id);
-
         return response.data;
     }
 
@@ -207,16 +217,43 @@ export default function AiAssistant() {
         );
     }
 
+    async function chooseImage(
+        event: ChangeEvent<HTMLInputElement>,
+    ): Promise<void> {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+
+        if (! file) return;
+
+        setPreparingImage(true);
+        setError('');
+
+        try {
+            setImage(await prepareAiImage(file));
+        } catch (failure) {
+            setImage(null);
+            setError(aiImageErrorMessage(failure, ar));
+        } finally {
+            setPreparingImage(false);
+        }
+    }
+
     async function send(
         event: FormEvent<HTMLFormElement>,
     ): Promise<void> {
         event.preventDefault();
 
         const message = draft.trim();
+        const effectiveMessage = message || (
+            ar
+                ? 'حلل هذه الصورة وساعدني بناءً على ما يظهر فيها.'
+                : 'Analyze this image and help me based on what is visible.'
+        );
 
         if (
-            ! message
+            (! message && ! image)
             || sending
+            || preparingImage
             || ! status?.configured
         ) {
             return;
@@ -224,14 +261,12 @@ export default function AiAssistant() {
 
         setSending(true);
         setError('');
-        setDraft('');
 
         let conversationId = activeId;
 
         try {
             if (! conversationId) {
-                const conversation =
-                    await createConversation(message);
+                const conversation = await createConversation(effectiveMessage);
                 conversationId = conversation.id;
             }
 
@@ -240,7 +275,7 @@ export default function AiAssistant() {
                 {
                     id: -Date.now(),
                     role: 'user',
-                    content: message,
+                    content: effectiveMessage,
                     created_at: new Date().toISOString(),
                 },
             ]);
@@ -250,11 +285,20 @@ export default function AiAssistant() {
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        message,
+                        message: effectiveMessage,
+                        image: image
+                            ? {
+                                data_url: image.dataUrl,
+                                name: image.name,
+                                mime: image.mime,
+                            }
+                            : null,
                     }),
                 },
             );
 
+            setDraft('');
+            clearImage();
             await refreshConversation(conversationId);
         } catch (failure) {
             if (conversationId) {
@@ -283,22 +327,16 @@ export default function AiAssistant() {
                 : 'Delete this conversation permanently?',
         );
 
-        if (! approved) {
-            return;
-        }
+        if (! approved) return;
 
         try {
-            await apiRequest(
-                `/api/ai/conversations/${conversation.id}`,
-                {
-                    method: 'DELETE',
-                },
-            );
+            await apiRequest(`/api/ai/conversations/${conversation.id}`, {
+                method: 'DELETE',
+            });
 
             const remaining = conversations.filter(
                 item => item.id !== conversation.id,
             );
-
             setConversations(remaining);
 
             if (activeId === conversation.id) {
@@ -342,8 +380,8 @@ export default function AiAssistant() {
 
                                 <p className="mt-1 text-xs leading-5 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'مساعد ذكي بذاكرة طويلة، عزل كامل بين الشركات، وصلاحيات مرتبطة بدور الموظف.'
-                                        : 'An AI assistant with durable memory, tenant isolation, and role-aware access.'}
+                                        ? 'مساعد ذكي يفهم بيانات العمل ويمكنه تحليل صورة مضغوطة مرة واحدة بدون إعادة دفع تكلفة الصورة في كل سؤال.'
+                                        : 'A business-aware assistant that can analyze one compressed image once without paying the image cost again on every follow-up.'}
                                 </p>
                             </div>
                         </div>
@@ -372,8 +410,8 @@ export default function AiAssistant() {
                                 </p>
                                 <p className="mt-1 text-xs leading-5 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'حاول مرة أخرى لاحقًا أو تواصل مع الدعم إذا استمرت المشكلة.'
-                                        : 'Try again later or contact support if the issue continues.'}
+                                        ? 'حاول مرة أخرى لاحقًا أو تحقق من إعداد مزود الذكاء الاصطناعي.'
+                                        : 'Try again later or check the AI provider configuration.'}
                                 </p>
                             </div>
                         </section>
@@ -401,7 +439,6 @@ export default function AiAssistant() {
                                             : 'Private memory per user'}
                                     </p>
                                 </div>
-
                                 <MessageSquare
                                     size={16}
                                     className="text-[var(--ac-accent)]"
@@ -435,7 +472,10 @@ export default function AiAssistant() {
                                         >
                                             <button
                                                 type="button"
-                                                onClick={() => setActiveId(conversation.id)}
+                                                onClick={() => {
+                                                    setActiveId(conversation.id);
+                                                    clearImage();
+                                                }}
                                                 className="min-w-0 flex-1 px-2 py-2 text-start"
                                             >
                                                 <p className="truncate text-xs font-semibold">
@@ -483,16 +523,14 @@ export default function AiAssistant() {
                                     </div>
                                 </div>
 
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex items-center gap-2 rounded-xl border border-[var(--ac-line)] px-3 py-2 text-[10px] text-[var(--ac-text-muted)]">
-                                        <ShieldCheck
-                                            size={13}
-                                            className="text-[var(--ac-accent)]"
-                                        />
-                                        {ar
-                                            ? 'نفس صلاحيات المستخدم'
-                                            : 'User permissions enforced'}
-                                    </div>
+                                <div className="flex items-center gap-2 rounded-xl border border-[var(--ac-line)] px-3 py-2 text-[10px] text-[var(--ac-text-muted)]">
+                                    <ShieldCheck
+                                        size={13}
+                                        className="text-[var(--ac-accent)]"
+                                    />
+                                    {ar
+                                        ? 'نفس صلاحيات المستخدم'
+                                        : 'User permissions enforced'}
                                 </div>
                             </div>
 
@@ -512,8 +550,8 @@ export default function AiAssistant() {
                                         </h2>
                                         <p className="mt-2 max-w-lg text-xs leading-6 text-[var(--ac-text-muted)]">
                                             {ar
-                                                ? 'المحادثات الطويلة لا ترسل التاريخ كاملًا كل مرة؛ القديم يتم تلخيصه والحديث يبقى في السياق لتقليل استهلاك التوكنز.'
-                                                : 'Long chats do not resend the full history every time. Older context is compacted while recent messages stay available, reducing token use.'}
+                                                ? 'ارفع صورة فاتورة أو إيصال أو شاشة إذا احتجت. نضغطها تلقائيًا ونستخدم تحليل منخفض التفاصيل مرة واحدة، ثم نحفظ النتيجة النصية فقط للمحادثة.'
+                                                : 'Upload an invoice, receipt, or screenshot when useful. It is compressed automatically, analyzed once at low detail, then only the text observation remains in chat context.'}
                                         </p>
                                     </div>
                                 ) : (
@@ -538,10 +576,17 @@ export default function AiAssistant() {
                                                                 : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)]',
                                                         ].join(' ')}
                                                     >
+                                                        {aiMessageHasImage(message.content) && (
+                                                            <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold text-[var(--ac-accent)]">
+                                                                <ImagePlus size={13} />
+                                                                {ar
+                                                                    ? 'صورة تم تحليلها مرة واحدة وحفظ وصفها النصي'
+                                                                    : 'Image analyzed once; text observation saved'}
+                                                            </div>
+                                                        )}
                                                         <p className="whitespace-pre-wrap break-words">
-                                                            {message.content}
+                                                            {visibleAiMessageContent(message.content)}
                                                         </p>
-
                                                     </div>
                                                 </article>
                                             ))}
@@ -553,7 +598,9 @@ export default function AiAssistant() {
                                                         size={14}
                                                         className="animate-spin"
                                                     />
-                                                    {ar ? 'AccoNova AI يفكر…' : 'AccoNova AI is thinking…'}
+                                                    {image
+                                                        ? (ar ? 'يحلل الصورة مرة واحدة ثم يجهز الرد…' : 'Analyzing the image once, then preparing the answer…')
+                                                        : (ar ? 'AccoNova AI يفكر…' : 'AccoNova AI is thinking…')}
                                                 </div>
                                             </div>
                                         )}
@@ -565,7 +612,66 @@ export default function AiAssistant() {
                                 onSubmit={event => void send(event)}
                                 className="border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 sm:p-5"
                             >
+                                <input
+                                    ref={imageInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    className="hidden"
+                                    onChange={event => void chooseImage(event)}
+                                />
+
+                                {image && (
+                                    <div className="mx-auto mb-2 flex max-w-3xl items-center gap-3 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-2.5">
+                                        <img
+                                            src={image.dataUrl}
+                                            alt=""
+                                            className="size-14 shrink-0 rounded-xl object-cover"
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-xs font-semibold">
+                                                {image.name}
+                                            </p>
+                                            <p className="mt-0.5 text-[10px] leading-4 text-[var(--ac-text-muted)]">
+                                                {Math.max(1, Math.round(image.bytes / 1024))} KB · {image.width}×{image.height} · {ar
+                                                    ? 'مضغوطة تلقائيًا، صورة واحدة، تحليل منخفض التكلفة مرة واحدة فقط'
+                                                    : 'auto-compressed, one image, one low-cost analysis only'}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={clearImage}
+                                            className="flex size-8 shrink-0 items-center justify-center rounded-xl text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-bg-soft)] hover:text-red-400"
+                                            aria-label={ar ? 'إزالة الصورة' : 'Remove image'}
+                                        >
+                                            <X size={15} />
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-2 focus-within:border-[var(--ac-accent)]">
+                                    <button
+                                        type="button"
+                                        onClick={() => imageInputRef.current?.click()}
+                                        disabled={
+                                            ! visionEnabled
+                                            || sending
+                                            || preparingImage
+                                            || Boolean(image)
+                                            || ! status?.configured
+                                        }
+                                        className="flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-line)] bg-transparent text-[var(--ac-accent)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-35"
+                                        title={ar ? 'إرفاق صورة' : 'Attach image'}
+                                    >
+                                        {preparingImage ? (
+                                            <LoaderCircle
+                                                size={17}
+                                                className="animate-spin"
+                                            />
+                                        ) : (
+                                            <ImagePlus size={18} />
+                                        )}
+                                    </button>
+
                                     <textarea
                                         value={draft}
                                         onChange={event => setDraft(event.target.value)}
@@ -575,9 +681,7 @@ export default function AiAssistant() {
                                                 && ! event.shiftKey
                                             ) {
                                                 event.preventDefault();
-                                                event.currentTarget
-                                                    .form
-                                                    ?.requestSubmit();
+                                                event.currentTarget.form?.requestSubmit();
                                             }
                                         }}
                                         rows={2}
@@ -586,8 +690,8 @@ export default function AiAssistant() {
                                         placeholder={
                                             status?.configured
                                                 ? (ar
-                                                    ? 'اسأل AccoNova AI…'
-                                                    : 'Ask AccoNova AI…')
+                                                    ? 'اسأل AccoNova AI أو أرفق صورة…'
+                                                    : 'Ask AccoNova AI or attach an image…')
                                                 : (ar
                                                     ? 'AccoNova AI غير متاح حاليًا…'
                                                     : 'AccoNova AI is currently unavailable…')
@@ -599,7 +703,8 @@ export default function AiAssistant() {
                                         type="submit"
                                         disabled={
                                             sending
-                                            || ! draft.trim()
+                                            || preparingImage
+                                            || (! draft.trim() && ! image)
                                             || ! status?.configured
                                         }
                                         className="flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-accent)] bg-transparent text-[var(--ac-accent)] transition hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-35"
@@ -618,8 +723,8 @@ export default function AiAssistant() {
 
                                 <p className="mx-auto mt-2 max-w-3xl px-1 text-[9px] leading-4 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'يحافظ AccoNova AI على سياق المحادثة تلقائيًا مع احترام صلاحياتك وحدود مساحة العمل.'
-                                        : 'AccoNova AI keeps conversation context automatically while respecting your permissions and workspace boundaries.'}
+                                        ? 'لتقليل التكلفة: صورة واحدة فقط لكل رسالة، تضغط إلى ≤ 1024px وأقل من 1MB، وترسل إلى Vision بتفاصيل منخفضة مرة واحدة فقط. الأسئلة التالية تستخدم الوصف النصي المحفوظ.'
+                                        : 'Cost control: one image per message, compressed to ≤1024px and under 1MB, sent to low-detail vision once. Follow-ups reuse the saved text observation.'}
                                 </p>
                             </form>
                         </div>
