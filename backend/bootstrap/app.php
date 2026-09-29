@@ -40,6 +40,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->group(base_path('routes/mcp-management.php'));
 
             Route::middleware('web')
+                ->group(base_path('routes/manual-billing.php'));
+
+            Route::middleware('web')
                 ->group(base_path('routes/platform-admin.php'));
         },
     )
