@@ -9,6 +9,7 @@ import {
 } from '@inertiajs/react';
 
 import { AiSidekick } from '@/components/ai/AiSidekick';
+import { GoogleImportSourceBar } from '@/components/imports/GoogleImportSourceBar';
 import { CommandRail } from '@/components/navigation/CommandRail';
 import { ContextBar } from '@/components/navigation/ContextBar';
 import { apiRequest } from '@/lib/http';
@@ -31,6 +32,8 @@ export function AppShell({ children }: PropsWithChildren) {
     const [railExpanded, setRailExpanded] = useState(false);
     const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
     const page = usePage();
+    const currentPath = page.url.split('?')[0];
+    const isImportPage = currentPath.endsWith('/import');
 
     /*
      * Global fallback form guard.
@@ -207,6 +210,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 />
 
                 <div className="min-w-0">
+                    {isImportPage && <GoogleImportSourceBar />}
                     {children}
                 </div>
             </div>
