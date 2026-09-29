@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Billing;
 
 use App\Http\Controllers\Controller;
 use App\Models\BillingAccount;
+use App\Models\BillingManualPayment;
 use App\Services\Billing\StripeBillingGateway;
 use App\Services\Billing\StripePaymentMethodPortal;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Throwable;
 
@@ -39,22 +41,25 @@ class BillingCheckoutController extends Controller
             )
             ->first();
 
-        if (
-            $existing
-            && ! in_array(
-                $existing->status,
-                [
-                    null,
-                    'canceled',
-                    'incomplete_expired',
-                ],
-                true,
-            )
-        ) {
-            return response()->json([
-                'message' => 'An existing subscription must be managed from the subscription center.',
-                'code' => 'SUBSCRIPTION_ALREADY_EXISTS',
-            ], 409);
+        if ($existing && ! in_array(
+            $existing->status,
+            [null, 'canceled', 'incomplete_expired'],
+            true,
+        )) {
+            $manualPeriodExpired = $existing->billing_source === 'manual'
+                && $existing->current_period_end
+                && $existing->current_period_end->isPast();
+
+            if (! $manualPeriodExpired) {
+                return response()->json([
+                    'message' => $existing->billing_source === 'manual'
+                        ? 'Your prepaid manual billing period is still active. Stripe checkout becomes available when that paid period ends.'
+                        : 'An existing subscription must be managed from the subscription center.',
+                    'code' => $existing->billing_source === 'manual'
+                        ? 'MANUAL_PERIOD_ACTIVE'
+                        : 'SUBSCRIPTION_ALREADY_EXISTS',
+                ], 409);
+            }
         }
 
         $data = $request->validate([
@@ -83,6 +88,21 @@ class BillingCheckoutController extends Controller
                 'message' => 'Billing is temporarily unavailable. Please try again.',
                 'code' => 'BILLING_UNAVAILABLE',
             ], 503);
+        }
+
+        if (
+            Schema::hasTable('billing_manual_payments')
+            && Schema::hasColumn('billing_manual_payments', 'requested_at')
+        ) {
+            BillingManualPayment::query()
+                ->where('organization_id', $organization->id)
+                ->where('status', 'pending')
+                ->update([
+                    'status' => 'cancelled',
+                    'reviewed_at' => now(),
+                    'rejection_reason' => 'Customer switched to Stripe checkout.',
+                    'updated_at' => now(),
+                ]);
         }
 
         return response()->json([
