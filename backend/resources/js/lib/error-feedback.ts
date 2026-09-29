@@ -52,6 +52,10 @@ const safeBusinessMessages: Record<
         ar: 'انتهى رصيد AccoNova AI المتاح لهذه المساحة. أضف رصيد AI للمتابعة.',
         en: 'This workspace has used its available AccoNova AI credits. Add AI credits to continue.',
     },
+    AI_IMAGE_UNAVAILABLE: {
+        ar: 'تعذر تحليل الصورة حاليًا. جرّب صورة أوضح/أصغر أو حاول مرة أخرى بعد قليل.',
+        en: 'The image could not be analyzed right now. Try a clearer or smaller image, or retry shortly.',
+    },
 };
 
 /**

@@ -2,6 +2,7 @@ import { router, usePage } from '@inertiajs/react';
 import {
     Bot,
     ExternalLink,
+    ImagePlus,
     LoaderCircle,
     MessageCircle,
     Plus,
@@ -14,9 +15,17 @@ import {
     useMemo,
     useRef,
     useState,
+    type ChangeEvent,
     type FormEvent,
 } from 'react';
 
+import {
+    aiImageErrorMessage,
+    aiMessageHasImage,
+    prepareAiImage,
+    visibleAiMessageContent,
+    type AiPreparedImage,
+} from '@/lib/ai-image';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 
@@ -36,6 +45,12 @@ type Message = {
 
 type AiStatus = {
     configured: boolean;
+    vision?: {
+        enabled: boolean;
+        max_images_per_message: number;
+        max_upload_bytes: number;
+        detail: string;
+    };
 };
 
 type PageContext = {
@@ -61,10 +76,7 @@ function inferPageContext(): PageContext {
     let entityType: string | null = null;
     let entityId: string | null = null;
 
-    const routePatterns: Array<[
-        RegExp,
-        string,
-    ]> = [
+    const routePatterns: Array<[RegExp, string]> = [
         [/^\/app\/invoices\/sales\/(\d+)/, 'sales_invoice'],
         [/^\/app\/invoices\/purchases\/(\d+)/, 'purchase_invoice'],
         [/^\/app\/payments\/(\d+)/, 'payment'],
@@ -127,17 +139,18 @@ export function AiSidekick() {
     const [loaded, setLoaded] = useState(false);
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
+    const [preparingImage, setPreparingImage] = useState(false);
     const [activeId, setActiveId] = useState<number | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [draft, setDraft] = useState('');
+    const [image, setImage] = useState<AiPreparedImage | null>(null);
     const [error, setError] = useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
 
-    const context = useMemo(
-        () => inferPageContext(),
-        [page.url, open],
-    );
+    const context = useMemo(() => inferPageContext(), [page.url, open]);
+    const visionEnabled = status?.vision?.enabled !== false;
 
     useEffect(() => {
         const controller = new AbortController();
@@ -167,9 +180,7 @@ export function AiSidekick() {
     }, [open]);
 
     useEffect(() => {
-        if (! open || loaded || ! authorized) {
-            return;
-        }
+        if (! open || loaded || ! authorized) return;
 
         const controller = new AbortController();
         setLoading(true);
@@ -193,13 +204,11 @@ export function AiSidekick() {
                 );
                 const conversation = preferred ?? response.data[0] ?? null;
 
-                if (! conversation) {
-                    setLoaded(true);
-                    return;
+                if (conversation) {
+                    setActiveId(conversation.id);
+                    await loadConversation(conversation.id, controller.signal);
                 }
 
-                setActiveId(conversation.id);
-                await loadConversation(conversation.id, controller.signal);
                 setLoaded(true);
             })
             .catch((failure: unknown) => {
@@ -214,9 +223,7 @@ export function AiSidekick() {
                 }
             })
             .finally(() => {
-                if (! controller.signal.aborted) {
-                    setLoading(false);
-                }
+                if (! controller.signal.aborted) setLoading(false);
             });
 
         return () => controller.abort();
@@ -251,25 +258,18 @@ export function AiSidekick() {
         );
 
         try {
-            localStorage.setItem(
-                conversationStorageKey,
-                String(conversationId),
-            );
+            localStorage.setItem(conversationStorageKey, String(conversationId));
         } catch {
             // Conversation persistence is optional.
         }
     }
 
-    async function createConversation(
-        firstMessage: string,
-    ): Promise<number> {
+    async function createConversation(firstMessage: string): Promise<number> {
         const response = await apiRequest<{ data: Conversation }>(
             '/api/ai/conversations',
             {
                 method: 'POST',
-                body: JSON.stringify({
-                    title: firstMessage.slice(0, 80),
-                }),
+                body: JSON.stringify({ title: firstMessage.slice(0, 80) }),
             },
         );
 
@@ -287,23 +287,56 @@ export function AiSidekick() {
         return response.data.id;
     }
 
+    async function chooseImage(
+        event: ChangeEvent<HTMLInputElement>,
+    ): Promise<void> {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+
+        if (! file) return;
+
+        setPreparingImage(true);
+        setError('');
+
+        try {
+            setImage(await prepareAiImage(file));
+        } catch (failure) {
+            setError(aiImageErrorMessage(failure, ar));
+            setImage(null);
+        } finally {
+            setPreparingImage(false);
+        }
+    }
+
+    function clearImage(): void {
+        setImage(null);
+        if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+
     async function send(event: FormEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
         const message = draft.trim();
+        const effectiveMessage = message || (
+            ar ? 'حلل هذه الصورة وساعدني بناءً على ما يظهر فيها.' : 'Analyze this image and help me based on what is visible.'
+        );
 
-        if (! message || sending || ! status?.configured) {
+        if (
+            (! message && ! image)
+            || sending
+            || preparingImage
+            || ! status?.configured
+        ) {
             return;
         }
 
         setSending(true);
         setError('');
-        setDraft('');
 
         let conversationId = activeId;
 
         try {
             if (! conversationId) {
-                conversationId = await createConversation(message);
+                conversationId = await createConversation(effectiveMessage);
             }
 
             setMessages(current => [
@@ -311,7 +344,7 @@ export function AiSidekick() {
                 {
                     id: -Date.now(),
                     role: 'user',
-                    content: message,
+                    content: effectiveMessage,
                     created_at: new Date().toISOString(),
                 },
             ]);
@@ -321,12 +354,21 @@ export function AiSidekick() {
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        message,
+                        message: effectiveMessage,
                         page_context: inferPageContext(),
+                        image: image
+                            ? {
+                                data_url: image.dataUrl,
+                                name: image.name,
+                                mime: image.mime,
+                            }
+                            : null,
                     }),
                 },
             );
 
+            setDraft('');
+            clearImage();
             await loadConversation(conversationId);
         } catch (failure) {
             if (conversationId) {
@@ -350,6 +392,7 @@ export function AiSidekick() {
         setMessages([]);
         setDraft('');
         setError('');
+        clearImage();
 
         try {
             localStorage.removeItem(conversationStorageKey);
@@ -360,9 +403,7 @@ export function AiSidekick() {
         window.setTimeout(() => textareaRef.current?.focus(), 50);
     }
 
-    if (! authorized || hiddenOnFullAssistant) {
-        return null;
-    }
+    if (! authorized || hiddenOnFullAssistant) return null;
 
     return (
         <div data-ai-sidekick>
@@ -377,13 +418,11 @@ export function AiSidekick() {
                                 <Sparkles size={17} />
                             </span>
                             <div className="min-w-0">
-                                <p className="truncate text-sm font-bold">
-                                    AccoNova AI
-                                </p>
+                                <p className="truncate text-sm font-bold">AccoNova AI</p>
                                 <p className="truncate text-[10px] text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'يفهم الصفحة التي تعمل عليها الآن'
-                                        : 'Understands the page you are working on'}
+                                        ? 'يفهم الصفحة والصورة التي تعمل عليها'
+                                        : 'Understands your current page and images'}
                                 </p>
                             </div>
                         </div>
@@ -448,8 +487,8 @@ export function AiSidekick() {
                                 </p>
                                 <p className="mt-2 max-w-[280px] text-[11px] leading-5 text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'اسأل عن البيانات الظاهرة، الأخطاء، الخطوة التالية، أو اطلب تحليل السجل الذي تعمل عليه.'
-                                        : 'Ask about visible data, errors, the next step, or request analysis of the record you are viewing.'}
+                                        ? 'اسأل عن الصفحة أو أرفق صورة. الصورة تُضغط وتُحلل مرة واحدة بتفاصيل منخفضة لتقليل التكلفة.'
+                                        : 'Ask about the page or attach an image. Images are compressed and analyzed once at low detail to reduce cost.'}
                                 </p>
                             </div>
                         ) : (
@@ -471,7 +510,13 @@ export function AiSidekick() {
                                                 : 'border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] text-[var(--ac-text)]',
                                         ].join(' ')}
                                     >
-                                        {message.content}
+                                        {aiMessageHasImage(message.content) && (
+                                            <div className="mb-1.5 flex items-center gap-1 text-[9px] font-semibold opacity-80">
+                                                <ImagePlus size={11} />
+                                                {ar ? 'صورة تم تحليلها مرة واحدة' : 'Image analyzed once'}
+                                            </div>
+                                        )}
+                                        {visibleAiMessageContent(message.content)}
                                     </div>
                                 </div>
                             ))
@@ -481,7 +526,9 @@ export function AiSidekick() {
                             <div className="flex justify-start">
                                 <div className="flex items-center gap-2 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] px-3.5 py-2.5 text-xs text-[var(--ac-text-muted)]">
                                     <LoaderCircle size={13} className="animate-spin" />
-                                    {ar ? 'يحلل الصفحة…' : 'Analyzing the page…'}
+                                    {image
+                                        ? (ar ? 'يحلل الصورة ثم السؤال…' : 'Analyzing the image, then your question…')
+                                        : (ar ? 'يحلل الصفحة…' : 'Analyzing the page…')}
                                 </div>
                             </div>
                         )}
@@ -505,7 +552,57 @@ export function AiSidekick() {
                         onSubmit={event => void send(event)}
                         className="border-t border-[var(--ac-line)] bg-[var(--ac-surface)] p-3"
                     >
+                        <input
+                            ref={imageInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            onChange={event => void chooseImage(event)}
+                        />
+
+                        {image && (
+                            <div className="mb-2 flex items-center gap-2 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] p-2">
+                                <img
+                                    src={image.dataUrl}
+                                    alt=""
+                                    className="size-11 shrink-0 rounded-lg object-cover"
+                                />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[10px] font-semibold text-[var(--ac-text)]">
+                                        {image.name}
+                                    </p>
+                                    <p className="text-[9px] text-[var(--ac-text-muted)]">
+                                        {Math.max(1, Math.round(image.bytes / 1024))} KB · {ar ? 'ضغط تلقائي · تحليل منخفض التكلفة مرة واحدة' : 'auto-compressed · one low-cost analysis'}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={clearImage}
+                                    className="flex size-7 shrink-0 items-center justify-center rounded-lg text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface)] hover:text-red-400"
+                                    aria-label={ar ? 'إزالة الصورة' : 'Remove image'}
+                                >
+                                    <X size={13} />
+                                </button>
+                            </div>
+                        )}
+
                         <div className="flex items-end gap-2 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] p-2 focus-within:border-[var(--ac-accent)]">
+                            <button
+                                type="button"
+                                onClick={() => imageInputRef.current?.click()}
+                                disabled={
+                                    ! visionEnabled
+                                    || sending
+                                    || preparingImage
+                                    || Boolean(image)
+                                }
+                                title={ar ? 'إرفاق صورة' : 'Attach image'}
+                                className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-[var(--ac-line)] text-[var(--ac-accent)] transition hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-35"
+                            >
+                                {preparingImage
+                                    ? <LoaderCircle size={14} className="animate-spin" />
+                                    : <ImagePlus size={15} />}
+                            </button>
                             <textarea
                                 ref={textareaRef}
                                 value={draft}
@@ -518,12 +615,17 @@ export function AiSidekick() {
                                 }}
                                 rows={1}
                                 maxLength={12000}
-                                placeholder={ar ? 'اسأل عن هذه الصفحة…' : 'Ask about this page…'}
+                                placeholder={ar ? 'اسأل عن هذه الصفحة أو الصورة…' : 'Ask about this page or image…'}
                                 className="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-xs text-[var(--ac-text)] outline-none placeholder:text-[var(--ac-text-muted)]"
                             />
                             <button
                                 type="submit"
-                                disabled={! draft.trim() || sending || ! status?.configured}
+                                disabled={
+                                    (! draft.trim() && ! image)
+                                    || sending
+                                    || preparingImage
+                                    || ! status?.configured
+                                }
                                 className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--ac-accent)] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                                 aria-label={ar ? 'إرسال' : 'Send'}
                             >
@@ -545,9 +647,7 @@ export function AiSidekick() {
                 title={ar ? 'اسأل AccoNova AI' : 'Ask AccoNova AI'}
                 className="fixed bottom-5 right-4 z-[91] flex size-14 items-center justify-center rounded-full border border-[var(--ac-line)] bg-[var(--ac-accent)] text-white shadow-xl transition duration-200 hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-[var(--ac-accent)]/20 sm:bottom-6 sm:right-6"
             >
-                {open
-                    ? <X size={22} />
-                    : <MessageCircle size={22} />}
+                {open ? <X size={22} /> : <MessageCircle size={22} />}
                 {! open && (
                     <span className="absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-[var(--ac-surface)] bg-emerald-500" />
                 )}
