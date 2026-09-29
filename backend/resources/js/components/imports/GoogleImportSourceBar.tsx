@@ -11,6 +11,42 @@ import {
 } from 'react';
 
 /**
+ * Submit the importer only after React has processed the injected file-change
+ * event and enabled its normal submit button.
+ *
+ * This avoids a race where Google files were fetched correctly but attendance
+ * or payroll preview could be submitted before the page state received File.
+ */
+function submitWhenImporterIsReady(
+    input: HTMLInputElement,
+    attempt = 0,
+): void {
+    const form = input.form;
+
+    if (! form) {
+        return;
+    }
+
+    const submitter = Array.from(form.elements).find(
+        element => element instanceof HTMLButtonElement
+            && element.type === 'submit',
+    ) as HTMLButtonElement | undefined;
+
+    if (! submitter || ! submitter.disabled) {
+        form.requestSubmit(submitter);
+        return;
+    }
+
+    if (attempt >= 30) {
+        return;
+    }
+
+    window.requestAnimationFrame(() => {
+        submitWhenImporterIsReady(input, attempt + 1);
+    });
+}
+
+/**
  * Add a Google Sheets / Drive source to import screens without forcing each
  * importer to duplicate remote-download logic.
  *
@@ -121,13 +157,18 @@ export function GoogleImportSourceBar() {
 
             setLoadedFile(filename);
 
-            window.setTimeout(() => {
+            /*
+             * Do not submit on a hard-coded timeout. Attendance/payroll pages
+             * may need one or more React renders after the synthetic file event.
+             * Wait until their normal submit control becomes enabled instead.
+             */
+            window.requestAnimationFrame(() => {
+                submitWhenImporterIsReady(input);
                 input.scrollIntoView({
                     behavior: 'smooth',
                     block: 'center',
                 });
-                input.form?.requestSubmit();
-            }, 120);
+            });
         } catch (failure) {
             setError(
                 failure instanceof Error
@@ -163,8 +204,8 @@ export function GoogleImportSourceBar() {
                         </div>
                         <p className="mt-2 text-xs leading-6 text-[var(--ac-text-soft)]">
                             {text(
-                                'الصق رابط المشاركة بدل تنزيل الملف ثم رفعه. اجعل الوصول: أي شخص لديه الرابط. Google Sheets يتحول تلقائياً إلى Excel.',
-                                'Paste the share link instead of downloading and uploading the file. Set access to “Anyone with the link”. Google Sheets is converted to Excel automatically.',
+                                'الصق رابط المشاركة بدل تنزيل الملف ثم رفعه. إذا كان الرابط مفتوحًا على تبويب الحضور أو المستحقات سنقرأ نفس التبويب تلقائيًا. اجعل الوصول: أي شخص لديه الرابط.',
+                                'Paste the share link instead of downloading and uploading. If the link points to the Attendance or Payroll tab, AccoNova now reads that exact tab automatically. Set access to “Anyone with the link”.',
                             )}
                         </p>
                     </div>
