@@ -1,3 +1,4 @@
+import { AdminManualPaymentReviewLauncher } from '@/components/billing/AdminManualPaymentReviewLauncher';
 import { ManualPaymentRequestLauncher } from '@/components/billing/ManualPaymentRequestLauncher';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
 import { initializeLocale } from '@/lib/locale';
@@ -150,6 +151,7 @@ void createInertiaApp({
             <ToastProvider>
                 <App {...props} />
                 <ManualPaymentRequestLauncher />
+                <AdminManualPaymentReviewLauncher />
             </ToastProvider>,
         );
     },
