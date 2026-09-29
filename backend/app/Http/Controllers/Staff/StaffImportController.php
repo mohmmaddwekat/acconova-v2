@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Membership;
 use App\Models\StaffEntry;
 use App\Models\StaffMember;
+use App\Support\InventoryQuantity as Decimal;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -41,7 +42,6 @@ class StaffImportController extends Controller
         }
 
         $this->prune($directory);
-
         $originalName = $file->getClientOriginalName();
         $file->move($directory, $token);
         $path = $directory.DIRECTORY_SEPARATOR.$token;
@@ -63,15 +63,13 @@ class StaffImportController extends Controller
                     fn (array $row): bool => $this->rowHasContent($row),
                 ));
 
-                $sample = array_map(
-                    fn (array $row): array => $this->associateRow($headers, $row),
-                    array_slice($nonEmpty, 0, 8),
-                );
-
                 $sheets[] = [
                     'name' => $sheet->getTitle(),
                     'headers' => $headers,
-                    'sample' => $sample,
+                    'sample' => array_map(
+                        fn (array $row): array => $this->associateRow($headers, $row),
+                        array_slice($nonEmpty, 0, 8),
+                    ),
                     'row_count' => min(self::MAX_ROWS, count($nonEmpty)),
                 ];
             }
@@ -85,7 +83,6 @@ class StaffImportController extends Controller
             ]);
         } catch (Throwable $exception) {
             @unlink($path);
-
             throw $exception;
         }
     }
@@ -161,10 +158,7 @@ class StaffImportController extends Controller
     private function prune(string $directory): void
     {
         foreach (glob($directory.'/*') ?: [] as $oldFile) {
-            if (
-                is_file($oldFile)
-                && filemtime($oldFile) < now()->subDay()->getTimestamp()
-            ) {
+            if (is_file($oldFile) && filemtime($oldFile) < now()->subDay()->getTimestamp()) {
                 @unlink($oldFile);
             }
         }
@@ -184,7 +178,6 @@ class StaffImportController extends Controller
         $duplicateStrategy = $data['duplicate_strategy'] ?? 'skip';
         $matchBy = $data['match_by'] ?? 'phone';
         $createDepartments = (bool) ($data['create_departments'] ?? false);
-
         $created = 0;
         $updated = 0;
         $skipped = 0;
@@ -200,7 +193,7 @@ class StaffImportController extends Controller
             &$created,
             &$updated,
             &$skipped,
-            &$errors
+            &$errors,
         ): void {
             foreach ($rows as $index => $row) {
                 try {
@@ -217,20 +210,15 @@ class StaffImportController extends Controller
                     $email = strtolower((string) ($this->stringOrNull(
                         $this->mapped($row, $mapping, 'email')
                     ) ?? ''));
-
                     $matchValue = match ($matchBy) {
                         'email' => $email,
                         'name' => $name,
                         default => $phone ?? '',
                     };
-
-                    $existing = $matchValue !== ''
-                        ? $this->findMember($matchBy, $matchValue)
-                        : null;
+                    $existing = $matchValue !== '' ? $this->findMember($matchBy, $matchValue) : null;
 
                     if ($existing && $duplicateStrategy === 'skip') {
-                        $skipped += 1;
-
+                        $skipped++;
                         continue;
                     }
 
@@ -238,14 +226,12 @@ class StaffImportController extends Controller
                         $this->stringOrNull($this->mapped($row, $mapping, 'department')),
                         $createDepartments,
                     );
-
                     $userId = null;
 
                     if ($email !== '') {
                         $membership = Membership::query()
                             ->whereHas('user', fn ($query) => $query->where('email', $email))
                             ->first();
-
                         $userId = $membership?->user_id;
                     }
 
@@ -263,21 +249,18 @@ class StaffImportController extends Controller
                         ) ?? '0',
                         'currency' => $currency,
                         'started_on' => $startedOn,
-                        'active' => $this->boolean(
-                            $this->mapped($row, $mapping, 'active'),
-                            true,
-                        ),
+                        'active' => $this->boolean($this->mapped($row, $mapping, 'active'), true),
                     ];
 
                     if ($existing) {
                         $existing->update($payload);
-                        $updated += 1;
+                        $updated++;
                     } else {
                         StaffMember::create($payload);
-                        $created += 1;
+                        $created++;
                     }
                 } catch (Throwable $exception) {
-                    $skipped += 1;
+                    $skipped++;
                     $this->pushError($errors, $index + 2, $exception->getMessage());
                 }
             }
@@ -318,7 +301,7 @@ class StaffImportController extends Controller
             &$created,
             &$updated,
             &$skipped,
-            &$errors
+            &$errors,
         ): void {
             foreach ($rows as $index => $row) {
                 try {
@@ -326,7 +309,9 @@ class StaffImportController extends Controller
                     $member = $this->findMember($matchBy, $identifier);
 
                     if (! $member) {
-                        throw new RuntimeException('Employee could not be matched.');
+                        throw new RuntimeException(
+                            'Employee "'.$identifier.'" could not be matched. Check the employee name or selected matching field.'
+                        );
                     }
 
                     $date = $this->date($this->mapped($row, $mapping, 'occurred_on'));
@@ -338,14 +323,46 @@ class StaffImportController extends Controller
                         throw new RuntimeException('Attendance date and status are required.');
                     }
 
+                    $terms = $this->termsAt($member, $date);
+                    $basis = (string) ($terms['basis'] ?? $member->basis);
+                    $quantity = $this->attendanceQuantity(
+                        $status,
+                        $basis,
+                        $this->decimal($this->mapped($row, $mapping, 'quantity')),
+                    );
+                    $overtimeHours = $this->decimal(
+                        $this->mapped($row, $mapping, 'overtime_hours')
+                    ) ?? '0.0000';
+                    $overtimeRate = $this->decimal(
+                        $this->mapped($row, $mapping, 'overtime_rate')
+                    ) ?? '0.0000';
+
+                    if ($status !== 'present' && Decimal::toUnits($overtimeHours) > 0) {
+                        throw new RuntimeException('Overtime cannot be recorded for an absence or holiday.');
+                    }
+
+                    if (
+                        Decimal::toUnits($overtimeHours) > 0
+                        && Decimal::toUnits($overtimeRate) <= 0
+                    ) {
+                        throw new RuntimeException('Overtime rate is required when overtime hours are present.');
+                    }
+
                     $existing = DB::table('staff_attendances')
                         ->where('staff_member_id', $member->id)
                         ->whereDate('occurred_on', $date)
                         ->first();
 
                     if ($existing && $strategy === 'skip') {
-                        $skipped += 1;
-
+                        $this->syncAttendanceLedger($request, $member, (int) $existing->id, [
+                            'occurred_on' => (string) $existing->occurred_on,
+                            'status' => (string) $existing->status,
+                            'quantity' => (string) $existing->quantity,
+                            'overtime_hours' => (string) $existing->overtime_hours,
+                            'overtime_rate' => (string) $existing->overtime_rate,
+                            'notes' => $existing->notes,
+                        ]);
+                        $skipped++;
                         continue;
                     }
 
@@ -355,29 +372,26 @@ class StaffImportController extends Controller
                         'created_by' => $request->user()->id,
                         'occurred_on' => $date,
                         'status' => $status,
-                        'quantity' => $this->decimal(
-                            $this->mapped($row, $mapping, 'quantity')
-                        ) ?? '0',
-                        'overtime_hours' => $this->decimal(
-                            $this->mapped($row, $mapping, 'overtime_hours')
-                        ) ?? '0',
-                        'overtime_rate' => $this->decimal(
-                            $this->mapped($row, $mapping, 'overtime_rate')
-                        ) ?? '0',
+                        'quantity' => $quantity,
+                        'overtime_hours' => $overtimeHours,
+                        'overtime_rate' => $overtimeRate,
                         'notes' => $this->stringOrNull($this->mapped($row, $mapping, 'notes')),
                         'updated_at' => now(),
                     ];
 
                     if ($existing) {
                         DB::table('staff_attendances')->where('id', $existing->id)->update($payload);
-                        $updated += 1;
+                        $attendanceId = (int) $existing->id;
+                        $updated++;
                     } else {
                         $payload['created_at'] = now();
-                        DB::table('staff_attendances')->insert($payload);
-                        $created += 1;
+                        $attendanceId = (int) DB::table('staff_attendances')->insertGetId($payload);
+                        $created++;
                     }
+
+                    $this->syncAttendanceLedger($request, $member, $attendanceId, $payload);
                 } catch (Throwable $exception) {
-                    $skipped += 1;
+                    $skipped++;
                     $this->pushError($errors, $index + 2, $exception->getMessage());
                 }
             }
@@ -390,6 +404,179 @@ class StaffImportController extends Controller
             'skipped' => $skipped,
             'errors' => $errors,
         ];
+    }
+
+    /**
+     * Keep the payroll ledger derived from one attendance row in sync.
+     * Re-importing the same employee/date updates the existing derived entry
+     * instead of creating a second entitlement.
+     *
+     * @param  array<string, mixed>  $attendance
+     */
+    private function syncAttendanceLedger(
+        Request $request,
+        StaffMember $member,
+        int $attendanceId,
+        array $attendance,
+    ): void {
+        $date = substr((string) $attendance['occurred_on'], 0, 10);
+        $terms = $this->termsAt($member, $date);
+        $basis = (string) ($terms['basis'] ?? $member->basis);
+        $rate = (string) ($terms['rate'] ?? $member->rate);
+        $status = (string) $attendance['status'];
+        $quantity = (string) ($attendance['quantity'] ?? '0');
+        $notes = $this->stringOrNull($attendance['notes'] ?? null) ?? 'Imported attendance';
+
+        $work = $this->attendanceEntry($member, $attendanceId, 'work');
+
+        if ($status === 'present' && $basis !== 'month' && Decimal::toUnits($quantity) > 0) {
+            $amount = intdiv(
+                Decimal::toUnits($quantity) * Decimal::toUnits($rate) + 5000,
+                10000,
+            );
+
+            $this->saveAttendanceEntry(
+                $request,
+                $member,
+                $work,
+                $attendanceId,
+                'work',
+                $date,
+                $quantity,
+                $rate,
+                $amount,
+                $notes,
+                ['basis' => $basis],
+            );
+        } elseif ($work) {
+            $work->delete();
+        }
+
+        $overtimeHours = (string) ($attendance['overtime_hours'] ?? '0');
+        $overtimeRate = (string) ($attendance['overtime_rate'] ?? '0');
+        $overtime = $this->attendanceEntry($member, $attendanceId, 'overtime');
+
+        if (
+            $status === 'present'
+            && Decimal::toUnits($overtimeHours) > 0
+            && Decimal::toUnits($overtimeRate) > 0
+        ) {
+            $amount = intdiv(
+                Decimal::toUnits($overtimeHours) * Decimal::toUnits($overtimeRate) + 5000,
+                10000,
+            );
+
+            $this->saveAttendanceEntry(
+                $request,
+                $member,
+                $overtime,
+                $attendanceId,
+                'overtime',
+                $date,
+                $overtimeHours,
+                $overtimeRate,
+                $amount,
+                $notes,
+                [],
+            );
+        } elseif ($overtime) {
+            $overtime->delete();
+        }
+    }
+
+    private function attendanceEntry(
+        StaffMember $member,
+        int $attendanceId,
+        string $kind,
+    ): ?StaffEntry {
+        return StaffEntry::withTrashed()
+            ->where('staff_member_id', $member->id)
+            ->where('kind', $kind)
+            ->where('terms->attendance_id', $attendanceId)
+            ->first();
+    }
+
+    /** @param  array<string, mixed>  $extraTerms */
+    private function saveAttendanceEntry(
+        Request $request,
+        StaffMember $member,
+        ?StaffEntry $entry,
+        int $attendanceId,
+        string $kind,
+        string $date,
+        string $quantity,
+        string $rate,
+        int $amount,
+        string $notes,
+        array $extraTerms,
+    ): void {
+        $payload = [
+            'kind' => $kind,
+            'occurred_on' => $date,
+            'quantity' => $quantity,
+            'rate' => $rate,
+            'amount' => Decimal::fromUnits($amount),
+            'notes' => $notes,
+            'terms' => [
+                'attendance_id' => $attendanceId,
+                'currency' => $member->currency,
+                'imported' => true,
+                ...$extraTerms,
+            ],
+        ];
+
+        if ($entry) {
+            if ($entry->trashed()) {
+                $entry->restore();
+            }
+            $entry->update($payload);
+            return;
+        }
+
+        StaffEntry::create([
+            ...$payload,
+            'staff_member_id' => $member->id,
+            'created_by' => $request->user()->id,
+            'request_id' => (string) Str::uuid(),
+        ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function termsAt(StaffMember $member, string $date): array
+    {
+        $history = StaffEntry::where('staff_member_id', $member->id)
+            ->where('kind', 'terms')
+            ->orderBy('occurred_on')
+            ->orderBy('id')
+            ->get();
+        $terms = $history->first()?->terms['before'] ?? $member->toArray();
+
+        foreach ($history as $change) {
+            if (substr((string) $change->occurred_on, 0, 10) <= $date) {
+                $terms = $change->terms['after'] ?? $terms;
+            }
+        }
+
+        return $terms;
+    }
+
+    private function attendanceQuantity(string $status, string $basis, ?string $quantity): string
+    {
+        if ($status !== 'present') {
+            return '0.0000';
+        }
+
+        if (in_array($basis, ['day', 'month'], true)) {
+            return '1.0000';
+        }
+
+        $quantity ??= '0.0000';
+
+        if (Decimal::toUnits($quantity) <= 0) {
+            throw new RuntimeException('Attendance quantity/hours are required for a present employee.');
+        }
+
+        return $quantity;
     }
 
     /**
@@ -414,7 +601,7 @@ class StaffImportController extends Controller
             $matchBy,
             &$created,
             &$skipped,
-            &$errors
+            &$errors,
         ): void {
             foreach ($rows as $index => $row) {
                 try {
@@ -422,7 +609,9 @@ class StaffImportController extends Controller
                     $member = $this->findMember($matchBy, $identifier);
 
                     if (! $member) {
-                        throw new RuntimeException('Employee could not be matched.');
+                        throw new RuntimeException(
+                            'Employee "'.$identifier.'" could not be matched. Check the employee name or selected matching field.'
+                        );
                     }
 
                     $kind = $this->normalizeEntryKind($this->mapped($row, $mapping, 'kind'));
@@ -434,11 +623,9 @@ class StaffImportController extends Controller
                     }
 
                     $numericAmount = abs((float) $amount);
-
                     if ($numericAmount <= 0) {
                         throw new RuntimeException('Amount must be greater than zero.');
                     }
-
                     if (in_array($kind, ['deduction', 'payment', 'advance'], true)) {
                         $numericAmount = -$numericAmount;
                     }
@@ -447,7 +634,6 @@ class StaffImportController extends Controller
                     $rate = $this->decimal($this->mapped($row, $mapping, 'rate'));
                     $notes = $this->stringOrNull($this->mapped($row, $mapping, 'notes'))
                         ?? 'Imported from legacy employee data';
-
                     $normalizedAmount = number_format($numericAmount, 4, '.', '');
 
                     $duplicate = StaffEntry::query()
@@ -459,8 +645,7 @@ class StaffImportController extends Controller
                         ->exists();
 
                     if ($duplicate) {
-                        $skipped += 1;
-
+                        $skipped++;
                         continue;
                     }
 
@@ -482,10 +667,9 @@ class StaffImportController extends Controller
                             'imported' => true,
                         ],
                     ]);
-
-                    $created += 1;
+                    $created++;
                 } catch (Throwable $exception) {
-                    $skipped += 1;
+                    $skipped++;
                     $this->pushError($errors, $index + 2, $exception->getMessage());
                 }
             }
@@ -518,13 +702,11 @@ class StaffImportController extends Controller
     private function findMember(string $matchBy, string $value): ?StaffMember
     {
         $value = trim($value);
-
         if ($value === '') {
             return null;
         }
 
         $query = StaffMember::query();
-
         if ($matchBy === 'email') {
             $email = strtolower($value);
             $query->whereHas('user', fn ($builder) => $builder->where('email', $email));
@@ -533,12 +715,43 @@ class StaffImportController extends Controller
         }
 
         $matches = $query->limit(2)->get();
-
         if ($matches->count() > 1) {
             throw new RuntimeException('More than one employee matched this identifier.');
         }
+        if ($matches->isNotEmpty() || $matchBy !== 'name') {
+            return $matches->first();
+        }
+
+        $normalized = $this->normalizePersonName($value);
+        $matches = StaffMember::query()
+            ->get()
+            ->filter(fn (StaffMember $member): bool => $this->normalizePersonName($member->name) === $normalized)
+            ->take(2)
+            ->values();
+
+        if ($matches->count() > 1) {
+            throw new RuntimeException('More than one employee matched this normalized name.');
+        }
 
         return $matches->first();
+    }
+
+    private function normalizePersonName(string $value): string
+    {
+        $value = mb_strtolower(trim($value));
+        $value = preg_replace('/[\x{064B}-\x{065F}\x{0670}\x{0640}]/u', '', $value) ?? $value;
+        $value = strtr($value, [
+            'أ' => 'ا',
+            'إ' => 'ا',
+            'آ' => 'ا',
+            'ٱ' => 'ا',
+            'ى' => 'ي',
+            'ة' => 'ه',
+        ]);
+        $value = str_replace('عبدال', 'عبد ال', $value);
+        $value = str_replace('الرحمان', 'الرحمن', $value);
+
+        return preg_replace('/\s+/u', ' ', trim($value)) ?? trim($value);
     }
 
     private function departmentId(?string $name, bool $create): ?int
@@ -548,11 +761,9 @@ class StaffImportController extends Controller
         }
 
         $department = Department::query()->where('name', $name)->first();
-
         if (! $department && $create) {
             $department = Department::create(['name' => $name]);
         }
-
         if (! $department) {
             throw new RuntimeException('Department "'.$name.'" does not exist.');
         }
@@ -560,19 +771,13 @@ class StaffImportController extends Controller
         return (int) $department->id;
     }
 
-    /**
-     * @param  list<array{row: int, message: string}>  $errors
-     */
+    /** @param  list<array{row: int, message: string}>  $errors */
     private function pushError(array &$errors, int $row, string $message): void
     {
         if (count($errors) >= 50) {
             return;
         }
-
-        $errors[] = [
-            'row' => $row,
-            'message' => $message,
-        ];
+        $errors[] = ['row' => $row, 'message' => $message];
     }
 
     /**
@@ -583,18 +788,13 @@ class StaffImportController extends Controller
     {
         $seen = [];
         $headers = [];
-
         foreach (array_values($row) as $index => $value) {
             $base = trim((string) ($value ?? ''));
-
             if ($base === '') {
                 $base = 'Column '.($index + 1);
             }
-
             $seen[$base] = ($seen[$base] ?? 0) + 1;
-            $headers[] = $seen[$base] === 1
-                ? $base
-                : $base.' ('.$seen[$base].')';
+            $headers[] = $seen[$base] === 1 ? $base : $base.' ('.$seen[$base].')';
         }
 
         return $headers;
@@ -609,7 +809,6 @@ class StaffImportController extends Controller
     {
         $values = array_values($row);
         $result = [];
-
         foreach ($headers as $index => $header) {
             $result[$header] = $values[$index] ?? null;
         }
@@ -617,9 +816,7 @@ class StaffImportController extends Controller
         return $result;
     }
 
-    /**
-     * @param  array<int, mixed>  $row
-     */
+    /** @param  array<int, mixed>  $row */
     private function rowHasContent(array $row): bool
     {
         foreach ($row as $value) {
@@ -638,7 +835,6 @@ class StaffImportController extends Controller
     private function mapped(array $row, array $mapping, string $field): mixed
     {
         $header = $mapping[$field] ?? null;
-
         if (! is_string($header) || $header === '') {
             return null;
         }
@@ -658,9 +854,7 @@ class StaffImportController extends Controller
         if ($value === null || trim((string) $value) === '') {
             return null;
         }
-
         $normalized = str_replace([',', ' '], '', (string) $value);
-
         if (! is_numeric($normalized)) {
             return null;
         }
@@ -673,13 +867,11 @@ class StaffImportController extends Controller
         if ($value === null || trim((string) $value) === '') {
             return null;
         }
-
         if (is_numeric($value) && (float) $value > 20000) {
             return CarbonImmutable::instance(
                 ExcelDate::excelToDateTimeObject((float) $value)
             )->toDateString();
         }
-
         try {
             return CarbonImmutable::parse((string) $value)->toDateString();
         } catch (Throwable) {
@@ -690,7 +882,6 @@ class StaffImportController extends Controller
     private function boolean(mixed $value, bool $default): bool
     {
         $normalized = mb_strtolower(trim((string) ($value ?? '')));
-
         if ($normalized === '') {
             return $default;
         }
@@ -729,13 +920,14 @@ class StaffImportController extends Controller
     private function normalizeAttendanceStatus(mixed $value): ?string
     {
         $normalized = mb_strtolower(trim((string) ($value ?? '')));
-
-        if (in_array($normalized, ['present', 'حاضر', '1'], true)) {
+        if (in_array($normalized, ['present', 'حاضر', 'دوام', '1'], true)) {
             return 'present';
         }
-
-        if (in_array($normalized, ['absent', 'غائب', '0'], true)) {
+        if (in_array($normalized, ['absent', 'غائب', 'غياب', '0'], true)) {
             return 'absent';
+        }
+        if (in_array($normalized, ['holiday', 'day off', 'off', 'عطلة', 'عطله', 'إجازة', 'اجازة'], true)) {
+            return 'holiday';
         }
 
         return null;
