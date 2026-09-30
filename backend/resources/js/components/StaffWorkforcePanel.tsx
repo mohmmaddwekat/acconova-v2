@@ -1,4 +1,4 @@
-import { StaffPayrollTable, type StaffPayrollRow } from '@/components/staff/StaffPayrollTable';
+import { StaffPayrollTable, type StaffPayrollEmployee, type StaffPayrollRow } from '@/components/staff/StaffPayrollTable';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import {
@@ -56,6 +56,7 @@ type Data = {
         overtime: string;
     };
     payroll?: {
+        employee: StaffPayrollEmployee;
         rows: StaffPayrollRow[];
         currency: string;
         history_months: number;
@@ -139,7 +140,7 @@ export function StaffWorkforcePanel({
     const [historyStatus, setHistoryStatus] = useState<'' | 'present' | 'absent'>('');
     const [historyMonth, setHistoryMonth] = useState('');
     const [historySort, setHistorySort] = useState<'desc' | 'asc'>('desc');
-    const [perPage, setPerPage] = useState<20 | 50 | 100>(20);
+    const [perPage, setPerPage] = useState<10 | 20 | 50 | 100>(10);
 
     const copy = ar
         ? {
@@ -410,7 +411,7 @@ export function StaffWorkforcePanel({
         setHistoryStatus('');
         setHistoryMonth('');
         setHistorySort('desc');
-        setPerPage(20);
+        setPerPage(10);
         setPage(1);
     }
 
@@ -504,7 +505,8 @@ export function StaffWorkforcePanel({
                                 <option value="desc">{copy.newest}</option>
                                 <option value="asc">{copy.oldest}</option>
                             </select>
-                            <select value={perPage} onChange={(event) => setPerPage(Number(event.target.value) as 20 | 50 | 100)} className={compactField} aria-label={copy.rows}>
+                            <select value={perPage} onChange={(event) => setPerPage(Number(event.target.value) as 10 | 20 | 50 | 100)} className={compactField} aria-label={copy.rows}>
+                                <option value={10}>10</option>
                                 <option value={20}>20</option>
                                 <option value={50}>50</option>
                                 <option value={100}>100</option>
@@ -597,6 +599,7 @@ export function StaffWorkforcePanel({
             {saved && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{ar ? 'تم الحفظ.' : 'Saved.'}</p>}
 
             <StaffPayrollTable
+                employee={data?.payroll?.employee}
                 rows={data?.payroll?.rows ?? []}
                 currency={data?.payroll?.currency ?? currency}
                 ar={ar}
