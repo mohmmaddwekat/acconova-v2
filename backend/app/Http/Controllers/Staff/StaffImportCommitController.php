@@ -90,7 +90,7 @@ class StaffImportCommitController extends Controller
         $endRow = min($totalRows + 1, $startRow + $chunkSize - 1);
         $nextCursor = min($totalRows, $cursor + $chunkSize);
         $done = $nextCursor >= $totalRows;
-        $tempToken = pathinfo($token, PATHINFO_FILENAME).'-chunk-'.bin2hex(random_bytes(6)).'.xlsx';
+        $tempToken = pathinfo($token, PATHINFO_FILENAME).'-'.bin2hex(random_bytes(8)).'.xlsx';
         $tempPath = $directory.DIRECTORY_SEPARATOR.$tempToken;
         $originalToken = $token;
 
