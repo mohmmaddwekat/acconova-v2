@@ -14,7 +14,8 @@ use Illuminate\Validation\Rule;
 class StaffAttendanceHistoryController extends Controller
 {
     /**
-     * Return one employee's attendance history and a monthly payroll summary.
+     * Return one employee's attendance history and complete monthly payroll
+     * statement from the employee start date through the current month.
      *
      * Payroll semantics intentionally follow the UI/accounting workflow:
      * gross earnings = work + overtime + bonuses + allowances
@@ -35,7 +36,7 @@ class StaffAttendanceHistoryController extends Controller
             'status' => ['nullable', Rule::in(['present', 'absent'])],
             'month' => ['nullable', 'date_format:Y-m'],
             'sort' => ['nullable', Rule::in(['desc', 'asc'])],
-            'per_page' => ['nullable', 'integer', Rule::in([20, 50, 100])],
+            'per_page' => ['nullable', 'integer', Rule::in([10, 20, 50, 100])],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
@@ -74,7 +75,7 @@ class StaffAttendanceHistoryController extends Controller
             ->first();
 
         $sort = (string) ($filters['sort'] ?? 'desc');
-        $perPage = (int) ($filters['per_page'] ?? 20);
+        $perPage = (int) ($filters['per_page'] ?? 10);
 
         $attendance = $query
             ->orderBy('occurred_on', $sort)
@@ -94,18 +95,19 @@ class StaffAttendanceHistoryController extends Controller
 
         $currentMonth = CarbonImmutable::today()->startOfMonth();
         $firstMonth = CarbonImmutable::parse((string) $member->started_on)->startOfMonth();
-        $historyFloor = $currentMonth->subMonths(59);
 
-        if ($firstMonth->lt($historyFloor)) {
-            $firstMonth = $historyFloor;
+        if ($firstMonth->gt($currentMonth)) {
+            $firstMonth = $currentMonth;
         }
 
         $rangeStart = $firstMonth->startOfMonth()->toDateString();
         $rangeEnd = $currentMonth->endOfMonth()->toDateString();
 
         /*
-         * Aggregate only the payroll window actually displayed. StaffEntry uses
-         * soft deletes, so corrected/deleted rows never reappear in history.
+         * Do not cap payroll history. Pagination is a presentation concern and
+         * print/export must be able to include every payroll month belonging to
+         * the employee. StaffEntry uses soft deletes, so corrected/deleted rows
+         * never reappear in history.
          */
         $entryMonths = DB::table('staff_entries')
             ->where('staff_member_id', $member->id)
@@ -218,6 +220,15 @@ class StaffAttendanceHistoryController extends Controller
                 'overtime' => (string) ($summary?->overtime_total ?? '0'),
             ],
             'payroll' => [
+                'employee' => [
+                    'id' => (int) $member->id,
+                    'name' => (string) $member->name,
+                    'job_title' => $member->job_title,
+                    'basis' => (string) $member->basis,
+                    'unit' => $member->unit,
+                    'rate' => (string) $member->rate,
+                    'started_on' => substr((string) $member->started_on, 0, 10),
+                ],
                 'rows' => $payroll,
                 'currency' => $member->currency,
                 'history_months' => count($payroll),
