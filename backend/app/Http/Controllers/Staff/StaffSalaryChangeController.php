@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Staff;
 use App\Http\Controllers\Controller;
 use App\Models\StaffEntry;
 use App\Models\StaffMember;
+use App\Services\Staff\StaffMonthlyEntitlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,6 +85,7 @@ class StaffSalaryChangeController extends Controller
     public function store(
         Request $request,
         string $staff,
+        StaffMonthlyEntitlementService $entitlements,
     ): JsonResponse {
         $data = $request->validate([
             'rate' => [
@@ -147,6 +149,11 @@ class StaffSalaryChangeController extends Controller
 
                 return $member;
             },
+        );
+
+        $entitlements->syncMember(
+            $member,
+            (int) $request->user()->id,
         );
 
         return response()->json([
