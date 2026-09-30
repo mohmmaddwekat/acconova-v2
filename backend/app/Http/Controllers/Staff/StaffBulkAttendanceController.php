@@ -15,7 +15,7 @@ use Illuminate\Validation\Rule;
 
 class StaffBulkAttendanceController extends Controller
 {
-    private const CHUNK_SIZE = 100;
+    private const CHUNK_SIZE = 250;
 
     /**
      * Return one lightweight, server-paginated attendance roster for a date.
@@ -114,7 +114,7 @@ class StaffBulkAttendanceController extends Controller
     }
 
     /**
-     * Save selected employees or the next 100 matching employees. `all` mode
+     * Save selected employees or the next 250 matching employees. `all` mode
      * uses an ID cursor so the browser can keep submitting short predictable
      * requests even for very large workforces.
      */
