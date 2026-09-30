@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
-use App\Services\Staff\StaffMonthlyEntitlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +13,6 @@ class StaffImportCommitController extends Controller
         Request $request,
         StaffImportController $importer,
         StaffTransactionImportController $transactionImporter,
-        StaffMonthlyEntitlementService $entitlements,
     ): JsonResponse {
         if ($request->input('type') === 'transactions') {
             return $transactionImporter($request);
@@ -28,14 +26,11 @@ class StaffImportCommitController extends Controller
             ]);
         }
 
-        $response = $importer->commit($request);
-
-        if ($request->input('type') === 'attendance') {
-            $entitlements->syncOrganization(
-                (int) $request->user()->id,
-            );
-        }
-
-        return $response;
+        // Do not recalculate the entire organization's monthly payroll inside a large
+        // attendance import request. Attendance-derived work/overtime rows are already
+        // synchronized by the importer, while monthly entitlements are lazily refreshed
+        // by the staff ledger/overview endpoints. Keeping that organization-wide pass
+        // out of this request prevents large imports from hitting PHP's execution limit.
+        return $importer->commit($request);
     }
 }
