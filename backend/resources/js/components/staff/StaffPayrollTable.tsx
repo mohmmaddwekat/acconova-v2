@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 export type StaffPayrollRow = {
     period: string;
@@ -28,13 +29,18 @@ type Props = {
 const selectClass =
     'h-10 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs text-[var(--ac-text)] outline-none transition focus:border-[var(--ac-accent)]';
 
+const smallButton =
+    'inline-flex h-9 items-center justify-center gap-1.5 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-[11px] font-semibold text-[var(--ac-text)] transition hover:bg-[var(--ac-surface-soft)] disabled:cursor-not-allowed disabled:opacity-40';
+
+const PAGE_SIZE = 12;
+
 function money(value: string | number, currency: string): string {
     const amount = Number(value);
 
     return `${Number.isFinite(amount)
         ? amount.toLocaleString(undefined, {
               minimumFractionDigits: 0,
-              maximumFractionDigits: 4,
+              maximumFractionDigits: 2,
           })
         : value} ${currency}`;
 }
@@ -49,6 +55,19 @@ function periodLabel(period: string, ar: boolean): string {
     }).format(date);
 }
 
+function hasActivity(row: StaffPayrollRow): boolean {
+    return row.present > 0
+        || row.absent > 0
+        || Number(row.work) !== 0
+        || Number(row.overtime) !== 0
+        || Number(row.bonus) !== 0
+        || Number(row.allowances) !== 0
+        || Number(row.deductions) !== 0
+        || Number(row.payments) !== 0
+        || Number(row.advances) !== 0
+        || Number(row.remaining) !== 0;
+}
+
 export function StaffPayrollTable({
     rows,
     currency,
@@ -56,28 +75,52 @@ export function StaffPayrollTable({
     loading = false,
 }: Props) {
     const [year, setYear] = useState('all');
+    const [showEmpty, setShowEmpty] = useState(false);
+    const [page, setPage] = useState(1);
+
+    const activityRows = useMemo(
+        () => rows.filter(hasActivity),
+        [rows],
+    );
+
+    const sourceRows = showEmpty ? rows : activityRows;
 
     const years = useMemo(
         () =>
             Array.from(
-                new Set(
-                    rows.map((row) => row.period.slice(0, 4)),
-                ),
+                new Set(sourceRows.map((row) => row.period.slice(0, 4))),
             ).sort((a, b) => Number(b) - Number(a)),
-        [rows],
+        [sourceRows],
     );
 
-    const visibleRows = useMemo(
+    const filteredRows = useMemo(
         () =>
             year === 'all'
-                ? rows
-                : rows.filter((row) => row.period.startsWith(`${year}-`)),
-        [rows, year],
+                ? sourceRows
+                : sourceRows.filter((row) => row.period.startsWith(`${year}-`)),
+        [sourceRows, year],
+    );
+
+    useEffect(() => {
+        setPage(1);
+    }, [year, showEmpty, rows]);
+
+    useEffect(() => {
+        if (year !== 'all' && !years.includes(year)) {
+            setYear('all');
+        }
+    }, [year, years]);
+
+    const lastPage = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+    const safePage = Math.min(page, lastPage);
+    const visibleRows = filteredRows.slice(
+        (safePage - 1) * PAGE_SIZE,
+        safePage * PAGE_SIZE,
     );
 
     const totals = useMemo(
         () =>
-            visibleRows.reduce(
+            filteredRows.reduce(
                 (result, row) => ({
                     earned: result.earned + Number(row.net_before_payment || 0),
                     settled: result.settled + Number(row.settled || 0),
@@ -85,7 +128,7 @@ export function StaffPayrollTable({
                 }),
                 { earned: 0, settled: 0, remaining: 0 },
             ),
-        [visibleRows],
+        [filteredRows],
     );
 
     const statusLabel: Record<StaffPayrollRow['status'], string> = {
@@ -105,40 +148,56 @@ export function StaffPayrollTable({
     };
 
     return (
-        <section className="overflow-hidden rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
+        <section className="w-full overflow-hidden rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
             <div className="border-b border-[var(--ac-line)] p-4 sm:p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                         <h3 className="font-semibold">
-                            {ar ? 'جدول الرواتب الشهري' : 'Monthly payroll table'}
+                            {ar ? 'جدول الرواتب الشهري' : 'Monthly payroll'}
                         </h3>
                         <p className="mt-1.5 max-w-2xl text-xs leading-5 text-[var(--ac-text-muted)]">
                             {ar
-                                ? 'ملخص شهري محسوب من الحضور والإضافي والمكافآت والبدلات والخصومات والدفعات والسلف.'
-                                : 'Monthly payroll calculated from attendance, overtime, bonuses, allowances, deductions, payments and advances.'}
+                                ? 'يعرض الأشهر التي فيها حضور أو استحقاق أو خصم أو دفعة. الأشهر الفارغة مخفية تلقائيًا.'
+                                : 'Shows months with attendance, earnings, deductions or payments. Empty months are hidden by default.'}
                         </p>
                     </div>
 
-                    <label className="flex items-center gap-2 text-xs font-semibold">
-                        <span>{ar ? 'السنة' : 'Year'}</span>
-                        <select
-                            value={year}
-                            onChange={(event) => setYear(event.target.value)}
-                            className={selectClass}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <label className="flex items-center gap-2 text-xs font-semibold">
+                            <span>{ar ? 'السنة' : 'Year'}</span>
+                            <select
+                                value={year}
+                                onChange={(event) => setYear(event.target.value)}
+                                className={selectClass}
+                            >
+                                <option value="all">{ar ? 'كل السنوات' : 'All years'}</option>
+                                {years.map((item) => (
+                                    <option key={item} value={item}>
+                                        {item}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <button
+                            type="button"
+                            className={smallButton}
+                            onClick={() => setShowEmpty((current) => !current)}
                         >
-                            <option value="all">{ar ? 'كل السنوات' : 'All years'}</option>
-                            {years.map((item) => (
-                                <option key={item} value={item}>
-                                    {item}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                            {showEmpty
+                                ? ar
+                                    ? 'إخفاء الأشهر الفارغة'
+                                    : 'Hide empty months'
+                                : ar
+                                  ? 'إظهار الأشهر الفارغة'
+                                  : 'Show empty months'}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="mt-4 grid gap-2 sm:grid-cols-3">
                     <PayrollMetric
-                        label={ar ? 'الاستحقاق بعد الخصم' : 'Earned after deductions'}
+                        label={ar ? 'صافي المستحق' : 'Net entitlement'}
                         value={money(totals.earned, currency)}
                     />
                     <PayrollMetric
@@ -155,78 +214,108 @@ export function StaffPayrollTable({
 
             {loading ? (
                 <div className="p-10 text-center text-xs text-[var(--ac-text-muted)]">
-                    {ar ? 'جاري تحميل جدول الرواتب…' : 'Loading payroll table…'}
+                    {ar ? 'جاري تحميل الرواتب…' : 'Loading payroll…'}
+                </div>
+            ) : !filteredRows.length ? (
+                <div className="p-10 text-center">
+                    <p className="text-sm font-semibold text-[var(--ac-text)]">
+                        {ar ? 'لا توجد حركات رواتب بعد' : 'No payroll activity yet'}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
+                        {ar
+                            ? 'سجّل حضورًا أو مكافأة أو خصمًا أو دفعة وسيظهر الشهر هنا تلقائيًا.'
+                            : 'Record attendance, an adjustment or a payment and the month will appear here.'}
+                    </p>
                 </div>
             ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1180px] text-start text-xs">
-                        <thead className="bg-[var(--ac-surface-soft)] text-[10px] text-[var(--ac-text-muted)]">
-                            <tr>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'الشهر' : 'Month'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'الحضور' : 'Attendance'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'الراتب / العمل' : 'Salary / work'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'الإضافي' : 'Overtime'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'البدلات' : 'Allowances'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'المكافآت' : 'Bonuses'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'الخصومات' : 'Deductions'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'المستحق' : 'Due before payment'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'المدفوع / السلف' : 'Paid / advances'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'المتبقي' : 'Remaining'}</th>
-                                <th className="px-4 py-3 font-semibold">{ar ? 'الحالة' : 'Status'}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--ac-line)]">
-                            {visibleRows.map((row) => (
-                                <tr key={row.period} className="transition hover:bg-[var(--ac-surface-soft)]">
-                                    <td className="whitespace-nowrap px-4 py-3.5 font-semibold">
-                                        <div>{periodLabel(row.period, ar)}</div>
-                                        <div className="mt-0.5 text-[9px] font-normal text-[var(--ac-text-muted)]">{row.period}</div>
-                                    </td>
-                                    <td className="whitespace-nowrap px-4 py-3.5">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-semibold text-emerald-700">
-                                                {ar ? 'ح' : 'P'} {row.present}
-                                            </span>
-                                            <span className="rounded-full bg-red-50 px-2 py-1 text-[9px] font-semibold text-red-700">
-                                                {ar ? 'غ' : 'A'} {row.absent}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <MoneyCell value={row.work} currency={currency} />
-                                    <MoneyCell value={row.overtime} currency={currency} />
-                                    <MoneyCell value={row.allowances} currency={currency} />
-                                    <MoneyCell value={row.bonus} currency={currency} />
-                                    <MoneyCell value={row.deductions} currency={currency} negative />
-                                    <MoneyCell value={row.net_before_payment} currency={currency} strong />
-                                    <td className="whitespace-nowrap px-4 py-3.5 tabular-nums">
-                                        <div>{money(row.settled, currency)}</div>
-                                        {(Number(row.payments) > 0 || Number(row.advances) > 0) && (
-                                            <div className="mt-1 text-[9px] text-[var(--ac-text-muted)]">
-                                                {ar ? 'دفعات' : 'Payments'} {money(row.payments, currency)}
-                                                {' · '}
-                                                {ar ? 'سلف' : 'Advances'} {money(row.advances, currency)}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <MoneyCell value={row.remaining} currency={currency} strong balance />
-                                    <td className="whitespace-nowrap px-4 py-3.5">
-                                        <span className={`rounded-full px-2.5 py-1.5 text-[9px] font-semibold ${statusClass[row.status]}`}>
-                                            {statusLabel[row.status]}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-
-                            {!visibleRows.length && (
+                <>
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[1020px] text-start text-xs">
+                            <thead className="bg-[var(--ac-surface-soft)] text-[10px] text-[var(--ac-text-muted)]">
                                 <tr>
-                                    <td colSpan={11} className="p-10 text-center text-xs text-[var(--ac-text-muted)]">
-                                        {ar ? 'لا توجد أشهر مطابقة.' : 'No matching payroll months.'}
-                                    </td>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'الشهر' : 'Month'}</th>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'ح/غ' : 'P/A'}</th>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'العمل' : 'Work'}</th>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'إضافي' : 'OT'}</th>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'بدلات + مكافآت' : 'Benefits + bonus'}</th>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'خصومات' : 'Deductions'}</th>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'صافي المستحق' : 'Net due'}</th>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'مدفوع + سلف' : 'Paid + advances'}</th>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'المتبقي' : 'Remaining'}</th>
+                                    <th className="px-3 py-3 font-semibold">{ar ? 'الحالة' : 'Status'}</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--ac-line)]">
+                                {visibleRows.map((row) => (
+                                    <tr key={row.period} className="transition hover:bg-[var(--ac-surface-soft)]">
+                                        <td className="whitespace-nowrap px-3 py-3 font-semibold">
+                                            <div>{periodLabel(row.period, ar)}</div>
+                                            <div className="mt-0.5 text-[9px] font-normal text-[var(--ac-text-muted)]">{row.period}</div>
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-3">
+                                            <span className="text-emerald-700">{ar ? 'ح' : 'P'} {row.present}</span>
+                                            <span className="mx-1 text-[var(--ac-line-strong)]">/</span>
+                                            <span className="text-red-700">{ar ? 'غ' : 'A'} {row.absent}</span>
+                                        </td>
+                                        <MoneyCell value={row.work} currency={currency} />
+                                        <MoneyCell value={row.overtime} currency={currency} />
+                                        <MoneyCell value={Number(row.allowances) + Number(row.bonus)} currency={currency} />
+                                        <MoneyCell value={row.deductions} currency={currency} negative />
+                                        <MoneyCell value={row.net_before_payment} currency={currency} strong />
+                                        <td className="whitespace-nowrap px-3 py-3 tabular-nums">
+                                            <div>{money(row.settled, currency)}</div>
+                                            {Number(row.advances) > 0 && (
+                                                <div className="mt-0.5 text-[9px] text-[var(--ac-text-muted)]">
+                                                    {ar ? 'منها سلف' : 'Advances'} {money(row.advances, currency)}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <MoneyCell value={row.remaining} currency={currency} strong balance />
+                                        <td className="whitespace-nowrap px-3 py-3">
+                                            <span className={`rounded-full px-2.5 py-1.5 text-[9px] font-semibold ${statusClass[row.status]}`}>
+                                                {statusLabel[row.status]}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="flex flex-col gap-2 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-[10px] text-[var(--ac-text-muted)]">
+                            {ar ? 'عرض' : 'Showing'}{' '}
+                            {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredRows.length)}{' '}
+                            {ar ? 'من' : 'of'} {filteredRows.length}
+                        </p>
+
+                        {lastPage > 1 && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    className={smallButton}
+                                    disabled={safePage <= 1}
+                                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                                >
+                                    {ar ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+                                    {ar ? 'السابق' : 'Previous'}
+                                </button>
+                                <span className="text-[10px] text-[var(--ac-text-muted)]">
+                                    {safePage} / {lastPage}
+                                </span>
+                                <button
+                                    type="button"
+                                    className={smallButton}
+                                    disabled={safePage >= lastPage}
+                                    onClick={() => setPage((current) => Math.min(lastPage, current + 1))}
+                                >
+                                    {ar ? 'التالي' : 'Next'}
+                                    {ar ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </>
             )}
         </section>
     );
@@ -261,7 +350,7 @@ function MoneyCell({
     strong = false,
     balance = false,
 }: {
-    value: string;
+    value: string | number;
     currency: string;
     negative?: boolean;
     strong?: boolean;
@@ -279,7 +368,7 @@ function MoneyCell({
           : '';
 
     return (
-        <td className={`whitespace-nowrap px-4 py-3.5 tabular-nums ${strong ? 'font-semibold' : ''} ${className}`}>
+        <td className={`whitespace-nowrap px-3 py-3 tabular-nums ${strong ? 'font-semibold' : ''} ${className}`}>
             {money(value, currency)}
         </td>
     );
