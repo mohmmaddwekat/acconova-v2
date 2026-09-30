@@ -133,4 +133,62 @@ class StaffAttendanceImportPayrollTest extends TestCase
         $member = StaffMember::findOrFail($staffId);
         $this->assertSame('عبد الرحمان', $member->name);
     }
+
+    public function test_attendance_import_immediately_updates_monthly_salary_entitlement(): void
+    {
+        $user = User::factory()->create();
+        $organization = Organization::create(['name' => 'Monthly attendance import test']);
+        $organization->users()->attach($user->id, ['role' => 'owner']);
+        app(TenantContext::class)->set($organization, OrganizationRole::Owner);
+        $this->actingAs($user)->withSession([
+            OrganizationAccess::SESSION_KEY => $organization->id,
+        ]);
+
+        $staffId = $this
+            ->postJson('/api/staff', [
+                'name' => 'Monthly worker',
+                'basis' => 'month',
+                'rate' => '2600',
+                'monthly_allowance' => '0',
+                'currency' => 'ILS',
+                'started_on' => '2026-01-01',
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $preview = $this
+            ->post('/api/staff-import/preview', [
+                'file' => UploadedFile::fake()->createWithContent(
+                    'monthly-attendance.csv',
+                    "Employee,Date,Status\n"
+                    ."Monthly worker,2026-09-16,present\n",
+                ),
+            ])
+            ->assertOk()
+            ->json();
+
+        $this
+            ->postJson('/api/staff-import/commit', [
+                'token' => $preview['token'],
+                'sheet' => $preview['sheets'][0]['name'],
+                'type' => 'attendance',
+                'match_by' => 'name',
+                'duplicate_strategy' => 'skip',
+                'mapping' => [
+                    'employee' => 'Employee',
+                    'occurred_on' => 'Date',
+                    'status' => 'Status',
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('created', 1);
+
+        $this->assertDatabaseHas('staff_entries', [
+            'staff_member_id' => $staffId,
+            'kind' => 'work',
+            'occurred_on' => '2026-09-01',
+            'quantity' => '1.0000',
+            'amount' => '100.0000',
+        ]);
+    }
 }
