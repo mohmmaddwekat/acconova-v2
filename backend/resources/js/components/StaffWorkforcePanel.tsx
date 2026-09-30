@@ -134,7 +134,6 @@ export function StaffWorkforcePanel({
     const [error, setError] = useState('');
     const [saved, setSaved] = useState(false);
     const [correction, setCorrection] = useState<Correction | null>(null);
-
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [historyStatus, setHistoryStatus] = useState<'' | 'present' | 'absent'>('');
@@ -171,10 +170,9 @@ export function StaffWorkforcePanel({
               filteredTotal: 'النتائج',
               totalPresent: 'حاضر',
               totalAbsent: 'غائب',
-              totalQuantity: basis === 'hour' ? 'إجمالي الساعات' : basis === 'piece' ? 'إجمالي الوحدات' : 'إجمالي الكمية',
               totalOvertime: 'إجمالي الإضافي',
               recurring: 'البدلات والخصومات المستمرة',
-              recurringHelp: 'أنشئ بندًا يتكرر شهريًا. يمكن تصحيح البند أو حذفه مع الاحتفاظ بسجل التدقيق.',
+              recurringHelp: 'أضف البدلات أو المكافآت أو الخصومات المتكررة. جدول الرواتب أعلاه يعكسها تلقائيًا.',
               name: 'اسم البند',
               kind: 'النوع',
               allowance: 'بدل',
@@ -223,10 +221,9 @@ export function StaffWorkforcePanel({
               filteredTotal: 'Results',
               totalPresent: 'Present',
               totalAbsent: 'Absent',
-              totalQuantity: basis === 'hour' ? 'Total hours' : basis === 'piece' ? 'Total units' : 'Total quantity',
               totalOvertime: 'Total overtime',
               recurring: 'Recurring benefits & deductions',
-              recurringHelp: 'Create monthly recurring items. Rules can be corrected or removed while preserving audit history.',
+              recurringHelp: 'Add recurring allowances, bonuses or deductions. The payroll table above reflects them automatically.',
               name: 'Item name',
               kind: 'Type',
               allowance: 'Allowance',
@@ -249,10 +246,7 @@ export function StaffWorkforcePanel({
           };
 
     useEffect(() => {
-        const timer = window.setTimeout(() => {
-            setDebouncedSearch(search.trim());
-        }, 300);
-
+        const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
         return () => window.clearTimeout(timer);
     }, [search]);
 
@@ -484,9 +478,7 @@ export function StaffWorkforcePanel({
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div>
                                 <h3 className="text-sm font-semibold">{copy.history}</h3>
-                                <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
-                                    {attendance?.total ?? 0} {copy.record}
-                                </p>
+                                <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">{attendance?.total ?? 0} {copy.record}</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -502,26 +494,21 @@ export function StaffWorkforcePanel({
                                 <Search className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]" size={14} />
                                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={copy.search} className={`${compactField} ps-9`} />
                             </label>
-
                             <input type="month" value={historyMonth} onChange={(event) => setHistoryMonth(event.target.value)} aria-label={copy.month} className={compactField} />
-
                             <select value={historyStatus} onChange={(event) => setHistoryStatus(event.target.value as '' | 'present' | 'absent')} className={compactField}>
                                 <option value="">{copy.statusAll}</option>
                                 <option value="present">{copy.present}</option>
                                 <option value="absent">{copy.absent}</option>
                             </select>
-
                             <select value={historySort} onChange={(event) => setHistorySort(event.target.value as 'desc' | 'asc')} className={compactField}>
                                 <option value="desc">{copy.newest}</option>
                                 <option value="asc">{copy.oldest}</option>
                             </select>
-
                             <select value={perPage} onChange={(event) => setPerPage(Number(event.target.value) as 20 | 50 | 100)} className={compactField} aria-label={copy.rows}>
                                 <option value={20}>20</option>
                                 <option value={50}>50</option>
                                 <option value={100}>100</option>
                             </select>
-
                             <button type="button" className={button} onClick={clearAttendanceFilters}>
                                 <RotateCcw size={13} />
                                 {copy.clear}
@@ -573,9 +560,7 @@ export function StaffWorkforcePanel({
                                 </article>
                             ))}
 
-                            {!attendance?.data.length && (
-                                <p className="p-10 text-center text-xs text-[var(--ac-text-muted)]">{copy.empty}</p>
-                            )}
+                            {!attendance?.data.length && <p className="p-10 text-center text-xs text-[var(--ac-text-muted)]">{copy.empty}</p>}
                         </div>
                     )}
 
@@ -585,7 +570,6 @@ export function StaffWorkforcePanel({
                                 {copy.showing} {attendance.from ?? 0}–{attendance.to ?? 0} {copy.of} {attendance.total} {copy.record}
                                 {' · '}{copy.page} {attendance.current_page} / {Math.max(1, attendance.last_page)}
                             </p>
-
                             <div className="flex items-center gap-2">
                                 <button type="button" className={button} disabled={page <= 1 || loading} onClick={() => setPage((current) => Math.max(1, current - 1))}>
                                     {ar ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
@@ -608,7 +592,7 @@ export function StaffWorkforcePanel({
     const through = previousCompletedMonth();
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-5 xl:col-span-2 xl:col-start-1">
             {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {saved && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{ar ? 'تم الحفظ.' : 'Saved.'}</p>}
 
@@ -619,95 +603,95 @@ export function StaffWorkforcePanel({
                 loading={loading}
             />
 
-            <section className="rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5">
-                <h3 className="font-semibold">{copy.recurring}</h3>
-                <p className="mt-2 text-xs leading-5 text-[var(--ac-text-muted)]">{copy.recurringHelp}</p>
+            <div className="grid gap-5 xl:grid-cols-2">
+                <section className="rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5">
+                    <h3 className="font-semibold">{copy.recurring}</h3>
+                    <p className="mt-2 text-xs leading-5 text-[var(--ac-text-muted)]">{copy.recurringHelp}</p>
 
-                {canManagePay && (
-                    <form onSubmit={(event) => void submitAdjustment(event)} className="mt-5">
-                        <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
-                            <label className="text-xs font-semibold">
-                                {copy.name}
-                                <input required maxLength={255} name="label" className={field} />
-                            </label>
-                            <label className="text-xs font-semibold">
-                                {copy.kind}
-                                <select name="kind" className={field}>
-                                    <option value="allowance">{copy.allowance}</option>
-                                    <option value="bonus">{copy.bonus}</option>
-                                    <option value="deduction">{copy.deduction}</option>
-                                </select>
-                            </label>
-                            <label className="text-xs font-semibold">
-                                {copy.amount} ({currency})
-                                <input required type="number" min="0.0001" max="999999999" step="0.0001" name="amount" className={field} />
-                            </label>
-                            <label className="text-xs font-semibold">
-                                {copy.start}
-                                <input required type="date" defaultValue={today()} name="starts_on" className={field} />
-                            </label>
-                            <label className="text-xs font-semibold">
-                                {copy.end}
-                                <input type="date" name="ends_on" className={field} />
-                            </label>
-                            <div className="flex items-end">
-                                <button className={`${primaryButton} w-full`}>
-                                    <Plus size={14} />
-                                    {copy.add}
-                                </button>
-                            </div>
-                        </fieldset>
-                    </form>
-                )}
-            </section>
-
-            <section className="rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5">
-                <div className="space-y-2">
-                    {data?.adjustments.map((rule) => (
-                        <div key={rule.id} className="rounded-[16px] bg-[var(--ac-surface-soft)] p-4">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <strong className="text-sm">{rule.label}</strong>
-                                    <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
-                                        {copy[rule.kind]} · {rule.amount} {currency}
-                                    </p>
-                                    <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">{rule.starts_on} — {rule.ends_on ?? copy.ongoing}</p>
+                    {canManagePay && (
+                        <form onSubmit={(event) => void submitAdjustment(event)} className="mt-5">
+                            <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
+                                <label className="text-xs font-semibold">
+                                    {copy.name}
+                                    <input required maxLength={255} name="label" className={field} />
+                                </label>
+                                <label className="text-xs font-semibold">
+                                    {copy.kind}
+                                    <select name="kind" className={field}>
+                                        <option value="allowance">{copy.allowance}</option>
+                                        <option value="bonus">{copy.bonus}</option>
+                                        <option value="deduction">{copy.deduction}</option>
+                                    </select>
+                                </label>
+                                <label className="text-xs font-semibold">
+                                    {copy.amount} ({currency})
+                                    <input required type="number" min="0.0001" max="999999999" step="0.0001" name="amount" className={field} />
+                                </label>
+                                <label className="text-xs font-semibold">
+                                    {copy.start}
+                                    <input required type="date" defaultValue={today()} name="starts_on" className={field} />
+                                </label>
+                                <label className="text-xs font-semibold">
+                                    {copy.end}
+                                    <input type="date" name="ends_on" className={field} />
+                                </label>
+                                <div className="flex items-end">
+                                    <button className={`${primaryButton} w-full`}>
+                                        <Plus size={14} />
+                                        {copy.add}
+                                    </button>
                                 </div>
-
-                                {canManagePay && (
-                                    <div className="flex flex-wrap gap-2">
-                                        <button type="button" className={button} onClick={() => setCorrection({ type: 'adjustment', action: 'edit', row: rule })}>
-                                            <Pencil size={13} />
-                                            {copy.edit}
-                                        </button>
-                                        <button type="button" className="inline-flex items-center gap-2 rounded-[13px] border border-red-200 px-3 py-2 text-xs font-semibold text-red-700" onClick={() => setCorrection({ type: 'adjustment', action: 'delete', row: rule })}>
-                                            <Trash2 size={13} />
-                                            {copy.remove}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-
-                    {!data?.adjustments.length && (
-                        <p className="rounded-xl border border-dashed border-[var(--ac-line)] p-6 text-center text-xs text-[var(--ac-text-muted)]">{copy.empty}</p>
+                            </fieldset>
+                        </form>
                     )}
-                </div>
+                </section>
 
-                {canManagePay && (
-                    <form className="mt-5 flex flex-col gap-3 border-t border-[var(--ac-line)] pt-5 sm:flex-row sm:items-end" onSubmit={(event) => {
-                        event.preventDefault();
-                        void send('adjustments/accrue', Object.fromEntries(new FormData(event.currentTarget)));
-                    }}>
-                        <label className="flex-1 text-xs font-semibold">
-                            {copy.through}
-                            <input required type="month" name="through" defaultValue={through} max={through} className={field} />
-                        </label>
-                        <button disabled={busy} className={primaryButton}>{copy.accrue}</button>
-                    </form>
-                )}
-            </section>
+                <section className="rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5">
+                    <div className="space-y-2">
+                        {data?.adjustments.map((rule) => (
+                            <div key={rule.id} className="rounded-[16px] bg-[var(--ac-surface-soft)] p-4">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <strong className="text-sm">{rule.label}</strong>
+                                        <p className="mt-1 text-xs text-[var(--ac-text-muted)]">{copy[rule.kind]} · {rule.amount} {currency}</p>
+                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">{rule.starts_on} — {rule.ends_on ?? copy.ongoing}</p>
+                                    </div>
+
+                                    {canManagePay && (
+                                        <div className="flex flex-wrap gap-2">
+                                            <button type="button" className={button} onClick={() => setCorrection({ type: 'adjustment', action: 'edit', row: rule })}>
+                                                <Pencil size={13} />
+                                                {copy.edit}
+                                            </button>
+                                            <button type="button" className="inline-flex items-center gap-2 rounded-[13px] border border-red-200 px-3 py-2 text-xs font-semibold text-red-700" onClick={() => setCorrection({ type: 'adjustment', action: 'delete', row: rule })}>
+                                                <Trash2 size={13} />
+                                                {copy.remove}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+
+                        {!data?.adjustments.length && (
+                            <p className="rounded-xl border border-dashed border-[var(--ac-line)] p-6 text-center text-xs text-[var(--ac-text-muted)]">{copy.empty}</p>
+                        )}
+                    </div>
+
+                    {canManagePay && (
+                        <form className="mt-5 flex flex-col gap-3 border-t border-[var(--ac-line)] pt-5 sm:flex-row sm:items-end" onSubmit={(event) => {
+                            event.preventDefault();
+                            void send('adjustments/accrue', Object.fromEntries(new FormData(event.currentTarget)));
+                        }}>
+                            <label className="flex-1 text-xs font-semibold">
+                                {copy.through}
+                                <input required type="month" name="through" defaultValue={through} max={through} className={field} />
+                            </label>
+                            <button disabled={busy} className={primaryButton}>{copy.accrue}</button>
+                        </form>
+                    )}
+                </section>
+            </div>
 
             <CorrectionDialog correction={correction} copy={copy} currency={currency} busy={busy} onClose={() => setCorrection(null)} onSubmit={submitCorrection} />
         </div>
