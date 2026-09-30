@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Support\StaffImportWorksheetInspector;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class StaffImportCommitController extends Controller
         Request $request,
         StaffImportController $importer,
         StaffTransactionImportController $transactionImporter,
+        StaffImportWorksheetInspector $worksheetInspector,
     ): JsonResponse {
         if ($request->input('type') === 'payroll') {
             throw ValidationException::withMessages([
@@ -38,7 +40,13 @@ class StaffImportCommitController extends Controller
         // Backward compatibility for API consumers that still submit one-shot imports.
         // The browser client sends cursor=0 and then follows progress.next_cursor.
         if (! $request->has('cursor')) {
-            return $this->commitChunk($request, $importer, $transactionImporter, null);
+            return $this->commitChunk(
+                $request,
+                $importer,
+                $transactionImporter,
+                $worksheetInspector,
+                null,
+            );
         }
 
         $request->validate([
@@ -50,6 +58,7 @@ class StaffImportCommitController extends Controller
             $request,
             $importer,
             $transactionImporter,
+            $worksheetInspector,
             (int) $request->input('cursor', 0),
         );
     }
@@ -58,6 +67,7 @@ class StaffImportCommitController extends Controller
         Request $request,
         StaffImportController $importer,
         StaffTransactionImportController $transactionImporter,
+        StaffImportWorksheetInspector $worksheetInspector,
         ?int $cursor,
     ): JsonResponse {
         if ($cursor === null) {
@@ -88,7 +98,16 @@ class StaffImportCommitController extends Controller
 
         abort_unless($sheetInfo, 422, 'The selected sheet no longer exists in the uploaded file.');
 
-        $totalRows = max(0, (int) ($sheetInfo['totalRows'] ?? 0) - 1);
+        $metadataLastRow = max(0, (int) ($sheetInfo['totalRows'] ?? 0));
+        $bounds = $worksheetInspector->inspect(
+            $sourcePath,
+            $sheetName,
+            $metadataLastRow,
+        );
+
+        // Cursor counts physical rows after the header. Using the last real data row
+        // prevents Excel formatting out to row 1000/10000 from generating empty chunks.
+        $totalRows = max(0, (int) $bounds['last_data_row'] - 1);
         $cursor = min($cursor, $totalRows);
         $startRow = $cursor + 2;
         $endRow = min($totalRows + 1, $startRow + $chunkSize - 1);
