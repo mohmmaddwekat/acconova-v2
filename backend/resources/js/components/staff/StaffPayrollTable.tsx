@@ -1,11 +1,15 @@
+import { apiRequest } from '@/lib/http';
 import type { AppPageProps } from '@/types/app';
 import { usePage } from '@inertiajs/react';
 import {
     ChevronLeft,
     ChevronRight,
+    Pencil,
     Printer,
+    Trash2,
+    X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import './StaffPayrollTable.css';
 
 export type StaffPayrollEmployee = {
@@ -16,6 +20,13 @@ export type StaffPayrollEmployee = {
     unit: string | null;
     rate: string;
     started_on: string;
+};
+
+export type StaffPayrollPayment = {
+    id: number;
+    occurred_on: string;
+    amount: string;
+    notes: string | null;
 };
 
 export type StaffPayrollRow = {
@@ -35,6 +46,7 @@ export type StaffPayrollRow = {
     advances: string;
     net_entitlement: string;
     payments: string;
+    payment_entries?: StaffPayrollPayment[];
     remaining: string;
     status: 'empty' | 'due' | 'partial' | 'paid' | 'advance' | 'overpaid';
 };
@@ -45,6 +57,13 @@ type Props = {
     currency: string;
     ar: boolean;
     loading?: boolean;
+    canPay?: boolean;
+    onChanged?: () => void;
+};
+
+type PaymentCorrection = {
+    payment: StaffPayrollPayment;
+    action: 'edit' | 'delete';
 };
 
 const selectClass =
@@ -53,13 +72,16 @@ const selectClass =
 const buttonClass =
     'inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3.5 text-xs font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)] disabled:cursor-not-allowed disabled:opacity-40';
 
+const inputClass =
+    'mt-2 w-full rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 py-2.5 text-sm outline-none focus:border-[var(--ac-accent)]';
+
+/** Display-only rounding. Stored payroll values remain untouched. */
 function money(value: string | number, currency: string): string {
     const amount = Number(value);
 
     return `${Number.isFinite(amount)
-        ? amount.toLocaleString(undefined, {
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 4,
+        ? Math.round(amount).toLocaleString(undefined, {
+              maximumFractionDigits: 0,
           })
         : value} ${currency}`;
 }
@@ -103,6 +125,8 @@ export function StaffPayrollTable({
     currency,
     ar,
     loading = false,
+    canPay = false,
+    onChanged,
 }: Props) {
     const organizationName =
         usePage<AppPageProps>().props.workspace.activeOrganization?.name
@@ -111,6 +135,10 @@ export function StaffPayrollTable({
     const [showEmpty, setShowEmpty] = useState(false);
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState<10 | 20 | 50 | 100>(10);
+    const [paymentRow, setPaymentRow] = useState<StaffPayrollRow | null>(null);
+    const [paymentCorrection, setPaymentCorrection] = useState<PaymentCorrection | null>(null);
+    const [paymentBusy, setPaymentBusy] = useState(false);
+    const [paymentError, setPaymentError] = useState('');
 
     const years = useMemo(
         () =>
@@ -193,6 +221,47 @@ export function StaffPayrollTable({
         ? (ar ? 'كل السنوات' : 'All years')
         : year;
 
+    async function submitPaymentCorrection(event: FormEvent<HTMLFormElement>): Promise<void> {
+        event.preventDefault();
+
+        if (!employee || !paymentCorrection || paymentBusy) return;
+
+        const values = Object.fromEntries(new FormData(event.currentTarget));
+        const payload: Record<string, unknown> = {
+            reason: values.reason,
+        };
+
+        if (paymentCorrection.action === 'edit') {
+            payload.amount = values.amount;
+            payload.notes = values.notes ?? '';
+        }
+
+        setPaymentBusy(true);
+        setPaymentError('');
+
+        try {
+            await apiRequest(
+                `/api/staff/${employee.id}/entries/${paymentCorrection.payment.id}`,
+                {
+                    method: paymentCorrection.action === 'delete' ? 'DELETE' : 'PATCH',
+                    body: JSON.stringify(payload),
+                },
+            );
+
+            setPaymentCorrection(null);
+            setPaymentRow(null);
+            onChanged?.();
+        } catch (failure) {
+            setPaymentError(
+                failure instanceof Error
+                    ? failure.message
+                    : (ar ? 'تعذر تصحيح الدفعة.' : 'Failed to correct payment.'),
+            );
+        } finally {
+            setPaymentBusy(false);
+        }
+    }
+
     return (
         <>
             <section className="ac-payroll-table overflow-hidden rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
@@ -204,23 +273,17 @@ export function StaffPayrollTable({
                             </h3>
                             <p className="mt-1.5 max-w-3xl text-xs leading-5 text-[var(--ac-text-muted)]">
                                 {ar
-                                    ? 'يعرض كل عناصر الراتب منفصلة: الشغل، الإضافي، المكافآت، البدلات، الخصومات، السلف، الدفعات والمتبقي.'
-                                    : 'Every payroll component is shown separately: work, overtime, bonuses, allowances, deductions, advances, payments and remaining balance.'}
+                                    ? 'كل عنصر ظاهر لوحده. اضغط على المدفوع في أي شهر لعرض الدفعات الفردية وتعديلها أو حذفها.'
+                                    : 'Each payroll component is separate. Open Paid in any month to manage individual payments.'}
                             </p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
                             <label className="flex items-center gap-2 text-xs font-semibold">
                                 <span>{ar ? 'السنة' : 'Year'}</span>
-                                <select
-                                    value={year}
-                                    onChange={(event) => setYear(event.target.value)}
-                                    className={selectClass}
-                                >
+                                <select value={year} onChange={(event) => setYear(event.target.value)} className={selectClass}>
                                     <option value="all">{ar ? 'كل السنوات' : 'All years'}</option>
-                                    {years.map((item) => (
-                                        <option key={item} value={item}>{item}</option>
-                                    ))}
+                                    {years.map((item) => <option key={item} value={item}>{item}</option>)}
                                 </select>
                             </label>
 
@@ -239,11 +302,7 @@ export function StaffPayrollTable({
                             </label>
 
                             <label className="flex h-10 cursor-pointer items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold">
-                                <input
-                                    type="checkbox"
-                                    checked={showEmpty}
-                                    onChange={(event) => setShowEmpty(event.target.checked)}
-                                />
+                                <input type="checkbox" checked={showEmpty} onChange={(event) => setShowEmpty(event.target.checked)} />
                                 {ar ? 'إظهار الأشهر بدون حركة' : 'Show empty months'}
                             </label>
 
@@ -252,9 +311,6 @@ export function StaffPayrollTable({
                                 className={buttonClass}
                                 disabled={!filteredRows.length || loading}
                                 onClick={() => window.print()}
-                                title={ar
-                                    ? 'يطبع كل الصفوف المطابقة حتى لو كانت موزعة على عدة صفحات.'
-                                    : 'Prints every matching row even when the table spans multiple pages.'}
                             >
                                 <Printer size={14} />
                                 {ar ? 'طباعة كشف الراتب' : 'Print payslip'}
@@ -263,28 +319,15 @@ export function StaffPayrollTable({
                     </div>
 
                     <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                        <PayrollMetric
-                            label={ar ? 'إجمالي الكسب' : 'Gross earnings'}
-                            value={money(totals.gross, currency)}
-                        />
+                        <PayrollMetric label={ar ? 'إجمالي الكسب' : 'Gross earnings'} value={money(totals.gross, currency)} />
                         <PayrollMetric
                             label={ar ? 'خصومات + سلف' : 'Deductions + advances'}
                             value={money(totals.deductions + totals.advances, currency)}
                             danger={totals.deductions + totals.advances > 0}
                         />
-                        <PayrollMetric
-                            label={ar ? 'صافي المستحق' : 'Net entitlement'}
-                            value={money(totals.net, currency)}
-                        />
-                        <PayrollMetric
-                            label={ar ? 'المدفوع' : 'Paid'}
-                            value={money(totals.paid, currency)}
-                        />
-                        <PayrollMetric
-                            label={ar ? 'المتبقي' : 'Remaining'}
-                            value={money(totals.remaining, currency)}
-                            accent
-                        />
+                        <PayrollMetric label={ar ? 'صافي المستحق' : 'Net entitlement'} value={money(totals.net, currency)} />
+                        <PayrollMetric label={ar ? 'المدفوع' : 'Paid'} value={money(totals.paid, currency)} />
+                        <PayrollMetric label={ar ? 'المتبقي' : 'Remaining'} value={money(totals.remaining, currency)} accent />
                     </div>
                 </div>
 
@@ -330,9 +373,7 @@ export function StaffPayrollTable({
                                                     {ar ? 'غ' : 'A'} {row.absent}
                                                 </span>
                                             </div>
-                                            <div className="mt-1.5 text-[10px] text-[var(--ac-text-muted)]">
-                                                {quantityLabel(row, ar)}
-                                            </div>
+                                            <div className="mt-1.5 text-[10px] text-[var(--ac-text-muted)]">{quantityLabel(row, ar)}</div>
                                         </td>
 
                                         <MoneyCell value={row.work} currency={currency} strong />
@@ -349,7 +390,27 @@ export function StaffPayrollTable({
                                         <MoneyCell value={row.deductions} currency={currency} negative />
                                         <MoneyCell value={row.advances} currency={currency} negative />
                                         <MoneyCell value={row.net_entitlement} currency={currency} strong />
-                                        <MoneyCell value={row.payments} currency={currency} />
+
+                                        <td className="whitespace-nowrap px-4 py-3.5 tabular-nums">
+                                            {Number(row.payments || 0) > 0 && canPay ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setPaymentError('');
+                                                        setPaymentRow(row);
+                                                    }}
+                                                    className="rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2.5 py-2 text-start transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)]"
+                                                >
+                                                    <strong className="block">{money(row.payments, currency)}</strong>
+                                                    <span className="mt-0.5 block text-[9px] text-[var(--ac-accent-strong)]">
+                                                        {(row.payment_entries?.length ?? 0)} {ar ? 'دفعة · إدارة' : 'payments · manage'}
+                                                    </span>
+                                                </button>
+                                            ) : (
+                                                <div>{money(row.payments, currency)}</div>
+                                            )}
+                                        </td>
+
                                         <MoneyCell value={row.remaining} currency={currency} strong balance />
 
                                         <td className="whitespace-nowrap px-4 py-3.5">
@@ -381,21 +442,11 @@ export function StaffPayrollTable({
                             {' · '}{ar ? 'صفحة' : 'Page'} {page} / {pageCount}
                         </p>
                         <div className="flex gap-2">
-                            <button
-                                type="button"
-                                disabled={page <= 1}
-                                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                                className={buttonClass}
-                            >
+                            <button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className={buttonClass}>
                                 {ar ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
                                 {ar ? 'السابق' : 'Previous'}
                             </button>
-                            <button
-                                type="button"
-                                disabled={page >= pageCount}
-                                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-                                className={buttonClass}
-                            >
+                            <button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))} className={buttonClass}>
                                 {ar ? 'التالي' : 'Next'}
                                 {ar ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
                             </button>
@@ -414,6 +465,123 @@ export function StaffPayrollTable({
                 ar={ar}
                 statusLabel={statusLabel}
             />
+
+            {paymentRow && (
+                <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]">
+                    <section className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[24px] bg-[var(--ac-surface)] p-5 shadow-2xl">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <h3 className="text-base font-semibold">{ar ? 'دفعات الشهر' : 'Month payments'}</h3>
+                                <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
+                                    {periodLabel(paymentRow.period, ar)} · {money(paymentRow.payments, currency)}
+                                </p>
+                            </div>
+                            <button type="button" onClick={() => setPaymentRow(null)} className="flex size-9 items-center justify-center rounded-xl bg-[var(--ac-surface-soft)]">
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {paymentError && <p className="mt-4 rounded-xl bg-red-50 p-3 text-xs text-red-700">{paymentError}</p>}
+
+                        <div className="mt-5 space-y-2">
+                            {(paymentRow.payment_entries ?? []).map((payment) => (
+                                <div key={payment.id} className="flex flex-col gap-3 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <strong className="text-sm tabular-nums">{money(payment.amount, currency)}</strong>
+                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">{payment.occurred_on}</p>
+                                        {payment.notes && <p className="mt-1 text-xs text-[var(--ac-text-soft)]">{payment.notes}</p>}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button type="button" className={buttonClass} onClick={() => setPaymentCorrection({ payment, action: 'edit' })}>
+                                            <Pencil size={13} />
+                                            {ar ? 'تعديل' : 'Edit'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50"
+                                            onClick={() => setPaymentCorrection({ payment, action: 'delete' })}
+                                        >
+                                            <Trash2 size={13} />
+                                            {ar ? 'حذف' : 'Delete'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {!paymentRow.payment_entries?.length && (
+                                <p className="rounded-xl border border-dashed border-[var(--ac-line)] p-6 text-center text-xs text-[var(--ac-text-muted)]">
+                                    {ar ? 'لا توجد دفعات فردية لهذا الشهر.' : 'No individual payments for this month.'}
+                                </p>
+                            )}
+                        </div>
+                    </section>
+                </div>
+            )}
+
+            {paymentCorrection && (
+                <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]">
+                    <form onSubmit={(event) => void submitPaymentCorrection(event)} className="w-full max-w-md rounded-[24px] bg-[var(--ac-surface)] p-6 shadow-2xl">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-base font-semibold">
+                                    {paymentCorrection.action === 'edit'
+                                        ? (ar ? 'تعديل الدفعة' : 'Edit payment')
+                                        : (ar ? 'حذف الدفعة' : 'Delete payment')}
+                                </h3>
+                                <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
+                                    {paymentCorrection.payment.occurred_on}
+                                </p>
+                            </div>
+                            <button type="button" onClick={() => setPaymentCorrection(null)}><X size={16} /></button>
+                        </div>
+
+                        {paymentCorrection.action === 'edit' && (
+                            <div className="mt-5 space-y-3">
+                                <label className="block text-xs font-semibold">
+                                    {ar ? 'المبلغ' : 'Amount'} ({currency})
+                                    <input
+                                        required
+                                        type="number"
+                                        min="0.0001"
+                                        max="999999999"
+                                        step="0.0001"
+                                        name="amount"
+                                        defaultValue={paymentCorrection.payment.amount}
+                                        className={inputClass}
+                                    />
+                                </label>
+                                <label className="block text-xs font-semibold">
+                                    {ar ? 'ملاحظة' : 'Note'}
+                                    <textarea name="notes" rows={2} defaultValue={paymentCorrection.payment.notes ?? ''} className={`${inputClass} resize-none`} />
+                                </label>
+                            </div>
+                        )}
+
+                        <label className="mt-4 block text-xs font-semibold">
+                            {ar ? 'سبب التصحيح' : 'Correction reason'}
+                            <textarea required minLength={3} maxLength={1000} name="reason" rows={3} className={`${inputClass} resize-none`} />
+                        </label>
+
+                        {paymentError && <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs text-red-700">{paymentError}</p>}
+
+                        <div className="mt-5 flex justify-end gap-2">
+                            <button type="button" className={buttonClass} onClick={() => setPaymentCorrection(null)}>
+                                {ar ? 'إلغاء' : 'Cancel'}
+                            </button>
+                            <button
+                                disabled={paymentBusy}
+                                className={paymentCorrection.action === 'delete'
+                                    ? 'rounded-[12px] bg-red-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50'
+                                    : 'rounded-[12px] bg-[var(--ac-accent-solid)] px-4 py-2.5 text-sm font-semibold text-[var(--ac-accent-solid-text)] disabled:opacity-50'}
+                            >
+                                {paymentCorrection.action === 'delete'
+                                    ? (ar ? 'حذف الدفعة' : 'Delete payment')
+                                    : (ar ? 'حفظ التعديل' : 'Save changes')}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
         </>
     );
 }
