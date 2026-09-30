@@ -4,69 +4,51 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\StaffMember;
+use App\Services\Staff\StaffMonthlyEntitlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StaffAutoAccrualController extends Controller
 {
     /**
-     * Return one employee ledger after making sure fixed monthly salary periods
-     * through the previous completed month exist.
+     * Return one employee ledger after synchronizing attendance-backed monthly
+     * salary entitlement. Hour/day/piece salary entries are already generated
+     * directly by attendance itself.
      */
     public function ledger(
         Request $request,
         string $staff,
         StaffController $staffController,
+        StaffMonthlyEntitlementService $entitlements,
     ): JsonResponse {
         $member = StaffMember::findOrFail($staff);
 
-        if (
-            $member->active
-            && $member->basis === 'month'
-            && StaffController::canPay($member)
-        ) {
-            $this->accrueMember($request, $staffController, $member);
-        }
+        abort_unless(
+            StaffController::canView($member),
+            403,
+        );
+
+        $entitlements->syncMember(
+            $member,
+            (int) $request->user()->id,
+        );
 
         return $staffController->ledger($request, $staff);
     }
 
     /**
-     * Return staff overview after auto-accruing monthly employees the current
-     * user is allowed to pay. Hour/day/piece employees are already accrued by
-     * attendance itself.
+     * Keep monthly attendance-backed salary entries current before returning the
+     * company Staff overview.
      */
     public function overview(
         Request $request,
         StaffController $staffController,
+        StaffMonthlyEntitlementService $entitlements,
     ): JsonResponse {
-        StaffMember::query()
-            ->where('active', true)
-            ->where('basis', 'month')
-            ->orderBy('id')
-            ->each(function (StaffMember $member) use ($request, $staffController): void {
-                if (StaffController::canPay($member)) {
-                    $this->accrueMember($request, $staffController, $member);
-                }
-            });
+        $entitlements->syncOrganization(
+            (int) $request->user()->id,
+        );
 
         return $staffController->overview($request);
-    }
-
-    private function accrueMember(
-        Request $request,
-        StaffController $staffController,
-        StaffMember $member,
-    ): void {
-        $through = today()->startOfMonth()->subMonth()->format('Y-m');
-        $accrualRequest = clone $request;
-        $accrualRequest->merge([
-            'through' => $through,
-        ]);
-
-        $staffController->accrue(
-            $accrualRequest,
-            (string) $member->id,
-        );
     }
 }
