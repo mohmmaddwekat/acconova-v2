@@ -24,6 +24,18 @@ class StaffImportController extends Controller
 {
     private const MAX_ROWS = 10000;
 
+    /** @var array<string, StaffMember|null> */
+    private array $memberLookupCache = [];
+
+    /** @var array<string, list<StaffMember>>|null */
+    private ?array $normalizedNameIndex = null;
+
+    /** @var array<int, \Illuminate\Support\Collection<int, StaffEntry>> */
+    private array $termsHistoryCache = [];
+
+    /** @var array<string, StaffEntry|null> */
+    private array $attendanceEntryCache = [];
+
     public function preview(Request $request): JsonResponse
     {
         abort_unless(StaffController::allowed('staff.import'), 403);
@@ -291,6 +303,7 @@ class StaffImportController extends Controller
         $updated = 0;
         $skipped = 0;
         $errors = [];
+        $existingAttendances = $this->preloadAttendanceState($rows, $mapping, $matchBy);
 
         DB::transaction(function () use (
             $request,
@@ -298,6 +311,7 @@ class StaffImportController extends Controller
             $mapping,
             $matchBy,
             $strategy,
+            &$existingAttendances,
             &$created,
             &$updated,
             &$skipped,
@@ -341,10 +355,8 @@ class StaffImportController extends Controller
                         throw new RuntimeException('Overtime cannot be recorded for an absence or holiday.');
                     }
 
-                    $existing = DB::table('staff_attendances')
-                        ->where('staff_member_id', $member->id)
-                        ->whereDate('occurred_on', $date)
-                        ->first();
+                    $attendanceKey = $this->attendanceKey((int) $member->id, $date);
+                    $existing = $existingAttendances[$attendanceKey] ?? null;
 
                     if ($existing && $strategy === 'skip') {
                         $this->syncAttendanceLedger($request, $member, (int) $existing->id, [
@@ -379,8 +391,15 @@ class StaffImportController extends Controller
                     } else {
                         $payload['created_at'] = now();
                         $attendanceId = (int) DB::table('staff_attendances')->insertGetId($payload);
+                        $this->attendanceEntryCache[$this->attendanceEntryKey((int) $member->id, $attendanceId, 'work')] = null;
+                        $this->attendanceEntryCache[$this->attendanceEntryKey((int) $member->id, $attendanceId, 'overtime')] = null;
                         $created++;
                     }
+
+                    $existingAttendances[$attendanceKey] = (object) [
+                        'id' => $attendanceId,
+                        ...$payload,
+                    ];
 
                     $this->syncAttendanceLedger($request, $member, $attendanceId, $payload);
                 } catch (Throwable $exception) {
@@ -397,6 +416,96 @@ class StaffImportController extends Controller
             'skipped' => $skipped,
             'errors' => $errors,
         ];
+    }
+
+    /**
+     * Load existing attendance and its generated ledger rows in batches before
+     * the import loop. This avoids several SQL queries for every spreadsheet row.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array<string, mixed>  $mapping
+     * @return array<string, object>
+     */
+    private function preloadAttendanceState(array $rows, array $mapping, string $matchBy): array
+    {
+        $memberIds = [];
+        $dates = [];
+
+        foreach ($rows as $row) {
+            try {
+                $identifier = trim((string) $this->mapped($row, $mapping, 'employee'));
+                $member = $this->findMember($matchBy, $identifier);
+                $date = $this->date($this->mapped($row, $mapping, 'occurred_on'));
+
+                if ($member && $date !== null) {
+                    $memberIds[(int) $member->id] = (int) $member->id;
+                    $dates[$date] = $date;
+                }
+            } catch (Throwable) {
+                // The main import loop will report the row-level validation error.
+            }
+        }
+
+        if ($memberIds === [] || $dates === []) {
+            return [];
+        }
+
+        $existing = [];
+        $memberIdList = array_values($memberIds);
+
+        foreach (array_chunk(array_values($dates), 500) as $dateChunk) {
+            $records = DB::table('staff_attendances')
+                ->whereIn('staff_member_id', $memberIdList)
+                ->whereIn('occurred_on', $dateChunk)
+                ->get();
+
+            foreach ($records as $attendance) {
+                $date = substr((string) $attendance->occurred_on, 0, 10);
+                $existing[$this->attendanceKey((int) $attendance->staff_member_id, $date)] = $attendance;
+            }
+        }
+
+        $attendanceIds = array_values(array_unique(array_map(
+            static fn (object $attendance): int => (int) $attendance->id,
+            array_values($existing),
+        )));
+
+        foreach ($existing as $attendance) {
+            $memberId = (int) $attendance->staff_member_id;
+            $attendanceId = (int) $attendance->id;
+            $this->attendanceEntryCache[$this->attendanceEntryKey($memberId, $attendanceId, 'work')] = null;
+            $this->attendanceEntryCache[$this->attendanceEntryKey($memberId, $attendanceId, 'overtime')] = null;
+        }
+
+        foreach (array_chunk($attendanceIds, 500) as $attendanceIdChunk) {
+            $entries = StaffEntry::withTrashed()
+                ->whereIn('staff_member_id', $memberIdList)
+                ->whereIn('kind', ['work', 'overtime'])
+                ->whereIn('terms->attendance_id', $attendanceIdChunk)
+                ->get();
+
+            foreach ($entries as $entry) {
+                $attendanceId = (int) ($entry->terms['attendance_id'] ?? 0);
+                if ($attendanceId <= 0) {
+                    continue;
+                }
+                $this->attendanceEntryCache[
+                    $this->attendanceEntryKey((int) $entry->staff_member_id, $attendanceId, (string) $entry->kind)
+                ] = $entry;
+            }
+        }
+
+        return $existing;
+    }
+
+    private function attendanceKey(int $memberId, string $date): string
+    {
+        return $memberId.'|'.$date;
+    }
+
+    private function attendanceEntryKey(int $memberId, int $attendanceId, string $kind): string
+    {
+        return $memberId.'|'.$attendanceId.'|'.$kind;
     }
 
     /**
@@ -482,7 +591,13 @@ class StaffImportController extends Controller
         int $attendanceId,
         string $kind,
     ): ?StaffEntry {
-        return StaffEntry::withTrashed()
+        $cacheKey = $this->attendanceEntryKey((int) $member->id, $attendanceId, $kind);
+
+        if (array_key_exists($cacheKey, $this->attendanceEntryCache)) {
+            return $this->attendanceEntryCache[$cacheKey];
+        }
+
+        return $this->attendanceEntryCache[$cacheKey] = StaffEntry::withTrashed()
             ->where('staff_member_id', $member->id)
             ->where('kind', $kind)
             ->where('terms->attendance_id', $attendanceId)
@@ -517,16 +632,18 @@ class StaffImportController extends Controller
                 ...$extraTerms,
             ],
         ];
+        $cacheKey = $this->attendanceEntryKey((int) $member->id, $attendanceId, $kind);
 
         if ($entry) {
             if ($entry->trashed()) {
                 $entry->restore();
             }
             $entry->update($payload);
+            $this->attendanceEntryCache[$cacheKey] = $entry;
             return;
         }
 
-        StaffEntry::create([
+        $this->attendanceEntryCache[$cacheKey] = StaffEntry::create([
             ...$payload,
             'staff_member_id' => $member->id,
             'created_by' => $request->user()->id,
@@ -537,11 +654,16 @@ class StaffImportController extends Controller
     /** @return array<string, mixed> */
     private function termsAt(StaffMember $member, string $date): array
     {
-        $history = StaffEntry::where('staff_member_id', $member->id)
-            ->where('kind', 'terms')
-            ->orderBy('occurred_on')
-            ->orderBy('id')
-            ->get();
+        $memberId = (int) $member->id;
+        if (! array_key_exists($memberId, $this->termsHistoryCache)) {
+            $this->termsHistoryCache[$memberId] = StaffEntry::where('staff_member_id', $memberId)
+                ->where('kind', 'terms')
+                ->orderBy('occurred_on')
+                ->orderBy('id')
+                ->get();
+        }
+
+        $history = $this->termsHistoryCache[$memberId];
         $terms = $history->first()?->terms['before'] ?? $member->toArray();
 
         foreach ($history as $change) {
@@ -699,6 +821,11 @@ class StaffImportController extends Controller
             return null;
         }
 
+        $cacheKey = $matchBy.'|'.mb_strtolower($value);
+        if (array_key_exists($cacheKey, $this->memberLookupCache)) {
+            return $this->memberLookupCache[$cacheKey];
+        }
+
         $query = StaffMember::query();
         if ($matchBy === 'email') {
             $email = strtolower($value);
@@ -712,21 +839,26 @@ class StaffImportController extends Controller
             throw new RuntimeException('More than one employee matched this identifier.');
         }
         if ($matches->isNotEmpty() || $matchBy !== 'name') {
-            return $matches->first();
+            return $this->memberLookupCache[$cacheKey] = $matches->first();
+        }
+
+        if ($this->normalizedNameIndex === null) {
+            $this->normalizedNameIndex = [];
+            foreach (StaffMember::query()->get() as $member) {
+                $normalizedMemberName = $this->normalizePersonName((string) $member->name);
+                $this->normalizedNameIndex[$normalizedMemberName] ??= [];
+                $this->normalizedNameIndex[$normalizedMemberName][] = $member;
+            }
         }
 
         $normalized = $this->normalizePersonName($value);
-        $matches = StaffMember::query()
-            ->get()
-            ->filter(fn (StaffMember $member): bool => $this->normalizePersonName($member->name) === $normalized)
-            ->take(2)
-            ->values();
+        $normalizedMatches = $this->normalizedNameIndex[$normalized] ?? [];
 
-        if ($matches->count() > 1) {
+        if (count($normalizedMatches) > 1) {
             throw new RuntimeException('More than one employee matched this normalized name.');
         }
 
-        return $matches->first();
+        return $this->memberLookupCache[$cacheKey] = ($normalizedMatches[0] ?? null);
     }
 
     private function normalizePersonName(string $value): string
