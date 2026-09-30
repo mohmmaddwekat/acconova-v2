@@ -1,3 +1,4 @@
+import { StaffPayrollTable, type StaffPayrollRow } from '@/components/staff/StaffPayrollTable';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import {
@@ -53,6 +54,11 @@ type Data = {
         absent: number;
         quantity: string;
         overtime: string;
+    };
+    payroll?: {
+        rows: StaffPayrollRow[];
+        currency: string;
+        history_months: number;
     };
     adjustments: Rule[];
     can_attendance?: boolean;
@@ -252,7 +258,7 @@ export function StaffWorkforcePanel({
 
     useEffect(() => {
         setPage(1);
-    }, [id, debouncedSearch, historyStatus, historyMonth, historySort, perPage]);
+    }, [id, mode, debouncedSearch, historyStatus, historyMonth, historySort, perPage]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -494,21 +500,10 @@ export function StaffWorkforcePanel({
                         <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(210px,1.6fr)_minmax(150px,.8fr)_minmax(140px,.7fr)_minmax(150px,.8fr)_110px_auto]">
                             <label className="relative block">
                                 <Search className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]" size={14} />
-                                <input
-                                    value={search}
-                                    onChange={(event) => setSearch(event.target.value)}
-                                    placeholder={copy.search}
-                                    className={`${compactField} ps-9`}
-                                />
+                                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={copy.search} className={`${compactField} ps-9`} />
                             </label>
 
-                            <input
-                                type="month"
-                                value={historyMonth}
-                                onChange={(event) => setHistoryMonth(event.target.value)}
-                                aria-label={copy.month}
-                                className={compactField}
-                            />
+                            <input type="month" value={historyMonth} onChange={(event) => setHistoryMonth(event.target.value)} aria-label={copy.month} className={compactField} />
 
                             <select value={historyStatus} onChange={(event) => setHistoryStatus(event.target.value as '' | 'present' | 'absent')} className={compactField}>
                                 <option value="">{copy.statusAll}</option>
@@ -605,14 +600,7 @@ export function StaffWorkforcePanel({
                     )}
                 </section>
 
-                <CorrectionDialog
-                    correction={correction}
-                    copy={copy}
-                    currency={currency}
-                    busy={busy}
-                    onClose={() => setCorrection(null)}
-                    onSubmit={submitCorrection}
-                />
+                <CorrectionDialog correction={correction} copy={copy} currency={currency} busy={busy} onClose={() => setCorrection(null)} onSubmit={submitCorrection} />
             </div>
         );
     }
@@ -623,6 +611,13 @@ export function StaffWorkforcePanel({
         <div className="space-y-5">
             {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {saved && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{ar ? 'تم الحفظ.' : 'Saved.'}</p>}
+
+            <StaffPayrollTable
+                rows={data?.payroll?.rows ?? []}
+                currency={data?.payroll?.currency ?? currency}
+                ar={ar}
+                loading={loading}
+            />
 
             <section className="rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5">
                 <h3 className="font-semibold">{copy.recurring}</h3>
@@ -714,14 +709,7 @@ export function StaffWorkforcePanel({
                 )}
             </section>
 
-            <CorrectionDialog
-                correction={correction}
-                copy={copy}
-                currency={currency}
-                busy={busy}
-                onClose={() => setCorrection(null)}
-                onSubmit={submitCorrection}
-            />
+            <CorrectionDialog correction={correction} copy={copy} currency={currency} busy={busy} onClose={() => setCorrection(null)} onSubmit={submitCorrection} />
         </div>
     );
 }
