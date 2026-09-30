@@ -5,6 +5,7 @@ use App\Http\Controllers\Staff\StaffAttendanceHistoryController;
 use App\Http\Controllers\Staff\StaffAttendanceSyncController;
 use App\Http\Controllers\Staff\StaffAutoAccrualController;
 use App\Http\Controllers\Staff\StaffBulkAttendanceController;
+use App\Http\Controllers\Staff\StaffEntitlementLedgerController;
 use App\Http\Controllers\Staff\StaffImportCommitController;
 use App\Http\Controllers\Staff\StaffImportPreviewController;
 use App\Http\Controllers\Staff\StaffImportTemplateController;
@@ -146,10 +147,7 @@ Route::prefix('api')
 
         Route::get(
             'staff/{staff}/ledger',
-            [
-                StaffAutoAccrualController::class,
-                'ledger',
-            ],
+            StaffEntitlementLedgerController::class,
         )
             ->whereNumber('staff')
             ->middleware(RequireActiveSubscription::class);
