@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganization;
+use App\Services\Staff\StaffMonthlyEntitlementService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,12 @@ class StaffMember extends Model
 {
     use BelongsToOrganization;
     use SoftDeletes;
+
+    /**
+     * Prevent entitlement synchronization from recursively re-entering while a
+     * Staff member is being hydrated for a Staff API request.
+     */
+    private static bool $syncingEntitlements = false;
 
     /**
      * Load the linked system account so employee email can be exposed without
@@ -41,6 +48,43 @@ class StaffMember extends Model
     protected $appends = [
         'email',
     ];
+
+    protected static function booted(): void
+    {
+        static::retrieved(function (StaffMember $member): void {
+            if (
+                self::$syncingEntitlements
+                || ! auth()->check()
+                || ! request()->is('api/staff*')
+            ) {
+                return;
+            }
+
+            self::$syncingEntitlements = true;
+
+            try {
+                app(StaffMonthlyEntitlementService::class)->syncMember(
+                    $member,
+                    (int) auth()->id(),
+                );
+
+                // withSum(balance) is calculated before the retrieved event. If
+                // synchronization created missing earnings, refresh the aliased
+                // value now so the same response never shows the old negative
+                // balance and does not require a second browser refresh.
+                if (array_key_exists('balance', $member->getAttributes())) {
+                    $member->setAttribute(
+                        'balance',
+                        StaffEntry::where('staff_member_id', $member->id)
+                            ->where('kind', '!=', 'terms')
+                            ->sum('amount'),
+                    );
+                }
+            } finally {
+                self::$syncingEntitlements = false;
+            }
+        });
+    }
 
     /**
      * Return ledger entries belonging to the employee.
