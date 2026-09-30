@@ -125,12 +125,13 @@ export function StaffPayrollTable({
     currency,
     ar,
     loading = false,
-    canPay = false,
+    canPay = true,
     onChanged,
 }: Props) {
     const organizationName =
         usePage<AppPageProps>().props.workspace.activeOrganization?.name
         ?? 'AccoNova';
+    const [liveRows, setLiveRows] = useState<StaffPayrollRow[]>(rows);
     const [year, setYear] = useState('all');
     const [showEmpty, setShowEmpty] = useState(false);
     const [page, setPage] = useState(1);
@@ -140,27 +141,31 @@ export function StaffPayrollTable({
     const [paymentBusy, setPaymentBusy] = useState(false);
     const [paymentError, setPaymentError] = useState('');
 
+    useEffect(() => {
+        setLiveRows(rows);
+    }, [rows]);
+
     const years = useMemo(
         () =>
-            Array.from(new Set(rows.map((row) => row.period.slice(0, 4))))
+            Array.from(new Set(liveRows.map((row) => row.period.slice(0, 4))))
                 .sort((a, b) => Number(b) - Number(a)),
-        [rows],
+        [liveRows],
     );
 
     const filteredRows = useMemo(() => {
-        return rows.filter((row) => {
+        return liveRows.filter((row) => {
             if (year !== 'all' && !row.period.startsWith(`${year}-`)) return false;
             if (!showEmpty && row.status === 'empty') return false;
             return true;
         });
-    }, [rows, year, showEmpty]);
+    }, [liveRows, year, showEmpty]);
 
     const pageCount = Math.max(1, Math.ceil(filteredRows.length / perPage));
     const visibleRows = filteredRows.slice((page - 1) * perPage, page * perPage);
 
     useEffect(() => {
         setPage(1);
-    }, [year, showEmpty, rows, perPage]);
+    }, [year, showEmpty, liveRows, perPage]);
 
     useEffect(() => {
         if (page > pageCount) setPage(pageCount);
@@ -247,6 +252,16 @@ export function StaffPayrollTable({
                     body: JSON.stringify(payload),
                 },
             );
+
+            const refreshed = await apiRequest<{
+                payroll?: {
+                    rows: StaffPayrollRow[];
+                };
+            }>(`/api/staff/${employee.id}/workforce?page=1&per_page=10&sort=desc`);
+
+            if (refreshed.payroll?.rows) {
+                setLiveRows(refreshed.payroll.rows);
+            }
 
             setPaymentCorrection(null);
             setPaymentRow(null);
