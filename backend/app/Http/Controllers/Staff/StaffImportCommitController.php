@@ -7,9 +7,13 @@ use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Throwable;
 
 class StaffImportCommitController extends Controller
@@ -96,7 +100,10 @@ class StaffImportCommitController extends Controller
 
         try {
             $reader = IOFactory::createReaderForFile($sourcePath);
-            $reader->setReadDataOnly(true);
+
+            // Keep formula/cache information available. Calculating formulas while only
+            // one chunk is loaded can create #VALUE!/0 rows that are not in the source.
+            $reader->setReadDataOnly(false);
             $reader->setLoadSheetsOnly([$sheetName]);
             $reader->setReadFilter(new class($startRow, $endRow) implements IReadFilter
             {
@@ -119,22 +126,27 @@ class StaffImportCommitController extends Controller
             abort_unless($sourceSheet, 422, 'The selected sheet no longer exists in the uploaded file.');
 
             $highestColumn = $sourceSheet->getHighestDataColumn();
-            $header = $sourceSheet->rangeToArray(
-                'A1:'.$highestColumn.'1',
-                null,
-                true,
-                true,
-                false,
+            $header = $this->readCachedRange(
+                $sourceSheet,
+                1,
+                1,
+                $highestColumn,
             );
             $chunkRows = $startRow <= $endRow
-                ? $sourceSheet->rangeToArray(
-                    'A'.$startRow.':'.$highestColumn.$endRow,
-                    null,
-                    true,
-                    true,
-                    false,
+                ? $this->readCachedRange(
+                    $sourceSheet,
+                    $startRow,
+                    $endRow,
+                    $highestColumn,
                 )
                 : [];
+
+            // Formula-error rows are artifacts/invalid source data, never valid staff
+            // records. Excluding them keeps preview and commit behavior consistent.
+            $chunkRows = array_values(array_filter(
+                $chunkRows,
+                fn (array $row): bool => ! $this->rowHasSpreadsheetError($row),
+            ));
 
             $chunkBook = new Spreadsheet();
             $chunkSheet = $chunkBook->getActiveSheet();
@@ -187,5 +199,65 @@ class StaffImportCommitController extends Controller
                 @unlink($tempPath);
             }
         }
+    }
+
+    /**
+     * Read cached spreadsheet values without recalculating formulas in a partial sheet.
+     *
+     * @return list<array<int, mixed>>
+     */
+    private function readCachedRange(
+        Worksheet $sheet,
+        int $startRow,
+        int $endRow,
+        string $lastColumn,
+    ): array {
+        $lastColumnIndex = Coordinate::columnIndexFromString($lastColumn);
+        $rows = [];
+
+        for ($row = $startRow; $row <= $endRow; $row++) {
+            $values = [];
+
+            for ($column = 1; $column <= $lastColumnIndex; $column++) {
+                $cell = $sheet->getCell([
+                    $column,
+                    $row,
+                ]);
+                $value = $cell->getDataType() === DataType::TYPE_FORMULA
+                    ? $cell->getOldCalculatedValue()
+                    : $cell->getValue();
+
+                if (is_numeric($value) && ExcelDate::isDateTime($cell)) {
+                    try {
+                        $value = ExcelDate::excelToDateTimeObject((float) $value)
+                            ->format('Y-m-d');
+                    } catch (Throwable) {
+                        // Keep the original numeric value if conversion is invalid.
+                    }
+                }
+
+                $values[] = $value;
+            }
+
+            $rows[] = $values;
+        }
+
+        return $rows;
+    }
+
+    /** @param  array<int, mixed>  $row */
+    private function rowHasSpreadsheetError(array $row): bool
+    {
+        foreach ($row as $value) {
+            if (! is_string($value)) {
+                continue;
+            }
+
+            if (preg_match('/^#(?:VALUE!|REF!|DIV\\/0!|NAME\\?|N\\/A|NUM!|NULL!)/i', trim($value)) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
