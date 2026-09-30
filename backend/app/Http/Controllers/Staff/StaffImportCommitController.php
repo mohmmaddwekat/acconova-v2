@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Services\Staff\StaffMonthlyEntitlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -13,6 +14,7 @@ class StaffImportCommitController extends Controller
         Request $request,
         StaffImportController $importer,
         StaffTransactionImportController $transactionImporter,
+        StaffMonthlyEntitlementService $entitlements,
     ): JsonResponse {
         if ($request->input('type') === 'transactions') {
             return $transactionImporter($request);
@@ -26,6 +28,14 @@ class StaffImportCommitController extends Controller
             ]);
         }
 
-        return $importer->commit($request);
+        $response = $importer->commit($request);
+
+        if ($request->input('type') === 'attendance') {
+            $entitlements->syncOrganization(
+                (int) $request->user()->id,
+            );
+        }
+
+        return $response;
     }
 }
