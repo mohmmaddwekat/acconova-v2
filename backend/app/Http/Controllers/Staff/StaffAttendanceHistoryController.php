@@ -30,6 +30,7 @@ class StaffAttendanceHistoryController extends Controller
         $member = StaffMember::findOrFail($staff);
 
         abort_unless(StaffController::canView($member), 403);
+        $canPay = StaffController::canPay($member);
 
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
@@ -255,6 +256,7 @@ class StaffAttendanceHistoryController extends Controller
                     'unit' => $member->unit,
                     'rate' => (string) $member->rate,
                     'started_on' => substr((string) $member->started_on, 0, 10),
+                    'can_pay' => $canPay,
                 ],
                 'rows' => $payroll,
                 'currency' => $member->currency,
@@ -265,7 +267,7 @@ class StaffAttendanceHistoryController extends Controller
                 ->orderByDesc('starts_on')
                 ->get(),
             'can_attendance' => StaffController::canRecordAttendance($member),
-            'can_pay' => StaffController::canPay($member),
+            'can_pay' => $canPay,
         ]);
     }
 }
