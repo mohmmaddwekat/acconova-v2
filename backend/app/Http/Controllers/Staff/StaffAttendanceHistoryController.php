@@ -118,7 +118,7 @@ class StaffAttendanceHistoryController extends Controller
             ->keyBy('period');
 
         $payroll = [];
-        $currentMonth = today()->startOfMonth();
+        $currentMonth = CarbonImmutable::today()->startOfMonth();
         $firstMonth = CarbonImmutable::parse((string) $member->started_on)->startOfMonth();
         $historyFloor = $currentMonth->subMonths(59);
 
