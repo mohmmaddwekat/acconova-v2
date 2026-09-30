@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ImportSourceController;
+use App\Http\Controllers\Staff\StaffAttendanceHistoryController;
 use App\Http\Controllers\Staff\StaffAttendanceSyncController;
 use App\Http\Controllers\Staff\StaffAutoAccrualController;
 use App\Http\Controllers\Staff\StaffImportCommitController;
@@ -68,7 +69,18 @@ Route::prefix('api')
         )->middleware('throttle:120,1');
 
         /*
-         * These later registrations replace the generic Staff routes in web.php.
+         * Keep staff history reads paginated and filtered in SQL. This route is
+         * registered after web.php, so it replaces the older generic workforce
+         * GET without changing attendance/adjustment mutation behavior.
+         */
+        Route::get(
+            'staff/{staff}/workforce',
+            StaffAttendanceHistoryController::class,
+        )
+            ->whereNumber('staff')
+            ->middleware(RequireActiveSubscription::class);
+
+        /*
          * Attendance is the source of truth for salary entitlement, so every
          * create/edit/delete synchronizes the employee ledger immediately.
          */
