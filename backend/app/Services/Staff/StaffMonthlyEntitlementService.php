@@ -66,17 +66,34 @@ class StaffMonthlyEntitlementService
     }
 
     /**
-     * Recalculate monthly salary entries for every tenant employee that has
-     * attendance. This is used after bulk attendance imports.
+     * Recalculate monthly salary entries for every tenant employee with either
+     * attendance or an older generated monthly accrual.
      */
     public function syncOrganization(int $createdBy): void
     {
-        $memberIds = DB::table('staff_attendances')
+        $attendanceMemberIds = DB::table('staff_attendances')
             ->where('organization_id', app(TenantContext::class)->id())
             ->distinct()
             ->pluck('staff_member_id');
 
-        StaffMember::whereIn('id', $memberIds)
+        $generatedMemberIds = StaffEntry::withTrashed()
+            ->where('kind', 'work')
+            ->get()
+            ->filter(function (StaffEntry $entry): bool {
+                $terms = is_array($entry->terms) ? $entry->terms : [];
+
+                return (bool) ($terms['attendance_salary'] ?? false)
+                    || (bool) ($terms['accrual'] ?? false);
+            })
+            ->pluck('staff_member_id');
+
+        $memberIds = $attendanceMemberIds
+            ->merge($generatedMemberIds)
+            ->unique()
+            ->values();
+
+        StaffMember::withTrashed()
+            ->whereIn('id', $memberIds)
             ->orderBy('id')
             ->each(fn (StaffMember $member) => $this->syncMember($member, $createdBy));
     }
