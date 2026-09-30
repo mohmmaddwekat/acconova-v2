@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\ImportSourceController;
+use App\Http\Controllers\Staff\StaffAttendanceSyncController;
 use App\Http\Controllers\Staff\StaffAutoAccrualController;
 use App\Http\Controllers\Staff\StaffImportCommitController;
 use App\Http\Controllers\Staff\StaffImportTemplateController;
 use App\Http\Controllers\Staff\StaffSalaryChangeController;
+use App\Http\Middleware\RequireActiveSubscription;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
@@ -50,9 +52,8 @@ Route::prefix('api')
             ->name('staff.salary-changes.store');
 
         /*
-         * Staff imports intentionally accept only employee master data and
-         * attendance. Payroll entitlement is calculated by AccoNova instead of
-         * being uploaded as a second source of truth.
+         * Employee imports accept employee master data, attendance, and old
+         * manual transactions. Salary entitlement itself remains derived data.
          */
         Route::post(
             'staff-import/commit',
@@ -60,18 +61,38 @@ Route::prefix('api')
         )->middleware('throttle:15,1');
 
         /*
-         * These routes replace the generic staff read routes registered in
-         * web.php. Before returning payroll balances, fixed monthly salaries are
-         * accrued automatically through the previous completed month. Hour/day/
-         * piece salaries are already generated directly from attendance rows.
+         * These later registrations replace the generic Staff routes in web.php.
+         * Attendance is the source of truth for salary entitlement, so every
+         * create/edit/delete synchronizes the employee ledger immediately.
          */
+        Route::post(
+            'staff/{staff}/attendance',
+            [
+                StaffAttendanceSyncController::class,
+                'store',
+            ],
+        )
+            ->whereNumber('staff')
+            ->middleware(RequireActiveSubscription::class);
+
+        Route::match(
+            ['PATCH', 'DELETE'],
+            'staff/{staff}/attendance/{attendance}',
+            [
+                StaffAttendanceSyncController::class,
+                'correct',
+            ],
+        )
+            ->whereNumber(['staff', 'attendance'])
+            ->middleware(RequireActiveSubscription::class);
+
         Route::get(
             'staff-overview',
             [
                 StaffAutoAccrualController::class,
                 'overview',
             ],
-        );
+        )->middleware(RequireActiveSubscription::class);
 
         Route::get(
             'staff/{staff}/ledger',
@@ -79,5 +100,7 @@ Route::prefix('api')
                 StaffAutoAccrualController::class,
                 'ledger',
             ],
-        )->whereNumber('staff');
+        )
+            ->whereNumber('staff')
+            ->middleware(RequireActiveSubscription::class);
     });
