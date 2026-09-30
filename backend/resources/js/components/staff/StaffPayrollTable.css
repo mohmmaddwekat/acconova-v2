@@ -75,3 +75,187 @@ div.mt-5.overflow-hidden:has(> nav button:nth-child(n + 2)[class*="bg-[var(--ac-
 .ac-payroll-table tbody tr:last-child td {
     border-bottom: 0;
 }
+
+/* Keep the month visible while the detailed salary columns scroll horizontally. */
+.ac-payroll-table .ac-payroll-period {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 2;
+    background: var(--ac-surface);
+    box-shadow: -1px 0 0 var(--ac-line);
+}
+
+.ac-payroll-table thead .ac-payroll-period {
+    z-index: 3;
+    background: var(--ac-surface-soft);
+}
+
+/* The printable payroll statement is never shown inside the normal application. */
+.ac-payroll-print-sheet {
+    display: none;
+}
+
+@media print {
+    @page {
+        size: A4 landscape;
+        margin: 9mm;
+    }
+
+    html,
+    body {
+        background: #fff !important;
+        color: #111 !important;
+    }
+
+    body * {
+        visibility: hidden !important;
+    }
+
+    .ac-payroll-print-sheet,
+    .ac-payroll-print-sheet * {
+        visibility: visible !important;
+    }
+
+    .ac-payroll-print-sheet {
+        position: absolute;
+        inset: 0;
+        display: block !important;
+        width: 100%;
+        min-height: 100%;
+        padding: 0;
+        background: #fff;
+        color: #111;
+        font-family: Arial, Tahoma, sans-serif;
+        font-size: 8.2pt;
+        line-height: 1.35;
+    }
+
+    .ac-print-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #162235;
+    }
+
+    .ac-print-header h1 {
+        margin: 3px 0 0;
+        font-size: 16pt;
+        line-height: 1.2;
+    }
+
+    .ac-print-header p {
+        margin: 4px 0 0;
+        color: #555;
+    }
+
+    .ac-print-company {
+        font-size: 9pt;
+        font-weight: 700;
+        color: #162235;
+    }
+
+    .ac-print-meta {
+        display: grid;
+        gap: 3px;
+        min-width: 180px;
+        text-align: end;
+    }
+
+    .ac-print-meta strong {
+        font-size: 12pt;
+        color: #162235;
+    }
+
+    .ac-print-employee,
+    .ac-print-totals {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 5px;
+        margin-top: 8px;
+    }
+
+    .ac-print-employee > div,
+    .ac-print-totals > div {
+        min-width: 0;
+        padding: 5px 6px;
+        border: 1px solid #d8dee8;
+        border-radius: 4px;
+    }
+
+    .ac-print-totals > div {
+        background: #f5f8fc;
+    }
+
+    .ac-print-employee span,
+    .ac-print-totals span {
+        display: block;
+        margin-bottom: 2px;
+        color: #667085;
+        font-size: 6.8pt;
+    }
+
+    .ac-print-employee strong,
+    .ac-print-totals strong {
+        display: block;
+        overflow-wrap: anywhere;
+        font-size: 8.2pt;
+    }
+
+    .ac-payroll-print-sheet table {
+        width: 100%;
+        margin-top: 9px;
+        border-collapse: collapse;
+        table-layout: auto;
+        font-size: 6.8pt;
+    }
+
+    .ac-payroll-print-sheet thead {
+        display: table-header-group;
+    }
+
+    .ac-payroll-print-sheet tfoot {
+        display: table-footer-group;
+    }
+
+    .ac-payroll-print-sheet th,
+    .ac-payroll-print-sheet td {
+        padding: 4px 3px;
+        border: 1px solid #cfd6df;
+        text-align: start;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .ac-payroll-print-sheet th {
+        background: #eef3f9 !important;
+        color: #162235;
+        font-weight: 700;
+    }
+
+    .ac-payroll-print-sheet tbody tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .ac-print-footer {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 40px;
+        margin-top: 18px;
+        padding-top: 8px;
+        border-top: 1px solid #cfd6df;
+    }
+
+    .ac-print-footer > div {
+        display: grid;
+        gap: 14px;
+        text-align: center;
+    }
+
+    .ac-print-footer span {
+        color: #555;
+        font-size: 7pt;
+    }
+}
