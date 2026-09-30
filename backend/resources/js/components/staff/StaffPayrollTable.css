@@ -1,4 +1,17 @@
 /*
+ * Employee workspace visual hierarchy.
+ *
+ * Profile completeness, tags and attachments belong to Overview. Keeping those
+ * large panels visible above Attendance, Compensation and Ledger forces users
+ * to scroll past profile administration before reaching the tab they selected.
+ * Hide those two middle panels whenever any tab after Overview is active.
+ */
+div.mt-5.overflow-hidden:has(> nav button:nth-child(n + 2)[class*="bg-[var(--ac-text)]"]) > div:nth-child(2),
+div.mt-5.overflow-hidden:has(> nav button:nth-child(n + 2)[class*="bg-[var(--ac-text)]"]) > div:nth-child(3) {
+    display: none;
+}
+
+/*
  * Compensation workspace layout.
  *
  * Staff.tsx historically renders the manual transaction card beside the
