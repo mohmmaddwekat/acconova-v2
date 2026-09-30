@@ -262,12 +262,17 @@ export async function apiRequest<T>(
     showStaffImportProgress(current.progress);
 
     try {
-        while (! current.progress.done && current.progress.next_cursor !== null) {
+        while (true) {
+            const progress = current.progress;
+            if (! progress || progress.done || progress.next_cursor === null) {
+                break;
+            }
+
             if (options.signal?.aborted) {
                 throw new DOMException('The import was aborted.', 'AbortError');
             }
 
-            staffImportBody.cursor = current.progress.next_cursor;
+            staffImportBody.cursor = progress.next_cursor;
             const nextResponse = await execute(JSON.stringify(staffImportBody));
 
             if (! nextResponse.ok) {
@@ -287,8 +292,6 @@ export async function apiRequest<T>(
 
             if (current.progress) {
                 showStaffImportProgress(current.progress);
-            } else {
-                break;
             }
         }
     } catch (failure) {
