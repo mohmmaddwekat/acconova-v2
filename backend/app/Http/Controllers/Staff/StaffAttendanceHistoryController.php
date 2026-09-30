@@ -103,12 +103,6 @@ class StaffAttendanceHistoryController extends Controller
         $rangeStart = $firstMonth->startOfMonth()->toDateString();
         $rangeEnd = $currentMonth->endOfMonth()->toDateString();
 
-        /*
-         * Do not cap payroll history. Pagination is a presentation concern and
-         * print/export must be able to include every payroll month belonging to
-         * the employee. StaffEntry uses soft deletes, so corrected/deleted rows
-         * never reappear in history.
-         */
         $entryMonths = DB::table('staff_entries')
             ->where('staff_member_id', $member->id)
             ->whereNull('deleted_at')
@@ -126,6 +120,26 @@ class StaffAttendanceHistoryController extends Controller
             ->groupByRaw('substr(occurred_on, 1, 7)')
             ->get()
             ->keyBy('period');
+
+        /*
+         * Keep the individual payment rows next to the monthly aggregate so the
+         * payroll table can correct/delete a specific payment instead of forcing
+         * the user to hunt for it in the full employee ledger.
+         */
+        $paymentEntries = DB::table('staff_entries')
+            ->where('staff_member_id', $member->id)
+            ->whereNull('deleted_at')
+            ->where('kind', 'payment')
+            ->whereBetween('occurred_on', [$rangeStart, $rangeEnd])
+            ->orderByDesc('occurred_on')
+            ->orderByDesc('id')
+            ->get([
+                'id',
+                'occurred_on',
+                'amount',
+                'notes',
+            ])
+            ->groupBy(fn ($payment): string => substr((string) $payment->occurred_on, 0, 7));
 
         $attendanceMonths = DB::table('staff_attendances')
             ->where('staff_member_id', $member->id)
@@ -188,6 +202,18 @@ class StaffAttendanceHistoryController extends Controller
                 }
             }
 
+            $monthPayments = $paymentEntries->get($period, collect())
+                ->map(static function ($payment): array {
+                    return [
+                        'id' => (int) $payment->id,
+                        'occurred_on' => substr((string) $payment->occurred_on, 0, 10),
+                        'amount' => Decimal::fromUnits(abs(Decimal::toUnits((string) $payment->amount))),
+                        'notes' => $payment->notes,
+                    ];
+                })
+                ->values()
+                ->all();
+
             $payroll[] = [
                 'period' => $period,
                 'basis' => (string) $member->basis,
@@ -205,6 +231,7 @@ class StaffAttendanceHistoryController extends Controller
                 'advances' => Decimal::fromUnits($advances),
                 'net_entitlement' => Decimal::fromUnits($netEntitlement),
                 'payments' => Decimal::fromUnits($payments),
+                'payment_entries' => $monthPayments,
                 'remaining' => Decimal::fromUnits($remaining),
                 'status' => $status,
             ];
