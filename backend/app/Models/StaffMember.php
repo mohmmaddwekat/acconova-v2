@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToOrganization;
 use App\Services\Staff\StaffAttendanceEntitlementRepairService;
 use App\Services\Staff\StaffMonthlyEntitlementService;
+use App\Services\Staff\StaffPayrollSummaryService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -69,25 +70,21 @@ class StaffMember extends Model
                     (int) auth()->id(),
                 );
 
-                // Repair old/imported hourly, daily and piece attendance rows too.
-                // In particular, existing work rows that were created with a
-                // historical zero rate are recalculated using the configured
-                // current rate instead of being left at amount = 0.
                 app(StaffAttendanceEntitlementRepairService::class)->repair(
                     $member,
                     (int) auth()->id(),
                 );
 
-                // withSum(balance) is calculated before the retrieved event. If
-                // synchronization repaired/created earnings, refresh the aliased
-                // value now so the same API response contains the corrected sum.
+                $summary = app(StaffPayrollSummaryService::class)->summarize($member);
+
+                // Make the calculation auditable in the Staff API response. The
+                // signed remaining value stays compatible with the existing
+                // ledger, while remaining_due is never negative and represents
+                // what the company still owes the employee.
+                $member->setAttribute('payroll_summary', $summary);
+
                 if (array_key_exists('balance', $member->getAttributes())) {
-                    $member->setAttribute(
-                        'balance',
-                        StaffEntry::where('staff_member_id', $member->id)
-                            ->where('kind', '!=', 'terms')
-                            ->sum('amount'),
-                    );
+                    $member->setAttribute('balance', $summary['remaining']);
                 }
             } finally {
                 self::$syncingEntitlements = false;
