@@ -1,0 +1,64 @@
+/*
+ * Compensation workspace layout.
+ *
+ * Staff.tsx historically renders the manual transaction card beside the
+ * compensation panel. Once the monthly payroll table was introduced that grid
+ * produced a large dead column and an uncomfortable visual hierarchy. Keep the
+ * existing React ownership, but present the whole compensation tab as one
+ * full-width vertical workspace.
+ */
+.mt-5.grid.gap-5:has(.ac-payroll-table) {
+    display: flex !important;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* Put the payroll statement/workforce panel before the manual-entry card. */
+.mt-5.grid.gap-5:has(.ac-payroll-table) > :has(.ac-payroll-table) {
+    order: -1;
+    width: 100%;
+    min-width: 0;
+}
+
+.mt-5.grid.gap-5:has(.ac-payroll-table) > :first-child {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Make the standalone manual transaction area compact instead of a tall rail. */
+@media (min-width: 1024px) {
+    .mt-5.grid.gap-5:has(.ac-payroll-table) > :first-child {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.25rem;
+    }
+
+    .mt-5.grid.gap-5:has(.ac-payroll-table) > :first-child > section:only-child {
+        grid-column: 1 / -1;
+    }
+
+    .mt-5.grid.gap-5:has(.ac-payroll-table) > :first-child section form.space-y-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+
+    .mt-5.grid.gap-5:has(.ac-payroll-table) > :first-child section form.space-y-3 > label:has(textarea),
+    .mt-5.grid.gap-5:has(.ac-payroll-table) > :first-child section form.space-y-3 > button {
+        grid-column: 1 / -1;
+    }
+
+    .mt-5.grid.gap-5:has(.ac-payroll-table) > :first-child section form.space-y-3 textarea {
+        min-height: 72px;
+    }
+}
+
+/* Keep the table readable without forcing the entire page wider than its shell. */
+.ac-payroll-table table th,
+.ac-payroll-table table td {
+    vertical-align: middle;
+}
+
+.ac-payroll-table tbody tr:last-child td {
+    border-bottom: 0;
+}
