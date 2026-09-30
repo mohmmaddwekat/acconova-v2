@@ -37,18 +37,15 @@ class StaffAutoAccrualController extends Controller
     }
 
     /**
-     * Keep monthly attendance-backed salary entries current before returning the
-     * company Staff overview.
+     * Overview is a read endpoint and must stay cheap. Attendance writes and
+     * individual ledger reads synchronize the affected employee; recalculating
+     * every employee and every historical attendance period here made every page
+     * load scale with the organization's complete payroll history.
      */
     public function overview(
         Request $request,
         StaffController $staffController,
-        StaffMonthlyEntitlementService $entitlements,
     ): JsonResponse {
-        $entitlements->syncOrganization(
-            (int) $request->user()->id,
-        );
-
         return $staffController->overview($request);
     }
 }
