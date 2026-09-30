@@ -14,9 +14,15 @@ use Illuminate\Validation\Rule;
 class StaffAttendanceHistoryController extends Controller
 {
     /**
-     * Return one employee's attendance history and payroll summary using
-     * database-side filtering/aggregation. Never load the full history into
-     * PHP/React just to search, filter or calculate monthly payroll rows.
+     * Return one employee's attendance history and a monthly payroll summary.
+     *
+     * Payroll semantics intentionally follow the UI/accounting workflow:
+     * gross earnings = work + overtime + bonuses + allowances
+     * net entitlement = gross earnings - deductions - advances
+     * remaining = net entitlement - payments
+     *
+     * Advances are therefore NOT treated as payments. They reduce what is owed
+     * before normal payments are applied.
      */
     public function __invoke(Request $request, string $staff): JsonResponse
     {
@@ -86,14 +92,26 @@ class StaffAttendanceHistoryController extends Controller
                 ],
             );
 
+        $currentMonth = CarbonImmutable::today()->startOfMonth();
+        $firstMonth = CarbonImmutable::parse((string) $member->started_on)->startOfMonth();
+        $historyFloor = $currentMonth->subMonths(59);
+
+        if ($firstMonth->lt($historyFloor)) {
+            $firstMonth = $historyFloor;
+        }
+
+        $rangeStart = $firstMonth->startOfMonth()->toDateString();
+        $rangeEnd = $currentMonth->endOfMonth()->toDateString();
+
         /*
-         * Aggregate payroll ledger rows by month. StaffEntry uses soft deletes,
-         * therefore deleted corrections must not reappear in payroll history.
+         * Aggregate only the payroll window actually displayed. StaffEntry uses
+         * soft deletes, so corrected/deleted rows never reappear in history.
          */
         $entryMonths = DB::table('staff_entries')
             ->where('staff_member_id', $member->id)
             ->whereNull('deleted_at')
             ->where('kind', '!=', 'terms')
+            ->whereBetween('occurred_on', [$rangeStart, $rangeEnd])
             ->selectRaw('substr(occurred_on, 1, 7) as period')
             ->selectRaw("COALESCE(SUM(CASE WHEN kind = 'work' THEN amount ELSE 0 END), 0) as work")
             ->selectRaw("COALESCE(SUM(CASE WHEN kind = 'overtime' THEN amount ELSE 0 END), 0) as overtime")
@@ -109,22 +127,17 @@ class StaffAttendanceHistoryController extends Controller
 
         $attendanceMonths = DB::table('staff_attendances')
             ->where('staff_member_id', $member->id)
+            ->whereBetween('occurred_on', [$rangeStart, $rangeEnd])
             ->selectRaw('substr(occurred_on, 1, 7) as period')
             ->selectRaw("SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_count")
             ->selectRaw("SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_count")
+            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'present' THEN quantity ELSE 0 END), 0) as quantity_total")
             ->selectRaw('COALESCE(SUM(overtime_hours), 0) as overtime_hours')
             ->groupByRaw('substr(occurred_on, 1, 7)')
             ->get()
             ->keyBy('period');
 
         $payroll = [];
-        $currentMonth = CarbonImmutable::today()->startOfMonth();
-        $firstMonth = CarbonImmutable::parse((string) $member->started_on)->startOfMonth();
-        $historyFloor = $currentMonth->subMonths(59);
-
-        if ($firstMonth->lt($historyFloor)) {
-            $firstMonth = $historyFloor;
-        }
 
         for (
             $month = $currentMonth;
@@ -141,40 +154,55 @@ class StaffAttendanceHistoryController extends Controller
             $allowances = Decimal::toUnits((string) ($entry?->allowance ?? '0'))
                 + Decimal::toUnits((string) ($entry?->monthly_allowance ?? '0'));
             $deductions = abs(Decimal::toUnits((string) ($entry?->deduction ?? '0')));
-            $payments = abs(Decimal::toUnits((string) ($entry?->payment ?? '0')));
             $advances = abs(Decimal::toUnits((string) ($entry?->advance ?? '0')));
+            $payments = abs(Decimal::toUnits((string) ($entry?->payment ?? '0')));
 
-            $gross = $work + $overtime + $bonus + $allowances;
-            $netBeforePayment = $gross - $deductions;
-            $settled = $payments + $advances;
-            $remaining = $netBeforePayment - $settled;
+            $grossEarnings = $work + $overtime + $bonus + $allowances;
+            $netEntitlement = $grossEarnings - $deductions - $advances;
+            $remaining = $netEntitlement - $payments;
+
+            $present = (int) ($attendanceMonth?->present_count ?? 0);
+            $absent = (int) ($attendanceMonth?->absent_count ?? 0);
+            $hasActivity = $grossEarnings !== 0
+                || $deductions !== 0
+                || $advances !== 0
+                || $payments !== 0
+                || $present > 0
+                || $absent > 0;
 
             $status = 'empty';
 
-            if ($netBeforePayment > 0 && $remaining === 0) {
-                $status = 'paid';
-            } elseif ($remaining > 0 && $settled > 0) {
-                $status = 'partial';
-            } elseif ($remaining > 0) {
-                $status = 'due';
-            } elseif ($remaining < 0) {
-                $status = 'credit';
+            if ($hasActivity) {
+                if ($netEntitlement < 0 && $payments === 0) {
+                    $status = 'advance';
+                } elseif ($remaining < 0) {
+                    $status = 'overpaid';
+                } elseif ($remaining === 0) {
+                    $status = 'paid';
+                } elseif ($payments > 0) {
+                    $status = 'partial';
+                } else {
+                    $status = 'due';
+                }
             }
 
             $payroll[] = [
                 'period' => $period,
-                'present' => (int) ($attendanceMonth?->present_count ?? 0),
-                'absent' => (int) ($attendanceMonth?->absent_count ?? 0),
+                'basis' => (string) $member->basis,
+                'unit' => $member->unit,
+                'present' => $present,
+                'absent' => $absent,
+                'attendance_quantity' => (string) ($attendanceMonth?->quantity_total ?? '0'),
                 'attendance_overtime_hours' => (string) ($attendanceMonth?->overtime_hours ?? '0'),
                 'work' => Decimal::fromUnits($work),
                 'overtime' => Decimal::fromUnits($overtime),
                 'bonus' => Decimal::fromUnits($bonus),
                 'allowances' => Decimal::fromUnits($allowances),
+                'gross_earnings' => Decimal::fromUnits($grossEarnings),
                 'deductions' => Decimal::fromUnits($deductions),
-                'net_before_payment' => Decimal::fromUnits($netBeforePayment),
-                'payments' => Decimal::fromUnits($payments),
                 'advances' => Decimal::fromUnits($advances),
-                'settled' => Decimal::fromUnits($settled),
+                'net_entitlement' => Decimal::fromUnits($netEntitlement),
+                'payments' => Decimal::fromUnits($payments),
                 'remaining' => Decimal::fromUnits($remaining),
                 'status' => $status,
             ];
