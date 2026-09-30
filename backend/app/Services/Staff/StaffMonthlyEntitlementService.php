@@ -148,6 +148,16 @@ class StaffMonthlyEntitlementService
 
         $monthStart = $month->startOfMonth();
         $monthEnd = $month->endOfMonth();
+        $today = CarbonImmutable::today();
+
+        if ($monthStart->gt($today)) {
+            return;
+        }
+
+        $accrualEnd = $monthEnd->gt($today)
+            ? $today
+            : $monthEnd;
+
         $expectedWorkDays = $this->expectedWorkDays($monthStart, $monthEnd);
 
         if ($expectedWorkDays <= 0) {
@@ -158,19 +168,22 @@ class StaffMonthlyEntitlementService
             ->where('staff_member_id', $member->id)
             ->whereBetween('occurred_on', [
                 $monthStart->toDateString(),
-                $monthEnd->toDateString(),
+                $accrualEnd->toDateString(),
             ])
             ->orderBy('occurred_on')
-            ->get();
+            ->get()
+            ->keyBy(fn (object $row): string => substr((string) $row->occurred_on, 0, 10));
 
         $weightedMonthlyRateUnits = 0;
         $presentDays = 0;
+        $absentDays = 0;
+        $missingDays = 0;
+        $payableDays = 0;
         $lastMonthlyRate = null;
+        $startedOn = CarbonImmutable::parse((string) $member->started_on)->startOfDay();
 
-        foreach ($attendance as $row) {
-            $date = CarbonImmutable::parse((string) $row->occurred_on);
-
-            if ((string) $row->status !== 'present' || $date->isFriday()) {
+        for ($date = $monthStart; $date->lte($accrualEnd); $date = $date->addDay()) {
+            if ($date->isFriday() || $date->lt($startedOn)) {
                 continue;
             }
 
@@ -190,12 +203,32 @@ class StaffMonthlyEntitlementService
                 continue;
             }
 
+            $row = $attendance->get($date->toDateString());
+            $status = $row?->status !== null
+                ? (string) $row->status
+                : null;
+
+            if ($status === 'absent') {
+                $absentDays++;
+                $lastMonthlyRate = $rate;
+
+                continue;
+            }
+
+            if ($status === 'present') {
+                $presentDays++;
+            } else {
+                $missingDays++;
+            }
+
+            // Missing attendance is deliberately neutral. Only an explicit
+            // absent record removes that workday from monthly entitlement.
             $weightedMonthlyRateUnits += $rateUnits;
-            $presentDays++;
+            $payableDays++;
             $lastMonthlyRate = $rate;
         }
 
-        $amountUnits = $presentDays > 0
+        $amountUnits = $payableDays > 0
             ? intdiv(
                 $weightedMonthlyRateUnits + intdiv($expectedWorkDays, 2),
                 $expectedWorkDays,
@@ -225,7 +258,7 @@ class StaffMonthlyEntitlementService
         $payload = [
             'kind' => 'work',
             'occurred_on' => $monthStart->toDateString(),
-            'quantity' => number_format($presentDays, 4, '.', ''),
+            'quantity' => number_format($payableDays, 4, '.', ''),
             'rate' => $lastMonthlyRate ?? (string) $member->rate,
             'amount' => Decimal::fromUnits($amountUnits),
             'notes' => 'Attendance salary '.$period,
@@ -235,7 +268,12 @@ class StaffMonthlyEntitlementService
                 'attendance_salary' => true,
                 'period' => $period,
                 'present_days' => $presentDays,
+                'absent_days' => $absentDays,
+                'missing_days' => $missingDays,
+                'payable_days' => $payableDays,
                 'expected_work_days' => $expectedWorkDays,
+                'accrual_through' => $accrualEnd->toDateString(),
+                'missing_attendance_deducted' => false,
             ],
         ];
 
