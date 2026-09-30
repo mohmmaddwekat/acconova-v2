@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Support\StaffImportWorksheetInspector;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,8 +20,10 @@ class StaffImportPreviewController extends Controller
 {
     private const SAMPLE_SCAN_ROWS = 200;
 
-    public function __invoke(Request $request): JsonResponse
-    {
+    public function __invoke(
+        Request $request,
+        StaffImportWorksheetInspector $worksheetInspector,
+    ): JsonResponse {
         abort_unless(StaffController::allowed('staff.import'), 403);
 
         $request->validate([
@@ -52,13 +55,27 @@ class StaffImportPreviewController extends Controller
                     continue;
                 }
 
-                $totalRowsIncludingHeader = max(0, (int) ($info['totalRows'] ?? 0));
-                if ($totalRowsIncludingHeader === 0) {
+                $metadataLastRow = max(0, (int) ($info['totalRows'] ?? 0));
+                if ($metadataLastRow === 0) {
+                    continue;
+                }
+
+                // Excel/Google Sheets can report hundreds of formatted-but-empty rows.
+                // Inspect the OOXML worksheet itself so row_count means actual records.
+                $bounds = $worksheetInspector->inspect(
+                    $path,
+                    $sheetName,
+                    $metadataLastRow,
+                );
+                $lastDataRow = (int) $bounds['last_data_row'];
+                $dataRowCount = (int) $bounds['data_row_count'];
+
+                if ($lastDataRow <= 0 || $dataRowCount <= 0) {
                     continue;
                 }
 
                 $scanEnd = min(
-                    $totalRowsIncludingHeader,
+                    $lastDataRow,
                     self::SAMPLE_SCAN_ROWS + 1,
                 );
                 $reader = IOFactory::createReaderForFile($path);
@@ -113,7 +130,8 @@ class StaffImportPreviewController extends Controller
                         fn (array $row): array => $this->associateRow($headers, $row),
                         array_slice($sampleRows, 0, 8),
                     ),
-                    'row_count' => max(0, $totalRowsIncludingHeader - 1),
+                    // Header is one real data row but is not an import record.
+                    'row_count' => max(0, $dataRowCount - 1),
                 ];
 
                 $spreadsheet->disconnectWorksheets();
