@@ -14,10 +14,10 @@ class StaffAttendanceEntitlementRepairService
     /**
      * Rebuild attendance-backed earnings for hourly/daily/piece employees.
      *
-     * Older imported attendance can already have a linked work entry whose
-     * amount/rate is zero because the employee rate was configured later. In
-     * that case the row must be recalculated, not skipped merely because a
-     * work entry exists.
+     * Attendance is the source of quantity. Compensation terms are the source of
+     * rate. If old compensation history contains a zero/missing rate, fall back
+     * to the employee's currently configured rate so legacy attendance does not
+     * remain worth zero forever.
      */
     public function repair(StaffMember $member, int $createdBy): void
     {
@@ -53,20 +53,30 @@ class StaffAttendanceEntitlementRepairService
         foreach ($attendance as $row) {
             $attendanceId = (string) $row->id;
             $date = substr((string) $row->occurred_on, 0, 10);
-            $terms = $this->termsAt($member, $date, $history);
+            $historical = $this->termsAt($member, $date, $history);
 
-            $basis = (string) ($terms['basis'] ?? $member->basis);
+            $historicalRate = (string) ($historical['rate'] ?? '0');
+            $hasHistoricalRate = Decimal::toUnits($historicalRate) > 0;
+            $rate = $hasHistoricalRate
+                ? $historicalRate
+                : (string) $member->rate;
+
+            // A zero-rate legacy snapshot is incomplete payroll history, not a
+            // deliberate zero-pay contract. In that case use the currently
+            // configured basis together with the currently configured rate.
+            $basis = $hasHistoricalRate
+                ? (string) ($historical['basis'] ?? $member->basis)
+                : (string) $member->basis;
+
             if (! in_array($basis, ['hour', 'day', 'month', 'piece'], true)) {
                 $basis = (string) $member->basis;
             }
 
-            $historicalRate = (string) ($terms['rate'] ?? '0');
-            $rate = Decimal::toUnits($historicalRate) > 0
-                ? $historicalRate
-                : (string) $member->rate;
-
             $present = (string) $row->status === 'present';
-            $quantity = (string) ($row->quantity ?? '0');
+            $rawQuantity = (string) ($row->quantity ?? '0');
+            $quantity = $basis === 'day' && $present
+                ? '1.0000'
+                : $rawQuantity;
             $workEntry = $workByAttendance->get($attendanceId);
 
             if (
@@ -94,20 +104,18 @@ class StaffAttendanceEntitlementRepairService
                         ...$entryTerms,
                         'attendance_id' => (int) $row->id,
                         'basis' => $basis,
-                        'currency' => (string) ($terms['currency'] ?? $member->currency),
+                        'currency' => (string) ($historical['currency'] ?? $member->currency),
                         'auto_repaired' => true,
-                        'used_current_rate_fallback' => Decimal::toUnits($historicalRate) <= 0,
+                        'used_current_rate_fallback' => ! $hasHistoricalRate,
                     ],
                 ];
 
                 if ($workEntry) {
-                    // Use a direct update so legacy imported-entry normalization
-                    // cannot overwrite the exact attendance x rate calculation.
                     DB::table('staff_entries')
                         ->where('id', $workEntry->id)
                         ->update([
                             ...$payload,
-                            'terms' => json_encode($payload['terms'], JSON_UNESCAPED_UNICODE),
+                            'terms' => json_encode($payload['terms'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
                             'deleted_at' => null,
                             'updated_at' => now(),
                         ]);
@@ -151,7 +159,7 @@ class StaffAttendanceEntitlementRepairService
                     'terms' => [
                         ...$entryTerms,
                         'attendance_id' => (int) $row->id,
-                        'currency' => (string) ($terms['currency'] ?? $member->currency),
+                        'currency' => (string) ($historical['currency'] ?? $member->currency),
                         'auto_repaired' => true,
                     ],
                 ];
@@ -161,7 +169,7 @@ class StaffAttendanceEntitlementRepairService
                         ->where('id', $overtimeEntry->id)
                         ->update([
                             ...$payload,
-                            'terms' => json_encode($payload['terms'], JSON_UNESCAPED_UNICODE),
+                            'terms' => json_encode($payload['terms'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
                             'deleted_at' => null,
                             'updated_at' => now(),
                         ]);
