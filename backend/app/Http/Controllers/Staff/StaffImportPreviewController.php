@@ -7,8 +7,12 @@ use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Throwable;
 
 class StaffImportPreviewController extends Controller
@@ -58,7 +62,11 @@ class StaffImportPreviewController extends Controller
                     self::SAMPLE_SCAN_ROWS + 1,
                 );
                 $reader = IOFactory::createReaderForFile($path);
-                $reader->setReadDataOnly(true);
+
+                // Keep formulas/styles available, but never recalculate formulas in a
+                // partially-loaded sheet. Recalculation with missing dependency rows can
+                // invent #VALUE!/0 preview rows that do not exist in the source workbook.
+                $reader->setReadDataOnly(false);
                 $reader->setLoadSheetsOnly([$sheetName]);
                 $reader->setReadFilter(new class($scanEnd) implements IReadFilter
                 {
@@ -85,17 +93,17 @@ class StaffImportPreviewController extends Controller
                     $lastColumn = 'A';
                 }
 
-                $rows = $sheet->rangeToArray(
-                    'A1:'.$lastColumn.$scanEnd,
-                    null,
-                    true,
-                    true,
-                    false,
+                $rows = $this->readCachedRange(
+                    $sheet,
+                    1,
+                    $scanEnd,
+                    $lastColumn,
                 );
                 $headers = $this->normalizeHeaders(array_shift($rows) ?? []);
                 $sampleRows = array_values(array_filter(
                     $rows,
-                    fn (array $row): bool => $this->rowHasContent($row),
+                    fn (array $row): bool => $this->rowHasContent($row)
+                        && ! $this->rowHasSpreadsheetError($row),
                 ));
 
                 $sheets[] = [
@@ -144,6 +152,50 @@ class StaffImportPreviewController extends Controller
     }
 
     /**
+     * Read cached spreadsheet values without evaluating formulas.
+     *
+     * @return list<array<int, mixed>>
+     */
+    private function readCachedRange(
+        Worksheet $sheet,
+        int $startRow,
+        int $endRow,
+        string $lastColumn,
+    ): array {
+        $lastColumnIndex = Coordinate::columnIndexFromString($lastColumn);
+        $rows = [];
+
+        for ($row = $startRow; $row <= $endRow; $row++) {
+            $values = [];
+
+            for ($column = 1; $column <= $lastColumnIndex; $column++) {
+                $cell = $sheet->getCell([
+                    $column,
+                    $row,
+                ]);
+                $value = $cell->getDataType() === DataType::TYPE_FORMULA
+                    ? $cell->getOldCalculatedValue()
+                    : $cell->getValue();
+
+                if (is_numeric($value) && ExcelDate::isDateTime($cell)) {
+                    try {
+                        $value = ExcelDate::excelToDateTimeObject((float) $value)
+                            ->format('Y-m-d');
+                    } catch (Throwable) {
+                        // Keep the original numeric value if the date conversion is invalid.
+                    }
+                }
+
+                $values[] = $value;
+            }
+
+            $rows[] = $values;
+        }
+
+        return $rows;
+    }
+
+    /**
      * @param  array<int, mixed>  $row
      * @return list<string>
      */
@@ -186,6 +238,22 @@ class StaffImportPreviewController extends Controller
     {
         foreach ($row as $value) {
             if (trim((string) ($value ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param  array<int, mixed>  $row */
+    private function rowHasSpreadsheetError(array $row): bool
+    {
+        foreach ($row as $value) {
+            if (! is_string($value)) {
+                continue;
+            }
+
+            if (preg_match('/^#(?:VALUE!|REF!|DIV\\/0!|NAME\\?|N\\/A|NUM!|NULL!)/i', trim($value)) === 1) {
                 return true;
             }
         }
