@@ -4,6 +4,7 @@ use App\Http\Controllers\ImportSourceController;
 use App\Http\Controllers\Staff\StaffAttendanceHistoryController;
 use App\Http\Controllers\Staff\StaffAttendanceSyncController;
 use App\Http\Controllers\Staff\StaffAutoAccrualController;
+use App\Http\Controllers\Staff\StaffBulkAttendanceController;
 use App\Http\Controllers\Staff\StaffImportCommitController;
 use App\Http\Controllers\Staff\StaffImportPreviewController;
 use App\Http\Controllers\Staff\StaffImportTemplateController;
@@ -67,6 +68,36 @@ Route::prefix('api')
             'staff-import/commit',
             StaffImportCommitController::class,
         )->middleware('throttle:120,1');
+
+        /*
+         * Bulk attendance keeps large teams fast: the GET is paginated and the
+         * POST processes at most 100 employees per cursor chunk. Saving the same
+         * employee/date updates the existing attendance row instead of creating
+         * a duplicate.
+         */
+        Route::get(
+            'staff-attendance/bulk',
+            [
+                StaffBulkAttendanceController::class,
+                'index',
+            ],
+        )
+            ->middleware([
+                RequireActiveSubscription::class,
+                'throttle:120,1',
+            ]);
+
+        Route::post(
+            'staff-attendance/bulk',
+            [
+                StaffBulkAttendanceController::class,
+                'store',
+            ],
+        )
+            ->middleware([
+                RequireActiveSubscription::class,
+                'throttle:120,1',
+            ]);
 
         /*
          * Keep staff history reads paginated and filtered in SQL. This route is
