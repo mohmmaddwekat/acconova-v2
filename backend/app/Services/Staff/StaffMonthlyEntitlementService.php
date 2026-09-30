@@ -15,6 +15,8 @@ class StaffMonthlyEntitlementService
 {
     /**
      * Recalculate every attendance-backed monthly salary period for one employee.
+     * Recurring allowances, bonuses and deductions are synchronized for the same
+     * period so the ledger balance always represents the current net entitlement.
      */
     public function syncMember(StaffMember $member, int $createdBy): void
     {
@@ -44,8 +46,24 @@ class StaffMonthlyEntitlementService
         $generatedPeriods = $generatedEntries
             ->map(fn (StaffEntry $entry): string => substr((string) $entry->occurred_on, 0, 7));
 
+        $adjustmentEntryPeriods = StaffEntry::withTrashed()
+            ->where('staff_member_id', $member->id)
+            ->whereIn('kind', ['allowance', 'bonus', 'deduction'])
+            ->get()
+            ->filter(function (StaffEntry $entry): bool {
+                $terms = is_array($entry->terms) ? $entry->terms : [];
+
+                return isset($terms['adjustment_id'], $terms['period']);
+            })
+            ->map(function (StaffEntry $entry): string {
+                $terms = is_array($entry->terms) ? $entry->terms : [];
+
+                return (string) $terms['period'];
+            });
+
         $attendancePeriods
             ->merge($generatedPeriods)
+            ->merge($adjustmentEntryPeriods)
             ->unique()
             ->sort()
             ->values()
@@ -61,6 +79,13 @@ class StaffMonthlyEntitlementService
                     $createdBy,
                     $history,
                     $generatedEntries,
+                );
+
+                $this->syncAdjustmentsForPeriod(
+                    $member,
+                    $period,
+                    $createdBy,
+                    $history,
                 );
             });
     }
@@ -87,8 +112,14 @@ class StaffMonthlyEntitlementService
             })
             ->pluck('staff_member_id');
 
+        $adjustmentMemberIds = DB::table('staff_adjustments')
+            ->where('organization_id', app(TenantContext::class)->id())
+            ->distinct()
+            ->pluck('staff_member_id');
+
         $memberIds = $attendanceMemberIds
             ->merge($generatedMemberIds)
+            ->merge($adjustmentMemberIds)
             ->unique()
             ->values();
 
@@ -224,6 +255,113 @@ class StaffMonthlyEntitlementService
             'created_by' => $createdBy,
             'request_id' => (string) Str::uuid(),
         ]);
+    }
+
+    /**
+     * Synchronize recurring payroll adjustments for one attendance-backed month.
+     * Existing generated rows are updated in place, stopped/inactive rules are
+     * removed, and deductions are always represented as negative ledger amounts.
+     *
+     * @param  Collection<int, StaffEntry>  $history
+     */
+    private function syncAdjustmentsForPeriod(
+        StaffMember $member,
+        string $period,
+        int $createdBy,
+        Collection $history,
+    ): void {
+        $month = CarbonImmutable::createFromFormat('!Y-m', $period);
+
+        if (! $month) {
+            return;
+        }
+
+        $monthStart = $month->startOfMonth();
+        $monthEnd = $month->endOfMonth();
+
+        $rules = DB::table('staff_adjustments')
+            ->where('staff_member_id', $member->id)
+            ->whereDate('starts_on', '<=', $monthEnd->toDateString())
+            ->where(function ($query) use ($monthStart): void {
+                $query->whereNull('ends_on')
+                    ->orWhereDate('ends_on', '>=', $monthStart->toDateString());
+            })
+            ->orderBy('id')
+            ->get();
+
+        $generated = StaffEntry::withTrashed()
+            ->where('staff_member_id', $member->id)
+            ->whereIn('kind', ['allowance', 'bonus', 'deduction'])
+            ->get()
+            ->filter(function (StaffEntry $entry) use ($period): bool {
+                $terms = is_array($entry->terms) ? $entry->terms : [];
+
+                return isset($terms['adjustment_id'])
+                    && (string) ($terms['period'] ?? '') === $period;
+            })
+            ->keyBy(function (StaffEntry $entry): string {
+                $terms = is_array($entry->terms) ? $entry->terms : [];
+
+                return (string) $terms['adjustment_id'];
+            });
+
+        $activeRuleIds = collect();
+
+        foreach ($rules as $rule) {
+            $effectiveDate = max($monthStart->toDateString(), (string) $rule->starts_on);
+            $terms = $this->termsAt($member, $effectiveDate, $history);
+
+            if (! ($terms['active'] ?? true)) {
+                continue;
+            }
+
+            $activeRuleIds->push((string) $rule->id);
+
+            $amountUnits = Decimal::toUnits((string) $rule->amount)
+                * ((string) $rule->kind === 'deduction' ? -1 : 1);
+
+            $payload = [
+                'kind' => (string) $rule->kind,
+                'occurred_on' => $effectiveDate,
+                'amount' => Decimal::fromUnits($amountUnits),
+                'quantity' => null,
+                'rate' => null,
+                'notes' => (string) $rule->label,
+                'terms' => [
+                    'adjustment_id' => (int) $rule->id,
+                    'period' => $period,
+                    'currency' => $member->currency,
+                    'auto_synced' => true,
+                ],
+            ];
+
+            $entry = $generated->get((string) $rule->id);
+
+            if ($entry) {
+                if ($entry->trashed()) {
+                    $entry->restore();
+                }
+
+                $entry->update($payload);
+                continue;
+            }
+
+            StaffEntry::create([
+                ...$payload,
+                'staff_member_id' => $member->id,
+                'created_by' => $createdBy,
+                'request_id' => (string) Str::uuid(),
+            ]);
+        }
+
+        foreach ($generated as $adjustmentId => $entry) {
+            if (
+                ! $activeRuleIds->contains((string) $adjustmentId)
+                && ! $entry->trashed()
+            ) {
+                $entry->delete();
+            }
+        }
     }
 
     private function expectedWorkDays(
