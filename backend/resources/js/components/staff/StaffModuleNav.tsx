@@ -18,6 +18,9 @@ import {
 import type {
     AppPageProps,
 } from '@/types/app';
+import {
+    StaffBulkAttendance,
+} from '@/components/staff/StaffBulkAttendance';
 
 type Item = {
     href: string;
@@ -66,7 +69,9 @@ const items: Item[] = [
 ];
 
 /**
- * Shared navigation for the employee/HR workspace.
+ * Shared navigation for the employee/HR workspace. The attendance page also
+ * owns the bulk-entry workspace because bulk attendance is a team-level action,
+ * not an action that belongs inside one employee profile.
  */
 export function StaffModuleNav() {
     const ar =
@@ -89,71 +94,88 @@ export function StaffModuleNav() {
             'staff.import',
         );
 
+    const canAttendance =
+        organization?.role === 'owner'
+        || organization?.role === 'admin'
+        || organization?.permissions?.includes('staff.attendance')
+        || organization?.permissions?.includes('staff.team_attendance');
+
     const onImportPage =
         url.startsWith(
             '/app/staff/import',
         );
 
+    const onAttendancePage =
+        url.startsWith(
+            '/app/staff/attendance',
+        );
+
     return (
-        <nav
-            aria-label={ar ? 'صفحات الموظفين' : 'Employee pages'}
-            className="overflow-x-auto rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-1.5"
-        >
-            <div className="flex min-w-max items-center gap-1">
-                {items
-                    .filter(
-                        (item: Item) =>
-                            item.href !== '/app/staff/import'
-                            || canImport,
-                    )
-                    .map((item: Item) => {
-                        const Icon =
-                            item.icon;
+        <>
+            <nav
+                aria-label={ar ? 'صفحات الموظفين' : 'Employee pages'}
+                className="overflow-x-auto rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-1.5"
+            >
+                <div className="flex min-w-max items-center gap-1">
+                    {items
+                        .filter(
+                            (item: Item) =>
+                                item.href !== '/app/staff/import'
+                                || canImport,
+                        )
+                        .map((item: Item) => {
+                            const Icon =
+                                item.icon;
 
-                        const active =
-                            item.href ===
-                                '/app/staff'
-                                ? url ===
+                            const active =
+                                item.href ===
                                     '/app/staff'
-                                : url.startsWith(
-                                    item.href,
-                                );
+                                    ? url ===
+                                        '/app/staff'
+                                    : url.startsWith(
+                                        item.href,
+                                    );
 
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={[
-                                    'inline-flex min-h-10 items-center gap-2 rounded-[13px] px-4 text-xs font-semibold transition',
-                                    active
-                                        ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)] shadow-sm'
-                                        : 'text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)]',
-                                ].join(' ')}
-                            >
-                                <Icon
-                                    size={
-                                        15
-                                    }
-                                />
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={[
+                                        'inline-flex min-h-10 items-center gap-2 rounded-[13px] px-4 text-xs font-semibold transition',
+                                        active
+                                            ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)] shadow-sm'
+                                            : 'text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)] hover:text-[var(--ac-text)]',
+                                    ].join(' ')}
+                                >
+                                    <Icon
+                                        size={
+                                            15
+                                        }
+                                    />
 
-                                {ar
-                                    ? item.labelAr
-                                    : item.labelEn}
-                            </Link>
-                        );
-                    })}
+                                    {ar
+                                        ? item.labelAr
+                                        : item.labelEn}
+                                </Link>
+                            );
+                        })}
 
-                {canImport && onImportPage ? (
-                    <a
-                        href="/api/staff-import/template"
-                        className="ms-1 inline-flex min-h-10 items-center gap-2 rounded-[13px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-4 text-xs font-semibold text-[var(--ac-accent-strong)] transition hover:bg-[var(--ac-surface-soft)]"
-                        download
-                    >
-                        <Download size={15} />
-                        {ar ? 'تحميل نموذج Excel' : 'Download Excel template'}
-                    </a>
-                ) : null}
-            </div>
-        </nav>
+                    {canImport && onImportPage ? (
+                        <a
+                            href="/api/staff-import/template"
+                            className="ms-1 inline-flex min-h-10 items-center gap-2 rounded-[13px] border border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] px-4 text-xs font-semibold text-[var(--ac-accent-strong)] transition hover:bg-[var(--ac-surface-soft)]"
+                            download
+                        >
+                            <Download size={15} />
+                            {ar ? 'تحميل نموذج Excel' : 'Download Excel template'}
+                        </a>
+                    ) : null}
+                </div>
+            </nav>
+
+            {onAttendancePage && canAttendance ? (
+                <StaffBulkAttendance />
+            ) : null}
+        </>
     );
 }
