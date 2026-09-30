@@ -14,9 +14,13 @@ use Illuminate\Support\Str;
 class StaffMonthlyEntitlementService
 {
     /**
-     * Recalculate every attendance-backed monthly salary period for one employee.
-     * Recurring allowances, bonuses and deductions are synchronized for the same
-     * period so the ledger balance always represents the current net entitlement.
+     * Recalculate salary entitlement for one employee from attendance.
+     *
+     * Hour/day/piece attendance may pre-date the automatic payroll hooks (for
+     * example imported or legacy attendance). Repair any missing work/overtime
+     * ledger rows first, then synchronize monthly salary and recurring payroll
+     * adjustments. This makes the ledger a trustworthy derived balance instead
+     * of letting payments appear as a negative balance when earnings are absent.
      */
     public function syncMember(StaffMember $member, int $createdBy): void
     {
@@ -25,6 +29,12 @@ class StaffMonthlyEntitlementService
             ->orderBy('occurred_on')
             ->orderBy('id')
             ->get();
+
+        $this->syncAttendanceEntries(
+            $member,
+            $createdBy,
+            $history,
+        );
 
         $attendancePeriods = DB::table('staff_attendances')
             ->where('staff_member_id', $member->id)
@@ -91,8 +101,142 @@ class StaffMonthlyEntitlementService
     }
 
     /**
-     * Recalculate monthly salary entries for every tenant employee with either
-     * attendance or an older generated monthly accrual.
+     * Repair attendance-backed work/overtime entries for non-monthly employees.
+     * Existing attendance-linked rows are preserved and only missing ledger rows
+     * are created, so this is safe to run repeatedly without double counting.
+     *
+     * @param  Collection<int, StaffEntry>  $history
+     */
+    private function syncAttendanceEntries(
+        StaffMember $member,
+        int $createdBy,
+        Collection $history,
+    ): void {
+        $attendance = DB::table('staff_attendances')
+            ->where('staff_member_id', $member->id)
+            ->orderBy('occurred_on')
+            ->orderBy('id')
+            ->get();
+
+        if ($attendance->isEmpty()) {
+            return;
+        }
+
+        $linkedEntries = StaffEntry::withTrashed()
+            ->where('staff_member_id', $member->id)
+            ->whereIn('kind', ['work', 'overtime'])
+            ->get()
+            ->filter(function (StaffEntry $entry): bool {
+                $terms = is_array($entry->terms) ? $entry->terms : [];
+
+                return isset($terms['attendance_id']);
+            });
+
+        $workByAttendance = $linkedEntries
+            ->where('kind', 'work')
+            ->keyBy(function (StaffEntry $entry): string {
+                $terms = is_array($entry->terms) ? $entry->terms : [];
+
+                return (string) $terms['attendance_id'];
+            });
+
+        $overtimeByAttendance = $linkedEntries
+            ->where('kind', 'overtime')
+            ->keyBy(function (StaffEntry $entry): string {
+                $terms = is_array($entry->terms) ? $entry->terms : [];
+
+                return (string) $terms['attendance_id'];
+            });
+
+        foreach ($attendance as $row) {
+            $date = substr((string) $row->occurred_on, 0, 10);
+            $terms = $this->termsAt($member, $date, $history);
+            $basis = (string) ($terms['basis'] ?? $member->basis);
+            $active = (bool) ($terms['active'] ?? true);
+            $present = (string) $row->status === 'present';
+            $quantity = (string) ($row->quantity ?? '0');
+            $rate = (string) ($terms['rate'] ?? $member->rate ?? '0');
+            $attendanceId = (string) $row->id;
+
+            $workEntry = $workByAttendance->get($attendanceId);
+
+            if (
+                $active
+                && $present
+                && $basis !== 'month'
+                && Decimal::toUnits($quantity) > 0
+                && Decimal::toUnits($rate) > 0
+            ) {
+                if (! $workEntry) {
+                    $amountUnits = intdiv(
+                        Decimal::toUnits($quantity) * Decimal::toUnits($rate) + 5000,
+                        10000,
+                    );
+
+                    StaffEntry::create([
+                        'staff_member_id' => $member->id,
+                        'created_by' => $createdBy,
+                        'request_id' => (string) Str::uuid(),
+                        'kind' => 'work',
+                        'occurred_on' => $date,
+                        'quantity' => $quantity,
+                        'rate' => $rate,
+                        'amount' => Decimal::fromUnits($amountUnits),
+                        'notes' => 'Attendance entitlement repair',
+                        'terms' => [
+                            'attendance_id' => (int) $row->id,
+                            'basis' => $basis,
+                            'currency' => (string) ($terms['currency'] ?? $member->currency),
+                            'auto_repaired' => true,
+                        ],
+                    ]);
+                } elseif ($workEntry->trashed()) {
+                    $workEntry->restore();
+                }
+            }
+
+            $overtimeHours = (string) ($row->overtime_hours ?? '0');
+            $overtimeRate = (string) ($row->overtime_rate ?? '0');
+            $overtimeEntry = $overtimeByAttendance->get($attendanceId);
+
+            if (
+                $active
+                && $present
+                && Decimal::toUnits($overtimeHours) > 0
+                && Decimal::toUnits($overtimeRate) > 0
+            ) {
+                if (! $overtimeEntry) {
+                    $amountUnits = intdiv(
+                        Decimal::toUnits($overtimeHours) * Decimal::toUnits($overtimeRate) + 5000,
+                        10000,
+                    );
+
+                    StaffEntry::create([
+                        'staff_member_id' => $member->id,
+                        'created_by' => $createdBy,
+                        'request_id' => (string) Str::uuid(),
+                        'kind' => 'overtime',
+                        'occurred_on' => $date,
+                        'quantity' => $overtimeHours,
+                        'rate' => $overtimeRate,
+                        'amount' => Decimal::fromUnits($amountUnits),
+                        'notes' => 'Attendance overtime repair',
+                        'terms' => [
+                            'attendance_id' => (int) $row->id,
+                            'currency' => (string) ($terms['currency'] ?? $member->currency),
+                            'auto_repaired' => true,
+                        ],
+                    ]);
+                } elseif ($overtimeEntry->trashed()) {
+                    $overtimeEntry->restore();
+                }
+            }
+        }
+    }
+
+    /**
+     * Recalculate attendance-backed salary entries for every tenant employee with
+     * attendance, an older generated accrual, or recurring payroll adjustments.
      */
     public function syncOrganization(int $createdBy): void
     {
