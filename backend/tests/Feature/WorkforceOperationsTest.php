@@ -42,7 +42,7 @@ class WorkforceOperationsTest extends TestCase
     public function test_attendance_earns_by_basis_and_overtime_without_paying(): void
     {
         $this->workspace();
-        foreach (['day' => ['100', '100.0000'], 'hour' => ['10', '100.0000'], 'piece' => ['2', '20.0000'], 'month' => ['3000', '0.0000']] as $basis => [$rate,$expected]) {
+        foreach (['day' => ['100', '100.0000'], 'hour' => ['10', '100.0000'], 'piece' => ['2', '20.0000'], 'month' => ['3000', '115.3846']] as $basis => [$rate,$expected]) {
             $staff = $this->staff($basis, $rate);
             $this->attendance($staff)->assertCreated();
             $this->getJson('/api/staff/'.$staff.'/ledger')->assertOk()->assertJsonPath('balance', $expected);
@@ -118,6 +118,38 @@ class WorkforceOperationsTest extends TestCase
         $this->attendance($id, ['occurred_on' => '2026-09-14'])->assertForbidden();
         $this->postJson('/api/staff/'.$id.'/adjustments', ['label' => 'Unauthorized', 'kind' => 'bonus', 'amount' => '50', 'starts_on' => '2026-09-01'])->assertForbidden();
         $this->getJson('/api/staff/'.$id.'/workforce')->assertForbidden();
+    }
+
+    public function test_monthly_salary_entitlement_recalculates_when_attendance_changes(): void
+    {
+        $this->workspace();
+        $id = $this->staff('month', '2600');
+
+        $this->attendance($id)->assertCreated();
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '100.0000');
+
+        $this->attendance($id, ['occurred_on' => '2026-09-17'])->assertCreated();
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '200.0000');
+
+        $rows = collect(
+            $this->getJson('/api/staff/'.$id.'/workforce')
+                ->assertOk()
+                ->json('attendance.data'),
+        );
+        $row = $rows->firstWhere('occurred_on', '2026-09-17');
+
+        $this->assertNotNull($row);
+        $this->deleteJson('/api/staff/'.$id.'/attendance/'.$row['id'], [
+            'reason' => 'Wrong attendance row',
+        ])->assertOk();
+
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '100.0000');
+        $this->assertDatabaseHas('staff_entries', [
+            'staff_member_id' => $id,
+            'kind' => 'work',
+            'occurred_on' => '2026-09-01',
+            'amount' => '100.0000',
+        ]);
     }
 
     public function test_draft_deletion_duplicate_outputs_and_catalog_stock(): void
