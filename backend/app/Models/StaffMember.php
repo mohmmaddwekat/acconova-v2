@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganization;
+use App\Services\Staff\StaffAttendanceEntitlementRepairService;
 use App\Services\Staff\StaffMonthlyEntitlementService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -68,10 +69,18 @@ class StaffMember extends Model
                     (int) auth()->id(),
                 );
 
+                // Repair old/imported hourly, daily and piece attendance rows too.
+                // In particular, existing work rows that were created with a
+                // historical zero rate are recalculated using the configured
+                // current rate instead of being left at amount = 0.
+                app(StaffAttendanceEntitlementRepairService::class)->repair(
+                    $member,
+                    (int) auth()->id(),
+                );
+
                 // withSum(balance) is calculated before the retrieved event. If
-                // synchronization created missing earnings, refresh the aliased
-                // value now so the same response never shows the old negative
-                // balance and does not require a second browser refresh.
+                // synchronization repaired/created earnings, refresh the aliased
+                // value now so the same API response contains the corrected sum.
                 if (array_key_exists('balance', $member->getAttributes())) {
                     $member->setAttribute(
                         'balance',
