@@ -1,11 +1,11 @@
 <?php
 
 use App\Http\Controllers\ImportSourceController;
-use App\Http\Controllers\Staff\StaffAttendanceHistoryController;
 use App\Http\Controllers\Staff\StaffAttendanceSyncController;
 use App\Http\Controllers\Staff\StaffAutoAccrualController;
 use App\Http\Controllers\Staff\StaffBulkAttendanceController;
 use App\Http\Controllers\Staff\StaffEntitlementLedgerController;
+use App\Http\Controllers\Staff\StaffEntitlementWorkforceController;
 use App\Http\Controllers\Staff\StaffImportCommitController;
 use App\Http\Controllers\Staff\StaffImportPreviewController;
 use App\Http\Controllers\Staff\StaffImportTemplateController;
@@ -101,13 +101,13 @@ Route::prefix('api')
             ]);
 
         /*
-         * Keep staff history reads paginated and filtered in SQL. This route is
-         * registered after web.php, so it replaces the older generic workforce
-         * GET without changing attendance/adjustment mutation behavior.
+         * Keep staff history reads paginated and filtered in SQL. Before the
+         * selected employee's history is aggregated, refresh only that person's
+         * attendance-backed entitlement so payroll rows cannot be stale.
          */
         Route::get(
             'staff/{staff}/workforce',
-            StaffAttendanceHistoryController::class,
+            StaffEntitlementWorkforceController::class,
         )
             ->whereNumber('staff')
             ->middleware(RequireActiveSubscription::class);
