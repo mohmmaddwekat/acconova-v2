@@ -7,11 +7,13 @@ use App\Models\Department;
 use App\Models\Membership;
 use App\Models\StaffEntry;
 use App\Models\StaffMember;
+use App\Services\Staff\StaffMonthlyEntitlementService;
 use App\Support\InventoryQuantity as Decimal;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -30,7 +32,7 @@ class StaffImportController extends Controller
     /** @var array<string, list<StaffMember>>|null */
     private ?array $normalizedNameIndex = null;
 
-    /** @var array<int, \Illuminate\Support\Collection<int, StaffEntry>> */
+    /** @var array<int, Collection<int, StaffEntry>> */
     private array $termsHistoryCache = [];
 
     /** @var array<string, StaffEntry|null> */
@@ -112,6 +114,16 @@ class StaffImportController extends Controller
             'match_by' => ['nullable', Rule::in(['name', 'phone', 'email'])],
             'duplicate_strategy' => ['nullable', Rule::in(['skip', 'update'])],
             'create_departments' => ['nullable', 'boolean'],
+            'filters' => ['nullable', 'array', 'max:20'],
+            'filters.*.column' => ['required', 'string', 'max:255'],
+            'filters.*.type' => ['required', Rule::in(['text', 'number', 'date'])],
+            'filters.*.operator' => ['required', Rule::in([
+                'equals', 'not_equals', 'contains', 'not_contains',
+                'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'between',
+                'before', 'after',
+            ])],
+            'filters.*.value' => ['nullable', 'string', 'max:255'],
+            'filters.*.value2' => ['nullable', 'string', 'max:255'],
         ]);
 
         $this->authorizeImportType($data['type']);
@@ -135,6 +147,10 @@ class StaffImportController extends Controller
             }
         }
 
+        $totalRecords = count($records);
+        $records = $this->applyFilters($records, $data['filters'] ?? []);
+        $filteredOut = $totalRecords - count($records);
+
         $result = match ($data['type']) {
             'employees' => $this->importEmployees($records, $data),
             'attendance' => $this->importAttendance($request, $records, $data),
@@ -142,8 +158,141 @@ class StaffImportController extends Controller
         };
 
         $result['token'] = $data['token'];
+        $result['filtered_out'] = $filteredOut;
 
         return response()->json($result);
+    }
+
+    /**
+     * Keep only the rows that satisfy every row-level filter the user picked
+     * in the preview step (e.g. one employee, or a date/amount range) before
+     * they are matched and written.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<array<string, mixed>>  $filters
+     * @return list<array<string, mixed>>
+     */
+    private function applyFilters(array $rows, array $filters): array
+    {
+        if ($filters === []) {
+            return $rows;
+        }
+
+        return array_values(array_filter(
+            $rows,
+            fn (array $row): bool => $this->rowMatchesFilters($row, $filters),
+        ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  list<array<string, mixed>>  $filters
+     */
+    private function rowMatchesFilters(array $row, array $filters): bool
+    {
+        foreach ($filters as $filter) {
+            if (! $this->rowMatchesFilter($row, $filter)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, mixed>  $filter
+     */
+    private function rowMatchesFilter(array $row, array $filter): bool
+    {
+        $raw = $row[$filter['column']] ?? null;
+        $operator = (string) $filter['operator'];
+        $value = $filter['value'] ?? null;
+        $value2 = $filter['value2'] ?? null;
+
+        return match ($filter['type']) {
+            'number' => $this->filterNumber($raw, $operator, $value, $value2),
+            'date' => $this->filterDate($raw, $operator, $value, $value2),
+            default => $this->filterText($raw, $operator, $value),
+        };
+    }
+
+    private function filterText(mixed $raw, string $operator, ?string $value): bool
+    {
+        $haystack = mb_strtolower(trim((string) ($raw ?? '')));
+        $needle = mb_strtolower(trim((string) ($value ?? '')));
+
+        return match ($operator) {
+            'equals' => $haystack === $needle,
+            'not_equals' => $haystack !== $needle,
+            'not_contains' => ! str_contains($haystack, $needle),
+            default => str_contains($haystack, $needle),
+        };
+    }
+
+    private function filterNumber(mixed $raw, string $operator, ?string $value, ?string $value2): bool
+    {
+        $rawDecimal = $this->decimal($raw);
+        if ($rawDecimal === null) {
+            return false;
+        }
+        $rawValue = (float) $rawDecimal;
+
+        if ($operator === 'between') {
+            $low = $this->decimal($value);
+            $high = $this->decimal($value2);
+            if ($low === null || $high === null) {
+                return false;
+            }
+
+            return $rawValue >= (float) $low && $rawValue <= (float) $high;
+        }
+
+        $compareDecimal = $this->decimal($value);
+        if ($compareDecimal === null) {
+            return false;
+        }
+        $compareValue = (float) $compareDecimal;
+
+        return match ($operator) {
+            'eq' => abs($rawValue - $compareValue) < 0.0001,
+            'neq' => abs($rawValue - $compareValue) >= 0.0001,
+            'gt' => $rawValue > $compareValue,
+            'gte' => $rawValue >= $compareValue,
+            'lt' => $rawValue < $compareValue,
+            'lte' => $rawValue <= $compareValue,
+            default => false,
+        };
+    }
+
+    private function filterDate(mixed $raw, string $operator, ?string $value, ?string $value2): bool
+    {
+        $rawDate = $this->date($raw);
+        if ($rawDate === null) {
+            return false;
+        }
+
+        if ($operator === 'between') {
+            $start = $this->date($value);
+            $end = $this->date($value2);
+            if ($start === null || $end === null) {
+                return false;
+            }
+
+            return $rawDate >= $start && $rawDate <= $end;
+        }
+
+        $compare = $this->date($value);
+        if ($compare === null) {
+            return false;
+        }
+
+        return match ($operator) {
+            'eq' => $rawDate === $compare,
+            'before' => $rawDate < $compare,
+            'after' => $rawDate > $compare,
+            default => false,
+        };
     }
 
     private function authorizeImportType(string $type): void
@@ -231,6 +380,7 @@ class StaffImportController extends Controller
 
                     if ($existing && $duplicateStrategy === 'skip') {
                         $skipped++;
+
                         continue;
                     }
 
@@ -304,6 +454,7 @@ class StaffImportController extends Controller
         $skipped = 0;
         $errors = [];
         $existingAttendances = $this->preloadAttendanceState($rows, $mapping, $matchBy);
+        $touchedMembers = [];
 
         DB::transaction(function () use (
             $request,
@@ -316,6 +467,7 @@ class StaffImportController extends Controller
             &$updated,
             &$skipped,
             &$errors,
+            &$touchedMembers,
         ): void {
             foreach ($rows as $index => $row) {
                 try {
@@ -368,6 +520,7 @@ class StaffImportController extends Controller
                             'notes' => $existing->notes,
                         ]);
                         $skipped++;
+
                         continue;
                     }
 
@@ -402,12 +555,21 @@ class StaffImportController extends Controller
                     ];
 
                     $this->syncAttendanceLedger($request, $member, $attendanceId, $payload);
+                    $touchedMembers[(int) $member->id] = $member;
                 } catch (Throwable $exception) {
                     $skipped++;
                     $this->pushError($errors, $index + 2, $exception->getMessage());
                 }
             }
         });
+
+        // Monthly salary is derived from attendance and is not written row by
+        // row, so refresh it once per affected employee after the import.
+        $entitlements = app(StaffMonthlyEntitlementService::class);
+
+        foreach ($touchedMembers as $member) {
+            $entitlements->syncMember($member, (int) $request->user()->id);
+        }
 
         return [
             'type' => 'attendance',
@@ -640,6 +802,7 @@ class StaffImportController extends Controller
             }
             $entry->update($payload);
             $this->attendanceEntryCache[$cacheKey] = $entry;
+
             return;
         }
 
@@ -761,6 +924,7 @@ class StaffImportController extends Controller
 
                     if ($duplicate) {
                         $skipped++;
+
                         continue;
                     }
 
@@ -979,12 +1143,29 @@ class StaffImportController extends Controller
         if ($value === null || trim((string) $value) === '') {
             return null;
         }
-        $normalized = str_replace([',', ' '], '', (string) $value);
+        $normalized = str_replace([',', ' '], '', $this->normalizeArabicNumerals((string) $value));
         if (! is_numeric($normalized)) {
             return null;
         }
 
         return number_format((float) $normalized, 4, '.', '');
+    }
+
+    /**
+     * Excel cells formatted under an Arabic locale can render numbers with
+     * Arabic-Indic digits and the Arabic decimal/thousands separators
+     * (٠١٢٣٤٥٦٧٨٩ ، ٫ ، ٬) instead of plain ASCII. PHP's is_numeric() and
+     * Carbon's date parser reject those, silently turning a valid amount or
+     * date into "required field missing". Normalize them to ASCII first.
+     */
+    private function normalizeArabicNumerals(string $value): string
+    {
+        return strtr($value, [
+            "\u{0660}" => '0', "\u{0661}" => '1', "\u{0662}" => '2', "\u{0663}" => '3',
+            "\u{0664}" => '4', "\u{0665}" => '5', "\u{0666}" => '6', "\u{0667}" => '7',
+            "\u{0668}" => '8', "\u{0669}" => '9',
+            "\u{066B}" => '.', "\u{066C}" => '',
+        ]);
     }
 
     private function date(mixed $value): ?string
@@ -998,7 +1179,7 @@ class StaffImportController extends Controller
             )->toDateString();
         }
         try {
-            return CarbonImmutable::parse((string) $value)->toDateString();
+            return CarbonImmutable::parse($this->normalizeArabicNumerals((string) $value))->toDateString();
         } catch (Throwable) {
             return null;
         }

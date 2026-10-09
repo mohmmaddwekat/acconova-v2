@@ -358,12 +358,43 @@ export default function StaffHubPage() {
         >().props;
 
     const [
+        revision,
+        setRevision,
+    ] =
+        useState(
+            0,
+        );
+
+    const [
         data,
         setData,
     ] =
         useState<StaffOverview | null>(
             null,
         );
+
+    useEffect(
+        () => {
+            const refresh =
+                () =>
+                    setRevision(
+                        (v) =>
+                            v + 1,
+                    );
+
+            window.addEventListener(
+                'staff:transaction-saved',
+                refresh,
+            );
+
+            return () =>
+                window.removeEventListener(
+                    'staff:transaction-saved',
+                    refresh,
+                );
+        },
+        [],
+    );
 
     const [
         loading,
@@ -444,6 +475,7 @@ export default function StaffHubPage() {
         },
         [
             ar,
+            revision,
         ],
     );
 

@@ -1,3 +1,4 @@
+import { ModalPortal } from '@/components/feedback/ModalPortal';
 import {
     StaffWorkforcePanel,
 } from '@/components/StaffWorkforcePanel';
@@ -119,6 +120,8 @@ type Entry = {
         attendance_id?: number;
         adjustment_id?: number;
         period?: string;
+        attendance_salary?: boolean;
+        accrual?: boolean;
     } | null;
 };
 
@@ -1247,6 +1250,36 @@ function StaffWorkspace() {
     /**
      * Correct or remove one manually-created ledger entry.
      */
+    /**
+     * Undo a manual transaction straight from the compensation tab.
+     */
+    async function undoOperation(
+        entry: {
+            id: number;
+        },
+    ): Promise<void> {
+        if (
+            ! selected
+            || ! window.confirm(
+                ar
+                    ? 'حذف هذه العملية والتراجع عنها؟'
+                    : 'Delete this transaction and undo it?',
+            )
+        ) {
+            return;
+        }
+
+        await mutate(
+            `/api/staff/${selected}/entries/${entry.id}`,
+            {
+                reason: ar
+                    ? 'تراجع عن عملية مسجلة بالخطأ'
+                    : 'Undo a transaction recorded by mistake',
+            },
+            'DELETE',
+        );
+    }
+
     async function submitEntryCorrection(
         event:
             FormEvent<HTMLFormElement>,
@@ -2882,6 +2915,12 @@ function StaffWorkspace() {
                                                                     field
                                                                 }
                                                             >
+                                                                <option value="payment">
+                                                                    {ar
+                                                                        ? 'دفعة للموظف'
+                                                                        : 'Payment'}
+                                                                </option>
+
                                                                 <option value="bonus">
                                                                     {ar
                                                                         ? 'مكافأة'
@@ -2898,12 +2937,6 @@ function StaffWorkspace() {
                                                                     {ar
                                                                         ? 'خصم'
                                                                         : 'Deduction'}
-                                                                </option>
-
-                                                                <option value="payment">
-                                                                    {ar
-                                                                        ? 'دفعة للموظف'
-                                                                        : 'Payment'}
                                                                 </option>
 
                                                                 <option value="advance">
@@ -2954,7 +2987,6 @@ function StaffWorkspace() {
                                                                 : 'Note / reason'}
 
                                                             <textarea
-                                                                required
                                                                 maxLength={
                                                                     2000
                                                                 }
@@ -2977,6 +3009,68 @@ function StaffWorkspace() {
                                                             }
                                                         </button>
                                                     </form>
+                                                    {(() => {
+                                                        const recent = ledger.entries.data
+                                                            .filter(
+                                                                (entry) => entry.kind !== 'terms'
+                                                                    && ! entry.terms?.attendance_id
+                                                                    && ! entry.terms?.adjustment_id
+                                                                    && ! entry.terms?.attendance_salary
+                                                                    && ! entry.terms?.accrual,
+                                                            )
+                                                            .slice(0, 5);
+
+                                                        if (! recent.length) {
+                                                            return null;
+                                                        }
+
+                                                        return (
+                                                            <div className="mt-5 border-t border-[var(--ac-line)] pt-4">
+                                                                <h4 className="text-xs font-semibold">
+                                                                    {ar
+                                                                        ? 'آخر العمليات المسجلة'
+                                                                        : 'Recent transactions'}
+                                                                </h4>
+
+                                                                <div className="mt-3 space-y-2">
+                                                                    {recent.map((entry) => (
+                                                                        <div
+                                                                            key={entry.id}
+                                                                            className="flex items-center justify-between gap-3 rounded-[14px] bg-[var(--ac-surface-soft)] px-3 py-2"
+                                                                        >
+                                                                            <div className="min-w-0 text-xs">
+                                                                                <strong>
+                                                                                    {entryKindLabel(entry.kind)}
+                                                                                </strong>
+
+                                                                                <span className="ms-2 text-[var(--ac-text-muted)]">
+                                                                                    {String(entry.occurred_on).slice(0, 10)}
+                                                                                </span>
+
+                                                                                <bdi className="ms-2 font-semibold">
+                                                                                    {money(
+                                                                                        entry.amount,
+                                                                                        ledger.member.currency,
+                                                                                    )}
+                                                                                </bdi>
+                                                                            </div>
+
+                                                                            <button
+                                                                                type="button"
+                                                                                disabled={busy}
+                                                                                onClick={() => void undoOperation(entry)}
+                                                                                className="inline-flex shrink-0 items-center gap-1.5 rounded-[11px] border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                                                            >
+                                                                                <Trash2 size={12} />
+
+                                                                                {ar ? 'حذف' : 'Undo'}
+                                                                            </button>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </section>
                                             )}
                                         </div>
@@ -3326,6 +3420,7 @@ function StaffWorkspace() {
             </main>
 
             {edit && (
+                <ModalPortal>
                 <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/25 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
                     <form
                         data-ac-managed-dirty="true"
@@ -3760,10 +3855,12 @@ function StaffWorkspace() {
                         </div>
                     </form>
                 </div>
+                </ModalPortal>
             )}
 
             {deletingStaff
                 && ledger && (
+                <ModalPortal>
                 <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]">
                     <div className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-2xl">
                         <div className="flex size-11 items-center justify-center rounded-[15px] bg-red-50 text-red-700">
@@ -3854,9 +3951,11 @@ function StaffWorkspace() {
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
             )}
 
             {entryCorrection && (
+                <ModalPortal>
                 <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]">
                     <form
                         onSubmit={(
@@ -4034,6 +4133,7 @@ function StaffWorkspace() {
                         </div>
                     </form>
                 </div>
+                </ModalPortal>
             )}
         </AppShell>
     );

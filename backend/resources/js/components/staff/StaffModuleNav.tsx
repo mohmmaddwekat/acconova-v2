@@ -21,6 +21,9 @@ import type {
 import {
     StaffBulkAttendance,
 } from '@/components/staff/StaffBulkAttendance';
+import {
+    StaffBulkTransactions,
+} from '@/components/staff/StaffBulkTransactions';
 
 type Item = {
     href: string;
@@ -100,6 +103,17 @@ export function StaffModuleNav() {
         || organization?.permissions?.includes('staff.attendance')
         || organization?.permissions?.includes('staff.team_attendance');
 
+    const canPay =
+        organization?.role === 'owner'
+        || organization?.role === 'admin'
+        || organization?.permissions?.includes('staff.pay')
+        || organization?.permissions?.includes('staff.team_pay');
+
+    const onPayrollPage =
+        url.startsWith(
+            '/app/staff/payroll',
+        );
+
     const onImportPage =
         url.startsWith(
             '/app/staff/import',
@@ -175,6 +189,10 @@ export function StaffModuleNav() {
 
             {onAttendancePage && canAttendance ? (
                 <StaffBulkAttendance />
+            ) : null}
+
+            {onPayrollPage && canPay ? (
+                <StaffBulkTransactions />
             ) : null}
         </>
     );

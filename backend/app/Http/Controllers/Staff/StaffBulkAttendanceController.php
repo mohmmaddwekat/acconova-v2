@@ -23,7 +23,7 @@ class StaffBulkAttendanceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $filters = $request->validate([
-            'date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:tomorrow'],
             'search' => ['nullable', 'string', 'max:100'],
             'department_id' => ['nullable', 'integer'],
             'page' => ['nullable', 'integer', 'min:1'],
@@ -90,6 +90,7 @@ class StaffBulkAttendanceController extends Controller
                             'overtime_hours' => (string) $row->overtime_hours,
                             'overtime_rate' => (string) $row->overtime_rate,
                             'notes' => $row->notes,
+                            'deduction_override' => $row->deduction_override,
                         ]
                         : null,
                 ];
@@ -124,7 +125,11 @@ class StaffBulkAttendanceController extends Controller
     ): JsonResponse {
         $data = $request->validate([
             'scope' => ['required', Rule::in(['selected', 'all'])],
-            'occurred_on' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'occurred_on' => ['required', 'date_format:Y-m-d', 'before_or_equal:tomorrow'],
+            'dates' => ['nullable', 'array', 'min:1', 'max:31'],
+            'dates.*' => ['date_format:Y-m-d', 'before_or_equal:tomorrow', 'distinct'],
+            'absent_dates' => ['nullable', 'array', 'max:31'],
+            'absent_dates.*' => ['date_format:Y-m-d', 'distinct'],
             'status' => ['required', Rule::in(['present', 'absent'])],
             'quantity' => ['nullable', 'numeric', 'gt:0', 'max:9999', 'regex:/^\d+(\.\d{1,4})?$/'],
             'overtime_hours' => ['required', 'numeric', 'min:0', 'max:24', 'regex:/^\d+(\.\d{1,4})?$/'],
@@ -139,12 +144,19 @@ class StaffBulkAttendanceController extends Controller
             'overrides.*.overtime_hours' => ['nullable', 'numeric', 'min:0', 'max:24', 'regex:/^\d+(\.\d{1,4})?$/'],
             'overrides.*.overtime_rate' => ['nullable', 'numeric', 'min:0', 'max:999999', 'regex:/^\d+(\.\d{1,4})?$/'],
             'overrides.*.notes' => ['nullable', 'string', 'max:2000'],
+            'overrides.*.deduction_override' => ['nullable', 'numeric', 'min:0', 'max:999999'],
             'search' => ['nullable', 'string', 'max:100'],
             'department_id' => ['nullable', 'integer'],
             'cursor' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $date = (string) $data['occurred_on'];
+        $dates = collect($data['dates'] ?? [(string) $data['occurred_on']])
+            ->map(fn ($day): string => (string) $day)
+            ->unique()
+            ->sort()
+            ->values();
+        $date = (string) $dates->last();
+        $chunkSize = max(10, intdiv(self::CHUNK_SIZE, $dates->count()));
         $filters = [
             'search' => $data['search'] ?? null,
             'department_id' => $data['department_id'] ?? null,
@@ -170,11 +182,11 @@ class StaffBulkAttendanceController extends Controller
             $members = (clone $query)
                 ->where('id', '>', $cursor)
                 ->orderBy('id')
-                ->limit(self::CHUNK_SIZE + 1)
+                ->limit($chunkSize + 1)
                 ->get();
 
-            $hasMore = $members->count() > self::CHUNK_SIZE;
-            $members = $members->take(self::CHUNK_SIZE)->values();
+            $hasMore = $members->count() > $chunkSize;
+            $members = $members->take($chunkSize)->values();
             $nextCursor = $members->isNotEmpty()
                 ? (int) $members->last()->id
                 : $cursor;
@@ -192,26 +204,62 @@ class StaffBulkAttendanceController extends Controller
             })
             ->all();
 
-        $result = $service->save(
-            $members,
-            $date,
-            [
-                'status' => (string) $data['status'],
-                'quantity' => isset($data['quantity']) ? (string) $data['quantity'] : '0',
-                'overtime_hours' => (string) $data['overtime_hours'],
-                'overtime_rate' => (string) $data['overtime_rate'],
-                'notes' => $data['notes'] ?? null,
-            ],
-            $overrides,
-            (int) $request->user()->id,
-        );
+        $defaults = [
+            'status' => (string) $data['status'],
+            'quantity' => isset($data['quantity']) ? (string) $data['quantity'] : '0',
+            'overtime_hours' => (string) $data['overtime_hours'],
+            'overtime_rate' => (string) $data['overtime_rate'],
+            'notes' => $data['notes'] ?? null,
+        ];
+        $processed = 0;
+        $skipped = [];
+        $multiDay = isset($data['dates']);
+        $absentDates = collect($data['absent_dates'] ?? [])->flip();
+
+        // In multi-day mode each day carries its own present/absent status.
+        $overridesWithoutStatus = collect($overrides)
+            ->map(function (array $row): array {
+                unset($row['status']);
+
+                return $row;
+            })
+            ->all();
+
+        foreach ($dates as $day) {
+            // An employee only takes part in days on or after their start date.
+            $dayMembers = $members
+                ->filter(fn (StaffMember $member): bool => substr((string) $member->started_on, 0, 10) <= $day)
+                ->values();
+
+            $result = $service->save(
+                $dayMembers,
+                $day,
+                $multiDay
+                    ? [...$defaults, 'status' => $absentDates->has($day) ? 'absent' : 'present']
+                    : $defaults,
+                $multiDay ? $overridesWithoutStatus : $overrides,
+                (int) $request->user()->id,
+            );
+
+            $processed += $result['processed'];
+
+            foreach ($result['skipped'] as $skip) {
+                $skipped[$skip['id']] = $skip;
+            }
+        }
+
+        $result = [
+            'processed' => $processed,
+            'skipped' => array_values($skipped),
+            'days' => $dates->count(),
+        ];
 
         return response()->json([
             ...$result,
             'requested' => $members->count(),
             'next_cursor' => $nextCursor,
             'has_more' => $data['scope'] === 'all' ? $hasMore : false,
-            'chunk_size' => self::CHUNK_SIZE,
+            'chunk_size' => $chunkSize,
         ]);
     }
 
@@ -219,7 +267,7 @@ class StaffBulkAttendanceController extends Controller
      * Build the exact attendance-authorized Staff scope used by both list and
      * save endpoints. This prevents bulk APIs from broadening team permissions.
      *
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      */
     private function attendanceScope(
         Request $request,

@@ -4,6 +4,7 @@ use App\Http\Controllers\ImportSourceController;
 use App\Http\Controllers\Staff\StaffAttendanceSyncController;
 use App\Http\Controllers\Staff\StaffAutoAccrualController;
 use App\Http\Controllers\Staff\StaffBulkAttendanceController;
+use App\Http\Controllers\Staff\StaffBulkTransactionController;
 use App\Http\Controllers\Staff\StaffEntitlementLedgerController;
 use App\Http\Controllers\Staff\StaffEntitlementWorkforceController;
 use App\Http\Controllers\Staff\StaffImportCommitController;
@@ -98,6 +99,34 @@ Route::prefix('api')
             ->middleware([
                 RequireActiveSubscription::class,
                 'throttle:120,1',
+            ]);
+
+        /*
+         * Bulk payroll transactions: pay, deduct, advance or reward many employees
+         * from the payroll page, each with its own amount.
+         */
+        Route::get(
+            'staff-transactions/bulk',
+            [
+                StaffBulkTransactionController::class,
+                'index',
+            ],
+        )
+            ->middleware([
+                RequireActiveSubscription::class,
+                'throttle:120,1',
+            ]);
+
+        Route::post(
+            'staff-transactions/bulk',
+            [
+                StaffBulkTransactionController::class,
+                'store',
+            ],
+        )
+            ->middleware([
+                RequireActiveSubscription::class,
+                'throttle:60,1',
             ]);
 
         /*

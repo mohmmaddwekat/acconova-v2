@@ -96,6 +96,8 @@ type WorkspaceSettings = {
     approval_payment_threshold: string;
     inventory_reorder_lead_days: number;
     inventory_safety_days: number;
+    staff_working_days_per_month: number;
+    absent_deduction_per_day: string;
     payment_methods: string[];
     validate_check_date: boolean;
     post_dated_checks_pending: boolean;
@@ -1249,6 +1251,52 @@ function SettingsWorkspace() {
                                                 />
                                             </label>
                                         </div>
+                                    </SettingsCard>
+
+                                    <SettingsCard title={text('إعدادات الموظفين', 'Staff settings')} description={text('يؤثر على حساب الراتب اليومي من الراتب الشهري.', 'Affects how the daily rate is derived from a monthly salary.')} icon={UsersRound}>
+                                        <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                            {text('أيام العمل الشهرية', 'Working days per month')}
+                                            <input
+                                                type="number"
+                                                min={20}
+                                                max={31}
+                                                step={1}
+                                                className={input}
+                                                value={settings.staff_working_days_per_month}
+                                                onChange={event => updateSetting(
+                                                    'staff_working_days_per_month',
+                                                    Math.min(31, Math.max(20, Number(event.target.value) || 26)),
+                                                )}
+                                            />
+                                        </label>
+                                        <p className="mt-2 text-[10px] leading-5 text-[var(--acs-text-soft)]">
+                                            {text(
+                                                'يُقسَّم الراتب الشهري على هذا الرقم لحساب قيمة اليوم الواحد. الافتراضي 26 (6 أيام عمل/أسبوع).',
+                                                'Monthly salary is divided by this number to get the daily rate. Default 26 (6 workdays/week).',
+                                            )}
+                                        </p>
+
+                                        <label className="mt-4 block text-[11px] font-semibold text-[var(--acs-text-soft)]">
+                                            {text('خصم الغياب اليومي (اختياري)', 'Absent day deduction (optional)')}
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                step="0.01"
+                                                className={input}
+                                                value={settings.absent_deduction_per_day === '0' ? '' : settings.absent_deduction_per_day}
+                                                placeholder={text('تلقائي (راتب ÷ أيام العمل)', 'Auto (salary ÷ working days)')}
+                                                onChange={event => updateSetting(
+                                                    'absent_deduction_per_day',
+                                                    event.target.value === '' ? '0' : event.target.value,
+                                                )}
+                                            />
+                                        </label>
+                                        <p className="mt-2 text-[10px] leading-5 text-[var(--acs-text-soft)]">
+                                            {text(
+                                                'إذا تركته فارغاً يُحسب الخصم تلقائياً (راتب ÷ أيام العمل الشهرية). أدخل قيمة ثابتة إذا أردت خصماً محدداً لكل يوم غياب.',
+                                                'Leave empty for auto calculation (salary ÷ working days). Enter a fixed amount to deduct a flat rate per absent day.',
+                                            )}
+                                        </p>
                                     </SettingsCard>
 
                                     <SettingsCard title={text('الحسابات البنكية', 'Bank accounts')} description={text('لا يتم إنشاء أي حساب افتراضي. أضف حساباتك الحقيقية فقط.', 'No fake accounts are created. Add only real accounts.')} icon={Banknote}>

@@ -20,6 +20,7 @@ type Attendance = {
     overtime_hours: string;
     overtime_rate: string;
     notes: string | null;
+    deduction_override: string | null;
 };
 
 type Row = {
@@ -49,6 +50,7 @@ type RosterResponse = {
 };
 
 type SaveResponse = {
+    days: number;
     processed: number;
     requested: number;
     skipped: { id: number; name: string; reason: string }[];
@@ -63,6 +65,7 @@ type Override = {
     overtime_hours: string;
     overtime_rate: string;
     notes: string;
+    deduction_override: string;
 };
 
 const field =
@@ -75,6 +78,20 @@ const primary =
 function localDate(): string {
     const date = new Date();
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function monthDays(date: string): { iso: string; day: number; friday: boolean }[] {
+    const [year, month] = date.split('-').map(Number);
+    const total = new Date(year, month, 0).getDate();
+
+    return Array.from({ length: total }, (_, index) => {
+        const day = index + 1;
+        return {
+            iso: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+            day,
+            friday: new Date(year, month - 1, day).getDay() === 5,
+        };
+    });
 }
 
 function errorText(error: unknown): string {
@@ -90,6 +107,9 @@ function errorText(error: unknown): string {
 export function StaffBulkAttendance() {
     const ar = useLocale() === 'ar';
     const [date, setDate] = useState(localDate());
+    const [multiDay, setMultiDay] = useState(false);
+    const [days, setDays] = useState<Map<string, Status>>(new Map());
+    const [brush, setBrush] = useState<Status>('present');
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [department, setDepartment] = useState('');
@@ -114,6 +134,10 @@ export function StaffBulkAttendance() {
         const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
         return () => window.clearTimeout(timer);
     }, [search]);
+
+    useEffect(() => {
+        setDays(new Map());
+    }, [date.slice(0, 7)]);
 
     useEffect(() => {
         setPage(1);
@@ -164,10 +188,26 @@ export function StaffBulkAttendance() {
         return {
             status: custom.status ?? status,
             quantity: custom.quantity ?? quantity,
-            overtime_hours: custom.overtime_hours ?? overtimeHours,
-            overtime_rate: custom.overtime_rate ?? overtimeRate,
+            overtime_hours: custom.overtime_hours ?? '0',
+            overtime_rate: custom.overtime_rate ?? '0',
             notes: custom.notes ?? notes,
+            deduction_override: custom.deduction_override ?? '',
         };
+    }
+
+    function fillOvertimeForSelected(): void {
+        if (!selected.size) return;
+        setOverrides((current) => {
+            const next = { ...current };
+            selected.forEach((id) => {
+                next[id] = {
+                    ...(next[id] ?? {}),
+                    overtime_hours: overtimeHours,
+                    overtime_rate: overtimeRate,
+                };
+            });
+            return next;
+        });
     }
 
     function setRow(rowId: number, patch: Partial<Override>): void {
@@ -192,18 +232,53 @@ export function StaffBulkAttendance() {
     function defaultsPayload() {
         return {
             occurred_on: date,
+            dates: multiDay && days.size ? Array.from(days.keys()).sort() : null,
+            absent_dates: multiDay && days.size
+                ? Array.from(days.entries()).filter(([, value]) => value === 'absent').map(([key]) => key).sort()
+                : null,
             status,
             quantity,
-            overtime_hours: overtimeHours,
-            overtime_rate: overtimeRate,
+            overtime_hours: '0',
+            overtime_rate: '0',
             notes: notes || null,
             search: debouncedSearch || null,
             department_id: department ? Number(department) : null,
         };
     }
 
+    const today = localDate();
+    const calendar = useMemo(() => monthDays(date), [date]);
+    const selectableDays = calendar.filter((item) => item.iso <= today);
+    const multiDayBlocked = multiDay && days.size === 0;
+
+    function toggleDay(iso: string): void {
+        setDays((current) => {
+            const next = new Map(current);
+            if (next.get(iso) === brush) next.delete(iso);
+            else next.set(iso, brush);
+            return next;
+        });
+    }
+
+    function paintDays(list: { iso: string }[]): void {
+        setDays((current) => {
+            const next = new Map(current);
+            list.forEach((item) => next.set(item.iso, brush));
+            return next;
+        });
+    }
+
+    const presentDaysCount = Array.from(days.values()).filter((value) => value === 'present').length;
+    const absentDaysCount = days.size - presentDaysCount;
+
+    function daysSuffix(response: { days?: number }): string {
+        const count = response.days ?? 1;
+        if (count <= 1) return '';
+        return ar ? ` · ${count} أيام` : ` · ${count} days`;
+    }
+
     async function saveSelected(): Promise<void> {
-        if (!selected.size || saving) return;
+        if (!selected.size || saving || multiDayBlocked) return;
         setSaving(true);
         setError('');
         setSuccess('');
@@ -225,8 +300,8 @@ export function StaffBulkAttendance() {
 
             setSuccess(
                 ar
-                    ? `تم تسجيل ${response.processed} موظف${response.skipped.length ? ` · تم تخطي ${response.skipped.length}` : ''}.`
-                    : `Saved ${response.processed} employees${response.skipped.length ? ` · ${response.skipped.length} skipped` : ''}.`,
+                    ? `تم تسجيل ${response.processed} سجل${daysSuffix(response)}${response.skipped.length ? ` · تم تخطي ${response.skipped.length}` : ''}.`
+                    : `Saved ${response.processed} records${daysSuffix(response)}${response.skipped.length ? ` · ${response.skipped.length} skipped` : ''}.`,
             );
             setSelected(new Set());
             setOverrides({});
@@ -239,7 +314,7 @@ export function StaffBulkAttendance() {
     }
 
     async function saveAllMatching(): Promise<void> {
-        if (saving || !roster?.pagination.total) return;
+        if (saving || !roster?.pagination.total || multiDayBlocked) return;
 
         const total = roster.pagination.total;
         const confirmed = window.confirm(
@@ -257,6 +332,8 @@ export function StaffBulkAttendance() {
         let cursor = 0;
         let done = 0;
         let skipped = 0;
+        let handled = 0;
+        let dayCount = 1;
 
         try {
             while (true) {
@@ -271,7 +348,9 @@ export function StaffBulkAttendance() {
 
                 done += response.processed;
                 skipped += response.skipped.length;
-                setProgress({ done: Math.min(total, done + skipped), total });
+                handled += response.requested;
+                dayCount = response.days ?? 1;
+                setProgress({ done: Math.min(total, handled), total });
 
                 if (!response.has_more || response.next_cursor === null) break;
                 cursor = response.next_cursor;
@@ -279,8 +358,8 @@ export function StaffBulkAttendance() {
 
             setSuccess(
                 ar
-                    ? `تم تسجيل ${done} موظف${skipped ? ` · تم تخطي ${skipped}` : ''}.`
-                    : `Saved ${done} employees${skipped ? ` · ${skipped} skipped` : ''}.`,
+                    ? `تم تسجيل ${done} سجل${daysSuffix({ days: dayCount })}${skipped ? ` · تم تخطي ${skipped}` : ''}.`
+                    : `Saved ${done} records${daysSuffix({ days: dayCount })}${skipped ? ` · ${skipped} skipped` : ''}.`,
             );
             setSelected(new Set());
             setOverrides({});
@@ -318,11 +397,11 @@ export function StaffBulkAttendance() {
                                 ? ar ? 'إلغاء تحديد الصفحة' : 'Unselect page'
                                 : ar ? 'تحديد الصفحة' : 'Select page'}
                         </button>
-                        <button type="button" className={primary} onClick={() => void saveSelected()} disabled={saving || !selected.size}>
+                        <button type="button" className={primary} onClick={() => void saveSelected()} disabled={saving || !selected.size || multiDayBlocked}>
                             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                             {ar ? `تسجيل المحددين (${selected.size})` : `Save selected (${selected.size})`}
                         </button>
-                        <button type="button" className={button} onClick={() => void saveAllMatching()} disabled={saving || !roster?.pagination.total}>
+                        <button type="button" className={button} onClick={() => void saveAllMatching()} disabled={saving || !roster?.pagination.total || multiDayBlocked}>
                             <UsersRound size={14} />
                             {ar ? `تطبيق على كل النتائج (${roster?.pagination.total ?? 0})` : `Apply to all (${roster?.pagination.total ?? 0})`}
                         </button>
@@ -332,7 +411,7 @@ export function StaffBulkAttendance() {
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
                     <label className="text-[10px] font-semibold">
                         {ar ? 'التاريخ' : 'Date'}
-                        <input type="date" value={date} max={localDate()} onChange={(event) => setDate(event.target.value)} className={`${field} mt-1`} />
+                        <input type="date" value={date} max={today} onChange={(event) => setDate(event.target.value)} className={`${field} mt-1`} />
                     </label>
                     <label className="text-[10px] font-semibold xl:col-span-2">
                         {ar ? 'بحث' : 'Search'}
@@ -367,16 +446,114 @@ export function StaffBulkAttendance() {
                     </label>
                 </div>
 
+                <div className="mt-3 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3">
+                    <label className="flex cursor-pointer items-center gap-2 text-[11px] font-semibold">
+                        <input type="checkbox" checked={multiDay} onChange={(event) => setMultiDay(event.target.checked)} />
+                        {ar ? 'تسجيل عدة أيام من نفس الشهر دفعة واحدة' : 'Record several days of this month at once'}
+                    </label>
+
+                    {multiDay && (
+                        <div className="mt-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-[10px] font-semibold">
+                                    {ar ? 'عند الضغط على يوم، سجّله:' : 'Clicking a day marks it as:'}
+                                </span>
+                                <div className="inline-flex overflow-hidden rounded-[12px] border border-[var(--ac-line)]">
+                                    <button
+                                        type="button"
+                                        aria-pressed={brush === 'present'}
+                                        onClick={() => setBrush('present')}
+                                        className={`min-h-10 px-4 text-xs font-semibold transition ${brush === 'present' ? 'bg-emerald-600 text-white' : 'bg-[var(--ac-surface)] hover:bg-[var(--ac-surface-soft)]'}`}
+                                    >
+                                        {ar ? 'حاضر' : 'Present'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        aria-pressed={brush === 'absent'}
+                                        onClick={() => setBrush('absent')}
+                                        className={`min-h-10 px-4 text-xs font-semibold transition ${brush === 'absent' ? 'bg-red-600 text-white' : 'bg-[var(--ac-surface)] hover:bg-[var(--ac-surface-soft)]'}`}
+                                    >
+                                        {ar ? 'غائب' : 'Absent'}
+                                    </button>
+                                </div>
+                                <button type="button" className={button} onClick={() => paintDays(selectableDays.filter((item) => !item.friday))}>
+                                    {ar ? 'كل أيام الشهر (بدون الجمعة)' : 'All days (no Fridays)'}
+                                </button>
+                                <button type="button" className={button} onClick={() => paintDays(selectableDays)}>
+                                    {ar ? 'كل الأيام' : 'Every day'}
+                                </button>
+                                <button type="button" className={button} onClick={() => setDays(new Map())} disabled={!days.size}>
+                                    {ar ? 'مسح' : 'Clear'}
+                                </button>
+                            </div>
+                            <p className="mt-2 text-[10px] text-[var(--ac-text-muted)]">
+                                {ar
+                                    ? `حاضر ${presentDaysCount} يوم · غائب ${absentDaysCount} يوم · الشهر حسب حقل التاريخ. الضغط على يوم بنفس اللون يلغيه.`
+                                    : `Present ${presentDaysCount} · Absent ${absentDaysCount} · month follows the date field. Click a day again with the same color to clear it.`}
+                            </p>
+
+                            <div className="mt-3 grid grid-cols-7 gap-1.5 sm:grid-cols-10 lg:grid-cols-[repeat(16,minmax(0,1fr))]">
+                                {calendar.map((item) => {
+                                    const future = item.iso > today;
+                                    const dayStatus = days.get(item.iso);
+                                    const active = dayStatus !== undefined;
+                                    return (
+                                        <button
+                                            key={item.iso}
+                                            type="button"
+                                            disabled={future}
+                                            aria-pressed={active}
+                                            onClick={() => toggleDay(item.iso)}
+                                            className={[
+                                                'h-9 rounded-[10px] border text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40',
+                                                dayStatus === 'present'
+                                                    ? 'border-transparent bg-emerald-600 text-white'
+                                                    : dayStatus === 'absent'
+                                                        ? 'border-transparent bg-red-600 text-white'
+                                                        : 'border-[var(--ac-line)] bg-[var(--ac-surface)] hover:bg-[var(--ac-accent-soft)]',
+                                                item.friday && !active ? 'text-[var(--ac-text-muted)]' : '',
+                                            ].join(' ')}
+                                        >
+                                            {item.day}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {multiDayBlocked && (
+                                <p className="mt-2 text-[10px] text-amber-700">
+                                    {ar ? 'اختر يومًا واحدًا على الأقل.' : 'Pick at least one day.'}
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                    <label className="text-[10px] font-semibold">
-                        {ar ? 'ساعات إضافية' : 'Overtime hours'}
-                        <input type="number" min="0" max="24" step="0.0001" value={overtimeHours} onChange={(event) => setOvertimeHours(event.target.value)} disabled={status === 'absent'} className={`${field} mt-1`} />
-                    </label>
-                    <label className="text-[10px] font-semibold">
-                        {ar ? 'أجر ساعة الإضافي' : 'Overtime rate'}
-                        <input type="number" min="0" max="999999" step="0.0001" value={overtimeRate} onChange={(event) => setOvertimeRate(event.target.value)} disabled={status === 'absent'} className={`${field} mt-1`} />
-                    </label>
-                    <label className="text-[10px] font-semibold">
+                    <div>
+                        <p className="text-[10px] font-semibold">{ar ? 'تعبئة سريعة للإضافي' : 'Quick overtime fill'}</p>
+                        <p className="mb-1 text-[9px] text-[var(--ac-text-muted)]">
+                            {ar ? 'اكتب القيم ثم اضغط "تطبيق على المحددين" — لا تُطبَّق تلقائياً.' : 'Enter values then press "Apply to selected" — not applied automatically.'}
+                        </p>
+                        <div className="flex gap-1">
+                            <input aria-label={ar ? 'ساعات إضافية للتعبئة' : 'Overtime hours to fill'} type="number" min="0" max="24" step="0.0001" value={overtimeHours} onChange={(event) => setOvertimeHours(event.target.value)} placeholder={ar ? 'ساعات' : 'Hours'} className={`${field} w-20`} />
+                            <input aria-label={ar ? 'أجر الإضافي للتعبئة' : 'Overtime rate to fill'} type="number" min="0" max="999999" step="0.0001" value={overtimeRate} onChange={(event) => setOvertimeRate(event.target.value)} placeholder={ar ? 'الأجر' : 'Rate'} className={`${field}`} />
+                        </div>
+                        <button
+                            type="button"
+                            className={`${button} mt-1 w-full`}
+                            disabled={!selected.size || status === 'absent' || multiDay}
+                            onClick={fillOvertimeForSelected}
+                        >
+                            {ar ? `تطبيق على المحددين (${selected.size})` : `Apply to selected (${selected.size})`}
+                        </button>
+                        {multiDay && (
+                            <p className="mt-1 text-[9px] text-amber-700">
+                                {ar ? 'الوقت الإضافي غير متاح في وضع الأيام المتعددة — سجّل اليوم منفرداً.' : 'Overtime is unavailable in multi-day mode — use single-day mode.'}
+                            </p>
+                        )}
+                    </div>
+                    <label className="text-[10px] font-semibold sm:col-span-2">
                         {ar ? 'ملاحظة للجميع' : 'Note for all'}
                         <input value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={2000} className={`${field} mt-1`} />
                     </label>
@@ -411,6 +588,7 @@ export function StaffBulkAttendance() {
                                 <th className="px-4 py-3 text-start">{ar ? 'الحالة الجديدة' : 'New status'}</th>
                                 <th className="px-4 py-3 text-start">{ar ? 'ساعات / كمية' : 'Hours / qty'}</th>
                                 <th className="px-4 py-3 text-start">{ar ? 'إضافي' : 'Overtime'}</th>
+                                <th className="px-4 py-3 text-start">{ar ? 'خصم الغياب' : 'Absence deduction'}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[var(--ac-line)]">
@@ -452,16 +630,39 @@ export function StaffBulkAttendance() {
                                                 <input type="number" min="0.0001" max="9999" step="0.0001" value={values.quantity} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { quantity: event.target.value })} className={field} />
                                             )}
                                         </td>
+                                                        <td className="px-4 py-3">
+                                            {multiDay ? (
+                                                <span className="text-[9px] text-[var(--ac-text-muted)]">
+                                                    {ar ? 'سجّل اليوم منفرداً' : 'Use single-day mode'}
+                                                </span>
+                                            ) : (
+                                                <div className="flex gap-1">
+                                                    <input aria-label={ar ? 'ساعات إضافية' : 'Overtime hours'} type="number" min="0" max="24" step="0.0001" value={values.overtime_hours} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { overtime_hours: event.target.value })} className={`${field} w-20`} />
+                                                    <input aria-label={ar ? 'أجر الإضافي' : 'Overtime rate'} type="number" min="0" max="999999" step="0.0001" value={values.overtime_rate} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { overtime_rate: event.target.value })} className={`${field} w-24`} />
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="px-4 py-3">
-                                            <div className="flex gap-1">
-                                                <input aria-label={ar ? 'ساعات إضافية' : 'Overtime hours'} type="number" min="0" max="24" step="0.0001" value={values.overtime_hours} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { overtime_hours: event.target.value })} className={`${field} w-20`} />
-                                                <input aria-label={ar ? 'أجر الإضافي' : 'Overtime rate'} type="number" min="0" max="999999" step="0.0001" value={values.overtime_rate} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { overtime_rate: event.target.value })} className={`${field} w-24`} />
-                                            </div>
+                                            {row.basis === 'month' && (multiDay || values.status === 'absent') ? (
+                                                <input
+                                                    aria-label={ar ? 'خصم الغياب' : 'Absence deduction'}
+                                                    type="number"
+                                                    min="0"
+                                                    max="999999"
+                                                    step="0.01"
+                                                    value={values.deduction_override}
+                                                    placeholder={ar ? 'تلقائي' : 'Auto'}
+                                                    onChange={(event) => setRow(row.id, { deduction_override: event.target.value })}
+                                                    className={`${field} w-28`}
+                                                />
+                                            ) : (
+                                                <span className="text-[10px] text-[var(--ac-text-muted)]">—</span>
+                                            )}
                                         </td>
                                     </tr>
                                 );
                             })}
-                            {!roster?.data.length && <tr><td colSpan={7} className="p-10 text-center text-xs text-[var(--ac-text-muted)]">{ar ? 'لا يوجد موظفون مطابقون.' : 'No matching employees.'}</td></tr>}
+                            {!roster?.data.length && <tr><td colSpan={8} className="p-10 text-center text-xs text-[var(--ac-text-muted)]">{ar ? 'لا يوجد موظفون مطابقون.' : 'No matching employees.'}</td></tr>}
                         </tbody>
                     </table>
                 </div>

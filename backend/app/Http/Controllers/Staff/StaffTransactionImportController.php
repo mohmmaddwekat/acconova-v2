@@ -42,6 +42,16 @@ class StaffTransactionImportController extends Controller
             'mapping' => ['required', 'array'],
             'mapping.*' => ['nullable', 'string', 'max:255'],
             'match_by' => ['nullable', Rule::in(['name', 'phone', 'email'])],
+            'filters' => ['nullable', 'array', 'max:20'],
+            'filters.*.column' => ['required', 'string', 'max:255'],
+            'filters.*.type' => ['required', Rule::in(['text', 'number', 'date'])],
+            'filters.*.operator' => ['required', Rule::in([
+                'equals', 'not_equals', 'contains', 'not_contains',
+                'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'between',
+                'before', 'after',
+            ])],
+            'filters.*.value' => ['nullable', 'string', 'max:255'],
+            'filters.*.value2' => ['nullable', 'string', 'max:255'],
         ]);
 
         $mapping = $data['mapping'];
@@ -73,6 +83,10 @@ class StaffTransactionImportController extends Controller
                 $records[] = $this->associateRow($headers, $row);
             }
         }
+
+        $totalRecords = count($records);
+        $records = $this->applyFilters($records, $data['filters'] ?? []);
+        $filteredOut = $totalRecords - count($records);
 
         $matchBy = $data['match_by'] ?? 'name';
         $created = 0;
@@ -142,6 +156,7 @@ class StaffTransactionImportController extends Controller
 
                     if ($duplicate) {
                         $skipped++;
+
                         continue;
                     }
 
@@ -178,7 +193,140 @@ class StaffTransactionImportController extends Controller
             'updated' => 0,
             'skipped' => $skipped,
             'errors' => $errors,
+            'filtered_out' => $filteredOut,
         ]);
+    }
+
+    /**
+     * Keep only the rows that satisfy every row-level filter the user picked
+     * in the preview step (e.g. one employee, or a date/amount range) before
+     * they are matched and written.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<array<string, mixed>>  $filters
+     * @return list<array<string, mixed>>
+     */
+    private function applyFilters(array $rows, array $filters): array
+    {
+        if ($filters === []) {
+            return $rows;
+        }
+
+        return array_values(array_filter(
+            $rows,
+            fn (array $row): bool => $this->rowMatchesFilters($row, $filters),
+        ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  list<array<string, mixed>>  $filters
+     */
+    private function rowMatchesFilters(array $row, array $filters): bool
+    {
+        foreach ($filters as $filter) {
+            if (! $this->rowMatchesFilter($row, $filter)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, mixed>  $filter
+     */
+    private function rowMatchesFilter(array $row, array $filter): bool
+    {
+        $raw = $row[$filter['column']] ?? null;
+        $operator = (string) $filter['operator'];
+        $value = $filter['value'] ?? null;
+        $value2 = $filter['value2'] ?? null;
+
+        return match ($filter['type']) {
+            'number' => $this->filterNumber($raw, $operator, $value, $value2),
+            'date' => $this->filterDate($raw, $operator, $value, $value2),
+            default => $this->filterText($raw, $operator, $value),
+        };
+    }
+
+    private function filterText(mixed $raw, string $operator, ?string $value): bool
+    {
+        $haystack = mb_strtolower(trim((string) ($raw ?? '')));
+        $needle = mb_strtolower(trim((string) ($value ?? '')));
+
+        return match ($operator) {
+            'equals' => $haystack === $needle,
+            'not_equals' => $haystack !== $needle,
+            'not_contains' => ! str_contains($haystack, $needle),
+            default => str_contains($haystack, $needle),
+        };
+    }
+
+    private function filterNumber(mixed $raw, string $operator, ?string $value, ?string $value2): bool
+    {
+        $rawDecimal = $this->decimal($raw);
+        if ($rawDecimal === null) {
+            return false;
+        }
+        $rawValue = (float) $rawDecimal;
+
+        if ($operator === 'between') {
+            $low = $this->decimal($value);
+            $high = $this->decimal($value2);
+            if ($low === null || $high === null) {
+                return false;
+            }
+
+            return $rawValue >= (float) $low && $rawValue <= (float) $high;
+        }
+
+        $compareDecimal = $this->decimal($value);
+        if ($compareDecimal === null) {
+            return false;
+        }
+        $compareValue = (float) $compareDecimal;
+
+        return match ($operator) {
+            'eq' => abs($rawValue - $compareValue) < 0.0001,
+            'neq' => abs($rawValue - $compareValue) >= 0.0001,
+            'gt' => $rawValue > $compareValue,
+            'gte' => $rawValue >= $compareValue,
+            'lt' => $rawValue < $compareValue,
+            'lte' => $rawValue <= $compareValue,
+            default => false,
+        };
+    }
+
+    private function filterDate(mixed $raw, string $operator, ?string $value, ?string $value2): bool
+    {
+        $rawDate = $this->date($raw);
+        if ($rawDate === null) {
+            return false;
+        }
+
+        if ($operator === 'between') {
+            $start = $this->date($value);
+            $end = $this->date($value2);
+            if ($start === null || $end === null) {
+                return false;
+            }
+
+            return $rawDate >= $start && $rawDate <= $end;
+        }
+
+        $compare = $this->date($value);
+        if ($compare === null) {
+            return false;
+        }
+
+        return match ($operator) {
+            'eq' => $rawDate === $compare,
+            'before' => $rawDate < $compare,
+            'after' => $rawDate > $compare,
+            default => false,
+        };
     }
 
     /** @param array<string, mixed> $mapping */
@@ -248,8 +396,7 @@ class StaffTransactionImportController extends Controller
         $matches = StaffMember::query()
             ->get()
             ->filter(
-                fn (StaffMember $member): bool =>
-                    $this->normalizePersonName($member->name) === $normalized,
+                fn (StaffMember $member): bool => $this->normalizePersonName($member->name) === $normalized,
             )
             ->take(2)
             ->values();
@@ -292,6 +439,7 @@ class StaffTransactionImportController extends Controller
     private function stringOrNull(mixed $value): ?string
     {
         $string = trim((string) ($value ?? ''));
+
         return $string === '' ? null : $string;
     }
 
@@ -301,7 +449,7 @@ class StaffTransactionImportController extends Controller
             return null;
         }
 
-        $normalized = str_replace([',', ' '], '', (string) $value);
+        $normalized = str_replace([',', ' '], '', $this->normalizeArabicNumerals((string) $value));
 
         if (! is_numeric($normalized)) {
             return null;
@@ -323,10 +471,27 @@ class StaffTransactionImportController extends Controller
         }
 
         try {
-            return CarbonImmutable::parse((string) $value)->toDateString();
+            return CarbonImmutable::parse($this->normalizeArabicNumerals((string) $value))->toDateString();
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Excel cells formatted under an Arabic locale can render numbers with
+     * Arabic-Indic digits and the Arabic decimal/thousands separators
+     * (٠١٢٣٤٥٦٧٨٩ ، ٫ ، ٬) instead of plain ASCII. PHP's is_numeric() and
+     * Carbon's date parser reject those, silently turning a valid amount or
+     * date into "required field missing". Normalize them to ASCII first.
+     */
+    private function normalizeArabicNumerals(string $value): string
+    {
+        return strtr($value, [
+            "\u{0660}" => '0', "\u{0661}" => '1', "\u{0662}" => '2', "\u{0663}" => '3',
+            "\u{0664}" => '4', "\u{0665}" => '5', "\u{0666}" => '6', "\u{0667}" => '7',
+            "\u{0668}" => '8', "\u{0669}" => '9',
+            "\u{066B}" => '.', "\u{066C}" => '',
+        ]);
     }
 
     /** @param array<int, mixed> $row */
@@ -342,8 +507,8 @@ class StaffTransactionImportController extends Controller
     }
 
     /**
-     * @param list<string> $headers
-     * @param array<int, mixed> $row
+     * @param  list<string>  $headers
+     * @param  array<int, mixed>  $row
      * @return array<string, mixed>
      */
     private function associateRow(array $headers, array $row): array

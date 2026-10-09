@@ -8,6 +8,7 @@ use App\Models\StaffMember;
 use App\Services\Staff\StaffMonthlyEntitlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -79,8 +80,16 @@ class StaffSalaryChangeController extends Controller
     }
 
     /**
-     * Change the employee's rate from today forward while preserving the old
-     * compensation snapshot in the staff terms ledger.
+     * Change the employee's rate, preserving the old compensation snapshot in
+     * the staff terms ledger. `effective_on` defaults to today for an
+     * ordinary raise, but can be backdated to correct historical salary
+     * steps (e.g. entering "was 3500, became 4500 two months ago, became
+     * 5000 last month" one change at a time). Only the change with the
+     * latest effective date updates the employee's live rate; an earlier,
+     * backdated change is recorded purely as history so it does not
+     * overwrite a rate that is already correct. Either way, attendance-based
+     * entitlements for every affected month are recalculated from the full,
+     * corrected timeline afterwards.
      */
     public function store(
         Request $request,
@@ -94,6 +103,11 @@ class StaffSalaryChangeController extends Controller
                 'min:0',
                 'max:999999',
                 'regex:/^\d+(\.\d{1,4})?$/',
+            ],
+            'effective_on' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'before_or_equal:today',
             ],
             'notes' => [
                 'nullable',
@@ -111,38 +125,60 @@ class StaffSalaryChangeController extends Controller
                     403,
                 );
 
-                $oldRate = number_format((float) $member->rate, 4, '.', '');
+                $effectiveOn = (string) ($data['effective_on'] ?? today()->toDateString());
+
+                abort_if(
+                    $effectiveOn < substr((string) $member->started_on, 0, 10),
+                    422,
+                    'The effective date cannot be before the employee\'s start date.',
+                );
+
+                $history = StaffEntry::where('staff_member_id', $member->id)
+                    ->where('kind', 'terms')
+                    ->orderBy('occurred_on')
+                    ->orderBy('id')
+                    ->get();
+
+                $oldRate = $this->rateBefore($member, $effectiveOn, $history);
                 $newRate = number_format((float) $data['rate'], 4, '.', '');
 
                 if ($oldRate === $newRate) {
                     throw ValidationException::withMessages([
                         'rate' => [
-                            'The new salary/rate must be different from the current one.',
+                            'The new salary/rate must be different from the rate already in effect on that date.',
                         ],
                     ]);
                 }
 
-                $before = $member->toArray();
+                $latestKnownDate = (string) ($history->last()?->occurred_on ?? '0000-00-00');
+                $isLatest = substr($latestKnownDate, 0, 10) <= $effectiveOn;
 
-                $member->update([
-                    'rate' => $data['rate'],
-                ]);
-
-                $member->refresh();
+                if ($isLatest) {
+                    $before = $member->toArray();
+                    $member->update(['rate' => $data['rate']]);
+                    $member->refresh();
+                    $after = $member->toArray();
+                } else {
+                    // A backdated correction: keep the live rate untouched
+                    // because a later, already-recorded change still applies
+                    // going forward from today.
+                    $before = [...$member->toArray(), 'rate' => $oldRate];
+                    $after = [...$member->toArray(), 'rate' => $newRate];
+                }
 
                 StaffEntry::create([
                     'staff_member_id' => $member->id,
                     'created_by' => $request->user()->id,
                     'request_id' => (string) Str::uuid(),
                     'kind' => 'terms',
-                    'occurred_on' => today()->toDateString(),
+                    'occurred_on' => $effectiveOn,
                     'amount' => 0,
                     'notes' => filled($data['notes'] ?? null)
                         ? trim((string) $data['notes'])
                         : 'Salary/rate adjustment',
                     'terms' => [
                         'before' => $before,
-                        'after' => $member->toArray(),
+                        'after' => $after,
                         'salary_change' => true,
                     ],
                 ]);
@@ -162,8 +198,28 @@ class StaffSalaryChangeController extends Controller
                 'name' => $member->name,
                 'rate' => (string) $member->rate,
                 'currency' => $member->currency,
-                'effective_on' => today()->toDateString(),
+                'effective_on' => (string) ($data['effective_on'] ?? today()->toDateString()),
             ],
         ]);
+    }
+
+    /**
+     * The rate that was in effect the moment before `$date`, following the
+     * existing terms history. Used both to validate the new rate actually
+     * differs and, for a backdated change, as the "before" snapshot.
+     *
+     * @param  Collection<int, StaffEntry>  $history
+     */
+    private function rateBefore(StaffMember $member, string $date, Collection $history): string
+    {
+        $rate = (string) ($history->first()?->terms['before']['rate'] ?? $member->rate);
+
+        foreach ($history as $change) {
+            if (substr((string) $change->occurred_on, 0, 10) < $date) {
+                $rate = (string) ($change->terms['after']['rate'] ?? $rate);
+            }
+        }
+
+        return number_format((float) $rate, 4, '.', '');
     }
 }

@@ -40,6 +40,6 @@ class StaffEntitlementWorkforceController extends Controller
             $createdBy,
         );
 
-        return $historyController($request, $staff);
+        return $historyController($request, $staff, $monthlyEntitlements);
     }
 }

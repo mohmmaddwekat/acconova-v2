@@ -1,3 +1,4 @@
+import { ModalPortal } from '@/components/feedback/ModalPortal';
 import { StaffPayrollTable, type StaffPayrollEmployee, type StaffPayrollRow } from '@/components/staff/StaffPayrollTable';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
@@ -25,6 +26,9 @@ type AttendanceRow = {
     overtime_hours: string;
     overtime_rate: string;
     notes: string | null;
+    deduction_override: string | null;
+    earned?: string;
+    earned_kind?: 'attendance' | 'monthly_share';
 };
 
 type Rule = {
@@ -152,7 +156,11 @@ export function StaffWorkforcePanel({
               quantity: basis === 'piece' ? 'عدد الوحدات المنجزة' : basis === 'hour' ? 'ساعات العمل' : 'الكمية',
               overtime: 'ساعات إضافية',
               overtimeRate: 'أجر ساعة الإضافي',
+              earned: 'المستحق عن اليوم',
+              earnedShare: 'حصة اليوم من الراتب الشهري',
               note: 'ملاحظة',
+              deductionOverride: 'خصم الغياب (اختياري)',
+              deductionOverridePlaceholder: 'تلقائي',
               saveAttendance: 'تسجيل الحضور',
               history: 'سجل الحضور',
               search: 'بحث بالتاريخ أو الملاحظة…',
@@ -203,7 +211,11 @@ export function StaffWorkforcePanel({
               quantity: basis === 'piece' ? 'Completed units' : basis === 'hour' ? 'Work hours' : 'Quantity',
               overtime: 'Overtime hours',
               overtimeRate: 'Overtime hourly rate',
+              earned: 'Earned that day',
+              earnedShare: 'Day share of monthly salary',
               note: 'Note',
+              deductionOverride: 'Absence deduction (optional)',
+              deductionOverridePlaceholder: 'Auto',
               saveAttendance: 'Record attendance',
               history: 'Attendance history',
               search: 'Search date or note…',
@@ -336,6 +348,7 @@ export function StaffWorkforcePanel({
             quantity: values.quantity || null,
             overtime_hours: values.overtime_hours || '0',
             overtime_rate: values.overtime_rate || '0',
+            deduction_override: status === 'absent' ? (values.deduction_override || null) : null,
         });
 
         if (success) {
@@ -376,6 +389,7 @@ export function StaffWorkforcePanel({
                     overtime_hours: values.overtime_hours || '0',
                     overtime_rate: values.overtime_rate || '0',
                     notes: values.notes || null,
+                    deduction_override: values.status === 'absent' ? (values.deduction_override || null) : null,
                 };
             }
         } else {
@@ -461,6 +475,13 @@ export function StaffWorkforcePanel({
                                     </>
                                 )}
 
+                                {status === 'absent' && basis === 'month' && (
+                                    <label className="text-xs font-semibold">
+                                        {copy.deductionOverride} ({currency})
+                                        <input type="number" min="0" max="999999" step="0.01" name="deduction_override" placeholder={copy.deductionOverridePlaceholder} className={field} />
+                                    </label>
+                                )}
+
                                 <label className="text-xs font-semibold sm:col-span-2">
                                     {copy.note}
                                     <input name="notes" maxLength={2000} className={field} />
@@ -540,6 +561,9 @@ export function StaffWorkforcePanel({
                                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--ac-text-muted)]">
                                             <span>{copy.quantity}: <strong className="text-[var(--ac-text)]">{row.quantity}</strong></span>
                                             <span>{copy.overtime}: <strong className="text-[var(--ac-text)]">{row.overtime_hours}</strong></span>
+                                            {row.earned !== undefined && (
+                                                <span>{row.earned_kind === 'monthly_share' ? copy.earnedShare : copy.earned}: <strong className="text-emerald-700">{Number(row.earned).toLocaleString(undefined, { maximumFractionDigits: 2 })} {currency}</strong></span>
+                                            )}
                                             {Number(row.overtime_hours) > 0 && (
                                                 <span>{copy.overtimeRate}: <strong className="text-[var(--ac-text)]">{row.overtime_rate} {currency}</strong></span>
                                             )}
@@ -586,7 +610,7 @@ export function StaffWorkforcePanel({
                     )}
                 </section>
 
-                <CorrectionDialog correction={correction} copy={copy} currency={currency} busy={busy} onClose={() => setCorrection(null)} onSubmit={submitCorrection} />
+                <CorrectionDialog correction={correction} copy={copy} currency={currency} basis={basis} busy={busy} onClose={() => setCorrection(null)} onSubmit={submitCorrection} />
             </div>
         );
     }
@@ -696,7 +720,7 @@ export function StaffWorkforcePanel({
                 </section>
             </div>
 
-            <CorrectionDialog correction={correction} copy={copy} currency={currency} busy={busy} onClose={() => setCorrection(null)} onSubmit={submitCorrection} />
+            <CorrectionDialog correction={correction} copy={copy} currency={currency} basis={basis} busy={busy} onClose={() => setCorrection(null)} onSubmit={submitCorrection} />
         </div>
     );
 }
@@ -728,6 +752,7 @@ function CorrectionDialog({
     correction,
     copy,
     currency,
+    basis,
     busy,
     onClose,
     onSubmit,
@@ -735,6 +760,7 @@ function CorrectionDialog({
     correction: Correction | null;
     copy: Record<string, string>;
     currency: string;
+    basis: string;
     busy: boolean;
     onClose: () => void;
     onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
@@ -742,6 +768,7 @@ function CorrectionDialog({
     if (!correction) return null;
 
     return (
+        <ModalPortal>
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]">
             <form onSubmit={(event) => void onSubmit(event)} className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[24px] bg-[var(--ac-surface)] p-6 shadow-2xl">
                 <div className="flex items-center justify-between gap-4">
@@ -778,6 +805,12 @@ function CorrectionDialog({
                             {copy.note}
                             <textarea name="notes" rows={2} defaultValue={correction.row.notes ?? ''} className={`${field} resize-none`} />
                         </label>
+                        {basis === 'month' && (
+                            <label className="block text-xs font-semibold">
+                                {copy.deductionOverride} ({currency})
+                                <input type="number" min="0" max="999999" step="0.01" name="deduction_override" placeholder={copy.deductionOverridePlaceholder} defaultValue={correction.row.deduction_override ?? ''} className={field} />
+                            </label>
+                        )}
                     </div>
                 )}
 
@@ -815,5 +848,6 @@ function CorrectionDialog({
                 </div>
             </form>
         </div>
+        </ModalPortal>
     );
 }

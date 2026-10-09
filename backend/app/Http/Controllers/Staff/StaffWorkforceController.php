@@ -126,6 +126,13 @@ class StaffWorkforceController extends Controller
                     'string',
                     'max:2000',
                 ],
+
+                'deduction_override' => [
+                    'nullable',
+                    'numeric',
+                    'min:0',
+                    'max:999999',
+                ],
             ]);
 
         DB::transaction(

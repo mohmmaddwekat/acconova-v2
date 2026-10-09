@@ -1,3 +1,4 @@
+import { ModalPortal } from '@/components/feedback/ModalPortal';
 import { apiRequest } from '@/lib/http';
 import type { AppPageProps } from '@/types/app';
 import { usePage } from '@inertiajs/react';
@@ -482,6 +483,7 @@ export function StaffPayrollTable({
             />
 
             {paymentRow && (
+                <ModalPortal>
                 <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]">
                     <section className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[24px] bg-[var(--ac-surface)] p-5 shadow-2xl">
                         <div className="flex items-start justify-between gap-4">
@@ -531,9 +533,11 @@ export function StaffPayrollTable({
                         </div>
                     </section>
                 </div>
+                </ModalPortal>
             )}
 
             {paymentCorrection && (
+                <ModalPortal>
                 <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]">
                     <form onSubmit={(event) => void submitPaymentCorrection(event)} className="w-full max-w-md rounded-[24px] bg-[var(--ac-surface)] p-6 shadow-2xl">
                         <div className="flex items-center justify-between gap-4">
@@ -596,6 +600,7 @@ export function StaffPayrollTable({
                         </div>
                     </form>
                 </div>
+                </ModalPortal>
             )}
         </>
     );

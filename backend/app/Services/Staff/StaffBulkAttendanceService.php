@@ -5,6 +5,8 @@ namespace App\Services\Staff;
 use App\Models\StaffEntry;
 use App\Models\StaffMember;
 use App\Support\InventoryQuantity as Decimal;
+use App\Support\StaffTermsTimeline;
+use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +14,9 @@ use Illuminate\Support\Str;
 
 class StaffBulkAttendanceService
 {
+    /** @var array<int, string|null> */
+    private array $legacyActiveUntil = [];
+
     /**
      * Save one attendance date for a batch of employees and synchronize only
      * the payroll rows affected by that date. No full employee-history repair is
@@ -87,6 +92,7 @@ class StaffBulkAttendanceService
 
             if (! ($terms['active'] ?? true)) {
                 $skipped[] = $this->skip($member, 'inactive_on_date');
+
                 continue;
             }
 
@@ -111,6 +117,7 @@ class StaffBulkAttendanceService
 
             if ($present && Decimal::toUnits($quantity) <= 0) {
                 $skipped[] = $this->skip($member, 'missing_quantity');
+
                 continue;
             }
 
@@ -119,6 +126,7 @@ class StaffBulkAttendanceService
                 && Decimal::toUnits($quantity) + Decimal::toUnits($overtimeHours) > 240000
             ) {
                 $skipped[] = $this->skip($member, 'hours_over_24');
+
                 continue;
             }
 
@@ -127,6 +135,7 @@ class StaffBulkAttendanceService
                 && Decimal::toUnits($overtimeRate) <= 0
             ) {
                 $skipped[] = $this->skip($member, 'missing_overtime_rate');
+
                 continue;
             }
 
@@ -136,8 +145,14 @@ class StaffBulkAttendanceService
                 && ! $existingAttendance->has($member->id)
             ) {
                 $skipped[] = $this->skip($member, 'manual_work_exists');
+
                 continue;
             }
+
+            $deductionOverride = $status === 'absent' && isset($values['deduction_override'])
+                && (float) $values['deduction_override'] > 0
+                ? (string) $values['deduction_override']
+                : null;
 
             $normalized[(int) $member->id] = [
                 'member' => $member,
@@ -150,6 +165,7 @@ class StaffBulkAttendanceService
                 'notes' => isset($values['notes']) && trim((string) $values['notes']) !== ''
                     ? trim((string) $values['notes'])
                     : null,
+                'deduction_override' => $deductionOverride,
             ];
         }
 
@@ -184,6 +200,7 @@ class StaffBulkAttendanceService
                     'overtime_hours' => $row['overtime_hours'],
                     'overtime_rate' => $row['overtime_rate'],
                     'notes' => $row['notes'],
+                    'deduction_override' => $row['deduction_override'],
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -198,6 +215,7 @@ class StaffBulkAttendanceService
                     'overtime_hours',
                     'overtime_rate',
                     'notes',
+                    'deduction_override',
                     'updated_at',
                 ],
             );
@@ -364,6 +382,7 @@ class StaffBulkAttendanceService
             }
 
             $entry->update($payload);
+
             return;
         }
 
@@ -426,10 +445,17 @@ class StaffBulkAttendanceService
             })
             ->groupBy('staff_member_id');
 
-        $expectedWorkDays = 0;
-        for ($day = $monthStart; $day->lte($monthEnd); $day = $day->addDay()) {
-            if (! $day->isFriday()) {
-                $expectedWorkDays++;
+        $orgPreferences = app(TenantContext::class)->organization()->preferences ?? [];
+        $fixedWorkDays = (int) ($orgPreferences['staff_working_days_per_month'] ?? 0);
+
+        if ($fixedWorkDays >= 20 && $fixedWorkDays <= 31) {
+            $expectedWorkDays = $fixedWorkDays;
+        } else {
+            $expectedWorkDays = 0;
+            for ($day = $monthStart; $day->lte($monthEnd); $day = $day->addDay()) {
+                if (! $day->isFriday()) {
+                    $expectedWorkDays++;
+                }
             }
         }
 
@@ -447,6 +473,10 @@ class StaffBulkAttendanceService
             $missingDays = 0;
             $payableDays = 0;
             $lastRate = null;
+            $totalAbsentDeductionUnits = 0;
+            $implicitAbsentDays = 0;
+            $globalDeductionUnits = Decimal::toUnits((string) ($orgPreferences['absent_deduction_per_day'] ?? '0'));
+            $hasExplicitDeductions = $globalDeductionUnits > 0;
 
             for ($day = $monthStart; $day->lte($accrualEnd); $day = $day->addDay()) {
                 if ($day->isFriday() || $day->lt($startedOn)) {
@@ -466,11 +496,24 @@ class StaffBulkAttendanceService
                     continue;
                 }
 
-                $status = $memberAttendance->get($day->toDateString())?->status;
+                $attendanceRow = $memberAttendance->get($day->toDateString());
+                $status = $attendanceRow?->status;
 
                 if ($status === 'absent') {
                     $absentDays++;
                     $lastRate = $rate;
+
+                    $overrideUnits = Decimal::toUnits((string) ($attendanceRow->deduction_override ?? '0'));
+
+                    if ($overrideUnits > 0) {
+                        $totalAbsentDeductionUnits += $overrideUnits;
+                        $hasExplicitDeductions = true;
+                    } elseif ($globalDeductionUnits > 0) {
+                        $totalAbsentDeductionUnits += $globalDeductionUnits;
+                    } else {
+                        $implicitAbsentDays++;
+                    }
+
                     continue;
                 }
 
@@ -485,9 +528,20 @@ class StaffBulkAttendanceService
                 $lastRate = $rate;
             }
 
-            $amountUnits = $payableDays > 0
-                ? intdiv($weightedRateUnits + intdiv($expectedWorkDays, 2), $expectedWorkDays)
-                : 0;
+            if ($hasExplicitDeductions && $lastRate !== null) {
+                $lastRateUnits = Decimal::toUnits($lastRate);
+                $autoDeductionPerDay = $expectedWorkDays > 0
+                    ? intdiv($lastRateUnits + intdiv($expectedWorkDays, 2), $expectedWorkDays)
+                    : 0;
+                $amountUnits = max(
+                    0,
+                    $lastRateUnits - $totalAbsentDeductionUnits - $implicitAbsentDays * $autoDeductionPerDay,
+                );
+            } else {
+                $amountUnits = $payableDays > 0
+                    ? intdiv($weightedRateUnits + intdiv($expectedWorkDays, 2), $expectedWorkDays)
+                    : 0;
+            }
             $entries = $generated->get($member->id, collect())->values();
             $entry = $entries->first();
 
@@ -501,6 +555,7 @@ class StaffBulkAttendanceService
                 if ($entry && ! $entry->trashed()) {
                     $entry->delete();
                 }
+
                 continue;
             }
 
@@ -560,7 +615,17 @@ class StaffBulkAttendanceService
             }
         }
 
-        return is_array($terms) ? $terms : $member->toArray();
+        $terms = is_array($terms) ? $terms : $member->toArray();
+
+        if (! array_key_exists($member->id, $this->legacyActiveUntil)) {
+            $this->legacyActiveUntil[$member->id] = StaffTermsTimeline::legacyActiveUntil($member, $history);
+        }
+
+        return StaffTermsTimeline::withLegacyActivity(
+            $terms,
+            $this->legacyActiveUntil[$member->id],
+            $date,
+        );
     }
 
     /** @return array{id:int,name:string,reason:string} */

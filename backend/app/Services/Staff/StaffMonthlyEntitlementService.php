@@ -5,6 +5,7 @@ namespace App\Services\Staff;
 use App\Models\StaffEntry;
 use App\Models\StaffMember;
 use App\Support\InventoryQuantity as Decimal;
+use App\Support\StaffTermsTimeline;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -13,6 +14,9 @@ use Illuminate\Support\Str;
 
 class StaffMonthlyEntitlementService
 {
+    /** @var array<int, string|null> */
+    private array $legacyActiveUntil = [];
+
     /**
      * Recalculate salary entitlement for one employee from attendance.
      *
@@ -24,6 +28,8 @@ class StaffMonthlyEntitlementService
      */
     public function syncMember(StaffMember $member, int $createdBy): void
     {
+        unset($this->legacyActiveUntil[$member->id]);
+
         $history = StaffEntry::where('staff_member_id', $member->id)
             ->where('kind', 'terms')
             ->orderBy('occurred_on')
@@ -325,6 +331,11 @@ class StaffMonthlyEntitlementService
         $payableDays = 0;
         $lastMonthlyRate = null;
         $startedOn = CarbonImmutable::parse((string) $member->started_on)->startOfDay();
+        $orgPrefs = app(TenantContext::class)->organization()->preferences ?? [];
+        $globalDeductionUnits = Decimal::toUnits((string) ($orgPrefs['absent_deduction_per_day'] ?? '0'));
+        $totalAbsentDeductionUnits = 0;
+        $implicitAbsentDays = 0;
+        $hasExplicitDeductions = $globalDeductionUnits > 0;
 
         for ($date = $monthStart; $date->lte($accrualEnd); $date = $date->addDay()) {
             if ($date->isFriday() || $date->lt($startedOn)) {
@@ -356,6 +367,17 @@ class StaffMonthlyEntitlementService
                 $absentDays++;
                 $lastMonthlyRate = $rate;
 
+                $overrideUnits = $row ? Decimal::toUnits((string) ($row->deduction_override ?? '0')) : 0;
+
+                if ($overrideUnits > 0) {
+                    $totalAbsentDeductionUnits += $overrideUnits;
+                    $hasExplicitDeductions = true;
+                } elseif ($globalDeductionUnits > 0) {
+                    $totalAbsentDeductionUnits += $globalDeductionUnits;
+                } else {
+                    $implicitAbsentDays++;
+                }
+
                 continue;
             }
 
@@ -372,12 +394,23 @@ class StaffMonthlyEntitlementService
             $lastMonthlyRate = $rate;
         }
 
-        $amountUnits = $payableDays > 0
-            ? intdiv(
-                $weightedMonthlyRateUnits + intdiv($expectedWorkDays, 2),
-                $expectedWorkDays,
-            )
-            : 0;
+        if ($hasExplicitDeductions && $lastMonthlyRate !== null) {
+            $lastRateUnits = Decimal::toUnits($lastMonthlyRate);
+            $autoDeductionPerDay = $expectedWorkDays > 0
+                ? intdiv($lastRateUnits + intdiv($expectedWorkDays, 2), $expectedWorkDays)
+                : 0;
+            $amountUnits = max(
+                0,
+                $lastRateUnits - $totalAbsentDeductionUnits - $implicitAbsentDays * $autoDeductionPerDay,
+            );
+        } else {
+            $amountUnits = $payableDays > 0
+                ? intdiv(
+                    $weightedMonthlyRateUnits + intdiv($expectedWorkDays, 2),
+                    $expectedWorkDays,
+                )
+                : 0;
+        }
 
         $periodEntries = $generatedEntries
             ->filter(fn (StaffEntry $entry): bool => substr((string) $entry->occurred_on, 0, 7) === $period)
@@ -525,6 +558,7 @@ class StaffMonthlyEntitlementService
                 }
 
                 $entry->update($payload);
+
                 continue;
             }
 
@@ -546,10 +580,22 @@ class StaffMonthlyEntitlementService
         }
     }
 
-    private function expectedWorkDays(
+    /**
+     * How many working days (non-Friday, or a tenant-fixed override) a month
+     * holds. Exposed publicly so other reports can show the same per-day
+     * share of a monthly salary that the entitlement sync itself uses.
+     */
+    public function expectedWorkDays(
         CarbonImmutable $monthStart,
         CarbonImmutable $monthEnd,
     ): int {
+        $preferences = app(TenantContext::class)->organization()->preferences ?? [];
+        $fixed = (int) ($preferences['staff_working_days_per_month'] ?? 0);
+
+        if ($fixed >= 20 && $fixed <= 31) {
+            return $fixed;
+        }
+
         $days = 0;
 
         for ($date = $monthStart; $date->lte($monthEnd); $date = $date->addDay()) {
@@ -578,6 +624,14 @@ class StaffMonthlyEntitlementService
             }
         }
 
-        return $terms;
+        if (! array_key_exists($member->id, $this->legacyActiveUntil)) {
+            $this->legacyActiveUntil[$member->id] = StaffTermsTimeline::legacyActiveUntil($member, $history);
+        }
+
+        return StaffTermsTimeline::withLegacyActivity(
+            $terms,
+            $this->legacyActiveUntil[$member->id],
+            $date,
+        );
     }
 }

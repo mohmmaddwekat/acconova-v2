@@ -16,6 +16,7 @@ class StaffPayBasisCalculationTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Organization $organization;
 
     protected function setUp(): void
@@ -94,6 +95,22 @@ class StaffPayBasisCalculationTest extends TestCase
             ->assertJsonPath('totals.work', '2500.0000')
             ->assertJsonPath('member.payroll_summary.net_entitlement', '2500.0000')
             ->assertJsonPath('member.payroll_summary.remaining_due', '2500.0000');
+    }
+
+    public function test_stopped_employee_without_terms_history_keeps_salary_earned_before_stopping(): void
+    {
+        $staffId = $this->employee('month', '2600');
+        $this->attendance($staffId, '2026-01-05', 'present', '1.0000');
+
+        DB::table('staff_members')->where('id', $staffId)->update(['active' => false]);
+
+        // Worked 1, 3, 4 and 5 January (Friday excluded) out of 26 workdays:
+        // 2600 * 4 / 26 = 400. Nothing accrues after the last attendance.
+        $this
+            ->getJson('/api/staff/'.$staffId.'/ledger')
+            ->assertOk()
+            ->assertJsonPath('totals.work', '400.0000')
+            ->assertJsonPath('member.payroll_summary.remaining_due', '400.0000');
     }
 
     private function employee(string $basis, string $rate): int

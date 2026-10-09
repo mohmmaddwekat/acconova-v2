@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Models\StaffEntry;
 use App\Models\StaffMember;
+use App\Services\Staff\StaffMonthlyEntitlementService;
 use App\Support\InventoryQuantity as Decimal;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -25,8 +29,11 @@ class StaffAttendanceHistoryController extends Controller
      * Advances are therefore NOT treated as payments. They reduce what is owed
      * before normal payments are applied.
      */
-    public function __invoke(Request $request, string $staff): JsonResponse
-    {
+    public function __invoke(
+        Request $request,
+        string $staff,
+        StaffMonthlyEntitlementService $entitlements,
+    ): JsonResponse {
         $member = StaffMember::findOrFail($staff);
 
         abort_unless(StaffController::canView($member), 403);
@@ -93,6 +100,8 @@ class StaffAttendanceHistoryController extends Controller
                     'notes',
                 ],
             );
+
+        $this->annotateDailyEarnings($member, $attendance, $entitlements);
 
         $currentMonth = CarbonImmutable::today()->startOfMonth();
         $firstMonth = CarbonImmutable::parse((string) $member->started_on)->startOfMonth();
@@ -269,5 +278,110 @@ class StaffAttendanceHistoryController extends Controller
             'can_attendance' => StaffController::canRecordAttendance($member),
             'can_pay' => $canPay,
         ]);
+    }
+
+    /**
+     * Annotate each paginated attendance row with what it actually earned.
+     * Hour/day/piece employees have an exact ledger entry per attendance row
+     * ('attendance'); monthly employees are paid once a month, so a present
+     * day is shown as its even share of that month's salary ('monthly_share')
+     * so the employee can see roughly what one day is worth without implying
+     * it was paid separately.
+     */
+    private function annotateDailyEarnings(
+        StaffMember $member,
+        LengthAwarePaginator $attendance,
+        StaffMonthlyEntitlementService $entitlements,
+    ): void {
+        $attendanceIds = collect($attendance->items())
+            ->map(fn (object $row): int => (int) $row->id)
+            ->values();
+
+        if ($attendanceIds->isEmpty()) {
+            return;
+        }
+
+        $workByAttendance = StaffEntry::query()
+            ->where('staff_member_id', $member->id)
+            ->where('kind', 'work')
+            ->whereIn('terms->attendance_id', $attendanceIds)
+            ->get()
+            ->keyBy(fn (StaffEntry $entry): int => (int) ($entry->terms['attendance_id'] ?? 0));
+
+        $overtimeByAttendance = StaffEntry::query()
+            ->where('staff_member_id', $member->id)
+            ->where('kind', 'overtime')
+            ->whereIn('terms->attendance_id', $attendanceIds)
+            ->get()
+            ->keyBy(fn (StaffEntry $entry): int => (int) ($entry->terms['attendance_id'] ?? 0));
+
+        $history = StaffEntry::where('staff_member_id', $member->id)
+            ->where('kind', 'terms')
+            ->orderBy('occurred_on')
+            ->orderBy('id')
+            ->get();
+
+        $attendance->through(function (object $row) use (
+            $member,
+            $workByAttendance,
+            $overtimeByAttendance,
+            $history,
+            $entitlements,
+        ): array {
+            $row = (array) $row;
+            $date = substr((string) $row['occurred_on'], 0, 10);
+            $terms = $this->termsAt($member, $date, $history);
+            $basis = (string) ($terms['basis'] ?? $member->basis);
+
+            $workEntry = $workByAttendance->get((int) $row['id']);
+            $overtimeEntry = $overtimeByAttendance->get((int) $row['id']);
+            $overtimeUnits = $overtimeEntry ? Decimal::toUnits((string) $overtimeEntry->amount) : 0;
+
+            if ($workEntry) {
+                $row['earned'] = Decimal::fromUnits(
+                    Decimal::toUnits((string) $workEntry->amount) + $overtimeUnits,
+                );
+                $row['earned_kind'] = 'attendance';
+
+                return $row;
+            }
+
+            if ($basis === 'month' && (string) $row['status'] === 'present') {
+                $monthStart = CarbonImmutable::parse($date)->startOfMonth();
+                $expectedDays = $entitlements->expectedWorkDays($monthStart, $monthStart->endOfMonth());
+                $rateUnits = Decimal::toUnits((string) ($terms['rate'] ?? $member->rate ?? '0'));
+                $shareUnits = $expectedDays > 0
+                    ? intdiv($rateUnits + intdiv($expectedDays, 2), $expectedDays)
+                    : 0;
+
+                $row['earned'] = Decimal::fromUnits($shareUnits + $overtimeUnits);
+                $row['earned_kind'] = 'monthly_share';
+
+                return $row;
+            }
+
+            $row['earned'] = Decimal::fromUnits($overtimeUnits);
+            $row['earned_kind'] = $basis === 'month' ? 'monthly_share' : 'attendance';
+
+            return $row;
+        });
+    }
+
+    /**
+     * Resolve the employment terms effective on one date.
+     *
+     * @return array<string, mixed>
+     */
+    private function termsAt(StaffMember $member, string $date, Collection $history): array
+    {
+        $terms = $history->first()?->terms['before'] ?? $member->toArray();
+
+        foreach ($history as $change) {
+            if (substr((string) $change->occurred_on, 0, 10) <= $date) {
+                $terms = $change->terms['after'] ?? $terms;
+            }
+        }
+
+        return $terms;
     }
 }

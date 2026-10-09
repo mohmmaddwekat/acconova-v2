@@ -1747,7 +1747,7 @@ class StaffController extends Controller
                 ],
 
                 'notes' => [
-                    'required',
+                    'nullable',
                     'string',
                     'max:2000',
                 ],

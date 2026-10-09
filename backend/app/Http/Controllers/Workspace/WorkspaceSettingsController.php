@@ -58,6 +58,8 @@ class WorkspaceSettingsController extends Controller
             'approval_payment_threshold' => (string) ($preferences['approval_payment_threshold'] ?? '5000'),
             'inventory_reorder_lead_days' => (int) ($preferences['inventory_reorder_lead_days'] ?? 14),
             'inventory_safety_days' => (int) ($preferences['inventory_safety_days'] ?? 7),
+            'staff_working_days_per_month' => (int) ($preferences['staff_working_days_per_month'] ?? 26),
+            'absent_deduction_per_day' => (string) ($preferences['absent_deduction_per_day'] ?? '0'),
 
             'payment_methods' => array_values($preferences['payment_methods'] ?? [
                 'bank_transfer',
@@ -143,6 +145,8 @@ class WorkspaceSettingsController extends Controller
             'approval_payment_threshold' => ['sometimes', 'numeric', 'min:0', 'max:999999999999'],
             'inventory_reorder_lead_days' => ['sometimes', 'integer', 'between:1,365'],
             'inventory_safety_days' => ['sometimes', 'integer', 'between:0,365'],
+            'staff_working_days_per_month' => ['sometimes', 'integer', 'between:20,31'],
+            'absent_deduction_per_day' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999'],
 
             'payment_methods' => ['sometimes', 'array', 'min:1'],
             'payment_methods.*' => [

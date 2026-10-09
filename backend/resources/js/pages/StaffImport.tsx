@@ -9,13 +9,17 @@ import {
     CheckCircle2,
     Database,
     FileSpreadsheet,
+    Filter,
+    Plus,
     RefreshCcw,
     ShieldCheck,
+    Trash2,
     UploadCloud,
     UsersRound,
     WalletCards,
+    X,
 } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 
 type ImportType = 'employees' | 'attendance' | 'transactions';
 
@@ -38,6 +42,7 @@ type ImportResult = {
     updated: number;
     skipped: number;
     errors: { row: number; message: string }[];
+    filtered_out?: number;
 };
 
 type FieldDefinition = {
@@ -46,6 +51,47 @@ type FieldDefinition = {
     ar: string;
     en: string;
     aliases: string[];
+};
+
+type FilterValueType = 'text' | 'number' | 'date';
+
+type FilterRule = {
+    id: string;
+    column: string;
+    valueType: FilterValueType;
+    operator: string;
+    value: string;
+    value2: string;
+};
+
+const operatorsByType: Record<FilterValueType, { value: string; ar: string; en: string; needsSecondValue?: boolean }[]> = {
+    text: [
+        { value: 'contains', ar: 'يحتوي على', en: 'Contains' },
+        { value: 'not_contains', ar: 'لا يحتوي على', en: 'Does not contain' },
+        { value: 'equals', ar: 'يساوي', en: 'Equals' },
+        { value: 'not_equals', ar: 'لا يساوي', en: 'Not equals' },
+    ],
+    number: [
+        { value: 'eq', ar: 'يساوي', en: 'Equals' },
+        { value: 'neq', ar: 'لا يساوي', en: 'Not equals' },
+        { value: 'gt', ar: 'أكبر من', en: 'Greater than' },
+        { value: 'gte', ar: 'أكبر من أو يساوي', en: 'Greater or equal' },
+        { value: 'lt', ar: 'أصغر من', en: 'Less than' },
+        { value: 'lte', ar: 'أصغر من أو يساوي', en: 'Less or equal' },
+        { value: 'between', ar: 'بين قيمتين', en: 'Between', needsSecondValue: true },
+    ],
+    date: [
+        { value: 'eq', ar: 'يساوي', en: 'Equals' },
+        { value: 'before', ar: 'قبل', en: 'Before' },
+        { value: 'after', ar: 'بعد', en: 'After' },
+        { value: 'between', ar: 'بين تاريخين', en: 'Between', needsSecondValue: true },
+    ],
+};
+
+const valueTypeLabels: Record<FilterValueType, { ar: string; en: string }> = {
+    text: { ar: 'نص', en: 'Text' },
+    number: { ar: 'رقم', en: 'Number' },
+    date: { ar: 'تاريخ', en: 'Date' },
 };
 
 const panel =
@@ -122,6 +168,12 @@ function errorMessage(error: unknown, fallback: string): string {
     return error instanceof Error ? error.message : fallback;
 }
 
+function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function StaffImportPage() {
     const ar = useLocale() === 'ar';
     const [type, setType] = useState<ImportType>('employees');
@@ -129,6 +181,9 @@ export default function StaffImportPage() {
     const [preview, setPreview] = useState<PreviewResponse | null>(null);
     const [sheetName, setSheetName] = useState('');
     const [mapping, setMapping] = useState<Record<string, string>>({});
+    const [excludedColumns, setExcludedColumns] = useState<Set<string>>(new Set());
+    const [filters, setFilters] = useState<FilterRule[]>([]);
+    const filterIdRef = useRef(0);
     const [matchBy, setMatchBy] = useState<'name' | 'phone' | 'email'>('phone');
     const [duplicateStrategy, setDuplicateStrategy] = useState<'skip' | 'update'>('skip');
     const [createDepartments, setCreateDepartments] = useState(true);
@@ -137,6 +192,10 @@ export default function StaffImportPage() {
     const [result, setResult] = useState<ImportResult | null>(null);
 
     const selectedSheet = preview?.sheets.find((sheet) => sheet.name === sheetName) ?? null;
+    const availableHeaders = useMemo(
+        () => selectedSheet?.headers.filter((header) => !excludedColumns.has(header)) ?? [],
+        [selectedSheet, excludedColumns],
+    );
     const mappedRequired = useMemo(
         () => definitions[type].filter((item) => item.required).every((item) => Boolean(mapping[item.key])),
         [mapping, type],
@@ -146,8 +205,69 @@ export default function StaffImportPage() {
         setPreview(null);
         setSheetName('');
         setMapping({});
+        setExcludedColumns(new Set());
+        setFilters([]);
         setResult(null);
         setError('');
+    }
+
+    function addFilter(): void {
+        if (!selectedSheet) return;
+        filterIdRef.current += 1;
+        setFilters((current) => [
+            ...current,
+            {
+                id: `f${filterIdRef.current}`,
+                column: selectedSheet.headers[0] ?? '',
+                valueType: 'text',
+                operator: 'contains',
+                value: '',
+                value2: '',
+            },
+        ]);
+    }
+
+    function updateFilter(id: string, patch: Partial<FilterRule>): void {
+        setFilters((current) => current.map((rule) => {
+            if (rule.id !== id) return rule;
+            const next = { ...rule, ...patch };
+            if (patch.valueType && patch.valueType !== rule.valueType) {
+                next.operator = operatorsByType[patch.valueType][0].value;
+                next.value = '';
+                next.value2 = '';
+            }
+            return next;
+        }));
+    }
+
+    function removeFilter(id: string): void {
+        setFilters((current) => current.filter((rule) => rule.id !== id));
+    }
+
+    function clearFile(): void {
+        setFile(null);
+        resetPreview();
+    }
+
+    function toggleColumn(header: string): void {
+        setExcludedColumns((current) => {
+            const next = new Set(current);
+            if (next.has(header)) {
+                next.delete(header);
+            } else {
+                next.add(header);
+                setMapping((currentMapping) => {
+                    const updated = { ...currentMapping };
+                    for (const key of Object.keys(updated)) {
+                        if (updated[key] === header) {
+                            updated[key] = '';
+                        }
+                    }
+                    return updated;
+                });
+            }
+            return next;
+        });
     }
 
     function changeType(nextType: ImportType): void {
@@ -157,7 +277,7 @@ export default function StaffImportPage() {
         setError('');
 
         if (selectedSheet) {
-            setMapping(autoMapping(selectedSheet.headers, nextType));
+            setMapping(autoMapping(availableHeaders, nextType));
         } else {
             setMapping({});
         }
@@ -166,6 +286,8 @@ export default function StaffImportPage() {
     function selectSheet(name: string, response = preview): void {
         const sheet = response?.sheets.find((item) => item.name === name) ?? null;
         setSheetName(name);
+        setExcludedColumns(new Set());
+        setFilters([]);
         setMapping(sheet ? autoMapping(sheet.headers, type) : {});
     }
 
@@ -203,6 +325,20 @@ export default function StaffImportPage() {
         setError('');
         setResult(null);
 
+        const validFilters = filters
+            .filter((rule) => rule.column !== '' && rule.value.trim() !== '')
+            .filter((rule) => {
+                const needsSecond = operatorsByType[rule.valueType].find((item) => item.value === rule.operator)?.needsSecondValue;
+                return !needsSecond || rule.value2.trim() !== '';
+            })
+            .map((rule) => ({
+                column: rule.column,
+                type: rule.valueType,
+                operator: rule.operator,
+                value: rule.value,
+                value2: rule.value2 || undefined,
+            }));
+
         try {
             const response = await apiRequest<ImportResult>('/api/staff-import/commit', {
                 method: 'POST',
@@ -214,6 +350,7 @@ export default function StaffImportPage() {
                     match_by: matchBy,
                     duplicate_strategy: duplicateStrategy,
                     create_departments: createDepartments,
+                    filters: validFilters,
                 }),
             });
             setResult(response);
@@ -348,22 +485,42 @@ export default function StaffImportPage() {
                                 {ar ? 'XLSX أو XLS أو CSV حتى 20MB.' : 'XLSX, XLS or CSV up to 20MB.'}
                             </p>
                             <form onSubmit={(event) => void inspect(event)} className="mt-4">
-                                <label className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-[18px] border border-dashed border-[var(--ac-line-strong)] bg-[var(--ac-surface-soft)] p-6 text-center transition hover:border-[var(--ac-accent)]">
-                                    <UploadCloud size={30} className="text-[var(--ac-accent-strong)]" />
-                                    <strong className="mt-3 text-xs">{file?.name ?? (ar ? 'اختر Excel أو CSV' : 'Choose Excel or CSV')}</strong>
-                                    <span className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
-                                        {ar ? 'أو استخدم رابط Google Sheets الموجود أعلى الصفحة.' : 'Or use the Google Sheets link control above this page.'}
-                                    </span>
-                                    <input
-                                        type="file"
-                                        accept=".xlsx,.xls,.csv,.txt"
-                                        className="hidden"
-                                        onChange={(event) => {
-                                            setFile(event.target.files?.[0] ?? null);
-                                            resetPreview();
-                                        }}
-                                    />
-                                </label>
+                                {file ? (
+                                    <div className="flex items-center gap-3 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
+                                        <span className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
+                                            <FileSpreadsheet size={18} />
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <strong className="block truncate text-xs">{file.name}</strong>
+                                            <span className="mt-0.5 block text-[10px] text-[var(--ac-text-muted)]">{formatFileSize(file.size)}</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={clearFile}
+                                            title={ar ? 'إلغاء الملف' : 'Remove file'}
+                                            className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <label className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-[18px] border border-dashed border-[var(--ac-line-strong)] bg-[var(--ac-surface-soft)] p-6 text-center transition hover:border-[var(--ac-accent)]">
+                                        <UploadCloud size={30} className="text-[var(--ac-accent-strong)]" />
+                                        <strong className="mt-3 text-xs">{ar ? 'اختر Excel أو CSV' : 'Choose Excel or CSV'}</strong>
+                                        <span className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                            {ar ? 'أو استخدم رابط Google Sheets الموجود أعلى الصفحة.' : 'Or use the Google Sheets link control above this page.'}
+                                        </span>
+                                        <input
+                                            type="file"
+                                            accept=".xlsx,.xls,.csv,.txt"
+                                            className="hidden"
+                                            onChange={(event) => {
+                                                setFile(event.target.files?.[0] ?? null);
+                                                resetPreview();
+                                            }}
+                                        />
+                                    </label>
+                                )}
                                 <button disabled={!file || busy} className={`${primary} mt-4`}>
                                     <FileSpreadsheet size={14} />
                                     {busy ? (ar ? 'جاري القراءة…' : 'Reading…') : (ar ? 'قراءة ومعاينة' : 'Inspect file')}
@@ -387,6 +544,36 @@ export default function StaffImportPage() {
 
                                 {selectedSheet && (
                                     <>
+                                        <div className="mt-5">
+                                            <p className="text-xs font-semibold">{ar ? 'فلتر الأعمدة — اختر ما تريد استيراده' : 'Column filter — choose what to import'}</p>
+                                            <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                                {ar
+                                                    ? 'ألغِ تحديد أي عمود لا تريد استيراده؛ سيختفي من قوائم المطابقة بالأسفل ولن يُحفظ.'
+                                                    : 'Uncheck any column you don’t want imported; it disappears from the mapping lists below and is never saved.'}
+                                            </p>
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                {selectedSheet.headers.map((header) => {
+                                                    const included = !excludedColumns.has(header);
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={header}
+                                                            onClick={() => toggleColumn(header)}
+                                                            className={[
+                                                                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-semibold transition',
+                                                                included
+                                                                    ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
+                                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)] line-through opacity-60',
+                                                            ].join(' ')}
+                                                        >
+                                                            {included ? <CheckCircle2 size={12} /> : <X size={12} />}
+                                                            {header}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
                                         <div className="mt-5 grid gap-3 md:grid-cols-2">
                                             {definitions[type].map((definition) => (
                                                 <label key={definition.key} className="text-xs font-semibold">
@@ -398,7 +585,7 @@ export default function StaffImportPage() {
                                                         className={`${field} mt-2`}
                                                     >
                                                         <option value="">{ar ? 'لا يوجد عمود' : 'Not mapped'}</option>
-                                                        {selectedSheet.headers.map((header) => <option key={header} value={header}>{header}</option>)}
+                                                        {availableHeaders.map((header) => <option key={header} value={header}>{header}</option>)}
                                                     </select>
                                                 </label>
                                             ))}
@@ -407,13 +594,33 @@ export default function StaffImportPage() {
                                         <div className="mt-5 overflow-x-auto rounded-[16px] border border-[var(--ac-line)]">
                                             <table className="w-full min-w-[780px] text-xs">
                                                 <thead className="bg-[var(--ac-surface-soft)] text-[10px] text-[var(--ac-text-muted)]">
-                                                    <tr>{selectedSheet.headers.slice(0, 8).map((header) => <th key={header} className="px-3 py-2.5 text-start">{header}</th>)}</tr>
+                                                    <tr>
+                                                        {selectedSheet.headers.slice(0, 8).map((header) => (
+                                                            <th
+                                                                key={header}
+                                                                className={[
+                                                                    'px-3 py-2.5 text-start',
+                                                                    excludedColumns.has(header) ? 'line-through opacity-50' : '',
+                                                                ].join(' ')}
+                                                            >
+                                                                {header}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-[var(--ac-line)]">
                                                     {selectedSheet.sample.map((row, index) => (
                                                         <tr key={index}>
                                                             {selectedSheet.headers.slice(0, 8).map((header) => (
-                                                                <td key={header} className="max-w-48 truncate px-3 py-2.5">{String(row[header] ?? '')}</td>
+                                                                <td
+                                                                    key={header}
+                                                                    className={[
+                                                                        'max-w-48 truncate px-3 py-2.5',
+                                                                        excludedColumns.has(header) ? 'opacity-40' : '',
+                                                                    ].join(' ')}
+                                                                >
+                                                                    {String(row[header] ?? '')}
+                                                                </td>
                                                             ))}
                                                         </tr>
                                                     ))}
@@ -427,7 +634,115 @@ export default function StaffImportPage() {
 
                         {preview && selectedSheet && (
                             <section className={panel}>
-                                <h2 className="text-sm font-bold">{ar ? '4. المطابقة والتكرار' : '4. Matching & duplicates'}</h2>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h2 className="text-sm font-bold">{ar ? '4. فلتر الصفوف (اختياري)' : '4. Row filter (optional)'}</h2>
+                                        <p className="mt-1 text-[10px] leading-5 text-[var(--ac-text-muted)]">
+                                            {ar
+                                                ? 'استورد فقط الصفوف التي تحقق كل الشروط التالية — مثلًا موظف معيّن، أو فترة تواريخ، أو مبلغ معيّن. بدون شرط، يتم استيراد كل الصفوف.'
+                                                : 'Only rows that satisfy every rule below are imported — e.g. one employee, a date range, or a specific amount. With no rules, every row is imported.'}
+                                        </p>
+                                    </div>
+                                    <button type="button" onClick={addFilter} className={button}>
+                                        <Plus size={14} />
+                                        {ar ? 'إضافة شرط' : 'Add rule'}
+                                    </button>
+                                </div>
+
+                                {filters.length === 0 ? (
+                                    <div className="mt-4 flex items-center gap-2 rounded-[15px] bg-[var(--ac-surface-soft)] p-4 text-[10px] text-[var(--ac-text-muted)]">
+                                        <Filter size={14} />
+                                        {ar ? 'لا يوجد أي شرط حاليًا — سيتم استيراد كل الصفوف.' : 'No rules yet — every row will be imported.'}
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 space-y-3">
+                                        {filters.map((rule) => {
+                                            const operatorOptions = operatorsByType[rule.valueType];
+                                            const needsSecondValue = operatorOptions.find((item) => item.value === rule.operator)?.needsSecondValue ?? false;
+                                            const inputType = rule.valueType === 'date' ? 'date' : rule.valueType === 'number' ? 'number' : 'text';
+
+                                            return (
+                                                <div key={rule.id} className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4">
+                                                    <div className="grid gap-3 md:grid-cols-[1.2fr_.8fr_1fr_1fr_auto] md:items-end">
+                                                        <label className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
+                                                            {ar ? 'العمود' : 'Column'}
+                                                            <select
+                                                                value={rule.column}
+                                                                onChange={(event) => updateFilter(rule.id, { column: event.target.value })}
+                                                                className={`${field} mt-1.5`}
+                                                            >
+                                                                {selectedSheet.headers.map((header) => <option key={header} value={header}>{header}</option>)}
+                                                            </select>
+                                                        </label>
+
+                                                        <label className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
+                                                            {ar ? 'نوع القيمة' : 'Value type'}
+                                                            <select
+                                                                value={rule.valueType}
+                                                                onChange={(event) => updateFilter(rule.id, { valueType: event.target.value as FilterValueType })}
+                                                                className={`${field} mt-1.5`}
+                                                            >
+                                                                {(Object.keys(valueTypeLabels) as FilterValueType[]).map((key) => (
+                                                                    <option key={key} value={key}>{ar ? valueTypeLabels[key].ar : valueTypeLabels[key].en}</option>
+                                                                ))}
+                                                            </select>
+                                                        </label>
+
+                                                        <label className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
+                                                            {ar ? 'الشرط' : 'Condition'}
+                                                            <select
+                                                                value={rule.operator}
+                                                                onChange={(event) => updateFilter(rule.id, { operator: event.target.value })}
+                                                                className={`${field} mt-1.5`}
+                                                            >
+                                                                {operatorOptions.map((option) => (
+                                                                    <option key={option.value} value={option.value}>{ar ? option.ar : option.en}</option>
+                                                                ))}
+                                                            </select>
+                                                        </label>
+
+                                                        <label className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
+                                                            {ar ? (needsSecondValue ? 'من' : 'القيمة') : (needsSecondValue ? 'From' : 'Value')}
+                                                            <input
+                                                                type={inputType}
+                                                                value={rule.value}
+                                                                onChange={(event) => updateFilter(rule.id, { value: event.target.value })}
+                                                                className={`${field} mt-1.5`}
+                                                            />
+                                                        </label>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeFilter(rule.id)}
+                                                            title={ar ? 'حذف الشرط' : 'Remove rule'}
+                                                            className="flex size-9 shrink-0 items-center justify-center rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+
+                                                    {needsSecondValue && (
+                                                        <label className="mt-3 block max-w-xs text-[10px] font-semibold text-[var(--ac-text-muted)]">
+                                                            {ar ? 'إلى' : 'To'}
+                                                            <input
+                                                                type={inputType}
+                                                                value={rule.value2}
+                                                                onChange={(event) => updateFilter(rule.id, { value2: event.target.value })}
+                                                                className={`${field} mt-1.5`}
+                                                            />
+                                                        </label>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
+                        {preview && selectedSheet && (
+                            <section className={panel}>
+                                <h2 className="text-sm font-bold">{ar ? '5. المطابقة والتكرار' : '5. Matching & duplicates'}</h2>
                                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                                     <label className="text-xs font-semibold">
                                         {matchLabel}
@@ -467,6 +782,13 @@ export default function StaffImportPage() {
                                     {busy ? (ar ? 'جاري الاستيراد…' : 'Importing…') : (ar ? `استيراد ${selectedSheet.row_count} صف` : `Import ${selectedSheet.row_count} rows`)}
                                 </button>
                                 {!mappedRequired && <p className="mt-2 text-[10px] text-red-600">{ar ? 'طابق جميع الحقول المطلوبة أولًا.' : 'Map all required fields first.'}</p>}
+                                {filters.length > 0 && (
+                                    <p className="mt-2 text-[10px] text-[var(--ac-text-muted)]">
+                                        {ar
+                                            ? 'سيتم تطبيق شروط الفلتر أولًا، فقد يكون العدد الفعلي المستورد أقل من إجمالي صفوف الملف.'
+                                            : 'Your filter rules apply first, so the actual imported count may be lower than the file’s total rows.'}
+                                    </p>
+                                )}
                             </section>
                         )}
 
@@ -478,10 +800,13 @@ export default function StaffImportPage() {
                                     <span className="flex size-11 items-center justify-center rounded-[15px] bg-emerald-50 text-emerald-600"><CheckCircle2 size={20} /></span>
                                     <div className="flex-1">
                                         <h2 className="text-sm font-bold">{ar ? 'اكتمل الاستيراد' : 'Import completed'}</h2>
-                                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                        <div className="mt-4 grid gap-3 sm:grid-cols-4">
                                             <div className="rounded-[14px] bg-emerald-50 p-3"><p className="text-[10px] text-emerald-700">{ar ? 'تمت الإضافة' : 'Created'}</p><strong className="mt-1 block text-lg text-emerald-800">{result.created}</strong></div>
                                             <div className="rounded-[14px] bg-blue-50 p-3"><p className="text-[10px] text-blue-700">{ar ? 'تم التحديث' : 'Updated'}</p><strong className="mt-1 block text-lg text-blue-800">{result.updated}</strong></div>
                                             <div className="rounded-[14px] bg-amber-50 p-3"><p className="text-[10px] text-amber-700">{ar ? 'تم التخطي' : 'Skipped'}</p><strong className="mt-1 block text-lg text-amber-800">{result.skipped}</strong></div>
+                                            {Boolean(result.filtered_out) && (
+                                                <div className="rounded-[14px] bg-slate-100 p-3"><p className="text-[10px] text-slate-600">{ar ? 'مستبعد بالفلتر' : 'Filtered out'}</p><strong className="mt-1 block text-lg text-slate-800">{result.filtered_out}</strong></div>
+                                            )}
                                         </div>
                                         {result.errors.length > 0 && (
                                             <div className="mt-4 max-h-64 overflow-y-auto rounded-[15px] border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-800">
@@ -490,7 +815,7 @@ export default function StaffImportPage() {
                                         )}
                                         <div className="mt-4 flex flex-wrap gap-2">
                                             <Link href="/app/staff/directory" className={primary}><UsersRound size={14} />{ar ? 'عرض الموظفين' : 'View employees'}</Link>
-                                            <button type="button" className={button} onClick={() => { setFile(null); resetPreview(); }}><RefreshCcw size={14} />{ar ? 'استيراد ملف آخر' : 'Import another file'}</button>
+                                            <button type="button" className={button} onClick={clearFile}><RefreshCcw size={14} />{ar ? 'استيراد ملف آخر' : 'Import another file'}</button>
                                         </div>
                                     </div>
                                 </div>

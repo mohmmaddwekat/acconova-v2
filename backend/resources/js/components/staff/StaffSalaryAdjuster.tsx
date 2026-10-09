@@ -1,3 +1,4 @@
+import { ModalPortal } from '@/components/feedback/ModalPortal';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import {
@@ -62,6 +63,7 @@ export function StaffSalaryAdjuster() {
     const [open, setOpen] = useState(false);
     const [selectedId, setSelectedId] = useState('');
     const [newRate, setNewRate] = useState('');
+    const [effectiveOn, setEffectiveOn] = useState(() => new Date().toISOString().slice(0, 10));
     const [notes, setNotes] = useState('');
     const [history, setHistory] = useState<SalaryChange[]>([]);
     const [historyBusy, setHistoryBusy] = useState(false);
@@ -96,6 +98,7 @@ export function StaffSalaryAdjuster() {
         }
 
         setNewRate(selected.rate);
+        setEffectiveOn(new Date().toISOString().slice(0, 10));
         setError('');
         setHistoryBusy(true);
         const controller = new AbortController();
@@ -136,6 +139,7 @@ export function StaffSalaryAdjuster() {
                 method: 'POST',
                 body: JSON.stringify({
                     rate: newRate,
+                    effective_on: effectiveOn,
                     notes: notes.trim() || null,
                 }),
             });
@@ -193,6 +197,7 @@ export function StaffSalaryAdjuster() {
             </div>
 
             {open && (
+                <ModalPortal>
                 <div
                     dir={ar ? 'rtl' : 'ltr'}
                     className="fixed inset-0 z-[190] flex items-end justify-center bg-black/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
@@ -209,8 +214,8 @@ export function StaffSalaryAdjuster() {
                                 </h2>
                                 <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
                                     {ar
-                                        ? 'التعديل لا يغير حركات الرواتب القديمة.'
-                                        : 'Existing payroll entries will not be changed.'}
+                                        ? 'التعديل لا يغير حركات الرواتب القديمة. لتصحيح راتب قديم تدريجيًا (مثلًا تغيّر أكثر من مرة)، أدخل كل تغيير على حدة بتاريخ سريانه الفعلي.'
+                                        : 'Existing payroll entries will not be changed. To record a salary that changed in steps, enter each change separately with its real effective date.'}
                                 </p>
                             </div>
                             <button
@@ -270,6 +275,23 @@ export function StaffSalaryAdjuster() {
                                             onChange={event => setNewRate(event.target.value)}
                                             className="mt-2 min-h-11 w-full rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 text-sm text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
                                         />
+                                    </label>
+
+                                    <label className="text-xs font-semibold text-[var(--ac-text)]">
+                                        {ar ? 'تاريخ السريان' : 'Effective date'}
+                                        <input
+                                            required
+                                            type="date"
+                                            max={new Date().toISOString().slice(0, 10)}
+                                            value={effectiveOn}
+                                            onChange={event => setEffectiveOn(event.target.value)}
+                                            className="mt-2 min-h-11 w-full rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3 text-sm text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
+                                        />
+                                        <span className="mt-1 block text-[10px] font-normal text-[var(--ac-text-muted)]">
+                                            {ar
+                                                ? 'اليوم = راتب جديد من الآن. تاريخ سابق = تصحيح راتب حصل فعليًا بالماضي، بدون التأثير على الراتب الحالي إن وجد تغيير لاحق مسجل.'
+                                                : 'Today = a new raise from now. A past date = recording a change that already happened, without touching the current rate if a later change is already on file.'}
+                                        </span>
                                     </label>
 
                                     {Number.isFinite(difference) && difference !== 0 && (
@@ -359,6 +381,7 @@ export function StaffSalaryAdjuster() {
                         </div>
                     </form>
                 </div>
+                </ModalPortal>
             )}
         </>
     );
