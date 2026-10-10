@@ -5,19 +5,21 @@ namespace App\Services\AI\Import;
 use App\Models\User;
 use App\Services\AI\Import\Contracts\ImportableEntity;
 use App\Services\AI\Import\Entities\PartyImportable;
+use App\Services\AI\Import\Entities\ProductImportable;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
 use LogicException;
 
 class ImportDestinationCatalog
 {
     /**
-     * Entities the smart import engine can target. Tasks 3-4 append the
-     * Product and StaffMember importables here.
+     * Entities the smart import engine can target. Task 4 appends the
+     * StaffMember importable here.
      *
      * @var list<class-string<ImportableEntity>>
      */
     public const ENTITIES = [
         PartyImportable::class,
+        ProductImportable::class,
     ];
 
     /** @return list<ImportableEntity> */
