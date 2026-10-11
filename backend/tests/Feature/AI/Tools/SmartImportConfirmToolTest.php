@@ -166,7 +166,9 @@ class SmartImportConfirmToolTest extends TestCase
      * reload+commit+save sequence is wrapped in a transaction that locks
      * the draft row with `lockForUpdate()` to serialize that window. True
      * concurrency isn't practical in this single-process test suite, so
-     * this instead asserts the locking SQL is actually issued.
+     * this instead asserts the locking SQL is actually issued against
+     * `ai_import_drafts` specifically, and that it happens before the
+     * target entity's own writes (the `parties` insert).
      */
     public function test_confirm_locks_the_draft_row_before_committing(): void
     {
@@ -189,15 +191,141 @@ class SmartImportConfirmToolTest extends TestCase
 
         app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
 
-        $lockingQueries = array_filter(
-            $executedSql,
-            static fn (string $sql): bool => stripos($sql, 'for update') !== false,
-        );
+        $lockDraftIndex = null;
+        $insertPartyIndex = null;
 
-        $this->assertNotEmpty(
-            $lockingQueries,
-            'Expected the draft reload immediately before commit() to use lockForUpdate() ("for update" SQL).',
+        foreach ($executedSql as $index => $sql) {
+            if (
+                $lockDraftIndex === null
+                && stripos($sql, 'ai_import_drafts') !== false
+                && stripos($sql, 'for update') !== false
+            ) {
+                $lockDraftIndex = $index;
+            }
+
+            if (
+                $insertPartyIndex === null
+                && stripos($sql, 'insert') !== false
+                && stripos($sql, '`parties`') !== false
+            ) {
+                $insertPartyIndex = $index;
+            }
+        }
+
+        $this->assertNotNull(
+            $lockDraftIndex,
+            'Expected a "for update" query against ai_import_drafts before commit().',
         );
+        $this->assertNotNull($insertPartyIndex, 'Expected commit() to insert into parties.');
+        $this->assertLessThan(
+            $insertPartyIndex,
+            $lockDraftIndex,
+            'Expected the ai_import_drafts lock to be acquired before the parties insert.',
+        );
+    }
+
+    /**
+     * The residual gap from review round 2: before this fix, `$entity`,
+     * both permission checks, and `$fieldMapping` were all still derived
+     * from the earlier UNLOCKED read, so a concurrent
+     * `smart_import_revise` landing in the window between that read and
+     * the locked reload would have its new `field_mapping` written to the
+     * draft row, while `commit()` still used the stale mapping captured
+     * before the lock. This simulates that window with `DB::listen()`:
+     * the moment the initial unlocked draft read completes, it writes a
+     * new `field_mapping` directly to the row (as a concurrent revise
+     * would), and asserts the committed Party reflects the NEW mapping,
+     * not the one in memory from before the lock.
+     */
+    public function test_confirm_uses_the_field_mapping_as_of_the_locked_reload_not_the_earlier_unlocked_read(): void
+    {
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+        $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
+
+        $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'extracted_rows' => [
+                [
+                    'Type' => 'person',
+                    'ColumnA' => 'Stale Value',
+                    'ColumnB' => 'Fresh Value',
+                    'Role' => 'customer',
+                ],
+            ],
+            'field_mapping' => ['Type' => 'type', 'ColumnA' => 'name', 'Role' => 'roles'],
+        ]);
+
+        $simulatedConcurrentReviseHasRun = false;
+
+        DB::listen(function ($query) use (&$simulatedConcurrentReviseHasRun, $draft): void {
+            if ($simulatedConcurrentReviseHasRun) {
+                return;
+            }
+
+            // Only the initial, unlocked draft read matches: later reads
+            // of this table use `lockForUpdate()` ("for update" in the SQL).
+            if (
+                stripos($query->sql, 'ai_import_drafts') === false
+                || stripos($query->sql, 'for update') !== false
+            ) {
+                return;
+            }
+
+            $simulatedConcurrentReviseHasRun = true;
+
+            DB::table('ai_import_drafts')
+                ->where('id', $draft->id)
+                ->update([
+                    'field_mapping' => json_encode(['Type' => 'type', 'ColumnB' => 'name', 'Role' => 'roles']),
+                ]);
+        });
+
+        app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+
+        $this->assertDatabaseHas('parties', ['name' => 'Fresh Value']);
+        $this->assertDatabaseMissing('parties', ['name' => 'Stale Value']);
+    }
+
+    /**
+     * Forces `AiImportDraft::save()` to fail immediately after a
+     * successful `commit()` (simulating any post-commit save failure, not
+     * just a DB error) and asserts the entity's write is rolled back with
+     * it: the draft must stay `draft` and the Party must never exist,
+     * proving the lock transaction's rollback covers the commit, not just
+     * the draft's own status update.
+     */
+    public function test_confirm_rolls_back_the_commit_if_saving_the_draft_afterward_fails(): void
+    {
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+        $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
+
+        $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'extracted_rows' => [
+                ['Type' => 'person', 'Full Name' => 'Should Roll Back', 'Role' => 'customer'],
+            ],
+            'field_mapping' => ['Type' => 'type', 'Full Name' => 'name', 'Role' => 'roles'],
+        ]);
+
+        AiImportDraft::saving(function (AiImportDraft $model) use ($draft): bool {
+            if ($model->id === $draft->id && $model->status === AiImportDraft::STATUS_COMMITTED) {
+                throw new RuntimeException('Simulated save failure after a successful commit.');
+            }
+
+            return true;
+        });
+
+        try {
+            app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+            $this->fail('Expected the forced save failure to propagate.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('Simulated save failure after a successful commit.', $e->getMessage());
+        }
+
+        $this->assertSame(AiImportDraft::STATUS_DRAFT, $draft->fresh()->status);
+        $this->assertDatabaseMissing('parties', ['name' => 'Should Roll Back']);
     }
 
     public function test_confirm_rejects_a_draft_with_no_resolved_target(): void

@@ -61,51 +61,61 @@ final class SmartImportConfirmTool implements AiWriteTool
     {
         $draftId = (int) $arguments['draft_id'];
 
+        // Fast-path rejection only (draft missing, wrong owner, already
+        // finalized): cheap enough to fail before opening a transaction,
+        // but nothing here determines WHAT gets written or WHETHER it is
+        // permitted — all of that is re-derived from the locked reload
+        // below, because this unlocked draft can go stale (e.g. a
+        // concurrent `smart_import_revise` changing its `target_entity`
+        // or `field_mapping`) before the lock is acquired.
         $draft = AiImportDraft::query()
             ->where('user_id', $user->id)
             ->findOrFail($draftId);
 
         $this->guardDraftIsConfirmable($draft);
 
-        $entity = $this->catalog->find($draft->target_entity);
-
-        if ($entity === null) {
-            throw new RuntimeException("Unknown import destination: {$draft->target_entity}.");
-        }
-
-        // Re-checked defensively: `allowed()` gates registry dispatch, but
-        // `execute()` can be invoked directly, and zero rows must ever be
-        // written without both the generic AI write permission and the
-        // target entity's own permission.
-        if (
-            ! WorkspaceFeaturePermissions::allows($user, 'ai.business_data.write')
-            || ! WorkspaceFeaturePermissions::allows($user, $entity->requiredPermission())
-        ) {
-            throw new RuntimeException('You do not have permission to commit this import.');
-        }
-
-        $fieldMapping = (array) $draft->field_mapping;
-
-        /*
-         * The commit itself is done inside a transaction that locks the
-         * draft row for its duration (`lockForUpdate`), re-reading and
-         * re-checking its status under that lock. This serializes
-         * concurrent confirms of the same draft — a second caller that
-         * passed the checks above before the first caller's commit lands
-         * will see the now-`committed` status once it acquires the lock
-         * and reject instead of importing a second time. It also means a
-         * failed `save()` after a successful `commit()` rolls the entity's
-         * write back too, so a retry can never double-import. This is
-         * independent of (and does not duplicate) the transaction the
-         * target entity's own `commit()` already wraps its row writes in.
-         */
-        return DB::transaction(function () use ($user, $draftId, $entity, $fieldMapping): array {
+        return DB::transaction(function () use ($user, $draftId): array {
+            /*
+             * Everything that decides what gets written or whether it's
+             * permitted — the target entity, both permission checks, and
+             * the field mapping — is derived fresh from this locked
+             * reload, never from the unlocked `$draft` above. Locking the
+             * row for the duration of this transaction also serializes
+             * concurrent confirms of the same draft: a second caller that
+             * passed the fast-path check above before the first caller's
+             * commit lands will see the now-`committed` status once it
+             * acquires the lock here and reject instead of importing a
+             * second time. It also means a failed `save()` after a
+             * successful `commit()` rolls the entity's write back too, so
+             * a retry can never double-import. This is independent of
+             * (and does not duplicate) the transaction the target
+             * entity's own `commit()` already wraps its row writes in.
+             */
             $lockedDraft = AiImportDraft::query()
                 ->where('user_id', $user->id)
                 ->lockForUpdate()
                 ->findOrFail($draftId);
 
             $this->guardDraftIsConfirmable($lockedDraft);
+
+            $entity = $this->catalog->find($lockedDraft->target_entity);
+
+            if ($entity === null) {
+                throw new RuntimeException("Unknown import destination: {$lockedDraft->target_entity}.");
+            }
+
+            // Re-checked defensively: `allowed()` gates registry dispatch,
+            // but `execute()` can be invoked directly, and zero rows must
+            // ever be written without both the generic AI write
+            // permission and the target entity's own permission.
+            if (
+                ! WorkspaceFeaturePermissions::allows($user, 'ai.business_data.write')
+                || ! WorkspaceFeaturePermissions::allows($user, $entity->requiredPermission())
+            ) {
+                throw new RuntimeException('You do not have permission to commit this import.');
+            }
+
+            $fieldMapping = (array) $lockedDraft->field_mapping;
 
             $rows = collect((array) $lockedDraft->extracted_rows)
                 ->map(fn (array $row): array => $this->remapRow($row, $fieldMapping));
