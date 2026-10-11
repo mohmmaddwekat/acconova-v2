@@ -4,8 +4,10 @@ namespace Tests\Feature\AI\Tools;
 
 use App\Enums\OrganizationRole;
 use App\Models\AiImportDraft;
+use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
+use App\Models\WorkspaceRole;
 use App\Services\AI\Tools\SmartImportProposeTool;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -101,6 +103,49 @@ class SmartImportProposeToolTest extends TestCase
         $this->expectException(ModelNotFoundException::class);
 
         app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id]);
+    }
+
+    /**
+     * `ai.business_data.write` has no `builtin` roles (opt-in only), and
+     * `WorkspaceFeaturePermissions::allowsForRole()` short-circuits to true
+     * for the `owner`/`admin` base roles regardless of the permission
+     * catalog. So proving a real denial requires a non-owner/admin role
+     * (`employee`) with no custom grant for this permission.
+     */
+    public function test_allowed_denies_a_user_without_the_write_permission(): void
+    {
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+
+        $this->assertFalse(
+            app(SmartImportProposeTool::class)->allowed($this->otherUser),
+        );
+    }
+
+    /**
+     * Granting the permission through a custom workspace role (the same
+     * mechanism real organizations use to opt an employee into
+     * `ai.business_data.write`) must make `allowed()` return true.
+     */
+    public function test_allowed_grants_a_user_with_the_write_permission(): void
+    {
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+
+        $role = WorkspaceRole::create([
+            'name' => 'AI data writer',
+            'base_role' => 'employee',
+            'is_custom' => true,
+            'permissions' => ['ai.business_data.write'],
+        ]);
+
+        $membership = Membership::query()
+            ->where('user_id', $this->otherUser->id)
+            ->first();
+        $membership->workspace_role_id = $role->id;
+        $membership->save();
+
+        $this->assertTrue(
+            app(SmartImportProposeTool::class)->allowed($this->otherUser),
+        );
     }
 
     private function mockClassifierToReturn(string $content): void

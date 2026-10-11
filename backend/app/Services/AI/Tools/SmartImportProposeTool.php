@@ -6,6 +6,7 @@ use App\Models\AiImportDraft;
 use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
 use App\Services\AI\Import\ImportClassifier;
+use App\Services\Workspace\WorkspaceFeaturePermissions;
 
 /**
  * Classifies an eagerly-created `AiImportDraft`'s extracted rows against the
@@ -48,15 +49,12 @@ final class SmartImportProposeTool implements AiWriteTool
         ];
     }
 
-    /**
-     * Gated by `ai.business_data.write` at the registry level (Task 13).
-     * There is no further per-draft restriction here beyond the ownership
-     * check `execute()` enforces: any user allowed to use the write-tool
-     * registry at all may propose a classification for their own drafts.
-     */
     public function allowed(User $user): bool
     {
-        return true;
+        return WorkspaceFeaturePermissions::allows(
+            $user,
+            'ai.business_data.write',
+        );
     }
 
     public function execute(User $user, array $arguments): array
