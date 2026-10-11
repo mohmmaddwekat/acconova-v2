@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
 use App\Services\AI\Import\ImportDestinationCatalog;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -58,15 +59,13 @@ final class SmartImportConfirmTool implements AiWriteTool
 
     public function execute(User $user, array $arguments): array
     {
+        $draftId = (int) $arguments['draft_id'];
+
         $draft = AiImportDraft::query()
             ->where('user_id', $user->id)
-            ->findOrFail((int) $arguments['draft_id']);
+            ->findOrFail($draftId);
 
-        if ($draft->status !== AiImportDraft::STATUS_DRAFT || $draft->target_entity === null) {
-            throw new RuntimeException(
-                'Only drafts still in "draft" status with a resolved target entity can be confirmed.',
-            );
-        }
+        $this->guardDraftIsConfirmable($draft);
 
         $entity = $this->catalog->find($draft->target_entity);
 
@@ -87,16 +86,52 @@ final class SmartImportConfirmTool implements AiWriteTool
 
         $fieldMapping = (array) $draft->field_mapping;
 
-        $rows = collect((array) $draft->extracted_rows)
-            ->map(fn (array $row): array => $this->remapRow($row, $fieldMapping));
+        /*
+         * The commit itself is done inside a transaction that locks the
+         * draft row for its duration (`lockForUpdate`), re-reading and
+         * re-checking its status under that lock. This serializes
+         * concurrent confirms of the same draft — a second caller that
+         * passed the checks above before the first caller's commit lands
+         * will see the now-`committed` status once it acquires the lock
+         * and reject instead of importing a second time. It also means a
+         * failed `save()` after a successful `commit()` rolls the entity's
+         * write back too, so a retry can never double-import. This is
+         * independent of (and does not duplicate) the transaction the
+         * target entity's own `commit()` already wraps its row writes in.
+         */
+        return DB::transaction(function () use ($user, $draftId, $entity, $fieldMapping): array {
+            $lockedDraft = AiImportDraft::query()
+                ->where('user_id', $user->id)
+                ->lockForUpdate()
+                ->findOrFail($draftId);
 
-        $result = $entity->commit($rows);
+            $this->guardDraftIsConfirmable($lockedDraft);
 
-        $draft->status = AiImportDraft::STATUS_COMMITTED;
-        $draft->commit_summary = $result;
-        $draft->save();
+            $rows = collect((array) $lockedDraft->extracted_rows)
+                ->map(fn (array $row): array => $this->remapRow($row, $fieldMapping));
 
-        return $result;
+            $result = $entity->commit($rows);
+
+            $lockedDraft->status = AiImportDraft::STATUS_COMMITTED;
+            $lockedDraft->commit_summary = $result;
+            $lockedDraft->save();
+
+            return $result;
+        });
+    }
+
+    /**
+     * Only a draft still in "draft" status with a resolved target entity
+     * may be confirmed. Shared by the initial (unlocked) check and the
+     * re-check made under `lockForUpdate` immediately before committing.
+     */
+    private function guardDraftIsConfirmable(AiImportDraft $draft): void
+    {
+        if ($draft->status !== AiImportDraft::STATUS_DRAFT || $draft->target_entity === null) {
+            throw new RuntimeException(
+                'Only drafts still in "draft" status with a resolved target entity can be confirmed.',
+            );
+        }
     }
 
     /**

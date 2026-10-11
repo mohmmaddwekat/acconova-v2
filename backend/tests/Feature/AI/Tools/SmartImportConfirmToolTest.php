@@ -13,6 +13,7 @@ use App\Services\AI\Tools\SmartImportConfirmTool;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -56,6 +57,36 @@ class SmartImportConfirmToolTest extends TestCase
     public function test_confirm_requires_business_data_write_permission(): void
     {
         app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+
+        $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'extracted_rows' => [['name' => 'Acme']],
+            'field_mapping' => ['name' => 'name'],
+        ]);
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+        } finally {
+            $this->assertDatabaseMissing('parties', ['name' => 'Acme']);
+        }
+    }
+
+    /**
+     * `test_confirm_requires_business_data_write_permission` above denies a
+     * user missing BOTH permissions, which would stay green even if the
+     * entity-specific check were deleted from the code. This test isolates
+     * the other half: a user who HAS `ai.business_data.write` but lacks the
+     * target entity's own `requiredPermission()` (`parties.import.commit`)
+     * must still be rejected, proving spec §4.5's dual check can't silently
+     * regress to checking only the generic permission.
+     */
+    public function test_confirm_rejects_a_user_missing_the_entity_specific_permission(): void
+    {
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+        $this->grantPermissions($this->otherUser, ['ai.business_data.write']);
 
         $draft = AiImportDraft::factory()->for($this->otherUser)->create([
             'status' => AiImportDraft::STATUS_DRAFT,
@@ -125,6 +156,48 @@ class SmartImportConfirmToolTest extends TestCase
             'party_id' => $party->id,
             'role' => 'supplier',
         ]);
+    }
+
+    /**
+     * Two concurrent confirms of the same draft could otherwise both pass
+     * the status/target guard before either writes, and a failed `save()`
+     * after a successful `commit()` could leave the draft re-confirmable
+     * even though the business rows already exist. The final
+     * reload+commit+save sequence is wrapped in a transaction that locks
+     * the draft row with `lockForUpdate()` to serialize that window. True
+     * concurrency isn't practical in this single-process test suite, so
+     * this instead asserts the locking SQL is actually issued.
+     */
+    public function test_confirm_locks_the_draft_row_before_committing(): void
+    {
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+        $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
+
+        $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'extracted_rows' => [
+                ['Type' => 'person', 'Full Name' => 'Acme', 'Role' => 'customer'],
+            ],
+            'field_mapping' => ['Type' => 'type', 'Full Name' => 'name', 'Role' => 'roles'],
+        ]);
+
+        $executedSql = [];
+        DB::listen(function ($query) use (&$executedSql): void {
+            $executedSql[] = $query->sql;
+        });
+
+        app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+
+        $lockingQueries = array_filter(
+            $executedSql,
+            static fn (string $sql): bool => stripos($sql, 'for update') !== false,
+        );
+
+        $this->assertNotEmpty(
+            $lockingQueries,
+            'Expected the draft reload immediately before commit() to use lockForUpdate() ("for update" SQL).',
+        );
     }
 
     public function test_confirm_rejects_a_draft_with_no_resolved_target(): void
