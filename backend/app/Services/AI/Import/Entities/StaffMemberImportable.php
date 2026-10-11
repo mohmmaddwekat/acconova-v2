@@ -6,7 +6,6 @@ use App\Actions\Staff\UpsertStaffMemberFromImport;
 use App\Services\AI\Import\Contracts\ImportableEntity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Throwable;
 
 class StaffMemberImportable implements ImportableEntity
 {
@@ -108,6 +107,19 @@ class StaffMemberImportable implements ImportableEntity
     }
 
     /**
+     * Commit every row inside one transaction, the same all-or-nothing
+     * guarantee ImportPartiesFromSpreadsheet::execute()/ImportProductsFromSpreadsheet::execute()
+     * give their callers.
+     *
+     * Only `UpsertStaffMemberFromImport::execute()`'s deliberate
+     * duplicate-match "skip" result is counted as `skipped`. Any row that
+     * fails validation (missing/invalid name, basis, rate, or started_on),
+     * references an unknown department, or matches more than one existing
+     * employee throws instead of being swallowed, aborting the whole commit
+     * and rolling back anything already written in this batch — a bad row
+     * must surface loudly, not disappear into an indistinguishable "skipped"
+     * count.
+     *
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return array{created:int,updated:int,skipped:int,total:int}
      */
@@ -119,22 +131,18 @@ class StaffMemberImportable implements ImportableEntity
 
         DB::transaction(function () use ($rows, &$created, &$updated, &$skipped): void {
             foreach ($rows as $row) {
-                try {
-                    /*
-                     * 'phone'/'skip' mirror StaffImportController::importEmployees()'s
-                     * defaults, keeping bulk commits safe and non-destructive by
-                     * default.
-                     */
-                    $result = $this->upsertStaffMember->execute((array) $row, 'phone', 'skip');
+                /*
+                 * 'phone'/'skip' mirror StaffImportController::importEmployees()'s
+                 * defaults, keeping bulk commits safe and non-destructive by
+                 * default.
+                 */
+                $result = $this->upsertStaffMember->execute((array) $row, 'phone', 'skip');
 
-                    match ($result['status']) {
-                        'created' => $created++,
-                        'updated' => $updated++,
-                        'skipped' => $skipped++,
-                    };
-                } catch (Throwable) {
-                    $skipped++;
-                }
+                match ($result['status']) {
+                    'created' => $created++,
+                    'updated' => $updated++,
+                    'skipped' => $skipped++,
+                };
             }
         });
 

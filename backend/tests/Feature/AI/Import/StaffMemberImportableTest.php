@@ -9,6 +9,7 @@ use App\Services\AI\Import\Entities\StaffMemberImportable;
 use App\Services\AI\Import\ImportDestinationCatalog;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class StaffMemberImportableTest extends TestCase
@@ -114,6 +115,76 @@ class StaffMemberImportableTest extends TestCase
             );
 
             $this->assertDatabaseCount('staff_members', 1);
+        } finally {
+            $context->clear();
+        }
+    }
+
+    /**
+     * Verify a row that fails validation (missing rate) aborts the whole
+     * commit and rolls back any rows already written in the same batch,
+     * instead of being silently folded into the "skipped" count. Only the
+     * deliberate duplicate-match "skip" result may increment `skipped`;
+     * every other failure must surface loudly, matching
+     * ImportPartiesFromSpreadsheet::execute()'s all-or-nothing guarantee.
+     */
+    public function test_staff_member_importable_aborts_commit_on_invalid_row_instead_of_skipping(): void
+    {
+        $user = User::factory()->create();
+
+        $organization = Organization::create([
+            'name' => 'Import Workspace',
+        ]);
+
+        $organization->users()->attach(
+            $user->id,
+            ['role' => 'owner'],
+        );
+
+        $context = app(TenantContext::class);
+
+        $context->set($organization, OrganizationRole::Owner);
+
+        try {
+            $rows = collect([
+                [
+                    'name' => 'Valid Person',
+
+                    'phone' => '0599000000',
+
+                    'basis' => 'month',
+
+                    'rate' => '3000',
+
+                    'started_on' => '2024-01-01',
+                ],
+                [
+                    'name' => 'Missing Rate Person',
+
+                    'phone' => '0599000001',
+
+                    'basis' => 'month',
+
+                    // 'rate' intentionally omitted: this row must abort the
+                    // whole commit, not be silently counted as skipped.
+                    'started_on' => '2024-01-01',
+                ],
+            ]);
+
+            $thrown = null;
+
+            try {
+                app(StaffMemberImportable::class)->commit($rows);
+            } catch (InvalidArgumentException $exception) {
+                $thrown = $exception;
+            }
+
+            $this->assertNotNull(
+                $thrown,
+                'Expected an invalid row to abort the commit instead of being silently skipped.',
+            );
+
+            $this->assertDatabaseCount('staff_members', 0);
         } finally {
             $context->clear();
         }
