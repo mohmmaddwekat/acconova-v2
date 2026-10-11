@@ -22,37 +22,7 @@ class AiAssistantImportUploadTest extends TestCase
         [$user, $organization] = $this->workspace('owner', 'Smart import upload');
         $this->actingInWorkspace($user, $organization);
         $this->configureProvider();
-
-        Http::preventStrayRequests();
-        Http::fake([
-            'https://ai.example.test/*' => Http::sequence()
-                ->push([
-                    'model' => 'tool-test-model',
-                    'choices' => [[
-                        'message' => [
-                            'content' => json_encode(['calls' => []], JSON_THROW_ON_ERROR),
-                        ],
-                    ]],
-                    'usage' => [
-                        'prompt_tokens' => 10,
-                        'completion_tokens' => 5,
-                        'total_tokens' => 15,
-                    ],
-                ])
-                ->push([
-                    'model' => 'tool-test-model',
-                    'choices' => [[
-                        'message' => [
-                            'content' => 'I can help you import these rows.',
-                        ],
-                    ]],
-                    'usage' => [
-                        'prompt_tokens' => 20,
-                        'completion_tokens' => 10,
-                        'total_tokens' => 30,
-                    ],
-                ]),
-        ]);
+        $this->fakeAiSequence();
 
         $conversationId = (int) $this->postJson('/api/ai/conversations', [
             'title' => 'Import question',
@@ -91,6 +61,75 @@ class AiAssistantImportUploadTest extends TestCase
         $this->assertStringContainsString("Draft-Id: {$draft->id}", $userMessage->content);
     }
 
+    public function test_a_file_only_submission_without_a_typed_message_succeeds(): void
+    {
+        [$user, $organization] = $this->workspace('owner', 'Smart import file only');
+        $this->actingInWorkspace($user, $organization);
+        $this->configureProvider();
+        $this->fakeAiSequence();
+
+        $conversationId = (int) $this->postJson('/api/ai/conversations', [
+            'title' => 'Import question',
+        ])->assertCreated()->json('data.id');
+
+        $response = $this->postJson(
+            "/api/ai/conversations/{$conversationId}/messages",
+            [
+                'import_file' => [
+                    'data_url' => $this->csvDataUrl("name\nJane\n"),
+                    'name' => 'x.csv',
+                    'mime' => 'text/csv',
+                ],
+            ],
+        );
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('ai_import_drafts', [
+            'ai_conversation_id' => $conversationId,
+            'user_id' => $user->id,
+            'source_file_type' => 'spreadsheet',
+            'status' => AiImportDraft::STATUS_DRAFT,
+        ]);
+
+        app(TenantContext::class)->set($organization, OrganizationRole::Owner);
+        $userMessage = AiMessage::where('role', 'user')->latest('id')->first();
+        $this->assertNotNull($userMessage);
+        $this->assertStringContainsString('Import the attached file.', $userMessage->content);
+        $this->assertStringContainsString('ACCONOVA_IMPORT_DRAFT_V1', $userMessage->content);
+    }
+
+    public function test_processing_a_csv_import_file_does_not_leak_a_temp_file(): void
+    {
+        [$user, $organization] = $this->workspace('owner', 'Smart import temp cleanup');
+        $this->actingInWorkspace($user, $organization);
+        $this->configureProvider();
+        $this->fakeAiSequence();
+
+        $pattern = sys_get_temp_dir().DIRECTORY_SEPARATOR.'acconova_import_*';
+        $before = glob($pattern) ?: [];
+
+        $conversationId = (int) $this->postJson('/api/ai/conversations', [
+            'title' => 'Import question',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson(
+            "/api/ai/conversations/{$conversationId}/messages",
+            [
+                'message' => 'import these',
+                'import_file' => [
+                    'data_url' => $this->csvDataUrl("name\nJane\n"),
+                    'name' => 'x.csv',
+                    'mime' => 'text/csv',
+                ],
+            ],
+        )->assertOk();
+
+        $after = glob($pattern) ?: [];
+
+        $this->assertSame($before, $after, 'A temp file created while processing the import upload was left behind.');
+    }
+
     public function test_an_unsupported_import_file_mime_is_rejected(): void
     {
         [$user, $organization] = $this->workspace('owner', 'Smart import rejection');
@@ -114,6 +153,40 @@ class AiAssistantImportUploadTest extends TestCase
         )
             ->assertStatus(422)
             ->assertJsonValidationErrors(['import_file.mime']);
+    }
+
+    private function fakeAiSequence(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/*' => Http::sequence()
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => [
+                            'content' => json_encode(['calls' => []], JSON_THROW_ON_ERROR),
+                        ],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 10,
+                        'completion_tokens' => 5,
+                        'total_tokens' => 15,
+                    ],
+                ])
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => [
+                            'content' => 'I can help you import these rows.',
+                        ],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 20,
+                        'completion_tokens' => 10,
+                        'total_tokens' => 30,
+                    ],
+                ]),
+        ]);
     }
 
     private function csvDataUrl(string $csv): string

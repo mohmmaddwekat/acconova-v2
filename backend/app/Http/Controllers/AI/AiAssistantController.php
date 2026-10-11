@@ -140,7 +140,7 @@ class AiAssistantController extends Controller
         $this->assertOwner($request, $conversationRecord);
 
         $validated = $request->validate([
-            'message' => ['nullable', 'string', 'max:12000', 'required_without:image.data_url'],
+            'message' => ['nullable', 'string', 'max:12000', 'required_without_all:image.data_url,import_file.data_url'],
             'image' => ['nullable', 'array'],
             'image.data_url' => ['nullable', 'string', 'max:1500000'],
             'image.name' => ['nullable', 'string', 'max:120'],
@@ -251,7 +251,9 @@ class AiAssistantController extends Controller
         }
 
         if ($messageText === '') {
-            $messageText = 'Analyze the attached image.';
+            $messageText = $importDraft !== null
+                ? 'Import the attached file.'
+                : 'Analyze the attached image.';
         }
 
         $storedUserContent = $messageText;
@@ -476,7 +478,19 @@ class AiAssistantController extends Controller
             default => 'csv',
         };
 
-        $path = tempnam(sys_get_temp_dir(), 'acconova_import_').'.'.$extension;
+        /*
+         * `tempnam()` creates and reserves a real file at its own generated
+         * path (no extension). The extractor needs a path with the right
+         * extension (it prefers a path's extension over its mime hint), so
+         * that reserved file is renamed in place to add the extension,
+         * rather than left behind while a second, differently-named file is
+         * written — renaming guarantees exactly one file exists on disk at
+         * any time, so the later `unlink()` cannot miss one.
+         */
+        $reserved = tempnam(sys_get_temp_dir(), 'acconova_import_');
+        $path = $reserved.'.'.$extension;
+        rename($reserved, $path);
+
         file_put_contents(
             $path,
             $this->decodeDataUrl((string) ($importFile['data_url'] ?? '')),
