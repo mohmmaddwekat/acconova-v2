@@ -41,6 +41,35 @@ class SpreadsheetRowExtractorTest extends TestCase
     }
 
     /**
+     * A `.csv` upload that a browser (commonly on Windows) mislabels as
+     * `application/vnd.ms-excel` must still be read as CSV. The file
+     * extension is reliable here, so it must win over the mime: forcing
+     * the XLS reader onto plain CSV bytes would fail to parse it.
+     */
+    public function test_prefers_extension_over_mislabeled_mime(): void
+    {
+        $path = $this->fixtureCsv("name,email\nJane,jane@example.com\n");
+
+        $rows = app(SpreadsheetRowExtractor::class)->extract($path, 'application/vnd.ms-excel');
+
+        $this->assertSame([['name' => 'Jane', 'email' => 'jane@example.com']], $rows->toArray());
+    }
+
+    /**
+     * A mime the extractor doesn't recognize must not block extraction
+     * when the path's extension is reliable — it should simply fall back
+     * to ordinary extension-based detection.
+     */
+    public function test_falls_back_to_extension_for_unrecognized_mime(): void
+    {
+        $path = $this->fixtureCsv("name,email\nJane,jane@example.com\n");
+
+        $rows = app(SpreadsheetRowExtractor::class)->extract($path, 'application/octet-stream');
+
+        $this->assertSame([['name' => 'Jane', 'email' => 'jane@example.com']], $rows->toArray());
+    }
+
+    /**
      * Write the given contents to a temporary CSV file on disk and return
      * its path, so the extractor can be exercised against a real file
      * rather than an in-memory stream.

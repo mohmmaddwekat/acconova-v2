@@ -38,18 +38,22 @@ class SpreadsheetRowExtractor
      * this `Excel::import()` pattern works for generic row extraction.
      *
      * `Excel::import()` normally resolves the reader type from the path's
-     * file extension alone. `$mime` is used to look up that reader type
-     * explicitly for a recognized spreadsheet mime, so a stored path with
-     * no (or an unreliable) extension still reads correctly instead of
-     * throwing `NoTypeDetectedException`. An unrecognized mime falls back
-     * to extension-based auto-detection unchanged.
+     * file extension alone, which is reliable whenever a path has one —
+     * a `.csv` upload a browser mislabels as `application/vnd.ms-excel`
+     * must still be read as CSV, so the extension always wins when
+     * present. `$mime` is consulted only when the path has no extension
+     * at all, so a stored path without one (expected from Task 7's
+     * upload pipeline) still resolves a reader type instead of
+     * `Excel::import()` throwing `NoTypeDetectedException`.
      *
      * @return Collection<int, array<string, mixed>>
      */
     public function extract(string $path, string $mime): Collection
     {
         $reader = new PartyWorkbookRows;
-        $readerType = self::MIME_READER_TYPES[$mime] ?? null;
+        $readerType = pathinfo($path, PATHINFO_EXTENSION) === ''
+            ? self::MIME_READER_TYPES[$this->normalizeMime($mime)] ?? null
+            : null;
 
         try {
             ExcelFacade::import($reader, $path, null, $readerType);
@@ -66,5 +70,14 @@ class SpreadsheetRowExtractor
         }
 
         return $reader->rows;
+    }
+
+    /**
+     * Strip a trailing `; charset=...` parameter and normalize case, so
+     * `Text/CSV` or `text/csv; charset=utf-8` still match the lookup table.
+     */
+    private function normalizeMime(string $mime): string
+    {
+        return strtolower(trim(explode(';', $mime)[0]));
     }
 }
