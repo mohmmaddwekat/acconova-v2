@@ -60,6 +60,12 @@ final class WorkspaceFeaturePermissions
                         'builtin' => ['owner', 'admin', 'manager', 'accountant', 'employee'],
                     ],
                     [
+                        'key' => 'ai.business_data.write',
+                        'label_ar' => 'السماح للذكاء الاصطناعي بكتابة بيانات العمل المصرح بها',
+                        'label_en' => 'Allow AI to write permitted business data',
+                        'depends' => ['ai.business_data.use'],
+                    ],
+                    [
                         'key' => 'ai.admin.configure',
                         'label_ar' => 'إدارة إعدادات ومزود الذكاء الاصطناعي',
                         'label_en' => 'Configure AI provider and settings',
