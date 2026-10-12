@@ -13,6 +13,7 @@ use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -73,6 +74,42 @@ class SmartImportProposeToolTest extends TestCase
         Http::preventStrayRequests(false);
 
         parent::tearDown();
+    }
+
+    /**
+     * Finding 2 (important, final whole-branch review): unlike
+     * `SmartImportReviseTool`, `execute()` had no status guard at all - a
+     * concurrent/sequential call landing on an already-committed draft
+     * would silently overwrite its `target_entity`/`field_mapping`,
+     * corrupting the audit record of what was actually committed. Mirrors
+     * `SmartImportReviseToolTest::test_revise_rejects_a_committed_draft`.
+     */
+    public function test_propose_rejects_a_committed_draft(): void
+    {
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'status' => AiImportDraft::STATUS_COMMITTED,
+            'target_entity' => 'party',
+            'field_mapping' => ['name' => 'name'],
+        ]);
+
+        // Faked so that, without the status guard, the classifier call
+        // would succeed and the (buggy) code would go on to overwrite the
+        // committed draft - proving the guard, not an unrelated network
+        // failure, is what rejects this call.
+        $this->mockClassifierToReturn(
+            '{"target_entity":"product","field_mapping":{"name":"name"},"confidence":0.8,"notes":""}',
+        );
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            app(SmartImportProposeTool::class)->execute($this->user, [
+                'draft_id' => $draft->id,
+            ]);
+        } finally {
+            $this->assertSame('party', $draft->fresh()->target_entity);
+            $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
+        }
     }
 
     public function test_propose_updates_the_draft_with_classification(): void

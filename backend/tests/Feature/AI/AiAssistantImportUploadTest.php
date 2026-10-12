@@ -95,7 +95,7 @@ class AiAssistantImportUploadTest extends TestCase
         app(TenantContext::class)->set($organization, OrganizationRole::Owner);
         $userMessage = AiMessage::where('role', 'user')->latest('id')->first();
         $this->assertNotNull($userMessage);
-        $this->assertStringContainsString('Import the attached file.', $userMessage->content);
+        $this->assertStringContainsString('Preview the attached file for import.', $userMessage->content);
         $this->assertStringContainsString('ACCONOVA_IMPORT_DRAFT_V1', $userMessage->content);
     }
 

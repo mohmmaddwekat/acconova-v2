@@ -118,6 +118,68 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
         ]);
     }
 
+    /**
+     * Finding 1 (critical, final whole-branch review): nothing previously
+     * stopped the AI planner from selecting `smart_import_propose` and
+     * `smart_import_confirm` in the SAME plan, with no human-visible
+     * preview step actually occurring in between - directly contradicting
+     * the design spec's "the user always sees a preview... before giving
+     * an explicit final confirmation" guarantee
+     * (`docs/superpowers/specs/2026-10-10-smart-import-engine-design.md`,
+     * §1). `AiToolPlanner::plan()` now drops any `smart_import_confirm`
+     * call that rides along with `smart_import_propose`/`_revise` in the
+     * same plan. This drives that scenario through the real planner (via
+     * a faked HTTP response that returns both calls) and proves the
+     * confirm call never reaches `execute()`: no row is written to the
+     * target entity table, and the draft's status stays `draft`.
+     */
+    public function test_orchestrator_never_executes_a_confirm_call_planned_alongside_propose_in_the_same_turn(): void
+    {
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => null,
+            'field_mapping' => null,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"smart_import_propose","arguments":{"draft_id":'.$draft->id.'}},'.
+                    '{"name":"smart_import_confirm","arguments":{"draft_id":'.$draft->id.'}}]}',
+                ))
+                ->push($this->chatResponse(
+                    '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
+                ))
+                ->push($this->chatResponse(
+                    'The uploaded rows look like party records.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'Please import the attached file and confirm it.']],
+        );
+
+        $this->assertContains('smart_import_propose', $result['tool_calls']);
+        $this->assertNotContains('smart_import_confirm', $result['tool_calls']);
+
+        $draft->refresh();
+        $this->assertSame(AiImportDraft::STATUS_DRAFT, $draft->status);
+        $this->assertSame('party', $draft->target_entity);
+
+        $this->assertDatabaseMissing('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'tool_name' => 'smart_import_confirm',
+        ]);
+
+        $this->assertDatabaseCount('parties', 0);
+    }
+
     /** @return array<string,mixed> */
     private function chatResponse(string $content): array
     {

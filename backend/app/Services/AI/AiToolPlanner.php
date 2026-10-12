@@ -7,6 +7,21 @@ use RuntimeException;
 
 final class AiToolPlanner
 {
+    /**
+     * Smart-import write tools, in the order a safe lifecycle would call
+     * them. Shared by `enforceConfirmRequiresPriorPreview()` to recognize
+     * which planner-selected calls are write calls at all.
+     *
+     * @var list<string>
+     */
+    private const WRITE_TOOL_NAMES = [
+        'smart_import_propose',
+        'smart_import_revise',
+        'smart_import_confirm',
+    ];
+
+    private const CONFIRM_TOOL_NAME = 'smart_import_confirm';
+
     public function __construct(
         private readonly AiGateway $gateway,
         private readonly AiBusinessToolRegistry $tools,
@@ -58,6 +73,9 @@ final class AiToolPlanner
                 'content' => 'You are the AccoNova internal business-tool planner. '.
                     "Use tools whenever the user's question depends on live AccoNova business data. ".
                     'Never invent tool names or arguments. Never request SQL, table names, columns, raw database access, credentials, or secrets. '.
+                    'Write tools require genuine user confirmation between a preview and a commit: never plan a '.
+                    'smart_import_confirm call in the same response as the smart_import_propose or smart_import_revise '.
+                    'call that produced the thing being confirmed. '.
                     'Use only the supplied tool catalog. At most '.
                     max(1, (int) config('ai.tools.max_calls', 4)).
                     ' calls. If no business data is needed, return no calls. '.
@@ -130,13 +148,67 @@ final class AiToolPlanner
         }
 
         return [
-            'calls' => $calls,
+            'calls' => $this->enforceConfirmRequiresPriorPreview($calls),
             'usage' => [
                 'input_tokens' => (int) $result['input_tokens'],
                 'output_tokens' => (int) $result['output_tokens'],
                 'total_tokens' => (int) $result['total_tokens'],
             ],
         ];
+    }
+
+    /**
+     * Server-side enforcement of the design spec's "preview before commit"
+     * guarantee (`backend/docs/superpowers/specs/2026-10-10-smart-import-engine-design.md`,
+     * §1): nothing otherwise stops the model from selecting
+     * `smart_import_confirm` in the same plan as the `smart_import_propose`/
+     * `smart_import_revise` call that produced the thing being confirmed,
+     * with no human-visible preview step actually occurring in between.
+     *
+     * Two rules, applied in order:
+     *  1. If this plan also contains `smart_import_propose` or
+     *     `smart_import_revise`, drop every `smart_import_confirm` call
+     *     from it (those two are safe to run together with a read tool or
+     *     alone; only confirm riding along with them in one shot is unsafe).
+     *  2. As a simpler general safety net, allow at most one write-tool
+     *     call per plan: once the first `smart_import_propose`/`_revise`/
+     *     `_confirm` call is kept, every later write-tool call is dropped.
+     *
+     * @param  list<array{name:string,arguments:array<string,mixed>}>  $calls
+     * @return list<array{name:string,arguments:array<string,mixed>}>
+     */
+    private function enforceConfirmRequiresPriorPreview(array $calls): array
+    {
+        $names = array_column($calls, 'name');
+
+        $hasPriorPreviewCall = in_array('smart_import_propose', $names, true)
+            || in_array('smart_import_revise', $names, true);
+
+        if ($hasPriorPreviewCall) {
+            $calls = array_values(array_filter(
+                $calls,
+                static fn (array $call): bool => $call['name'] !== self::CONFIRM_TOOL_NAME,
+            ));
+        }
+
+        $writeToolCallSeen = false;
+
+        return array_values(array_filter(
+            $calls,
+            function (array $call) use (&$writeToolCallSeen): bool {
+                if (! in_array($call['name'], self::WRITE_TOOL_NAMES, true)) {
+                    return true;
+                }
+
+                if ($writeToolCallSeen) {
+                    return false;
+                }
+
+                $writeToolCallSeen = true;
+
+                return true;
+            },
+        ));
     }
 
     /** @return array<string,mixed> */

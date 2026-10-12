@@ -252,7 +252,7 @@ class AiAssistantController extends Controller
 
         if ($messageText === '') {
             $messageText = $importDraft !== null
-                ? 'Import the attached file.'
+                ? 'Preview the attached file for import.'
                 : 'Analyze the attached image.';
         }
 

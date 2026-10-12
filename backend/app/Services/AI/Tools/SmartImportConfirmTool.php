@@ -31,7 +31,9 @@ final class SmartImportConfirmTool implements AiWriteTool
     public function description(): string
     {
         return 'Commit a previously proposed smart-import draft, writing its rows to the '.
-            'classified target entity.';
+            'classified target entity. Only call this after the user has seen a prior '.
+            'propose/revise preview AND has explicitly told you to proceed with the import '.
+            'in their own words. Never call this in the same response as propose or revise.';
     }
 
     public function inputSchema(): array

@@ -31,7 +31,9 @@ final class SmartImportReviseTool implements AiWriteTool
     public function description(): string
     {
         return 'Re-classify a previously proposed smart-import draft using a correction '.
-            "instruction, updating the draft's proposed target entity and field mapping.";
+            "instruction, updating the draft's proposed target entity and field mapping. ".
+            'The result must be shown to the user as a preview before any smart_import_confirm '.
+            'call can follow.';
     }
 
     public function inputSchema(): array
