@@ -13,6 +13,7 @@ final class AiAssistantOrchestrator
         private readonly AiGateway $gateway,
         private readonly AiToolPlanner $planner,
         private readonly AiBusinessToolRegistry $tools,
+        private readonly AiWriteToolRegistry $writeTools,
     ) {}
 
     /**
@@ -47,8 +48,12 @@ final class AiAssistantOrchestrator
             $name = $call['name'];
             $arguments = $call['arguments'];
 
+            $registry = $this->tools->available($user, $name)
+                ? $this->tools
+                : $this->writeTools;
+
             try {
-                $result = $this->tools->execute(
+                $result = $registry->execute(
                     $user,
                     $name,
                     $arguments,

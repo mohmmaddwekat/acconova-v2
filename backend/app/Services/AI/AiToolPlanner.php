@@ -10,6 +10,7 @@ final class AiToolPlanner
     public function __construct(
         private readonly AiGateway $gateway,
         private readonly AiBusinessToolRegistry $tools,
+        private readonly AiWriteToolRegistry $writeTools,
     ) {}
 
     /**
@@ -28,7 +29,10 @@ final class AiToolPlanner
             return $this->emptyPlan();
         }
 
-        $definitions = $this->tools->definitionsFor($user);
+        $definitions = array_merge(
+            $this->tools->definitionsFor($user),
+            $this->writeTools->definitionsFor($user),
+        );
 
         if ($definitions === []) {
             return $this->emptyPlan();
@@ -107,7 +111,10 @@ final class AiToolPlanner
 
             if (
                 $name === ''
-                || ! $this->tools->available($user, $name)
+                || (
+                    ! $this->tools->available($user, $name)
+                    && ! $this->writeTools->available($user, $name)
+                )
             ) {
                 continue;
             }
