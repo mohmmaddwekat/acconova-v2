@@ -53,6 +53,12 @@ final class AiAssistantOrchestrator
                 : $this->writeTools;
 
             try {
+                // $registry may resolve to the read-only AiBusinessToolRegistry,
+                // whose execute() only declares 3 params: passing $conversation
+                // here regardless is safe, since PHP silently ignores an extra
+                // positional argument to a non-variadic method (it only errors
+                // on too few required args) — only AiWriteToolRegistry's
+                // execute() actually consumes it.
                 $result = $registry->execute(
                     $user,
                     $name,

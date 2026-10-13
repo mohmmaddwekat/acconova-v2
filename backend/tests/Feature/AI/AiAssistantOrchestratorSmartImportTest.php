@@ -182,6 +182,49 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
         $this->assertDatabaseCount('parties', 0);
     }
 
+    /**
+     * `chat()`'s call site always passes 4 positional args to
+     * `$registry->execute(...)`, whether `$registry` resolves to the
+     * read-only `AiBusinessToolRegistry` (whose `execute()` only declares
+     * 3 params) or the write-capable `AiWriteToolRegistry` (4 params).
+     * PHP silently ignores the extra `$conversation` argument for a
+     * 3-param method, which is safe but previously had no regression
+     * coverage from this call site's read-only branch — every other
+     * orchestrator-level test here only exercises the write-tool branch.
+     * `sales_summary` (an `AiBusinessTool`) needs no fixture data: with no
+     * invoices in range it simply returns an empty `currencies` list.
+     */
+    public function test_orchestrator_can_execute_a_read_only_business_tool_through_the_same_call_site(): void
+    {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"sales_summary","arguments":{"date_from":"2026-09-01","date_to":"2026-09-30"}}]}',
+                ))
+                ->push($this->chatResponse(
+                    'No sales were recorded for September.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'How much did we sell in September?']],
+        );
+
+        $this->assertContains('sales_summary', $result['tool_calls']);
+
+        $this->assertDatabaseHas('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'user_id' => $this->user->id,
+            'tool_name' => 'sales_summary',
+            'status' => 'success',
+        ]);
+    }
+
     /** @return array<string,mixed> */
     private function chatResponse(string $content): array
     {
