@@ -2,6 +2,8 @@
 
 namespace App\Services\AI\Tools;
 
+use App\Enums\WriteActionSeverity;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
@@ -63,7 +65,12 @@ final class SmartImportProposeTool implements AiWriteTool
         );
     }
 
-    public function execute(User $user, array $arguments): array
+    public function severity(): WriteActionSeverity
+    {
+        return WriteActionSeverity::Standard;
+    }
+
+    public function execute(User $user, array $arguments, AiConversation $conversation): array
     {
         $draftId = (int) $arguments['draft_id'];
 
@@ -75,6 +82,7 @@ final class SmartImportProposeTool implements AiWriteTool
         // re-checks status against a locked reload instead of this one.
         $draft = AiImportDraft::query()
             ->where('user_id', $user->id)
+            ->where('ai_conversation_id', $conversation->id)
             ->findOrFail($draftId);
 
         $this->guardDraftIsProposable($draft);
@@ -88,7 +96,7 @@ final class SmartImportProposeTool implements AiWriteTool
             isset($arguments['hint']) ? (string) $arguments['hint'] : null,
         );
 
-        return DB::transaction(function () use ($user, $draftId, $classification): array {
+        return DB::transaction(function () use ($user, $draftId, $conversation, $classification): array {
             /*
              * Re-checked against a locked reload, never the unlocked
              * `$draft` above: a concurrent `smart_import_confirm` could
@@ -99,6 +107,7 @@ final class SmartImportProposeTool implements AiWriteTool
              */
             $lockedDraft = AiImportDraft::query()
                 ->where('user_id', $user->id)
+                ->where('ai_conversation_id', $conversation->id)
                 ->lockForUpdate()
                 ->findOrFail($draftId);
 

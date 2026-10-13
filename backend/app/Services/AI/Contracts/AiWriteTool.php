@@ -2,6 +2,8 @@
 
 namespace App\Services\AI\Contracts;
 
+use App\Enums\WriteActionSeverity;
+use App\Models\AiConversation;
 use App\Models\User;
 
 /**
@@ -20,8 +22,15 @@ interface AiWriteTool
 
     public function allowed(User $user): bool;
 
+    /**
+     * A fixed property of this action type, never a per-tenant
+     * configurable threshold: used by `AiToolPlanner` to decide whether
+     * this call may ever be batched alongside another write call.
+     */
+    public function severity(): WriteActionSeverity;
+
     /** @param array<string,mixed> $arguments
      * @return array<string,mixed>
      */
-    public function execute(User $user, array $arguments): array;
+    public function execute(User $user, array $arguments, AiConversation $conversation): array;
 }

@@ -3,6 +3,7 @@
 namespace Tests\Feature\AI\Tools;
 
 use App\Enums\OrganizationRole;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Membership;
 use App\Models\Organization;
@@ -34,6 +35,10 @@ class SmartImportConfirmToolTest extends TestCase
 
     private Organization $organization;
 
+    private AiConversation $conversation;
+
+    private AiConversation $otherConversation;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -45,6 +50,9 @@ class SmartImportConfirmToolTest extends TestCase
         $this->organization->users()->attach($this->otherUser->id, ['role' => 'employee']);
 
         app(TenantContext::class)->set($this->organization, OrganizationRole::Owner);
+
+        $this->conversation = AiConversation::factory()->for($this->user)->create();
+        $this->otherConversation = AiConversation::factory()->for($this->otherUser)->create();
     }
 
     protected function tearDown(): void
@@ -59,6 +67,7 @@ class SmartImportConfirmToolTest extends TestCase
         app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
 
         $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'extracted_rows' => [['name' => 'Acme']],
@@ -68,7 +77,7 @@ class SmartImportConfirmToolTest extends TestCase
         $this->expectException(RuntimeException::class);
 
         try {
-            app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+            app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
         } finally {
             $this->assertDatabaseMissing('parties', ['name' => 'Acme']);
         }
@@ -89,6 +98,7 @@ class SmartImportConfirmToolTest extends TestCase
         $this->grantPermissions($this->otherUser, ['ai.business_data.write']);
 
         $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'extracted_rows' => [['name' => 'Acme']],
@@ -98,7 +108,7 @@ class SmartImportConfirmToolTest extends TestCase
         $this->expectException(RuntimeException::class);
 
         try {
-            app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+            app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
         } finally {
             $this->assertDatabaseMissing('parties', ['name' => 'Acme']);
         }
@@ -110,6 +120,7 @@ class SmartImportConfirmToolTest extends TestCase
         $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
 
         $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'extracted_rows' => [
@@ -118,7 +129,7 @@ class SmartImportConfirmToolTest extends TestCase
             'field_mapping' => ['Type' => 'type', 'Full Name' => 'name', 'Role' => 'roles'],
         ]);
 
-        $result = app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+        $result = app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
 
         $this->assertSame(AiImportDraft::STATUS_COMMITTED, $draft->fresh()->status);
         // MySQL's JSON column type normalizes key order on storage, so
@@ -140,6 +151,7 @@ class SmartImportConfirmToolTest extends TestCase
         $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
 
         $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'extracted_rows' => [
@@ -148,7 +160,7 @@ class SmartImportConfirmToolTest extends TestCase
             'field_mapping' => ['Type' => 'type', 'Full Name' => 'name', 'Role' => 'roles'],
         ]);
 
-        app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+        app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
 
         $party = Party::query()->where('name', 'Widget Traders')->firstOrFail();
 
@@ -176,6 +188,7 @@ class SmartImportConfirmToolTest extends TestCase
         $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
 
         $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'extracted_rows' => [
@@ -189,7 +202,7 @@ class SmartImportConfirmToolTest extends TestCase
             $executedSql[] = $query->sql;
         });
 
-        app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+        app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
 
         $lockDraftIndex = null;
         $insertPartyIndex = null;
@@ -243,6 +256,7 @@ class SmartImportConfirmToolTest extends TestCase
         $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
 
         $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'extracted_rows' => [
@@ -281,7 +295,7 @@ class SmartImportConfirmToolTest extends TestCase
                 ]);
         });
 
-        app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+        app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
 
         $this->assertDatabaseHas('parties', ['name' => 'Fresh Value']);
         $this->assertDatabaseMissing('parties', ['name' => 'Stale Value']);
@@ -301,6 +315,7 @@ class SmartImportConfirmToolTest extends TestCase
         $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
 
         $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'extracted_rows' => [
@@ -318,7 +333,7 @@ class SmartImportConfirmToolTest extends TestCase
         });
 
         try {
-            app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id]);
+            app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
             $this->fail('Expected the forced save failure to propagate.');
         } catch (RuntimeException $e) {
             $this->assertSame('Simulated save failure after a successful commit.', $e->getMessage());
@@ -331,37 +346,40 @@ class SmartImportConfirmToolTest extends TestCase
     public function test_confirm_rejects_a_draft_with_no_resolved_target(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => null,
         ]);
 
         $this->expectException(RuntimeException::class);
 
-        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id]);
+        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
     }
 
     public function test_confirm_rejects_an_already_committed_draft(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_COMMITTED,
             'target_entity' => 'party',
         ]);
 
         $this->expectException(RuntimeException::class);
 
-        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id]);
+        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
     }
 
     public function test_confirm_rejects_a_draft_targeting_an_unknown_entity(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'not_a_real_entity',
         ]);
 
         $this->expectException(RuntimeException::class);
 
-        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id]);
+        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
     }
 
     public function test_confirm_rejects_a_draft_owned_by_another_user(): void
@@ -373,7 +391,25 @@ class SmartImportConfirmToolTest extends TestCase
 
         $this->expectException(ModelNotFoundException::class);
 
-        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id]);
+        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
+    }
+
+    /**
+     * A draft created in one AI conversation must be unreachable from a
+     * different conversation, even by the same user: the lookup is scoped
+     * on `ai_conversation_id`, not just `user_id`.
+     */
+    public function test_confirm_rejects_a_draft_owned_by_a_different_conversation(): void
+    {
+        $otherConversation = AiConversation::factory()->for($this->user)->create();
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $otherConversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+        ]);
+
+        $this->expectException(ModelNotFoundException::class);
+        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
     }
 
     /**

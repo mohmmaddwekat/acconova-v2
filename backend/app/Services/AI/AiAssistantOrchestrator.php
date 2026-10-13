@@ -57,6 +57,7 @@ final class AiAssistantOrchestrator
                     $user,
                     $name,
                     $arguments,
+                    $conversation,
                 );
 
                 $results[] = [

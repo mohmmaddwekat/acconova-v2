@@ -2,6 +2,8 @@
 
 namespace App\Services\AI\Tools;
 
+use App\Enums\WriteActionSeverity;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
@@ -59,7 +61,12 @@ final class SmartImportConfirmTool implements AiWriteTool
         );
     }
 
-    public function execute(User $user, array $arguments): array
+    public function severity(): WriteActionSeverity
+    {
+        return WriteActionSeverity::Standard;
+    }
+
+    public function execute(User $user, array $arguments, AiConversation $conversation): array
     {
         $draftId = (int) $arguments['draft_id'];
 
@@ -72,11 +79,12 @@ final class SmartImportConfirmTool implements AiWriteTool
         // or `field_mapping`) before the lock is acquired.
         $draft = AiImportDraft::query()
             ->where('user_id', $user->id)
+            ->where('ai_conversation_id', $conversation->id)
             ->findOrFail($draftId);
 
         $this->guardDraftIsConfirmable($draft);
 
-        return DB::transaction(function () use ($user, $draftId): array {
+        return DB::transaction(function () use ($user, $draftId, $conversation): array {
             /*
              * Everything that decides what gets written or whether it's
              * permitted — the target entity, both permission checks, and
@@ -95,6 +103,7 @@ final class SmartImportConfirmTool implements AiWriteTool
              */
             $lockedDraft = AiImportDraft::query()
                 ->where('user_id', $user->id)
+                ->where('ai_conversation_id', $conversation->id)
                 ->lockForUpdate()
                 ->findOrFail($draftId);
 

@@ -3,6 +3,7 @@
 namespace Tests\Feature\AI\Tools;
 
 use App\Enums\OrganizationRole;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Membership;
 use App\Models\Organization;
@@ -32,6 +33,8 @@ class SmartImportReviseToolTest extends TestCase
     private User $otherUser;
 
     private Organization $organization;
+
+    private AiConversation $conversation;
 
     protected function setUp(): void
     {
@@ -66,6 +69,8 @@ class SmartImportReviseToolTest extends TestCase
         $this->organization->users()->attach($this->otherUser->id, ['role' => 'employee']);
 
         app(TenantContext::class)->set($this->organization, OrganizationRole::Owner);
+
+        $this->conversation = AiConversation::factory()->for($this->user)->create();
     }
 
     protected function tearDown(): void
@@ -80,6 +85,7 @@ class SmartImportReviseToolTest extends TestCase
     public function test_revise_rejects_a_committed_draft(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_COMMITTED,
         ]);
 
@@ -88,12 +94,13 @@ class SmartImportReviseToolTest extends TestCase
         app(SmartImportReviseTool::class)->execute($this->user, [
             'draft_id' => $draft->id,
             'instruction' => 'change x',
-        ]);
+        ], $this->conversation);
     }
 
     public function test_revise_reclassifies_with_the_new_instruction(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'extracted_rows' => [['name' => 'Acme Co']],
@@ -106,7 +113,7 @@ class SmartImportReviseToolTest extends TestCase
         $result = app(SmartImportReviseTool::class)->execute($this->user, [
             'draft_id' => $draft->id,
             'instruction' => 'actually these are products',
-        ]);
+        ], $this->conversation);
 
         $this->assertSame('product', $draft->fresh()->target_entity);
         $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
@@ -134,6 +141,7 @@ class SmartImportReviseToolTest extends TestCase
     public function test_revise_rejects_when_a_concurrent_confirm_commits_the_draft_while_classify_is_in_flight(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'field_mapping' => ['name' => 'name'],
@@ -171,7 +179,7 @@ class SmartImportReviseToolTest extends TestCase
             app(SmartImportReviseTool::class)->execute($this->user, [
                 'draft_id' => $draft->id,
                 'instruction' => 'actually these are products',
-            ]);
+            ], $this->conversation);
             $this->fail('Expected revise() to reject a draft committed while classify() was in flight.');
         } catch (RuntimeException) {
             // Expected.
@@ -192,7 +200,27 @@ class SmartImportReviseToolTest extends TestCase
         app(SmartImportReviseTool::class)->execute($this->user, [
             'draft_id' => $draft->id,
             'instruction' => 'change x',
+        ], $this->conversation);
+    }
+
+    /**
+     * A draft created in one AI conversation must be unreachable from a
+     * different conversation, even by the same user: the lookup is scoped
+     * on `ai_conversation_id`, not just `user_id`.
+     */
+    public function test_revise_rejects_a_draft_owned_by_a_different_conversation(): void
+    {
+        $otherConversation = AiConversation::factory()->for($this->user)->create();
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $otherConversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
         ]);
+
+        $this->expectException(ModelNotFoundException::class);
+        app(SmartImportReviseTool::class)->execute($this->user, [
+            'draft_id' => $draft->id,
+            'instruction' => 'change x',
+        ], $this->conversation);
     }
 
     /**

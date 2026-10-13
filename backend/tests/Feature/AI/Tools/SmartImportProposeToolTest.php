@@ -3,6 +3,7 @@
 namespace Tests\Feature\AI\Tools;
 
 use App\Enums\OrganizationRole;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Membership;
 use App\Models\Organization;
@@ -31,6 +32,8 @@ class SmartImportProposeToolTest extends TestCase
     private User $otherUser;
 
     private Organization $organization;
+
+    private AiConversation $conversation;
 
     protected function setUp(): void
     {
@@ -65,6 +68,8 @@ class SmartImportProposeToolTest extends TestCase
         $this->organization->users()->attach($this->otherUser->id, ['role' => 'employee']);
 
         app(TenantContext::class)->set($this->organization, OrganizationRole::Owner);
+
+        $this->conversation = AiConversation::factory()->for($this->user)->create();
     }
 
     protected function tearDown(): void
@@ -87,6 +92,7 @@ class SmartImportProposeToolTest extends TestCase
     public function test_propose_rejects_a_committed_draft(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_COMMITTED,
             'target_entity' => 'party',
             'field_mapping' => ['name' => 'name'],
@@ -105,7 +111,7 @@ class SmartImportProposeToolTest extends TestCase
         try {
             app(SmartImportProposeTool::class)->execute($this->user, [
                 'draft_id' => $draft->id,
-            ]);
+            ], $this->conversation);
         } finally {
             $this->assertSame('party', $draft->fresh()->target_entity);
             $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
@@ -115,6 +121,7 @@ class SmartImportProposeToolTest extends TestCase
     public function test_propose_updates_the_draft_with_classification(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'extracted_rows' => [['name' => 'Acme Co']],
         ]);
@@ -123,7 +130,7 @@ class SmartImportProposeToolTest extends TestCase
             '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
         );
 
-        $result = app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id]);
+        $result = app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
 
         $this->assertSame('party', $draft->fresh()->target_entity);
         $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
@@ -139,7 +146,24 @@ class SmartImportProposeToolTest extends TestCase
 
         $this->expectException(ModelNotFoundException::class);
 
-        app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id]);
+        app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
+    }
+
+    /**
+     * A draft created in one AI conversation must be unreachable from a
+     * different conversation, even by the same user: the lookup is scoped
+     * on `ai_conversation_id`, not just `user_id`.
+     */
+    public function test_propose_rejects_a_draft_owned_by_a_different_conversation(): void
+    {
+        $otherConversation = AiConversation::factory()->for($this->user)->create();
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $otherConversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+        ]);
+
+        $this->expectException(ModelNotFoundException::class);
+        app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
     }
 
     /**

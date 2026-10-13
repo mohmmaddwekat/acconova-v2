@@ -2,6 +2,8 @@
 
 namespace App\Services\AI;
 
+use App\Enums\WriteActionSeverity;
+use App\Models\AiConversation;
 use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
 use App\Services\AI\Tools\SmartImportConfirmTool;
@@ -46,7 +48,7 @@ final class AiWriteToolRegistry
     /** @param array<string,mixed> $arguments
      * @return array<string,mixed>
      */
-    public function execute(User $user, string $name, array $arguments): array
+    public function execute(User $user, string $name, array $arguments, AiConversation $conversation): array
     {
         if (! WorkspaceFeaturePermissions::allows($user, 'ai.business_data.write')) {
             throw new RuntimeException('AI business data access is not permitted for this user.');
@@ -58,7 +60,7 @@ final class AiWriteToolRegistry
             throw new RuntimeException('AI business tool is not available for this user.');
         }
 
-        return $tool->execute($user, $arguments);
+        return $tool->execute($user, $arguments, $conversation);
     }
 
     public function available(User $user, string $name): bool
@@ -70,6 +72,17 @@ final class AiWriteToolRegistry
         $tool = $this->find($name);
 
         return $tool !== null && $tool->allowed($user);
+    }
+
+    /**
+     * Resolves a registered tool by name and returns its `severity()`, or
+     * `null` if the name isn't registered. Does not check `allowed()` —
+     * callers that need an availability check should use `available()`
+     * first.
+     */
+    public function severityOf(string $name): ?WriteActionSeverity
+    {
+        return $this->find($name)?->severity();
     }
 
     /** @return list<AiWriteTool> */

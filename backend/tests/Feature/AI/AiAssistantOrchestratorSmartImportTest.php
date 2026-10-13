@@ -80,12 +80,13 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
 
     public function test_orchestrator_can_execute_a_write_tool_the_planner_selected(): void
     {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'extracted_rows' => [['name' => 'Acme Co']],
         ]);
-
-        $conversation = AiConversation::factory()->for($this->user)->create();
 
         Http::preventStrayRequests();
         Http::fake([
@@ -135,14 +136,15 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
      */
     public function test_orchestrator_never_executes_a_confirm_call_planned_alongside_propose_in_the_same_turn(): void
     {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => null,
             'field_mapping' => null,
             'extracted_rows' => [['name' => 'Acme Co']],
         ]);
-
-        $conversation = AiConversation::factory()->for($this->user)->create();
 
         Http::preventStrayRequests();
         Http::fake([
