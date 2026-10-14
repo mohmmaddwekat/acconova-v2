@@ -18,11 +18,13 @@ use Tests\TestCase;
 
 /**
  * Covers Task 4: generic plumbing for the `before_payload`/`after_payload`
- * columns on `ai_tool_runs`. No real tool populates the `'audit'` key yet
- * (that's Task 6/8's job) — this drives the convention end-to-end through a
- * synthetic `AiWriteTool` test double bound in place of
- * `SmartImportReviseTool`, following the same approach established by
- * `AiAssistantOrchestratorSmartImportTest`.
+ * columns on `ai_tool_runs`. At the time this test was written, no real
+ * tool populated the `'audit'` key yet — that landed in Task 6/8, and
+ * `SmartImportProposeTool`/`SmartImportReviseTool`/`SmartImportConfirmTool`/
+ * `SmartImportCancelTool` all populate it now — but this test still drives
+ * the convention end-to-end through a synthetic `AiWriteTool` test double
+ * bound in place of `SmartImportReviseTool`, following the same approach
+ * established by `AiAssistantOrchestratorSmartImportTest`.
  */
 class AiToolRunAuditTest extends TestCase
 {

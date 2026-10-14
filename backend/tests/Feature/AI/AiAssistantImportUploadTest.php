@@ -234,11 +234,18 @@ class AiAssistantImportUploadTest extends TestCase
 
         $response->assertOk();
 
-        $this->assertDatabaseHas('billing_ai_credit_transactions', [
-            'organization_id' => $organization->id,
-            'kind' => 'usage',
-            'tokens' => -92,
-        ]);
+        // Exactly one debit for the image-extraction usage, not "at least
+        // one": a regression that double-bills (e.g. consumeOverage()
+        // called twice for the same usage) would still satisfy
+        // assertDatabaseHas, since that only checks a matching row exists.
+        $this->assertSame(
+            1,
+            DB::table('billing_ai_credit_transactions')
+                ->where('organization_id', $organization->id)
+                ->where('kind', 'usage')
+                ->where('tokens', -92)
+                ->count(),
+        );
     }
 
     public function test_an_unsupported_import_file_mime_is_rejected(): void

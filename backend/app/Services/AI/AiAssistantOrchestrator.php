@@ -67,13 +67,23 @@ final class AiAssistantOrchestrator
                     $conversation,
                 );
 
-                [$result, $beforePayload, $afterPayload] = $this->extractAudit($result);
-                [$result, $usage] = $this->extractUsage($result);
+                $beforePayload = null;
+                $afterPayload = null;
 
-                if ($usage !== null) {
-                    $toolUsage['input_tokens'] += $usage['input_tokens'];
-                    $toolUsage['output_tokens'] += $usage['output_tokens'];
-                    $toolUsage['total_tokens'] += $usage['total_tokens'];
+                // Only a write-tool result can carry 'audit'/'usage' keys
+                // meant for extraction: stripping them from a read-only
+                // AiBusinessToolRegistry result would also discard any
+                // same-named key that tool happens to return for unrelated
+                // business reasons, so read-only results are left untouched.
+                if ($registry === $this->writeTools) {
+                    [$result, $beforePayload, $afterPayload] = $this->extractAudit($result);
+                    [$result, $usage] = $this->extractUsage($result);
+
+                    if ($usage !== null) {
+                        $toolUsage['input_tokens'] += $usage['input_tokens'];
+                        $toolUsage['output_tokens'] += $usage['output_tokens'];
+                        $toolUsage['total_tokens'] += $usage['total_tokens'];
+                    }
                 }
 
                 $results[] = [

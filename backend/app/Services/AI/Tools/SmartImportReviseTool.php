@@ -11,7 +11,9 @@ use App\Services\AI\Import\ImportClassifier;
 use App\Services\AI\Import\ImportDestinationCatalog;
 use App\Services\AI\Tools\Concerns\RemapsImportRows;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -182,7 +184,36 @@ final class SmartImportReviseTool implements AiWriteTool
         $fieldMapping = (array) $draft->field_mapping;
         $remappedRows = $this->remapRows(collect($rows), $fieldMapping);
 
-        $preview = $entity->preview($remappedRows);
+        /*
+         * `preview()` delegates to the target entity's own import action
+         * (e.g. `ImportPartiesFromSpreadsheet::analyze()`), which throws a
+         * `ValidationException` outright when the row count exceeds its
+         * hard limit, rather than returning per-row errors. Left uncaught,
+         * that exception would escape this whole method and propagate out
+         * of the enclosing `DB::transaction()` in execute(), rolling back
+         * the classification save that already happened earlier in the
+         * same transaction and surfacing as a generic orchestrator failure
+         * instead of a reportable validation outcome. Treat it the same way
+         * `SmartImportConfirmTool::errorsFromCommitException()` treats a
+         * commit-time `ValidationException`: the whole file counts as
+         * errored.
+         */
+        try {
+            $preview = $entity->preview($remappedRows);
+        } catch (ValidationException $exception) {
+            return [
+                'valid_rows' => 0,
+                'error_rows' => count($rows),
+                'errors' => array_slice(
+                    array_map(
+                        static fn (string $message): array => ['row' => 0, 'message' => $message],
+                        Arr::flatten($exception->errors()),
+                    ),
+                    0,
+                    10,
+                ),
+            ];
+        }
 
         return [
             'valid_rows' => $preview['valid_rows'],

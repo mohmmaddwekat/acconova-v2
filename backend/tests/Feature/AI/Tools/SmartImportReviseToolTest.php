@@ -124,6 +124,54 @@ class SmartImportReviseToolTest extends TestCase
     }
 
     /**
+     * Final whole-branch review (important finding): when a draft's
+     * extracted rows exceed the target entity's row limit (5000, see
+     * `ImportPartiesFromSpreadsheet::analyze()`), `preview()` throws a
+     * `ValidationException` instead of returning per-row errors. Before the
+     * fix, that exception escaped `validateAgainstTargetEntity()` uncaught,
+     * propagated out of the `DB::transaction()` closure in execute(), and
+     * rolled back the classification save that had already happened
+     * earlier in the same closure - losing the classification entirely and
+     * surfacing to the orchestrator as a generic failure rather than a
+     * reportable validation outcome. This proves both halves of the fix:
+     * the classification is persisted (the transaction committed) AND the
+     * tool returns normally with a non-empty error report.
+     */
+    public function test_revise_reports_errors_without_losing_classification_when_row_limit_exceeded(): void
+    {
+        $tooManyRows = array_fill(0, 5001, ['name' => 'Acme Co']);
+
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => null,
+            'field_mapping' => null,
+            'extracted_rows' => $tooManyRows,
+        ]);
+
+        $this->mockClassifierToReturn(
+            '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
+        );
+
+        $result = app(SmartImportReviseTool::class)->execute($this->user, [
+            'draft_id' => $draft->id,
+            'instruction' => 'actually these are parties',
+        ], $this->conversation);
+
+        // The classification save inside the transaction must have
+        // committed, even though preview() threw mid-transaction.
+        $this->assertSame('party', $draft->fresh()->target_entity);
+        $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
+
+        // The tool must return a normal result shape, not throw.
+        $this->assertSame(0, $result['valid_rows']);
+        $this->assertSame(5001, $result['error_rows']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertLessThanOrEqual(10, count($result['errors']));
+        $this->assertIsString($result['errors'][0]['message']);
+    }
+
+    /**
      * Task 6: the tool's result must surface the classifier's field_mapping
      * verbatim, plus validation counts computed by remapping extracted_rows
      * through that mapping and running the newly-resolved target entity's
