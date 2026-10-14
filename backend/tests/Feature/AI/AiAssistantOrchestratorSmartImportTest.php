@@ -283,6 +283,71 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
     }
 
     /**
+     * Covers the Task 3 review fix: `SmartImportConfirmTool::severity()` is
+     * now `Destructive` (not `Standard`), specifically to close an ordering
+     * gap the old hardcoded `enforceConfirmRequiresPriorPreview()` rule
+     * handled but the new severity-driven `enforceSingleWriteCallBySeverity()`
+     * did not close on its own. The old rule dropped `smart_import_confirm`
+     * whenever `smart_import_propose`/`_revise` was present ANYWHERE in the
+     * plan, regardless of order. The new generic "cap at one write call,
+     * first-by-index wins" rule alone would let `smart_import_confirm`
+     * survive instead of `smart_import_propose` whenever the model lists
+     * confirm FIRST — committing a draft against a stale/unreviewed
+     * mapping. With confirm reclassified as `Destructive`, that ordering
+     * now also triggers the destructive-drop rule (confirm wins the cap by
+     * being first, but it's `Destructive` and had to beat another write
+     * call to win, so it's dropped too) and BOTH calls are dropped — never
+     * a stale commit, at the acceptable cost of propose also not executing
+     * that turn (the model can simply retry next turn).
+     */
+    public function test_a_confirm_call_listed_before_propose_in_the_same_plan_drops_both(): void
+    {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => null,
+            'field_mapping' => null,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"smart_import_confirm","arguments":{"draft_id":'.$draft->id.'}},'.
+                    '{"name":"smart_import_propose","arguments":{"draft_id":'.$draft->id.'}}]}',
+                ))
+                ->push($this->chatResponse(
+                    'Nothing was imported.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'Please import the attached file and confirm it.']],
+        );
+
+        $this->assertNotContains('smart_import_confirm', $result['tool_calls']);
+        $this->assertNotContains('smart_import_propose', $result['tool_calls']);
+
+        $this->assertDatabaseMissing('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'tool_name' => 'smart_import_confirm',
+        ]);
+        $this->assertDatabaseMissing('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'tool_name' => 'smart_import_propose',
+        ]);
+
+        $draft->refresh();
+        $this->assertSame(AiImportDraft::STATUS_DRAFT, $draft->status);
+        $this->assertNull($draft->target_entity);
+    }
+
+    /**
      * Binds a minimal `AiWriteTool` test-double, named `destructive_test_tool`
      * with `severity(): WriteActionSeverity::Destructive`, in place of
      * `SmartImportReviseTool` in the container. `AiWriteToolRegistry::tools()`

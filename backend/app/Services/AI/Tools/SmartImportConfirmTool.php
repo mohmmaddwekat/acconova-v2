@@ -63,7 +63,7 @@ final class SmartImportConfirmTool implements AiWriteTool
 
     public function severity(): WriteActionSeverity
     {
-        return WriteActionSeverity::Standard;
+        return WriteActionSeverity::Destructive;
     }
 
     public function execute(User $user, array $arguments, AiConversation $conversation): array
