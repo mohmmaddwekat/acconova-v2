@@ -140,6 +140,41 @@ class SmartImportProposeToolTest extends TestCase
         $this->assertSame([['name' => 'Acme Co']], $result['sample_rows']);
     }
 
+    /**
+     * Task 6: the tool's result must surface the classifier's field_mapping
+     * verbatim, plus validation counts computed by remapping extracted_rows
+     * through that mapping and running the resolved target entity's
+     * `preview()` — here the row is missing Party's required `type`/`roles`
+     * fields (the mapping only supplies `name`), so preview() must report it
+     * as an error row rather than valid.
+     */
+    public function test_propose_returns_field_mapping_and_validation_counts(): void
+    {
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => null,
+            'field_mapping' => null,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        $this->mockClassifierToReturn(
+            '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
+        );
+
+        $result = app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
+
+        $this->assertSame(['name' => 'name'], $result['field_mapping']);
+        $this->assertSame(0, $result['valid_rows']);
+        $this->assertSame(1, $result['error_rows']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertLessThanOrEqual(10, count($result['errors']));
+        $this->assertSame(
+            ['before' => ['target_entity' => null, 'field_mapping' => null], 'after' => ['target_entity' => 'party', 'field_mapping' => ['name' => 'name']]],
+            $result['audit'],
+        );
+    }
+
     public function test_propose_rejects_a_draft_owned_by_another_user(): void
     {
         $draft = AiImportDraft::factory()->for($this->otherUser)->create();

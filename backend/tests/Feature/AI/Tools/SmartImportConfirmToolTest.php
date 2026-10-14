@@ -132,11 +132,53 @@ class SmartImportConfirmToolTest extends TestCase
         $result = app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
 
         $this->assertSame(AiImportDraft::STATUS_COMMITTED, $draft->fresh()->status);
-        // MySQL's JSON column type normalizes key order on storage, so
-        // compare contents rather than requiring an identical key order.
-        $this->assertEqualsCanonicalizing($result, $draft->fresh()->commit_summary);
+
+        // `$result` also carries the 'audit' key (Task 4's convention, only
+        // stripped by AiAssistantOrchestrator before reaching the LLM/this
+        // raw execute() call does not go through the orchestrator), so
+        // compare only the commit() summary portion against what was
+        // persisted onto the draft. MySQL's JSON column type normalizes key
+        // order on storage, so compare contents rather than requiring an
+        // identical key order.
+        $resultWithoutAudit = $result;
+        unset($resultWithoutAudit['audit']);
+        $this->assertEqualsCanonicalizing($resultWithoutAudit, $draft->fresh()->commit_summary);
         $this->assertSame(1, $result['created']);
+        $this->assertSame(['before' => null, 'after' => $resultWithoutAudit], $result['audit']);
         $this->assertDatabaseHas('parties', ['name' => 'Acme']);
+    }
+
+    /**
+     * Task 6: a row that fails `commit()`'s validation must be returned as
+     * a structured rejection instead of letting the exception propagate to
+     * the orchestrator's generic catch, and the draft must stay re-editable
+     * (`STATUS_DRAFT`), never silently marked committed or corrupted.
+     */
+    public function test_confirm_returns_a_structured_rejection_instead_of_throwing_on_invalid_rows(): void
+    {
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+        $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
+
+        $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            // Missing 'roles' (required, min:1), so this row fails
+            // ImportPartiesFromSpreadsheet's validation and execute() throws
+            // a ValidationException instead of writing anything.
+            'extracted_rows' => [
+                ['Type' => 'person', 'Full Name' => 'Acme'],
+            ],
+            'field_mapping' => ['Type' => 'type', 'Full Name' => 'name'],
+        ]);
+
+        $result = app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
+
+        $this->assertSame('rejected', $result['status']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertSame(AiImportDraft::STATUS_DRAFT, $draft->fresh()->status);
+        $this->assertNull($draft->fresh()->commit_summary);
+        $this->assertDatabaseMissing('parties', ['name' => 'Acme']);
     }
 
     /**

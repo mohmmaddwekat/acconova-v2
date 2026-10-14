@@ -124,6 +124,46 @@ class SmartImportReviseToolTest extends TestCase
     }
 
     /**
+     * Task 6: the tool's result must surface the classifier's field_mapping
+     * verbatim, plus validation counts computed by remapping extracted_rows
+     * through that mapping and running the newly-resolved target entity's
+     * `preview()` — here the row is missing Product's required
+     * `type`/`unit`/`unit_price`/`tax_rate` fields (the mapping only
+     * supplies `name`), so preview() must report it as an error row rather
+     * than valid. Also asserts the 'audit' key captures the draft's prior
+     * classification as `before` and the new one as `after`.
+     */
+    public function test_revise_returns_field_mapping_and_validation_counts(): void
+    {
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'field_mapping' => ['name' => 'name'],
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        $this->mockClassifierToReturn(
+            '{"target_entity":"product","field_mapping":{"name":"name"},"confidence":0.8,"notes":""}',
+        );
+
+        $result = app(SmartImportReviseTool::class)->execute($this->user, [
+            'draft_id' => $draft->id,
+            'instruction' => 'actually these are products',
+        ], $this->conversation);
+
+        $this->assertSame(['name' => 'name'], $result['field_mapping']);
+        $this->assertSame(0, $result['valid_rows']);
+        $this->assertSame(1, $result['error_rows']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertLessThanOrEqual(10, count($result['errors']));
+        $this->assertSame(
+            ['before' => ['target_entity' => 'party', 'field_mapping' => ['name' => 'name']], 'after' => ['target_entity' => 'product', 'field_mapping' => ['name' => 'name']]],
+            $result['audit'],
+        );
+    }
+
+    /**
      * Mirrors `SmartImportConfirmToolTest::
      * test_confirm_uses_the_field_mapping_as_of_the_locked_reload_not_the_earlier_unlocked_read`
      * for the opposite direction of the same race: a concurrent
