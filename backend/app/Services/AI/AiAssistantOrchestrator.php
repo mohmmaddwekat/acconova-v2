@@ -66,6 +66,8 @@ final class AiAssistantOrchestrator
                     $conversation,
                 );
 
+                [$result, $beforePayload, $afterPayload] = $this->extractAudit($result);
+
                 $results[] = [
                     'tool' => $name,
                     'ok' => true,
@@ -81,6 +83,8 @@ final class AiAssistantOrchestrator
                     'success',
                     $result,
                     $startedAt,
+                    beforePayload: $beforePayload,
+                    afterPayload: $afterPayload,
                 );
             } catch (Throwable $exception) {
                 report($exception);
@@ -171,8 +175,41 @@ final class AiAssistantOrchestrator
     }
 
     /**
+     * Splits a tool's raw `'audit'` key (shaped
+     * `array{before?: array<string,mixed>, after?: array<string,mixed>}`)
+     * out of its result, so it can be persisted onto the `AiToolRun` row
+     * without ever reaching the LLM-facing context or `resultMeta()`. A
+     * result with no `'audit'` key (or a non-array one) is returned
+     * unchanged, with both payloads `null`.
+     *
+     * @param  array<string,mixed>  $result
+     * @return array{0:array<string,mixed>,1:?array<string,mixed>,2:?array<string,mixed>}
+     */
+    private function extractAudit(array $result): array
+    {
+        $audit = $result['audit'] ?? null;
+
+        if (! is_array($audit)) {
+            return [$result, null, null];
+        }
+
+        unset($result['audit']);
+
+        $before = $audit['before'] ?? null;
+        $after = $audit['after'] ?? null;
+
+        return [
+            $result,
+            is_array($before) ? $before : null,
+            is_array($after) ? $after : null,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $arguments
      * @param  array<string,mixed>|null  $result
+     * @param  array<string,mixed>|null  $beforePayload
+     * @param  array<string,mixed>|null  $afterPayload
      */
     private function recordRun(
         AiConversation $conversation,
@@ -183,6 +220,8 @@ final class AiAssistantOrchestrator
         ?array $result,
         int $startedAt,
         ?Throwable $exception = null,
+        ?array $beforePayload = null,
+        ?array $afterPayload = null,
     ): void {
         rescue(
             function () use (
@@ -194,6 +233,8 @@ final class AiAssistantOrchestrator
                 $result,
                 $startedAt,
                 $exception,
+                $beforePayload,
+                $afterPayload,
             ): void {
                 AiToolRun::create([
                     'ai_conversation_id' => $conversation->id,
@@ -206,6 +247,8 @@ final class AiAssistantOrchestrator
                             : $this->resultMeta(
                                 $result,
                             ),
+                    'before_payload' => $beforePayload,
+                    'after_payload' => $afterPayload,
                     'duration_ms' => max(
                         0,
                         (int) round(
