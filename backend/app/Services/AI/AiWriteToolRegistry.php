@@ -6,6 +6,7 @@ use App\Enums\WriteActionSeverity;
 use App\Models\AiConversation;
 use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
+use App\Services\AI\Tools\SmartImportCancelTool;
 use App\Services\AI\Tools\SmartImportConfirmTool;
 use App\Services\AI\Tools\SmartImportProposeTool;
 use App\Services\AI\Tools\SmartImportReviseTool;
@@ -19,6 +20,7 @@ final class AiWriteToolRegistry
         SmartImportProposeTool::class,
         SmartImportReviseTool::class,
         SmartImportConfirmTool::class,
+        SmartImportCancelTool::class,
     ];
 
     /** @return list<array{name:string,description:string,input_schema:array<string,mixed>}> */
