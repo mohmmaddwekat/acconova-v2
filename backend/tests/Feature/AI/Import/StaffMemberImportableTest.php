@@ -121,6 +121,73 @@ class StaffMemberImportableTest extends TestCase
     }
 
     /**
+     * Verify a row that matches an existing StaffMember by phone (so it
+     * would be silently skipped as a duplicate) does NOT abort the commit
+     * just because it also names a department that does not exist.
+     *
+     * UpsertStaffMemberFromImport::execute() must only resolve/validate the
+     * row's department for rows that actually proceed to a write, after the
+     * duplicate+skip early-return — not before it. Checking it earlier would
+     * throw for this row even though execute() would otherwise skip it
+     * without ever touching the department, aborting the whole
+     * StaffMemberImportable::commit() batch (one transaction, no per-row
+     * catch) on a row that was never going to write anything.
+     */
+    public function test_staff_member_importable_skips_duplicate_despite_invalid_department(): void
+    {
+        $user = User::factory()->create();
+
+        $organization = Organization::create([
+            'name' => 'Import Workspace',
+        ]);
+
+        $organization->users()->attach(
+            $user->id,
+            ['role' => 'owner'],
+        );
+
+        $context = app(TenantContext::class);
+
+        $context->set($organization, OrganizationRole::Owner);
+
+        try {
+            $row = [
+                'name' => 'Jane Doe',
+
+                'phone' => '0599123456',
+
+                'basis' => 'month',
+
+                'rate' => '3500',
+
+                'started_on' => '2024-01-15',
+            ];
+
+            app(StaffMemberImportable::class)->commit(collect([$row]));
+
+            // Re-import the same person (duplicate match by phone), but
+            // this time with a department that does not exist. Must still
+            // be skipped, not throw.
+            $duplicateRowWithUnknownDepartment = $row + [
+                'department' => 'Nonexistent Department',
+            ];
+
+            $result = app(StaffMemberImportable::class)->commit(
+                collect([$duplicateRowWithUnknownDepartment]),
+            );
+
+            $this->assertSame(
+                ['created' => 0, 'updated' => 0, 'skipped' => 1, 'total' => 1],
+                $result,
+            );
+
+            $this->assertDatabaseCount('staff_members', 1);
+        } finally {
+            $context->clear();
+        }
+    }
+
+    /**
      * Verify a row that fails validation (missing rate) aborts the whole
      * commit and rolls back any rows already written in the same batch,
      * instead of being silently folded into the "skipped" count. Only the

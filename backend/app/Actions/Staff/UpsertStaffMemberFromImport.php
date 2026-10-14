@@ -40,6 +40,14 @@ class UpsertStaffMemberFromImport
         }
 
         return DB::transaction(function () use ($row, $existing, $validated): array {
+            /*
+             * Only resolved here, after the duplicate+skip early-return
+             * above, so a stale/typo'd department on a row that would be
+             * silently skipped as a duplicate does not abort the whole
+             * commit. See resolveDepartmentId()'s docblock.
+             */
+            $departmentId = $this->resolveDepartmentId($row);
+
             $userId = null;
 
             if ($validated['email'] !== '') {
@@ -54,7 +62,7 @@ class UpsertStaffMemberFromImport
                 'job_title' => $this->stringOrNull($row['job_title'] ?? null),
                 'phone' => $validated['phone'],
                 'user_id' => $userId,
-                'department_id' => $validated['departmentId'],
+                'department_id' => $departmentId,
                 'basis' => $validated['basis'],
                 'unit' => $this->stringOrNull($row['unit'] ?? null),
                 'rate' => $validated['rate'],
@@ -79,11 +87,19 @@ class UpsertStaffMemberFromImport
      * human-readable error message when it would fail execute()'s checks,
      * or null when it would succeed. Used by StaffMemberImportable::preview()
      * to dry-run validation before any row is committed.
+     *
+     * Unlike execute(), this always resolves the row's department too, even
+     * for a row that execute() would end up silently skipping as a
+     * duplicate — a dry run's job is to surface every validation issue, not
+     * just the ones a real commit would actually reach.
+     *
+     * @param  array<string, mixed>  $row
      */
     public function preview(array $row, string $matchBy = 'phone'): ?string
     {
         try {
             $this->validateRow($row, $matchBy);
+            $this->resolveDepartmentId($row);
 
             return null;
         } catch (InvalidArgumentException|RuntimeException $exception) {
@@ -92,14 +108,18 @@ class UpsertStaffMemberFromImport
     }
 
     /**
-     * Normalize and validate one import row's fields, mirroring every
-     * pre-write check execute() performs (required fields, matching-column
-     * lookup, department existence) without creating or updating a
-     * StaffMember. Shared by execute() and preview() so both run the exact
-     * same validation and only execute() proceeds to write.
+     * Normalize and validate one import row's required fields and matching
+     * lookup (name, basis, rate, started_on, phone, email, existing-match)
+     * without creating or updating a StaffMember. Shared by execute() and
+     * preview() so both run the exact same checks and only execute()
+     * proceeds to write.
+     *
+     * Department existence is deliberately NOT checked here — see
+     * resolveDepartmentId()'s docblock for why it must be validated
+     * separately.
      *
      * @param  array<string, mixed>  $row
-     * @return array{name:string, basis:string, rate:string, startedOn:string, phone:?string, email:string, departmentId:?int, existing:?StaffMember}
+     * @return array{name:string, basis:string, rate:string, startedOn:string, phone:?string, email:string, existing:?StaffMember}
      */
     private function validateRow(array $row, string $matchBy): array
     {
@@ -121,7 +141,6 @@ class UpsertStaffMemberFromImport
         };
 
         $existing = $matchValue !== '' ? $this->findMember($matchBy, $matchValue) : null;
-        $departmentId = $this->departmentId($this->stringOrNull($row['department'] ?? null));
 
         return [
             'name' => $name,
@@ -130,9 +149,28 @@ class UpsertStaffMemberFromImport
             'startedOn' => $startedOn,
             'phone' => $phone,
             'email' => $email,
-            'departmentId' => $departmentId,
             'existing' => $existing,
         ];
+    }
+
+    /**
+     * Resolve a row's department name to its id, throwing RuntimeException
+     * when it names a department that does not exist.
+     *
+     * execute() must only call this for rows that will actually proceed to
+     * a write — i.e. after the duplicate+skip early-return — so that a
+     * stale or typo'd department on an otherwise-skipped duplicate row does
+     * not abort the whole commit (StaffMemberImportable::commit() wraps
+     * every row in one transaction with no per-row catch). preview() calls
+     * it for every row regardless of duplicate status, since a dry run must
+     * surface every validation issue even on a row that execute() would end
+     * up silently skipping.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function resolveDepartmentId(array $row): ?int
+    {
+        return $this->departmentId($this->stringOrNull($row['department'] ?? null));
     }
 
     /**
