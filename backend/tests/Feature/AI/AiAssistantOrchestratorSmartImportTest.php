@@ -3,11 +3,14 @@
 namespace Tests\Feature\AI;
 
 use App\Enums\OrganizationRole;
+use App\Enums\WriteActionSeverity;
 use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\AI\AiAssistantOrchestrator;
+use App\Services\AI\Contracts\AiWriteTool;
+use App\Services\AI\Tools\SmartImportReviseTool;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -180,6 +183,154 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('parties', 0);
+    }
+
+    /**
+     * Covers Task 3: `AiToolPlanner`'s write-call filter is now
+     * severity-driven rather than hardcoded to the three smart-import tool
+     * names. No real `Destructive`-severity tool exists yet, so this binds
+     * a minimal test-double implementing `AiWriteTool` with
+     * `severity(): WriteActionSeverity::Destructive` in place of
+     * `SmartImportReviseTool` in the container — `AiWriteToolRegistry` is
+     * `final` and resolves its fixed tool list via `app($class)`, so
+     * swapping the concrete class binding is the only way to get a second
+     * write tool into it for this one test.
+     *
+     * When the planner proposes this destructive tool alongside another
+     * write call (`smart_import_propose`) in the same plan, the existing
+     * "cap at one write call" rule lets the destructive call win (it's
+     * listed first), but the new severity rule then drops it anyway: a
+     * destructive call that only survived by beating another write call is
+     * never allowed to run alone either, since the thing it "won against"
+     * is exactly the preview/propose step a destructive action must never
+     * be batched with.
+     */
+    public function test_a_destructive_call_paired_with_any_other_write_call_is_dropped(): void
+    {
+        $this->bindDestructiveWriteToolDouble();
+
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"destructive_test_tool","arguments":{}},'.
+                    '{"name":"smart_import_propose","arguments":{"draft_id":'.$draft->id.'}}]}',
+                ))
+                ->push($this->chatResponse(
+                    'Nothing was imported.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'Please import the attached file.']],
+        );
+
+        $this->assertNotContains('destructive_test_tool', $result['tool_calls']);
+        $this->assertNotContains('smart_import_propose', $result['tool_calls']);
+
+        $this->assertDatabaseMissing('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'tool_name' => 'destructive_test_tool',
+        ]);
+    }
+
+    /**
+     * Companion to the test above: the same destructive test-double,
+     * proposed completely alone in the plan, must survive and reach
+     * `execute()` — a `Destructive` call is only unsafe when it had to
+     * beat another write call to be the one kept.
+     */
+    public function test_a_destructive_call_alone_in_a_plan_survives(): void
+    {
+        $this->bindDestructiveWriteToolDouble();
+
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"destructive_test_tool","arguments":{}}]}',
+                ))
+                ->push($this->chatResponse(
+                    'Done.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'Please run the destructive test tool.']],
+        );
+
+        $this->assertContains('destructive_test_tool', $result['tool_calls']);
+
+        $this->assertDatabaseHas('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'tool_name' => 'destructive_test_tool',
+            'status' => 'success',
+        ]);
+    }
+
+    /**
+     * Binds a minimal `AiWriteTool` test-double, named `destructive_test_tool`
+     * with `severity(): WriteActionSeverity::Destructive`, in place of
+     * `SmartImportReviseTool` in the container. `AiWriteToolRegistry::tools()`
+     * resolves its fixed class list via `app($class)`, so this is the only
+     * way to add a second write tool to it without modifying the registry.
+     */
+    private function bindDestructiveWriteToolDouble(): void
+    {
+        $this->app->instance(SmartImportReviseTool::class, new class implements AiWriteTool
+        {
+            public function name(): string
+            {
+                return 'destructive_test_tool';
+            }
+
+            public function description(): string
+            {
+                return 'Test-only destructive write tool.';
+            }
+
+            /** @return array<string,mixed> */
+            public function inputSchema(): array
+            {
+                return [
+                    'type' => 'object',
+                    'properties' => [],
+                    'additionalProperties' => false,
+                ];
+            }
+
+            public function allowed(User $user): bool
+            {
+                return true;
+            }
+
+            public function severity(): WriteActionSeverity
+            {
+                return WriteActionSeverity::Destructive;
+            }
+
+            /** @param array<string,mixed> $arguments
+             * @return array<string,mixed>
+             */
+            public function execute(User $user, array $arguments, AiConversation $conversation): array
+            {
+                return ['executed' => true];
+            }
+        });
     }
 
     /**
