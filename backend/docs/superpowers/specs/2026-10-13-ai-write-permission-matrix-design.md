@@ -71,10 +71,17 @@ could have produced its target. Concretely: at most one write call of
 any severity survives per plan, and a `Destructive` call surviving
 requires it be the *only* write call in that plan (never paired with
 a propose/revise-shaped call in the same turn). `smart_import_propose`/
-`revise`/`confirm` all declare `severity(): WriteActionSeverity::Standard`
-— confirm's existing single-write-call-per-plan protection already
-satisfies `Standard`'s requirement, so this is a compatible
-generalization, not a behavior change for import.
+`revise` declare `severity(): WriteActionSeverity::Standard`;
+`smart_import_confirm` declares `Destructive` — its `commit()` writes
+real rows with no built-in rollback, matching this section's own
+definition of `Destructive` better than `Standard`'s "create/update"
+framing. This also turned out to be load-bearing, not just more
+accurate: a purely `Standard`-based cap-at-one-first-wins rule does not
+reproduce the old hardcoded filter's order-independence (a plan listing
+`confirm` before `propose` would let confirm win the cap and commit a
+stale draft), while classifying `confirm` as `Destructive` closes that
+gap for free, since the `Destructive` rule above already drops a call
+that only survived by beating another write call.
 
 ## 4. Audit: extend `AiToolRun`, don't build a new table
 
