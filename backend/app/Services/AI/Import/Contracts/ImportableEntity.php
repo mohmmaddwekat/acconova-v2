@@ -37,4 +37,14 @@ interface ImportableEntity
      * @return array{created:int,updated:int,skipped:int,total:int}
      */
     public function commit(Collection $rows): array;
+
+    /**
+     * Validate every row against this entity's rules without writing to the
+     * database, so callers can show what would succeed or fail before
+     * committing.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array{valid_rows:int, error_rows:int, errors:list<array{row:int,message:string}>}
+     */
+    public function preview(Collection $rows): array;
 }

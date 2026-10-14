@@ -120,4 +120,30 @@ class PartyImportable implements ImportableEntity
          */
         return $this->importParties->execute($rows, 'skip');
     }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array{valid_rows:int, error_rows:int, errors:list<array{row:int,message:string}>}
+     */
+    public function preview(Collection $rows): array
+    {
+        /*
+         * 'skip' mirrors commit()'s duplicate-handling strategy; it has no
+         * effect on which rows are valid or invalid, only on how duplicates
+         * would be classified if committed.
+         */
+        $analysis = $this->importParties->preview($rows, 'skip');
+
+        return [
+            'valid_rows' => $analysis['valid_rows'],
+            'error_rows' => $analysis['error_rows'],
+            'errors' => array_map(
+                static fn (array $error): array => [
+                    'row' => $error['row'],
+                    'message' => $error['message'],
+                ],
+                $analysis['errors'],
+            ),
+        ];
+    }
 }

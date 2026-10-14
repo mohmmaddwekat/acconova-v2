@@ -191,6 +191,68 @@ class StaffMemberImportableTest extends TestCase
     }
 
     /**
+     * Verify preview() reports per-row validation results without writing
+     * anything, dry-running UpsertStaffMemberFromImport's checks instead of
+     * its write path.
+     */
+    public function test_preview_reports_valid_and_error_row_counts(): void
+    {
+        $user = User::factory()->create();
+
+        $organization = Organization::create([
+            'name' => 'Import Workspace',
+        ]);
+
+        $organization->users()->attach(
+            $user->id,
+            ['role' => 'owner'],
+        );
+
+        $context = app(TenantContext::class);
+
+        $context->set($organization, OrganizationRole::Owner);
+
+        try {
+            $rows = collect([
+                [
+                    'name' => 'Valid Person',
+
+                    'phone' => '0599000000',
+
+                    'basis' => 'month',
+
+                    'rate' => '3000',
+
+                    'started_on' => '2024-01-01',
+                ], // valid
+                [
+                    'name' => 'Missing Rate Person',
+
+                    'phone' => '0599000001',
+
+                    'basis' => 'month',
+
+                    // 'rate' intentionally omitted: must be reported as an
+                    // error row instead of being counted as valid.
+                    'started_on' => '2024-01-01',
+                ],
+            ]);
+
+            $result = app(StaffMemberImportable::class)->preview($rows);
+
+            $this->assertSame(1, $result['valid_rows']);
+            $this->assertSame(1, $result['error_rows']);
+            $this->assertCount(1, $result['errors']);
+            $this->assertSame(3, $result['errors'][0]['row']);
+            $this->assertIsString($result['errors'][0]['message']);
+
+            $this->assertDatabaseCount('staff_members', 0);
+        } finally {
+            $context->clear();
+        }
+    }
+
+    /**
      * Verify the catalog filters out entities the user lacks permission to
      * import into, rather than exposing every registered destination.
      */
