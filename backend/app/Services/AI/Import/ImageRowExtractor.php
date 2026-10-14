@@ -20,16 +20,28 @@ class ImageRowExtractor
 
     /**
      * Turn a photo/scan into generic rows by asking the vision model to
-     * describe its content as JSON, then parsing that JSON.
+     * describe its content as JSON, then parsing that JSON. The vision
+     * call's token usage is returned alongside the rows so the caller can
+     * bill it, the same way every other AI call in this codebase is billed.
      *
      * @param  array{data_url:string,name?:string,mime?:string}  $image
-     * @return Collection<int, array<string, mixed>>
+     * @return array{
+     *     rows: Collection<int, array<string, mixed>>,
+     *     usage: array{input_tokens:int, output_tokens:int, total_tokens:int}
+     * }
      */
-    public function extract(array $image): Collection
+    public function extract(array $image): array
     {
         $result = $this->analyzer->analyze($image, self::EXTRACTION_PROMPT);
 
-        return Collection::make($this->decodeRows((string) $result['content']));
+        return [
+            'rows' => Collection::make($this->decodeRows((string) $result['content'])),
+            'usage' => [
+                'input_tokens' => (int) ($result['input_tokens'] ?? 0),
+                'output_tokens' => (int) ($result['output_tokens'] ?? 0),
+                'total_tokens' => (int) ($result['total_tokens'] ?? 0),
+            ],
+        ];
     }
 
     /**

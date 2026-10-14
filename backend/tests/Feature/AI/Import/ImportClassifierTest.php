@@ -135,6 +135,22 @@ class ImportClassifierTest extends TestCase
         app(ImportClassifier::class)->classify($this->user, $draft, null);
     }
 
+    public function test_classify_returns_usage(): void
+    {
+        $this->mockGatewayToReturn(
+            '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
+        );
+
+        $draft = $this->makeDraft([['name' => 'Acme Co']]);
+
+        $result = app(ImportClassifier::class)->classify($this->user, $draft, null);
+
+        $this->assertArrayHasKey('usage', $result);
+        $this->assertSame(20, $result['usage']['input_tokens']);
+        $this->assertSame(10, $result['usage']['output_tokens']);
+        $this->assertSame(30, $result['usage']['total_tokens']);
+    }
+
     public function test_classify_parses_a_response_wrapped_in_a_markdown_code_fence(): void
     {
         $fence = chr(96).chr(96).chr(96);

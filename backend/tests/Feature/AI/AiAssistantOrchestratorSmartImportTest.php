@@ -123,6 +123,53 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
     }
 
     /**
+     * Covers Task 7 (closes I3): `SmartImportProposeTool` returns the
+     * classifier's token usage under its own result's `usage` key, which
+     * `AiAssistantOrchestrator::chat()`'s tool-execution loop must
+     * generically accumulate into `total_tokens` alongside the planner's
+     * and the final answer call's own usage — the same convention every
+     * other AI call in the app is billed under. All three HTTP calls in
+     * this flow (planner, classifier, answer) report 30 usage tokens each
+     * via `chatResponse()`, so asserting `total_tokens` is strictly greater
+     * than the planner+answer total (60) proves the classifier's usage,
+     * made deep inside the tool call, actually reached the top.
+     */
+    public function test_classifier_usage_from_a_write_tool_call_reaches_total_tokens(): void
+    {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"smart_import_propose","arguments":{"draft_id":'.$draft->id.'}}]}',
+                ))
+                ->push($this->chatResponse(
+                    '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
+                ))
+                ->push($this->chatResponse(
+                    'The uploaded rows look like party records.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'Please import the attached file.']],
+        );
+
+        $this->assertGreaterThan(0, $result['total_tokens']);
+        $this->assertGreaterThan(60, $result['total_tokens']);
+        $this->assertSame(90, $result['total_tokens']);
+    }
+
+    /**
      * Finding 1 (critical, final whole-branch review): nothing previously
      * stopped the AI planner from selecting `smart_import_propose` and
      * `smart_import_confirm` in the SAME plan, with no human-visible

@@ -29,7 +29,8 @@ class ImportClassifier
      *     target_entity:?string,
      *     field_mapping:?array<string,string>,
      *     confidence:float,
-     *     notes:string
+     *     notes:string,
+     *     usage: array{input_tokens:int, output_tokens:int, total_tokens:int}
      * }
      */
     public function classify(User $user, AiImportDraft $draft, ?string $hint): array
@@ -83,6 +84,11 @@ class ImportClassifier
             'field_mapping' => $targetEntity === null ? null : $this->normalizeFieldMapping($decoded['field_mapping'] ?? null),
             'confidence' => (float) ($decoded['confidence'] ?? 0.0),
             'notes' => (string) ($decoded['notes'] ?? ''),
+            'usage' => [
+                'input_tokens' => (int) ($result['input_tokens'] ?? 0),
+                'output_tokens' => (int) ($result['output_tokens'] ?? 0),
+                'total_tokens' => (int) ($result['total_tokens'] ?? 0),
+            ],
         ];
     }
 

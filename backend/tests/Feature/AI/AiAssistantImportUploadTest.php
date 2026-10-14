@@ -5,11 +5,13 @@ namespace Tests\Feature\AI;
 use App\Enums\OrganizationRole;
 use App\Models\AiImportDraft;
 use App\Models\AiMessage;
+use App\Models\BillingAccount;
 use App\Models\Organization;
 use App\Models\User;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -128,6 +130,115 @@ class AiAssistantImportUploadTest extends TestCase
         $after = glob($pattern) ?: [];
 
         $this->assertSame($before, $after, 'A temp file created while processing the import upload was left behind.');
+    }
+
+    /**
+     * Covers Task 7 (closes I3): an image-based import file spends real AI
+     * vision tokens via `ImageRowExtractor`, which must be billed to the
+     * organization's credit balance the same way every other AI call in
+     * the app is billed — this previously fell through uncharged.
+     */
+    public function test_an_image_import_file_bills_ai_usage(): void
+    {
+        [$user, $organization] = $this->workspace('owner', 'Smart import image billing');
+        $this->actingInWorkspace($user, $organization);
+        $this->configureProvider();
+
+        // Force every token spent this month to count as billable overage,
+        // so the image-extraction usage below is deterministically debited
+        // from the wallet rather than silently absorbed by an included
+        // monthly allowance.
+        config(['billing.plans.starter.limits.ai_tokens' => 0]);
+
+        BillingAccount::create([
+            'organization_id' => $organization->id,
+            'provider_customer_id' => 'cus_import_image_billing',
+            'provider_subscription_id' => 'sub_import_image_billing',
+            'plan_key' => 'starter',
+            'billing_interval' => 'month',
+            'status' => 'active',
+        ]);
+
+        DB::table('billing_ai_wallets')->insert([
+            'organization_id' => $organization->id,
+            'balance_tokens' => 100000,
+            'total_purchased_tokens' => 100000,
+            'total_consumed_tokens' => 0,
+            'auto_recharge_enabled' => false,
+            'auto_recharge_threshold_tokens' => 100000,
+            'auto_recharge_tokens' => 0,
+            'auto_recharge_amount_minor' => 0,
+            'auto_recharge_currency' => 'USD',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/*' => Http::sequence()
+                // 1. ImageRowExtractor's vision call.
+                ->push([
+                    'model' => 'vision-model',
+                    'choices' => [[
+                        'message' => ['content' => '[{"name":"Jane"}]'],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 80,
+                        'completion_tokens' => 12,
+                        'total_tokens' => 92,
+                    ],
+                ])
+                // 2. The orchestrator's planner call.
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => [
+                            'content' => json_encode(['calls' => []], JSON_THROW_ON_ERROR),
+                        ],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 10,
+                        'completion_tokens' => 5,
+                        'total_tokens' => 15,
+                    ],
+                ])
+                // 3. The orchestrator's final answer call.
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => ['content' => 'Imported the rows from the photo.'],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 20,
+                        'completion_tokens' => 10,
+                        'total_tokens' => 30,
+                    ],
+                ]),
+        ]);
+
+        $conversationId = (int) $this->postJson('/api/ai/conversations', [
+            'title' => 'Import question',
+        ])->assertCreated()->json('data.id');
+
+        $response = $this->postJson(
+            "/api/ai/conversations/{$conversationId}/messages",
+            [
+                'message' => 'import this photo',
+                'import_file' => [
+                    'data_url' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl+X9sAAAAASUVORK5CYII=',
+                    'name' => 'scan.png',
+                    'mime' => 'image/png',
+                ],
+            ],
+        );
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('billing_ai_credit_transactions', [
+            'organization_id' => $organization->id,
+            'kind' => 'usage',
+            'tokens' => -92,
+        ]);
     }
 
     public function test_an_unsupported_import_file_mime_is_rejected(): void

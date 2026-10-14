@@ -226,7 +226,7 @@ class AiAssistantController extends Controller
 
         if (is_array($importFile) && ! empty($importFile['data_url'])) {
             try {
-                [$rows, $sourceFileType] = $this->extractImportRows(
+                [$rows, $sourceFileType, $importUsage] = $this->extractImportRows(
                     $importFile,
                     $spreadsheetExtractor,
                     $imageRowExtractor,
@@ -248,6 +248,16 @@ class AiAssistantController extends Controller
                 'extracted_rows' => $rows->all(),
                 'status' => AiImportDraft::STATUS_DRAFT,
             ]);
+
+            if ((int) ($importUsage['total_tokens'] ?? 0) > 0) {
+                rescue(
+                    fn () => $credits->consumeOverage(
+                        $organization,
+                        (int) $importUsage['total_tokens'],
+                    ),
+                    report: true,
+                );
+            }
         }
 
         if ($messageText === '') {
@@ -430,10 +440,16 @@ class AiAssistantController extends Controller
 
     /**
      * Dispatch an uploaded import file to the matching row extractor based
-     * on its mime type.
+     * on its mime type. Only the image path spends AI tokens worth billing
+     * (spreadsheet/JSON extraction is purely local parsing), so the third
+     * tuple element is null for every other path.
      *
      * @param  array{data_url:string,name?:string,mime?:string}  $importFile
-     * @return array{0:Collection<int, array<string, mixed>>, 1:string}
+     * @return array{
+     *     0:Collection<int, array<string, mixed>>,
+     *     1:string,
+     *     2:?array{input_tokens:int, output_tokens:int, total_tokens:int}
+     * }
      */
     private function extractImportRows(
         array $importFile,
@@ -443,16 +459,19 @@ class AiAssistantController extends Controller
         $mime = strtolower(trim((string) ($importFile['mime'] ?? '')));
 
         if (in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
-            return [$imageRowExtractor->extract($importFile), 'image'];
+            $extracted = $imageRowExtractor->extract($importFile);
+
+            return [$extracted['rows'], 'image', $extracted['usage']];
         }
 
         if ($mime === 'application/json') {
-            return [$this->extractJsonRows($importFile), 'spreadsheet'];
+            return [$this->extractJsonRows($importFile), 'spreadsheet', null];
         }
 
         return [
             $this->extractSpreadsheetRows($importFile, $spreadsheetExtractor),
             'spreadsheet',
+            null,
         ];
     }
 

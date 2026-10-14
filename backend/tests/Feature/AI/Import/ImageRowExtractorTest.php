@@ -58,14 +58,28 @@ class ImageRowExtractorTest extends TestCase
     {
         $this->fakeAnalysisResponse('[{"name":"Jane"}]');
 
-        $rows = app(ImageRowExtractor::class)->extract($this->fixtureImage());
+        $result = app(ImageRowExtractor::class)->extract($this->fixtureImage());
 
-        $this->assertSame([['name' => 'Jane']], $rows->toArray());
+        $this->assertSame([['name' => 'Jane']], $result['rows']->toArray());
 
         Http::assertSent(fn ($request): bool => str_contains(
             $request['messages'][1]['content'][0]['text'],
             'Extract every record visible in this image as a JSON array of objects. Respond with JSON only.',
         ));
+    }
+
+    public function test_extract_returns_usage_alongside_rows(): void
+    {
+        $this->fakeAnalysisResponse('[{"name":"Jane"}]');
+
+        $result = app(ImageRowExtractor::class)->extract($this->fixtureImage());
+
+        $this->assertArrayHasKey('rows', $result);
+        $this->assertArrayHasKey('usage', $result);
+        $this->assertArrayHasKey('total_tokens', $result['usage']);
+        $this->assertSame(80, $result['usage']['input_tokens']);
+        $this->assertSame(12, $result['usage']['output_tokens']);
+        $this->assertSame(92, $result['usage']['total_tokens']);
     }
 
     public function test_throws_on_non_json_response(): void
@@ -87,9 +101,9 @@ class ImageRowExtractorTest extends TestCase
         $fence = chr(96).chr(96).chr(96);
         $this->fakeAnalysisResponse("{$fence}json\n[{\"name\":\"Jane\"}]\n{$fence}");
 
-        $rows = app(ImageRowExtractor::class)->extract($this->fixtureImage());
+        $result = app(ImageRowExtractor::class)->extract($this->fixtureImage());
 
-        $this->assertSame([['name' => 'Jane']], $rows->toArray());
+        $this->assertSame([['name' => 'Jane']], $result['rows']->toArray());
     }
 
     /**

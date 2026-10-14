@@ -42,6 +42,7 @@ final class AiAssistantOrchestrator
 
         $results = [];
         $usedTools = [];
+        $toolUsage = ['input_tokens' => 0, 'output_tokens' => 0, 'total_tokens' => 0];
 
         foreach ($plan['calls'] as $call) {
             $startedAt = hrtime(true);
@@ -67,6 +68,13 @@ final class AiAssistantOrchestrator
                 );
 
                 [$result, $beforePayload, $afterPayload] = $this->extractAudit($result);
+                [$result, $usage] = $this->extractUsage($result);
+
+                if ($usage !== null) {
+                    $toolUsage['input_tokens'] += $usage['input_tokens'];
+                    $toolUsage['output_tokens'] += $usage['output_tokens'];
+                    $toolUsage['total_tokens'] += $usage['total_tokens'];
+                }
 
                 $results[] = [
                     'tool' => $name,
@@ -164,6 +172,12 @@ final class AiAssistantOrchestrator
             $plan['usage']['output_tokens'];
         $answer['total_tokens'] +=
             $plan['usage']['total_tokens'];
+        $answer['input_tokens'] +=
+            $toolUsage['input_tokens'];
+        $answer['output_tokens'] +=
+            $toolUsage['output_tokens'];
+        $answer['total_tokens'] +=
+            $toolUsage['total_tokens'];
         $answer['tool_calls'] =
             array_values(
                 array_unique(
@@ -202,6 +216,39 @@ final class AiAssistantOrchestrator
             $result,
             is_array($before) ? $before : null,
             is_array($after) ? $after : null,
+        ];
+    }
+
+    /**
+     * Splits a tool's raw `'usage'` key (shaped
+     * `array{input_tokens:int,output_tokens:int,total_tokens:int}`) out of
+     * its result, so the AI tokens it spent (e.g. an image-extraction or
+     * classification call made inside the tool) can be accumulated into
+     * the orchestrator's own totals without ever reaching the LLM-facing
+     * tool-result context — the model doesn't need to see its own token
+     * counts. A result with no `'usage'` key (or a non-array one) is
+     * returned unchanged, with a null usage.
+     *
+     * @param  array<string,mixed>  $result
+     * @return array{0:array<string,mixed>,1:?array{input_tokens:int,output_tokens:int,total_tokens:int}}
+     */
+    private function extractUsage(array $result): array
+    {
+        $usage = $result['usage'] ?? null;
+
+        if (! is_array($usage)) {
+            return [$result, null];
+        }
+
+        unset($result['usage']);
+
+        return [
+            $result,
+            [
+                'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
+                'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
+                'total_tokens' => (int) ($usage['total_tokens'] ?? 0),
+            ],
         ];
     }
 

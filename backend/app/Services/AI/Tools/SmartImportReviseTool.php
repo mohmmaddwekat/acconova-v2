@@ -148,6 +148,7 @@ final class SmartImportReviseTool implements AiWriteTool
                 'valid_rows' => $validation['valid_rows'],
                 'error_rows' => $validation['error_rows'],
                 'errors' => $validation['errors'],
+                'usage' => $classification['usage'],
                 'audit' => [
                     'before' => $before,
                     'after' => $after,
