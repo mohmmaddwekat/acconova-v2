@@ -3,6 +3,7 @@
 namespace Tests\Feature\AI\Tools;
 
 use App\Enums\OrganizationRole;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Membership;
 use App\Models\Organization;
@@ -32,6 +33,8 @@ class SmartImportReviseToolTest extends TestCase
     private User $otherUser;
 
     private Organization $organization;
+
+    private AiConversation $conversation;
 
     protected function setUp(): void
     {
@@ -66,6 +69,8 @@ class SmartImportReviseToolTest extends TestCase
         $this->organization->users()->attach($this->otherUser->id, ['role' => 'employee']);
 
         app(TenantContext::class)->set($this->organization, OrganizationRole::Owner);
+
+        $this->conversation = AiConversation::factory()->for($this->user)->create();
     }
 
     protected function tearDown(): void
@@ -80,6 +85,7 @@ class SmartImportReviseToolTest extends TestCase
     public function test_revise_rejects_a_committed_draft(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_COMMITTED,
         ]);
 
@@ -88,12 +94,13 @@ class SmartImportReviseToolTest extends TestCase
         app(SmartImportReviseTool::class)->execute($this->user, [
             'draft_id' => $draft->id,
             'instruction' => 'change x',
-        ]);
+        ], $this->conversation);
     }
 
     public function test_revise_reclassifies_with_the_new_instruction(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'extracted_rows' => [['name' => 'Acme Co']],
@@ -106,7 +113,7 @@ class SmartImportReviseToolTest extends TestCase
         $result = app(SmartImportReviseTool::class)->execute($this->user, [
             'draft_id' => $draft->id,
             'instruction' => 'actually these are products',
-        ]);
+        ], $this->conversation);
 
         $this->assertSame('product', $draft->fresh()->target_entity);
         $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
@@ -114,6 +121,94 @@ class SmartImportReviseToolTest extends TestCase
         $this->assertSame($draft->id, $result['draft_id']);
         $this->assertSame(1, $result['row_count']);
         $this->assertSame([['name' => 'Acme Co']], $result['sample_rows']);
+    }
+
+    /**
+     * Final whole-branch review (important finding): when a draft's
+     * extracted rows exceed the target entity's row limit (5000, see
+     * `ImportPartiesFromSpreadsheet::analyze()`), `preview()` throws a
+     * `ValidationException` instead of returning per-row errors. Before the
+     * fix, that exception escaped `validateAgainstTargetEntity()` uncaught,
+     * propagated out of the `DB::transaction()` closure in execute(), and
+     * rolled back the classification save that had already happened
+     * earlier in the same closure - losing the classification entirely and
+     * surfacing to the orchestrator as a generic failure rather than a
+     * reportable validation outcome. This proves both halves of the fix:
+     * the classification is persisted (the transaction committed) AND the
+     * tool returns normally with a non-empty error report.
+     */
+    public function test_revise_reports_errors_without_losing_classification_when_row_limit_exceeded(): void
+    {
+        $tooManyRows = array_fill(0, 5001, ['name' => 'Acme Co']);
+
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => null,
+            'field_mapping' => null,
+            'extracted_rows' => $tooManyRows,
+        ]);
+
+        $this->mockClassifierToReturn(
+            '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
+        );
+
+        $result = app(SmartImportReviseTool::class)->execute($this->user, [
+            'draft_id' => $draft->id,
+            'instruction' => 'actually these are parties',
+        ], $this->conversation);
+
+        // The classification save inside the transaction must have
+        // committed, even though preview() threw mid-transaction.
+        $this->assertSame('party', $draft->fresh()->target_entity);
+        $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
+
+        // The tool must return a normal result shape, not throw.
+        $this->assertSame(0, $result['valid_rows']);
+        $this->assertSame(5001, $result['error_rows']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertLessThanOrEqual(10, count($result['errors']));
+        $this->assertIsString($result['errors'][0]['message']);
+    }
+
+    /**
+     * Task 6: the tool's result must surface the classifier's field_mapping
+     * verbatim, plus validation counts computed by remapping extracted_rows
+     * through that mapping and running the newly-resolved target entity's
+     * `preview()` — here the row is missing Product's required
+     * `type`/`unit`/`unit_price`/`tax_rate` fields (the mapping only
+     * supplies `name`), so preview() must report it as an error row rather
+     * than valid. Also asserts the 'audit' key captures the draft's prior
+     * classification as `before` and the new one as `after`.
+     */
+    public function test_revise_returns_field_mapping_and_validation_counts(): void
+    {
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'field_mapping' => ['name' => 'name'],
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        $this->mockClassifierToReturn(
+            '{"target_entity":"product","field_mapping":{"name":"name"},"confidence":0.8,"notes":""}',
+        );
+
+        $result = app(SmartImportReviseTool::class)->execute($this->user, [
+            'draft_id' => $draft->id,
+            'instruction' => 'actually these are products',
+        ], $this->conversation);
+
+        $this->assertSame(['name' => 'name'], $result['field_mapping']);
+        $this->assertSame(0, $result['valid_rows']);
+        $this->assertSame(1, $result['error_rows']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertLessThanOrEqual(10, count($result['errors']));
+        $this->assertSame(
+            ['before' => ['target_entity' => 'party', 'field_mapping' => ['name' => 'name']], 'after' => ['target_entity' => 'product', 'field_mapping' => ['name' => 'name']]],
+            $result['audit'],
+        );
     }
 
     /**
@@ -134,6 +229,7 @@ class SmartImportReviseToolTest extends TestCase
     public function test_revise_rejects_when_a_concurrent_confirm_commits_the_draft_while_classify_is_in_flight(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => 'party',
             'field_mapping' => ['name' => 'name'],
@@ -171,7 +267,7 @@ class SmartImportReviseToolTest extends TestCase
             app(SmartImportReviseTool::class)->execute($this->user, [
                 'draft_id' => $draft->id,
                 'instruction' => 'actually these are products',
-            ]);
+            ], $this->conversation);
             $this->fail('Expected revise() to reject a draft committed while classify() was in flight.');
         } catch (RuntimeException) {
             // Expected.
@@ -192,7 +288,27 @@ class SmartImportReviseToolTest extends TestCase
         app(SmartImportReviseTool::class)->execute($this->user, [
             'draft_id' => $draft->id,
             'instruction' => 'change x',
+        ], $this->conversation);
+    }
+
+    /**
+     * A draft created in one AI conversation must be unreachable from a
+     * different conversation, even by the same user: the lookup is scoped
+     * on `ai_conversation_id`, not just `user_id`.
+     */
+    public function test_revise_rejects_a_draft_owned_by_a_different_conversation(): void
+    {
+        $otherConversation = AiConversation::factory()->for($this->user)->create();
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $otherConversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
         ]);
+
+        $this->expectException(ModelNotFoundException::class);
+        app(SmartImportReviseTool::class)->execute($this->user, [
+            'draft_id' => $draft->id,
+            'instruction' => 'change x',
+        ], $this->conversation);
     }
 
     /**

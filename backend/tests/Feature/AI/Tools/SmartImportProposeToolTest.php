@@ -3,6 +3,7 @@
 namespace Tests\Feature\AI\Tools;
 
 use App\Enums\OrganizationRole;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Membership;
 use App\Models\Organization;
@@ -31,6 +32,8 @@ class SmartImportProposeToolTest extends TestCase
     private User $otherUser;
 
     private Organization $organization;
+
+    private AiConversation $conversation;
 
     protected function setUp(): void
     {
@@ -65,6 +68,8 @@ class SmartImportProposeToolTest extends TestCase
         $this->organization->users()->attach($this->otherUser->id, ['role' => 'employee']);
 
         app(TenantContext::class)->set($this->organization, OrganizationRole::Owner);
+
+        $this->conversation = AiConversation::factory()->for($this->user)->create();
     }
 
     protected function tearDown(): void
@@ -87,6 +92,7 @@ class SmartImportProposeToolTest extends TestCase
     public function test_propose_rejects_a_committed_draft(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_COMMITTED,
             'target_entity' => 'party',
             'field_mapping' => ['name' => 'name'],
@@ -105,7 +111,7 @@ class SmartImportProposeToolTest extends TestCase
         try {
             app(SmartImportProposeTool::class)->execute($this->user, [
                 'draft_id' => $draft->id,
-            ]);
+            ], $this->conversation);
         } finally {
             $this->assertSame('party', $draft->fresh()->target_entity);
             $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
@@ -115,6 +121,7 @@ class SmartImportProposeToolTest extends TestCase
     public function test_propose_updates_the_draft_with_classification(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'extracted_rows' => [['name' => 'Acme Co']],
         ]);
@@ -123,7 +130,7 @@ class SmartImportProposeToolTest extends TestCase
             '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
         );
 
-        $result = app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id]);
+        $result = app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
 
         $this->assertSame('party', $draft->fresh()->target_entity);
         $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
@@ -133,13 +140,112 @@ class SmartImportProposeToolTest extends TestCase
         $this->assertSame([['name' => 'Acme Co']], $result['sample_rows']);
     }
 
+    /**
+     * Task 6: the tool's result must surface the classifier's field_mapping
+     * verbatim, plus validation counts computed by remapping extracted_rows
+     * through that mapping and running the resolved target entity's
+     * `preview()` — here the row is missing Party's required `type`/`roles`
+     * fields (the mapping only supplies `name`), so preview() must report it
+     * as an error row rather than valid.
+     */
+    public function test_propose_returns_field_mapping_and_validation_counts(): void
+    {
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => null,
+            'field_mapping' => null,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        $this->mockClassifierToReturn(
+            '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
+        );
+
+        $result = app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
+
+        $this->assertSame(['name' => 'name'], $result['field_mapping']);
+        $this->assertSame(0, $result['valid_rows']);
+        $this->assertSame(1, $result['error_rows']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertLessThanOrEqual(10, count($result['errors']));
+        $this->assertSame(
+            ['before' => ['target_entity' => null, 'field_mapping' => null], 'after' => ['target_entity' => 'party', 'field_mapping' => ['name' => 'name']]],
+            $result['audit'],
+        );
+    }
+
+    /**
+     * Final whole-branch review (important finding): when a draft's
+     * extracted rows exceed the target entity's row limit (5000, see
+     * `ImportPartiesFromSpreadsheet::analyze()`), `preview()` throws a
+     * `ValidationException` instead of returning per-row errors. Before the
+     * fix, that exception escaped `validateAgainstTargetEntity()` uncaught,
+     * propagated out of the `DB::transaction()` closure in execute(), and
+     * rolled back the classification save that had already happened
+     * earlier in the same closure - losing the classification entirely and
+     * surfacing to the orchestrator as a generic failure rather than a
+     * reportable validation outcome. This proves both halves of the fix:
+     * the classification is persisted (the transaction committed) AND the
+     * tool returns normally with a non-empty error report.
+     */
+    public function test_propose_reports_errors_without_losing_classification_when_row_limit_exceeded(): void
+    {
+        $tooManyRows = array_fill(0, 5001, ['name' => 'Acme Co']);
+
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => null,
+            'field_mapping' => null,
+            'extracted_rows' => $tooManyRows,
+        ]);
+
+        $this->mockClassifierToReturn(
+            '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
+        );
+
+        $result = app(SmartImportProposeTool::class)->execute($this->user, [
+            'draft_id' => $draft->id,
+        ], $this->conversation);
+
+        // The classification save inside the transaction must have
+        // committed, even though preview() threw mid-transaction.
+        $this->assertSame('party', $draft->fresh()->target_entity);
+        $this->assertSame(['name' => 'name'], $draft->fresh()->field_mapping);
+
+        // The tool must return a normal result shape, not throw.
+        $this->assertSame(0, $result['valid_rows']);
+        $this->assertSame(5001, $result['error_rows']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertLessThanOrEqual(10, count($result['errors']));
+        $this->assertIsString($result['errors'][0]['message']);
+    }
+
     public function test_propose_rejects_a_draft_owned_by_another_user(): void
     {
         $draft = AiImportDraft::factory()->for($this->otherUser)->create();
 
         $this->expectException(ModelNotFoundException::class);
 
-        app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id]);
+        app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
+    }
+
+    /**
+     * A draft created in one AI conversation must be unreachable from a
+     * different conversation, even by the same user: the lookup is scoped
+     * on `ai_conversation_id`, not just `user_id`.
+     */
+    public function test_propose_rejects_a_draft_owned_by_a_different_conversation(): void
+    {
+        $otherConversation = AiConversation::factory()->for($this->user)->create();
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $otherConversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+        ]);
+
+        $this->expectException(ModelNotFoundException::class);
+        app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
     }
 
     /**

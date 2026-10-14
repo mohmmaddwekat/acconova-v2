@@ -42,6 +42,7 @@ final class AiAssistantOrchestrator
 
         $results = [];
         $usedTools = [];
+        $toolUsage = ['input_tokens' => 0, 'output_tokens' => 0, 'total_tokens' => 0];
 
         foreach ($plan['calls'] as $call) {
             $startedAt = hrtime(true);
@@ -53,11 +54,37 @@ final class AiAssistantOrchestrator
                 : $this->writeTools;
 
             try {
+                // $registry may resolve to the read-only AiBusinessToolRegistry,
+                // whose execute() only declares 3 params: passing $conversation
+                // here regardless is safe, since PHP silently ignores an extra
+                // positional argument to a non-variadic method (it only errors
+                // on too few required args) — only AiWriteToolRegistry's
+                // execute() actually consumes it.
                 $result = $registry->execute(
                     $user,
                     $name,
                     $arguments,
+                    $conversation,
                 );
+
+                $beforePayload = null;
+                $afterPayload = null;
+
+                // Only a write-tool result can carry 'audit'/'usage' keys
+                // meant for extraction: stripping them from a read-only
+                // AiBusinessToolRegistry result would also discard any
+                // same-named key that tool happens to return for unrelated
+                // business reasons, so read-only results are left untouched.
+                if ($registry === $this->writeTools) {
+                    [$result, $beforePayload, $afterPayload] = $this->extractAudit($result);
+                    [$result, $usage] = $this->extractUsage($result);
+
+                    if ($usage !== null) {
+                        $toolUsage['input_tokens'] += $usage['input_tokens'];
+                        $toolUsage['output_tokens'] += $usage['output_tokens'];
+                        $toolUsage['total_tokens'] += $usage['total_tokens'];
+                    }
+                }
 
                 $results[] = [
                     'tool' => $name,
@@ -74,6 +101,8 @@ final class AiAssistantOrchestrator
                     'success',
                     $result,
                     $startedAt,
+                    beforePayload: $beforePayload,
+                    afterPayload: $afterPayload,
                 );
             } catch (Throwable $exception) {
                 report($exception);
@@ -153,6 +182,12 @@ final class AiAssistantOrchestrator
             $plan['usage']['output_tokens'];
         $answer['total_tokens'] +=
             $plan['usage']['total_tokens'];
+        $answer['input_tokens'] +=
+            $toolUsage['input_tokens'];
+        $answer['output_tokens'] +=
+            $toolUsage['output_tokens'];
+        $answer['total_tokens'] +=
+            $toolUsage['total_tokens'];
         $answer['tool_calls'] =
             array_values(
                 array_unique(
@@ -164,8 +199,74 @@ final class AiAssistantOrchestrator
     }
 
     /**
+     * Splits a tool's raw `'audit'` key (shaped
+     * `array{before?: array<string,mixed>, after?: array<string,mixed>}`)
+     * out of its result, so it can be persisted onto the `AiToolRun` row
+     * without ever reaching the LLM-facing context or `resultMeta()`. A
+     * result with no `'audit'` key (or a non-array one) is returned
+     * unchanged, with both payloads `null`.
+     *
+     * @param  array<string,mixed>  $result
+     * @return array{0:array<string,mixed>,1:?array<string,mixed>,2:?array<string,mixed>}
+     */
+    private function extractAudit(array $result): array
+    {
+        $audit = $result['audit'] ?? null;
+
+        if (! is_array($audit)) {
+            return [$result, null, null];
+        }
+
+        unset($result['audit']);
+
+        $before = $audit['before'] ?? null;
+        $after = $audit['after'] ?? null;
+
+        return [
+            $result,
+            is_array($before) ? $before : null,
+            is_array($after) ? $after : null,
+        ];
+    }
+
+    /**
+     * Splits a tool's raw `'usage'` key (shaped
+     * `array{input_tokens:int,output_tokens:int,total_tokens:int}`) out of
+     * its result, so the AI tokens it spent (e.g. an image-extraction or
+     * classification call made inside the tool) can be accumulated into
+     * the orchestrator's own totals without ever reaching the LLM-facing
+     * tool-result context — the model doesn't need to see its own token
+     * counts. A result with no `'usage'` key (or a non-array one) is
+     * returned unchanged, with a null usage.
+     *
+     * @param  array<string,mixed>  $result
+     * @return array{0:array<string,mixed>,1:?array{input_tokens:int,output_tokens:int,total_tokens:int}}
+     */
+    private function extractUsage(array $result): array
+    {
+        $usage = $result['usage'] ?? null;
+
+        if (! is_array($usage)) {
+            return [$result, null];
+        }
+
+        unset($result['usage']);
+
+        return [
+            $result,
+            [
+                'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
+                'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
+                'total_tokens' => (int) ($usage['total_tokens'] ?? 0),
+            ],
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $arguments
      * @param  array<string,mixed>|null  $result
+     * @param  array<string,mixed>|null  $beforePayload
+     * @param  array<string,mixed>|null  $afterPayload
      */
     private function recordRun(
         AiConversation $conversation,
@@ -176,6 +277,8 @@ final class AiAssistantOrchestrator
         ?array $result,
         int $startedAt,
         ?Throwable $exception = null,
+        ?array $beforePayload = null,
+        ?array $afterPayload = null,
     ): void {
         rescue(
             function () use (
@@ -187,6 +290,8 @@ final class AiAssistantOrchestrator
                 $result,
                 $startedAt,
                 $exception,
+                $beforePayload,
+                $afterPayload,
             ): void {
                 AiToolRun::create([
                     'ai_conversation_id' => $conversation->id,
@@ -199,6 +304,8 @@ final class AiAssistantOrchestrator
                             : $this->resultMeta(
                                 $result,
                             ),
+                    'before_payload' => $beforePayload,
+                    'after_payload' => $afterPayload,
                     'duration_ms' => max(
                         0,
                         (int) round(

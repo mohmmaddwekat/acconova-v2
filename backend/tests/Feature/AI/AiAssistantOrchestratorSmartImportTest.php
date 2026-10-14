@@ -3,11 +3,14 @@
 namespace Tests\Feature\AI;
 
 use App\Enums\OrganizationRole;
+use App\Enums\WriteActionSeverity;
 use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\AI\AiAssistantOrchestrator;
+use App\Services\AI\Contracts\AiWriteTool;
+use App\Services\AI\Tools\SmartImportReviseTool;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -80,12 +83,13 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
 
     public function test_orchestrator_can_execute_a_write_tool_the_planner_selected(): void
     {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'extracted_rows' => [['name' => 'Acme Co']],
         ]);
-
-        $conversation = AiConversation::factory()->for($this->user)->create();
 
         Http::preventStrayRequests();
         Http::fake([
@@ -119,6 +123,53 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
     }
 
     /**
+     * Covers Task 7 (closes I3): `SmartImportProposeTool` returns the
+     * classifier's token usage under its own result's `usage` key, which
+     * `AiAssistantOrchestrator::chat()`'s tool-execution loop must
+     * generically accumulate into `total_tokens` alongside the planner's
+     * and the final answer call's own usage — the same convention every
+     * other AI call in the app is billed under. All three HTTP calls in
+     * this flow (planner, classifier, answer) report 30 usage tokens each
+     * via `chatResponse()`, so asserting `total_tokens` is strictly greater
+     * than the planner+answer total (60) proves the classifier's usage,
+     * made deep inside the tool call, actually reached the top.
+     */
+    public function test_classifier_usage_from_a_write_tool_call_reaches_total_tokens(): void
+    {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"smart_import_propose","arguments":{"draft_id":'.$draft->id.'}}]}',
+                ))
+                ->push($this->chatResponse(
+                    '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.9,"notes":""}',
+                ))
+                ->push($this->chatResponse(
+                    'The uploaded rows look like party records.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'Please import the attached file.']],
+        );
+
+        $this->assertGreaterThan(0, $result['total_tokens']);
+        $this->assertGreaterThan(60, $result['total_tokens']);
+        $this->assertSame(90, $result['total_tokens']);
+    }
+
+    /**
      * Finding 1 (critical, final whole-branch review): nothing previously
      * stopped the AI planner from selecting `smart_import_propose` and
      * `smart_import_confirm` in the SAME plan, with no human-visible
@@ -135,14 +186,15 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
      */
     public function test_orchestrator_never_executes_a_confirm_call_planned_alongside_propose_in_the_same_turn(): void
     {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'target_entity' => null,
             'field_mapping' => null,
             'extracted_rows' => [['name' => 'Acme Co']],
         ]);
-
-        $conversation = AiConversation::factory()->for($this->user)->create();
 
         Http::preventStrayRequests();
         Http::fake([
@@ -178,6 +230,262 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('parties', 0);
+    }
+
+    /**
+     * Covers Task 3: `AiToolPlanner`'s write-call filter is now
+     * severity-driven rather than hardcoded to the three smart-import tool
+     * names. No real `Destructive`-severity tool exists yet, so this binds
+     * a minimal test-double implementing `AiWriteTool` with
+     * `severity(): WriteActionSeverity::Destructive` in place of
+     * `SmartImportReviseTool` in the container — `AiWriteToolRegistry` is
+     * `final` and resolves its fixed tool list via `app($class)`, so
+     * swapping the concrete class binding is the only way to get a second
+     * write tool into it for this one test.
+     *
+     * When the planner proposes this destructive tool alongside another
+     * write call (`smart_import_propose`) in the same plan, the existing
+     * "cap at one write call" rule lets the destructive call win (it's
+     * listed first), but the new severity rule then drops it anyway: a
+     * destructive call that only survived by beating another write call is
+     * never allowed to run alone either, since the thing it "won against"
+     * is exactly the preview/propose step a destructive action must never
+     * be batched with.
+     */
+    public function test_a_destructive_call_paired_with_any_other_write_call_is_dropped(): void
+    {
+        $this->bindDestructiveWriteToolDouble();
+
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"destructive_test_tool","arguments":{}},'.
+                    '{"name":"smart_import_propose","arguments":{"draft_id":'.$draft->id.'}}]}',
+                ))
+                ->push($this->chatResponse(
+                    'Nothing was imported.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'Please import the attached file.']],
+        );
+
+        $this->assertNotContains('destructive_test_tool', $result['tool_calls']);
+        $this->assertNotContains('smart_import_propose', $result['tool_calls']);
+
+        $this->assertDatabaseMissing('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'tool_name' => 'destructive_test_tool',
+        ]);
+    }
+
+    /**
+     * Companion to the test above: the same destructive test-double,
+     * proposed completely alone in the plan, must survive and reach
+     * `execute()` — a `Destructive` call is only unsafe when it had to
+     * beat another write call to be the one kept.
+     */
+    public function test_a_destructive_call_alone_in_a_plan_survives(): void
+    {
+        $this->bindDestructiveWriteToolDouble();
+
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"destructive_test_tool","arguments":{}}]}',
+                ))
+                ->push($this->chatResponse(
+                    'Done.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'Please run the destructive test tool.']],
+        );
+
+        $this->assertContains('destructive_test_tool', $result['tool_calls']);
+
+        $this->assertDatabaseHas('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'tool_name' => 'destructive_test_tool',
+            'status' => 'success',
+        ]);
+    }
+
+    /**
+     * Covers the Task 3 review fix: `SmartImportConfirmTool::severity()` is
+     * now `Destructive` (not `Standard`), specifically to close an ordering
+     * gap the old hardcoded `enforceConfirmRequiresPriorPreview()` rule
+     * handled but the new severity-driven `enforceSingleWriteCallBySeverity()`
+     * did not close on its own. The old rule dropped `smart_import_confirm`
+     * whenever `smart_import_propose`/`_revise` was present ANYWHERE in the
+     * plan, regardless of order. The new generic "cap at one write call,
+     * first-by-index wins" rule alone would let `smart_import_confirm`
+     * survive instead of `smart_import_propose` whenever the model lists
+     * confirm FIRST — committing a draft against a stale/unreviewed
+     * mapping. With confirm reclassified as `Destructive`, that ordering
+     * now also triggers the destructive-drop rule (confirm wins the cap by
+     * being first, but it's `Destructive` and had to beat another write
+     * call to win, so it's dropped too) and BOTH calls are dropped — never
+     * a stale commit, at the acceptable cost of propose also not executing
+     * that turn (the model can simply retry next turn).
+     */
+    public function test_a_confirm_call_listed_before_propose_in_the_same_plan_drops_both(): void
+    {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => null,
+            'field_mapping' => null,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"smart_import_confirm","arguments":{"draft_id":'.$draft->id.'}},'.
+                    '{"name":"smart_import_propose","arguments":{"draft_id":'.$draft->id.'}}]}',
+                ))
+                ->push($this->chatResponse(
+                    'Nothing was imported.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'Please import the attached file and confirm it.']],
+        );
+
+        $this->assertNotContains('smart_import_confirm', $result['tool_calls']);
+        $this->assertNotContains('smart_import_propose', $result['tool_calls']);
+
+        $this->assertDatabaseMissing('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'tool_name' => 'smart_import_confirm',
+        ]);
+        $this->assertDatabaseMissing('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'tool_name' => 'smart_import_propose',
+        ]);
+
+        $draft->refresh();
+        $this->assertSame(AiImportDraft::STATUS_DRAFT, $draft->status);
+        $this->assertNull($draft->target_entity);
+    }
+
+    /**
+     * Binds a minimal `AiWriteTool` test-double, named `destructive_test_tool`
+     * with `severity(): WriteActionSeverity::Destructive`, in place of
+     * `SmartImportReviseTool` in the container. `AiWriteToolRegistry::tools()`
+     * resolves its fixed class list via `app($class)`, so this is the only
+     * way to add a second write tool to it without modifying the registry.
+     */
+    private function bindDestructiveWriteToolDouble(): void
+    {
+        $this->app->instance(SmartImportReviseTool::class, new class implements AiWriteTool
+        {
+            public function name(): string
+            {
+                return 'destructive_test_tool';
+            }
+
+            public function description(): string
+            {
+                return 'Test-only destructive write tool.';
+            }
+
+            /** @return array<string,mixed> */
+            public function inputSchema(): array
+            {
+                return [
+                    'type' => 'object',
+                    'properties' => [],
+                    'additionalProperties' => false,
+                ];
+            }
+
+            public function allowed(User $user): bool
+            {
+                return true;
+            }
+
+            public function severity(): WriteActionSeverity
+            {
+                return WriteActionSeverity::Destructive;
+            }
+
+            /** @param array<string,mixed> $arguments
+             * @return array<string,mixed>
+             */
+            public function execute(User $user, array $arguments, AiConversation $conversation): array
+            {
+                return ['executed' => true];
+            }
+        });
+    }
+
+    /**
+     * `chat()`'s call site always passes 4 positional args to
+     * `$registry->execute(...)`, whether `$registry` resolves to the
+     * read-only `AiBusinessToolRegistry` (whose `execute()` only declares
+     * 3 params) or the write-capable `AiWriteToolRegistry` (4 params).
+     * PHP silently ignores the extra `$conversation` argument for a
+     * 3-param method, which is safe but previously had no regression
+     * coverage from this call site's read-only branch — every other
+     * orchestrator-level test here only exercises the write-tool branch.
+     * `sales_summary` (an `AiBusinessTool`) needs no fixture data: with no
+     * invoices in range it simply returns an empty `currencies` list.
+     */
+    public function test_orchestrator_can_execute_a_read_only_business_tool_through_the_same_call_site(): void
+    {
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push($this->chatResponse(
+                    '{"calls":[{"name":"sales_summary","arguments":{"date_from":"2026-09-01","date_to":"2026-09-30"}}]}',
+                ))
+                ->push($this->chatResponse(
+                    'No sales were recorded for September.',
+                )),
+        ]);
+
+        $result = app(AiAssistantOrchestrator::class)->chat(
+            $conversation,
+            $this->user,
+            [['role' => 'user', 'content' => 'How much did we sell in September?']],
+        );
+
+        $this->assertContains('sales_summary', $result['tool_calls']);
+
+        $this->assertDatabaseHas('ai_tool_runs', [
+            'ai_conversation_id' => $conversation->id,
+            'user_id' => $this->user->id,
+            'tool_name' => 'sales_summary',
+            'status' => 'success',
+        ]);
     }
 
     /** @return array<string,mixed> */

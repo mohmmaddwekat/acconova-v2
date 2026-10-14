@@ -3,6 +3,7 @@
 namespace Tests\Feature\AI;
 
 use App\Enums\OrganizationRole;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Organization;
 use App\Models\User;
@@ -81,7 +82,10 @@ class AiWriteToolRegistryTest extends TestCase
     {
         app(TenantContext::class)->set($this->organization, OrganizationRole::Owner);
 
+        $conversation = AiConversation::factory()->for($this->user)->create();
+
         $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
             'status' => AiImportDraft::STATUS_DRAFT,
             'extracted_rows' => [['name' => 'Acme Co']],
         ]);
@@ -105,7 +109,7 @@ class AiWriteToolRegistryTest extends TestCase
             ]),
         ]);
 
-        $result = app(AiWriteToolRegistry::class)->execute($this->user, 'smart_import_propose', ['draft_id' => $draft->id]);
+        $result = app(AiWriteToolRegistry::class)->execute($this->user, 'smart_import_propose', ['draft_id' => $draft->id], $conversation);
 
         $this->assertArrayHasKey('draft_id', $result);
     }

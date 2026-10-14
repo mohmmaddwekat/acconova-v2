@@ -2,12 +2,18 @@
 
 namespace App\Services\AI\Tools;
 
+use App\Enums\WriteActionSeverity;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
 use App\Services\AI\Import\ImportClassifier;
+use App\Services\AI\Import\ImportDestinationCatalog;
+use App\Services\AI\Tools\Concerns\RemapsImportRows;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -19,8 +25,11 @@ use RuntimeException;
  */
 final class SmartImportReviseTool implements AiWriteTool
 {
+    use RemapsImportRows;
+
     public function __construct(
         private readonly ImportClassifier $classifier,
+        private readonly ImportDestinationCatalog $catalog,
     ) {}
 
     public function name(): string
@@ -63,7 +72,12 @@ final class SmartImportReviseTool implements AiWriteTool
         );
     }
 
-    public function execute(User $user, array $arguments): array
+    public function severity(): WriteActionSeverity
+    {
+        return WriteActionSeverity::Standard;
+    }
+
+    public function execute(User $user, array $arguments, AiConversation $conversation): array
     {
         $draftId = (int) $arguments['draft_id'];
 
@@ -76,6 +90,7 @@ final class SmartImportReviseTool implements AiWriteTool
         // reload instead of this one.
         $draft = AiImportDraft::query()
             ->where('user_id', $user->id)
+            ->where('ai_conversation_id', $conversation->id)
             ->findOrFail($draftId);
 
         $this->guardDraftIsRevisable($draft);
@@ -89,7 +104,7 @@ final class SmartImportReviseTool implements AiWriteTool
             (string) $arguments['instruction'],
         );
 
-        return DB::transaction(function () use ($user, $draftId, $classification): array {
+        return DB::transaction(function () use ($user, $draftId, $conversation, $classification): array {
             /*
              * Re-checked against a locked reload, never the unlocked
              * `$draft` above: a concurrent `smart_import_confirm` could
@@ -101,26 +116,110 @@ final class SmartImportReviseTool implements AiWriteTool
              */
             $lockedDraft = AiImportDraft::query()
                 ->where('user_id', $user->id)
+                ->where('ai_conversation_id', $conversation->id)
                 ->lockForUpdate()
                 ->findOrFail($draftId);
 
             $this->guardDraftIsRevisable($lockedDraft);
+
+            $before = [
+                'target_entity' => $lockedDraft->target_entity,
+                'field_mapping' => $lockedDraft->field_mapping,
+            ];
 
             $lockedDraft->target_entity = $classification['target_entity'];
             $lockedDraft->field_mapping = $classification['field_mapping'];
             $lockedDraft->ai_notes = $classification['notes'];
             $lockedDraft->save();
 
+            $after = [
+                'target_entity' => $lockedDraft->target_entity,
+                'field_mapping' => $lockedDraft->field_mapping,
+            ];
+
             $rows = (array) $lockedDraft->extracted_rows;
+            $validation = $this->validateAgainstTargetEntity($lockedDraft, $rows);
 
             return [
                 'draft_id' => $lockedDraft->id,
                 'target_entity' => $lockedDraft->target_entity,
+                'field_mapping' => $lockedDraft->field_mapping,
                 'sample_rows' => array_slice($rows, 0, 5),
                 'row_count' => count($rows),
                 'notes' => $lockedDraft->ai_notes,
+                'valid_rows' => $validation['valid_rows'],
+                'error_rows' => $validation['error_rows'],
+                'errors' => $validation['errors'],
+                'usage' => $classification['usage'],
+                'audit' => [
+                    'before' => $before,
+                    'after' => $after,
+                ],
             ];
         });
+    }
+
+    /**
+     * Resolve the draft's newly-classified target entity (if any) and run
+     * its rows through that entity's `preview()`, so the caller can show
+     * validation counts alongside the classification without a separate
+     * round trip. A draft the classifier could not confidently match to
+     * any catalog entity (`target_entity` still null) has nothing to
+     * validate against, so this reports zero rows of either kind rather
+     * than guessing.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array{valid_rows:int, error_rows:int, errors:list<array{row:int,message:string}>}
+     */
+    private function validateAgainstTargetEntity(AiImportDraft $draft, array $rows): array
+    {
+        $entity = $draft->target_entity !== null
+            ? $this->catalog->find($draft->target_entity)
+            : null;
+
+        if ($entity === null) {
+            return ['valid_rows' => 0, 'error_rows' => 0, 'errors' => []];
+        }
+
+        $fieldMapping = (array) $draft->field_mapping;
+        $remappedRows = $this->remapRows(collect($rows), $fieldMapping);
+
+        /*
+         * `preview()` delegates to the target entity's own import action
+         * (e.g. `ImportPartiesFromSpreadsheet::analyze()`), which throws a
+         * `ValidationException` outright when the row count exceeds its
+         * hard limit, rather than returning per-row errors. Left uncaught,
+         * that exception would escape this whole method and propagate out
+         * of the enclosing `DB::transaction()` in execute(), rolling back
+         * the classification save that already happened earlier in the
+         * same transaction and surfacing as a generic orchestrator failure
+         * instead of a reportable validation outcome. Treat it the same way
+         * `SmartImportConfirmTool::errorsFromCommitException()` treats a
+         * commit-time `ValidationException`: the whole file counts as
+         * errored.
+         */
+        try {
+            $preview = $entity->preview($remappedRows);
+        } catch (ValidationException $exception) {
+            return [
+                'valid_rows' => 0,
+                'error_rows' => count($rows),
+                'errors' => array_slice(
+                    array_map(
+                        static fn (string $message): array => ['row' => 0, 'message' => $message],
+                        Arr::flatten($exception->errors()),
+                    ),
+                    0,
+                    10,
+                ),
+            ];
+        }
+
+        return [
+            'valid_rows' => $preview['valid_rows'],
+            'error_rows' => $preview['error_rows'],
+            'errors' => array_slice($preview['errors'], 0, 10),
+        ];
     }
 
     /**

@@ -61,6 +61,29 @@ class PartyImportableTest extends TestCase
     }
 
     /**
+     * Verify preview() reports per-row validation results without writing
+     * anything, adapting ImportPartiesFromSpreadsheet::preview()'s shape
+     * onto the ImportableEntity contract.
+     */
+    public function test_preview_reports_valid_and_error_row_counts(): void
+    {
+        $rows = collect([
+            ['name' => 'Acme', 'type' => 'person', 'roles' => 'customer'], // valid
+            ['name' => '', 'type' => 'person', 'roles' => 'customer'],      // invalid: missing name
+        ]);
+
+        $result = app(PartyImportable::class)->preview($rows);
+
+        $this->assertSame(1, $result['valid_rows']);
+        $this->assertSame(1, $result['error_rows']);
+        $this->assertCount(1, $result['errors']);
+        $this->assertSame(3, $result['errors'][0]['row']);
+        $this->assertIsString($result['errors'][0]['message']);
+
+        $this->assertDatabaseCount('parties', 0);
+    }
+
+    /**
      * Verify the catalog filters out entities the user lacks permission to
      * import into, rather than exposing every registered destination.
      */

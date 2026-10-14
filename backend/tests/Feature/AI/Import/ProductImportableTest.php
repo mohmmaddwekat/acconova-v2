@@ -67,6 +67,41 @@ class ProductImportableTest extends TestCase
     }
 
     /**
+     * Verify preview() reports per-row validation results without writing
+     * anything, adapting ImportProductsFromSpreadsheet::preview()'s shape
+     * onto the ImportableEntity contract.
+     */
+    public function test_preview_reports_valid_and_error_row_counts(): void
+    {
+        $rows = collect([
+            [
+                'type' => 'product',
+                'name' => 'Office Chair',
+                'unit' => 'unit',
+                'unit_price' => '199.99',
+                'tax_rate' => '16.00',
+            ], // valid
+            [
+                'type' => 'product',
+                'name' => '', // invalid: missing name
+                'unit' => 'unit',
+                'unit_price' => '199.99',
+                'tax_rate' => '16.00',
+            ],
+        ]);
+
+        $result = app(ProductImportable::class)->preview($rows);
+
+        $this->assertSame(1, $result['valid_rows']);
+        $this->assertSame(1, $result['error_rows']);
+        $this->assertCount(1, $result['errors']);
+        $this->assertSame(3, $result['errors'][0]['row']);
+        $this->assertIsString($result['errors'][0]['message']);
+
+        $this->assertDatabaseCount('products', 0);
+    }
+
+    /**
      * Verify the catalog filters out entities the user lacks permission to
      * import into, rather than exposing every registered destination.
      */

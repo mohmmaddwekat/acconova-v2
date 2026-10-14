@@ -2,26 +2,12 @@
 
 namespace App\Services\AI;
 
+use App\Enums\WriteActionSeverity;
 use App\Models\User;
 use RuntimeException;
 
 final class AiToolPlanner
 {
-    /**
-     * Smart-import write tools, in the order a safe lifecycle would call
-     * them. Shared by `enforceConfirmRequiresPriorPreview()` to recognize
-     * which planner-selected calls are write calls at all.
-     *
-     * @var list<string>
-     */
-    private const WRITE_TOOL_NAMES = [
-        'smart_import_propose',
-        'smart_import_revise',
-        'smart_import_confirm',
-    ];
-
-    private const CONFIRM_TOOL_NAME = 'smart_import_confirm';
-
     public function __construct(
         private readonly AiGateway $gateway,
         private readonly AiBusinessToolRegistry $tools,
@@ -148,7 +134,7 @@ final class AiToolPlanner
         }
 
         return [
-            'calls' => $this->enforceConfirmRequiresPriorPreview($calls),
+            'calls' => $this->enforceSingleWriteCallBySeverity($user, $calls),
             'usage' => [
                 'input_tokens' => (int) $result['input_tokens'],
                 'output_tokens' => (int) $result['output_tokens'],
@@ -160,55 +146,67 @@ final class AiToolPlanner
     /**
      * Server-side enforcement of the design spec's "preview before commit"
      * guarantee (`backend/docs/superpowers/specs/2026-10-10-smart-import-engine-design.md`,
-     * §1): nothing otherwise stops the model from selecting
-     * `smart_import_confirm` in the same plan as the `smart_import_propose`/
-     * `smart_import_revise` call that produced the thing being confirmed,
+     * §1), generalized by `AiWriteTool::severity()` (see
+     * `backend/docs/superpowers/specs/2026-10-13-ai-write-permission-matrix-design.md`)
+     * instead of hardcoded smart-import tool names: nothing otherwise stops
+     * the model from selecting a commit-style write call in the same plan
+     * as the preview/propose call that produced the thing being committed,
      * with no human-visible preview step actually occurring in between.
      *
-     * Two rules, applied in order:
-     *  1. If this plan also contains `smart_import_propose` or
-     *     `smart_import_revise`, drop every `smart_import_confirm` call
-     *     from it (those two are safe to run together with a read tool or
-     *     alone; only confirm riding along with them in one shot is unsafe).
-     *  2. As a simpler general safety net, allow at most one write-tool
-     *     call per plan: once the first `smart_import_propose`/`_revise`/
-     *     `_confirm` call is kept, every later write-tool call is dropped.
+     * Three rules, applied in order, over the calls that already survived
+     * the per-call `available()` check above (write-tool calls are
+     * identified via `$writeTools->available($user, $name)`):
+     *  1. If more than one write-tool call survived, keep only the first
+     *     (the existing "cap at one write call per plan" behavior,
+     *     unchanged for `Standard` severity).
+     *  2. If exactly one write-tool call remains after rule 1 AND the
+     *     original (pre-filter) list contained more than one write-tool
+     *     call (i.e. this one only survived by beating another write
+     *     call) AND its severity is `Destructive`, drop it too: a
+     *     destructive call is only allowed to run when the model proposed
+     *     it completely alone, never when it merely won a fight against
+     *     another write call — which is exactly the preview/propose step a
+     *     destructive action must never be batched with.
+     *  3. Everything else (non-write-tool calls, and the single surviving
+     *     write-tool call if any) is kept, in its original order.
      *
      * @param  list<array{name:string,arguments:array<string,mixed>}>  $calls
      * @return list<array{name:string,arguments:array<string,mixed>}>
      */
-    private function enforceConfirmRequiresPriorPreview(array $calls): array
+    private function enforceSingleWriteCallBySeverity(User $user, array $calls): array
     {
-        $names = array_column($calls, 'name');
+        $writeCallIndexes = [];
 
-        $hasPriorPreviewCall = in_array('smart_import_propose', $names, true)
-            || in_array('smart_import_revise', $names, true);
-
-        if ($hasPriorPreviewCall) {
-            $calls = array_values(array_filter(
-                $calls,
-                static fn (array $call): bool => $call['name'] !== self::CONFIRM_TOOL_NAME,
-            ));
+        foreach ($calls as $index => $call) {
+            if ($this->writeTools->available($user, $call['name'])) {
+                $writeCallIndexes[] = $index;
+            }
         }
 
-        $writeToolCallSeen = false;
+        if ($writeCallIndexes === []) {
+            return $calls;
+        }
 
-        return array_values(array_filter(
-            $calls,
-            function (array $call) use (&$writeToolCallSeen): bool {
-                if (! in_array($call['name'], self::WRITE_TOOL_NAMES, true)) {
-                    return true;
-                }
+        $keptWriteCallIndex = $writeCallIndexes[0];
 
-                if ($writeToolCallSeen) {
-                    return false;
-                }
+        if (
+            count($writeCallIndexes) > 1
+            && $this->writeTools->severityOf($calls[$keptWriteCallIndex]['name']) === WriteActionSeverity::Destructive
+        ) {
+            $keptWriteCallIndex = null;
+        }
 
-                $writeToolCallSeen = true;
+        $result = [];
 
-                return true;
-            },
-        ));
+        foreach ($calls as $index => $call) {
+            if (in_array($index, $writeCallIndexes, true) && $index !== $keptWriteCallIndex) {
+                continue;
+            }
+
+            $result[] = $call;
+        }
+
+        return $result;
     }
 
     /** @return array<string,mixed> */

@@ -153,4 +153,46 @@ class StaffMemberImportable implements ImportableEntity
             'total' => $created + $updated + $skipped,
         ];
     }
+
+    /**
+     * Dry-run every row through UpsertStaffMemberFromImport's validation
+     * checks (required fields, matching-column lookup, department
+     * existence) without writing to the database, mirroring row numbering
+     * with ImportPartiesFromSpreadsheet/ImportProductsFromSpreadsheet (row 1
+     * is the header, so data rows start at 2).
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array{valid_rows:int, error_rows:int, errors:list<array{row:int,message:string}>}
+     */
+    public function preview(Collection $rows): array
+    {
+        $errors = [];
+        $validRows = 0;
+
+        foreach ($rows->values() as $index => $row) {
+            /*
+             * 'phone' mirrors commit()'s matching column default, keeping
+             * preview's duplicate detection consistent with what commit()
+             * would actually match on.
+             */
+            $message = $this->upsertStaffMember->preview((array) $row, 'phone');
+
+            if ($message === null) {
+                $validRows++;
+
+                continue;
+            }
+
+            $errors[] = [
+                'row' => $index + 2,
+                'message' => $message,
+            ];
+        }
+
+        return [
+            'valid_rows' => $validRows,
+            'error_rows' => count($errors),
+            'errors' => $errors,
+        ];
+    }
 }

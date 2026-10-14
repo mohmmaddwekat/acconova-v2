@@ -31,6 +31,98 @@ class UpsertStaffMemberFromImport
         string $matchBy = 'phone',
         string $duplicateStrategy = 'skip',
     ): array {
+        $validated = $this->validateRow($row, $matchBy);
+
+        $existing = $validated['existing'];
+
+        if ($existing && $duplicateStrategy === 'skip') {
+            return ['status' => 'skipped', 'member' => $existing];
+        }
+
+        return DB::transaction(function () use ($row, $existing, $validated): array {
+            /*
+             * Only resolved here, after the duplicate+skip early-return
+             * above, so a stale/typo'd department on a row that would be
+             * silently skipped as a duplicate does not abort the whole
+             * commit. See resolveDepartmentId()'s docblock.
+             */
+            $departmentId = $this->resolveDepartmentId($row);
+
+            $userId = null;
+
+            if ($validated['email'] !== '') {
+                $membership = Membership::query()
+                    ->whereHas('user', fn ($query) => $query->where('email', $validated['email']))
+                    ->first();
+                $userId = $membership?->user_id;
+            }
+
+            $payload = [
+                'name' => $validated['name'],
+                'job_title' => $this->stringOrNull($row['job_title'] ?? null),
+                'phone' => $validated['phone'],
+                'user_id' => $userId,
+                'department_id' => $departmentId,
+                'basis' => $validated['basis'],
+                'unit' => $this->stringOrNull($row['unit'] ?? null),
+                'rate' => $validated['rate'],
+                'monthly_allowance' => $this->decimal($row['monthly_allowance'] ?? null) ?? '0',
+                'currency' => $this->stringOrNull($row['currency'] ?? null) ?? $this->defaultCurrency(),
+                'started_on' => $validated['startedOn'],
+                'active' => $this->boolean($row['active'] ?? null, true),
+            ];
+
+            if ($existing) {
+                $existing->update($payload);
+
+                return ['status' => 'updated', 'member' => $existing->refresh()];
+            }
+
+            return ['status' => 'created', 'member' => StaffMember::create($payload)];
+        });
+    }
+
+    /**
+     * Validate one import row without writing to the database, returning a
+     * human-readable error message when it would fail execute()'s checks,
+     * or null when it would succeed. Used by StaffMemberImportable::preview()
+     * to dry-run validation before any row is committed.
+     *
+     * Unlike execute(), this always resolves the row's department too, even
+     * for a row that execute() would end up silently skipping as a
+     * duplicate — a dry run's job is to surface every validation issue, not
+     * just the ones a real commit would actually reach.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    public function preview(array $row, string $matchBy = 'phone'): ?string
+    {
+        try {
+            $this->validateRow($row, $matchBy);
+            $this->resolveDepartmentId($row);
+
+            return null;
+        } catch (InvalidArgumentException|RuntimeException $exception) {
+            return $exception->getMessage();
+        }
+    }
+
+    /**
+     * Normalize and validate one import row's required fields and matching
+     * lookup (name, basis, rate, started_on, phone, email, existing-match)
+     * without creating or updating a StaffMember. Shared by execute() and
+     * preview() so both run the exact same checks and only execute()
+     * proceeds to write.
+     *
+     * Department existence is deliberately NOT checked here — see
+     * resolveDepartmentId()'s docblock for why it must be validated
+     * separately.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array{name:string, basis:string, rate:string, startedOn:string, phone:?string, email:string, existing:?StaffMember}
+     */
+    private function validateRow(array $row, string $matchBy): array
+    {
         $name = trim((string) ($row['name'] ?? ''));
         $basis = $this->normalizeBasis($row['basis'] ?? null);
         $rate = $this->decimal($row['rate'] ?? null);
@@ -50,55 +142,35 @@ class UpsertStaffMemberFromImport
 
         $existing = $matchValue !== '' ? $this->findMember($matchBy, $matchValue) : null;
 
-        if ($existing && $duplicateStrategy === 'skip') {
-            return ['status' => 'skipped', 'member' => $existing];
-        }
+        return [
+            'name' => $name,
+            'basis' => $basis,
+            'rate' => $rate,
+            'startedOn' => $startedOn,
+            'phone' => $phone,
+            'email' => $email,
+            'existing' => $existing,
+        ];
+    }
 
-        return DB::transaction(function () use (
-            $row,
-            $existing,
-            $name,
-            $basis,
-            $rate,
-            $startedOn,
-            $phone,
-            $email,
-        ): array {
-            $departmentId = $this->departmentId(
-                $this->stringOrNull($row['department'] ?? null),
-            );
-            $userId = null;
-
-            if ($email !== '') {
-                $membership = Membership::query()
-                    ->whereHas('user', fn ($query) => $query->where('email', $email))
-                    ->first();
-                $userId = $membership?->user_id;
-            }
-
-            $payload = [
-                'name' => $name,
-                'job_title' => $this->stringOrNull($row['job_title'] ?? null),
-                'phone' => $phone,
-                'user_id' => $userId,
-                'department_id' => $departmentId,
-                'basis' => $basis,
-                'unit' => $this->stringOrNull($row['unit'] ?? null),
-                'rate' => $rate,
-                'monthly_allowance' => $this->decimal($row['monthly_allowance'] ?? null) ?? '0',
-                'currency' => $this->stringOrNull($row['currency'] ?? null) ?? $this->defaultCurrency(),
-                'started_on' => $startedOn,
-                'active' => $this->boolean($row['active'] ?? null, true),
-            ];
-
-            if ($existing) {
-                $existing->update($payload);
-
-                return ['status' => 'updated', 'member' => $existing->refresh()];
-            }
-
-            return ['status' => 'created', 'member' => StaffMember::create($payload)];
-        });
+    /**
+     * Resolve a row's department name to its id, throwing RuntimeException
+     * when it names a department that does not exist.
+     *
+     * execute() must only call this for rows that will actually proceed to
+     * a write — i.e. after the duplicate+skip early-return — so that a
+     * stale or typo'd department on an otherwise-skipped duplicate row does
+     * not abort the whole commit (StaffMemberImportable::commit() wraps
+     * every row in one transaction with no per-row catch). preview() calls
+     * it for every row regardless of duplicate status, since a dry run must
+     * surface every validation issue even on a row that execute() would end
+     * up silently skipping.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function resolveDepartmentId(array $row): ?int
+    {
+        return $this->departmentId($this->stringOrNull($row['department'] ?? null));
     }
 
     /**

@@ -17,6 +17,8 @@ class AiToolRun extends Model
         'arguments',
         'status',
         'result_meta',
+        'before_payload',
+        'after_payload',
         'duration_ms',
         'error',
     ];
@@ -26,6 +28,8 @@ class AiToolRun extends Model
         return [
             'arguments' => 'array',
             'result_meta' => 'array',
+            'before_payload' => 'array',
+            'after_payload' => 'array',
             'duration_ms' => 'integer',
         ];
     }

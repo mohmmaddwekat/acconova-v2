@@ -2,12 +2,18 @@
 
 namespace App\Services\AI\Tools;
 
+use App\Enums\WriteActionSeverity;
+use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
 use App\Services\AI\Import\ImportDestinationCatalog;
+use App\Services\AI\Tools\Concerns\RemapsImportRows;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -19,6 +25,8 @@ use RuntimeException;
  */
 final class SmartImportConfirmTool implements AiWriteTool
 {
+    use RemapsImportRows;
+
     public function __construct(
         private readonly ImportDestinationCatalog $catalog,
     ) {}
@@ -59,7 +67,12 @@ final class SmartImportConfirmTool implements AiWriteTool
         );
     }
 
-    public function execute(User $user, array $arguments): array
+    public function severity(): WriteActionSeverity
+    {
+        return WriteActionSeverity::Destructive;
+    }
+
+    public function execute(User $user, array $arguments, AiConversation $conversation): array
     {
         $draftId = (int) $arguments['draft_id'];
 
@@ -72,11 +85,13 @@ final class SmartImportConfirmTool implements AiWriteTool
         // or `field_mapping`) before the lock is acquired.
         $draft = AiImportDraft::query()
             ->where('user_id', $user->id)
+            ->where('ai_conversation_id', $conversation->id)
             ->findOrFail($draftId);
 
         $this->guardDraftIsConfirmable($draft);
+        $this->guardDraftIsNotExpired($draft);
 
-        return DB::transaction(function () use ($user, $draftId): array {
+        return DB::transaction(function () use ($user, $draftId, $conversation): array {
             /*
              * Everything that decides what gets written or whether it's
              * permitted — the target entity, both permission checks, and
@@ -95,6 +110,7 @@ final class SmartImportConfirmTool implements AiWriteTool
              */
             $lockedDraft = AiImportDraft::query()
                 ->where('user_id', $user->id)
+                ->where('ai_conversation_id', $conversation->id)
                 ->lockForUpdate()
                 ->findOrFail($draftId);
 
@@ -119,17 +135,62 @@ final class SmartImportConfirmTool implements AiWriteTool
 
             $fieldMapping = (array) $lockedDraft->field_mapping;
 
-            $rows = collect((array) $lockedDraft->extracted_rows)
-                ->map(fn (array $row): array => $this->remapRow($row, $fieldMapping));
+            $rows = $this->remapRows(collect((array) $lockedDraft->extracted_rows), $fieldMapping);
 
-            $result = $entity->commit($rows);
+            try {
+                $result = $entity->commit($rows);
+            } catch (ValidationException|InvalidArgumentException $exception) {
+                // Deliberately does not touch $lockedDraft: it must stay in
+                // "draft" status so the user can revise and re-confirm,
+                // instead of letting a genuinely invalid row fall through
+                // to the orchestrator's generic catch and look like an
+                // unexpected tool failure rather than a rejectable result.
+                return [
+                    'status' => 'rejected',
+                    'errors' => $this->errorsFromCommitException($exception),
+                ];
+            }
 
             $lockedDraft->status = AiImportDraft::STATUS_COMMITTED;
             $lockedDraft->commit_summary = $result;
             $lockedDraft->save();
 
-            return $result;
+            return [
+                ...$result,
+                'audit' => [
+                    'before' => null,
+                    'after' => $result,
+                ],
+            ];
         });
+    }
+
+    /**
+     * Build a `list<array{row:int,message:string}>` from a caught
+     * commit() failure. Neither `ImportPartiesFromSpreadsheet::execute()`
+     * nor `ImportProductsFromSpreadsheet::execute()` throw a per-row
+     * `ValidationException` (they throw one generic "fix the file" message
+     * once any row fails), and `UpsertStaffMemberFromImport::execute()`'s
+     * `InvalidArgumentException` is likewise a single message for whichever
+     * row failed first — so this does not attempt to reconstruct the kind
+     * of per-row detail `ImportableEntity::preview()` reports; it only
+     * surfaces what the exception actually carries. The row number is
+     * unknown at this point (the caller should re-run `smart_import_propose`
+     * to see exactly which rows are invalid via `preview()`), so every entry
+     * uses `0` as a placeholder.
+     *
+     * @return list<array{row:int,message:string}>
+     */
+    private function errorsFromCommitException(ValidationException|InvalidArgumentException $exception): array
+    {
+        if ($exception instanceof ValidationException) {
+            return array_map(
+                static fn (string $message): array => ['row' => 0, 'message' => $message],
+                Arr::flatten($exception->errors()),
+            );
+        }
+
+        return [['row' => 0, 'message' => $exception->getMessage()]];
     }
 
     /**
@@ -147,25 +208,17 @@ final class SmartImportConfirmTool implements AiWriteTool
     }
 
     /**
-     * Translate one source-file row into the target entity's field
-     * contract: `$fieldMapping` maps source column name -> target field
-     * name, so only mapped columns reach `commit()`, keyed by the target
-     * name rather than the original source column name.
-     *
-     * @param  array<string, mixed>  $row
-     * @param  array<string, string>  $fieldMapping
-     * @return array<string, mixed>
+     * A draft older than 24 hours must be re-proposed rather than confirmed.
+     * Checked only once, before the locked reload: age only ever increases,
+     * so unlike `status` it cannot be changed by a concurrent action in the
+     * window before the lock is acquired.
      */
-    private function remapRow(array $row, array $fieldMapping): array
+    private function guardDraftIsNotExpired(AiImportDraft $draft): void
     {
-        $remapped = [];
-
-        foreach ($fieldMapping as $sourceColumn => $targetField) {
-            if (array_key_exists($sourceColumn, $row)) {
-                $remapped[$targetField] = $row[$sourceColumn];
-            }
+        if ($draft->created_at->lt(now()->subHours(24))) {
+            throw new RuntimeException(
+                'Drafts older than 24 hours can no longer be confirmed. Propose the import again to create a fresh draft.',
+            );
         }
-
-        return $remapped;
     }
 }
