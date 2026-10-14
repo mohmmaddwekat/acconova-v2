@@ -89,6 +89,7 @@ final class SmartImportConfirmTool implements AiWriteTool
             ->findOrFail($draftId);
 
         $this->guardDraftIsConfirmable($draft);
+        $this->guardDraftIsNotExpired($draft);
 
         return DB::transaction(function () use ($user, $draftId, $conversation): array {
             /*
@@ -202,6 +203,21 @@ final class SmartImportConfirmTool implements AiWriteTool
         if ($draft->status !== AiImportDraft::STATUS_DRAFT || $draft->target_entity === null) {
             throw new RuntimeException(
                 'Only drafts still in "draft" status with a resolved target entity can be confirmed.',
+            );
+        }
+    }
+
+    /**
+     * A draft older than 24 hours must be re-proposed rather than confirmed.
+     * Checked only once, before the locked reload: age only ever increases,
+     * so unlike `status` it cannot be changed by a concurrent action in the
+     * window before the lock is acquired.
+     */
+    private function guardDraftIsNotExpired(AiImportDraft $draft): void
+    {
+        if ($draft->created_at->lt(now()->subHours(24))) {
+            throw new RuntimeException(
+                'Drafts older than 24 hours can no longer be confirmed. Propose the import again to create a fresh draft.',
             );
         }
     }

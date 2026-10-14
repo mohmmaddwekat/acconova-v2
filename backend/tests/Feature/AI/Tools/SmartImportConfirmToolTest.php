@@ -385,6 +385,48 @@ class SmartImportConfirmToolTest extends TestCase
         $this->assertDatabaseMissing('parties', ['name' => 'Should Roll Back']);
     }
 
+    /**
+     * `ai_conversation_id` must match `$this->conversation`, otherwise the
+     * scoped lookup throws `ModelNotFoundException` (a `RuntimeException`
+     * subclass) and this test would pass without ever reaching the age check.
+     */
+    public function test_confirm_rejects_a_draft_older_than_24_hours(): void
+    {
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'created_at' => now()->subHours(25),
+        ]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Drafts older than 24 hours');
+
+        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
+    }
+
+    public function test_confirm_still_commits_a_draft_created_within_the_last_24_hours(): void
+    {
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+        $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
+
+        $draft = AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'extracted_rows' => [
+                ['Type' => 'person', 'Full Name' => 'Fresh Draft', 'Role' => 'customer'],
+            ],
+            'field_mapping' => ['Type' => 'type', 'Full Name' => 'name', 'Role' => 'roles'],
+            'created_at' => now()->subHours(23),
+        ]);
+
+        app(SmartImportConfirmTool::class)->execute($this->otherUser, ['draft_id' => $draft->id], $this->otherConversation);
+
+        $this->assertSame(AiImportDraft::STATUS_COMMITTED, $draft->fresh()->status);
+        $this->assertDatabaseHas('parties', ['name' => 'Fresh Draft']);
+    }
+
     public function test_confirm_rejects_a_draft_with_no_resolved_target(): void
     {
         $draft = AiImportDraft::factory()->for($this->user)->create([
