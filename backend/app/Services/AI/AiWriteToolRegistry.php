@@ -14,6 +14,10 @@ use App\Services\AI\Tools\ProductArchiveTool;
 use App\Services\AI\Tools\ProductCreateTool;
 use App\Services\AI\Tools\ProductRestoreTool;
 use App\Services\AI\Tools\ProductUpdateTool;
+use App\Services\AI\Tools\RecurringPaymentArchiveTool;
+use App\Services\AI\Tools\RecurringPaymentCreateTool;
+use App\Services\AI\Tools\RecurringPaymentRestoreTool;
+use App\Services\AI\Tools\RecurringPaymentUpdateTool;
 use App\Services\AI\Tools\SmartImportCancelTool;
 use App\Services\AI\Tools\SmartImportConfirmTool;
 use App\Services\AI\Tools\SmartImportProposeTool;
@@ -31,6 +35,10 @@ final class AiWriteToolRegistry
         SmartImportConfirmTool::class,
         SmartImportCancelTool::class,
         SmartImportRollbackTool::class,
+        RecurringPaymentArchiveTool::class,
+        RecurringPaymentRestoreTool::class,
+        RecurringPaymentCreateTool::class,
+        RecurringPaymentUpdateTool::class,
         PartyCreateTool::class,
         PartyUpdateTool::class,
         PartyArchiveTool::class,

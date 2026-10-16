@@ -14,6 +14,7 @@ use App\Actions\Staff\UpsertStaffMemberFromImport;
 use App\Models\AiImportDraft;
 use App\Models\Party;
 use App\Models\PartySettlement;
+use App\Models\PaymentPlan;
 use App\Models\Product;
 use App\Models\StaffMember;
 use App\Models\User;
@@ -107,6 +108,12 @@ final class AiActionMatrix
             'product.update' => self::tool('product_update', 'products', 'update', ['products.update'], UpdateProduct::class, Product::class),
             'product.archive' => self::tool('product_archive', 'products', 'archive', ['products.archive'], DeleteProduct::class, Product::class, self::APPROVAL_USER, 'product.restore'),
             'product.restore' => self::tool('product_restore', 'products', 'restore', ['products.archive'], RestoreProduct::class, Product::class),
+
+            // Recurring payments (paused, never deleted)
+            'recurring_payment.create' => self::tool('recurring_payment_create', 'payments', 'create', ['payments.create'], null, PaymentPlan::class),
+            'recurring_payment.update' => self::tool('recurring_payment_update', 'payments', 'update', ['payments.update'], null, PaymentPlan::class),
+            'recurring_payment.archive' => self::tool('recurring_payment_archive', 'payments', 'archive', ['payments.plans.toggle'], null, PaymentPlan::class, self::APPROVAL_USER, 'recurring_payment.restore'),
+            'recurring_payment.restore' => self::tool('recurring_payment_restore', 'payments', 'restore', ['payments.plans.toggle'], null, PaymentPlan::class),
 
             // Staff
             'staff.upsert' => self::planned('staff', 'update', ['staff.manage'], UpsertStaffMemberFromImport::class, StaffMember::class, self::APPROVAL_USER),

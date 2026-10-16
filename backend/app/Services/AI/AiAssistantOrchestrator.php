@@ -14,6 +14,7 @@ final class AiAssistantOrchestrator
         private readonly AiToolPlanner $planner,
         private readonly AiBusinessToolRegistry $tools,
         private readonly AiWriteToolRegistry $writeTools,
+        private readonly AiCapabilityGuide $guide,
     ) {}
 
     /**
@@ -127,6 +128,12 @@ final class AiAssistantOrchestrator
         }
 
         $enriched = $messages;
+
+        // The answering model learns what it can do for this user, built from live permissions.
+        array_splice($enriched, ($enriched[0]['role'] ?? null) === 'system' ? 1 : 0, 0, [[
+            'role' => 'system',
+            'content' => $this->guide->forUser($user),
+        ]]);
 
         if ($results !== []) {
             $payload = json_encode(

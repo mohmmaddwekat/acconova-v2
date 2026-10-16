@@ -12,6 +12,7 @@ use App\Services\AI\Records\AiRecordEntity;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -230,20 +231,28 @@ abstract class RecordWriteTool implements AiWriteTool
         $before = $entity->snapshot($resolved);
 
         if ($this->operation() === 'archive') {
-            $entity->archive($resolved, $user);
+            try {
+                $entity->archive($resolved, $user);
+            } catch (ValidationException $exception) {
+                return $this->invalid($exception->errors());
+            }
             $after = ['id' => $before['id'], 'archived' => true];
 
             return [
                 'status' => 'archived',
                 'record' => $entity->label($resolved),
                 'restore_with' => $entity->key().'_restore',
-                'restore_center' => 'The record is in the Restore Center until restored.',
+                ...(in_array($entity->key(), ['party', 'product'], true) ? ['restore_center' => 'The record is in the Restore Center until restored.'] : []),
                 'audit' => ['before' => $before, 'after' => $after],
             ];
         }
 
         if ($this->operation() === 'restore') {
-            $restored = $entity->restore($resolved, $user);
+            try {
+                $restored = $entity->restore($resolved, $user);
+            } catch (ValidationException $exception) {
+                return $this->invalid($exception->errors());
+            }
             $after = $entity->snapshot($restored);
 
             return ['status' => 'restored', 'record' => $after, 'audit' => ['before' => $before, 'after' => $after]];
