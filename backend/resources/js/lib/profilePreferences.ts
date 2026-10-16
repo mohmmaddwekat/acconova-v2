@@ -1,3 +1,4 @@
+import { apiRequest } from '@/lib/http';
 import {
     getLocale,
     setLocale,
@@ -107,6 +108,52 @@ export function applyProfilePreferences(
             },
         ),
     );
+}
+
+/**
+ * Keep a language chosen in the header after a refresh. The app re-applies the
+ * saved profile preferences on every load, so the choice must be written to
+ * the cached copy at once and to the account, otherwise the old language wins.
+ * The account copy is read first and only its language is changed, so theme,
+ * density and the other preferences are never overwritten with defaults.
+ */
+export function persistLocalePreference(locale: Locale): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    try {
+        localStorage.setItem(
+            storageKey,
+            JSON.stringify({
+                ...(cachedProfilePreferences() ?? defaultProfilePreferences()),
+                locale,
+            }),
+        );
+    } catch {
+        // Storage can be unavailable; the account copy below still saves it.
+    }
+
+    void apiRequest<{ settings: Partial<ProfilePreferences> | null }>('/api/profile/preferences')
+        .then(response => {
+            const preferences: ProfilePreferences = {
+                ...defaultProfilePreferences(),
+                ...response.settings,
+                locale,
+            };
+
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(preferences));
+            } catch {
+                // Cached copy is optional.
+            }
+
+            return apiRequest('/api/profile/preferences', {
+                method: 'PUT',
+                body: JSON.stringify(preferences),
+            });
+        })
+        .catch(() => undefined);
 }
 
 export function cachedProfilePreferences(): ProfilePreferences | null {

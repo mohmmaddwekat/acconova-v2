@@ -16,6 +16,7 @@ import {
     t,
     useLocale,
 } from '@/lib/i18n';
+import { persistLocalePreference } from '@/lib/profilePreferences';
 import {
     locales,
     setLocale,
@@ -176,6 +177,10 @@ export function LanguageSwitcher() {
         nextLocale: Locale,
     ): void {
         setLocale(
+            nextLocale,
+        );
+
+        persistLocalePreference(
             nextLocale,
         );
 
