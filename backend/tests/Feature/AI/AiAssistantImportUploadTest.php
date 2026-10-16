@@ -465,6 +465,58 @@ class AiAssistantImportUploadTest extends TestCase
         $this->assertSame('pdf', $draft->source_file_type);
     }
 
+    /**
+     * Closes a gap flagged in the extraction-upgrades plan's Review Focus:
+     * a PDF whose `data_url` decodes to something `smalot/pdfparser` can't
+     * open at all can fail at two different layers. Task 1's
+     * `PdfRowExtractorTest::test_extract_rejects_a_corrupt_file_cleanly()`
+     * already proves the extractor itself throws in isolation; this proves
+     * the controller lets that exception reach the existing generic
+     * `catch (Throwable)` block in `message()` and surface a 502, AND that
+     * `extractPdfRows()`'s `finally` block still cleans up its temp file
+     * even though `$pdfRowExtractor->extract($path)` throws partway
+     * through — both checked against the same single corrupt-PDF upload,
+     * since they prove the same code path.
+     */
+    public function test_a_corrupt_pdf_import_file_is_rejected_and_leaves_no_temp_file(): void
+    {
+        [$user, $organization] = $this->workspace('owner', 'Smart import corrupt pdf');
+        $this->actingInWorkspace($user, $organization);
+        $this->configureProvider();
+
+        // The extractor fails locally while reading the PDF's text layer,
+        // before any AI call is made, so no HTTP call should happen at all.
+        Http::preventStrayRequests();
+
+        $pattern = sys_get_temp_dir().DIRECTORY_SEPARATOR.'acconova_import_*';
+        $before = glob($pattern) ?: [];
+
+        $conversationId = (int) $this->postJson('/api/ai/conversations', [
+            'title' => 'Import question',
+        ])->assertCreated()->json('data.id');
+
+        $response = $this->postJson(
+            "/api/ai/conversations/{$conversationId}/messages",
+            [
+                'message' => 'import these',
+                'import_file' => [
+                    'data_url' => 'data:application/pdf;base64,'.base64_encode('not a real pdf'),
+                    'name' => 'corrupt.pdf',
+                    'mime' => 'application/pdf',
+                ],
+            ],
+        );
+
+        $response->assertStatus(502)->assertJson([
+            'message' => 'The attached file could not be processed for import.',
+            'code' => 'AI_IMPORT_FILE_UNAVAILABLE',
+        ]);
+
+        $after = glob($pattern) ?: [];
+
+        $this->assertSame($before, $after, 'A temp file created while processing the corrupt PDF import was left behind.');
+    }
+
     private function fakeAiSequence(): void
     {
         Http::preventStrayRequests();
