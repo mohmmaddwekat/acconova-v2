@@ -48,6 +48,10 @@ class ImportClassifier
                     'Only choose a target_entity value that is one of the "key" values in the supplied '.
                     'catalog; never invent one. If you are not confident which catalog entity the rows '.
                     'represent, return target_entity: null and field_mapping: null rather than guessing. '.
+                    'If a specific row or column value is genuinely ambiguous — an unparseable or ambiguously-formatted date, '.
+                    'a lookup value (like a department or category name) that does not match anything in the catalog, or a '.
+                    'column header that does not clearly map to any target field — name that specific value and ask a targeted '.
+                    'question about it in "notes", instead of silently guessing or silently excluding it. '.
                     'Return JSON only, exactly in this shape: {"target_entity":"string or null",'.
                     '"field_mapping":{"source_column":"destination_field"} or null,'.
                     '"confidence":0.0,"notes":"string"}.',
