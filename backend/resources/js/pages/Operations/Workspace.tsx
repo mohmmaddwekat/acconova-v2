@@ -1,4 +1,5 @@
 import { AppShell } from '@/layouts/AppShell';
+import { CollectionFollowUpPanel } from './CollectionFollowUpPanel';
 import { apiRequest, ApiError } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import { fetchParties } from '@/features/parties/api';
@@ -1350,6 +1351,8 @@ export default function OperationsWorkspace({
                             </span>
                         </section>
                     )}
+
+                {feature === 'collections' && <CollectionFollowUpPanel ar={ar} />}
 
                 {! loading
                     && rows.length > 0

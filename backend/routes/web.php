@@ -1706,6 +1706,9 @@ Route::prefix(
         .'/api/parties.php';
 
     require __DIR__
+        .'/api/collections.php';
+
+    require __DIR__
         .'/api/products.php';
 
     require __DIR__

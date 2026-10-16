@@ -5,6 +5,7 @@ namespace App\Services\AI;
 use App\Models\User;
 use App\Services\AI\Contracts\AiBusinessTool;
 use App\Services\AI\Tools\CashflowSummaryTool;
+use App\Services\AI\Tools\CollectionFollowUpsTool;
 use App\Services\AI\Tools\InventoryStatusTool;
 use App\Services\AI\Tools\OverdueInvoicesTool;
 use App\Services\AI\Tools\PartyBalancesTool;
@@ -19,6 +20,7 @@ final class AiBusinessToolRegistry
     private const TOOLS = [
         SalesSummaryTool::class,
         PartyBalancesTool::class,
+        CollectionFollowUpsTool::class,
         OverdueInvoicesTool::class,
         InventoryStatusTool::class,
         CashflowSummaryTool::class,
