@@ -6,6 +6,14 @@ use App\Enums\WriteActionSeverity;
 use App\Models\AiConversation;
 use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
+use App\Services\AI\Tools\PartyArchiveTool;
+use App\Services\AI\Tools\PartyCreateTool;
+use App\Services\AI\Tools\PartyRestoreTool;
+use App\Services\AI\Tools\PartyUpdateTool;
+use App\Services\AI\Tools\ProductArchiveTool;
+use App\Services\AI\Tools\ProductCreateTool;
+use App\Services\AI\Tools\ProductRestoreTool;
+use App\Services\AI\Tools\ProductUpdateTool;
 use App\Services\AI\Tools\SmartImportCancelTool;
 use App\Services\AI\Tools\SmartImportConfirmTool;
 use App\Services\AI\Tools\SmartImportProposeTool;
@@ -23,6 +31,14 @@ final class AiWriteToolRegistry
         SmartImportConfirmTool::class,
         SmartImportCancelTool::class,
         SmartImportRollbackTool::class,
+        PartyCreateTool::class,
+        PartyUpdateTool::class,
+        PartyArchiveTool::class,
+        PartyRestoreTool::class,
+        ProductCreateTool::class,
+        ProductUpdateTool::class,
+        ProductArchiveTool::class,
+        ProductRestoreTool::class,
     ];
 
     /** @return list<array{name:string,description:string,input_schema:array<string,mixed>}> */

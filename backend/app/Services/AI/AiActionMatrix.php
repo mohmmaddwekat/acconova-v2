@@ -95,16 +95,16 @@ final class AiActionMatrix
             'import.rollback' => self::row('import', 'smart_import_rollback', 'available', 'reverse', [$ai], true, null, AiImportDraft::class, self::APPROVAL_USER, null),
 
             // Parties
-            'party.create' => self::planned('parties', 'create', ['parties.create'], CreateParty::class, Party::class),
-            'party.update' => self::planned('parties', 'update', ['parties.update'], UpdateParty::class, Party::class),
-            'party.archive' => self::planned('parties', 'archive', ['parties.archive'], DeleteParty::class, Party::class, self::APPROVAL_USER, 'party.restore'),
-            'party.restore' => self::planned('parties', 'restore', ['parties.archive'], RestoreParty::class, Party::class),
+            'party.create' => self::tool('party_create', 'parties', 'create', ['parties.create'], CreateParty::class, Party::class),
+            'party.update' => self::tool('party_update', 'parties', 'update', ['parties.update'], UpdateParty::class, Party::class),
+            'party.archive' => self::tool('party_archive', 'parties', 'archive', ['parties.archive'], DeleteParty::class, Party::class, self::APPROVAL_USER, 'party.restore'),
+            'party.restore' => self::tool('party_restore', 'parties', 'restore', ['parties.archive'], RestoreParty::class, Party::class),
 
             // Products
-            'product.create' => self::planned('products', 'create', ['products.create'], CreateProduct::class, Product::class),
-            'product.update' => self::planned('products', 'update', ['products.update'], UpdateProduct::class, Product::class),
-            'product.archive' => self::planned('products', 'archive', ['products.archive'], DeleteProduct::class, Product::class, self::APPROVAL_USER, 'product.restore'),
-            'product.restore' => self::planned('products', 'restore', ['products.archive'], RestoreProduct::class, Product::class),
+            'product.create' => self::tool('product_create', 'products', 'create', ['products.create'], CreateProduct::class, Product::class),
+            'product.update' => self::tool('product_update', 'products', 'update', ['products.update'], UpdateProduct::class, Product::class),
+            'product.archive' => self::tool('product_archive', 'products', 'archive', ['products.archive'], DeleteProduct::class, Product::class, self::APPROVAL_USER, 'product.restore'),
+            'product.restore' => self::tool('product_restore', 'products', 'restore', ['products.archive'], RestoreProduct::class, Product::class),
 
             // Staff
             'staff.upsert' => self::planned('staff', 'update', ['staff.manage'], UpsertStaffMemberFromImport::class, StaffMember::class, self::APPROVAL_USER),
@@ -199,6 +199,25 @@ final class AiActionMatrix
             'approval' => $approval,
             'reversal' => $reversal,
         ];
+    }
+
+    /**
+     * @param  list<string>  $permissions
+     * @param  class-string|null  $service
+     * @param  class-string|null  $model
+     * @return array<string, mixed>
+     */
+    private static function tool(
+        string $tool,
+        string $module,
+        string $operation,
+        array $permissions,
+        ?string $service,
+        ?string $model,
+        string $approval = self::APPROVAL_NONE,
+        ?string $reversal = null,
+    ): array {
+        return self::row($module, $tool, 'available', $operation, $permissions, false, $service, $model, $approval, $reversal);
     }
 
     /**

@@ -62,6 +62,9 @@ final class AiToolPlanner
                     'Write tools require genuine user confirmation between a preview and a commit: never plan a '.
                     'smart_import_confirm call in the same response as the smart_import_propose or smart_import_revise '.
                     'call that produced the thing being confirmed. '.
+                    'Record tools (party_*, product_*) create, change, archive or restore one record: plan them only when the user '.
+                    'explicitly asked for that change and gave every required value; if a value is missing or the record is unclear, '.
+                    'plan no write call so the assistant can ask a clarifying question. Never plan a permanent delete. '.
                     'Use only the supplied tool catalog. At most '.
                     max(1, (int) config('ai.tools.max_calls', 4)).
                     ' calls. If no business data is needed, return no calls. '.

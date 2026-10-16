@@ -6,8 +6,8 @@ use App\Models\Concerns\BelongsToOrganization;
 use App\Services\AI\AiActionMatrix;
 use App\Services\AI\AiWriteToolRegistry;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
-use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use Tests\TestCase;
 
 class AiActionMatrixTest extends TestCase
 {
@@ -85,7 +85,7 @@ class AiActionMatrixTest extends TestCase
         $tools = (new ReflectionClass(AiWriteToolRegistry::class))->getReflectionConstant('TOOLS')->getValue();
 
         foreach ($tools as $class) {
-            $name = (new ReflectionClass($class))->newInstanceWithoutConstructor()->name();
+            $name = app($class)->name();
 
             $this->assertNotNull(AiActionMatrix::forTool($name), "{$name} is not in the action matrix");
         }
