@@ -2,11 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Membership;
+use App\Enums\OrganizationRole;
 use App\Models\Organization;
 use App\Models\User;
 use App\Models\WorkspaceRole;
 use App\Tenancy\OrganizationAccess;
+use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -134,7 +135,7 @@ class PartyCollectionsTest extends TestCase
         $this->assertSame('0.0000', $data['aging']['days_1_30']);
 
         $states = collect($data['documents'])->pluck('state', 'total')->all();
-        $this->assertSame(['100.0000' => 'not_due', '200.0000' => 'overdue', '300.0000' => 'overdue'], $states);
+        $this->assertEquals(['100.0000' => 'not_due', '200.0000' => 'overdue', '300.0000' => 'overdue'], $states);
     }
 
     public function test_last_payment_partial_payments_and_pending_cheques_are_distinguished_from_cash(): void
@@ -268,6 +269,7 @@ class PartyCollectionsTest extends TestCase
 
         $viewer = User::factory()->create();
         $this->organization->users()->attach($viewer->id, ['role' => 'employee']);
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Owner);
         $role = WorkspaceRole::create(['name' => 'Sales viewer', 'base_role' => 'employee', 'is_custom' => true, 'permissions' => ['parties.view', 'finance.sales.view']]);
         DB::table('memberships')->where('user_id', $viewer->id)->update(['workspace_role_id' => $role->id]);
         $this->as($viewer);

@@ -7,6 +7,7 @@ use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Models\Party;
 use App\Models\PartyOpeningBalance;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -54,9 +55,20 @@ final class PartyCollectionsStatement
             ->filter(fn (CashAllocation $allocation): bool => $this->counts($allocation->movement, $asOf))
             ->groupBy('financial_document_id');
 
+        /*
+         * Balances are rebuilt from the allocations that counted on the as-of
+         * date, so a past statement does not show today's stored balance.
+         */
+        $position = $documents->mapWithKeys(function (FinancialDocument $document) use ($allocations): array {
+            $paid = (float) $allocations->get($document->id, collect())->sum('amount');
+            $total = (float) $document->total;
+
+            return [$document->id => ['balance' => max($total - $paid, 0.0), 'credit' => max($paid - $total, 0.0)]];
+        });
+
         $rows = $documents
-            ->filter(fn (FinancialDocument $document): bool => (float) $document->balance_due > 0)
-            ->map(fn (FinancialDocument $document): array => $this->documentRow($document, $allocations->get($document->id, collect()), $asOf))
+            ->filter(fn (FinancialDocument $document): bool => $position[$document->id]['balance'] > 0.00005)
+            ->map(fn (FinancialDocument $document): array => $this->documentRow($document, $allocations->get($document->id, collect()), $asOf, $position[$document->id]['balance']))
             ->values();
 
         $outstanding = (float) $rows->sum('balance_due');
@@ -92,7 +104,7 @@ final class PartyCollectionsStatement
             'cheques' => $cheques,
             'promises' => $side === 'customer' ? $this->promises($party, $asOf) : [],
             'follow_ups' => $this->followUps($party, $asOf),
-            'reconciliation' => $this->reconciliation($party, $side, $asOf, $opening, $cutoff, $documents, $movements),
+            'reconciliation' => $this->reconciliation($party, $side, $asOf, $opening, $position, $movements),
         ];
     }
 
@@ -100,7 +112,7 @@ final class PartyCollectionsStatement
      * @param  Collection<int, CashAllocation>  $allocations
      * @return array<string, mixed>
      */
-    private function documentRow(FinancialDocument $document, Collection $allocations, CarbonImmutable $asOf): array
+    private function documentRow(FinancialDocument $document, Collection $allocations, CarbonImmutable $asOf, float $balance): array
     {
         $due = CarbonImmutable::parse(($document->due_date ?: $document->issue_date)->toDateString());
         $daysOverdue = $due->lt($asOf) ? (int) $due->diffInDays($asOf) : 0;
@@ -117,11 +129,11 @@ final class PartyCollectionsStatement
             'paid_total' => $this->money($paid),
             'cleared_paid' => $this->money($paid - $pending),
             'pending_cheque_paid' => $this->money($pending),
-            'balance_due' => $this->money((float) $document->balance_due),
-            'balance_if_cheques_bounce' => $this->money((float) $document->balance_due + $pending),
+            'balance_due' => $this->money($balance),
+            'balance_if_cheques_bounce' => $this->money($balance + $pending),
             'days_overdue' => $daysOverdue,
             'state' => $due->gt($asOf) ? 'not_due' : ($due->eq($asOf) ? 'due_today' : 'overdue'),
-            'partially_paid' => $paid > 0 && (float) $document->balance_due > 0,
+            'partially_paid' => $paid > 0 && $balance > 0,
             'last_payment_on' => $lastPaid?->toDateString(),
         ];
     }
@@ -259,22 +271,22 @@ final class PartyCollectionsStatement
      * Rebuilds the ledger position from the documents view and compares it
      * with the finance ledger. A non-zero difference is reported, not hidden.
      *
-     * @param  Collection<int, FinancialDocument>  $documents
+     * @param  Collection<int, array{balance: float, credit: float}>  $position
      * @param  Collection<int, CashMovement>  $movements
      * @return array<string, mixed>
      */
-    private function reconciliation(Party $party, string $side, CarbonImmutable $asOf, ?PartyOpeningBalance $opening, ?string $cutoff, Collection $documents, Collection $movements): array
+    private function reconciliation(Party $party, string $side, CarbonImmutable $asOf, ?PartyOpeningBalance $opening, Collection $position, Collection $movements): array
     {
         $ledger = $this->balances->forParties(
             collect([$party]),
             $side === 'customer',
             $side === 'supplier',
             true,
-            CarbonCarbon::parse($asOf->endOfDay()->toDateTimeString()),
+            Carbon::parse($asOf->endOfDay()->toDateTimeString()),
         )[$party->id][$side.'_position'] ?? 0.0;
 
-        $balanceDue = (float) $documents->sum(fn (FinancialDocument $document): float => (float) $document->balance_due);
-        $credits = (float) $documents->sum(fn (FinancialDocument $document): float => (float) $document->credit_total);
+        $balanceDue = (float) $position->sum('balance');
+        $credits = (float) $position->sum('credit');
         $unapplied = (float) $movements
             ->filter(fn (CashMovement $movement): bool => $movement->category !== 'refund')
             ->sum(fn (CashMovement $movement): float => max((float) $movement->amount - (float) ($movement->allocated_total ?? 0), 0));
