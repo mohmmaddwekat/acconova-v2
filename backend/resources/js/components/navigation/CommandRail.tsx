@@ -163,24 +163,21 @@ export function CommandRail({
      * Keep Task Management as one primary rail destination. Custom roles land
      * on the first task surface they are actually allowed to open.
      */
+    // The task permissions have their own list: the general feature list never contains them.
+    const taskPermissions =
+        activeOrganization
+            ?.task_permissions;
+
     const taskManagementHref =
-        ! customPermissions
+        ! taskPermissions
             ? '/app/task-management'
-            : customPermissions.includes(
-                  'tasks.dashboard',
-              )
+            : taskPermissions.includes('tasks.dashboard')
                 ? '/app/task-management'
-                : customPermissions.includes(
-                      'tasks.view',
-                  )
+                : taskPermissions.includes('tasks.view')
                     ? '/app/task-management/tasks'
-                    : customPermissions.includes(
-                          'tasks.projects.view',
-                      )
+                    : taskPermissions.includes('tasks.projects.view')
                         ? '/app/task-management/projects'
-                        : customPermissions.includes(
-                              'tasks.team',
-                          )
+                        : taskPermissions.includes('tasks.team')
                             ? '/app/task-management/team'
                             : null;
 

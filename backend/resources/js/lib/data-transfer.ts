@@ -6,7 +6,7 @@ export type ImportPreview = {
     total_rows: number; valid_rows: number; duplicate_rows: number; error_rows: number;
     errors: Array<{ row: number; message: string; code?: 'invalid' | 'duplicate' | 'archived' }>;
 };
-export type ImportModule = 'parties' | 'products';
+export type ImportModule = 'parties' | 'products' | 'warehouses' | 'production-runs';
 
 /** Reuse the existing tenant-scoped import contracts for both business modules. */
 export async function previewImport(module: ImportModule, file: File, mode: string): Promise<ImportPreview> {

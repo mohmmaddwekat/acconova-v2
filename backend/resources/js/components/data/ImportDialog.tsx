@@ -29,6 +29,29 @@ type ImportDialogProps = {
     ) => void;
 };
 
+/** Wording for the inventory modules; the older modules keep their translation keys. */
+function moduleCopy(module: string, locale: string): { title: string; description: string; duplicateKey: string } | null {
+    const ar = locale === 'ar';
+
+    if (module === 'warehouses') {
+        return {
+            title: ar ? 'استيراد المستودعات' : 'Import warehouses',
+            description: ar ? 'أضف عدة مستودعات دفعة واحدة من ملف. حمّل القالب، عبّئ عمود الاسم، ثم عاين قبل الاستيراد.' : 'Add several warehouses at once from a file. Download the template, fill the name column, then preview before importing.',
+            duplicateKey: ar ? 'اسم المستودع' : 'Warehouse name',
+        };
+    }
+
+    if (module === 'production-runs') {
+        return {
+            title: ar ? 'استيراد عمليات الإنتاج' : 'Import production runs',
+            description: ar ? 'تُحفظ كل عملية كمسودة فقط ولا تتحرك المخزون حتى تعتمدها. الأسطر ذات المرجع نفسه تُجمّع في عملية واحدة.' : 'Each run is saved as a draft only; stock does not move until you post it. Lines with the same reference form one run.',
+            duplicateKey: ar ? 'مرجع العملية' : 'Run reference',
+        };
+    }
+
+    return null;
+}
+
 /**
  * Render the Party bulk-import workflow.
  *
@@ -41,7 +64,7 @@ export function ImportDialog({
     onClose,
     onImported,
 }: ImportDialogProps) {
-    useLocale();
+    const locale = useLocale();
     const [file, setFile] =
         useState<File | null>(
             null,
@@ -210,11 +233,11 @@ export function ImportDialog({
                         </p>
 
                         <h2 className="mt-1.5 text-2xl font-semibold tracking-[-0.045em]">
-                            {module === 'products' ? t('import.products') : t('ui.import_relationships')}
+                            {moduleCopy(module, locale)?.title ?? (module === 'products' ? t('import.products') : t('ui.import_relationships'))}
                         </h2>
 
                         <p className="mt-2 max-w-lg text-xs leading-5 text-[var(--ac-text-soft)]">
-                            {module === 'products' ? t('import.productDescription') : t('ui.move_existing_customer_and_supplier_data_into_acconova_without_adding_records_one_by_')}
+                            {moduleCopy(module, locale)?.description ?? (module === 'products' ? t('import.productDescription') : t('ui.move_existing_customer_and_supplier_data_into_acconova_without_adding_records_one_by_'))}
                         </p>
                     </div>
 
@@ -323,7 +346,7 @@ export function ImportDialog({
 
                     <div className="mt-6">
                         <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--ac-text-muted)]">
-                            {module === 'products' ? t('import.sku') : t('ui.existing_email')}
+                            {moduleCopy(module, locale)?.duplicateKey ?? (module === 'products' ? t('import.sku') : t('ui.existing_email'))}
                         </p>
 
                         <div className="grid gap-2 sm:grid-cols-2">

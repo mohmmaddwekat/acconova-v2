@@ -1,3 +1,4 @@
+import { InventoryDataActions } from '@/components/data/InventoryDataActions';
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import {
     Head,
@@ -820,6 +821,8 @@ function InventoryWorkspace() {
                                     )}
                                 </button>
                             </div>
+
+                            <InventoryDataActions module="warehouses" canImport={canManage} onImported={() => void loadInventory()} />
 
                             {canManage && (
                                 <button

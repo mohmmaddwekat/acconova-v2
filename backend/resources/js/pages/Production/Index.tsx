@@ -1,3 +1,4 @@
+import { InventoryDataActions } from '@/components/data/InventoryDataActions';
 import {
     Head,
     Link,
@@ -1280,6 +1281,8 @@ export default function ProductionIndex() {
                         </div>
                     </div>
 
+                    <div className="flex flex-wrap items-center gap-2">
+                    <InventoryDataActions module="production-runs" canImport={canManage} onImported={() => void loadRuns()} />
                     {canManage && (
                         <button
                             type="button"
@@ -1299,6 +1302,7 @@ export default function ProductionIndex() {
                             }
                         </button>
                     )}
+                    </div>
                 </div>
 
                 <div className="mb-5 grid gap-3 rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 shadow-[var(--ac-shadow-soft)] md:grid-cols-[1fr_220px]">

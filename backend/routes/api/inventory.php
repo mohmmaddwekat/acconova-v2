@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Inventory\InventoryDataTransferController;
 use App\Http\Controllers\Inventory\InventoryIntelligenceController;
 use App\Http\Controllers\Inventory\InventoryOverviewController;
 use App\Http\Controllers\Inventory\InventoryTransferWorkflowController;
@@ -201,6 +202,15 @@ Route::middleware([
     )->whereNumber(
         'product',
     );
+
+    Route::get('warehouses/export/{format}', [InventoryDataTransferController::class, 'exportWarehouses']);
+    Route::get('warehouses/import-template', [InventoryDataTransferController::class, 'warehouseTemplate']);
+    Route::post('warehouses/import/preview', [InventoryDataTransferController::class, 'previewWarehouses'])->middleware('throttle:20,1');
+    Route::post('warehouses/import', [InventoryDataTransferController::class, 'importWarehouses'])->middleware('throttle:10,1');
+    Route::get('production-runs/export/{format}', [InventoryDataTransferController::class, 'exportRuns']);
+    Route::get('production-runs/import-template', [InventoryDataTransferController::class, 'runTemplate']);
+    Route::post('production-runs/import/preview', [InventoryDataTransferController::class, 'previewRuns'])->middleware('throttle:20,1');
+    Route::post('production-runs/import', [InventoryDataTransferController::class, 'importRuns'])->middleware('throttle:10,1');
 
     Route::get(
         'warehouses',
