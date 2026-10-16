@@ -13,6 +13,8 @@ use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
 use Tests\TestCase;
 
 class AiAssistantImportUploadTest extends TestCase
@@ -263,14 +265,204 @@ class AiAssistantImportUploadTest extends TestCase
             [
                 'message' => 'import these',
                 'import_file' => [
-                    'data_url' => 'data:application/pdf;base64,JVBERi0xLjQK',
-                    'name' => 'x.pdf',
-                    'mime' => 'application/pdf',
+                    'data_url' => 'data:application/zip;base64,UEsDBAoAAAAAAA==',
+                    'name' => 'x.zip',
+                    'mime' => 'application/zip',
                 ],
             ],
         )
             ->assertStatus(422)
             ->assertJsonValidationErrors(['import_file.mime']);
+    }
+
+    /**
+     * Covers Task 2 of the extraction-upgrades plan: a PDF import file is
+     * now accepted and routed through `PdfRowExtractor`, which spends real
+     * AI text-model tokens that must be billed to the organization's
+     * credit balance the same way the image path already is (see
+     * `test_an_image_import_file_bills_ai_usage()` above).
+     */
+    public function test_a_pdf_import_file_bills_ai_usage(): void
+    {
+        [$user, $organization] = $this->workspace('owner', 'Smart import pdf billing');
+        $this->actingInWorkspace($user, $organization);
+        $this->configureProvider();
+
+        // Force every token spent this month to count as billable overage,
+        // so the PDF-extraction usage below is deterministically debited
+        // from the wallet rather than silently absorbed by an included
+        // monthly allowance.
+        config(['billing.plans.starter.limits.ai_tokens' => 0]);
+
+        BillingAccount::create([
+            'organization_id' => $organization->id,
+            'provider_customer_id' => 'cus_import_pdf_billing',
+            'provider_subscription_id' => 'sub_import_pdf_billing',
+            'plan_key' => 'starter',
+            'billing_interval' => 'month',
+            'status' => 'active',
+        ]);
+
+        DB::table('billing_ai_wallets')->insert([
+            'organization_id' => $organization->id,
+            'balance_tokens' => 100000,
+            'total_purchased_tokens' => 100000,
+            'total_consumed_tokens' => 0,
+            'auto_recharge_enabled' => false,
+            'auto_recharge_threshold_tokens' => 100000,
+            'auto_recharge_tokens' => 0,
+            'auto_recharge_amount_minor' => 0,
+            'auto_recharge_currency' => 'USD',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/*' => Http::sequence()
+                // 1. PdfRowExtractor's text-model call.
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => ['content' => '[{"name":"Jane"}]'],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 80,
+                        'completion_tokens' => 12,
+                        'total_tokens' => 92,
+                    ],
+                ])
+                // 2. The orchestrator's planner call.
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => [
+                            'content' => json_encode(['calls' => []], JSON_THROW_ON_ERROR),
+                        ],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 10,
+                        'completion_tokens' => 5,
+                        'total_tokens' => 15,
+                    ],
+                ])
+                // 3. The orchestrator's final answer call.
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => ['content' => 'Imported the rows from the PDF.'],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 20,
+                        'completion_tokens' => 10,
+                        'total_tokens' => 30,
+                    ],
+                ]),
+        ]);
+
+        $conversationId = (int) $this->postJson('/api/ai/conversations', [
+            'title' => 'Import question',
+        ])->assertCreated()->json('data.id');
+
+        $response = $this->postJson(
+            "/api/ai/conversations/{$conversationId}/messages",
+            [
+                'message' => 'import this pdf',
+                'import_file' => [
+                    'data_url' => $this->pdfDataUrl('Jane    120.00 units shipped on Monday'),
+                    'name' => 'scan.pdf',
+                    'mime' => 'application/pdf',
+                ],
+            ],
+        );
+
+        $response->assertOk();
+
+        // Exactly one debit for the PDF-extraction usage, not "at least
+        // one": a regression that double-bills (e.g. consumeOverage()
+        // called twice for the same usage) would still satisfy
+        // assertDatabaseHas, since that only checks a matching row exists.
+        $this->assertSame(
+            1,
+            DB::table('billing_ai_credit_transactions')
+                ->where('organization_id', $organization->id)
+                ->where('kind', 'usage')
+                ->where('tokens', -92)
+                ->count(),
+        );
+    }
+
+    public function test_uploading_a_pdf_creates_a_draft_tagged_as_pdf(): void
+    {
+        [$user, $organization] = $this->workspace('owner', 'Smart import pdf tagging');
+        $this->actingInWorkspace($user, $organization);
+        $this->configureProvider();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/*' => Http::sequence()
+                // 1. PdfRowExtractor's text-model call.
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => ['content' => '[{"name":"Jane"}]'],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 80,
+                        'completion_tokens' => 12,
+                        'total_tokens' => 92,
+                    ],
+                ])
+                // 2. The orchestrator's planner call.
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => [
+                            'content' => json_encode(['calls' => []], JSON_THROW_ON_ERROR),
+                        ],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 10,
+                        'completion_tokens' => 5,
+                        'total_tokens' => 15,
+                    ],
+                ])
+                // 3. The orchestrator's final answer call.
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => ['content' => 'Imported the rows from the PDF.'],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 20,
+                        'completion_tokens' => 10,
+                        'total_tokens' => 30,
+                    ],
+                ]),
+        ]);
+
+        $conversationId = (int) $this->postJson('/api/ai/conversations', [
+            'title' => 'Import question',
+        ])->assertCreated()->json('data.id');
+
+        $response = $this->postJson(
+            "/api/ai/conversations/{$conversationId}/messages",
+            [
+                'message' => 'import these',
+                'import_file' => [
+                    'data_url' => $this->pdfDataUrl('Jane appears on this record as the staff member'),
+                    'name' => 'x.pdf',
+                    'mime' => 'application/pdf',
+                ],
+            ],
+        );
+
+        $response->assertOk();
+
+        app(TenantContext::class)->set($organization, OrganizationRole::Owner);
+        $draft = AiImportDraft::query()->latest('id')->first();
+        $this->assertNotNull($draft);
+        $this->assertSame('pdf', $draft->source_file_type);
     }
 
     private function fakeAiSequence(): void
@@ -310,6 +502,27 @@ class AiAssistantImportUploadTest extends TestCase
     private function csvDataUrl(string $csv): string
     {
         return 'data:text/csv;base64,'.base64_encode($csv);
+    }
+
+    /**
+     * Builds a real text-based PDF (mirroring
+     * `PdfRowExtractorTest::makeTextPdf()`) so `PdfRowExtractor`'s local
+     * `smalot/pdfparser` text extraction has genuine selectable text to
+     * read, then returns it as a base64 data URL ready for the
+     * `import_file.data_url` payload.
+     */
+    private function pdfDataUrl(string $text): string
+    {
+        $mpdf = new Mpdf;
+        $mpdf->WriteHTML('<p>'.e($text).'</p>');
+        $path = tempnam(sys_get_temp_dir(), 'test_pdf_').'.pdf';
+        $mpdf->Output($path, Destination::FILE);
+
+        try {
+            return 'data:application/pdf;base64,'.base64_encode(file_get_contents($path));
+        } finally {
+            unlink($path);
+        }
     }
 
     private function configureProvider(): void

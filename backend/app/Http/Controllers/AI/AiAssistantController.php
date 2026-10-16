@@ -12,6 +12,7 @@ use App\Services\AI\AiConversationMemory;
 use App\Services\AI\AiGateway;
 use App\Services\AI\AiImageAnalyzer;
 use App\Services\AI\Import\ImageRowExtractor;
+use App\Services\AI\Import\PdfRowExtractor;
 use App\Services\AI\Import\SpreadsheetRowExtractor;
 use App\Services\Billing\AiCreditService;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
@@ -130,6 +131,7 @@ class AiAssistantController extends Controller
         AiCreditService $credits,
         SpreadsheetRowExtractor $spreadsheetExtractor,
         ImageRowExtractor $imageRowExtractor,
+        PdfRowExtractor $pdfRowExtractor,
     ): JsonResponse {
         WorkspaceFeaturePermissions::authorize(
             $request->user(),
@@ -151,7 +153,7 @@ class AiAssistantController extends Controller
             'import_file.mime' => [
                 'nullable',
                 'string',
-                'in:text/csv,application/csv,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json,image/jpeg,image/png,image/webp',
+                'in:text/csv,application/csv,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json,image/jpeg,image/png,image/webp,application/pdf',
             ],
             'page_context' => ['nullable', 'array'],
             'page_context.url' => ['nullable', 'string', 'max:500'],
@@ -230,6 +232,7 @@ class AiAssistantController extends Controller
                     $importFile,
                     $spreadsheetExtractor,
                     $imageRowExtractor,
+                    $pdfRowExtractor,
                 );
             } catch (Throwable $exception) {
                 report($exception);
@@ -440,9 +443,11 @@ class AiAssistantController extends Controller
 
     /**
      * Dispatch an uploaded import file to the matching row extractor based
-     * on its mime type. Only the image path spends AI tokens worth billing
-     * (spreadsheet/JSON extraction is purely local parsing), so the third
-     * tuple element is null for every other path.
+     * on its mime type: `'spreadsheet'` (csv/xlsx/xls/json, purely local
+     * parsing), `'image'` (a photo/scan via the vision model), or `'pdf'`
+     * (a text-based PDF via a text model). Only the image and PDF paths
+     * spend AI tokens worth billing, so the third tuple element is null
+     * for every other path.
      *
      * @param  array{data_url:string,name?:string,mime?:string}  $importFile
      * @return array{
@@ -455,6 +460,7 @@ class AiAssistantController extends Controller
         array $importFile,
         SpreadsheetRowExtractor $spreadsheetExtractor,
         ImageRowExtractor $imageRowExtractor,
+        PdfRowExtractor $pdfRowExtractor,
     ): array {
         $mime = strtolower(trim((string) ($importFile['mime'] ?? '')));
 
@@ -462,6 +468,12 @@ class AiAssistantController extends Controller
             $extracted = $imageRowExtractor->extract($importFile);
 
             return [$extracted['rows'], 'image', $extracted['usage']];
+        }
+
+        if ($mime === 'application/pdf') {
+            $extracted = $this->extractPdfRows($importFile, $pdfRowExtractor);
+
+            return [$extracted['rows'], 'pdf', $extracted['usage']];
         }
 
         if ($mime === 'application/json') {
@@ -517,6 +529,42 @@ class AiAssistantController extends Controller
 
         try {
             return $extractor->extract($path, $mime);
+        } finally {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+    }
+
+    /**
+     * `PdfRowExtractor` reads from a file path, so the base64 `data_url` is
+     * first decoded to a temporary file, mirroring `extractSpreadsheetRows()`'s
+     * temp-file handling exactly: `tempnam()` reserves a real file, which is
+     * then renamed in place to add the `.pdf` extension that
+     * `smalot/pdfparser` needs to recognize the file, before the decoded
+     * bytes are written to it.
+     *
+     * @param  array{data_url:string,name?:string,mime?:string}  $importFile
+     * @return array{
+     *     rows: Collection<int, array<string, mixed>>,
+     *     usage: array{input_tokens:int, output_tokens:int, total_tokens:int}
+     * }
+     */
+    private function extractPdfRows(
+        array $importFile,
+        PdfRowExtractor $extractor,
+    ): array {
+        $reserved = tempnam(sys_get_temp_dir(), 'acconova_import_');
+        $path = $reserved.'.pdf';
+        rename($reserved, $path);
+
+        file_put_contents(
+            $path,
+            $this->decodeDataUrl((string) ($importFile['data_url'] ?? '')),
+        );
+
+        try {
+            return $extractor->extract($path);
         } finally {
             if (is_file($path)) {
                 unlink($path);
