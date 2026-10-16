@@ -140,6 +140,23 @@ class SmartImportProposeToolTest extends TestCase
         $this->assertSame([['name' => 'Acme Co']], $result['sample_rows']);
     }
 
+    public function test_propose_returns_the_classifiers_confidence(): void
+    {
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        $this->mockClassifierToReturn(
+            '{"target_entity":"party","field_mapping":{"name":"name"},"confidence":0.73,"notes":""}',
+        );
+
+        $result = app(SmartImportProposeTool::class)->execute($this->user, ['draft_id' => $draft->id], $this->conversation);
+
+        $this->assertSame(0.73, $result['confidence']);
+    }
+
     /**
      * Task 6: the tool's result must surface the classifier's field_mapping
      * verbatim, plus validation counts computed by remapping extracted_rows

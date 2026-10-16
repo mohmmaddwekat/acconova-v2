@@ -165,6 +165,24 @@ class ImportClassifierTest extends TestCase
         $this->assertSame('product', $result['target_entity']);
     }
 
+    public function test_notes_containing_a_clarifying_question_round_trips_unchanged(): void
+    {
+        $question = 'The department column has a value "المبيعات" that does not match any existing department — which one did you mean?';
+
+        $this->mockGatewayToReturn(json_encode([
+            'target_entity' => 'party',
+            'field_mapping' => ['name' => 'name'],
+            'confidence' => 0.6,
+            'notes' => $question,
+        ]));
+
+        $draft = $this->makeDraft([['name' => 'Acme Co', 'department' => 'المبيعات']]);
+
+        $result = app(ImportClassifier::class)->classify($this->user, $draft, null);
+
+        $this->assertSame($question, $result['notes']);
+    }
+
     /** @param  list<array<string,mixed>>  $rows */
     private function makeDraft(array $rows): AiImportDraft
     {

@@ -27,7 +27,7 @@ class AiImportDraftTest extends TestCase
      * `'xlsx'`, neither of which is a real value used anywhere else in the
      * codebase - the real catalog key is `'staff_member'`
      * (`ImportDestinationCatalog::ENTITIES`), and the real source file
-     * types are `'spreadsheet'`/`'image'` (`AiAssistantController::
+     * types are `'spreadsheet'`/`'image'`/`'pdf'` (`AiAssistantController::
      * extractImportRows()`). Any test relying on these factory defaults
      * was silently exercising an "unknown destination"/wrong-type code
      * path instead of a real one.
