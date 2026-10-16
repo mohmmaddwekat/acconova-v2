@@ -21,6 +21,10 @@ Route::middleware([
         Route::post('conversations', [AiAssistantController::class, 'store']);
         Route::get('conversations/{conversation}', [AiAssistantController::class, 'show'])
             ->whereNumber('conversation');
+        Route::get('conversations/{conversation}/tasks', [AiAssistantController::class, 'tasks'])
+            ->whereNumber('conversation');
+        Route::post('conversations/{conversation}/tasks/cancel', [AiAssistantController::class, 'cancelTasks'])
+            ->whereNumber('conversation');
         Route::post('conversations/{conversation}/messages', [AiAssistantController::class, 'message'])
             ->whereNumber('conversation')
             ->middleware('throttle:20,1');

@@ -16,6 +16,7 @@ import {
     CircleAlert,
     FileUp,
     ImagePlus,
+    ListChecks,
     LoaderCircle,
     MessageSquare,
     Plus,
@@ -36,9 +37,18 @@ import {
     type FormEvent,
 } from 'react';
 
+type WorkTask = {
+    id: number;
+    position: number;
+    title: string;
+    status: 'pending' | 'in_progress' | 'done' | 'blocked' | 'cancelled';
+    note: string | null;
+};
+
 type Conversation = {
     id: number;
     title: string | null;
+    mode?: 'chat' | 'work';
     last_message_at: string | null;
     created_at: string;
 };
@@ -113,6 +123,8 @@ export default function AiAssistant() {
     const [preparingImage, setPreparingImage] = useState(false);
     const [error, setError] = useState('');
     const [importDrafts, setImportDrafts] = useState<ImportDraft[]>([]);
+    const [tasks, setTasks] = useState<WorkTask[]>([]);
+    const [newMode, setNewMode] = useState<'chat' | 'work'>('chat');
     const [rollingBack, setRollingBack] = useState<number | null>(null);
     const [importFile, setImportFile] = useState<ImportFile | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
@@ -186,6 +198,34 @@ export default function AiAssistant() {
         };
     }, [activeId, messages.length, sending]);
 
+    useEffect(() => {
+        if (! activeId || ! sending || activeConversation?.mode !== 'work') {
+            return;
+        }
+
+        // Steps run inside the message request, so poll the plan while it is in flight.
+        const timer = window.setInterval(() => {
+            apiRequest<{ data: WorkTask[] }>(`/api/ai/conversations/${activeId}/tasks`)
+                .then(response => setTasks(response.data))
+                .catch(() => undefined);
+        }, 1500);
+
+        return () => window.clearInterval(timer);
+    }, [activeId, sending, activeConversation?.mode]);
+
+    async function cancelPlan(): Promise<void> {
+        if (! activeId) {
+            return;
+        }
+
+        try {
+            await apiRequest(`/api/ai/conversations/${activeId}/tasks/cancel`, { method: 'POST' });
+            setTasks(current => current.map(task => (['pending', 'in_progress', 'blocked'].includes(task.status) ? { ...task, status: 'cancelled' } : task)));
+        } catch (failure) {
+            setError(failure instanceof ApiError ? failure.message : ar ? 'تعذر إلغاء الخطة.' : 'Could not cancel the plan.');
+        }
+    }
+
     const visibleDrafts = importDrafts.filter(item => item.status !== 'cancelled').slice(0, 5);
     const pendingDraft = importDrafts.find(item => item.status === 'draft' && item.target_entity !== null);
 
@@ -228,11 +268,15 @@ export default function AiAssistant() {
             data: {
                 conversation: Conversation;
                 messages: Message[];
+                tasks?: WorkTask[];
             };
         }>(`/api/ai/conversations/${activeId}`, {
             signal: controller.signal,
         })
-            .then(response => setMessages(response.data.messages))
+            .then(response => {
+                setMessages(response.data.messages);
+                setTasks(response.data.tasks ?? []);
+            })
             .catch((failure: unknown) => {
                 if (! controller.signal.aborted) {
                     setError(
@@ -260,7 +304,9 @@ export default function AiAssistant() {
         if (imageInputRef.current) imageInputRef.current.value = '';
     }
 
-    function newConversation(): void {
+    function newConversation(mode: 'chat' | 'work' = 'chat'): void {
+        setNewMode(mode);
+        setTasks([]);
         setActiveId(null);
         setMessages([]);
         setDraft('');
@@ -277,6 +323,7 @@ export default function AiAssistant() {
                 method: 'POST',
                 body: JSON.stringify({
                     title: firstMessage ? firstMessage.slice(0, 80) : null,
+                    mode: newMode,
                 }),
             },
         );
@@ -293,10 +340,12 @@ export default function AiAssistant() {
             data: {
                 conversation: Conversation;
                 messages: Message[];
+                tasks?: WorkTask[];
             };
         }>(`/api/ai/conversations/${conversationId}`);
 
         setMessages(response.data.messages);
+        setTasks(response.data.tasks ?? []);
         setConversations(current =>
             current
                 .map(item =>
@@ -535,14 +584,24 @@ export default function AiAssistant() {
                             </div>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={newConversation}
-                            className={outlineButton}
-                        >
-                            <Plus size={15} />
-                            {ar ? 'محادثة جديدة' : 'New chat'}
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => newConversation('chat')}
+                                className={outlineButton}
+                            >
+                                <Plus size={15} />
+                                {ar ? 'محادثة جديدة' : 'New chat'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => newConversation('work')}
+                                className={outlineButton}
+                            >
+                                <ListChecks size={15} />
+                                {ar ? 'جلسة عمل جديدة' : 'New work session'}
+                            </button>
+                        </div>
                     </header>
 
                     <AiUsagePanel
@@ -634,6 +693,11 @@ export default function AiAssistant() {
                                                 className="min-w-0 flex-1 px-2 py-2 text-start"
                                             >
                                                 <p className="truncate text-xs font-semibold">
+                                                    {conversation.mode === 'work' && (
+                                                        <span className="me-1.5 rounded-full bg-[var(--ac-accent-soft)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--ac-accent)]">
+                                                            {ar ? 'عمل' : 'Work'}
+                                                        </span>
+                                                    )}
                                                     {conversation.title
                                                         || (ar ? 'محادثة جديدة' : 'New conversation')}
                                                 </p>
@@ -962,6 +1026,44 @@ export default function AiAssistant() {
                         </div>
 
                         <aside className="border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3 lg:border-s lg:border-t-0">
+                            {(activeConversation?.mode === 'work' || tasks.length > 0 || (! activeId && newMode === 'work')) && (
+                                <div className="mb-4">
+                                    <div className="flex items-center justify-between px-2 py-2">
+                                        <p className="text-xs font-bold">{ar ? 'خطة العمل' : 'Work plan'}</p>
+                                        {tasks.some(task => ['pending', 'in_progress', 'blocked'].includes(task.status)) && (
+                                            <button type="button" className="text-[10px] font-semibold text-[var(--ac-text-muted)] hover:text-red-500" onClick={() => void cancelPlan()}>
+                                                {ar ? 'إلغاء الخطة' : 'Cancel plan'}
+                                            </button>
+                                        )}
+                                    </div>
+                                    {tasks.length === 0 && (
+                                        <p className="rounded-[14px] border border-dashed border-[var(--ac-line)] px-3 py-5 text-center text-[11px] leading-5 text-[var(--ac-text-muted)]">
+                                            {ar ? 'جلسة عمل: اكتب المهمة وسأقسمها إلى خطوات وأنفذها واحدة واحدة.' : 'Work session: describe the job and I will split it into steps and run them one by one.'}
+                                        </p>
+                                    )}
+                                    <ol className="space-y-1.5">
+                                        {tasks.map(task => (
+                                            <li key={task.id} className="flex gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-2 text-[11px]">
+                                                <span aria-hidden className="mt-0.5 shrink-0">
+                                                    {task.status === 'done' ? '✓' : task.status === 'in_progress' ? '◐' : task.status === 'blocked' ? '!' : task.status === 'cancelled' ? '✕' : '○'}
+                                                </span>
+                                                <span className={'min-w-0 flex-1 ' + (task.status === 'done' ? 'text-[var(--ac-text-muted)] line-through' : task.status === 'blocked' ? 'font-semibold text-amber-700' : '')}>
+                                                    {task.title}
+                                                    {task.status === 'blocked' && (
+                                                        <span className="mt-0.5 block text-[10px] font-normal">{ar ? 'بانتظار ردك أو موافقتك' : 'Waiting for your answer or approval'}</span>
+                                                    )}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                    {tasks.some(task => task.status === 'pending') && ! sending && (
+                                        <button type="button" className={`${outlineButton} mt-2 w-full`} onClick={() => void submit(ar ? 'تابع' : 'continue')}>
+                                            {ar ? 'تابع الخطوات' : 'Continue'}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
                             <p className="px-2 py-2 text-xs font-bold">{ar ? 'الاستيراد' : 'Imports'}</p>
                             <div className="mt-1 space-y-2.5">
                                 {visibleDrafts.length === 0 && (

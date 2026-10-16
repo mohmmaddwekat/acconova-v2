@@ -11,6 +11,7 @@ use App\Services\AI\AiBusinessToolRegistry;
 use App\Services\AI\AiConversationMemory;
 use App\Services\AI\AiGateway;
 use App\Services\AI\AiImageAnalyzer;
+use App\Services\AI\AiWorkRunner;
 use App\Services\AI\Import\ImageRowExtractor;
 use App\Services\AI\Import\PdfRowExtractor;
 use App\Services\AI\Import\ScannedPdfException;
@@ -85,11 +86,13 @@ class AiAssistantController extends Controller
 
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:120'],
+            'mode' => ['sometimes', 'in:chat,work'],
         ]);
 
         $conversation = AiConversation::create([
             'user_id' => $request->user()->id,
             'title' => $validated['title'] ?? null,
+            'mode' => $validated['mode'] ?? 'chat',
             'last_message_at' => now(),
         ]);
 
@@ -118,6 +121,7 @@ class AiAssistantController extends Controller
                     ->orderBy('id')
                     ->limit(200)
                     ->get(),
+                'tasks' => $conversationRecord->mode === 'work' ? $this->taskPayload($conversationRecord) : [],
             ],
         ]);
     }
@@ -128,6 +132,7 @@ class AiAssistantController extends Controller
         AiGateway $gateway,
         AiConversationMemory $memory,
         AiAssistantOrchestrator $orchestrator,
+        AiWorkRunner $workRunner,
         AiImageAnalyzer $imageAnalyzer,
         AiCreditService $credits,
         SpreadsheetRowExtractor $spreadsheetExtractor,
@@ -319,7 +324,9 @@ class AiAssistantController extends Controller
         }
 
         try {
-            $result = $orchestrator->chat(
+            $engine = $conversationRecord->mode === 'work' ? $workRunner : $orchestrator;
+
+            $result = $engine->chat(
                 $conversationRecord,
                 $request->user(),
                 $context,
@@ -376,8 +383,40 @@ class AiAssistantController extends Controller
                     'image_reused' => $imageReused,
                     'tool_calls' => $result['tool_calls'] ?? [],
                 ],
+                'tasks' => $conversationRecord->mode === 'work' ? $this->taskPayload($conversationRecord) : [],
             ],
         ]);
+    }
+
+    public function tasks(Request $request, int $conversation): JsonResponse
+    {
+        WorkspaceFeaturePermissions::authorize($request->user(), 'ai.assistant.use');
+
+        $record = AiConversation::query()->findOrFail($conversation);
+        $this->assertOwner($request, $record);
+
+        return response()->json(['data' => $this->taskPayload($record)]);
+    }
+
+    public function cancelTasks(Request $request, int $conversation, AiWorkRunner $workRunner): JsonResponse
+    {
+        WorkspaceFeaturePermissions::authorize($request->user(), 'ai.assistant.use');
+
+        $record = AiConversation::query()->findOrFail($conversation);
+        $this->assertOwner($request, $record);
+
+        return response()->json(['data' => ['cancelled' => $workRunner->cancel($record)]]);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function taskPayload(AiConversation $conversation): array
+    {
+        return $conversation->workTasks()->get()
+            ->map(fn ($task): array => ['id' => $task->id, 'position' => $task->position, 'title' => $task->title, 'status' => $task->status, 'note' => $task->note])
+            ->values()
+            ->all();
     }
 
     public function destroy(

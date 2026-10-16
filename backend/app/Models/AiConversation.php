@@ -19,6 +19,7 @@ class AiConversation extends Model
     protected $fillable = [
         'user_id',
         'title',
+        'mode',
         'summary',
         'summary_through_message_id',
         'last_message_at',
@@ -34,6 +35,11 @@ class AiConversation extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function workTasks(): HasMany
+    {
+        return $this->hasMany(AiWorkTask::class)->orderBy('position');
     }
 
     public function messages(): HasMany
