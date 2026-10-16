@@ -23,6 +23,22 @@ class ImportDestinationCatalog
         StaffMemberImportable::class,
     ];
 
+    /**
+     * Import permissions deliberately NOT served by this catalog, with why.
+     * Every `*.import.*` permission must be either an entity's
+     * requiredPermission() or listed here (enforced by ImportCoverageTest).
+     *
+     * @var array<string, string>
+     */
+    public const EXCEPTIONS = [
+        'products.import.preview' => 'Covered: preview step of products.import.commit.',
+        'parties.import.preview' => 'Covered: preview step of parties.import.commit.',
+        'finance.import.template' => 'Template download only; writes nothing.',
+        'finance.import.preview' => 'Financial documents: preview runs in the finance import flow, not the chat.',
+        'finance.import.commit' => 'Financial documents: need finance approval and a void/correct path, so they are not chat-importable.',
+        'finance.reconciliation.import' => 'Bank statements: matched by the reconciliation workflow, not bulk-created by the chat.',
+    ];
+
     /** @return list<ImportableEntity> */
     public function all(): array
     {

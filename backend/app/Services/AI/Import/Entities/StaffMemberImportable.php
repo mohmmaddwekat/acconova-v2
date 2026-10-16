@@ -7,6 +7,7 @@ use App\Models\StaffMember;
 use App\Services\AI\Import\Contracts\ImportableEntity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class StaffMemberImportable implements ImportableEntity
 {
@@ -170,6 +171,7 @@ class StaffMemberImportable implements ImportableEntity
 
     public function commit(Collection $rows, string $duplicateMode = 'skip'): array
     {
+        $this->guardRowLimit($rows);
         $this->changes = ['created' => [], 'updated' => []];
         $created = 0;
         $updated = 0;
@@ -216,8 +218,21 @@ class StaffMemberImportable implements ImportableEntity
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return array{valid_rows:int, error_rows:int, errors:list<array{row:int,message:string}>}
      */
+    /**
+     * Cap one file at the same 5000 rows the party and product importers allow.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     */
+    private function guardRowLimit(Collection $rows): void
+    {
+        if ($rows->count() > 5000) {
+            throw ValidationException::withMessages(['file' => [__('feedback.import_limit')]]);
+        }
+    }
+
     public function preview(Collection $rows, string $duplicateMode = 'skip'): array
     {
+        $this->guardRowLimit($rows);
         $errors = [];
         $validRows = 0;
         $duplicateRows = 0;
