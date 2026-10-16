@@ -3074,55 +3074,6 @@ export function DocumentForm({
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text(
-                                    'القسم (اختياري)',
-                                    'Department (optional)',
-                                )}
-
-                                <select
-                                    className={
-                                        financeInput
-                                        + ' mt-2'
-                                    }
-                                    value={
-                                        departmentId
-                                    }
-                                    onChange={
-                                        event =>
-                                            setDepartmentId(
-                                                event
-                                                    .target
-                                                    .value,
-                                            )
-                                    }
-                                >
-                                    <option value="">
-                                        {text(
-                                            'بدون قسم',
-                                            'No department',
-                                        )}
-                                    </option>
-
-                                    {lookups.departments.map(
-                                        department => (
-                                            <option
-                                                key={
-                                                    department.id
-                                                }
-                                                value={
-                                                    department.id
-                                                }
-                                            >
-                                                {
-                                                    department.name
-                                                }
-                                            </option>
-                                        ),
-                                    )}
-                                </select>
-                            </label>
-
-                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text(
                                     'الفرع / الموقع (اختياري)',
                                     'Branch / location (optional)',
                                 )}
