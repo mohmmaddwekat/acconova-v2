@@ -123,6 +123,27 @@ class SmartImportReviseToolTest extends TestCase
         $this->assertSame([['name' => 'Acme Co']], $result['sample_rows']);
     }
 
+    public function test_revise_returns_the_classifiers_confidence(): void
+    {
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $this->conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'extracted_rows' => [['name' => 'Acme Co']],
+        ]);
+
+        $this->mockClassifierToReturn(
+            '{"target_entity":"product","field_mapping":{"name":"name"},"confidence":0.73,"notes":""}',
+        );
+
+        $result = app(SmartImportReviseTool::class)->execute($this->user, [
+            'draft_id' => $draft->id,
+            'instruction' => 'actually these are products',
+        ], $this->conversation);
+
+        $this->assertSame(0.73, $result['confidence']);
+    }
+
     /**
      * Final whole-branch review (important finding): when a draft's
      * extracted rows exceed the target entity's row limit (5000, see
