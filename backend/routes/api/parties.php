@@ -3,6 +3,7 @@
 use App\Http\Controllers\Parties\PartyAccountController;
 use App\Http\Controllers\Parties\PartyBulkActionController;
 use App\Http\Controllers\Parties\PartyBulkEditController;
+use App\Http\Controllers\Parties\PartyCollectionsController;
 use App\Http\Controllers\Parties\PartyController;
 use App\Http\Controllers\Parties\PartyDataTransferController;
 use App\Http\Controllers\Parties\PartyInsightsController;
@@ -86,6 +87,7 @@ Route::middleware([
         ],
     );
 
+    Route::get('parties/{party}/collections', PartyCollectionsController::class)->whereNumber('party');
     Route::get('parties/{party}/settlements', [PartySettlementController::class, 'index'])->whereNumber('party');
     Route::post('parties/{party}/settlements', [PartySettlementController::class, 'store'])->whereNumber('party')->middleware('throttle:20,1');
     foreach (['approve', 'reject', 'reverse'] as $action) {
