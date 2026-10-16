@@ -153,6 +153,17 @@ class UpsertStaffMemberFromImport
 
         $existing = $matchValue !== '' ? $this->findMember($matchBy, $matchValue) : null;
 
+        /*
+         * A row without the chosen identifier (typically no phone) would
+         * otherwise never match and be created again on every re-upload.
+         * Fall back to the work email, then to the same name and start date.
+         */
+        if ($existing === null && $matchValue === '') {
+            $existing = $email !== ''
+                ? $this->findMember('email', $email)
+                : $this->findByNameAndStartDate($name, $startedOn);
+        }
+
         return [
             'name' => $name,
             'basis' => $basis,
@@ -208,6 +219,21 @@ class UpsertStaffMemberFromImport
         }
 
         $matches = $query->limit(2)->get();
+
+        if ($matches->count() > 1) {
+            throw new RuntimeException('More than one employee matched this identifier.');
+        }
+
+        return $matches->first();
+    }
+
+    private function findByNameAndStartDate(string $name, string $startedOn): ?StaffMember
+    {
+        $matches = StaffMember::query()
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+            ->whereDate('started_on', $startedOn)
+            ->limit(2)
+            ->get();
 
         if ($matches->count() > 1) {
             throw new RuntimeException('More than one employee matched this identifier.');

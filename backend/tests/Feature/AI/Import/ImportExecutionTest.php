@@ -165,6 +165,24 @@ class ImportExecutionTest extends TestCase
         $client->postJson("/api/ai/import-drafts/{$draft->id}/rollback")->assertStatus(422);
     }
 
+    public function test_staff_without_a_phone_are_not_duplicated_on_reupload(): void
+    {
+        $staff = app(StaffMemberImportable::class);
+        $rows = collect([
+            ['name' => 'Huda Nasser', 'basis' => 'month', 'rate' => '3000', 'started_on' => '2024-02-01'],
+            ['name' => 'Huda Nasser', 'basis' => 'month', 'rate' => '3000', 'started_on' => '2025-06-01'],
+        ]);
+
+        $this->assertSame(2, $staff->commit($rows)['created']);
+        $this->assertSame(2, $staff->preview($rows)['duplicate_rows']);
+
+        $again = $staff->commit($rows);
+
+        $this->assertSame(0, $again['created']);
+        $this->assertSame(2, $again['skipped']);
+        $this->assertSame(2, StaffMember::query()->count());
+    }
+
     public function test_financial_entities_require_finance_approval_permission(): void
     {
         $this->app->bind(PartyImportable::class, fn () => new class(app(ImportPartiesFromSpreadsheet::class)) extends PartyImportable
