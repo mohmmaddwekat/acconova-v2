@@ -10,16 +10,20 @@ import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import { Head } from '@inertiajs/react';
 import {
+    BarChart3,
     Bot,
     CircleAlert,
+    FileUp,
     ImagePlus,
     LoaderCircle,
     MessageSquare,
     Plus,
+    Receipt,
     Send,
     ShieldCheck,
     Sparkles,
     Trash2,
+    Undo2,
     X,
 } from 'lucide-react';
 import {
@@ -59,6 +63,27 @@ type AiStatus = {
     };
 };
 
+type ImportFile = {
+    name: string;
+    mime: string;
+    dataUrl: string;
+    bytes: number;
+};
+
+const IMPORT_MIME_BY_EXTENSION: Record<string, string> = {
+    csv: 'text/csv',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    xls: 'application/vnd.ms-excel',
+    pdf: 'application/pdf',
+    json: 'application/json',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+};
+
+const IMPORT_MAX_BYTES = 1_000_000;
+
 type ImportDraft = {
     id: number;
     file_name: string;
@@ -88,6 +113,8 @@ export default function AiAssistant() {
     const [error, setError] = useState('');
     const [importDrafts, setImportDrafts] = useState<ImportDraft[]>([]);
     const [rollingBack, setRollingBack] = useState<number | null>(null);
+    const [importFile, setImportFile] = useState<ImportFile | null>(null);
+    const importInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -157,6 +184,9 @@ export default function AiAssistant() {
             if (timer) window.clearInterval(timer);
         };
     }, [activeId, messages.length, sending]);
+
+    const visibleDrafts = importDrafts.filter(item => item.status !== 'cancelled').slice(0, 5);
+    const pendingDraft = importDrafts.find(item => item.status === 'draft' && item.target_entity !== null);
 
     async function rollbackImport(draftId: number): Promise<void> {
         if (! window.confirm(ar
@@ -302,20 +332,66 @@ export default function AiAssistant() {
         }
     }
 
-    async function send(
-        event: FormEvent<HTMLFormElement>,
+    async function chooseImportFile(
+        event: ChangeEvent<HTMLInputElement>,
     ): Promise<void> {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+
+        if (! file) return;
+
+        const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+        const mime = IMPORT_MIME_BY_EXTENSION[extension] ?? '';
+
+        if (! mime) {
+            setError(ar
+                ? 'نوع الملف غير مدعوم. استخدم CSV أو Excel أو PDF أو JSON أو صورة.'
+                : 'Unsupported file type. Use CSV, Excel, PDF, JSON, or an image.');
+            return;
+        }
+
+        if (file.size > IMPORT_MAX_BYTES) {
+            setError(ar
+                ? 'الملف أكبر من 1MB. قسّمه إلى ملفات أصغر.'
+                : 'The file is larger than 1MB. Split it into smaller files.');
+            return;
+        }
+
+        setError('');
+
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+        }).catch(() => '');
+
+        if (! dataUrl) {
+            setError(ar ? 'تعذر قراءة الملف.' : 'Could not read the file.');
+            return;
+        }
+
+        setImportFile({ name: file.name, mime, dataUrl, bytes: file.size });
+    }
+
+    function send(event: FormEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
 
-        const message = draft.trim();
+        return submit();
+    }
+
+    async function submit(override?: string): Promise<void> {
+        const message = (override ?? draft).trim();
         const effectiveMessage = message || (
-            ar
-                ? 'حلل هذه الصورة وساعدني بناءً على ما يظهر فيها.'
-                : 'Analyze this image and help me based on what is visible.'
+            importFile
+                ? (ar ? 'استورد بيانات هذا الملف.' : 'Import the data in this file.')
+                : ar
+                    ? 'حلل هذه الصورة وساعدني بناءً على ما يظهر فيها.'
+                    : 'Analyze this image and help me based on what is visible.'
         );
 
         if (
-            (! message && ! image)
+            (! message && ! image && ! importFile)
             || sending
             || preparingImage
             || ! status?.configured
@@ -357,11 +433,19 @@ export default function AiAssistant() {
                                 mime: image.mime,
                             }
                             : null,
+                        import_file: importFile
+                            ? {
+                                data_url: importFile.dataUrl,
+                                name: importFile.name,
+                                mime: importFile.mime,
+                            }
+                            : null,
                     }),
                 },
             );
 
             setDraft('');
+            setImportFile(null);
             clearImage();
             await refreshConversation(conversationId);
         } catch (failure) {
@@ -490,7 +574,7 @@ export default function AiAssistant() {
                         </div>
                     )}
 
-                    <section className="grid min-h-[660px] overflow-hidden rounded-[26px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)] lg:grid-cols-[300px_minmax(0,1fr)]">
+                    <section className="grid min-h-[660px] overflow-hidden rounded-[26px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)] lg:grid-cols-[250px_minmax(0,1fr)_290px]">
                         <aside className="border-b border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3 lg:border-b-0 lg:border-e">
                             <div className="flex items-center justify-between px-2 py-2">
                                 <div>
@@ -598,48 +682,6 @@ export default function AiAssistant() {
                                 </div>
                             </div>
 
-                            {importDrafts.filter(item => item.status !== 'cancelled').length > 0 && (
-                                <div className="space-y-2 border-b border-[var(--ac-line)] px-4 py-3 sm:px-7">
-                                    {importDrafts
-                                        .filter(item => item.status !== 'cancelled')
-                                        .slice(0, 3)
-                                        .map(item => (
-                                            <div
-                                                key={item.id}
-                                                className="flex flex-wrap items-center justify-between gap-2 text-xs"
-                                            >
-                                                <span className="font-semibold">{item.file_name}</span>
-                                                <span className="text-[var(--ac-muted)]">
-                                                    {item.status === 'committed' && (ar
-                                                        ? `تم: ${item.summary.created ?? 0} جديد، ${item.summary.updated ?? 0} محدّث، ${item.summary.skipped ?? 0} متخطى`
-                                                        : `Done: ${item.summary.created ?? 0} created, ${item.summary.updated ?? 0} updated, ${item.summary.skipped ?? 0} skipped`)}
-                                                    {item.status === 'rolled_back' && (ar ? 'تم التراجع' : 'Rolled back')}
-                                                    {item.status === 'draft' && (item.processed > 0
-                                                        ? `${item.processed} / ${item.rows}`
-                                                        : (ar ? `مسودة (${item.rows} صف)` : `Draft (${item.rows} rows)`))}
-                                                </span>
-                                                {item.status === 'draft' && item.processed > 0 && (
-                                                    <progress
-                                                        className="h-1.5 w-full"
-                                                        max={item.rows}
-                                                        value={item.processed}
-                                                    />
-                                                )}
-                                                {item.status === 'committed' && (
-                                                    <button
-                                                        type="button"
-                                                        className={outlineButton}
-                                                        disabled={rollingBack === item.id}
-                                                        onClick={() => void rollbackImport(item.id)}
-                                                    >
-                                                        {ar ? 'تراجع' : 'Undo import'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
-                                </div>
-                            )}
-
                             <div
                                 ref={scrollRef}
                                 className="flex-1 overflow-y-auto px-4 py-6 sm:px-7"
@@ -659,6 +701,25 @@ export default function AiAssistant() {
                                                 ? 'ارفع صورة فاتورة أو إيصال أو شاشة إذا احتجت. نضغطها تلقائيًا ونستخدم تحليل منخفض التفاصيل مرة واحدة، ثم نحفظ النتيجة النصية فقط للمحادثة.'
                                                 : 'Upload an invoice, receipt, or screenshot when useful. It is compressed automatically, analyzed once at low detail, then only the text observation remains in chat context.'}
                                         </p>
+                                        <div className="mt-6 grid w-full max-w-xl gap-3 sm:grid-cols-3">
+                                            {[
+                                                { icon: FileUp, title: ar ? 'استورد ملف' : 'Import a file', hint: ar ? 'عملاء، منتجات، موظفون' : 'Parties, products, staff', action: () => importInputRef.current?.click() },
+                                                { icon: Receipt, title: ar ? 'الفواتير المتأخرة' : 'Overdue invoices', hint: ar ? 'من الأقدم للأحدث' : 'Oldest first', action: () => void submit(ar ? 'اعرض الفواتير المتأخرة.' : 'Show my overdue invoices.') },
+                                                { icon: BarChart3, title: ar ? 'ملخص المبيعات' : 'Sales summary', hint: ar ? 'هذا الشهر' : 'This month', action: () => void submit(ar ? 'أعطني ملخص المبيعات لهذا الشهر.' : 'Give me the sales summary for this month.') },
+                                            ].map(card => (
+                                                <button
+                                                    key={card.title}
+                                                    type="button"
+                                                    onClick={card.action}
+                                                    disabled={sending || ! status?.configured}
+                                                    className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 text-start transition hover:border-[var(--ac-accent)] hover:shadow-[var(--ac-shadow-soft)] disabled:cursor-not-allowed disabled:opacity-45"
+                                                >
+                                                    <card.icon size={18} className="text-[var(--ac-accent)]" />
+                                                    <p className="mt-2 text-xs font-bold">{card.title}</p>
+                                                    <p className="mt-0.5 text-[10px] text-[var(--ac-text-muted)]">{card.hint}</p>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="mx-auto max-w-3xl space-y-5">
@@ -697,6 +758,31 @@ export default function AiAssistant() {
                                                 </article>
                                             ))}
 
+                                        {pendingDraft && ! sending && (
+                                            <div className="max-w-[92%] rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)]">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="text-xs font-bold">{pendingDraft.file_name}</p>
+                                                    <span className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--ac-accent)]">
+                                                        {ar ? `مسودة · ${pendingDraft.rows} صف` : `Draft · ${pendingDraft.rows} rows`}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
+                                                    {ar ? 'اختر ماذا يحدث للسجلات الموجودة مسبقًا، وسيؤكد المساعد الاستيراد.' : 'Choose what happens to records that already exist; the assistant will confirm the import.'}
+                                                </p>
+                                                <div className="mt-3 flex flex-wrap gap-2">
+                                                    <button type="button" className={outlineButton} onClick={() => void submit(ar ? 'أكّد الاستيراد وتخطَّ السجلات المكررة.' : 'Confirm the import and skip duplicate records.')}>
+                                                        {ar ? 'تخطي المكرر' : 'Skip duplicates'}
+                                                    </button>
+                                                    <button type="button" className={outlineButton} onClick={() => void submit(ar ? 'أكّد الاستيراد وحدّث السجلات المكررة.' : 'Confirm the import and update duplicate records.')}>
+                                                        {ar ? 'تحديث المكرر' : 'Update duplicates'}
+                                                    </button>
+                                                    <button type="button" className={outlineButton} onClick={() => void submit(ar ? 'ألغِ هذا الاستيراد.' : 'Cancel this import.')}>
+                                                        {ar ? 'إلغاء' : 'Cancel'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {sending && (
                                             <div className="flex justify-start">
                                                 <div className="flex items-center gap-2 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-3 text-xs text-[var(--ac-text-muted)]">
@@ -725,6 +811,29 @@ export default function AiAssistant() {
                                     className="hidden"
                                     onChange={event => void chooseImage(event)}
                                 />
+
+                                <input
+                                    ref={importInputRef}
+                                    type="file"
+                                    accept=".csv,.xlsx,.xls,.pdf,.json,image/jpeg,image/png,image/webp"
+                                    className="hidden"
+                                    onChange={event => void chooseImportFile(event)}
+                                />
+
+                                {importFile && (
+                                    <div className="mx-auto mb-2 flex max-w-3xl items-center gap-3 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-2.5">
+                                        <FileUp size={18} className="shrink-0 text-[var(--ac-accent)]" />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-xs font-semibold">{importFile.name}</p>
+                                            <p className="mt-0.5 text-[10px] text-[var(--ac-text-muted)]">
+                                                {Math.max(1, Math.round(importFile.bytes / 1024))} KB · {ar ? 'ستظهر لك معاينة قبل أي حفظ' : 'You will see a preview before anything is saved'}
+                                            </p>
+                                        </div>
+                                        <button type="button" onClick={() => setImportFile(null)} className="flex size-8 shrink-0 items-center justify-center rounded-xl text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-bg-soft)] hover:text-red-400" aria-label={ar ? 'إزالة الملف' : 'Remove file'}>
+                                            <X size={15} />
+                                        </button>
+                                    </div>
+                                )}
 
                                 {image && (
                                     <div className="mx-auto mb-2 flex max-w-3xl items-center gap-3 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-2.5">
@@ -778,6 +887,16 @@ export default function AiAssistant() {
                                         )}
                                     </button>
 
+                                    <button
+                                        type="button"
+                                        onClick={() => importInputRef.current?.click()}
+                                        disabled={sending || Boolean(importFile) || ! status?.configured}
+                                        className="flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-line)] bg-transparent text-[var(--ac-accent)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-35"
+                                        title={ar ? 'استيراد ملف (CSV، Excel، PDF)' : 'Import a file (CSV, Excel, PDF)'}
+                                    >
+                                        <FileUp size={18} />
+                                    </button>
+
                                     <textarea
                                         value={draft}
                                         onChange={event => setDraft(event.target.value)}
@@ -810,7 +929,7 @@ export default function AiAssistant() {
                                         disabled={
                                             sending
                                             || preparingImage
-                                            || (! draft.trim() && ! image)
+                                            || (! draft.trim() && ! image && ! importFile)
                                             || ! status?.configured
                                         }
                                         className="flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-[var(--ac-accent)] bg-transparent text-[var(--ac-accent)] transition hover:bg-[var(--ac-accent-soft)] disabled:cursor-not-allowed disabled:opacity-35"
@@ -834,6 +953,53 @@ export default function AiAssistant() {
                                 </p>
                             </form>
                         </div>
+
+                        <aside className="border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3 lg:border-s lg:border-t-0">
+                            <p className="px-2 py-2 text-xs font-bold">{ar ? 'الاستيراد' : 'Imports'}</p>
+                            <div className="mt-1 space-y-2.5">
+                                {visibleDrafts.length === 0 && (
+                                    <p className="rounded-[14px] border border-dashed border-[var(--ac-line)] px-3 py-6 text-center text-[11px] leading-5 text-[var(--ac-text-muted)]">
+                                        {ar ? 'لا توجد عمليات استيراد في هذه المحادثة. ارفع ملفًا لتبدأ.' : 'No imports in this chat yet. Upload a file to start.'}
+                                    </p>
+                                )}
+                                {visibleDrafts.map(item => (
+                                    <div key={item.id} className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3">
+                                        <p className="truncate text-xs font-bold">{item.file_name}</p>
+                                        <p className="mt-0.5 text-[10px] text-[var(--ac-text-muted)]">
+                                            {item.target_entity ?? (ar ? 'بانتظار التصنيف' : 'Awaiting classification')} · {ar ? `${item.rows} صف` : `${item.rows} rows`}
+                                        </p>
+                                        {item.status === 'draft' && (
+                                            <>
+                                                <progress className="mt-2 h-1.5 w-full" max={item.rows} value={item.processed} />
+                                                <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                                    {item.processed > 0 ? `${item.processed} / ${item.rows}` : (ar ? 'بانتظار موافقتك' : 'Waiting for your approval')}
+                                                </p>
+                                            </>
+                                        )}
+                                        {item.status === 'committed' && (
+                                            <>
+                                                <p className="mt-2 text-[11px]">
+                                                    {ar
+                                                        ? `أنشئ ${item.summary.created ?? 0} · حدّث ${item.summary.updated ?? 0} · تخطى ${item.summary.skipped ?? 0}`
+                                                        : `Created ${item.summary.created ?? 0} · updated ${item.summary.updated ?? 0} · skipped ${item.summary.skipped ?? 0}`}
+                                                </p>
+                                                <button type="button" className={`${outlineButton} mt-2 w-full`} disabled={rollingBack === item.id} onClick={() => void rollbackImport(item.id)}>
+                                                    <Undo2 size={13} />
+                                                    {ar ? 'تراجع عن الاستيراد' : 'Undo import'}
+                                                </button>
+                                            </>
+                                        )}
+                                        {item.status === 'rolled_back' && (
+                                            <p className="mt-2 text-[11px] text-[var(--ac-text-muted)]">
+                                                {ar
+                                                    ? `تم التراجع · أُرشف ${item.rollback?.removed ?? 0} · استُعيد ${item.rollback?.restored ?? 0}`
+                                                    : `Rolled back · archived ${item.rollback?.removed ?? 0} · restored ${item.rollback?.restored ?? 0}`}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </aside>
                     </section>
                 </div>
             </main>
