@@ -8,6 +8,7 @@ use App\Models\AiImportDraft;
 use App\Models\User;
 use App\Services\AI\Contracts\AiWriteTool;
 use App\Services\AI\Import\ImportDestinationCatalog;
+use App\Services\AI\PendingActionGate;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -21,6 +22,7 @@ final class SmartImportRollbackTool implements AiWriteTool
 {
     public function __construct(
         private readonly ImportDestinationCatalog $catalog,
+        private readonly PendingActionGate $gate,
     ) {}
 
     public function name(): string
@@ -31,7 +33,8 @@ final class SmartImportRollbackTool implements AiWriteTool
     public function description(): string
     {
         return 'Undo a committed smart-import draft: archive the records it created and restore '.
-            'the records it updated. Only call this when the user explicitly asks to undo the import.';
+            'the records it updated. Only call this when the user explicitly asks to undo the import. The first call only returns a plan '.
+            '(confirmation_required): show it and wait for the user\'s explicit yes in their next message, then call again with the confirm_token.';
     }
 
     public function inputSchema(): array
@@ -43,6 +46,7 @@ final class SmartImportRollbackTool implements AiWriteTool
                     'type' => 'integer',
                     'description' => 'The id of the committed AiImportDraft to roll back.',
                 ],
+                'confirm_token' => ['type' => 'string', 'description' => 'Token from the plan the user already approved. Omit it on the first call.'],
             ],
             'required' => ['draft_id'],
             'additionalProperties' => false,
@@ -62,7 +66,50 @@ final class SmartImportRollbackTool implements AiWriteTool
     public function execute(User $user, array $arguments, AiConversation $conversation): array
     {
         $draftId = (int) $arguments['draft_id'];
+        $token = trim((string) ($arguments['confirm_token'] ?? ''));
+        $base = ['draft_id' => $draftId];
 
+        if ($token !== '') {
+            return $this->gate->execute($user, $conversation, $this->name(), $base, $token, fn (): array => $this->rollbackApproved($user, $draftId, $conversation));
+        }
+
+        $draft = AiImportDraft::query()
+            ->where('user_id', $user->id)
+            ->where('ai_conversation_id', $conversation->id)
+            ->findOrFail($draftId);
+
+        if ($draft->status !== AiImportDraft::STATUS_COMMITTED) {
+            throw new RuntimeException('Only committed drafts can be rolled back.');
+        }
+
+        $changes = (array) (((array) $draft->commit_summary)['changes'] ?? []);
+        $plan = [
+            'operation' => 'rollback',
+            'draft_id' => $draft->id,
+            'file' => $draft->source_file_name,
+            'entity' => $draft->target_entity,
+            'will_archive' => count((array) ($changes['created'] ?? [])),
+            'will_restore' => count((array) ($changes['updated'] ?? [])),
+        ];
+        $pending = $this->gate->propose($user, $conversation, $this->name(), $base, $plan);
+
+        return [
+            'status' => 'confirmation_required',
+            'message' => 'Nothing was changed yet. Show this plan to the user; only after their explicit yes, call again with the same arguments and this confirm_token.',
+            'plan' => $plan,
+            'confirm_token' => $pending->token,
+            'expires_in_minutes' => PendingActionGate::TTL_MINUTES,
+        ];
+    }
+
+    /**
+     * Performs the rollback. Reached only after the user confirmed: through a
+     * valid confirm token, or from the UI button that asks for confirmation.
+     *
+     * @return array<string, mixed>
+     */
+    public function rollbackApproved(User $user, int $draftId, AiConversation $conversation): array
+    {
         return DB::transaction(function () use ($user, $draftId, $conversation): array {
             $draft = AiImportDraft::query()
                 ->where('user_id', $user->id)
@@ -92,6 +139,7 @@ final class SmartImportRollbackTool implements AiWriteTool
             $draft->save();
 
             return [
+                'status' => 'rolled_back',
                 ...$result,
                 'draft_id' => $draft->id,
                 'audit' => [

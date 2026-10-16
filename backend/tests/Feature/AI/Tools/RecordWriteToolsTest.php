@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Models\WorkspaceRole;
 use App\Services\AI\AiWriteToolRegistry;
+use App\Services\AI\PendingActionGate;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
@@ -52,6 +53,21 @@ class RecordWriteToolsTest extends TestCase
     private function callTool(string $tool, array $arguments, ?User $user = null): array
     {
         return app(AiWriteToolRegistry::class)->execute($user ?? $this->owner, $tool, $arguments, $this->conversation);
+    }
+
+    /**
+     * Runs a sensitive tool the way the assistant must: plan first, then
+     * repeat the call with the token once the user has agreed.
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    private function confirmed(string $tool, array $arguments, ?User $user = null): array
+    {
+        $plan = $this->callTool($tool, $arguments, $user);
+        $this->assertSame('confirmation_required', $plan['status']);
+
+        return $this->callTool($tool, [...$arguments, 'confirm_token' => $plan['confirm_token']], $user);
     }
 
     private function person(string $name, ?string $email = null): array
@@ -141,10 +157,78 @@ class RecordWriteToolsTest extends TestCase
         $created = $this->callTool('party_create', ['fields' => $this->person('Rana Odeh', 'rana@x.test')]);
         $id = $created['record']['id'];
 
-        $this->assertSame('archived', $this->callTool('party_archive', ['record_id' => $id])['status']);
+        $this->assertSame('archived', $this->confirmed('party_archive', ['record_id' => $id])['status']);
         $this->assertSoftDeleted('parties', ['id' => $id]);
 
         $this->assertSame('restored', $this->callTool('party_restore', ['lookup' => 'rana@x.test'])['status']);
+        $this->assertNotSoftDeleted('parties', ['id' => $id]);
+    }
+
+    public function test_archive_shows_a_plan_first_and_changes_nothing_until_confirmed(): void
+    {
+        $id = $this->callTool('party_create', ['fields' => $this->person('Ziad Amer', 'ziad@x.test')])['record']['id'];
+
+        $plan = $this->callTool('party_archive', ['lookup' => 'ziad@x.test']);
+
+        $this->assertSame('confirmation_required', $plan['status']);
+        $this->assertSame([$id], $plan['plan']['target_ids']);
+        $this->assertSame('ziad@x.test', $plan['plan']['targets'][0]['email']);
+        $this->assertNotSoftDeleted('parties', ['id' => $id]);
+        $this->assertDatabaseHas('ai_pending_actions', ['token' => $plan['confirm_token'], 'status' => 'pending']);
+    }
+
+    public function test_a_confirmation_runs_once_and_replays_change_nothing(): void
+    {
+        $id = $this->callTool('party_create', ['fields' => $this->person('Ziad Amer', 'ziad@x.test')])['record']['id'];
+        $arguments = ['record_id' => $id];
+        $plan = $this->callTool('party_archive', $arguments);
+        $withToken = [...$arguments, 'confirm_token' => $plan['confirm_token']];
+
+        $first = $this->callTool('party_archive', $withToken);
+        $this->assertSame('archived', $first['status']);
+        $this->assertSame('party_restore', $first['restore_with']);
+
+        $this->callTool('party_restore', ['record_id' => $id]);
+
+        $replay = $this->callTool('party_archive', $withToken);
+        $this->assertSame('already_executed', $replay['status']);
+        $this->assertNotSoftDeleted('parties', ['id' => $id]);
+        $this->assertDatabaseHas('ai_pending_actions', ['token' => $plan['confirm_token'], 'status' => 'executed']);
+    }
+
+    public function test_a_token_is_rejected_when_it_does_not_match_the_plan(): void
+    {
+        $ids = [];
+
+        foreach (['a', 'b'] as $letter) {
+            $ids[$letter] = $this->callTool('party_create', ['fields' => $this->person("Person {$letter}", "{$letter}@x.test")])['record']['id'];
+        }
+
+        $plan = $this->callTool('party_archive', ['record_id' => $ids['a']]);
+
+        // a different record, a made-up token and another conversation are all refused
+        $other = $this->callTool('party_archive', ['record_id' => $ids['b'], 'confirm_token' => $plan['confirm_token']]);
+        $fake = $this->callTool('party_archive', ['record_id' => $ids['a'], 'confirm_token' => 'nope']);
+        $this->conversation = AiConversation::factory()->for($this->owner)->create();
+        $crossConversation = $this->callTool('party_archive', ['record_id' => $ids['a'], 'confirm_token' => $plan['confirm_token']]);
+
+        foreach ([$other, $fake, $crossConversation] as $result) {
+            $this->assertSame('invalid_token', $result['status']);
+        }
+
+        $this->assertSame(2, Party::query()->count());
+    }
+
+    public function test_an_expired_confirmation_is_refused(): void
+    {
+        $id = $this->callTool('party_create', ['fields' => $this->person('Ziad Amer', 'ziad@x.test')])['record']['id'];
+        $plan = $this->callTool('party_archive', ['record_id' => $id]);
+
+        $this->travel(PendingActionGate::TTL_MINUTES + 1)->minutes();
+
+        $result = $this->callTool('party_archive', ['record_id' => $id, 'confirm_token' => $plan['confirm_token']]);
+
+        $this->assertSame('expired', $result['status']);
         $this->assertNotSoftDeleted('parties', ['id' => $id]);
     }
 
@@ -217,7 +301,7 @@ class RecordWriteToolsTest extends TestCase
         $this->assertSame('updated', $updated['status']);
         $this->assertEquals(150, Product::query()->where('sku', 'CH-1')->value('unit_price'));
 
-        $this->assertSame('archived', $this->callTool('product_archive', ['lookup' => 'CH-1'])['status']);
+        $this->assertSame('archived', $this->confirmed('product_archive', ['lookup' => 'CH-1'])['status']);
         $this->assertSoftDeleted('products', ['sku' => 'CH-1']);
     }
 }

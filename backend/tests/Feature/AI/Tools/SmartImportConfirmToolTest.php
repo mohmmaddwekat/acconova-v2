@@ -141,8 +141,12 @@ class SmartImportConfirmToolTest extends TestCase
         $this->assertSame(1, $confirm($updateDraft, ['duplicate_mode' => 'update'])['updated']);
         $this->assertDatabaseHas('parties', ['name' => 'Acme Renamed']);
 
-        $rollback = app(SmartImportRollbackTool::class)
-            ->execute($this->otherUser, ['draft_id' => $updateDraft->id], $this->otherConversation);
+        $tool = app(SmartImportRollbackTool::class);
+        $plan = $tool->execute($this->otherUser, ['draft_id' => $updateDraft->id], $this->otherConversation);
+        $this->assertSame('confirmation_required', $plan['status']);
+        $this->assertDatabaseHas('parties', ['name' => 'Acme Renamed']);
+
+        $rollback = $tool->execute($this->otherUser, ['draft_id' => $updateDraft->id, 'confirm_token' => $plan['confirm_token']], $this->otherConversation);
 
         $this->assertSame(1, $rollback['restored']);
         $this->assertDatabaseHas('parties', ['name' => 'Acme']);

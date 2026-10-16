@@ -7,6 +7,7 @@ use App\Models\AiConversation;
 use App\Models\User;
 use App\Services\AI\AiActionMatrix;
 use App\Services\AI\Contracts\AiWriteTool;
+use App\Services\AI\PendingActionGate;
 use App\Services\AI\Records\AiRecordEntity;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +32,21 @@ abstract class RecordWriteTool implements AiWriteTool
 {
     abstract protected function entity(): AiRecordEntity;
 
+    protected function gate(): PendingActionGate
+    {
+        return app(PendingActionGate::class);
+    }
+
+    /**
+     * Sensitive operations (the matrix demands user or finance approval) are
+     * planned first and only run when the same call is repeated with the
+     * single-use token after the user has seen the plan and agreed.
+     */
+    protected function requiresConfirmation(): bool
+    {
+        return (AiActionMatrix::forTool($this->name())['approval'] ?? AiActionMatrix::APPROVAL_NONE) !== AiActionMatrix::APPROVAL_NONE;
+    }
+
     /** @return 'create'|'update'|'archive'|'restore' */
     abstract protected function operation(): string;
 
@@ -48,8 +64,9 @@ abstract class RecordWriteTool implements AiWriteTool
                 'If required values are missing, ask the user instead of guessing. A duplicate is reported, never created silently.',
             'update' => "Change fields of one existing {$key} record. Identify it with record_id or an exact lookup; ".
                 'if several match you receive candidates and must ask the user which one.',
-            'archive' => "Archive (soft-delete) one {$key} record; it can be restored. Call only on an explicit request to ".
-                'delete or archive. Never guess the record: if several match, ask the user which one.',
+            'archive' => "Archive (soft-delete) one {$key} record; it can be restored from the Restore Center. Call only on an explicit request to ".
+                'delete or archive. Never guess the record: if several match, ask the user which one. The first call only returns a plan '.
+                '(confirmation_required): show it to the user and wait for their explicit yes in their next message, then call again with the same arguments plus confirm_token.',
             default => "Restore one archived {$key} record. Identify it with record_id or an exact lookup.",
         };
     }
@@ -68,6 +85,7 @@ abstract class RecordWriteTool implements AiWriteTool
         $identify = [
             'record_id' => ['type' => 'integer', 'description' => 'Exact id when known.'],
             'lookup' => ['type' => 'string', 'description' => 'Exact name, email, phone or sku to find the record.'],
+            ...($this->requiresConfirmation() ? ['confirm_token' => ['type' => 'string', 'description' => 'Token from the plan the user already approved. Omit it on the first call.']] : []),
         ];
 
         return match ($this->operation()) {
@@ -114,7 +132,7 @@ abstract class RecordWriteTool implements AiWriteTool
 
         return $this->operation() === 'create'
             ? $this->create($user, $arguments)
-            : $this->changeExisting($user, $arguments);
+            : $this->changeExisting($user, $arguments, $conversation);
     }
 
     /**
@@ -159,22 +177,69 @@ abstract class RecordWriteTool implements AiWriteTool
      * @param  array<string, mixed>  $arguments
      * @return array<string, mixed>
      */
-    private function changeExisting(User $user, array $arguments): array
+    private function changeExisting(User $user, array $arguments, AiConversation $conversation): array
     {
-        $entity = $this->entity();
         $resolved = $this->resolve($arguments);
 
         if (! $resolved instanceof Model) {
             return $resolved;
         }
 
+        if (! $this->requiresConfirmation()) {
+            return $this->apply($user, $resolved, $arguments);
+        }
+
+        $token = trim((string) ($arguments['confirm_token'] ?? ''));
+        $base = $arguments;
+        unset($base['confirm_token']);
+
+        if ($token === '') {
+            $plan = [
+                'operation' => $this->operation(),
+                'entity' => $this->entity()->key(),
+                'target_ids' => [$resolved->getKey()],
+                'targets' => [$this->entity()->snapshot($resolved)],
+            ];
+            $pending = $this->gate()->propose($user, $conversation, $this->name(), $base, $plan);
+
+            return [
+                'status' => 'confirmation_required',
+                'message' => 'Nothing was changed yet. Show this plan to the user; only after their explicit yes, call again with the same arguments and this confirm_token.',
+                'plan' => $plan,
+                'confirm_token' => $pending->token,
+                'expires_in_minutes' => PendingActionGate::TTL_MINUTES,
+            ];
+        }
+
+        return $this->gate()->execute($user, $conversation, $this->name(), $base, $token, function ($action) use ($user, $resolved, $arguments): array {
+            if ((array) ($action->plan['target_ids'] ?? []) !== [$resolved->getKey()]) {
+                return ['status' => 'plan_stale', 'message' => 'The record no longer matches the plan; nothing was changed. Ask for a new plan.'];
+            }
+
+            return $this->apply($user, $resolved, $arguments);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    private function apply(User $user, Model $resolved, array $arguments): array
+    {
+        $entity = $this->entity();
         $before = $entity->snapshot($resolved);
 
         if ($this->operation() === 'archive') {
             $entity->archive($resolved, $user);
             $after = ['id' => $before['id'], 'archived' => true];
 
-            return ['status' => 'archived', 'record' => $entity->label($resolved), 'audit' => ['before' => $before, 'after' => $after]];
+            return [
+                'status' => 'archived',
+                'record' => $entity->label($resolved),
+                'restore_with' => $entity->key().'_restore',
+                'restore_center' => 'The record is in the Restore Center until restored.',
+                'audit' => ['before' => $before, 'after' => $after],
+            ];
         }
 
         if ($this->operation() === 'restore') {

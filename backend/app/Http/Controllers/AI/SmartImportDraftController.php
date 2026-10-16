@@ -61,7 +61,7 @@ class SmartImportDraftController extends Controller
             ->findOrFail($draft);
 
         try {
-            $result = $tool->execute($request->user(), ['draft_id' => $record->id], $record->conversation);
+            $result = $tool->rollbackApproved($request->user(), $record->id, $record->conversation);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }

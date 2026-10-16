@@ -65,6 +65,8 @@ final class AiToolPlanner
                     'Record tools (party_*, product_*) create, change, archive or restore one record: plan them only when the user '.
                     'explicitly asked for that change and gave every required value; if a value is missing or the record is unclear, '.
                     'plan no write call so the assistant can ask a clarifying question. Never plan a permanent delete. '.
+                    'Sensitive tools (archive, rollback) first return confirmation_required with a plan and a confirm_token and change nothing: '.
+                    'plan the second call, with that confirm_token, only after the user explicitly agreed in a later message, never in the same response. '.
                     'Use only the supplied tool catalog. At most '.
                     max(1, (int) config('ai.tools.max_calls', 4)).
                     ' calls. If no business data is needed, return no calls. '.
