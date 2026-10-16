@@ -6,6 +6,7 @@ use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Models\Party;
 use App\Models\PartyOpeningBalance;
+use App\Models\PartySettlement;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -152,6 +153,27 @@ final class PartyBalanceSummary
                     (float) $amount;
             });
         }
+
+        /*
+         * An approved settlement reduces what the Party owes us and what we owe
+         * it by the same agreed amount. Nothing is offset without one.
+         */
+        PartySettlement::query()
+            ->whereIn('party_id', $ids)
+            ->where('status', PartySettlement::STATUS_POSTED)
+            ->whereDate('settlement_date', '<=', $asOf->toDateString())
+            ->get(['party_id', 'amount'])
+            ->each(function (PartySettlement $settlement) use (&$positions, $canSales, $canPurchases): void {
+                $partyId = (int) $settlement->party_id;
+
+                if ($canSales) {
+                    $positions[$partyId]['customer_position'] -= (float) $settlement->amount;
+                }
+
+                if ($canPurchases) {
+                    $positions[$partyId]['supplier_position'] -= (float) $settlement->amount;
+                }
+            });
 
         foreach ($positions as &$position) {
             $customer =

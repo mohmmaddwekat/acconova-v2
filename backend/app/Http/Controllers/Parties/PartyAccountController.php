@@ -8,6 +8,7 @@ use App\Models\FinanceAuditEvent;
 use App\Models\FinancialDocument;
 use App\Models\Party;
 use App\Models\PartyOpeningBalance;
+use App\Models\PartySettlement;
 use App\Services\Finance\FinanceAuthorization;
 use App\Tenancy\TenantContext;
 use Carbon\Carbon;
@@ -375,6 +376,25 @@ class PartyAccountController extends Controller
                 });
         }
 
+        PartySettlement::query()
+            ->where('party_id', $party->id)
+            ->where('status', PartySettlement::STATUS_POSTED)
+            ->whereDate('settlement_date', '<=', $dateTo->toDateString())
+            ->orderBy('settlement_date')
+            ->orderBy('id')
+            ->get()
+            ->each(function (PartySettlement $settlement) use ($entries, $canSales, $canPurchases, $customerCutoff, $supplierCutoff): void {
+                foreach (['customer' => $canSales, 'supplier' => $canPurchases] as $side => $visible) {
+                    $cutoff = $side === 'customer' ? $customerCutoff : $supplierCutoff;
+
+                    if (! $visible || ($cutoff && $settlement->settlement_date->lte($cutoff))) {
+                        continue;
+                    }
+
+                    $entries->push($this->settlementEntry($settlement, $side));
+                }
+            });
+
         $entries =
             $entries
                 ->sortBy(
@@ -605,6 +625,52 @@ class PartyAccountController extends Controller
                 $agingAsOf,
             );
 
+        $sides = [];
+
+        foreach (['customer', 'supplier'] as $side) {
+            $own = $entries->where('side', $side);
+            $inPeriod = fn (array $entry): bool => Carbon::parse($entry['date'])->gte($dateFrom)
+                && Carbon::parse($entry['date'])->lte($dateTo)
+                && ! ($entry['type'] === 'opening_balance' && Carbon::parse($entry['date'])->lte($dateFrom));
+            $before = fn (array $entry): bool => $entry['type'] === 'opening_balance'
+                ? Carbon::parse($entry['date'])->lte($dateFrom)
+                : Carbon::parse($entry['date'])->lt($dateFrom);
+            $effect = fn (array $entry): float => $this->scopeEffect($entry, $side);
+            $sum = fn ($rows): float => (float) $rows->sum($effect);
+            $opening = $sum($own->filter($before));
+            $period = $own->filter($inPeriod);
+            $invoices = $sum($period->where('type', 'invoice'));
+            $payments = $sum($period->where('type', 'cash'));
+            $settlements = $sum($period->where('type', 'settlement'));
+            $closing = $this->positionAt($own, $dateTo, $side);
+
+            $sides[$side] = array_map(
+                fn (float $value): string => number_format($value, 4, '.', ''),
+                [
+                    'opening' => $opening,
+                    'invoices' => $invoices,
+                    'payments' => $payments,
+                    'settlements' => $settlements,
+                    'other' => $closing - $opening - $invoices - $payments - $settlements,
+                    'closing' => $closing,
+                ],
+            );
+        }
+
+        $pendingSettlement = (float) PartySettlement::query()
+            ->where('party_id', $party->id)
+            ->where('status', PartySettlement::STATUS_PENDING)
+            ->sum('amount');
+
+        $reconciliation = [
+            'customer_receivable' => number_format(max($customerPosition, 0), 4, '.', ''),
+            'supplier_payable' => number_format(max($supplierPosition, 0), 4, '.', ''),
+            'net' => number_format($customerPosition - $supplierPosition, 4, '.', ''),
+            'nettable' => number_format(max(min($customerPosition, $supplierPosition) - $pendingSettlement, 0), 4, '.', ''),
+            'pending_settlement' => number_format($pendingSettlement, 4, '.', ''),
+            'auto_netting' => false,
+        ];
+
         return response()->json([
             'party' => [
                 'id' => $party->id,
@@ -697,6 +763,8 @@ class PartyAccountController extends Controller
                     '',
                 ),
             ],
+            'sides' => $sides,
+            'reconciliation' => $reconciliation,
             'opening_balances' => [
                 'customer' => $this->openingPayload(
                     $customerOpening,
@@ -1120,6 +1188,34 @@ class PartyAccountController extends Controller
                     '0',
                     STR_PAD_LEFT,
                 ),
+        ];
+    }
+
+    /**
+     * One side's half of an approved settlement, shown as a payment-like line.
+     *
+     * @return array<string, mixed>
+     */
+    private function settlementEntry(PartySettlement $settlement, string $side): array
+    {
+        $amount = (float) $settlement->amount;
+
+        return [
+            'id' => 'settlement-'.$settlement->id.'-'.$side,
+            'source_id' => $settlement->id,
+            'side' => $side,
+            'type' => 'settlement',
+            'date' => $settlement->settlement_date->format('Y-m-d'),
+            'reference' => $settlement->agreement_reference,
+            'description' => 'Agreed settlement against the '.($side === 'customer' ? 'supplier' : 'customer').' account',
+            'amount' => $settlement->amount,
+            'currency' => $settlement->currency,
+            'effect_customer' => $side === 'customer' ? -$amount : 0.0,
+            'effect_supplier' => $side === 'supplier' ? -$amount : 0.0,
+            'url' => null,
+            'status' => $settlement->status,
+            'method' => 'settlement',
+            'sort_key' => '3-'.str_pad((string) $settlement->id, 12, '0', STR_PAD_LEFT),
         ];
     }
 

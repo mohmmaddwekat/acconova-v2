@@ -13,9 +13,11 @@ use App\Actions\Products\UpdateProduct;
 use App\Actions\Staff\UpsertStaffMemberFromImport;
 use App\Models\AiImportDraft;
 use App\Models\Party;
+use App\Models\PartySettlement;
 use App\Models\Product;
 use App\Models\StaffMember;
 use App\Models\User;
+use App\Services\Parties\PartySettlementService;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
 
 /**
@@ -128,6 +130,9 @@ final class AiActionMatrix
             // Cash & payments
             'cash.receive' => self::planned('cash_payments', 'post', ['finance.cash.receive'], null, null, self::APPROVAL_FINANCE, 'cash.reverse'),
             'cash.pay' => self::planned('cash_payments', 'post', ['finance.cash.pay'], null, null, self::APPROVAL_FINANCE, 'cash.reverse'),
+            // Agreed offset of a dual-role Party's receivable against its payable: never automatic.
+            'settlement.request' => self::planned('cash_payments', 'post', ['finance.sales.manage', 'finance.purchases.manage'], PartySettlementService::class, PartySettlement::class, self::APPROVAL_FINANCE, 'settlement.reverse'),
+            'settlement.reverse' => self::planned('cash_payments', 'reverse', ['finance.approvals.review'], PartySettlementService::class, PartySettlement::class, self::APPROVAL_FINANCE),
             'cash.reverse' => self::planned('cash_payments', 'reverse', ['finance.cash.reverse'], null, null, self::APPROVAL_FINANCE),
         ];
     }

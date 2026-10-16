@@ -7,6 +7,7 @@ use App\Http\Controllers\Parties\PartyController;
 use App\Http\Controllers\Parties\PartyDataTransferController;
 use App\Http\Controllers\Parties\PartyInsightsController;
 use App\Http\Controllers\Parties\PartyPermanentDeletionController;
+use App\Http\Controllers\Parties\PartySettlementController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
@@ -84,6 +85,14 @@ Route::middleware([
             'store',
         ],
     );
+
+    Route::get('parties/{party}/settlements', [PartySettlementController::class, 'index'])->whereNumber('party');
+    Route::post('parties/{party}/settlements', [PartySettlementController::class, 'store'])->whereNumber('party')->middleware('throttle:20,1');
+    foreach (['approve', 'reject', 'reverse'] as $action) {
+        Route::post('parties/{party}/settlements/{settlement}/'.$action, [PartySettlementController::class, $action])
+            ->whereNumber(['party', 'settlement'])
+            ->middleware('throttle:20,1');
+    }
 
     Route::get(
         'parties/{party}/account',
