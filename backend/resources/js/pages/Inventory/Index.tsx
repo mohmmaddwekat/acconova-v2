@@ -1084,10 +1084,13 @@ function InventoryWorkspace() {
                 onSaved={(
                     saved,
                     created,
+                    keptOpen,
                 ) => {
-                    setSelectedWarehouse(
-                        saved,
-                    );
+                    if (! keptOpen) {
+                        setSelectedWarehouse(
+                            saved,
+                        );
+                    }
 
                     showToast(
                         t(

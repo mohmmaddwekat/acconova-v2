@@ -1282,6 +1282,7 @@ function ProductsWorkspace() {
                     }}
                     onSaved={(
                         saved,
+                        keptOpen,
                     ) => {
                         showToast(
                             editingProduct
@@ -1295,12 +1296,14 @@ function ProductsWorkspace() {
                                     : t('ui.catalog_item_created'),
                         );
 
-                        setDetailProduct(
-                            saved,
-                        );
-                        setDetailDrawerOpen(
-                            ! splitView,
-                        );
+                        if (! keptOpen) {
+                            setDetailProduct(
+                                saved,
+                            );
+                            setDetailDrawerOpen(
+                                ! splitView,
+                            );
+                        }
 
                         void loadProducts();
                     }}

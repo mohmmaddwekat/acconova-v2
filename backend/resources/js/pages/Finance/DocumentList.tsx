@@ -22,6 +22,7 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { PaymentDialog } from './PaymentDialog';
 import { FinanceNav } from './FinanceNav';
 import { InvoiceAutomationLibrary } from './InvoiceAutomationLibrary';
 import {
@@ -167,6 +168,11 @@ export function DocumentList({
     ] = useState(true);
 
     const sales = kind === 'sale_invoice';
+    const [paymentOpen, setPaymentOpen] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const canRecordCash = sales
+        ? lookups.permissions.cash_receive
+        : lookups.permissions.cash_pay;
     const canManage = sales
         ? lookups.permissions.sales_manage
         : lookups.permissions.purchases_manage;
@@ -329,6 +335,7 @@ export function DocumentList({
         advancedFilterValues.max_total,
         advancedFilterValues.due_after,
         advancedFilterValues.due_before,
+        refreshKey,
     ]);
 
     const title = sales
@@ -412,6 +419,19 @@ export function DocumentList({
                             <Download size={15} />
                             {text('تصدير', 'Export')}
                         </button>
+
+                        {canRecordCash && (
+                            <button
+                                type="button"
+                                className={financeButton}
+                                onClick={() => setPaymentOpen(true)}
+                            >
+                                <Banknote size={15} />
+                                {sales
+                                    ? text('إضافة مقبوض', 'Add receipt')
+                                    : text('إضافة دفعة', 'Add payment')}
+                            </button>
+                        )}
 
                         {canManage && (
                             <Link
@@ -833,6 +853,16 @@ export function DocumentList({
                     </>
                 )}
             </FPanel>
+
+            {paymentOpen && (
+                <PaymentDialog
+                    direction={sales ? 'incoming' : 'outgoing'}
+                    lookups={lookups}
+                    ar={ar}
+                    onClose={() => setPaymentOpen(false)}
+                    onChanged={() => setRefreshKey((value) => value + 1)}
+                />
+            )}
         </div>
     );
 }

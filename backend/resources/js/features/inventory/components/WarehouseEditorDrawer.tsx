@@ -1,3 +1,4 @@
+import { KeepOpenToggle, SavedNote, useKeepOpenPreference } from '@/components/data/KeepOpenToggle';
 import {
     useDialog,
 } from '@/components/feedback/useDialog';
@@ -44,6 +45,7 @@ type WarehouseEditorDrawerProps = {
     onSaved: (
         warehouse: Warehouse,
         created: boolean,
+        keptOpen?: boolean,
     ) => void;
 };
 
@@ -60,7 +62,9 @@ export function WarehouseEditorDrawer({
     onClose,
     onSaved,
 }: WarehouseEditorDrawerProps) {
-    useLocale();
+    const ar = useLocale() === 'ar';
+    const [keepOpen, setKeepOpen] = useKeepOpenPreference('warehouse');
+    const [savedName, setSavedName] = useState<string | null>(null);
 
     const [
         name,
@@ -189,10 +193,21 @@ export function WarehouseEditorDrawer({
                           payload,
                       );
 
+            const keepForMore = ! warehouse && keepOpen;
+
             onSaved(
                 saved,
                 ! warehouse,
+                keepForMore,
             );
+
+            if (keepForMore) {
+                setSavedName(saved.name);
+                setName('');
+                setErrors({});
+
+                return;
+            }
 
             onClose();
         } catch (
@@ -416,6 +431,12 @@ export function WarehouseEditorDrawer({
                             </div>
                         )}
 
+                        {savedName && ! error && (
+                            <div className="mt-5">
+                                <SavedNote name={savedName} ar={ar} />
+                            </div>
+                        )}
+
                         {error && (
                             <div className="mt-5 rounded-[15px] border border-[var(--ac-danger)]/15 bg-[var(--ac-danger)]/5 px-4 py-3 text-sm text-[var(--ac-danger)]">
                                 {
@@ -426,6 +447,12 @@ export function WarehouseEditorDrawer({
                     </div>
 
                     <footer className="grid shrink-0 grid-cols-2 gap-2 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 sm:px-6">
+                        {! warehouse && (
+                            <div className="col-span-2">
+                                <KeepOpenToggle checked={keepOpen} onChange={setKeepOpen} ar={ar} disabled={busy} />
+                            </div>
+                        )}
+
                         <button
                             type="button"
                             disabled={

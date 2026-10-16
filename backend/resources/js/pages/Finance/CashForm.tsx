@@ -58,11 +58,19 @@ export function CashForm({
     lookups,
     ar,
     initial,
+    embedded = false,
+    defaultPartyId = null,
+    onSaved,
 }: {
     direction: 'incoming' | 'outgoing';
     lookups: FinanceLookups;
     ar: boolean;
     initial?: CashDetail | null;
+    /** Rendered inside a dialog: no page navigation, no URL prefill. */
+    embedded?: boolean;
+    defaultPartyId?: number | null;
+    /** Called after a successful save instead of leaving the page. */
+    onSaved?: (movement: CashDetail, posted: boolean) => void;
 }) {
     const text = (arabic: string, english: string): string =>
         ar ? arabic : english;
@@ -94,7 +102,11 @@ export function CashForm({
     ].filter(Boolean).join(' · ');
 
     const [partyId, setPartyId] = useState(
-        initial?.party_id ? String(initial.party_id) : '',
+        initial?.party_id
+            ? String(initial.party_id)
+            : defaultPartyId
+                ? String(defaultPartyId)
+                : '',
     );
     const [governmentObligationId, setGovernmentObligationId] = useState(
         initial?.government_obligation_id
@@ -147,6 +159,7 @@ export function CashForm({
 
     const localDraftKey =
         'acconova:draft:cash:'
+        + (embedded ? 'dialog:' : '')
         + direction
         + ':'
         + String(
@@ -226,7 +239,7 @@ export function CashForm({
     ) ?? null;
 
     useEffect(() => {
-        if (prefilled || initial) {
+        if (prefilled || initial || embedded) {
             return;
         }
 
@@ -812,6 +825,12 @@ export function CashForm({
                 localDraftKey,
             );
 
+            if (onSaved) {
+                onSaved(movement, post);
+
+                return;
+            }
+
             window.location.assign(
                 incoming
                     ? '/app/receipts/' + movement.id
@@ -893,13 +912,15 @@ export function CashForm({
                 }
                 actions={
                     <>
-                        <Link
-                            href={incoming ? '/app/receipts' : '/app/payments'}
-                            className={financeButton}
-                        >
-                            <ArrowLeft size={15} className="rtl:rotate-180" />
-                            {text('رجوع', 'Back')}
-                        </Link>
+                        {! embedded && (
+                            <Link
+                                href={incoming ? '/app/receipts' : '/app/payments'}
+                                className={financeButton}
+                            >
+                                <ArrowLeft size={15} className="rtl:rotate-180" />
+                                {text('رجوع', 'Back')}
+                            </Link>
+                        )}
 
                         <button
                             type="button"

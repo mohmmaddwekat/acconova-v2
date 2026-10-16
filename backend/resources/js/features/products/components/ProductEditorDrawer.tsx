@@ -1,3 +1,4 @@
+import { KeepOpenToggle, SavedNote, useKeepOpenPreference } from '@/components/data/KeepOpenToggle';
 import {
     useDialog,
 } from '@/components/feedback/useDialog';
@@ -60,6 +61,7 @@ type ProductEditorDrawerProps = {
 
     onSaved: (
         product: Product,
+        keptOpen?: boolean,
     ) => void;
 };
 
@@ -306,6 +308,8 @@ export function ProductEditorDrawer({
     onSaved,
 }: ProductEditorDrawerProps) {
     const ar = useLocale() === 'ar';
+    const [keepOpen, setKeepOpen] = useKeepOpenPreference('product');
+    const [savedName, setSavedName] = useState<string | null>(null);
 
     const formRef =
         useRef<HTMLFormElement | null>(
@@ -647,9 +651,21 @@ export function ProductEditorDrawer({
                           payload,
                       );
 
+            const keepForMore = ! product && ! copyFrom && keepOpen;
+
             onSaved(
                 saved,
+                keepForMore,
             );
+
+            if (keepForMore) {
+                setSavedName(saved.name);
+                setForm(emptyForm());
+                setErrors({});
+                window.setTimeout(() => formRef.current?.querySelector<HTMLElement>('input, select, textarea')?.focus(), 0);
+
+                return;
+            }
 
             onClose();
         } catch (
@@ -1234,6 +1250,12 @@ export function ProductEditorDrawer({
                             </Field>
                         </div>
 
+                        {savedName && ! error && (
+                            <div className="mt-5">
+                                <SavedNote name={savedName} ar={ar} />
+                            </div>
+                        )}
+
                         {error && (
                             <div
                                 role="alert"
@@ -1247,6 +1269,12 @@ export function ProductEditorDrawer({
                     </div>
 
                     <footer className="grid shrink-0 grid-cols-2 gap-2 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 sm:px-6">
+                        {! product && ! copyFrom && (
+                            <div className="col-span-2">
+                                <KeepOpenToggle checked={keepOpen} onChange={setKeepOpen} ar={ar} disabled={busy} />
+                            </div>
+                        )}
+
                         <button
                             type="button"
                             disabled={

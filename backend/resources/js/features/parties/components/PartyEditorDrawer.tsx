@@ -1,3 +1,4 @@
+import { KeepOpenToggle, SavedNote, useKeepOpenPreference } from '@/components/data/KeepOpenToggle';
 import {
     useDialog,
 } from '@/components/feedback/useDialog';
@@ -235,6 +236,8 @@ export function PartyEditorDrawer({
     onSaved,
 }: PartyEditorDrawerProps) {
     const ar = useLocale() === 'ar';
+    const [keepOpen, setKeepOpen] = useKeepOpenPreference('party');
+    const [savedName, setSavedName] = useState<string | null>(null);
 
     const formRef =
         useRef<HTMLFormElement | null>(
@@ -543,6 +546,8 @@ export function PartyEditorDrawer({
             null,
         );
 
+        setSavedName(null);
+
         try {
             const payload =
                 payloadFromForm(
@@ -563,6 +568,15 @@ export function PartyEditorDrawer({
             }
 
             onSaved();
+
+            if (! party && keepOpen) {
+                setSavedName(form.displayName);
+                setForm(formFromParty(null));
+                setErrors({});
+                window.setTimeout(() => formRef.current?.querySelector<HTMLElement>('input, select, textarea')?.focus(), 0);
+
+                return;
+            }
 
             onClose();
         } catch (
@@ -1203,6 +1217,12 @@ export function PartyEditorDrawer({
                             </div>
                         )}
 
+                        {savedName && ! message && (
+                            <div className="mt-6">
+                                <SavedNote name={savedName} ar={ar} />
+                            </div>
+                        )}
+
                         {message && (
                             <div
                                 role="alert"
@@ -1222,6 +1242,10 @@ export function PartyEditorDrawer({
                                     'ui.stored_inside_the_active_workspace',
                                 )}
                             </p>
+
+                            {! party && (
+                                <KeepOpenToggle checked={keepOpen} onChange={setKeepOpen} ar={ar} disabled={busy} />
+                            )}
 
                             <div className="flex w-full gap-2 sm:w-auto">
                                 <button
