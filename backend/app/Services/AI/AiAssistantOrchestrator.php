@@ -42,6 +42,8 @@ final class AiAssistantOrchestrator
         );
 
         $results = [];
+        $pendingPlans = [];
+        $toolResults = [];
         $usedTools = [];
         $toolUsage = ['input_tokens' => 0, 'output_tokens' => 0, 'total_tokens' => 0];
 
@@ -92,7 +94,16 @@ final class AiAssistantOrchestrator
                     'ok' => true,
                     'data' => $result,
                 ];
+                $toolResults[] = ['tool' => $name, 'ok' => true, 'status' => $result['status'] ?? null];
                 $usedTools[] = $name;
+
+                if ($registry === $this->writeTools && ($result['status'] ?? null) === 'confirmation_required' && isset($result['confirm_token'])) {
+                    $pendingPlans[] = [
+                        'tool' => $name,
+                        'arguments' => array_diff_key($arguments, ['confirm_token' => true]),
+                        'confirm_token' => $result['confirm_token'],
+                    ];
+                }
 
                 $this->recordRun(
                     $conversation,
@@ -113,6 +124,7 @@ final class AiAssistantOrchestrator
                     'ok' => false,
                     'error' => 'The tool could not return data.',
                 ];
+                $toolResults[] = ['tool' => $name, 'ok' => false, 'status' => 'failed'];
 
                 $this->recordRun(
                     $conversation,
@@ -201,6 +213,18 @@ final class AiAssistantOrchestrator
                     $usedTools,
                 ),
             );
+        $answer['tool_results'] = $toolResults;
+
+        /*
+         * A plan that awaits the user's yes must survive into the next turn:
+         * tool results are not part of the stored conversation, so the plan and
+         * its single-use token ride along as a hidden block the page strips.
+         */
+        foreach ($pendingPlans as $plan) {
+            $answer['content'] = '[[ACCONOVA_PENDING_V1]]'
+                .json_encode($plan, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)
+                ."[[/ACCONOVA_PENDING_V1]]\n\n".$answer['content'];
+        }
 
         return $answer;
     }

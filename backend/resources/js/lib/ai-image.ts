@@ -9,8 +9,10 @@ export type AiPreparedImage = {
 
 const imageContextPattern = /\n?\n?\[\[ACCONOVA_IMAGE_ANALYSIS_V1\]\][\s\S]*?\[\[\/ACCONOVA_IMAGE_ANALYSIS_V1\]\]/g;
 
+const pendingPlanPattern = /\[\[ACCONOVA_PENDING_V1\]\][\s\S]*?\[\[\/ACCONOVA_PENDING_V1\]\]\s*/g;
+
 export function visibleAiMessageContent(content: string): string {
-    return content.replace(imageContextPattern, '').trim();
+    return content.replace(pendingPlanPattern, '').replace(imageContextPattern, '').trim();
 }
 
 export function aiMessageHasImage(content: string): boolean {

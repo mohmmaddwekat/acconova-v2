@@ -266,4 +266,28 @@ class AiSecurityScenariosTest extends TestCase
 
         app(AiWriteToolRegistry::class)->execute($this->owner, 'party_force_delete', ['record_id' => 1], $this->conversation);
     }
+
+    public function test_a_plan_awaiting_the_users_yes_travels_to_the_next_turn_and_stays_hidden_from_the_page(): void
+    {
+        $party = $this->newParty('Nada Rizk', 'nada@x.test');
+        $first = $this->turn('archive Nada', json_encode(['calls' => [['name' => 'party_archive', 'arguments' => ['record_id' => $party->id]]]]));
+
+        $token = AiPendingAction::query()->latest('id')->value('token');
+        $this->assertStringStartsWith('[[ACCONOVA_PENDING_V1]]', $first['content']);
+        $this->assertStringContainsString($token, $first['content']);
+        $this->assertSame([['tool' => 'party_archive', 'ok' => true, 'status' => 'confirmation_required']], $first['tool_results']);
+
+        $this->modelReplies = ['{"calls":[]}', 'Done.'];
+        app(AiAssistantOrchestrator::class)->chat($this->conversation, $this->owner, [
+            ['role' => 'assistant', 'content' => $first['content']],
+            ['role' => 'user', 'content' => 'yes, go ahead'],
+        ]);
+
+        Http::assertSent(function ($request) use ($token): bool {
+            $messages = (array) $request['messages'];
+
+            return str_contains((string) ($messages[0]['content'] ?? ''), 'ACCONOVA_PENDING_V1')
+                && str_contains((string) ($messages[1]['content'] ?? ''), $token);
+        });
+    }
 }
