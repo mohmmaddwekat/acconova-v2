@@ -85,10 +85,13 @@ class StaffAttendanceEntitlementRepairService
                 && Decimal::toUnits($quantity) > 0
                 && Decimal::toUnits($rate) > 0
             ) {
-                $amountUnits = intdiv(
-                    Decimal::toUnits($quantity) * Decimal::toUnits($rate) + 5000,
-                    10000,
-                );
+                $typedUnits = Decimal::toUnits((string) ($row->day_amount_override ?? '0'));
+                $amountUnits = $typedUnits > 0
+                    ? $typedUnits
+                    : intdiv(
+                        Decimal::toUnits($quantity) * Decimal::toUnits($rate) + 5000,
+                        10000,
+                    );
 
                 $entryTerms = $workEntry && is_array($workEntry->terms)
                     ? $workEntry->terms
@@ -199,7 +202,7 @@ class StaffAttendanceEntitlementRepairService
     }
 
     /**
-     * @param Collection<int, StaffEntry> $history
+     * @param  Collection<int, StaffEntry>  $history
      * @return array<string, mixed>
      */
     private function termsAt(

@@ -22,12 +22,14 @@ export function PaymentDialog({
     direction,
     lookups,
     ar,
+    defaultPartyId = null,
     onClose,
     onChanged,
 }: {
     direction: 'incoming' | 'outgoing';
     lookups: FinanceLookups;
     ar: boolean;
+    defaultPartyId?: number | null;
     onClose: () => void;
     onChanged: () => void;
 }) {
@@ -133,6 +135,7 @@ export function PaymentDialog({
                     lookups={lookups}
                     ar={ar}
                     embedded
+                    defaultPartyId={defaultPartyId}
                     onSaved={handleSaved}
                 />
             </section>

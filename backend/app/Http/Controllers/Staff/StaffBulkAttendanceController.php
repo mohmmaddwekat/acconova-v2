@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\StaffMember;
 use App\Services\Staff\StaffBulkAttendanceService;
+use App\Services\Staff\StaffMonthlyEntitlementService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -70,8 +71,11 @@ class StaffBulkAttendanceController extends Controller
             $departments->whereIn('id', StaffController::managedDepartmentIds());
         }
 
+        $day = CarbonImmutable::parse($date);
+        $workDays = app(StaffMonthlyEntitlementService::class)->expectedWorkDays($day->startOfMonth(), $day->endOfMonth());
+
         $rows = collect($paginator->items())
-            ->map(function (StaffMember $member) use ($attendance): array {
+            ->map(function (StaffMember $member) use ($attendance, $workDays): array {
                 $row = $attendance->get($member->id);
 
                 return [
@@ -91,8 +95,10 @@ class StaffBulkAttendanceController extends Controller
                             'overtime_rate' => (string) $row->overtime_rate,
                             'notes' => $row->notes,
                             'deduction_override' => $row->deduction_override,
+                            'day_amount_override' => $row->day_amount_override,
                         ]
                         : null,
+                    'auto_day_amount' => $this->autoDayAmount($member, $workDays),
                 ];
             })
             ->values();
@@ -145,6 +151,7 @@ class StaffBulkAttendanceController extends Controller
             'overrides.*.overtime_rate' => ['nullable', 'numeric', 'min:0', 'max:999999', 'regex:/^\d+(\.\d{1,4})?$/'],
             'overrides.*.notes' => ['nullable', 'string', 'max:2000'],
             'overrides.*.deduction_override' => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            'overrides.*.day_amount_override' => ['nullable', 'numeric', 'gt:0', 'max:999999999', 'regex:/^\d+(\.\d{1,4})?$/'],
             'search' => ['nullable', 'string', 'max:100'],
             'department_id' => ['nullable', 'integer'],
             'cursor' => ['nullable', 'integer', 'min:0'],
@@ -269,6 +276,20 @@ class StaffBulkAttendanceController extends Controller
      *
      * @param  array<string, mixed>  $filters
      */
+    /**
+     * What one present day earns without a typed amount: a monthly salary
+     * shared over the working days, or the day rate. Hourly staff depend on
+     * the hours typed, so the screen works that out itself.
+     */
+    private function autoDayAmount(StaffMember $member, int $workDays): ?string
+    {
+        return match ((string) $member->basis) {
+            'month' => $workDays > 0 ? number_format((float) $member->rate / $workDays, 2, '.', '') : null,
+            'day' => number_format((float) $member->rate, 2, '.', ''),
+            default => null,
+        };
+    }
+
     private function attendanceScope(
         Request $request,
         string $date,

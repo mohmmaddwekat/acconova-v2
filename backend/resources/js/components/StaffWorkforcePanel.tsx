@@ -27,6 +27,7 @@ type AttendanceRow = {
     overtime_rate: string;
     notes: string | null;
     deduction_override: string | null;
+    day_amount_override?: string | null;
     earned?: string;
     earned_kind?: 'attendance' | 'monthly_share';
 };
@@ -161,6 +162,8 @@ export function StaffWorkforcePanel({
               note: 'ملاحظة',
               deductionOverride: 'خصم الغياب (اختياري)',
               deductionOverridePlaceholder: 'تلقائي',
+              dayAmount: 'مبلغ اليوم (اختياري)',
+              dayAmountPlaceholder: 'فارغ = يُحسب تلقائياً من الراتب',
               saveAttendance: 'تسجيل الحضور',
               history: 'سجل الحضور',
               search: 'بحث بالتاريخ أو الملاحظة…',
@@ -216,6 +219,8 @@ export function StaffWorkforcePanel({
               note: 'Note',
               deductionOverride: 'Absence deduction (optional)',
               deductionOverridePlaceholder: 'Auto',
+              dayAmount: 'Day amount (optional)',
+              dayAmountPlaceholder: 'Empty = calculated from the salary',
               saveAttendance: 'Record attendance',
               history: 'Attendance history',
               search: 'Search date or note…',
@@ -349,6 +354,7 @@ export function StaffWorkforcePanel({
             overtime_hours: values.overtime_hours || '0',
             overtime_rate: values.overtime_rate || '0',
             deduction_override: status === 'absent' ? (values.deduction_override || null) : null,
+            day_amount_override: status === 'present' ? (values.day_amount_override || null) : null,
         });
 
         if (success) {
@@ -390,6 +396,7 @@ export function StaffWorkforcePanel({
                     overtime_rate: values.overtime_rate || '0',
                     notes: values.notes || null,
                     deduction_override: values.status === 'absent' ? (values.deduction_override || null) : null,
+                    day_amount_override: values.status === 'present' ? (values.day_amount_override || null) : null,
                 };
             }
         } else {
@@ -473,6 +480,13 @@ export function StaffWorkforcePanel({
                                             <input type="number" min="0" max="999999" step="0.0001" name="overtime_rate" defaultValue="0" className={field} />
                                         </label>
                                     </>
+                                )}
+
+                                {status === 'present' && (
+                                    <label className="text-xs font-semibold">
+                                        {copy.dayAmount} ({currency})
+                                        <input type="number" min="0" max="999999999" step="0.01" name="day_amount_override" placeholder={copy.dayAmountPlaceholder} className={field} />
+                                    </label>
                                 )}
 
                                 {status === 'absent' && basis === 'month' && (
@@ -804,6 +818,10 @@ function CorrectionDialog({
                         <label className="block text-xs font-semibold">
                             {copy.note}
                             <textarea name="notes" rows={2} defaultValue={correction.row.notes ?? ''} className={`${field} resize-none`} />
+                        </label>
+                        <label className="block text-xs font-semibold">
+                            {copy.dayAmount} ({currency})
+                            <input type="number" min="0" max="999999999" step="0.01" name="day_amount_override" placeholder={copy.dayAmountPlaceholder} defaultValue={correction.row.day_amount_override ?? ''} className={field} />
                         </label>
                         {basis === 'month' && (
                             <label className="block text-xs font-semibold">

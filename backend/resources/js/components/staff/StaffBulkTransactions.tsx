@@ -50,11 +50,29 @@ function localDate(): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function errorText(error: unknown): string {
+function fieldLabel(key: string, ar: boolean): string {
+    if (key.startsWith('rows.') && key.endsWith('.amount')) {
+        return ar ? 'المبلغ' : 'Amount';
+    }
+
+    const labels: Record<string, [string, string]> = {
+        occurred_on: ['التاريخ', 'Date'],
+        kind: ['نوع العملية', 'Operation type'],
+        notes: ['الملاحظة', 'Note'],
+        rows: ['المبالغ', 'Amounts'],
+    };
+    const pair = labels[key];
+
+    return pair ? (ar ? pair[0] : pair[1]) : key;
+}
+
+/** Name the field behind every server message so "this field is required" is never anonymous. */
+function errorText(error: unknown, ar = false): string {
     if (error instanceof ApiError) {
-        return [error.message, ...Object.values(error.errors).flat()]
-            .filter(Boolean)
-            .join(' ');
+        const details = Object.entries(error.errors)
+            .map(([key, messages]) => fieldLabel(key, ar) + ': ' + messages.join(' '));
+
+        return [error.message, ...details].filter(Boolean).join(' ');
     }
 
     return error instanceof Error ? error.message : 'Failed';
@@ -125,7 +143,7 @@ export function StaffBulkTransactions() {
                 });
             })
             .catch((failure: unknown) => {
-                if (!controller.signal.aborted) setError(errorText(failure));
+                if (!controller.signal.aborted) setError(errorText(failure, ar));
             })
             .finally(() => {
                 if (!controller.signal.aborted) setLoading(false);
@@ -180,6 +198,15 @@ export function StaffBulkTransactions() {
     async function save(): Promise<void> {
         if (!filled.length || saving) return;
 
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > localDate()) {
+            setError(
+                ar
+                    ? 'التاريخ غير صالح: اختر تاريخاً موجوداً في التقويم وليس في المستقبل.'
+                    : 'The date is not valid: pick a real calendar date that is not in the future.',
+            );
+            return;
+        }
+
         if (filled.length > 100) {
             setError(ar ? 'الحد الأقصى 100 موظف في العملية الواحدة.' : 'You can save at most 100 employees at once.');
             return;
@@ -225,7 +252,7 @@ export function StaffBulkTransactions() {
             setRevision((value) => value + 1);
             window.dispatchEvent(new Event('staff:transaction-saved'));
         } catch (failure) {
-            setError(errorText(failure));
+            setError(errorText(failure, ar));
         } finally {
             setSaving(false);
         }
@@ -264,7 +291,7 @@ export function StaffBulkTransactions() {
                     </label>
                     <label className="text-[10px] font-semibold">
                         {ar ? 'التاريخ' : 'Date'}
-                        <input type="date" value={date} max={localDate()} onChange={(event) => setDate(event.target.value)} className={`${field} mt-1`} />
+                        <input type="date" value={date} max={localDate()} aria-invalid={date === ''} onChange={(event) => setDate(event.target.value)} className={`${field} mt-1 ${date === '' ? '!border-red-400' : ''}`} />
                     </label>
                     <label className="text-[10px] font-semibold xl:col-span-2">
                         {ar ? 'ملاحظة للجميع (اختياري)' : 'Note for all (optional)'}

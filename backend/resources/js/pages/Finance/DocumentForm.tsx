@@ -1,3 +1,4 @@
+import { KeepOpenToggle, SavedNote, useKeepOpenPreference } from '@/components/data/KeepOpenToggle';
 import { apiRequest } from '@/lib/http';
 import {
     useGlobalSave,
@@ -17,6 +18,7 @@ import {
     ChevronDown,
     FileText,
     History,
+    Banknote,
     Package,
     Plus,
     Save,
@@ -30,6 +32,7 @@ import {
     useRef,
     useState,
 } from 'react';
+import { PaymentDialog } from './PaymentDialog';
 import {
     FPanel,
     FinanceHeader,
@@ -422,6 +425,19 @@ function TaxSnapshotEditor({
     );
 }
 
+/** A one-time note left by the previous save, so a kept-open form can confirm it. */
+function takeSavedNote(kind: string): string | null {
+    try {
+        const key = 'acconova:invoice-saved:' + kind;
+        const value = sessionStorage.getItem(key);
+        sessionStorage.removeItem(key);
+
+        return value;
+    } catch {
+        return null;
+    }
+}
+
 export function DocumentForm({
     kind,
     lookups,
@@ -679,6 +695,11 @@ export function DocumentForm({
     ] = useState(
         false,
     );
+
+    const [keepOpen, setKeepOpen] = useKeepOpenPreference('invoice-' + kind);
+    const [savedNote] = useState<string | null>(() => takeSavedNote(kind));
+    const [paymentOpen, setPaymentOpen] = useState(false);
+    const afterPayment = useRef<(() => void) | null>(null);
 
     const [
         error,
@@ -2118,6 +2139,7 @@ export function DocumentForm({
 
     async function save(
         issue: boolean,
+        thenPay = false,
     ): Promise<void> {
         if (
             busy
@@ -2368,13 +2390,38 @@ export function DocumentForm({
                 localDraftKey,
             );
 
-            window.location.assign(
-                sales
-                    ? '/app/invoices/sales/'
-                        + document.id
-                    : '/app/invoices/purchases/'
-                        + document.id,
-            );
+            const saved = document;
+            const finish = (): void => {
+                if (! initial?.id && keepOpen) {
+                    try {
+                        sessionStorage.setItem(
+                            'acconova:invoice-saved:' + kind,
+                            saved.number ?? ('#' + String(saved.id)),
+                        );
+                    } catch {
+                        // The form still resets; only the confirmation note is lost.
+                    }
+
+                    window.location.assign(window.location.pathname);
+
+                    return;
+                }
+
+                window.location.assign(
+                    sales
+                        ? '/app/invoices/sales/' + saved.id
+                        : '/app/invoices/purchases/' + saved.id,
+                );
+            };
+
+            if (thenPay && issue) {
+                afterPayment.current = finish;
+                setPaymentOpen(true);
+
+                return;
+            }
+
+            finish();
         } catch (
             failure
         ) {
@@ -2585,6 +2632,18 @@ export function DocumentForm({
 
                         <button
                             type="button"
+                            className={financeButton}
+                            disabled={busy || ! canManage}
+                            onClick={() => void save(true, true)}
+                        >
+                            <Banknote size={15} />
+                            {sales
+                                ? text('إصدار وتسجيل مقبوض', 'Issue and record receipt')
+                                : text('إصدار وتسجيل دفعة', 'Issue and record payment')}
+                        </button>
+
+                        <button
+                            type="button"
                             className={
                                 financePrimary
                             }
@@ -2627,6 +2686,26 @@ export function DocumentForm({
                     'Fields marked * are required. Other fields are optional unless a payment or inventory condition says otherwise.',
                 )}
             </div>
+
+            {savedNote && <SavedNote name={savedNote} ar={ar} />}
+
+            {! initial?.id && (
+                <KeepOpenToggle checked={keepOpen} onChange={setKeepOpen} ar={ar} />
+            )}
+
+            {paymentOpen && (
+                <PaymentDialog
+                    direction={sales ? 'incoming' : 'outgoing'}
+                    lookups={lookups}
+                    ar={ar}
+                    defaultPartyId={partyId ? Number(partyId) : null}
+                    onChanged={() => undefined}
+                    onClose={() => {
+                        setPaymentOpen(false);
+                        afterPayment.current?.();
+                    }}
+                />
+            )}
 
             {initial?.correction_reason && (
                 <div className="rounded-[14px] border border-violet-400/30 bg-violet-500/10 p-4 text-sm text-violet-200">
@@ -3100,59 +3179,6 @@ export function DocumentForm({
 
                     <FPanel
                         title={text(
-                            'بيانات الفاتورة الضريبية',
-                            'Tax invoice details',
-                        )}
-                        icon={FileText}
-                    >
-                        <div className="p-4">
-                            <div className="mb-4 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] px-4 py-3 text-[10px] leading-5 text-[var(--ac-text-soft)]">
-                                {text(
-                                    'تُعبّأ بيانات البائع والمشتري تلقائياً من إعدادات الشركة والعميل، ويمكن تعديل نسخة هذه الفاتورة قبل الإصدار. عند الإصدار تُحفظ هذه البيانات كلقطة ثابتة مع الفاتورة.',
-                                    'Seller and buyer details are prefilled from workspace and customer data. You can edit this invoice copy before issue; issuing freezes these details as an invoice snapshot.',
-                                )}
-                            </div>
-
-                            <div className="grid gap-4 xl:grid-cols-2">
-                                <TaxSnapshotEditor
-                                    title={
-                                        sales
-                                            ? text(
-                                                'بيانات البائع — شركتك',
-                                                'Seller — your company',
-                                            )
-                                            : text(
-                                                'بيانات البائع — المورد',
-                                                'Seller — supplier',
-                                            )
-                                    }
-                                    value={sellerTax}
-                                    onChange={setSellerTax}
-                                    ar={ar}
-                                />
-
-                                <TaxSnapshotEditor
-                                    title={
-                                        sales
-                                            ? text(
-                                                'بيانات المشتري — العميل',
-                                                'Buyer — customer',
-                                            )
-                                            : text(
-                                                'بيانات المشتري — شركتك',
-                                                'Buyer — your company',
-                                            )
-                                    }
-                                    value={buyerTax}
-                                    onChange={setBuyerTax}
-                                    ar={ar}
-                                />
-                            </div>
-                        </div>
-                    </FPanel>
-
-                    <FPanel
-                        title={text(
                             'بنود الفاتورة',
                             'Invoice lines',
                         )}
@@ -3514,7 +3540,7 @@ export function DocumentForm({
                                                                                         'The product catalog selling price was applied automatically.',
                                                                                     )
                                                                                     : (
-                                                                                        product.cost_price
+                                                                                        lookups.products.find((item) => item.id === line.product_id)?.cost_price
                                                                                             ? text(
                                                                                                 'تم تطبيق تكلفة الشراء المحفوظة في بطاقة المنتج تلقائياً.',
                                                                                                 'The product catalog purchase cost was applied automatically.',

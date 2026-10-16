@@ -174,10 +174,13 @@ class StaffMonthlyEntitlementService
                 && Decimal::toUnits($rate) > 0
             ) {
                 if (! $workEntry) {
-                    $amountUnits = intdiv(
-                        Decimal::toUnits($quantity) * Decimal::toUnits($rate) + 5000,
-                        10000,
-                    );
+                    $typedUnits = Decimal::toUnits((string) ($row->day_amount_override ?? '0'));
+                    $amountUnits = $typedUnits > 0
+                        ? $typedUnits
+                        : intdiv(
+                            Decimal::toUnits($quantity) * Decimal::toUnits($rate) + 5000,
+                            10000,
+                        );
 
                     StaffEntry::create([
                         'staff_member_id' => $member->id,
@@ -325,6 +328,8 @@ class StaffMonthlyEntitlementService
             ->keyBy(fn (object $row): string => substr((string) $row->occurred_on, 0, 10));
 
         $weightedMonthlyRateUnits = 0;
+        $overridePaidUnits = 0;
+        $overrideDeltaUnits = 0;
         $presentDays = 0;
         $absentDays = 0;
         $missingDays = 0;
@@ -381,6 +386,10 @@ class StaffMonthlyEntitlementService
                 continue;
             }
 
+            $dayOverrideUnits = $status === 'present' && $row
+                ? Decimal::toUnits((string) ($row->day_amount_override ?? '0'))
+                : 0;
+
             if ($status === 'present') {
                 $presentDays++;
             } else {
@@ -389,7 +398,13 @@ class StaffMonthlyEntitlementService
 
             // Missing attendance is deliberately neutral. Only an explicit
             // absent record removes that workday from monthly entitlement.
-            $weightedMonthlyRateUnits += $rateUnits;
+            if ($dayOverrideUnits > 0) {
+                $overridePaidUnits += $dayOverrideUnits;
+                $overrideDeltaUnits += $dayOverrideUnits - intdiv($rateUnits + intdiv($expectedWorkDays, 2), $expectedWorkDays);
+            } else {
+                $weightedMonthlyRateUnits += $rateUnits;
+            }
+
             $payableDays++;
             $lastMonthlyRate = $rate;
         }
@@ -401,15 +416,15 @@ class StaffMonthlyEntitlementService
                 : 0;
             $amountUnits = max(
                 0,
-                $lastRateUnits - $totalAbsentDeductionUnits - $implicitAbsentDays * $autoDeductionPerDay,
+                $lastRateUnits - $totalAbsentDeductionUnits - $implicitAbsentDays * $autoDeductionPerDay + $overrideDeltaUnits,
             );
         } else {
-            $amountUnits = $payableDays > 0
+            $amountUnits = ($payableDays > 0
                 ? intdiv(
                     $weightedMonthlyRateUnits + intdiv($expectedWorkDays, 2),
                     $expectedWorkDays,
                 )
-                : 0;
+                : 0) + $overridePaidUnits;
         }
 
         $periodEntries = $generatedEntries

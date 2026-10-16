@@ -133,6 +133,14 @@ class StaffWorkforceController extends Controller
                     'min:0',
                     'max:999999',
                 ],
+
+                'day_amount_override' => [
+                    'nullable',
+                    'numeric',
+                    'gt:0',
+                    'max:999999999',
+                    'regex:/^\d+(\.\d{1,4})?$/',
+                ],
             ]);
 
         DB::transaction(
@@ -311,7 +319,9 @@ class StaffWorkforceController extends Controller
                     'month'
                 ) {
                     $amount =
-                        intdiv(
+                        ! empty($data['day_amount_override'])
+                        ? Decimal::toUnits((string) $data['day_amount_override'])
+                        : intdiv(
                             Decimal::toUnits(
                                 $quantity,
                             )

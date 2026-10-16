@@ -98,6 +98,7 @@ class StaffAttendanceHistoryController extends Controller
                     'overtime_hours',
                     'overtime_rate',
                     'notes',
+                    'day_amount_override',
                 ],
             );
 
@@ -350,9 +351,12 @@ class StaffAttendanceHistoryController extends Controller
                 $monthStart = CarbonImmutable::parse($date)->startOfMonth();
                 $expectedDays = $entitlements->expectedWorkDays($monthStart, $monthStart->endOfMonth());
                 $rateUnits = Decimal::toUnits((string) ($terms['rate'] ?? $member->rate ?? '0'));
-                $shareUnits = $expectedDays > 0
-                    ? intdiv($rateUnits + intdiv($expectedDays, 2), $expectedDays)
-                    : 0;
+                $typedUnits = Decimal::toUnits((string) ($row['day_amount_override'] ?? '0'));
+                $shareUnits = $typedUnits > 0
+                    ? $typedUnits
+                    : ($expectedDays > 0
+                        ? intdiv($rateUnits + intdiv($expectedDays, 2), $expectedDays)
+                        : 0);
 
                 $row['earned'] = Decimal::fromUnits($shareUnits + $overtimeUnits);
                 $row['earned_kind'] = 'monthly_share';

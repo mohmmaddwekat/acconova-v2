@@ -23,6 +23,7 @@ import {
 import {
     updatePartyNotes,
 } from '@/features/parties/api';
+import { PartyAccountActions } from '@/features/parties/components/PartyAccountActions';
 import {
     Party360Panel,
 } from '@/features/parties/components/Party360Panel';
@@ -782,6 +783,11 @@ export function PartyDetailDrawer({
                             />
                         </div>
                     </section>
+                    <PartyAccountActions
+                        party={resolvedParty}
+                        ar={locale === 'ar'}
+                    />
+
                     <Party360Panel
                         party={resolvedParty}
                         ar={locale === 'ar'}

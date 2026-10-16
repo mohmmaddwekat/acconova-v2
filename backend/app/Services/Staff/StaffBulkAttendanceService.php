@@ -154,6 +154,13 @@ class StaffBulkAttendanceService
                 ? (string) $values['deduction_override']
                 : null;
 
+            // A typed amount for the day wins over the automatic one, even when it is above it.
+            $dayAmountOverride = $present
+                && isset($values['day_amount_override'])
+                && (float) $values['day_amount_override'] > 0
+                ? (string) $values['day_amount_override']
+                : null;
+
             $normalized[(int) $member->id] = [
                 'member' => $member,
                 'basis' => $basis,
@@ -166,6 +173,7 @@ class StaffBulkAttendanceService
                     ? trim((string) $values['notes'])
                     : null,
                 'deduction_override' => $deductionOverride,
+                'day_amount_override' => $dayAmountOverride,
             ];
         }
 
@@ -201,6 +209,7 @@ class StaffBulkAttendanceService
                     'overtime_rate' => $row['overtime_rate'],
                     'notes' => $row['notes'],
                     'deduction_override' => $row['deduction_override'],
+                    'day_amount_override' => $row['day_amount_override'],
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -216,6 +225,7 @@ class StaffBulkAttendanceService
                     'overtime_rate',
                     'notes',
                     'deduction_override',
+                    'day_amount_override',
                     'updated_at',
                 ],
             );
@@ -259,14 +269,16 @@ class StaffBulkAttendanceService
                     $present
                     && $row['basis'] !== 'month'
                     && Decimal::toUnits((string) $row['quantity']) > 0
-                    && Decimal::toUnits((string) $row['rate']) > 0
+                    && (Decimal::toUnits((string) $row['rate']) > 0 || $row['day_amount_override'] !== null)
                 ) {
-                    $amount = intdiv(
-                        Decimal::toUnits((string) $row['quantity'])
-                        * Decimal::toUnits((string) $row['rate'])
-                        + 5000,
-                        10000,
-                    );
+                    $amount = $row['day_amount_override'] !== null
+                        ? Decimal::toUnits($row['day_amount_override'])
+                        : intdiv(
+                            Decimal::toUnits((string) $row['quantity'])
+                            * Decimal::toUnits((string) $row['rate'])
+                            + 5000,
+                            10000,
+                        );
 
                     $this->saveLinkedEntry(
                         $workEntry,
@@ -468,6 +480,8 @@ class StaffBulkAttendanceService
             $memberAttendance = $attendance->get($member->id, collect());
             $startedOn = CarbonImmutable::parse((string) $member->started_on)->startOfDay();
             $weightedRateUnits = 0;
+            $overridePaidUnits = 0;
+            $overrideDeltaUnits = 0;
             $presentDays = 0;
             $absentDays = 0;
             $missingDays = 0;
@@ -517,13 +531,23 @@ class StaffBulkAttendanceService
                     continue;
                 }
 
+                $dayOverrideUnits = $status === 'present'
+                    ? Decimal::toUnits((string) ($attendanceRow->day_amount_override ?? '0'))
+                    : 0;
+
                 if ($status === 'present') {
                     $presentDays++;
                 } else {
                     $missingDays++;
                 }
 
-                $weightedRateUnits += $rateUnits;
+                if ($dayOverrideUnits > 0) {
+                    $overridePaidUnits += $dayOverrideUnits;
+                    $overrideDeltaUnits += $dayOverrideUnits - intdiv($rateUnits + intdiv($expectedWorkDays, 2), $expectedWorkDays);
+                } else {
+                    $weightedRateUnits += $rateUnits;
+                }
+
                 $payableDays++;
                 $lastRate = $rate;
             }
@@ -535,12 +559,12 @@ class StaffBulkAttendanceService
                     : 0;
                 $amountUnits = max(
                     0,
-                    $lastRateUnits - $totalAbsentDeductionUnits - $implicitAbsentDays * $autoDeductionPerDay,
+                    $lastRateUnits - $totalAbsentDeductionUnits - $implicitAbsentDays * $autoDeductionPerDay + $overrideDeltaUnits,
                 );
             } else {
-                $amountUnits = $payableDays > 0
+                $amountUnits = ($payableDays > 0
                     ? intdiv($weightedRateUnits + intdiv($expectedWorkDays, 2), $expectedWorkDays)
-                    : 0;
+                    : 0) + $overridePaidUnits;
             }
             $entries = $generated->get($member->id, collect())->values();
             $entry = $entries->first();

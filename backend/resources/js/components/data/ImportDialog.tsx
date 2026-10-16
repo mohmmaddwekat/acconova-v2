@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useLocale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import {
@@ -188,7 +189,7 @@ export function ImportDialog({
         return null;
     }
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[145] flex items-end justify-center sm:items-center sm:p-5">
             <button
                 type="button"
@@ -494,7 +495,8 @@ export function ImportDialog({
                     </button>
                 </footer>
             </section>
-        </div>
+        </div>,
+        document.body,
     );
 }
 

@@ -21,6 +21,7 @@ type Attendance = {
     overtime_rate: string;
     notes: string | null;
     deduction_override: string | null;
+    day_amount_override: string | null;
 };
 
 type Row = {
@@ -33,6 +34,7 @@ type Row = {
     rate: string;
     currency: string;
     attendance: Attendance | null;
+    auto_day_amount: string | null;
 };
 
 type RosterResponse = {
@@ -66,6 +68,7 @@ type Override = {
     overtime_rate: string;
     notes: string;
     deduction_override: string;
+    day_amount_override: string;
 };
 
 const field =
@@ -192,7 +195,19 @@ export function StaffBulkAttendance() {
             overtime_rate: custom.overtime_rate ?? '0',
             notes: custom.notes ?? notes,
             deduction_override: custom.deduction_override ?? '',
+            day_amount_override: custom.day_amount_override ?? row.attendance?.day_amount_override ?? '',
         };
+    }
+
+    /** What the day earns when no amount is typed, so the box can show it as a hint. */
+    function autoAmountHint(row: Row, values: Override): string {
+        if (row.basis === 'hour') {
+            const total = Number(values.quantity) * Number(row.rate);
+
+            return Number.isFinite(total) && total > 0 ? total.toFixed(2) : '';
+        }
+
+        return row.auto_day_amount ?? '';
     }
 
     function fillOvertimeForSelected(): void {
@@ -578,7 +593,7 @@ export function StaffBulkAttendance() {
                 <div className="p-10 text-center text-xs text-[var(--ac-text-muted)]"><Loader2 className="mx-auto animate-spin" size={18} /></div>
             ) : (
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1080px] text-start text-xs">
+                    <table className="w-full min-w-[1240px] text-start text-xs">
                         <thead className="bg-[var(--ac-surface-soft)] text-[10px] text-[var(--ac-text-muted)]">
                             <tr>
                                 <th className="w-12 px-4 py-3"><input type="checkbox" checked={allPageSelected} onChange={togglePage} /></th>
@@ -587,8 +602,18 @@ export function StaffBulkAttendance() {
                                 <th className="px-4 py-3 text-start">{ar ? 'المسجل حاليًا' : 'Current'}</th>
                                 <th className="px-4 py-3 text-start">{ar ? 'الحالة الجديدة' : 'New status'}</th>
                                 <th className="px-4 py-3 text-start">{ar ? 'ساعات / كمية' : 'Hours / qty'}</th>
-                                <th className="px-4 py-3 text-start">{ar ? 'إضافي' : 'Overtime'}</th>
-                                <th className="px-4 py-3 text-start">{ar ? 'خصم الغياب' : 'Absence deduction'}</th>
+                                <th className="px-4 py-3 text-start">
+                                    {ar ? 'مبلغ اليوم' : 'Day amount'}
+                                    <span className="mt-0.5 block text-[9px] font-normal">{ar ? 'اتركه فارغاً = تلقائي من الراتب' : 'Leave empty = automatic from salary'}</span>
+                                </th>
+                                <th className="px-4 py-3 text-start">
+                                    {ar ? 'وقت إضافي' : 'Overtime'}
+                                    <span className="mt-0.5 block text-[9px] font-normal">{ar ? 'عدد الساعات × أجر الساعة الإضافية' : 'Hours × overtime hourly rate'}</span>
+                                </th>
+                                <th className="px-4 py-3 text-start">
+                                    {ar ? 'خصم الغياب' : 'Absence deduction'}
+                                    <span className="mt-0.5 block text-[9px] font-normal">{ar ? 'للشهري عند الغياب فقط' : 'Monthly staff, when absent'}</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[var(--ac-line)]">
@@ -630,15 +655,32 @@ export function StaffBulkAttendance() {
                                                 <input type="number" min="0.0001" max="9999" step="0.0001" value={values.quantity} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { quantity: event.target.value })} className={field} />
                                             )}
                                         </td>
-                                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3">
+                                            {values.status === 'absent' ? (
+                                                <span className="text-[10px] text-[var(--ac-text-muted)]">—</span>
+                                            ) : (
+                                                <input
+                                                    aria-label={ar ? 'مبلغ اليوم' : 'Day amount'}
+                                                    type="number"
+                                                    min="0"
+                                                    max="999999999"
+                                                    step="0.01"
+                                                    value={values.day_amount_override}
+                                                    placeholder={autoAmountHint(row, values) ? (ar ? 'تلقائي ' : 'Auto ') + autoAmountHint(row, values) : (ar ? 'تلقائي' : 'Auto')}
+                                                    onChange={(event) => setRow(row.id, { day_amount_override: event.target.value })}
+                                                    className={`${field} w-28`}
+                                                />
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
                                             {multiDay ? (
                                                 <span className="text-[9px] text-[var(--ac-text-muted)]">
                                                     {ar ? 'سجّل اليوم منفرداً' : 'Use single-day mode'}
                                                 </span>
                                             ) : (
                                                 <div className="flex gap-1">
-                                                    <input aria-label={ar ? 'ساعات إضافية' : 'Overtime hours'} type="number" min="0" max="24" step="0.0001" value={values.overtime_hours} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { overtime_hours: event.target.value })} className={`${field} w-20`} />
-                                                    <input aria-label={ar ? 'أجر الإضافي' : 'Overtime rate'} type="number" min="0" max="999999" step="0.0001" value={values.overtime_rate} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { overtime_rate: event.target.value })} className={`${field} w-24`} />
+                                                    <input aria-label={ar ? 'ساعات إضافية' : 'Overtime hours'} type="number" min="0" max="24" step="0.0001" value={values.overtime_hours === '0' ? '' : values.overtime_hours} placeholder={ar ? 'ساعات' : 'Hours'} title={ar ? 'عدد ساعات العمل الإضافي' : 'Overtime hours worked'} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { overtime_hours: event.target.value === '' ? '0' : event.target.value })} className={`${field} w-20`} />
+                                                    <input aria-label={ar ? 'أجر الإضافي' : 'Overtime rate'} type="number" min="0" max="999999" step="0.0001" value={values.overtime_rate === '0' ? '' : values.overtime_rate} placeholder={ar ? 'أجر الساعة' : 'Per hour'} title={ar ? 'أجر الساعة الإضافية' : 'Pay per overtime hour'} disabled={values.status === 'absent'} onChange={(event) => setRow(row.id, { overtime_rate: event.target.value === '' ? '0' : event.target.value })} className={`${field} w-24`} />
                                                 </div>
                                             )}
                                         </td>
@@ -662,7 +704,7 @@ export function StaffBulkAttendance() {
                                     </tr>
                                 );
                             })}
-                            {!roster?.data.length && <tr><td colSpan={8} className="p-10 text-center text-xs text-[var(--ac-text-muted)]">{ar ? 'لا يوجد موظفون مطابقون.' : 'No matching employees.'}</td></tr>}
+                            {!roster?.data.length && <tr><td colSpan={9} className="p-10 text-center text-xs text-[var(--ac-text-muted)]">{ar ? 'لا يوجد موظفون مطابقون.' : 'No matching employees.'}</td></tr>}
                         </tbody>
                     </table>
                 </div>
