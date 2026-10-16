@@ -35,7 +35,7 @@ final class AiWriteToolRegistry
         $definitions = [];
 
         foreach ($this->tools() as $tool) {
-            if (! $tool->allowed($user)) {
+            if (! $this->permitted($user, $tool)) {
                 continue;
             }
 
@@ -60,7 +60,7 @@ final class AiWriteToolRegistry
 
         $tool = $this->find($name);
 
-        if (! $tool || ! $tool->allowed($user)) {
+        if (! $tool || ! $this->permitted($user, $tool)) {
             throw new RuntimeException('AI business tool is not available for this user.');
         }
 
@@ -75,7 +75,7 @@ final class AiWriteToolRegistry
 
         $tool = $this->find($name);
 
-        return $tool !== null && $tool->allowed($user);
+        return $tool !== null && $this->permitted($user, $tool);
     }
 
     /**
@@ -87,6 +87,15 @@ final class AiWriteToolRegistry
     public function severityOf(string $name): ?WriteActionSeverity
     {
         return $this->find($name)?->severity();
+    }
+
+    /**
+     * Deny by default: a tool runs only if the action matrix lists it and
+     * the user holds the matrix permissions as well as the tool's own check.
+     */
+    private function permitted(User $user, AiWriteTool $tool): bool
+    {
+        return AiActionMatrix::userMayRun($user, $tool->name()) && $tool->allowed($user);
     }
 
     /** @return list<AiWriteTool> */

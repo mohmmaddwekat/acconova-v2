@@ -30,6 +30,7 @@
         <env name="DB_USERNAME" value="acconova" force="true"/>
         <env name="DB_PASSWORD" value="local-development-only" force="true"/>
         <env name="DB_URL" value="" force="true"/>
+        <env name="BILLING_ENABLED" value="false" force="true"/>
 
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

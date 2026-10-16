@@ -8,6 +8,7 @@ use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\AI\AiActionMatrix;
 use App\Services\AI\AiAssistantOrchestrator;
 use App\Services\AI\Contracts\AiWriteTool;
 use App\Services\AI\Tools\SmartImportReviseTool;
@@ -74,6 +75,7 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
 
     protected function tearDown(): void
     {
+        AiActionMatrix::fakeForTests([]);
         app(TenantContext::class)->clear();
 
         Http::preventStrayRequests(false);
@@ -403,6 +405,8 @@ class AiAssistantOrchestratorSmartImportTest extends TestCase
      */
     private function bindDestructiveWriteToolDouble(): void
     {
+        AiActionMatrix::fakeForTests(['test.double' => ['module' => 'test', 'tool' => 'destructive_test_tool', 'status' => 'available', 'operation' => 'update', 'permissions' => ['ai.business_data.write'], 'entity_permission' => false, 'service' => null, 'model' => null, 'approval' => 'none', 'reversal' => null]]);
+
         $this->app->instance(SmartImportReviseTool::class, new class implements AiWriteTool
         {
             public function name(): string
