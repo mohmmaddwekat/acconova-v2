@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Parties\CreditController;
 use App\Http\Controllers\Parties\PartyAccountController;
 use App\Http\Controllers\Parties\PartyBulkActionController;
 use App\Http\Controllers\Parties\PartyBulkEditController;
@@ -88,6 +89,11 @@ Route::middleware([
     );
 
     Route::get('parties/{party}/collections', PartyCollectionsController::class)->whereNumber('party');
+    Route::get('credit-policy', [CreditController::class, 'policy']);
+    Route::put('credit-policy', [CreditController::class, 'updatePolicy'])->middleware('throttle:30,1');
+    Route::get('parties/{party}/credit-assessment', [CreditController::class, 'assessment'])->whereNumber('party');
+    Route::get('parties/{party}/credit-decisions', [CreditController::class, 'decisions'])->whereNumber('party');
+    Route::post('parties/{party}/credit-decisions', [CreditController::class, 'decide'])->whereNumber('party')->middleware('throttle:30,1');
     Route::get('parties/{party}/settlements', [PartySettlementController::class, 'index'])->whereNumber('party');
     Route::post('parties/{party}/settlements', [PartySettlementController::class, 'store'])->whereNumber('party')->middleware('throttle:20,1');
     foreach (['approve', 'reject', 'reverse'] as $action) {

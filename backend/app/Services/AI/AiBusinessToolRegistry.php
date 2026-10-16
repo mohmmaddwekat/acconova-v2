@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\AI\Contracts\AiBusinessTool;
 use App\Services\AI\Tools\CashflowSummaryTool;
 use App\Services\AI\Tools\CollectionFollowUpsTool;
+use App\Services\AI\Tools\CreditRecommendationTool;
 use App\Services\AI\Tools\InventoryStatusTool;
 use App\Services\AI\Tools\OverdueInvoicesTool;
 use App\Services\AI\Tools\PartyBalancesTool;
@@ -21,6 +22,7 @@ final class AiBusinessToolRegistry
         SalesSummaryTool::class,
         PartyBalancesTool::class,
         CollectionFollowUpsTool::class,
+        CreditRecommendationTool::class,
         OverdueInvoicesTool::class,
         InventoryStatusTool::class,
         CashflowSummaryTool::class,

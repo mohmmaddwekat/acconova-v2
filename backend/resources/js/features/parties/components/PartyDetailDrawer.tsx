@@ -26,6 +26,7 @@ import {
 import {
     Party360Panel,
 } from '@/features/parties/components/Party360Panel';
+import { PartyCreditPanel } from '@/features/parties/components/PartyCreditPanel';
 import {
     PartyPricingPanel,
 } from '@/features/parties/components/PartyPricingPanel';
@@ -782,6 +783,11 @@ export function PartyDetailDrawer({
                         </div>
                     </section>
                     <Party360Panel
+                        party={resolvedParty}
+                        ar={locale === 'ar'}
+                    />
+
+                    <PartyCreditPanel
                         party={resolvedParty}
                         ar={locale === 'ar'}
                     />
