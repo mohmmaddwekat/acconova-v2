@@ -59,6 +59,17 @@ type AiStatus = {
     };
 };
 
+type ImportDraft = {
+    id: number;
+    file_name: string;
+    target_entity: string | null;
+    status: 'draft' | 'confirmed' | 'committed' | 'cancelled' | 'rolled_back';
+    rows: number;
+    processed: number;
+    summary: { created?: number; updated?: number; skipped?: number };
+    rollback: { removed: number; restored: number } | null;
+};
+
 const outlineButton =
     'inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--ac-line)] bg-transparent px-3 py-2 text-xs font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-button-hover-bg)] disabled:cursor-not-allowed disabled:opacity-45';
 
@@ -75,6 +86,8 @@ export default function AiAssistant() {
     const [sending, setSending] = useState(false);
     const [preparingImage, setPreparingImage] = useState(false);
     const [error, setError] = useState('');
+    const [importDrafts, setImportDrafts] = useState<ImportDraft[]>([]);
+    const [rollingBack, setRollingBack] = useState<number | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,6 +132,57 @@ export default function AiAssistant() {
 
         return () => controller.abort();
     }, [ar]);
+
+    useEffect(() => {
+        if (! activeId) {
+            setImportDrafts([]);
+            return;
+        }
+
+        let cancelled = false;
+        const load = () => apiRequest<{ data: ImportDraft[] }>(
+            `/api/ai/conversations/${activeId}/import-drafts`,
+        )
+            .then(response => {
+                if (! cancelled) setImportDrafts(response.data);
+            })
+            .catch(() => undefined);
+
+        void load();
+        // Commits run inside the message request, so poll while it is in flight.
+        const timer = sending ? window.setInterval(load, 1500) : undefined;
+
+        return () => {
+            cancelled = true;
+            if (timer) window.clearInterval(timer);
+        };
+    }, [activeId, messages.length, sending]);
+
+    async function rollbackImport(draftId: number): Promise<void> {
+        if (! window.confirm(ar
+            ? 'التراجع عن هذا الاستيراد؟ ستُؤرشف السجلات المضافة وتُستعاد القيم القديمة.'
+            : 'Undo this import? Created records are archived and updated ones restored.')) {
+            return;
+        }
+
+        setRollingBack(draftId);
+        setError('');
+
+        try {
+            await apiRequest(`/api/ai/import-drafts/${draftId}/rollback`, {
+                method: 'POST',
+            });
+            setImportDrafts(current => current.map(item =>
+                item.id === draftId ? { ...item, status: 'rolled_back' } : item,
+            ));
+        } catch (failure) {
+            setError(failure instanceof ApiError
+                ? failure.message
+                : ar ? 'تعذر التراجع عن الاستيراد.' : 'Could not undo the import.');
+        } finally {
+            setRollingBack(null);
+        }
+    }
 
     useEffect(() => {
         if (! activeId) {
@@ -533,6 +597,48 @@ export default function AiAssistant() {
                                         : 'User permissions enforced'}
                                 </div>
                             </div>
+
+                            {importDrafts.filter(item => item.status !== 'cancelled').length > 0 && (
+                                <div className="space-y-2 border-b border-[var(--ac-line)] px-4 py-3 sm:px-7">
+                                    {importDrafts
+                                        .filter(item => item.status !== 'cancelled')
+                                        .slice(0, 3)
+                                        .map(item => (
+                                            <div
+                                                key={item.id}
+                                                className="flex flex-wrap items-center justify-between gap-2 text-xs"
+                                            >
+                                                <span className="font-semibold">{item.file_name}</span>
+                                                <span className="text-[var(--ac-muted)]">
+                                                    {item.status === 'committed' && (ar
+                                                        ? `تم: ${item.summary.created ?? 0} جديد، ${item.summary.updated ?? 0} محدّث، ${item.summary.skipped ?? 0} متخطى`
+                                                        : `Done: ${item.summary.created ?? 0} created, ${item.summary.updated ?? 0} updated, ${item.summary.skipped ?? 0} skipped`)}
+                                                    {item.status === 'rolled_back' && (ar ? 'تم التراجع' : 'Rolled back')}
+                                                    {item.status === 'draft' && (item.processed > 0
+                                                        ? `${item.processed} / ${item.rows}`
+                                                        : (ar ? `مسودة (${item.rows} صف)` : `Draft (${item.rows} rows)`))}
+                                                </span>
+                                                {item.status === 'draft' && item.processed > 0 && (
+                                                    <progress
+                                                        className="h-1.5 w-full"
+                                                        max={item.rows}
+                                                        value={item.processed}
+                                                    />
+                                                )}
+                                                {item.status === 'committed' && (
+                                                    <button
+                                                        type="button"
+                                                        className={outlineButton}
+                                                        disabled={rollingBack === item.id}
+                                                        onClick={() => void rollbackImport(item.id)}
+                                                    >
+                                                        {ar ? 'تراجع' : 'Undo import'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
 
                             <div
                                 ref={scrollRef}

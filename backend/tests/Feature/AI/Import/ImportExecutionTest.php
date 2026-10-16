@@ -133,6 +133,38 @@ class ImportExecutionTest extends TestCase
         $this->actingAs($other)->withSession($session)->getJson("/api/ai/import-drafts/{$draft->id}/progress")->assertNotFound();
     }
 
+    public function test_draft_list_and_rollback_endpoints_undo_a_committed_import(): void
+    {
+        config(['billing.enforce_subscription' => false]);
+
+        $conversation = AiConversation::factory()->for($this->user)->create();
+        $mapping = array_combine(array_keys($this->staffRow()), array_keys($this->staffRow()));
+        $draft = AiImportDraft::factory()->for($this->user)->create([
+            'ai_conversation_id' => $conversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'staff_member',
+            'extracted_rows' => [$this->staffRow()],
+            'field_mapping' => $mapping,
+        ]);
+        app(SmartImportConfirmTool::class)->execute($this->user, ['draft_id' => $draft->id], $conversation);
+
+        $session = [OrganizationAccess::SESSION_KEY => $this->organization->id];
+        $client = $this->actingAs($this->user)->withSession($session);
+
+        $client->getJson("/api/ai/conversations/{$conversation->id}/import-drafts")
+            ->assertOk()
+            ->assertJsonPath('data.0.status', AiImportDraft::STATUS_COMMITTED)
+            ->assertJsonPath('data.0.summary.created', 1);
+
+        $client->postJson("/api/ai/import-drafts/{$draft->id}/rollback")
+            ->assertOk()
+            ->assertJsonPath('data.removed', 1);
+
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Owner);
+        $this->assertSame(0, StaffMember::query()->count());
+        $client->postJson("/api/ai/import-drafts/{$draft->id}/rollback")->assertStatus(422);
+    }
+
     public function test_financial_entities_require_finance_approval_permission(): void
     {
         $this->app->bind(PartyImportable::class, fn () => new class(app(ImportPartiesFromSpreadsheet::class)) extends PartyImportable
