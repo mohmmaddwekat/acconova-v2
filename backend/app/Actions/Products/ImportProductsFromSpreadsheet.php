@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class ImportProductsFromSpreadsheet
 {
@@ -268,19 +269,16 @@ class ImportProductsFromSpreadsheet
                     $rowNumber;
             }
 
-            $existing = null;
+            try {
+                $existing = $this->findExisting($payload);
+            } catch (RuntimeException) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'code' => 'ambiguous',
+                    'message' => 'More than one existing product matches this row. Add a SKU to identify it.',
+                ];
 
-            if (
-                $sku !== null
-            ) {
-                $existing =
-                    Product::query()
-                        ->withTrashed()
-                        ->where(
-                            'sku',
-                            $sku,
-                        )
-                        ->first();
+                continue;
             }
 
             if (
@@ -499,6 +497,34 @@ class ImportProductsFromSpreadsheet
                 'max:100',
             ],
         ];
+    }
+
+    /**
+     * Find the Product a row refers to: by SKU, otherwise by exact name, type
+     * and unit. Rows without a SKU would otherwise be created again on every
+     * re-upload. Archived Products are included so they are reported.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function findExisting(array $payload): ?Product
+    {
+        $query = Product::query()->withTrashed();
+
+        if ($payload['sku'] !== null) {
+            return $query->where('sku', $payload['sku'])->first();
+        }
+
+        $matches = $query->where('type', $payload['type'])
+            ->where('unit', $payload['unit'])
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower((string) $payload['name'])])
+            ->limit(2)
+            ->get();
+
+        if ($matches->count() > 1) {
+            throw new RuntimeException('Ambiguous match.');
+        }
+
+        return $matches->first();
     }
 
     /**

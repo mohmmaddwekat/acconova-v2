@@ -7,6 +7,7 @@ use App\Enums\OrganizationRole;
 use App\Models\AiConversation;
 use App\Models\AiImportDraft;
 use App\Models\Organization;
+use App\Models\Party;
 use App\Models\Product;
 use App\Models\StaffMember;
 use App\Models\User;
@@ -181,6 +182,56 @@ class ImportExecutionTest extends TestCase
         $this->assertSame(0, $again['created']);
         $this->assertSame(2, $again['skipped']);
         $this->assertSame(2, StaffMember::query()->count());
+    }
+
+    public function test_customers_without_email_are_matched_by_phone_then_name_on_reupload(): void
+    {
+        $parties = app(PartyImportable::class);
+        $rows = collect([
+            ['type' => 'person', 'name' => 'Khaled Younis', 'phone' => '0599000111', 'roles' => 'customer'],
+            ['type' => 'person', 'name' => 'Maha Zeidan', 'roles' => 'customer'],
+            ['type' => 'company', 'company_name' => 'Zeidan Trading', 'roles' => 'supplier'],
+        ]);
+
+        $this->assertSame(3, $parties->commit($rows)['created']);
+        $this->assertSame(3, $parties->preview($rows)['duplicate_rows']);
+
+        $again = $parties->commit($rows);
+
+        $this->assertSame(0, $again['created']);
+        $this->assertSame(3, $again['skipped']);
+        $this->assertSame(3, Party::query()->count());
+    }
+
+    public function test_an_ambiguous_customer_row_is_reported_instead_of_guessing(): void
+    {
+        $parties = app(PartyImportable::class);
+        $parties->commit(collect([
+            ['type' => 'person', 'name' => 'Sara Taha', 'email' => 'sara1@x.test', 'roles' => 'customer'],
+            ['type' => 'person', 'name' => 'Sara Taha', 'email' => 'sara2@x.test', 'roles' => 'customer'],
+        ]));
+
+        $preview = $parties->preview(collect([['type' => 'person', 'name' => 'Sara Taha', 'roles' => 'customer']]));
+
+        $this->assertSame(1, $preview['error_rows']);
+        $this->assertStringContainsString('email', $preview['errors'][0]['message']);
+    }
+
+    public function test_products_without_sku_are_matched_by_name_and_unit_on_reupload(): void
+    {
+        $products = app(ProductImportable::class);
+        $rows = collect([
+            ['type' => 'product', 'name' => 'Notebook A4', 'unit' => 'unit', 'unit_price' => '3', 'tax_rate' => '16'],
+            ['type' => 'product', 'name' => 'Notebook A4', 'unit' => 'box', 'unit_price' => '30', 'tax_rate' => '16'],
+        ]);
+
+        $this->assertSame(2, $products->commit($rows)['created']);
+
+        $again = $products->commit($rows);
+
+        $this->assertSame(0, $again['created']);
+        $this->assertSame(2, $again['skipped']);
+        $this->assertSame(2, Product::query()->count());
     }
 
     public function test_financial_entities_require_finance_approval_permission(): void

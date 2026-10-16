@@ -67,6 +67,9 @@ class PartyImportableTest extends TestCase
      */
     public function test_preview_reports_valid_and_error_row_counts(): void
     {
+        $organization = Organization::create(['name' => 'Import Workspace']);
+        app(TenantContext::class)->set($organization, OrganizationRole::Owner);
+
         $rows = collect([
             ['name' => 'Acme', 'type' => 'person', 'roles' => 'customer'], // valid
             ['name' => '', 'type' => 'person', 'roles' => 'customer'],      // invalid: missing name

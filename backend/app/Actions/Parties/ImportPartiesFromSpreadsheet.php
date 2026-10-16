@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class ImportPartiesFromSpreadsheet
 {
@@ -252,19 +253,16 @@ class ImportPartiesFromSpreadsheet
                     $rowNumber;
             }
 
-            $existing = null;
+            try {
+                $existing = $this->findExisting($payload);
+            } catch (RuntimeException) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'code' => 'ambiguous',
+                    'message' => 'More than one existing record matches this row. Add an email to identify it.',
+                ];
 
-            if (
-                $email !== null
-            ) {
-                $existing =
-                    Party::query()
-                        ->withTrashed()
-                        ->where(
-                            'email',
-                            $email,
-                        )
-                        ->first();
+                continue;
             }
 
             if (
@@ -349,6 +347,42 @@ class ImportPartiesFromSpreadsheet
 
             'entries' => $entries,
         ];
+    }
+
+    /**
+     * Find the Party a row refers to: by email, otherwise by phone, otherwise by
+     * exact name. Rows without any identifier would otherwise be created again
+     * on every re-upload. Archived Parties are included so they are reported.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function findExisting(array $payload): ?Party
+    {
+        $query = Party::query()->withTrashed();
+
+        if ($payload['email'] !== null) {
+            return $query->where('email', $payload['email'])->first();
+        }
+
+        if ($payload['phone'] !== null) {
+            $matches = $query->where('phone', $payload['phone'])->limit(2)->get();
+        } else {
+            $name = mb_strtolower((string) ($payload['type'] === PartyType::Company->value
+                ? $payload['company_name']
+                : $payload['name']));
+            $column = $payload['type'] === PartyType::Company->value ? 'company_name' : 'name';
+
+            $matches = $query->where('type', $payload['type'])
+                ->whereRaw("LOWER({$column}) = ?", [$name])
+                ->limit(2)
+                ->get();
+        }
+
+        if ($matches->count() > 1) {
+            throw new RuntimeException('Ambiguous match.');
+        }
+
+        return $matches->first();
     }
 
     /**
