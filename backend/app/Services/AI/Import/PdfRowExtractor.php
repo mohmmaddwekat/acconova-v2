@@ -31,6 +31,23 @@ class PdfRowExtractor
      */
     private const MIN_TEXT_LENGTH = 20;
 
+    /**
+     * Maximum character count of extracted text sent to the AI gateway.
+     * A large PDF's text layer could otherwise be sent unbounded, which
+     * risks an excessively large request; this mirrors the order of
+     * magnitude `AiToolPlanner` already caps its own transcript at.
+     */
+    private const MAX_TEXT_LENGTH = 16000;
+
+    /**
+     * Output token cap passed to the gateway for this call. More generous
+     * than the general `config('ai.max_output_tokens', 1200)` default,
+     * since this call's expected output is a JSON array of potentially
+     * many row objects, naturally larger than a short classification or
+     * planning response.
+     */
+    private const MAX_OUTPUT_TOKENS = 4000;
+
     public function __construct(
         private readonly AiGateway $gateway,
     ) {}
@@ -52,15 +69,15 @@ class PdfRowExtractor
         $text = $this->extractRawText($path);
 
         if (mb_strlen(trim($text)) < self::MIN_TEXT_LENGTH) {
-            throw new RuntimeException(
+            throw new ScannedPdfException(
                 'This PDF appears to be scanned (no selectable text found). Please re-upload it as an image (JPG/PNG) instead.',
             );
         }
 
         $result = $this->gateway->chat([
             ['role' => 'system', 'content' => self::EXTRACTION_PROMPT],
-            ['role' => 'user', 'content' => $text],
-        ]);
+            ['role' => 'user', 'content' => mb_substr($text, 0, self::MAX_TEXT_LENGTH)],
+        ], self::MAX_OUTPUT_TOKENS);
 
         return [
             'rows' => Collection::make($this->decodeRows((string) $result['content'])),

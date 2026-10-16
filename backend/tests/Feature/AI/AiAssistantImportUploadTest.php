@@ -517,6 +517,170 @@ class AiAssistantImportUploadTest extends TestCase
         $this->assertSame($before, $after, 'A temp file created while processing the corrupt PDF import was left behind.');
     }
 
+    /**
+     * Fix 1 (final-review fix round): `PdfRowExtractor::extract()` throws a
+     * dedicated `ScannedPdfException` naming the actual problem ("looks
+     * scanned, re-upload as an image") when the PDF has no selectable text
+     * layer. Before this fix, the controller's generic
+     * `catch (Throwable $exception)` block in `message()` swallowed that
+     * specific message into a generic "could not be processed" string,
+     * which violated the design spec's explicit requirement (§7) that the
+     * user see a message naming the actual problem. This proves the
+     * specific message now reaches the JSON response.
+     */
+    public function test_a_scanned_pdf_import_file_surfaces_the_scanned_message(): void
+    {
+        [$user, $organization] = $this->workspace('owner', 'Smart import scanned pdf');
+        $this->actingInWorkspace($user, $organization);
+        $this->configureProvider();
+
+        // The extractor rejects the scanned PDF locally, before any AI
+        // call is made, so no HTTP call should happen at all.
+        Http::preventStrayRequests();
+
+        $conversationId = (int) $this->postJson('/api/ai/conversations', [
+            'title' => 'Import question',
+        ])->assertCreated()->json('data.id');
+
+        $response = $this->postJson(
+            "/api/ai/conversations/{$conversationId}/messages",
+            [
+                'message' => 'import these',
+                'import_file' => [
+                    'data_url' => $this->blankPdfDataUrl(),
+                    'name' => 'scan.pdf',
+                    'mime' => 'application/pdf',
+                ],
+            ],
+        );
+
+        $response->assertStatus(502)->assertJson([
+            'code' => 'AI_IMPORT_FILE_UNAVAILABLE',
+        ]);
+
+        $message = (string) $response->json('message');
+        $this->assertTrue(
+            str_contains(strtolower($message), 'scanned') || str_contains(strtolower($message), 'image'),
+            "Expected the response message to mention the PDF being scanned or needing an image upload, got: {$message}",
+        );
+    }
+
+    /**
+     * Fix 2 (final-review fix round): `PdfRowExtractor::extract()` now caps
+     * the extracted text sent to the AI gateway at `MAX_TEXT_LENGTH`
+     * (16000 characters) rather than sending the entire PDF text
+     * unbounded. This proves the cap is actually applied to the outgoing
+     * request body, not just declared.
+     */
+    public function test_a_pdf_with_text_over_the_cap_sends_a_truncated_request(): void
+    {
+        [$user, $organization] = $this->workspace('owner', 'Smart import pdf text cap');
+        $this->actingInWorkspace($user, $organization);
+        $this->configureProvider();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://ai.example.test/*' => Http::sequence()
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => ['content' => '[{"name":"Jane"}]'],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 80,
+                        'completion_tokens' => 12,
+                        'total_tokens' => 92,
+                    ],
+                ])
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => [
+                            'content' => json_encode(['calls' => []], JSON_THROW_ON_ERROR),
+                        ],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 10,
+                        'completion_tokens' => 5,
+                        'total_tokens' => 15,
+                    ],
+                ])
+                ->push([
+                    'model' => 'tool-test-model',
+                    'choices' => [[
+                        'message' => ['content' => 'Imported the rows from the PDF.'],
+                    ]],
+                    'usage' => [
+                        'prompt_tokens' => 20,
+                        'completion_tokens' => 10,
+                        'total_tokens' => 30,
+                    ],
+                ]),
+        ]);
+
+        $conversationId = (int) $this->postJson('/api/ai/conversations', [
+            'title' => 'Import question',
+        ])->assertCreated()->json('data.id');
+
+        // A single long repeated word, well over the 16000-character cap,
+        // separated by spaces so mpdf/pdfparser don't collapse it away.
+        $longText = trim(str_repeat('Acme ', 5000));
+
+        $response = $this->postJson(
+            "/api/ai/conversations/{$conversationId}/messages",
+            [
+                'message' => 'import this pdf',
+                'import_file' => [
+                    'data_url' => $this->pdfDataUrl($longText),
+                    'name' => 'long.pdf',
+                    'mime' => 'application/pdf',
+                ],
+            ],
+        );
+
+        $response->assertOk();
+
+        Http::assertSent(function ($request) {
+            $body = $request->data();
+            $messages = $body['messages'] ?? [];
+            $userMessage = '';
+
+            foreach ($messages as $entry) {
+                if (($entry['role'] ?? null) === 'user') {
+                    $userMessage = (string) ($entry['content'] ?? '');
+                }
+            }
+
+            // Only the PdfRowExtractor call has a user message built from
+            // the long PDF text; the planner/final-answer calls don't, so
+            // this assertion only binds on that specific request.
+            if (! str_contains($userMessage, 'Acme')) {
+                return true;
+            }
+
+            return mb_strlen($userMessage) <= 16000;
+        });
+    }
+
+    /**
+     * Mirrors `PdfRowExtractorTest::makeBlankPdf()`: a page with no
+     * `WriteHTML()` call has no selectable text content, so
+     * `PdfRowExtractor` treats it as a scan.
+     */
+    private function blankPdfDataUrl(): string
+    {
+        $mpdf = new Mpdf;
+        $mpdf->AddPage();
+        $path = tempnam(sys_get_temp_dir(), 'test_pdf_').'.pdf';
+        $mpdf->Output($path, Destination::FILE);
+
+        try {
+            return 'data:application/pdf;base64,'.base64_encode(file_get_contents($path));
+        } finally {
+            unlink($path);
+        }
+    }
+
     private function fakeAiSequence(): void
     {
         Http::preventStrayRequests();

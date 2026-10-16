@@ -13,6 +13,7 @@ use App\Services\AI\AiGateway;
 use App\Services\AI\AiImageAnalyzer;
 use App\Services\AI\Import\ImageRowExtractor;
 use App\Services\AI\Import\PdfRowExtractor;
+use App\Services\AI\Import\ScannedPdfException;
 use App\Services\AI\Import\SpreadsheetRowExtractor;
 use App\Services\Billing\AiCreditService;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
@@ -234,6 +235,17 @@ class AiAssistantController extends Controller
                     $imageRowExtractor,
                     $pdfRowExtractor,
                 );
+            } catch (ScannedPdfException $exception) {
+                report($exception);
+
+                // Safe to expose verbatim: this exception's message is
+                // always the fixed, app-authored string from
+                // `PdfRowExtractor`, never a wrapped third-party
+                // exception's internals (unlike the generic catch below).
+                return response()->json([
+                    'message' => $exception->getMessage(),
+                    'code' => 'AI_IMPORT_FILE_UNAVAILABLE',
+                ], 502);
             } catch (Throwable $exception) {
                 report($exception);
 
