@@ -60,23 +60,37 @@ final class PartyCollectionsStatement
          * date, so a past statement does not show today's stored balance.
          */
         $position = $documents->mapWithKeys(function (FinancialDocument $document) use ($allocations): array {
-            $paid = (float) $allocations->get($document->id, collect())->sum('amount');
+            $mine = $allocations->get($document->id, collect());
+            $paid = (float) $mine->sum('amount');
+            $pending = (float) $mine->filter(fn (CashAllocation $allocation): bool => $this->isPendingCheque($allocation->movement))->sum('amount');
             $total = (float) $document->total;
+            $balance = max($total - $paid, 0.0);
 
-            return [$document->id => ['balance' => max($total - $paid, 0.0), 'credit' => max($paid - $total, 0.0)]];
+            return [$document->id => [
+                'balance' => $balance,
+                'credit' => max($paid - $total, 0.0),
+                'pending' => $pending,
+                // What is still owed if the cheques in hand never clear: a pending
+                // cheque is neither collected cash nor a guarantee of payment.
+                'uncollected' => $balance + $pending,
+            ]];
         });
 
         $rows = $documents
-            ->filter(fn (FinancialDocument $document): bool => $position[$document->id]['balance'] > 0.00005)
-            ->map(fn (FinancialDocument $document): array => $this->documentRow($document, $allocations->get($document->id, collect()), $asOf, $position[$document->id]['balance']))
+            ->filter(fn (FinancialDocument $document): bool => $position[$document->id]['uncollected'] > 0.00005)
+            ->map(fn (FinancialDocument $document): array => $this->documentRow($document, $allocations->get($document->id, collect()), $asOf, $position[$document->id]['balance'], $position[$document->id]['uncollected']))
             ->values();
 
-        $outstanding = (float) $rows->sum('balance_due');
-        $overdue = (float) $rows->where('state', 'overdue')->sum('balance_due');
+        $outstanding = (float) $rows->sum('uncollected_balance');
+        $overdue = (float) $rows->where('state', 'overdue')->sum('uncollected_balance');
 
         $movements = $this->movements($party, $side, $asOf, $cutoff);
         $last = $movements->sortByDesc(fn (CashMovement $movement): string => $movement->movement_date->format('Y-m-d').'|'.str_pad((string) $movement->id, 12, '0', STR_PAD_LEFT))->first();
         $cheques = $this->cheques($movements, $party, $side, $asOf);
+        $collected = $movements
+            ->filter(fn (CashMovement $movement): bool => ! $this->isPendingCheque($movement) && $movement->category !== 'refund')
+            ->sortByDesc(fn (CashMovement $movement): string => $movement->movement_date->format('Y-m-d').'|'.str_pad((string) $movement->id, 12, '0', STR_PAD_LEFT))
+            ->first();
 
         return [
             'party_id' => $party->id,
@@ -88,6 +102,9 @@ final class PartyCollectionsStatement
                 'not_due' => $this->money($outstanding - $overdue),
                 'overdue' => $this->money($overdue),
                 'oldest_overdue_days' => (int) $rows->max('days_overdue'),
+                'ledger_outstanding' => $this->money((float) $rows->sum('balance_due')),
+                'pending_cheques_total' => $this->money((float) $rows->sum('pending_cheque_paid')),
+                'basis' => 'Outstanding and overdue treat pending cheques as not yet collected; ledger_outstanding is the finance view.',
                 'open_documents' => $rows->count(),
                 'last_payment' => $last ? [
                     'date' => $last->movement_date->toDateString(),
@@ -97,6 +114,12 @@ final class PartyCollectionsStatement
                     'is_pending_cheque' => $this->isPendingCheque($last),
                 ] : null,
                 'days_since_last_payment' => $last ? (int) $last->movement_date->startOfDay()->diffInDays($asOf, false) : null,
+                'last_collected_payment' => $collected ? [
+                    'date' => $collected->movement_date->toDateString(),
+                    'amount' => $this->money((float) $collected->amount),
+                    'method' => $collected->method,
+                ] : null,
+                'days_since_last_collected_payment' => $collected ? (int) $collected->movement_date->startOfDay()->diffInDays($asOf, false) : null,
             ],
             'aging' => $this->aging($rows),
             'documents' => $rows->all(),
@@ -112,7 +135,7 @@ final class PartyCollectionsStatement
      * @param  Collection<int, CashAllocation>  $allocations
      * @return array<string, mixed>
      */
-    private function documentRow(FinancialDocument $document, Collection $allocations, CarbonImmutable $asOf, float $balance): array
+    private function documentRow(FinancialDocument $document, Collection $allocations, CarbonImmutable $asOf, float $balance, float $uncollected): array
     {
         $due = CarbonImmutable::parse(($document->due_date ?: $document->issue_date)->toDateString());
         $daysOverdue = $due->lt($asOf) ? (int) $due->diffInDays($asOf) : 0;
@@ -130,10 +153,12 @@ final class PartyCollectionsStatement
             'cleared_paid' => $this->money($paid - $pending),
             'pending_cheque_paid' => $this->money($pending),
             'balance_due' => $this->money($balance),
-            'balance_if_cheques_bounce' => $this->money($balance + $pending),
+            'uncollected_balance' => $this->money($uncollected),
+            'balance_if_cheques_bounce' => $this->money($uncollected),
             'days_overdue' => $daysOverdue,
             'state' => $due->gt($asOf) ? 'not_due' : ($due->eq($asOf) ? 'due_today' : 'overdue'),
-            'partially_paid' => $paid > 0 && $balance > 0,
+            'partially_paid' => ($paid - $pending) > 0.00005 && $uncollected > 0.00005,
+            'awaiting_cheque' => $pending > 0.00005,
             'last_payment_on' => $lastPaid?->toDateString(),
         ];
     }
@@ -155,7 +180,7 @@ final class PartyCollectionsStatement
                 $days <= 90 => 'days_61_90',
                 default => 'over_90',
             };
-            $buckets[$key] += (float) $row['balance_due'];
+            $buckets[$key] += (float) $row['uncollected_balance'];
         }
 
         return array_map(fn (float $value): string => $this->money($value), $buckets);

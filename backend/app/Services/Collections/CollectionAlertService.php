@@ -2,6 +2,7 @@
 
 namespace App\Services\Collections;
 
+use App\Models\CashMovement;
 use App\Models\CollectionAlert;
 use App\Models\CollectionAlertRule;
 use App\Models\CollectionContact;
@@ -97,12 +98,21 @@ final class CollectionAlertService
         $counts = ['raised' => 0, 'updated' => 0, 'resolved' => 0, 'notified' => 0];
         $active = [];
 
+        // Parties whose invoices look settled only because a cheque is still in hand count too.
         $partyIds = FinancialDocument::query()
             ->where('kind', 'sale_invoice')
             ->whereIn('status', ['issued', 'partially_paid'])
             ->where('balance_due', '>', 0)
-            ->distinct()
-            ->pluck('party_id');
+            ->pluck('party_id')
+            ->merge(CashMovement::query()
+                ->where('category', 'customer_receipt')
+                ->where('method', 'check')
+                ->where('check_status', 'pending')
+                ->where('status', 'posted')
+                ->pluck('party_id'))
+            ->filter()
+            ->unique()
+            ->values();
 
         foreach (Party::query()->whereIn('id', $partyIds)->get() as $party) {
             $statement = $this->statements->forParty($party, 'customer', $today);
@@ -269,9 +279,10 @@ final class CollectionAlertService
         }
 
         $rule = $rules->get(CollectionAlertRule::KIND_STOPPED_PAYING);
-        $sinceLast = $summary['days_since_last_payment'];
+        // A cheque still in hand is not a payment: only collected money resets the silence.
+        $sinceLast = $summary['days_since_last_collected_payment'];
 
-        if ($rule && $overdue > 0 && $summary['last_payment'] !== null && $sinceLast !== null
+        if ($rule && $overdue > 0 && $summary['last_collected_payment'] !== null && $sinceLast !== null
             && $sinceLast >= max($rule->threshold_days, 1) && $outstanding >= (float) $rule->min_amount) {
             $found[CollectionAlertRule::KIND_STOPPED_PAYING] = ['days' => (int) $sinceLast, 'amount' => $overdue];
         }
@@ -325,13 +336,14 @@ final class CollectionAlertService
                 'days' => $finding['days'],
                 'amount' => $this->money($finding['amount']),
                 'threshold_days' => $rule->threshold_days,
-                'last_payment_on' => $summary['last_payment']['date'] ?? null,
+                'last_payment_on' => $summary['last_collected_payment']['date'] ?? null,
+                'pending_cheques_total' => $summary['pending_cheques_total'],
                 ...(isset($finding['promise']) ? ['promise' => $finding['promise']] : []),
             ],
             'outstanding' => $summary['outstanding'],
             'overdue_amount' => $summary['overdue'],
             'days_late' => $finding['days'],
-            'last_payment_on' => $summary['last_payment']['date'] ?? null,
+            'last_payment_on' => $summary['last_collected_payment']['date'] ?? null,
             'next_action' => $this->suggest($kind, $finding['days'], $contact, $today),
             'snoozed_until' => $status === CollectionAlert::STATUS_SNOOZED ? $existing?->snoozed_until : null,
         ];

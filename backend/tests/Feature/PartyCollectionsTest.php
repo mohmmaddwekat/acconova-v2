@@ -125,13 +125,15 @@ class PartyCollectionsTest extends TestCase
 
         $data = $this->statement();
 
-        $this->assertSame('470.0000', $data['summary']['outstanding']);
+        $this->assertSame('550.0000', $data['summary']['outstanding'], 'a pending cheque is not collected money');
+        $this->assertSame('470.0000', $data['summary']['ledger_outstanding'], 'finance counts the cheque as paid');
+        $this->assertSame('80.0000', $data['summary']['pending_cheques_total']);
         $this->assertSame('100.0000', $data['summary']['not_due']);
-        $this->assertSame('370.0000', $data['summary']['overdue']);
+        $this->assertSame('450.0000', $data['summary']['overdue']);
         $this->assertSame(100, $data['summary']['oldest_overdue_days']);
         $this->assertSame('100.0000', $data['aging']['not_due']);
         $this->assertSame('150.0000', $data['aging']['days_31_60']);
-        $this->assertSame('220.0000', $data['aging']['over_90']);
+        $this->assertSame('300.0000', $data['aging']['over_90']);
         $this->assertSame('0.0000', $data['aging']['days_1_30']);
 
         $states = collect($data['documents'])->pluck('state', 'total')->all();
@@ -148,11 +150,16 @@ class PartyCollectionsTest extends TestCase
         $this->assertTrue($data['summary']['last_payment']['is_pending_cheque']);
         $this->assertSame(3, $data['summary']['days_since_last_payment']);
 
-        $this->assertCount(2, $data['partial_payments']);
+        $this->assertCount(1, $data['partial_payments'], 'only cleared money makes a payment partial');
+        $this->assertSame($this->day(5), $data['summary']['last_collected_payment']['date']);
+        $this->assertSame(5, $data['summary']['days_since_last_collected_payment']);
         $veryLate = collect($data['documents'])->firstWhere('id', $ids['veryLate']);
         $this->assertSame('80.0000', $veryLate['pending_cheque_paid']);
         $this->assertSame('0.0000', $veryLate['cleared_paid']);
         $this->assertSame('220.0000', $veryLate['balance_due']);
+        $this->assertSame('300.0000', $veryLate['uncollected_balance']);
+        $this->assertTrue($veryLate['awaiting_cheque']);
+        $this->assertFalse($veryLate['partially_paid']);
         $this->assertSame('300.0000', $veryLate['balance_if_cheques_bounce']);
 
         $late = collect($data['documents'])->firstWhere('id', $ids['late']);
@@ -217,7 +224,7 @@ class PartyCollectionsTest extends TestCase
         $this->assertSame('400.0000', $supplier['summary']['overdue']);
         $this->assertSame([], $supplier['promises']);
         $this->assertTrue($supplier['reconciliation']['reconciled']);
-        $this->assertSame('470.0000', $this->statement()['summary']['outstanding']);
+        $this->assertSame('550.0000', $this->statement()['summary']['outstanding']);
     }
 
     public function test_promises_and_follow_ups_are_shown_with_their_lateness(): void
@@ -275,7 +282,7 @@ class PartyCollectionsTest extends TestCase
         $this->as($viewer);
 
         $data = $this->getJson("/api/parties/{$this->partyId}/collections")->assertOk()->json('data');
-        $this->assertSame('470.0000', $data['summary']['outstanding']);
+        $this->assertSame('550.0000', $data['summary']['outstanding']);
         $this->assertNull($data['cheques']);
         $this->assertNull($data['summary']['last_payment']);
         $this->getJson("/api/parties/{$this->partyId}/collections?side=supplier")->assertForbidden();

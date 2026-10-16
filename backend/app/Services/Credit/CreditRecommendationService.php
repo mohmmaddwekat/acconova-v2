@@ -194,7 +194,9 @@ final class CreditRecommendationService
             ->groupBy('financial_document_id');
 
         $rows = $documents->map(function (FinancialDocument $document) use ($allocations, $asOf): array {
-            $paid = $allocations->get($document->id, collect());
+            // A cheque still in hand is neither collected money nor a guarantee: only cleared payments count as paid.
+            $paid = $allocations->get($document->id, collect())
+                ->reject(fn (CashAllocation $allocation): bool => $this->isPendingCheque($allocation->movement));
             $total = (float) $document->total;
             $paidAmount = (float) $paid->sum('amount');
             $due = CarbonImmutable::parse(($document->due_date ?: $document->issue_date)->toDateString());
@@ -243,7 +245,8 @@ final class CreditRecommendationService
             ->count();
 
         $limit = $party->credit_limit !== null ? (float) $party->credit_limit : null;
-        $exposure = $outstanding + (float) $pending->sum('amount');
+        // Pending cheques are already inside the uncollected balance.
+        $exposure = $outstanding;
         $onTime = $settled->isEmpty() ? null : $settled->where('days_late', 0)->count() / $settled->count();
 
         $data = [
@@ -312,8 +315,11 @@ final class CreditRecommendationService
             "{$d['bounced_cheques']} bounced cheque(s) in the last {$policy->lookback_days} days (stop credit at {$policy->stop_credit_bounced_cheques}).");
         $add('missed_promises', $d['missed_promises'] < $policy->stop_credit_missed_promises, $d['missed_promises'], $policy->stop_credit_missed_promises,
             "{$d['missed_promises']} missed payment promise(s) in the last {$policy->lookback_days} days (stop credit at {$policy->stop_credit_missed_promises}).");
-        $add('over_limit', ! ($limit !== null && $limit > 0 && $exposure > $limit && (float) $d['overdue'] > 0), $d['exposure'], $d['credit_limit'],
-            'Exposure (balance plus pending cheques) '.($limit !== null && $exposure > $limit ? 'exceeds' : 'is within').' the current credit limit'.($limit === null ? ' (no limit set)' : '').'.');
+        $over = $limit !== null && $limit > 0 && $exposure > $limit;
+        $add('over_limit_overdue', ! ($over && (float) $d['overdue'] > 0), $d['exposure'], $d['credit_limit'],
+            'Exposure '.($over ? 'exceeds' : 'is within').' the credit limit'.($limit === null ? ' (no limit set)' : '').((float) $d['overdue'] > 0 ? ', and part of it is overdue.' : '.'));
+        $add('within_limit', ! $over, $d['exposure'], $d['credit_limit'],
+            'Exposure counts unpaid invoices and pending cheques: '.$d['exposure'].($limit === null ? ' (no limit set).' : ' against a limit of '.$d['credit_limit'].'.'));
 
         if ($d['on_time_ratio'] !== null) {
             $add('on_time_ratio', $d['on_time_ratio'] >= $policy->min_on_time_ratio, $d['on_time_ratio'], $policy->min_on_time_ratio,
@@ -335,11 +341,33 @@ final class CreditRecommendationService
      */
     private function recommend(array $facts, array $checks, CreditPolicy $policy): array
     {
+        $result = $this->recommendCore($facts, $checks, $policy);
+        $data = $facts['data'];
+
+        if ($data['pending_cheques'] > 0) {
+            $result['reasons'][] = [
+                'code' => 'pending_cheques',
+                'text' => "{$data['pending_cheques']} pending cheque(s) totalling {$data['pending_cheques_amount']} are counted as unpaid until they clear; a cheque in hand is not a guarantee of payment.",
+                'value' => $data['pending_cheques_amount'],
+                'threshold' => null,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $facts
+     * @param  list<array<string, mixed>>  $checks
+     * @return array{recommendation: array<string, mixed>, reasons: list<array<string, mixed>>}
+     */
+    private function recommendCore(array $facts, array $checks, CreditPolicy $policy): array
+    {
         $d = $facts['data'];
         $byCode = collect($checks)->keyBy('code');
         $failed = fn (string ...$codes): array => collect($codes)->map(fn (string $code) => $byCode->get($code))->filter(fn ($check): bool => $check !== null && ! $check['ok'])->values()->all();
 
-        $stop = $failed('overdue_days', 'bounced_cheques', 'missed_promises', 'over_limit');
+        $stop = $failed('overdue_days', 'bounced_cheques', 'missed_promises', 'over_limit_overdue');
 
         if ($stop !== []) {
             return $this->result('stop_credit', $stop, [
@@ -382,6 +410,14 @@ final class CreditRecommendationService
         if ($poor) {
             return $this->result('cash_only', $failed('on_time_ratio', 'avg_days_late', 'overdue_ratio'), [
                 'summary' => 'Payment record is weak: sell for cash only.',
+                'conditions' => [],
+            ]);
+        }
+
+        if ($failed('within_limit') !== []) {
+            return $this->result('advance_payment', $failed('within_limit'), [
+                'summary' => "The credit limit is already used up: ask for an advance of {$policy->advance_percent}% before delivering more.",
+                'advance_percent' => $policy->advance_percent,
                 'conditions' => [],
             ]);
         }
@@ -451,6 +487,11 @@ final class CreditRecommendationService
         }
 
         return ! ($movement->method === 'check' && in_array($movement->check_status, ['bounced', 'cancelled'], true));
+    }
+
+    private function isPendingCheque(?CashMovement $movement): bool
+    {
+        return $movement !== null && $movement->method === 'check' && $movement->check_status === 'pending';
     }
 
     private function money(float $value): string

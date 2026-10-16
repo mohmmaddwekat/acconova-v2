@@ -128,7 +128,7 @@ class CollectionAlertsTest extends TestCase
         $this->assertSame('200.0000', $items[0]['overdue_amount']);
         $this->assertSame(40, $items[0]['days_late']);
         $this->assertSame('overdue', $items[0]['alerts'][0]['kind']);
-        $this->assertSame(['code' => 'overdue', 'days' => 40, 'amount' => '200.0000', 'threshold_days' => 7, 'last_payment_on' => null], $items[0]['alerts'][0]['reason']);
+        $this->assertSame(['code' => 'overdue', 'days' => 40, 'amount' => '200.0000', 'threshold_days' => 7, 'last_payment_on' => null, 'pending_cheques_total' => '0.0000'], $items[0]['alerts'][0]['reason']);
         $this->assertNull($items[0]['last_contact']);
         $this->assertSame('contact_customer', $items[0]['next_action']['key']);
         $this->assertFalse($items[0]['next_action']['outbound_message_allowed']);
