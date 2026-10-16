@@ -2531,6 +2531,7 @@ function MessagingWorkspace({
 
                 <div className="overflow-hidden rounded-[30px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[0_22px_80px_rgba(20,42,35,.10)]">
                     <div
+                        data-rail={activePeople.length > 0 ? 'true' : 'false'}
                         className={[
                             'grid h-[calc(100dvh-5.75rem)] min-h-0 grid-rows-[minmax(0,1fr)] sm:h-[calc(100dvh-6.25rem)]',
                             detailsOpen
@@ -2540,6 +2541,28 @@ function MessagingWorkspace({
                             ' ',
                         )}
                     >
+                        {activePeople.length > 0 && (
+                            <nav
+                                aria-label={copy.active}
+                                className="team-space-rail hidden min-h-0 flex-col items-center gap-3 overflow-y-auto lg:flex"
+                            >
+                                {activePeople.slice(0, 10).map((person) => (
+                                    <button
+                                        type="button"
+                                        key={person.id}
+                                        title={person.name}
+                                        aria-label={person.name}
+                                        onClick={() => void startDirect(person.id)}
+                                        className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--ac-accent-soft)] text-xs font-bold text-[var(--chat-accent-text,var(--ac-accent-strong))]"
+                                    >
+                                        {initials(person.name)}
+
+                                        <span className="absolute bottom-0 end-0 size-3 rounded-full border-2 border-[var(--ac-surface)] bg-[var(--ac-success)]" />
+                                    </button>
+                                ))}
+                            </nav>
+                        )}
+
                         <aside
                             className={[
                                 'min-h-0 min-w-0 overflow-y-auto border-[var(--ac-line)] bg-[var(--ac-surface)] lg:border-e',
@@ -2655,60 +2678,6 @@ function MessagingWorkspace({
                                         className={`${inputClass} ps-10`}
                                     />
                                 </div>
-
-                                {activePeople.length >
-                                    0 && (
-                                    <div className="mt-4 rounded-[16px] bg-[var(--ac-surface)] p-3 shadow-[var(--ac-shadow-soft)]">
-                                        <div className="flex items-center justify-between">
-                                            <strong className="text-[10px]">
-                                                {
-                                                    copy.active
-                                                }
-                                            </strong>
-
-                                            <span className="rounded-full bg-[var(--ac-accent-soft)] px-2 py-1 text-[8px] font-bold text-[var(--chat-accent-text,var(--ac-accent-strong))]">
-                                                {
-                                                    activePeople.length
-                                                }
-                                            </span>
-                                        </div>
-
-                                        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                                            {activePeople
-                                                .slice(
-                                                    0,
-                                                    10,
-                                                )
-                                                .map(
-                                                    (
-                                                        person,
-                                                    ) => (
-                                                        <button
-                                                            type="button"
-                                                            key={
-                                                                person.id
-                                                            }
-                                                            title={
-                                                                person.name
-                                                            }
-                                                            onClick={() =>
-                                                                void startDirect(
-                                                                    person.id,
-                                                                )
-                                                            }
-                                                            className="relative flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-[var(--ac-surface)] bg-[var(--ac-accent-soft)] text-[9px] font-bold text-[var(--chat-accent-text,var(--ac-accent-strong))] shadow-sm"
-                                                        >
-                                                            {initials(
-                                                                person.name,
-                                                            )}
-
-                                                            <span className="absolute -bottom-0.5 -end-0.5 size-3 rounded-full border-2 border-[var(--ac-surface)] bg-[var(--ac-accent-soft)]0" />
-                                                        </button>
-                                                    ),
-                                                )}
-                                        </div>
-                                    </div>
-                                )}
 
                                 <div className="mt-4 flex gap-1 overflow-x-auto rounded-[13px] bg-[var(--ac-surface)]/70 p-1">
                                     {filters.map(
@@ -4387,7 +4356,7 @@ function MessageBubble({
                             'overflow-hidden rounded-[20px] border',
                             own
                                 ? 'rounded-ee-[6px] border-[var(--message-own-bg,var(--ac-line))] bg-[var(--message-own-bg,#dcf5eb)] text-[var(--message-own-text,inherit)]'
-                                : 'rounded-es-[6px] border-[var(--ac-line)] bg-[var(--message-other-bg,#f2f4f7)]',
+                                : 'rounded-es-[6px] border-transparent bg-[var(--message-other-bg,#f2f4f7)]',
                         ].join(
                             ' ',
                         )}

@@ -17,9 +17,42 @@
     box-shadow: var(--ac-shadow-panel) !important;
 }
 
+/*
+ * Desktop: the rail, the conversation list and the thread are three separate
+ * rounded panels on the page background. Below 1024px they stay one surface.
+ */
 @media (min-width: 1024px) {
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"][class*="overflow-hidden"] > div.grid {
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"][class*="overflow-hidden"] {
+        overflow: visible !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid {
+        gap: 0.75rem;
         grid-template-columns: 350px minmax(0, 1fr) !important;
+    }
+
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid[data-rail="true"] {
+        grid-template-columns: 72px 350px minmax(0, 1fr) !important;
+    }
+
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > nav.team-space-rail,
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type,
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > section {
+        border: 1px solid var(--ac-line) !important;
+        border-radius: var(--ac-radius-lg) !important;
+        background: var(--ac-surface);
+        box-shadow: var(--ac-shadow-soft);
+        overflow: hidden;
+    }
+
+    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > nav.team-space-rail {
+        padding-block: 0.875rem;
+        overflow-y: auto;
+        scrollbar-width: none;
     }
 }
 
@@ -126,18 +159,29 @@
 }
 
 .team-space-page main[class*="max-w-[1840px]"] form[class*="border-t"] {
-    padding: 0.9rem 1rem !important;
+    margin: 0 1.25rem 1rem;
+    padding: 0.35rem 0.5rem !important;
+    border: 1px solid var(--ac-line-strong) !important;
+    border-radius: 30px;
+    background: var(--ac-bg);
+    box-shadow: var(--ac-shadow-panel);
+}
+
+.team-space-page main[class*="max-w-[1840px]"] form[class*="border-t"]:focus-within {
+    border-color: var(--ac-accent) !important;
 }
 
 .team-space-page main[class*="max-w-[1840px]"] form[class*="border-t"] div[class*="rounded-[18px]"][class*="focus-within"] {
-    border-color: var(--ac-line-strong);
-    border-radius: var(--ac-radius-md) !important;
-    box-shadow: var(--ac-shadow-soft);
+    border-color: transparent;
+    border-radius: 24px !important;
+    background: transparent !important;
+    box-shadow: none;
 }
 
 .team-space-page main[class*="max-w-[1840px]"] form textarea {
-    min-height: 72px !important;
-    padding: 0.9rem 1rem !important;
+    min-height: 56px !important;
+    padding: 0.75rem 1rem !important;
+    outline: none !important;
 }
 
 .team-space-page main[class*="max-w-[1840px]"] form button:hover:not(:disabled) {

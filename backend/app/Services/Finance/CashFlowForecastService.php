@@ -257,7 +257,7 @@ final class CashFlowForecastService
                 return [
                     'layer' => 'confirmed', 'kind' => 'supplier_invoice', 'direction' => 'out',
                     'label' => $this->partyName($document->party).' · '.($document->number ?? '#'.$document->id),
-                    'party_id' => (int) $document->party_id,
+                    'party_id' => (int) $document->party_id, 'document_id' => (int) $document->id,
                     'amount' => (float) $document->balance_due, 'probability' => 1.0,
                     'date' => ($due->lessThan($today) ? $today : $due)->toDateString(), 'contractual_date' => $due->toDateString(),
                     'days_late' => max(0, (int) $due->diffInDays($today, false)),
@@ -477,7 +477,7 @@ final class CashFlowForecastService
     {
         return [
             'layer' => $item['layer'], 'kind' => $item['kind'], 'direction' => $item['direction'], 'label' => $item['label'],
-            'party_id' => $item['party_id'], 'amount' => $this->money($item['amount']), 'probability' => $item['probability'],
+            'party_id' => $item['party_id'], 'document_id' => $item['document_id'] ?? null, 'amount' => $this->money($item['amount']), 'probability' => $item['probability'],
             'weighted_amount' => $this->money($item['amount'] * $item['probability']),
             'expected_date' => $item['date'], 'contractual_date' => $item['contractual_date'], 'days_late' => $item['days_late'],
             'basis' => $item['basis'],

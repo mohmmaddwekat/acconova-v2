@@ -21,11 +21,11 @@ const emojiChoices = ['👍', '❤️', '😂', '🎉', '😮', '😢'];
  * AccoNova brand palette (same scale as design-system.css) instead of green.
  */
 export const chatThemes: Record<string, { background: string; bubble: string; other: string; text: string; surface: string; soft: string; line: string; muted: string; accent: string; accentText: string; ownText?: string; accentSoft?: string }> = {
-    green: { background: '#f8fbff', bubble: '#068CF0', other: '#ffffff', text: '#011C32', surface: '#ffffff', soft: '#f8fbff', line: '#CDE8FE', muted: '#045495', accent: '#068CF0', accentText: '#0570C7', ownText: '#ffffff', accentSoft: 'rgba(6, 140, 240, 0.12)' },
+    green: { background: '#f8fbff', bubble: '#068CF0', other: '#E6F3FE', text: '#011C32', surface: '#ffffff', soft: '#f8fbff', line: '#CDE8FE', muted: '#045495', accent: '#068CF0', accentText: '#0570C7', ownText: '#ffffff', accentSoft: 'rgba(6, 140, 240, 0.12)' },
     blue: { background: '#f0f6ff', bubble: '#cfe2ff', other: '#e6effc', text: '#172c4e', surface: '#f8fbff', soft: '#e4efff', line: '#cbdcf3', muted: '#536f94', accent: '#245eae', accentText: '#245eae' },
     purple: { background: '#f8f1ff', bubble: '#e9d5ff', other: '#f0e5fa', text: '#36214f', surface: '#fdf9ff', soft: '#f0e3fb', line: '#e2ccef', muted: '#79608f', accent: '#7940a3', accentText: '#7940a3' },
     rose: { background: '#fff1f5', bubble: '#ffdce6', other: '#fce7ed', text: '#4d2630', surface: '#fff9fb', soft: '#fde5ed', line: '#efccd8', muted: '#926170', accent: '#ad3e64', accentText: '#ad3e64' },
-    dark: { background: '#011423', bubble: '#38A3FA', other: '#011C32', text: '#E6F3FE', surface: '#011C32', soft: '#033863', line: '#033863', muted: '#9CD1FC', accent: '#38A3FA', accentText: '#38A3FA', ownText: '#011423', accentSoft: 'rgba(56, 163, 250, 0.14)' },
+    dark: { background: '#011423', bubble: '#38A3FA', other: '#033863', text: '#E6F3FE', surface: '#011C32', soft: '#033863', line: '#033863', muted: '#9CD1FC', accent: '#38A3FA', accentText: '#38A3FA', ownText: '#011423', accentSoft: 'rgba(56, 163, 250, 0.14)' },
 };
 
 function Section({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {

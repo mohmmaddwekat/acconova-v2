@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Collections\CollectionFollowUpController;
 use App\Http\Controllers\Finance\CashFlowForecastController;
+use App\Http\Controllers\Finance\SupplierPaymentPlanController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +18,14 @@ Route::middleware([
 ])->group(function (): void {
     Route::get('collections/follow-ups', [CollectionFollowUpController::class, 'index']);
     Route::get('finance/cash-flow-forecast', [CashFlowForecastController::class, 'show']);
+    Route::get('finance/supplier-payment-policy', [SupplierPaymentPlanController::class, 'policy']);
+    Route::put('finance/supplier-payment-policy', [SupplierPaymentPlanController::class, 'updatePolicy'])->middleware('throttle:30,1');
+    Route::post('finance/supplier-payment-proposal', [SupplierPaymentPlanController::class, 'proposal'])->middleware('throttle:30,1');
+    Route::get('finance/supplier-payment-plans', [SupplierPaymentPlanController::class, 'index']);
+    Route::post('finance/supplier-payment-plans', [SupplierPaymentPlanController::class, 'store'])->middleware('throttle:20,1');
+    Route::get('finance/supplier-payment-plans/{plan}', [SupplierPaymentPlanController::class, 'show'])->whereNumber('plan');
+    Route::post('finance/supplier-payment-plans/{plan}/approve', [SupplierPaymentPlanController::class, 'approve'])->whereNumber('plan')->middleware('throttle:20,1');
+    Route::post('finance/supplier-payment-plans/{plan}/refresh', [SupplierPaymentPlanController::class, 'refresh'])->whereNumber('plan')->middleware('throttle:20,1');
     Route::get('collections/rules', [CollectionFollowUpController::class, 'rules']);
     Route::put('collections/rules/{kind}', [CollectionFollowUpController::class, 'updateRule'])->middleware('throttle:30,1');
     Route::post('collections/alerts/{alert}/snooze', [CollectionFollowUpController::class, 'snooze'])->whereNumber('alert')->middleware('throttle:30,1');

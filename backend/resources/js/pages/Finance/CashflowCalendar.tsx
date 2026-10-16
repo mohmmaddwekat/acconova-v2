@@ -1,6 +1,7 @@
 import { AppShell } from '@/layouts/AppShell';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
+import { SupplierPaymentPlanPanel } from './SupplierPaymentPlanPanel';
 import {
     Head,
     Link,
@@ -278,6 +279,8 @@ export default function CashflowCalendar() {
                         </div>
                     )}
                 </section>
+
+                <SupplierPaymentPlanPanel ar={ar} />
             </main>
         </AppShell>
     );
