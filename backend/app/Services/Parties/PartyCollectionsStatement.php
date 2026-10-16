@@ -270,7 +270,7 @@ final class PartyCollectionsStatement
             $side === 'customer',
             $side === 'supplier',
             true,
-            $asOf->endOfDay(),
+            CarbonCarbon::parse($asOf->endOfDay()->toDateTimeString()),
         )[$party->id][$side.'_position'] ?? 0.0;
 
         $balanceDue = (float) $documents->sum(fn (FinancialDocument $document): float => (float) $document->balance_due);
