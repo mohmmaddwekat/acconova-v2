@@ -2426,9 +2426,10 @@ function MessagingWorkspace({
         '--ac-line-strong': chatTheme.line,
         '--ac-accent': chatTheme.accentText,
         '--ac-accent-strong': chatTheme.accent,
-        '--ac-accent-soft': chatTheme.soft,
+        '--ac-accent-soft': chatTheme.accentSoft ?? chatTheme.soft,
         '--chat-accent-text': chatTheme.accentText,
         '--message-own-bg': chatTheme.bubble,
+        '--message-own-text': chatTheme.ownText ?? chatTheme.text,
         '--message-other-bg': chatTheme.other,
     } as CSSProperties;
     useEffect(() => {
@@ -4383,10 +4384,10 @@ function MessageBubble({
                 <div className="relative">
                     <div
                         className={[
-                            'overflow-hidden rounded-[18px] border',
+                            'overflow-hidden rounded-[20px] border',
                             own
-                                ? 'rounded-ee-[6px] border-[var(--ac-line)] bg-[var(--message-own-bg,#dcf5eb)]'
-                                : 'rounded-es-[6px] border-transparent bg-[var(--message-other-bg,#f2f4f7)]',
+                                ? 'rounded-ee-[6px] border-[var(--message-own-bg,var(--ac-line))] bg-[var(--message-own-bg,#dcf5eb)] text-[var(--message-own-text,inherit)]'
+                                : 'rounded-es-[6px] border-[var(--ac-line)] bg-[var(--message-other-bg,#f2f4f7)]',
                         ].join(
                             ' ',
                         )}

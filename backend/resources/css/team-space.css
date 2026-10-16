@@ -89,7 +89,7 @@
 .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type section > div > button {
     margin-block: 0.2rem;
     border: 1px solid transparent;
-    border-radius: 15px !important;
+    border-radius: var(--ac-radius-sm) !important;
     padding: 0.75rem !important;
     transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
@@ -131,8 +131,8 @@
 
 .team-space-page main[class*="max-w-[1840px]"] form[class*="border-t"] div[class*="rounded-[18px]"][class*="focus-within"] {
     border-color: var(--ac-line-strong);
-    border-radius: 16px !important;
-    box-shadow: 0 8px 26px rgba(1, 20, 35, 0.08);
+    border-radius: var(--ac-radius-md) !important;
+    box-shadow: var(--ac-shadow-soft);
 }
 
 .team-space-page main[class*="max-w-[1840px]"] form textarea {
