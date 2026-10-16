@@ -23,6 +23,8 @@ class AiImportDraft extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    public const STATUS_ROLLED_BACK = 'rolled_back';
+
     protected $fillable = [
         'ai_conversation_id',
         'user_id',

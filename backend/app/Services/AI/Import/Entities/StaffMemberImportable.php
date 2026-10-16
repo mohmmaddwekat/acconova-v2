@@ -3,6 +3,7 @@
 namespace App\Services\AI\Import\Entities;
 
 use App\Actions\Staff\UpsertStaffMemberFromImport;
+use App\Models\StaffMember;
 use App\Services\AI\Import\Contracts\ImportableEntity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -101,6 +102,19 @@ class StaffMemberImportable implements ImportableEntity
      * `StaffController::allowed('staff.import')`; see
      * WorkspaceFeaturePermissions::groups()'s `staff` group for the same key).
      */
+    /** @var (callable(int, int): void)|null */
+    private $progressListener = null;
+
+    public function isFinancial(): bool
+    {
+        return false;
+    }
+
+    public function onProgress(?callable $listener): void
+    {
+        $this->progressListener = $listener;
+    }
+
     public function requiredPermission(): string
     {
         return 'staff.import';
@@ -123,24 +137,62 @@ class StaffMemberImportable implements ImportableEntity
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return array{created:int,updated:int,skipped:int,total:int}
      */
-    public function commit(Collection $rows): array
+    /** @var array{created:list<int>,updated:array<int,array<string,mixed>>} */
+    private array $changes = ['created' => [], 'updated' => []];
+
+    public function lastChanges(): array
     {
+        return $this->changes;
+    }
+
+    public function rollback(array $changes): array
+    {
+        $removed = 0;
+
+        foreach (StaffMember::query()->whereIn('id', $changes['created'] ?? [])->get() as $member) {
+            $member->delete();
+            $removed++;
+        }
+
+        $restored = 0;
+
+        foreach ((array) ($changes['updated'] ?? []) as $id => $restore) {
+            $member = StaffMember::query()->find($id);
+
+            if ($member !== null) {
+                $member->forceFill($restore['attributes'])->save();
+                $restored++;
+            }
+        }
+
+        return ['removed' => $removed, 'restored' => $restored];
+    }
+
+    public function commit(Collection $rows, string $duplicateMode = 'skip'): array
+    {
+        $this->changes = ['created' => [], 'updated' => []];
         $created = 0;
         $updated = 0;
         $skipped = 0;
 
-        DB::transaction(function () use ($rows, &$created, &$updated, &$skipped): void {
+        DB::transaction(function () use ($rows, $duplicateMode, &$created, &$updated, &$skipped): void {
+            $done = 0;
+
             foreach ($rows as $row) {
+                if ($this->progressListener !== null) {
+                    ($this->progressListener)(++$done, $rows->count());
+                }
+
                 /*
                  * 'phone'/'skip' mirror StaffImportController::importEmployees()'s
                  * defaults, keeping bulk commits safe and non-destructive by
                  * default.
                  */
-                $result = $this->upsertStaffMember->execute((array) $row, 'phone', 'skip');
+                $result = $this->upsertStaffMember->execute((array) $row, 'phone', $duplicateMode);
 
                 match ($result['status']) {
-                    'created' => $created++,
-                    'updated' => $updated++,
+                    'created' => [$created++, $this->changes['created'][] = $result['member']->id],
+                    'updated' => [$updated++, $this->changes['updated'][$result['member']->id] = ['attributes' => $result['before']]],
                     'skipped' => $skipped++,
                 };
             }
@@ -164,10 +216,11 @@ class StaffMemberImportable implements ImportableEntity
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return array{valid_rows:int, error_rows:int, errors:list<array{row:int,message:string}>}
      */
-    public function preview(Collection $rows): array
+    public function preview(Collection $rows, string $duplicateMode = 'skip'): array
     {
         $errors = [];
         $validRows = 0;
+        $duplicateRows = 0;
 
         foreach ($rows->values() as $index => $row) {
             /*
@@ -179,6 +232,10 @@ class StaffMemberImportable implements ImportableEntity
 
             if ($message === null) {
                 $validRows++;
+
+                if ($this->upsertStaffMember->isDuplicate((array) $row, 'phone')) {
+                    $duplicateRows++;
+                }
 
                 continue;
             }
@@ -192,6 +249,7 @@ class StaffMemberImportable implements ImportableEntity
         return [
             'valid_rows' => $validRows,
             'error_rows' => count($errors),
+            'duplicate_rows' => $duplicateRows,
             'errors' => $errors,
         ];
     }

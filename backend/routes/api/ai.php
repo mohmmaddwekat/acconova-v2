@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AI\AiAssistantController;
+use App\Http\Controllers\AI\SmartImportProgressController;
 use App\Http\Middleware\ResolveOrganization;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,8 @@ Route::middleware([
         Route::post('conversations/{conversation}/messages', [AiAssistantController::class, 'message'])
             ->whereNumber('conversation')
             ->middleware('throttle:20,1');
+        Route::get('import-drafts/{draft}/progress', SmartImportProgressController::class)
+            ->whereNumber('draft');
         Route::delete('conversations/{conversation}', [AiAssistantController::class, 'destroy'])
             ->whereNumber('conversation');
     });

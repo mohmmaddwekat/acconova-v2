@@ -11,6 +11,7 @@ use App\Services\AI\Import\ImportDestinationCatalog;
 use App\Services\AI\Tools\Concerns\RemapsImportRows;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -30,6 +31,11 @@ final class SmartImportConfirmTool implements AiWriteTool
     public function __construct(
         private readonly ImportDestinationCatalog $catalog,
     ) {}
+
+    public static function progressKey(int $organizationId, int $draftId): string
+    {
+        return "smart-import-progress:{$organizationId}:{$draftId}";
+    }
 
     public function name(): string
     {
@@ -53,6 +59,13 @@ final class SmartImportConfirmTool implements AiWriteTool
                     'type' => 'integer',
                     'description' => 'The id of the AiImportDraft to confirm.',
                 ],
+                'duplicate_mode' => [
+                    'type' => 'string',
+                    'enum' => ['skip', 'update'],
+                    'description' => 'What to do with rows matching an existing record: '.
+                        '"skip" keeps it (default), "update" overwrites it. Only use "update" '.
+                        'if the user explicitly asked to update existing records.',
+                ],
             ],
             'required' => ['draft_id'],
             'additionalProperties' => false,
@@ -75,6 +88,7 @@ final class SmartImportConfirmTool implements AiWriteTool
     public function execute(User $user, array $arguments, AiConversation $conversation): array
     {
         $draftId = (int) $arguments['draft_id'];
+        $duplicateMode = ($arguments['duplicate_mode'] ?? 'skip') === 'update' ? 'update' : 'skip';
 
         // Fast-path rejection only (draft missing, wrong owner, already
         // finalized): cheap enough to fail before opening a transaction,
@@ -91,7 +105,7 @@ final class SmartImportConfirmTool implements AiWriteTool
         $this->guardDraftIsConfirmable($draft);
         $this->guardDraftIsNotExpired($draft);
 
-        return DB::transaction(function () use ($user, $draftId, $conversation): array {
+        return DB::transaction(function () use ($user, $draftId, $conversation, $duplicateMode): array {
             /*
              * Everything that decides what gets written or whether it's
              * permitted — the target entity, both permission checks, and
@@ -133,12 +147,24 @@ final class SmartImportConfirmTool implements AiWriteTool
                 throw new RuntimeException('You do not have permission to commit this import.');
             }
 
+            if ($entity->isFinancial() && ! WorkspaceFeaturePermissions::allows($user, 'finance.import.approve')) {
+                throw new RuntimeException('Importing financial data requires finance approval permission.');
+            }
+
+            $entity->onProgress(static function (int $done, int $total) use ($lockedDraft): void {
+                Cache::store('file')->put(
+                    self::progressKey((int) $lockedDraft->organization_id, (int) $lockedDraft->id),
+                    ['processed' => $done, 'total' => $total],
+                    600,
+                );
+            });
+
             $fieldMapping = (array) $lockedDraft->field_mapping;
 
             $rows = $this->remapRows(collect((array) $lockedDraft->extracted_rows), $fieldMapping);
 
             try {
-                $result = $entity->commit($rows);
+                $result = $entity->commit($rows, $duplicateMode);
             } catch (ValidationException|InvalidArgumentException $exception) {
                 // Deliberately does not touch $lockedDraft: it must stay in
                 // "draft" status so the user can revise and re-confirm,
@@ -152,11 +178,19 @@ final class SmartImportConfirmTool implements AiWriteTool
             }
 
             $lockedDraft->status = AiImportDraft::STATUS_COMMITTED;
-            $lockedDraft->commit_summary = $result;
+            // `changes` powers smart_import_rollback; it is kept out of the
+            // tool result so the model only sees the counts.
+            $lockedDraft->commit_summary = [
+                ...$result,
+                'duplicate_mode' => $duplicateMode,
+                'changes' => $entity->lastChanges(),
+            ];
             $lockedDraft->save();
 
             return [
                 ...$result,
+                'draft_id' => $lockedDraft->id,
+                'duplicate_mode' => $duplicateMode,
                 'audit' => [
                     'before' => null,
                     'after' => $result,

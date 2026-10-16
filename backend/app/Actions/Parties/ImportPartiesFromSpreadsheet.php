@@ -5,6 +5,7 @@ namespace App\Actions\Parties;
 use App\Enums\PartyRole;
 use App\Enums\PartyType;
 use App\Models\Party;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -57,7 +58,11 @@ class ImportPartiesFromSpreadsheet
     public function execute(
         Collection $rows,
         string $duplicateMode,
+        ?array &$changes = null,
+        ?callable $progress = null,
     ): array {
+        $changes = ['created' => [], 'updated' => []];
+
         $analysis =
             $this->analyze(
                 $rows,
@@ -86,10 +91,19 @@ class ImportPartiesFromSpreadsheet
                 &$created,
                 &$updated,
                 &$skipped,
+                &$changes,
+                $progress,
             ): void {
+                $done = 0;
+                $totalEntries = count($analysis['entries']);
+
                 foreach (
                     $analysis['entries'] as $entry
                 ) {
+                    if ($progress !== null) {
+                        $progress(++$done, $totalEntries);
+                    }
+
                     $existingId =
                         $entry['existing_id'];
 
@@ -111,6 +125,16 @@ class ImportPartiesFromSpreadsheet
                                     $existingId,
                                 );
 
+                        $changes['updated'][$party->id] = [
+                            'attributes' => Arr::only(
+                                $party->getAttributes(),
+                                array_keys($entry['payload']),
+                            ),
+                            'roles' => $party->roles()->get()
+                                ->map(fn ($role): string => $role->role->value)
+                                ->all(),
+                        ];
+
                         $this->updateParty
                             ->execute(
                                 $party,
@@ -122,10 +146,10 @@ class ImportPartiesFromSpreadsheet
                         continue;
                     }
 
-                    $this->createParty
+                    $changes['created'][] = $this->createParty
                         ->execute(
                             $entry['payload'],
-                        );
+                        )->id;
 
                     $created++;
                 }

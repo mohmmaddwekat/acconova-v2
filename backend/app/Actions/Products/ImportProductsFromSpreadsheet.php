@@ -4,6 +4,7 @@ namespace App\Actions\Products;
 
 use App\Enums\ProductType;
 use App\Models\Product;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -56,7 +57,11 @@ class ImportProductsFromSpreadsheet
     public function execute(
         Collection $rows,
         string $duplicateMode,
+        ?array &$changes = null,
+        ?callable $progress = null,
     ): array {
+        $changes = ['created' => [], 'updated' => []];
+
         $analysis =
             $this->analyze(
                 $rows,
@@ -85,10 +90,19 @@ class ImportProductsFromSpreadsheet
                 &$created,
                 &$updated,
                 &$skipped,
+                &$changes,
+                $progress,
             ): void {
+                $done = 0;
+                $totalEntries = count($analysis['entries']);
+
                 foreach (
                     $analysis['entries'] as $entry
                 ) {
+                    if ($progress !== null) {
+                        $progress(++$done, $totalEntries);
+                    }
+
                     $existingId =
                         $entry['existing_id'];
 
@@ -110,6 +124,13 @@ class ImportProductsFromSpreadsheet
                                     $existingId,
                                 );
 
+                        $changes['updated'][$product->id] = [
+                            'attributes' => Arr::only(
+                                $product->getAttributes(),
+                                array_keys($entry['payload']),
+                            ),
+                        ];
+
                         $this->updateProduct
                             ->execute(
                                 $product,
@@ -121,10 +142,10 @@ class ImportProductsFromSpreadsheet
                         continue;
                     }
 
-                    $this->createProduct
+                    $changes['created'][] = $this->createProduct
                         ->execute(
                             $entry['payload'],
-                        );
+                        )->id;
 
                     $created++;
                 }

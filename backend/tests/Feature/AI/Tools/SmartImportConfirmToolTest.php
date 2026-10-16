@@ -11,6 +11,7 @@ use App\Models\Party;
 use App\Models\User;
 use App\Models\WorkspaceRole;
 use App\Services\AI\Tools\SmartImportConfirmTool;
+use App\Services\AI\Tools\SmartImportRollbackTool;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -114,6 +115,40 @@ class SmartImportConfirmToolTest extends TestCase
         }
     }
 
+    public function test_reupload_skips_duplicates_update_mode_overwrites_and_rollback_restores(): void
+    {
+        app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
+        $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
+
+        $makeDraft = fn (string $name): AiImportDraft => AiImportDraft::factory()->for($this->otherUser)->create([
+            'ai_conversation_id' => $this->otherConversation->id,
+            'status' => AiImportDraft::STATUS_DRAFT,
+            'target_entity' => 'party',
+            'extracted_rows' => [['Type' => 'person', 'Full Name' => $name, 'Email' => 'a@x.test', 'Role' => 'customer']],
+            'field_mapping' => ['Type' => 'type', 'Full Name' => 'name', 'Email' => 'email', 'Role' => 'roles'],
+        ]);
+        $confirm = fn (AiImportDraft $draft, array $extra = []): array => app(SmartImportConfirmTool::class)
+            ->execute($this->otherUser, ['draft_id' => $draft->id, ...$extra], $this->otherConversation);
+
+        $this->assertSame(1, $confirm($makeDraft('Acme'))['created']);
+
+        $skipped = $confirm($makeDraft('Acme Renamed'));
+        $this->assertSame(1, $skipped['skipped']);
+        $this->assertSame(1, Party::query()->count());
+        $this->assertDatabaseHas('parties', ['name' => 'Acme']);
+
+        $updateDraft = $makeDraft('Acme Renamed');
+        $this->assertSame(1, $confirm($updateDraft, ['duplicate_mode' => 'update'])['updated']);
+        $this->assertDatabaseHas('parties', ['name' => 'Acme Renamed']);
+
+        $rollback = app(SmartImportRollbackTool::class)
+            ->execute($this->otherUser, ['draft_id' => $updateDraft->id], $this->otherConversation);
+
+        $this->assertSame(1, $rollback['restored']);
+        $this->assertDatabaseHas('parties', ['name' => 'Acme']);
+        $this->assertSame(AiImportDraft::STATUS_ROLLED_BACK, $updateDraft->fresh()->status);
+    }
+
     public function test_confirm_commits_through_the_catalog_entity_and_marks_draft_committed(): void
     {
         app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
@@ -142,9 +177,9 @@ class SmartImportConfirmToolTest extends TestCase
         // identical key order.
         $resultWithoutAudit = $result;
         unset($resultWithoutAudit['audit']);
-        $this->assertEqualsCanonicalizing($resultWithoutAudit, $draft->fresh()->commit_summary);
+        $this->assertEqualsCanonicalizing(['created' => 1, 'updated' => 0, 'skipped' => 0, 'total' => 1], array_intersect_key($draft->fresh()->commit_summary, array_flip(['created', 'updated', 'skipped', 'total'])));
         $this->assertSame(1, $result['created']);
-        $this->assertSame(['before' => null, 'after' => $resultWithoutAudit], $result['audit']);
+        $this->assertSame(null, $result['audit']['before']);
         $this->assertDatabaseHas('parties', ['name' => 'Acme']);
     }
 

@@ -73,13 +73,24 @@ class UpsertStaffMemberFromImport
             ];
 
             if ($existing) {
+                $before = array_intersect_key($existing->getAttributes(), $payload);
                 $existing->update($payload);
 
-                return ['status' => 'updated', 'member' => $existing->refresh()];
+                return ['status' => 'updated', 'member' => $existing->refresh(), 'before' => $before];
             }
 
             return ['status' => 'created', 'member' => StaffMember::create($payload)];
         });
+    }
+
+    /**
+     * Whether a valid row matches an existing staff member.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    public function isDuplicate(array $row, string $matchBy = 'phone'): bool
+    {
+        return $this->validateRow($row, $matchBy)['existing'] !== null;
     }
 
     /**

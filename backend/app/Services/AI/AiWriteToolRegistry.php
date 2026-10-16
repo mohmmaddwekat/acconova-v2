@@ -10,6 +10,7 @@ use App\Services\AI\Tools\SmartImportCancelTool;
 use App\Services\AI\Tools\SmartImportConfirmTool;
 use App\Services\AI\Tools\SmartImportProposeTool;
 use App\Services\AI\Tools\SmartImportReviseTool;
+use App\Services\AI\Tools\SmartImportRollbackTool;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
 use RuntimeException;
 
@@ -21,6 +22,7 @@ final class AiWriteToolRegistry
         SmartImportReviseTool::class,
         SmartImportConfirmTool::class,
         SmartImportCancelTool::class,
+        SmartImportRollbackTool::class,
     ];
 
     /** @return list<array{name:string,description:string,input_schema:array<string,mixed>}> */
