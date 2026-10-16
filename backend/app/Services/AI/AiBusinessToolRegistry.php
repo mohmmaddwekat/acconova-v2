@@ -4,6 +4,7 @@ namespace App\Services\AI;
 
 use App\Models\User;
 use App\Services\AI\Contracts\AiBusinessTool;
+use App\Services\AI\Tools\AiUsageTool;
 use App\Services\AI\Tools\CashflowSummaryTool;
 use App\Services\AI\Tools\CollectionFollowUpsTool;
 use App\Services\AI\Tools\CreditRecommendationTool;
@@ -23,6 +24,7 @@ final class AiBusinessToolRegistry
         PartyBalancesTool::class,
         CollectionFollowUpsTool::class,
         CreditRecommendationTool::class,
+        AiUsageTool::class,
         OverdueInvoicesTool::class,
         InventoryStatusTool::class,
         CashflowSummaryTool::class,

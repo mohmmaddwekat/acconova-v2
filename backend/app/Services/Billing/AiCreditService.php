@@ -430,7 +430,7 @@ final class AiCreditService
         return max(1, (int) floor(($amountMinor * $tokensPerDollar) / 100));
     }
 
-    private function includedMonthlyLimit(int $organizationId): ?int
+    public function includedMonthlyLimit(int $organizationId): ?int
     {
         $account = BillingAccount::query()
             ->where('organization_id', $organizationId)
@@ -445,7 +445,7 @@ final class AiCreditService
         return is_numeric($value) ? max(0, (int) $value) : null;
     }
 
-    private function monthlyUsage(int $organizationId): int
+    public function monthlyUsage(int $organizationId): int
     {
         if (! Schema::hasTable('ai_messages')) {
             return 0;

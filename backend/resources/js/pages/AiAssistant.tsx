@@ -1,4 +1,5 @@
 import { AppShell } from '@/layouts/AppShell';
+import { AiUsagePanel } from '@/components/ai/AiUsagePanel';
 import {
     aiImageErrorMessage,
     aiMessageHasImage,
@@ -543,6 +544,12 @@ export default function AiAssistant() {
                             {ar ? 'محادثة جديدة' : 'New chat'}
                         </button>
                     </header>
+
+                    <AiUsagePanel
+                        ar={ar}
+                        conversationId={activeId}
+                        refreshKey={messages.length}
+                    />
 
                     {! status?.configured && ! loading && (
                         <section className="flex items-start gap-3 rounded-[18px] border border-amber-400/30 bg-amber-500/10 p-4">
