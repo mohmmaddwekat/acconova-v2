@@ -27,7 +27,7 @@ export function NotificationBell() {
                 .catch(() => { if (active) { setState({ organizationId, count: 0 }); } });
         };
         refresh();
-        const timer = setInterval(refresh, 8000);
+        const timer = setInterval(() => { if (!document.hidden) { refresh(); } }, 8000);
         window.addEventListener('notifications-changed', refresh);
         window.addEventListener('payment-plans-changed', refresh);
         return () => { active = false; clearInterval(timer); window.removeEventListener('notifications-changed', refresh); window.removeEventListener('payment-plans-changed', refresh); };

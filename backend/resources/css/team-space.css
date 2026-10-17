@@ -1,246 +1,440 @@
+/*
+ * Team Space - approved "rail + panels" design.
+ * Everything is scoped to .ts so nothing leaks into the rest of the app.
+ */
 .team-space-page {
     display: contents;
 }
 
-/*
- * Team Space is a two-column messaging workspace by default:
- * conversation list + active thread. Conversation details are an overlay drawer
- * so opening them never crushes the message area into a narrow third column.
- */
-.team-space-page main[class*="max-w-[1840px]"] {
-    max-width: 1680px;
-    padding-block: 1rem;
+.ts {
+    --own-bg: var(--ac-accent);
+    --own-tx: #fff;
+    --ac-hover: var(--ac-button-hover-bg, #e6f3fe);
+    --ts-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+    padding: 1rem;
 }
 
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"][class*="overflow-hidden"] {
-    border-radius: 22px !important;
-    box-shadow: var(--ac-shadow-panel) !important;
+html[data-ac-resolved-theme='dark'] .ts {
+    --own-tx: #011423;
 }
 
-/*
- * Desktop: the rail, the conversation list and the thread are three separate
- * rounded panels on the page background. Below 1024px they stay one surface.
- */
-@media (min-width: 1024px) {
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"][class*="overflow-hidden"] {
-        overflow: visible !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        background: transparent !important;
-        box-shadow: none !important;
-    }
+.ts[data-chat='blue'] { --own-bg: #4c7be8; --own-tx: #fff; }
+.ts[data-chat='purple'] { --own-bg: #8b5cf6; --own-tx: #fff; }
+.ts[data-chat='rose'] { --own-bg: #e0527a; --own-tx: #fff; }
 
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid {
-        gap: 0.75rem;
-        grid-template-columns: 350px minmax(0, 1fr) !important;
-    }
+.ts *:focus-visible { outline: 2px solid var(--ac-accent); outline-offset: 2px; }
+.ts [hidden] { display: none !important; }
 
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid[data-rail="true"] {
-        grid-template-columns: 72px 350px minmax(0, 1fr) !important;
-    }
-
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > nav.team-space-rail,
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type,
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > section {
-        border: 1px solid var(--ac-line) !important;
-        border-radius: var(--ac-radius-lg) !important;
-        background: var(--ac-surface);
-        box-shadow: var(--ac-shadow-soft);
-        overflow: hidden;
-    }
-
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > nav.team-space-rail {
-        padding-block: 0.875rem;
-        overflow-y: auto;
-        scrollbar-width: none;
-    }
+.ts .box {
+    position: relative;
+    display: grid;
+    height: calc(100dvh - 6.5rem);
+    min-height: 0;
+    grid-template-columns: 72px 300px minmax(0, 1fr);
+    gap: 12px;
 }
 
-/* Conversation list: one deliberate scroll area instead of nested scrollbars. */
-@media (min-width: 1024px) {
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type {
-        display: flex !important;
-        min-width: 0;
-        flex-direction: column;
-        overflow: hidden !important;
-        background: var(--ac-surface);
-    }
-
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type > div:first-child,
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type > div:nth-child(2) {
-        flex: 0 0 auto;
-    }
-
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type > div:last-child {
-        min-height: 0;
-        flex: 1 1 auto;
-        overflow-y: auto !important;
-        overscroll-behavior: contain;
-        scrollbar-width: thin;
-        scrollbar-color: var(--ac-line-strong) transparent;
-    }
-}
-
-/* Search and conversation-list header get calmer spacing. */
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type > div:first-child {
-    padding: 1.1rem !important;
-}
-
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type h1 {
-    letter-spacing: -0.025em !important;
-}
-
-/* Five filters fit cleanly without the ugly horizontal browser scrollbar. */
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type div[class*="overflow-x-auto"][class*="rounded-[13px]"] {
-    display: grid !important;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.3rem !important;
-    overflow: visible !important;
-    padding: 0.35rem !important;
-    background: var(--ac-surface-soft) !important;
+.ts .rail,
+.ts .list,
+.ts .main {
     border: 1px solid var(--ac-line);
+    background: var(--ac-surface);
+    box-shadow: var(--ac-shadow-soft);
 }
 
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type div[class*="overflow-x-auto"][class*="rounded-[13px]"] > button {
-    min-width: 0 !important;
-    padding: 0.55rem 0.25rem !important;
-    border: 1px solid transparent;
-    border-radius: 9px !important;
+/* ---------- avatars ---------- */
+.ts .av {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: none;
+    place-items: center;
+    border-radius: var(--ac-radius-xs);
+    background: #068cf0;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.ts button.av { padding: 0; cursor: pointer; }
+.ts button.av:hover { filter: brightness(1.1); }
+.ts .av img { width: 100%; height: 100%; object-fit: cover; }
+.ts .a2 { background: #045495; }
+.ts .a3 { background: #38a3fa; color: #011c32; }
+.ts .a4 { background: #0570c7; }
+.ts .a5 { background: #033863; }
+html[data-ac-resolved-theme='dark'] .ts .a5 { background: #045495; }
+.ts .av.big { width: 72px; height: 72px; border-radius: 50%; font-size: 26px; }
+.ts .n {
+    border-radius: 10px;
+    background: var(--ac-accent);
+    color: var(--own-tx);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 20px;
+    padding: 0 8px;
 }
 
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type div[class*="overflow-x-auto"][class*="rounded-[13px]"] > button:hover {
-    background: var(--ac-button-hover-bg) !important;
-    border-color: var(--ac-line-strong);
-    color: var(--ac-text) !important;
+/* ---------- buttons ---------- */
+.ts .btn {
+    border-radius: 20px;
+    background: var(--ac-accent);
+    color: var(--own-tx);
+    cursor: pointer;
+    font-weight: 600;
+    padding: 6px 22px;
 }
-
-/* Conversation rows: cleaner selected/hover hierarchy. */
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type section > div > button {
-    margin-block: 0.2rem;
-    border: 1px solid transparent;
-    border-radius: var(--ac-radius-sm) !important;
-    padding: 0.75rem !important;
-    transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
-}
-
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type section > div > button:hover {
-    background: var(--ac-button-hover-bg) !important;
-    border-color: var(--ac-line);
-}
-
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type section > div > button[class*="bg-[var(--ac-accent-soft)]"] {
-    border-color: color-mix(in srgb, var(--ac-accent) 45%, var(--ac-line));
-    box-shadow: inset 3px 0 0 var(--ac-accent);
-}
-
-[dir='rtl'] .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type section > div > button[class*="bg-[var(--ac-accent-soft)]"] {
-    box-shadow: inset -3px 0 0 var(--ac-accent);
-}
-
-/* Thread header action buttons use the same product hover state everywhere. */
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > section > div:first-child button[class*="size-10"] {
+.ts .btn:hover { background: var(--ac-accent-hover); }
+.ts .btn:disabled { cursor: not-allowed; opacity: 0.45; }
+.ts .ghost {
+    border: 1px solid var(--ac-line);
+    border-radius: 20px;
     color: var(--ac-text-soft);
-    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 14px;
 }
+.ts .ghost:hover { background: var(--ac-hover); }
 
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > section > div:first-child button[class*="size-10"]:hover {
-    background: var(--ac-button-hover-bg) !important;
-    border-color: var(--ac-accent) !important;
-    color: var(--ac-accent);
+/* ---------- rail ---------- */
+.ts .rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    overflow-y: auto;
+    border-radius: var(--ac-radius-lg);
+    padding: 14px 0;
+    scrollbar-width: none;
 }
-
-/* Give messages and the composer more useful horizontal room. */
-.team-space-page main[class*="max-w-[1840px]"] [class*="max-w-[820px]"] {
-    max-width: 980px !important;
+.ts .rail > button { position: relative; cursor: pointer; }
+.ts .rail .av { width: 44px; height: 44px; border-radius: 50%; }
+.ts .rail .on::after {
+    position: absolute;
+    inset-inline-end: 0;
+    bottom: 0;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--ac-surface);
+    border-radius: 50%;
+    background: var(--ac-success);
+    content: '';
 }
+.ts .rail .sel .av { box-shadow: 0 0 0 2px var(--ac-surface), 0 0 0 4px var(--ac-accent); }
+.ts .rail .add { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 50%; background: var(--ac-accent); color: var(--own-tx); }
+.ts .rail hr { width: 28px; border: 0; border-top: 1px solid var(--ac-line); }
+.ts .rail .badge { position: absolute; inset-inline-start: -4px; top: -4px; min-width: 16px; border-radius: 8px; background: var(--ac-accent); color: var(--own-tx); font-size: 10px; font-weight: 700; line-height: 16px; padding: 0 4px; }
 
-.team-space-page main[class*="max-w-[1840px]"] form[class*="border-t"] {
-    margin: 0 1.25rem 1rem;
-    padding: 0.35rem 0.5rem !important;
-    border: 1px solid var(--ac-line-strong) !important;
+/* ---------- list ---------- */
+.ts .list {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    border-radius: var(--ac-radius-lg);
+    padding: 16px 10px;
+}
+.ts .lh { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px 10px; }
+.ts .lh h2 { font-size: 18px; font-weight: 600; }
+.ts .lh .btn { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 14px; }
+.ts .list .search {
+    width: 100%;
+    margin-bottom: 8px;
+    border: 1px solid var(--ac-line);
+    border-radius: var(--ac-radius-sm);
+    background: var(--ac-bg);
+    font-size: 14px;
+    padding: 6px 14px;
+}
+.ts .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ts .chips button { border: 1px solid var(--ac-line); border-radius: 16px; color: var(--ac-text-muted); cursor: pointer; font-size: 12px; padding: 0 12px; }
+.ts .chips button[aria-pressed='true'] { border-color: transparent; background: var(--ac-accent-soft); color: var(--ac-accent-strong); font-weight: 600; }
+.ts .cv {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+    border-radius: var(--ac-radius-sm);
+    cursor: pointer;
+    padding: 9px;
+    text-align: start;
+}
+.ts .cv:hover { background: var(--ac-hover); }
+.ts .cv[aria-current='true'] { background: var(--ac-accent-soft); }
+.ts .cv .av { width: 36px; height: 36px; }
+.ts .cv > div { min-width: 0; flex: 1; }
+.ts .cv b { display: block; font-weight: 600; line-height: 1.4; }
+.ts .cv small { display: block; overflow: hidden; color: var(--ac-text-muted); font-size: 13px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.ts .notice { color: var(--ac-accent); font-size: 13px; padding: 4px 8px; }
+
+/* ---------- thread panel ---------- */
+.ts .main {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: var(--ac-radius-lg);
+}
+.ts .main > .ts-head > header { display: flex; align-items: center; gap: 14px; padding: 14px 26px; }
+.ts .main h1 { font-size: 19px; font-weight: 600; line-height: 1.3; }
+.ts .main header p { color: var(--ac-text-muted); font-size: 13px; }
+.ts .ts-back { display: none; }
+.ts .stack { display: flex; margin-inline-start: auto; }
+.ts .stack .av { width: 30px; height: 30px; margin-inline-start: -8px; border: 2px solid var(--ac-surface); border-radius: 50%; font-size: 11px; }
+.ts .th {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 12px;
+    overflow: auto;
+    padding: 10px 26px 140px;
+}
+.ts .day { align-self: center; border-radius: 12px; background: var(--ac-bg); color: var(--ac-text-muted); font-size: 12px; padding: 0 14px; }
+.ts .empty { margin: auto; color: var(--ac-text-muted); text-align: center; }
+
+/* ---------- messages ---------- */
+.ts .m { display: flex; max-width: min(640px, 88%); align-items: flex-start; gap: 10px; }
+.ts .m .av { width: 32px; height: 32px; margin-top: 2px; border-radius: 50%; font-size: 12px; }
+.ts .m.me { flex-direction: row-reverse; align-self: flex-start; }
+.ts .bw { position: relative; min-width: 0; }
+.ts .bub {
+    padding: 8px 0;
+    overflow: hidden;
+    border-radius: var(--ac-radius-md) var(--ac-radius-md) var(--ac-radius-md) 6px;
+    background: var(--ac-surface-soft);
+    overflow-wrap: anywhere;
+}
+.ts .m.me .bub { border-radius: var(--ac-radius-md) var(--ac-radius-md) 6px var(--ac-radius-md); background: var(--own-bg); color: var(--own-tx); }
+.ts .m.pin .bub { box-shadow: 0 0 0 1px var(--ac-warning); }
+.ts .bub .who { display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 12px; font-weight: 600; line-height: 1.5; }
+.ts .bub .who .nm { color: var(--ac-accent); }
+.ts .bub .who .pt { color: var(--ac-warning); }
+.ts .m.me .bub .who .pt { color: inherit; }
+.ts .bub .txt { padding: 0 16px; font-size: 15px; line-height: 1.75; white-space: pre-wrap; }
+.ts .bub .del { padding: 0 16px; font-size: 14px; font-style: italic; opacity: 0.7; }
+.ts .bub time { display: block; color: var(--ac-text-muted); font-size: 11px; padding: 0 16px; }
+.ts .m.me .bub time { color: inherit; opacity: 0.8; }
+.ts .bub .q { margin: 0 16px 4px; border-inline-start: 3px solid currentColor; font-size: 13px; opacity: 0.85; padding-inline-start: 10px; }
+.ts .bub .q b { font-weight: 600; }
+.ts .bub .att { padding: 0 8px 4px; }
+.ts .rxs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.ts .rx { border: 1px solid var(--ac-line); border-radius: 12px; background: var(--ac-surface); cursor: pointer; font-size: 13px; line-height: 22px; padding: 0 9px; }
+.ts .rx:hover { background: var(--ac-hover); }
+.ts .rx.mine { border-color: var(--ac-accent); background: var(--ac-accent-soft); }
+
+.ts .tools {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    display: flex;
+    gap: 2px;
+    border: 1px solid var(--ac-line);
+    border-radius: 20px;
+    background: var(--ac-surface);
+    box-shadow: var(--ac-shadow-soft);
+    opacity: 0;
+    padding: 2px;
+    pointer-events: none;
+    transform: translateY(-50%);
+    transition: opacity 0.12s;
+}
+.ts .m:not(.me) .tools { inset-inline-start: calc(100% + 6px); }
+.ts .m.me .tools { inset-inline-end: calc(100% + 6px); }
+.ts .m:hover .tools,
+.ts .m:focus-within .tools,
+.ts .tools.open { opacity: 1; pointer-events: auto; }
+.ts .tools button { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: var(--ac-text-muted); cursor: pointer; font-size: 15px; }
+.ts .tools button:hover { background: var(--ac-hover); color: var(--ac-accent); }
+@media (hover: none) { .ts .tools { opacity: 1; pointer-events: auto; position: static; margin-top: 4px; transform: none; width: fit-content; } }
+
+/* ---------- dock ---------- */
+.ts .dock {
+    position: absolute;
+    inset-inline: 20px;
+    bottom: 18px;
+    border: 1px solid var(--ac-line-strong);
     border-radius: 30px;
     background: var(--ac-bg);
     box-shadow: var(--ac-shadow-panel);
+    padding: 8px 10px;
+}
+.ts .dock:focus-within { border-color: var(--ac-accent); }
+.ts .dock-f { display: flex; width: 100%; min-width: 0; flex-wrap: wrap; align-items: center; gap: 8px; border: 0; margin: 0; padding: 0; }
+.ts .dock-f:disabled { opacity: 0.5; }
+.ts .dock .row { display: flex; width: 100%; align-items: center; gap: 8px; }
+.ts .dock textarea {
+    min-width: 0;
+    max-height: 144px;
+    min-height: 40px;
+    flex: 1;
+    resize: none;
+    border: 0;
+    background: none;
+    field-sizing: content;
+    outline: none;
+    padding: 8px;
+}
+.ts .dock .icon { display: grid; width: 38px; height: 38px; flex: none; place-items: center; border-radius: var(--ac-radius-xs); color: var(--ac-accent); cursor: pointer; }
+.ts .dock .icon:hover { background: var(--ac-hover); }
+.ts .extra { display: flex; width: 100%; flex-wrap: wrap; gap: 8px; padding: 4px 6px 2px; }
+.ts .chip { display: inline-flex; align-items: center; gap: 8px; border-radius: var(--ac-radius-xs); background: var(--ac-surface-soft); font-size: 13px; padding: 2px 6px 2px 12px; }
+.ts .chip button, .ts .rb button { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; color: var(--ac-text-muted); cursor: pointer; }
+.ts .chip button:hover, .ts .rb button:hover { background: var(--ac-hover); }
+.ts .rb { display: flex; width: 100%; align-items: center; gap: 10px; border-inline-start: 3px solid var(--ac-accent); border-radius: var(--ac-radius-xs); background: var(--ac-surface-soft); font-size: 13px; padding: 4px 10px; }
+.ts .rb span { overflow: hidden; min-width: 0; flex: 1; text-overflow: ellipsis; white-space: nowrap; }
+.ts .rec { display: flex; width: 100%; align-items: center; gap: 12px; padding: 0 6px; }
+.ts .rec .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ac-danger); animation: ts-blink 1s infinite; }
+.ts .rec .wv { display: flex; height: 30px; flex: 1; align-items: center; gap: 3px; overflow: hidden; }
+.ts .rec .wv s { width: 3px; border-radius: 2px; background: var(--ac-accent); animation: ts-wave 0.7s ease-in-out infinite alternate; }
+.ts .restrict { width: 100%; border-radius: var(--ac-radius-xs); background: var(--ac-surface-soft); font-size: 13px; padding: 6px 12px; }
+@keyframes ts-blink { 50% { opacity: 0.25; } }
+@keyframes ts-wave { from { transform: scaleY(0.3); } to { transform: scaleY(1); } }
+
+/* ---------- popovers ---------- */
+.ts-pop {
+    position: fixed;
+    z-index: 60;
+    border: 1px solid var(--ac-line-strong);
+    border-radius: var(--ac-radius-md);
+    background: var(--ac-surface);
+    box-shadow: var(--ac-shadow-panel);
+    color: var(--ac-text);
+    animation: ts-pop 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes ts-pop { from { opacity: 0; transform: translateY(6px); } }
+.ts-menu { display: flex; min-width: 210px; flex-direction: column; padding: 6px; }
+.ts-menu button { display: flex; width: 100%; align-items: center; gap: 10px; border-radius: var(--ac-radius-sm); cursor: pointer; font-size: 14px; padding: 8px 12px; text-align: start; }
+.ts-menu button:hover, .ts-menu button:focus-visible { background: var(--ac-button-hover-bg, #e6f3fe); }
+.ts-menu .danger { color: var(--ac-danger); }
+.ts-emo { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; padding: 8px; }
+.ts-emo button { width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 21px; }
+.ts-emo button:hover { background: var(--ac-button-hover-bg, #e6f3fe); }
+
+/* ---------- details drawer ---------- */
+.ts .dr {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 5;
+    width: 360px;
+    max-width: 100%;
+    overflow: auto;
+    border-inline-end: 1px solid var(--ac-line);
+    background: var(--ac-surface);
+    box-shadow: var(--ac-shadow-panel);
+    transform: translateX(100%);
+    transition: transform 0.26s var(--ts-ease), visibility 0.26s;
+    visibility: hidden;
+}
+.ts .dr.open { transform: none; visibility: visible; }
+.ts .drh { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--ac-line); background: var(--ac-surface); padding: 14px 20px; }
+.ts .drh b { font-weight: 600; }
+.ts .dh { padding: 20px 20px 8px; text-align: center; }
+.ts .dh .av { margin: 0 auto 10px; }
+.ts .dh h2 { font-size: 19px; font-weight: 600; line-height: 1.3; }
+.ts .dh p { color: var(--ac-text-muted); font-size: 13px; }
+.ts .qa { display: flex; justify-content: center; gap: 14px; border-bottom: 1px solid var(--ac-line); padding: 10px 12px 16px; }
+.ts .qa button { display: flex; width: 64px; flex-direction: column; align-items: center; gap: 6px; color: var(--ac-text-soft); cursor: pointer; font-size: 12px; }
+.ts .qa button span { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 50%; background: var(--ac-surface-soft); color: var(--ac-accent); }
+.ts .qa button:hover span { background: var(--ac-accent-soft); }
+.ts .sec { border-bottom: 1px solid var(--ac-line); }
+.ts .sec > summary { display: flex; cursor: pointer; align-items: center; justify-content: space-between; list-style: none; font-size: 14px; font-weight: 600; padding: 14px 20px; }
+.ts .sec > summary::-webkit-details-marker { display: none; }
+.ts .sec > summary::after { width: 8px; height: 8px; border-inline-end: 2px solid var(--ac-text-muted); border-bottom: 2px solid var(--ac-text-muted); content: ''; transform: rotate(45deg); transition: transform 0.2s; }
+.ts .sec[open] > summary::after { transform: rotate(-135deg); }
+.ts .sec .in { padding: 0 20px 14px; }
+.ts .mrow { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.ts .mrow .av { width: 36px; height: 36px; border-radius: 50%; font-size: 13px; }
+.ts .mrow > div { min-width: 0; flex: 1; }
+.ts .mrow b { display: block; font-size: 14px; font-weight: 500; line-height: 1.3; }
+.ts .mrow small { color: var(--ac-text-muted); font-size: 12px; }
+.ts .mrow em { border-radius: 8px; background: var(--ac-accent-soft); color: var(--ac-accent-strong); font-size: 12px; font-style: normal; padding: 0 8px; }
+.ts .rowbtn { display: flex; width: 100%; align-items: center; gap: 10px; color: var(--ac-accent); cursor: pointer; font-size: 14px; font-weight: 600; padding: 8px 0; text-align: start; }
+.ts .rowbtn.danger { color: var(--ac-danger); }
+.ts .rowbtn svg { width: 20px; height: 20px; flex: none; }
+.ts .sw { display: flex; gap: 12px; margin: 4px 0 14px; }
+.ts .sw button { width: 34px; height: 34px; border: 3px solid var(--ac-surface); border-radius: 50%; box-shadow: 0 0 0 1px var(--ac-line-strong); cursor: pointer; }
+.ts .sw button[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--ac-accent); }
+.ts .em { display: flex; gap: 6px; margin: 4px 0; }
+.ts .em button { width: 40px; height: 40px; border: 1px solid var(--ac-line); border-radius: 50%; cursor: pointer; font-size: 20px; }
+.ts .em button[aria-pressed='true'] { border-color: var(--ac-accent); background: var(--ac-accent-soft); }
+.ts .lbl { color: var(--ac-text-muted); font-size: 13px; }
+.ts .swt { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; font-size: 14px; padding: 8px 0; }
+.ts .swt i { position: relative; width: 40px; height: 22px; flex: none; border-radius: 12px; background: var(--ac-line-strong); transition: background 0.2s; }
+.ts .swt i::after { position: absolute; inset-inline-start: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; content: ''; transition: transform 0.2s; }
+.ts .swt[aria-checked='true'] i { background: var(--ac-accent); }
+[dir='rtl'] .ts .swt[aria-checked='true'] i::after { transform: translateX(-18px); }
+[dir='ltr'] .ts .swt[aria-checked='true'] i::after { transform: translateX(18px); }
+
+/* ---------- profile card ---------- */
+.ts-card { width: 270px; padding: 18px; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+    .ts * { animation: none !important; transition: none !important; }
 }
 
-.team-space-page main[class*="max-w-[1840px]"] form[class*="border-t"]:focus-within {
-    border-color: var(--ac-accent) !important;
+/* ---------- small screens ---------- */
+@media (max-width: 1023px) {
+    .ts { padding: 0; }
+    .ts .box { height: calc(100dvh - 5.5rem); grid-template-columns: 1fr; gap: 0; }
+    .ts .rail { display: none; }
+    .ts .list, .ts .main { border-radius: 0; }
+    .ts .ts-back { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 12px; background: var(--ac-surface-soft); cursor: pointer; }
 }
 
-.team-space-page main[class*="max-w-[1840px]"] form[class*="border-t"] div[class*="rounded-[18px]"][class*="focus-within"] {
-    border-color: transparent;
-    border-radius: 24px !important;
-    background: transparent !important;
-    box-shadow: none;
+.ts .only-sm { display: none; }
+
+@media (max-width: 1023px) {
+    .ts .only-sm { display: grid; width: 36px; height: 36px; place-items: center; padding: 0; }
+    .ts .list[data-sel='true'] { display: none; }
+    .ts .main[data-sel='false'] { display: none; }
+    .ts .dr { width: 100%; }
 }
 
-.team-space-page main[class*="max-w-[1840px]"] form textarea {
-    min-height: 56px !important;
-    padding: 0.75rem 1rem !important;
-    outline: none !important;
-}
+/* ---------- voice note ---------- */
+.ts .vo { display: flex; min-width: 230px; align-items: center; gap: 10px; padding: 0 16px; }
+.ts .vo > button { display: grid; width: 34px; height: 34px; flex: none; place-items: center; border-radius: 50%; background: var(--ac-accent); color: var(--own-tx); cursor: pointer; font-size: 11px; }
+.ts .m.me .vo > button { background: var(--own-tx); color: var(--own-bg); }
+.ts .vo .bars { display: flex; height: 28px; flex: 1; align-items: center; gap: 2px; }
+.ts .vo .bars s { width: 3px; flex: none; border-radius: 2px; background: currentColor; transition: opacity 0.15s; }
+.ts .vo.playing .bars s { animation: ts-wave 0.6s ease-in-out infinite alternate; }
+.ts .vo .tm { min-width: 34px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.ts .vo audio { display: none; }
 
-.team-space-page main[class*="max-w-[1840px]"] form button:hover:not(:disabled) {
-    background-color: var(--ac-button-hover-bg);
-}
+/* ---------- drawer media ---------- */
+.ts .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.ts .tabs button { border: 1px solid var(--ac-line); border-radius: 16px; color: var(--ac-text-muted); cursor: pointer; font-size: 13px; padding: 0 14px; }
+.ts .tabs button[aria-pressed='true'] { border-color: transparent; background: var(--ac-accent-soft); color: var(--ac-accent-strong); font-weight: 600; }
+.ts .media { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ts .media a { display: block; aspect-ratio: 1; overflow: hidden; border-radius: var(--ac-radius-xs); background: var(--ac-surface-soft); color: var(--ac-accent); }
+.ts .media img { width: 100%; height: 100%; object-fit: cover; }
+.ts .flist a { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--ac-line); color: var(--ac-text); font-size: 14px; padding: 7px 0; text-decoration: none; overflow-wrap: anywhere; }
 
-.team-space-page main[class*="max-w-[1840px]"] form button[class*="bg-[var(--ac-accent-strong)]"]:hover:not(:disabled) {
-    background-color: var(--ac-accent-hover) !important;
-    color: var(--ac-accent-solid-text) !important;
-}
+/* ---------- create group dialog ---------- */
+.ts.ts-overlay { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; background: rgba(1, 20, 35, 0.55); padding: 16px; }
+.ts-dlg { display: flex; width: min(440px, 100%); max-height: calc(100dvh - 32px); flex-direction: column; border: 1px solid var(--ac-line-strong); border-radius: var(--ac-radius-lg); background: var(--ac-surface); box-shadow: var(--ac-shadow-panel); color: var(--ac-text); }
+.ts-dlg-h { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--ac-line); padding: 16px 22px; }
+.ts-dlg-h h2 { font-size: 17px; font-weight: 600; }
+.ts-dlg-b { overflow: auto; padding: 18px 22px; }
+.ts-dlg-f { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--ac-line); padding: 14px 22px; }
+.ts .fld { display: block; margin-bottom: 12px; color: var(--ac-text-muted); font-size: 13px; }
+.ts .fld input, .ts .fld textarea { display: block; width: 100%; margin-top: 4px; border: 1px solid var(--ac-line); border-radius: var(--ac-radius-sm); background: var(--ac-bg); color: var(--ac-text); font-size: 15px; padding: 8px 14px; }
+.ts .fld input:focus, .ts .fld textarea:focus { border-color: var(--ac-accent); outline: none; }
+.ts .fld-t { margin-bottom: 6px; color: var(--ac-text-muted); font-size: 13px; }
+.ts .pick { max-height: 210px; overflow: auto; border: 1px solid var(--ac-line); border-radius: var(--ac-radius-sm); }
+.ts .pick label { display: flex; cursor: pointer; align-items: center; gap: 12px; border-bottom: 1px solid var(--ac-line); padding: 8px 12px; }
+.ts .pick label:last-child { border: 0; }
+.ts .pick label:hover { background: var(--ac-hover); }
+.ts .pick .av { width: 32px; height: 32px; font-size: 12px; }
+.ts .pick b { display: block; font-weight: 600; line-height: 1.3; }
+.ts .pick input[type='checkbox'] { width: 18px; height: 18px; margin-inline-start: auto; accent-color: var(--ac-accent); }
 
-/*
- * Details drawer. Even when opened on a wide desktop it overlays the thread
- * instead of creating a cramped permanent third column.
- */
-.team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:nth-of-type(2) {
-    position: fixed !important;
-    inset-block: 5.5rem 1rem !important;
-    inset-inline-start: auto !important;
-    inset-inline-end: 1rem !important;
-    width: min(380px, calc(100vw - 2rem)) !important;
-    max-width: 380px !important;
-    z-index: 90 !important;
-    border: 1px solid var(--ac-line) !important;
-    border-radius: 20px !important;
-    background: var(--ac-surface) !important;
-    box-shadow:
-        0 0 0 100vmax rgba(1, 20, 35, 0.34),
-        0 24px 70px rgba(1, 20, 35, 0.28) !important;
-}
+.ts .rail > button:focus-visible { outline: none; }
+.ts .rail > button:focus-visible .av { box-shadow: 0 0 0 2px var(--ac-surface), 0 0 0 4px var(--ac-accent); }
 
-@media (max-width: 639px) {
-    .team-space-page main[class*="max-w-[1840px]"] {
-        padding: 0.5rem !important;
-    }
-
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"][class*="overflow-hidden"] {
-        border-radius: 16px !important;
-    }
-
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:nth-of-type(2) {
-        inset-block: 4.75rem 0.5rem !important;
-        inset-inline: 0.5rem !important;
-        width: auto !important;
-        max-width: none !important;
-        border-radius: 16px !important;
-    }
-
-    .team-space-page main[class*="max-w-[1840px]"] > div[class*="rounded-[30px]"] > div.grid > aside:first-of-type div[class*="overflow-x-auto"][class*="rounded-[13px]"] {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-/* Dark mode keeps every interactive state on the approved AccoNova palette. */
-html[data-ac-resolved-theme='dark'] .team-space-page main[class*="max-w-[1840px]"] form button:hover:not(:disabled),
-html[data-ac-resolved-theme='dark'] .team-space-page main[class*="max-w-[1840px]"] section button:hover:not(:disabled) {
-    color: var(--ac-text) !important;
-}
-
-html[data-ac-resolved-theme='dark'] .team-space-page main[class*="max-w-[1840px]"] form button[class*="bg-[var(--ac-accent-strong)]"]:hover:not(:disabled) {
-    color: var(--ac-accent-solid-text) !important;
-}
+/* keep the message toolbar open while the pointer crosses the gap to it */
+.ts .tools::before { position: absolute; top: 0; bottom: 0; width: 12px; content: ''; pointer-events: auto; }
+.ts .m:not(.me) .tools::before { inset-inline-start: -12px; }
+.ts .m.me .tools::before { inset-inline-end: -12px; }

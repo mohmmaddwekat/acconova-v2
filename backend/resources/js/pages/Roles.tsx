@@ -3627,6 +3627,44 @@ function RoleWorkspace() {
     );
 }
 
+const sensitivePermissions = new Set([
+    'finance.cash.pay',
+    'finance.cash.correct',
+    'finance.documents.correct',
+    'finance.approvals.review',
+    'finance.taxes.manage',
+    'staff.manage',
+    'staff.pay',
+    'staff.import',
+    'staff.team_pay',
+]);
+
+/**
+ * Classify a permission as view (1), edit (2) or manage (3) so each module can
+ * be summarised as one access level.
+ */
+function permissionLevel(
+    permission: string,
+): 1 | 2 | 3 {
+    const action =
+        permission.split('.').pop()
+        ?? '';
+
+    if (/^view|_view$/.test(action)) {
+        return 1;
+    }
+
+    if (/manage|archive|pay|import|correct|review|_all$/.test(action)) {
+        return 3;
+    }
+
+    return 2;
+}
+
+/**
+ * Render the members table with a side panel showing one member's effective
+ * access.
+ */
 function MemberAccessMatrix({
     members,
     roles,
@@ -3650,115 +3688,94 @@ function MemberAccessMatrix({
     onAssign: (member: Member) => void;
     onRevoke: (member: Member) => void;
 }) {
-    const [
-        query,
-        setQuery,
-    ] = useState('');
+    const ownerMember =
+        members.find(
+            member =>
+                member.role === 'owner',
+        )
+        ?? null;
 
-    const [
-        selectedId,
-        setSelectedId,
-    ] = useState<number | null>(
-        members[0]?.id
-        ?? null,
-    );
+    const employees =
+        useMemo(
+            () =>
+                members.filter(
+                    member =>
+                        member.role !== 'owner',
+                ),
+            [members],
+        );
 
-    const [
-        expandedGroups,
-        setExpandedGroups,
-    ] = useState<string[]>(
-        [],
-    );
+    const [query, setQuery] =
+        useState('');
+
+    const [roleFilter, setRoleFilter] =
+        useState('all');
+
+    const [selectedId, setSelectedId] =
+        useState<number | null>(
+            employees[0]?.id
+            ?? null,
+        );
+
+    const [expandedGroups, setExpandedGroups] =
+        useState<string[]>([]);
 
     useEffect(() => {
         if (
             selectedId !== null
-            && members.some(
+            && ! employees.some(
                 member =>
-                    member.id ===
-                    selectedId,
+                    member.id === selectedId,
             )
         ) {
-            return;
+            setSelectedId(
+                employees[0]?.id
+                ?? null,
+            );
         }
-
-        setSelectedId(
-            members[0]?.id
-            ?? null,
-        );
     }, [
-        members,
+        employees,
         selectedId,
     ]);
 
-    const filtered =
-        useMemo(
-            () => {
-                const needle =
-                    query
-                        .trim()
-                        .toLowerCase();
-
-                if (! needle) {
-                    return members;
-                }
-
-                return members.filter(
-                    member =>
-                        member.user.name
-                            .toLowerCase()
-                            .includes(needle)
-                        || member.user.email
-                            .toLowerCase()
-                            .includes(needle)
-                        || (
-                            member.role_name
-                            ?? member.role
-                        )
-                            .toLowerCase()
-                            .includes(needle),
-                );
-            },
-            [
-                members,
-                query,
-            ],
+    const roleLabel = (
+        member: Member,
+    ): string =>
+        member.role_name
+        ?? (
+            member.role === 'admin'
+                ? (
+                    ar
+                        ? 'مدير النظام'
+                        : 'Administrator'
+                )
+                : (
+                    (ar
+                        ? {
+                            manager: 'مدير',
+                            accountant: 'محاسب',
+                            employee: 'موظف',
+                        }
+                        : {
+                            manager: 'Manager',
+                            accountant: 'Accountant',
+                            employee: 'Employee',
+                        }
+                    )[member.role as 'manager' | 'accountant' | 'employee']
+                    ?? member.role
+                )
         );
-
-    const selected =
-        members.find(
-            member =>
-                member.id ===
-                selectedId,
-        )
-        ?? filtered[0]
-        ?? null;
-
-    const selectedRole =
-        selected?.workspace_role_id
-            ? roles.find(
-                role =>
-                    role.id ===
-                    selected.workspace_role_id,
-            )
-            : null;
 
     const accessLabel = (
         member: Member,
     ): string => {
-        if (
-            member.access_mode ===
-            'full'
-        ) {
+        if (member.access_mode === 'full') {
             return ar
                 ? 'وصول كامل للنظام'
                 : 'Full system access';
         }
 
-        if (
-            member.access_mode ===
-            'custom'
-        ) {
+        if (member.access_mode === 'custom') {
             return ar
                 ? 'صلاحيات من دور مخصص'
                 : 'Custom role permissions';
@@ -3769,31 +3786,155 @@ function MemberAccessMatrix({
             : 'Built-in role permissions';
     };
 
-    const roleLabel = (
+    const roleKey = (
         member: Member,
     ): string =>
-        member.role_name
-        ?? (
-            member.role === 'owner'
-                ? (
-                    ar
-                        ? 'مالك مساحة العمل'
-                        : 'Workspace Owner'
-                )
-                : member.role === 'admin'
-                    ? (
-                        ar
-                            ? 'مدير النظام'
-                            : 'Administrator'
-                    )
-                    : memberRoleLabel(
-                        member,
-                    )
+        member.workspace_role_id
+            ? `role-${member.workspace_role_id}`
+            : `builtin-${member.role}`;
+
+    const filterOptions =
+        useMemo(
+            () => {
+                const options =
+                    new Map<
+                        string,
+                        {
+                            label: string;
+                            count: number;
+                        }
+                    >();
+
+                for (const member of employees) {
+                    const key =
+                        roleKey(member);
+
+                    const current =
+                        options.get(key);
+
+                    options.set(
+                        key,
+                        {
+                            label:
+                                roleLabel(member),
+                            count:
+                                (current?.count ?? 0)
+                                + 1,
+                        },
+                    );
+                }
+
+                return Array.from(
+                    options.entries(),
+                );
+            },
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            [employees, ar],
         );
+
+    const filtered =
+        useMemo(
+            () => {
+                const needle =
+                    query
+                        .trim()
+                        .toLowerCase();
+
+                return employees.filter(
+                    member =>
+                        (
+                            roleFilter === 'all'
+                            || roleKey(member) === roleFilter
+                        )
+                        && (
+                            ! needle
+                            || member.user.name
+                                .toLowerCase()
+                                .includes(needle)
+                            || member.user.email
+                                .toLowerCase()
+                                .includes(needle)
+                            || roleLabel(member)
+                                .toLowerCase()
+                                .includes(needle)
+                        ),
+                );
+            },
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            [employees, query, roleFilter, ar],
+        );
+
+    const selected =
+        employees.find(
+            member =>
+                member.id === selectedId,
+        )
+        ?? null;
+
+    const selectedRole =
+        selected?.workspace_role_id
+            ? roles.find(
+                role =>
+                    role.id
+                    === selected.workspace_role_id,
+            )
+            : null;
+
+    const totalPermissions =
+        permissionKeys.length;
+
+    const moduleLevel = (
+        member: Member,
+        group: PermissionGroup,
+    ): number =>
+        group.permissions.reduce(
+            (level, permission) =>
+                member.effective_permissions.includes(
+                    permission,
+                )
+                    ? Math.max(
+                        level,
+                        permissionLevel(
+                            permission,
+                        ),
+                    )
+                    : level,
+            0,
+        );
+
+    const sensitiveCount = (
+        member: Member,
+    ): number =>
+        member.effective_permissions.filter(
+            permission =>
+                sensitivePermissions.has(
+                    permission,
+                ),
+        ).length;
+
+    const levelLabels =
+        ar
+            ? ['بدون', 'عرض', 'تعديل', 'إدارة']
+            : ['None', 'View', 'Edit', 'Manage'];
+
+    const stripHeights = [4, 9, 15, 22];
+
+    const stripShade = [
+        'var(--ac-line)',
+        'color-mix(in srgb, var(--ac-accent) 40%, var(--ac-surface))',
+        'color-mix(in srgb, var(--ac-accent) 72%, var(--ac-surface))',
+        'var(--ac-accent)',
+    ];
+
+    const pillClass =
+        'inline-flex items-center rounded-full border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 py-1 text-[11px] font-bold text-[var(--ac-text-soft)]';
+
+    const panelButton =
+        'inline-flex min-h-9 items-center justify-center gap-2 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold text-[var(--ac-text)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)]';
 
     return (
         <section className="rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 sm:p-5">
-            <div className="flex flex-col gap-3 border-b border-[var(--ac-line)] pb-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-start gap-3">
                     <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]">
                         <Users size={19} />
@@ -3806,24 +3947,22 @@ function MemberAccessMatrix({
                                 : 'Members & effective access'}
                         </h2>
 
-                        <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[var(--ac-text-muted)]">
+                        <p className="mt-1 max-w-3xl text-[12.5px] leading-5 text-[var(--ac-text-muted)]">
                             {ar
-                                ? 'اختر أي مستخدم لترى بالضبط ما يستطيع الوصول إليه داخل كل موديول، ومصدر هذه الصلاحيات.'
-                                : 'Select any user to see exactly what they can access in each module and where that access comes from.'}
+                                ? 'شوف مين يملك ايش بنظرة واحدة. افتح العضو لتفحص كل وحدة وتغيّر دوره.'
+                                : 'See who holds what at a glance. Open a member to inspect each module and change their role.'}
                         </p>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 text-[9px] font-semibold">
-                    <span className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 py-1.5 text-[var(--ac-text-soft)]">
+                <div className="flex flex-wrap gap-2">
+                    <span className={pillClass}>
                         {members.length}{' '}
-                        {ar
-                            ? 'عضو'
-                            : 'members'}
+                        {ar ? 'عضو' : 'members'}
                     </span>
 
-                    <span className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 py-1.5 text-[var(--ac-text-soft)]">
-                        {permissionKeys.length}{' '}
+                    <span className={pillClass}>
+                        {totalPermissions}{' '}
                         {ar
                             ? 'صلاحية مسجلة'
                             : 'registered permissions'}
@@ -3831,199 +3970,449 @@ function MemberAccessMatrix({
                 </div>
             </div>
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-                <aside className="rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3 xl:sticky xl:top-24 xl:self-start">
-                    <div className="relative">
-                        <Search
-                            size={14}
-                            className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
-                        />
+            {ownerMember && (
+                <div className="mt-4 flex flex-wrap items-center gap-3.5 rounded-[16px] border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--ac-surface)] text-amber-500">
+                        <Crown size={18} />
+                    </span>
 
-                        <input
-                            className={fieldClass + ' ps-9'}
-                            value={query}
-                            onChange={event =>
-                                setQuery(
-                                    event.target.value,
-                                )
-                            }
-                            placeholder={
-                                ar
-                                    ? 'ابحث بالاسم أو البريد أو الدور...'
-                                    : 'Search name, email or role...'
-                            }
-                        />
+                    <div className="min-w-[220px] flex-1">
+                        <strong className="block text-[13.5px] text-[var(--ac-text)]">
+                            {ownerMember.user.name}
+                            {' · '}
+                            {ar
+                                ? 'مالك مساحة العمل'
+                                : 'Workspace Owner'}
+                        </strong>
+
+                        <span className="block text-xs text-[var(--ac-text-soft)]">
+                            {ar
+                                ? 'منفصل عن أدوار الموظفين ويملك وصولًا كاملًا دائمًا.'
+                                : 'Separate from employee roles and always keeps full access.'}
+                        </span>
                     </div>
 
-                    <div className="mt-3 max-h-[620px] space-y-2 overflow-auto pe-1">
-                        {filtered.map(
-                            member => {
-                                const active =
-                                    selected?.id ===
-                                    member.id;
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-[var(--ac-surface)] px-3 py-1 text-[11px] font-bold text-amber-500">
+                        <Crown size={11} />
+                        {ar
+                            ? 'وصول كامل'
+                            : 'Full access'}
+                    </span>
+                </div>
+            )}
 
-                                return (
-                                    <button
-                                        key={member.id}
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedId(
-                                                member.id,
-                                            );
-                                            setExpandedGroups(
-                                                [],
-                                            );
-                                        }}
-                                        className={[
-                                            'flex w-full items-center gap-3 rounded-[14px] border p-3 text-start transition',
-                                            active
-                                                ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)]'
-                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface)] hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-surface-soft)]',
-                                        ].join(' ')}
-                                    >
-                                        <span className={[
-                                            'flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-                                            member.full_access
-                                                ? 'bg-amber-500/10 text-amber-500'
-                                                : 'bg-[var(--ac-surface-soft)] text-[var(--ac-accent)]',
-                                        ].join(' ')}>
-                                            {member.user.name
-                                                .charAt(0)
-                                                .toUpperCase()}
-                                        </span>
+            <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                <div className="relative min-w-[240px] max-w-sm flex-1">
+                    <Search
+                        size={14}
+                        className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
+                    />
 
-                                        <span className="min-w-0 flex-1">
-                                            <strong className="block truncate text-xs text-[var(--ac-text)]">
-                                                {member.user.name}
-                                            </strong>
+                    <input
+                        className={fieldClass + ' ps-9'}
+                        value={query}
+                        onChange={event =>
+                            setQuery(
+                                event.target.value,
+                            )
+                        }
+                        placeholder={
+                            ar
+                                ? 'ابحث بالاسم أو البريد أو الدور...'
+                                : 'Search name, email or role...'
+                        }
+                    />
+                </div>
 
-                                            <span className="mt-1 block truncate text-[9px] text-[var(--ac-text-muted)]">
-                                                {roleLabel(member)}
-                                            </span>
-                                        </span>
-
-                                        <span className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 py-1 text-[8px] font-bold text-[var(--ac-text-soft)]">
-                                            {member.full_access
-                                                ? (
-                                                    ar
-                                                        ? 'كامل'
-                                                        : 'Full'
-                                                )
-                                                : member.permission_count}
-                                        </span>
-                                    </button>
-                                );
+                <div className="flex flex-wrap gap-1.5">
+                    {[
+                        [
+                            'all',
+                            {
+                                label:
+                                    ar
+                                        ? 'الكل'
+                                        : 'All',
+                                count:
+                                    employees.length,
                             },
-                        )}
+                        ] as const,
+                        ...filterOptions,
+                    ].map(
+                        ([key, option]) => (
+                            <button
+                                key={key}
+                                type="button"
+                                aria-pressed={
+                                    roleFilter === key
+                                }
+                                onClick={() =>
+                                    setRoleFilter(
+                                        key,
+                                    )
+                                }
+                                className={[
+                                    'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                                    roleFilter === key
+                                        ? 'border-[var(--ac-text)] bg-[var(--ac-text)] text-[var(--ac-bg)]'
+                                        : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
+                                ].join(' ')}
+                            >
+                                {option.label}
 
-                        {filtered.length === 0 && (
-                            <p className="rounded-[14px] border border-dashed border-[var(--ac-line)] px-4 py-8 text-center text-[10px] text-[var(--ac-text-muted)]">
-                                {ar
-                                    ? 'لا يوجد عضو مطابق للبحث.'
-                                    : 'No member matches your search.'}
-                            </p>
-                        )}
-                    </div>
-                </aside>
+                                <span className="ms-1.5 opacity-65">
+                                    {option.count}
+                                </span>
+                            </button>
+                        ),
+                    )}
+                </div>
+            </div>
 
-                {selected ? (
-                    <div className="min-w-0">
-                        <div className="flex flex-col gap-4 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="flex min-w-0 items-start gap-3">
-                                <span className={[
-                                    'flex size-12 shrink-0 items-center justify-center rounded-[15px]',
-                                    selected.full_access
-                                        ? 'bg-amber-500/10 text-amber-500'
-                                        : 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]',
-                                ].join(' ')}>
-                                    {selected.full_access ? (
-                                        <Crown size={20} />
-                                    ) : (
-                                        <ShieldCheck size={20} />
+            <div
+                className={[
+                    'mt-4 grid items-start gap-4',
+                    selected
+                        ? 'xl:grid-cols-[minmax(0,1fr)_420px]'
+                        : '',
+                ].join(' ')}
+            >
+                <div className="min-w-0">
+                    <div className="overflow-auto rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
+                        <table className="w-full min-w-[560px] border-collapse">
+                            <thead>
+                                <tr>
+                                    {[
+                                        ar ? 'العضو' : 'Member',
+                                        ar ? 'الدور' : 'Role',
+                                        ar
+                                            ? 'الوصول حسب الوحدة'
+                                            : 'Access by module',
+                                        ar
+                                            ? 'الصلاحيات'
+                                            : 'Permissions',
+                                    ].map(
+                                        heading => (
+                                            <th
+                                                key={heading}
+                                                className="whitespace-nowrap border-b border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-3.5 py-3 text-start text-[11px] font-semibold uppercase tracking-[0.07em] text-[var(--ac-text-muted)]"
+                                            >
+                                                {heading}
+                                            </th>
+                                        ),
                                     )}
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {filtered.map(
+                                    member => {
+                                        const active =
+                                            selected?.id
+                                            === member.id;
+
+                                        const sensitive =
+                                            sensitiveCount(
+                                                member,
+                                            );
+
+                                        return (
+                                            <tr
+                                                key={member.id}
+                                                tabIndex={0}
+                                                aria-selected={
+                                                    active
+                                                }
+                                                onClick={() => {
+                                                    setSelectedId(
+                                                        member.id,
+                                                    );
+                                                    setExpandedGroups(
+                                                        [],
+                                                    );
+                                                }}
+                                                onKeyDown={event => {
+                                                    if (
+                                                        event.key === 'Enter'
+                                                        || event.key === ' '
+                                                    ) {
+                                                        event.preventDefault();
+                                                        setSelectedId(
+                                                            member.id,
+                                                        );
+                                                        setExpandedGroups(
+                                                            [],
+                                                        );
+                                                    }
+                                                }}
+                                                className={[
+                                                    'cursor-pointer border-b border-[var(--ac-line)] last:border-b-0',
+                                                    active
+                                                        ? 'bg-[var(--ac-accent-soft)] shadow-[inset_3px_0_0_var(--ac-accent)] rtl:shadow-[inset_-3px_0_0_var(--ac-accent)]'
+                                                        : 'hover:bg-[var(--ac-surface-soft)]',
+                                                ].join(' ')}
+                                            >
+                                                <td className="px-3.5 py-3">
+                                                    <div className="flex min-w-0 items-center gap-2.5">
+                                                        <span className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-[var(--ac-surface-soft)] text-xs font-bold text-[var(--ac-accent)]">
+                                                            {member.user.name
+                                                                .charAt(0)
+                                                                .toUpperCase()}
+                                                        </span>
+
+                                                        <div className="min-w-0 leading-tight">
+                                                            <strong className="block truncate text-[13px] text-[var(--ac-text)]">
+                                                                {member.user.name}
+                                                            </strong>
+
+                                                            <span className="block truncate text-[11.5px] text-[var(--ac-text-muted)]">
+                                                                {member.user.email}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                <td className="px-3.5 py-3">
+                                                    <strong className="block text-[12.5px] text-[var(--ac-text)]">
+                                                        {roleLabel(member)}
+                                                    </strong>
+
+                                                    <span className="block text-[11px] text-[var(--ac-text-muted)]">
+                                                        {accessLabel(member)}
+                                                    </span>
+                                                </td>
+
+                                                <td className="px-3.5 py-3">
+                                                    <span
+                                                        className="inline-flex h-[22px] items-end gap-[3px]"
+                                                        aria-label={
+                                                            ar
+                                                                ? 'الوصول حسب الوحدة'
+                                                                : 'Access by module'
+                                                        }
+                                                    >
+                                                        {permissionGroups.map(
+                                                            group => {
+                                                                const level =
+                                                                    moduleLevel(
+                                                                        member,
+                                                                        group,
+                                                                    );
+
+                                                                return (
+                                                                    <i
+                                                                        key={group.key}
+                                                                        title={
+                                                                            (ar
+                                                                                ? group.titleAr
+                                                                                : group.titleEn)
+                                                                            + ' — '
+                                                                            + levelLabels[level]
+                                                                        }
+                                                                        className="block w-2 rounded-[2px]"
+                                                                        style={{
+                                                                            height: stripHeights[level],
+                                                                            background: stripShade[level],
+                                                                        }}
+                                                                    />
+                                                                );
+                                                            },
+                                                        )}
+                                                    </span>
+                                                </td>
+
+                                                <td className="whitespace-nowrap px-3.5 py-3 text-[13px] tabular-nums">
+                                                    <strong className="text-[var(--ac-text)]">
+                                                        {member.full_access
+                                                            ? (ar ? 'كامل' : 'Full')
+                                                            : member.permission_count}
+                                                    </strong>
+
+                                                    <span className="text-[var(--ac-text-muted)]">
+                                                        {' / '}
+                                                        {totalPermissions}
+                                                    </span>
+
+                                                    {sensitive > 0 && (
+                                                        <span
+                                                            title={
+                                                                ar
+                                                                    ? 'صلاحيات حساسة ممنوحة'
+                                                                    : 'Sensitive permissions granted'
+                                                            }
+                                                            className="ms-1.5 inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-500"
+                                                        >
+                                                            {sensitive}{' '}
+                                                            {ar
+                                                                ? 'حساسة'
+                                                                : 'sensitive'}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    },
+                                )}
+
+                                {filtered.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={4}
+                                            className="px-4 py-8 text-center text-xs text-[var(--ac-text-muted)]"
+                                        >
+                                            {ar
+                                                ? 'لا يوجد عضو مطابق للبحث.'
+                                                : 'No member matches your search.'}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-[var(--ac-text-muted)]">
+                        <span>
+                            {ar
+                                ? 'عمود لكل وحدة. مرّر الماوس على العمود لمعرفة اسم الوحدة.'
+                                : 'One bar per module. Hover a bar to see the module name.'}
+                        </span>
+
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="inline-flex h-4 items-end gap-[3px]">
+                                {stripShade.map(
+                                    (shade, level) => (
+                                        <i
+                                            key={level}
+                                            className="block w-1.5 rounded-[2px]"
+                                            style={{
+                                                height: Math.max(
+                                                    3,
+                                                    stripHeights[level] * 0.72,
+                                                ),
+                                                background: shade,
+                                            }}
+                                        />
+                                    ),
+                                )}
+                            </span>
+
+                            {levelLabels.join(' · ')}
+                        </span>
+                    </div>
+
+                    {selected?.access_mode === 'built_in' && (
+                        <div className="mt-4 rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 text-xs leading-5 text-[var(--ac-text-muted)] xl:hidden">
+                            {ar
+                                ? 'هذا العضو يستخدم دورًا نظاميًا قديمًا (Manager / Accountant / Employee). لتخصيصه بدقة، عيّن له دورًا مخصصًا.'
+                                : 'This member uses a built-in legacy role (Manager / Accountant / Employee). Assign a custom role for precise control.'}
+                        </div>
+                    )}
+                </div>
+
+                {selected && (
+                    <aside className="overflow-hidden rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] xl:sticky xl:top-24">
+                        <div className="flex flex-col gap-3 border-b border-[var(--ac-line)] bg-[var(--ac-bg)] p-4">
+                            <div className="flex items-center gap-3">
+                                <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[var(--ac-surface-soft)] text-sm font-bold text-[var(--ac-accent)]">
+                                    {selected.user.name
+                                        .charAt(0)
+                                        .toUpperCase()}
                                 </span>
 
                                 <div className="min-w-0">
-                                    <h3 className="truncate text-base font-bold text-[var(--ac-text)]">
+                                    <h3 className="truncate text-[15px] font-bold text-[var(--ac-text)]">
                                         {selected.user.name}
                                     </h3>
 
-                                    <p className="mt-1 truncate text-[10px] text-[var(--ac-text-muted)]">
+                                    <p className="truncate text-xs text-[var(--ac-text-muted)]">
                                         {selected.user.email}
                                     </p>
-
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                        <span className="rounded-full border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2.5 py-1 text-[9px] font-bold text-[var(--ac-text-soft)]">
-                                            {roleLabel(selected)}
-                                        </span>
-
-                                        <span className={[
-                                            'rounded-full border px-2.5 py-1 text-[9px] font-bold',
-                                            selected.access_mode === 'custom'
-                                                ? 'border-[var(--ac-accent)]/25 bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
-                                                : selected.full_access
-                                                    ? 'border-amber-500/25 bg-amber-500/10 text-amber-500'
-                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]',
-                                        ].join(' ')}>
-                                            {accessLabel(selected)}
-                                        </span>
-                                    </div>
                                 </div>
+
+                                <button
+                                    type="button"
+                                    aria-label={
+                                        ar ? 'إغلاق' : 'Close'
+                                    }
+                                    onClick={() =>
+                                        setSelectedId(
+                                            null,
+                                        )
+                                    }
+                                    className="ms-auto flex size-[30px] items-center justify-center rounded-[9px] text-[var(--ac-text-muted)] transition hover:bg-[var(--ac-surface-soft)]"
+                                >
+                                    <X size={14} />
+                                </button>
                             </div>
 
-                            {selected.role !== 'owner' && (
-                                <div className="flex flex-wrap gap-2">
-                                    {selectedRole && (
-                                        <button
-                                            type="button"
-                                            className={secondaryButton}
-                                            onClick={() =>
-                                                onEditRole(
-                                                    selectedRole,
-                                                )
-                                            }
-                                        >
-                                            <Pencil size={13} />
-                                            {ar
-                                                ? 'تعديل الدور'
-                                                : 'Edit role'}
-                                        </button>
-                                    )}
+                            <div className="flex flex-wrap gap-1.5">
+                                <span className={pillClass}>
+                                    {roleLabel(selected)}
+                                </span>
 
+                                <span
+                                    className={[
+                                        pillClass,
+                                        selected.access_mode === 'custom'
+                                            ? '!border-[var(--ac-accent)]/25 !bg-[var(--ac-accent-soft)] !text-[var(--ac-accent)]'
+                                            : '',
+                                    ].join(' ')}
+                                >
+                                    {accessLabel(selected)}
+                                </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                {selectedRole && (
                                     <button
                                         type="button"
-                                        className={primaryButton}
+                                        className={panelButton}
                                         onClick={() =>
-                                            onAssign(
-                                                selected,
+                                            onEditRole(
+                                                selectedRole,
                                             )
                                         }
                                     >
-                                        <UserCog size={13} />
+                                        <Pencil size={13} />
                                         {ar
-                                            ? 'تغيير الدور'
-                                            : 'Change role'}
+                                            ? 'تعديل الدور'
+                                            : 'Edit role'}
                                     </button>
+                                )}
 
-                                    <button
-                                        type="button"
-                                        disabled={busy}
-                                        className="inline-flex min-h-10 items-center justify-center rounded-[13px] border border-red-500/20 px-3 text-[10px] font-semibold text-red-500 transition hover:bg-red-500/10 disabled:opacity-40"
-                                        onClick={() =>
-                                            onRevoke(
-                                                selected,
-                                            )
-                                        }
-                                    >
-                                        {ar
-                                            ? 'إلغاء الوصول'
-                                            : 'Revoke'}
-                                    </button>
-                                </div>
-                            )}
+                                <button
+                                    type="button"
+                                    className="inline-flex min-h-9 items-center justify-center gap-2 rounded-[11px] bg-[var(--ac-accent-solid)] px-3 text-xs font-semibold text-[var(--ac-accent-solid-text)] transition hover:bg-[var(--ac-accent-hover)]"
+                                    onClick={() =>
+                                        onAssign(
+                                            selected,
+                                        )
+                                    }
+                                >
+                                    <UserCog size={13} />
+                                    {ar
+                                        ? 'تغيير الدور'
+                                        : 'Change role'}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    disabled={busy}
+                                    className="inline-flex min-h-9 items-center justify-center rounded-[11px] border border-red-500/30 px-3 text-[11px] font-semibold text-red-500 transition hover:bg-red-500/10 disabled:opacity-40"
+                                    onClick={() =>
+                                        onRevoke(
+                                            selected,
+                                        )
+                                    }
+                                >
+                                    {ar
+                                        ? 'إلغاء الوصول'
+                                        : 'Revoke'}
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="mt-3 space-y-2">
+                        <div className="flex max-h-[640px] flex-col gap-1.5 overflow-auto p-3">
                             {permissionGroups.map(
                                 group => {
                                     const available =
@@ -4035,8 +4424,7 @@ function MemberAccessMatrix({
                                         );
 
                                     if (
-                                        available.length ===
-                                        0
+                                        available.length === 0
                                     ) {
                                         return null;
                                     }
@@ -4044,11 +4432,9 @@ function MemberAccessMatrix({
                                     const granted =
                                         available.filter(
                                             permission =>
-                                                selected
-                                                    .effective_permissions
-                                                    .includes(
-                                                        permission,
-                                                    ),
+                                                selected.effective_permissions.includes(
+                                                    permission,
+                                                ),
                                         );
 
                                     const Icon =
@@ -4061,10 +4447,7 @@ function MemberAccessMatrix({
 
                                     const percent =
                                         Math.round(
-                                            (
-                                                granted.length
-                                                / available.length
-                                            )
+                                            (granted.length / available.length)
                                             * 100,
                                         );
 
@@ -4072,14 +4455,15 @@ function MemberAccessMatrix({
                                         <section
                                             key={group.key}
                                             className={[
-                                                'overflow-hidden rounded-[14px] border transition',
+                                                'shrink-0 overflow-hidden rounded-[14px] border bg-[var(--ac-bg)] transition',
                                                 expanded
-                                                    ? 'border-[var(--ac-line-strong)] bg-[var(--ac-bg)]'
-                                                    : 'border-[var(--ac-line)] bg-[var(--ac-bg)] hover:border-[var(--ac-line-strong)]',
+                                                    ? 'border-[var(--ac-line-strong)]'
+                                                    : 'border-[var(--ac-line)] hover:border-[var(--ac-line-strong)]',
                                             ].join(' ')}
                                         >
                                             <button
                                                 type="button"
+                                                aria-expanded={expanded}
                                                 onClick={() =>
                                                     setExpandedGroups(
                                                         current =>
@@ -4088,8 +4472,7 @@ function MemberAccessMatrix({
                                                             )
                                                                 ? current.filter(
                                                                     key =>
-                                                                        key !==
-                                                                        group.key,
+                                                                        key !== group.key,
                                                                 )
                                                                 : [
                                                                     ...current,
@@ -4097,29 +4480,28 @@ function MemberAccessMatrix({
                                                                 ],
                                                     )
                                                 }
-                                                className="flex w-full items-center gap-3 p-3 text-start sm:p-3.5"
-                                                aria-expanded={
-                                                    expanded
-                                                }
+                                                className="flex w-full items-center gap-3 px-3 py-2.5 text-start"
                                             >
-                                                <span className={[
-                                                    'flex size-9 shrink-0 items-center justify-center rounded-[11px]',
-                                                    granted.length
-                                                        ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
-                                                        : 'bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]',
-                                                ].join(' ')}>
+                                                <span
+                                                    className={[
+                                                        'flex size-9 shrink-0 items-center justify-center rounded-[11px]',
+                                                        granted.length
+                                                            ? 'bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                                            : 'bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]',
+                                                    ].join(' ')}
+                                                >
                                                     <Icon size={15} />
                                                 </span>
 
                                                 <span className="min-w-0 flex-1">
                                                     <span className="flex flex-wrap items-center gap-2">
-                                                        <strong className="text-[11px] font-bold text-[var(--ac-text)]">
+                                                        <strong className="text-[13px] font-bold text-[var(--ac-text)]">
                                                             {ar
                                                                 ? group.titleAr
                                                                 : group.titleEn}
                                                         </strong>
 
-                                                        <span className="text-[8px] font-semibold text-[var(--ac-text-muted)]">
+                                                        <span className="text-[11.5px] font-semibold tabular-nums text-[var(--ac-text-muted)]">
                                                             {granted.length}
                                                             {' / '}
                                                             {available.length}
@@ -4130,39 +4512,25 @@ function MemberAccessMatrix({
                                                         <span
                                                             className="block h-full rounded-full bg-[var(--ac-accent)] transition-all"
                                                             style={{
-                                                                width:
-                                                                    String(
-                                                                        percent,
-                                                                    )
-                                                                    + '%',
+                                                                width: `${percent}%`,
                                                             }}
                                                         />
                                                     </span>
                                                 </span>
 
-                                                <span className="hidden min-w-[82px] justify-end sm:flex">
-                                                    {granted.length ===
-                                                    available.length ? (
-                                                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[8px] font-bold text-emerald-500">
-                                                            {ar
-                                                                ? 'كامل'
-                                                                : 'Full'}
-                                                        </span>
-                                                    ) : granted.length ===
-                                                        0 ? (
-                                                        <span className="rounded-full border border-[var(--ac-line)] px-2 py-1 text-[8px] font-bold text-[var(--ac-text-muted)]">
-                                                            {ar
-                                                                ? 'بدون وصول'
-                                                                : 'No access'}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[8px] font-bold text-amber-500">
-                                                            {ar
-                                                                ? 'جزئي'
-                                                                : 'Partial'}
-                                                        </span>
-                                                    )}
-                                                </span>
+                                                {granted.length === available.length ? (
+                                                    <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-bold text-emerald-500">
+                                                        {ar ? 'كامل' : 'Full'}
+                                                    </span>
+                                                ) : granted.length === 0 ? (
+                                                    <span className="rounded-full border border-[var(--ac-line)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--ac-text-muted)]">
+                                                        {ar ? 'بدون وصول' : 'No access'}
+                                                    </span>
+                                                ) : (
+                                                    <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10.5px] font-bold text-amber-500">
+                                                        {ar ? 'جزئي' : 'Partial'}
+                                                    </span>
+                                                )}
 
                                                 <ChevronDown
                                                     size={14}
@@ -4176,88 +4544,77 @@ function MemberAccessMatrix({
                                             </button>
 
                                             {expanded && (
-                                                <div className="border-t border-[var(--ac-line)] px-3 pb-3 pt-3 sm:px-3.5">
-                                                    <p className="mb-3 text-[9px] leading-4 text-[var(--ac-text-muted)]">
-                                                        {ar
-                                                            ? group.descriptionAr
-                                                            : group.descriptionEn}
-                                                    </p>
+                                                <div className="grid gap-2 border-t border-[var(--ac-line)] p-3">
+                                                    {available.map(
+                                                        permission => {
+                                                            const checked =
+                                                                selected.effective_permissions.includes(
+                                                                    permission,
+                                                                );
 
-                                                    <div className="grid gap-2 sm:grid-cols-2">
-                                                        {available.map(
-                                                            permission => {
-                                                                const checked =
-                                                                    selected
-                                                                        .effective_permissions
-                                                                        .includes(
-                                                                            permission,
-                                                                        );
-
-                                                                return (
-                                                                    <div
-                                                                        key={
-                                                                            permission
-                                                                        }
-                                                                        title={
-                                                                            permission
-                                                                        }
+                                                            return (
+                                                                <div
+                                                                    key={permission}
+                                                                    title={permission}
+                                                                    className={[
+                                                                        'flex min-h-[34px] items-center gap-2 rounded-[10px] border px-3 py-1.5 text-xs font-medium',
+                                                                        checked
+                                                                            ? 'border-[var(--ac-accent)]/25 bg-[var(--ac-accent-soft)] text-[var(--ac-text)]'
+                                                                            : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)]',
+                                                                    ].join(' ')}
+                                                                >
+                                                                    <span
                                                                         className={[
-                                                                            'flex min-h-10 items-center gap-2 rounded-[10px] border px-3 py-2 text-[9px] font-semibold',
+                                                                            'flex size-5 shrink-0 items-center justify-center rounded-full border',
                                                                             checked
-                                                                                ? 'border-[var(--ac-accent)]/20 bg-[var(--ac-accent-soft)] text-[var(--ac-text)]'
-                                                                                : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)]',
+                                                                                ? 'border-[var(--ac-accent)]/30 text-[var(--ac-accent)]'
+                                                                                : 'border-[var(--ac-line)]',
                                                                         ].join(' ')}
                                                                     >
-                                                                        <span
-                                                                            className={[
-                                                                                'flex size-5 shrink-0 items-center justify-center rounded-full border',
-                                                                                checked
-                                                                                    ? 'border-[var(--ac-accent)]/25 text-[var(--ac-accent)]'
-                                                                                    : 'border-[var(--ac-line)]',
-                                                                            ].join(' ')}
-                                                                        >
-                                                                            {checked ? (
-                                                                                <Check size={10} />
-                                                                            ) : (
-                                                                                <X size={9} />
-                                                                            )}
-                                                                        </span>
+                                                                        {checked ? (
+                                                                            <Check size={10} />
+                                                                        ) : (
+                                                                            <X size={9} />
+                                                                        )}
+                                                                    </span>
 
-                                                                        <span>
-                                                                            {permissionLabel(
-                                                                                permission,
-                                                                                ar,
-                                                                                permissionLabels,
-                                                                            )}
+                                                                    <span className="flex-1">
+                                                                        {permissionLabel(
+                                                                            permission,
+                                                                            ar,
+                                                                            permissionLabels,
+                                                                        )}
+                                                                    </span>
+
+                                                                    {sensitivePermissions.has(
+                                                                        permission,
+                                                                    ) && (
+                                                                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-500">
+                                                                            {ar
+                                                                                ? 'حساسة'
+                                                                                : 'Sensitive'}
                                                                         </span>
-                                                                    </div>
-                                                                );
-                                                            },
-                                                        )}
-                                                    </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        },
+                                                    )}
                                                 </div>
                                             )}
                                         </section>
                                     );
                                 },
                             )}
-                        </div>
 
-                        {selected.access_mode ===
-                            'built_in' && (
-                            <div className="mt-4 rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 text-[9px] leading-5 text-[var(--ac-text-muted)]">
-                                {ar
-                                    ? 'هذا العضو يستخدم دورًا نظاميًا قديمًا (Manager / Accountant / Employee). المعروض هو الوصول الموروث من سياسات النظام الحالية. لتخصيصه بدقة، عيّن له دورًا مخصصًا.'
-                                    : 'This member uses a built-in legacy role (Manager / Accountant / Employee). The matrix shows access inherited from current system policies. Assign a custom role for precise control.'}
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="flex min-h-80 items-center justify-center rounded-[18px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-bg)] text-xs text-[var(--ac-text-muted)]">
-                        {ar
-                            ? 'اختر عضوًا لعرض صلاحياته.'
-                            : 'Choose a member to inspect access.'}
-                    </div>
+                            {selected.access_mode === 'built_in' && (
+                                <div className="mt-2 hidden rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 text-xs leading-5 text-[var(--ac-text-muted)] xl:block">
+                                    {ar
+                                        ? 'هذا العضو يستخدم دورًا نظاميًا قديمًا (Manager / Accountant / Employee). لتخصيصه بدقة، عيّن له دورًا مخصصًا.'
+                                        : 'This member uses a built-in legacy role (Manager / Accountant / Employee). Assign a custom role for precise control.'}
+                                </div>
+                            )}
+                        </div>
+                    </aside>
                 )}
             </div>
         </section>

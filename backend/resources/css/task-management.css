@@ -1,6 +1,5 @@
 .task-module {
     color: var(--ac-text);
-    --ac-accent: #2879ff;
     --tm-panel: var(--ac-surface);
     --tm-panel-soft: var(--ac-surface-soft);
     --tm-line: var(--ac-line);
@@ -8,11 +7,12 @@
     --tm-text: var(--ac-text);
     --tm-text-soft: var(--ac-text-soft);
     --tm-text-muted: var(--ac-text-muted);
+    --tm-focus: var(--ac-accent);
 }
 
 .task-module .tm-panel {
     border: 1px solid var(--tm-line);
-    border-radius: 12px;
+    border-radius: var(--ac-radius-md);
     background: var(--tm-panel);
     padding: 16px;
     box-shadow: var(--ac-shadow-soft);
@@ -24,11 +24,11 @@
     align-items: center;
     justify-content: center;
     gap: 7px;
-    min-height: 35px;
+    min-height: 40px;
     border: 1px solid var(--tm-line);
-    border-radius: 7px;
-    padding: 8px 12px;
-    font-size: 11px;
+    border-radius: var(--ac-radius-xs);
+    padding: 8px 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--tm-text-soft);
     background: var(--tm-panel);
@@ -61,19 +61,19 @@
 .tm-primary:hover {
     background: var(--ac-accent-hover);
     border-color: var(--ac-accent-hover);
-    color: #08111e;
+    color: var(--ac-accent-solid-text);
 }
 
 .tm-input {
     width: 100%;
-    min-height: 37px;
+    min-height: 40px;
     border: 1px solid var(--tm-line);
-    border-radius: 7px;
+    border-radius: var(--ac-radius-xs);
     background: var(--tm-panel-soft);
-    padding: 9px 11px;
+    padding: 9px 12px;
     outline: none;
     color: var(--tm-text);
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .tm-input::placeholder {
@@ -81,12 +81,12 @@
 }
 
 .tm-input:focus {
-    border-color: #60a5fa;
-    box-shadow: 0 0 0 3px color-mix(in srgb, #60a5fa 18%, transparent);
+    border-color: var(--tm-focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tm-focus) 18%, transparent);
 }
 
 .task-module :is(button,a,input,select,textarea):focus-visible {
-    outline: 2px solid #60a5fa;
+    outline: 2px solid var(--tm-focus);
     outline-offset: 2px;
 }
 
@@ -94,9 +94,9 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    border-radius: 5px;
-    padding: 3px 7px;
-    font-size: 9px;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
     white-space: nowrap;
     font-weight: 600;
 }
@@ -111,12 +111,23 @@
     border-radius: 12px;
 }
 
-.tm-blue { background: color-mix(in srgb, #297aff 14%, transparent); color: #5d9cff; }
-.tm-green { background: color-mix(in srgb, #18b87a 14%, transparent); color: #42d39b; }
-.tm-red { background: color-mix(in srgb, #fa4f6c 14%, transparent); color: #ff7188; }
-.tm-amber,.tm-orange { background: color-mix(in srgb, #f6a20a 14%, transparent); color: #f7b73a; }
-.tm-purple { background: color-mix(in srgb, #9460ed 14%, transparent); color: #b28af5; }
-.tm-slate { background: color-mix(in srgb, var(--tm-text-muted) 14%, transparent); color: var(--tm-text-muted); }
+/*
+ * Semantic tints. Text uses the 700 step on a 50 step background so every
+ * pair stays above 4.5:1 in the light theme.
+ */
+.tm-blue { background: #e6f3fe; color: #045495; }
+.tm-green { background: #e3f6ee; color: #14744c; }
+.tm-red { background: #fdecec; color: #a33b40; }
+.tm-amber,.tm-orange { background: #fbf1dd; color: #7d5a14; }
+.tm-purple { background: #efe9fc; color: #5b3aa8; }
+.tm-slate { background: #e8eef4; color: #3b5568; }
+
+html[data-ac-resolved-theme='dark'] .tm-blue { background: #0a3556; color: #9cd1fc; }
+html[data-ac-resolved-theme='dark'] .tm-green { background: #0d3a2c; color: #6fe0b0; }
+html[data-ac-resolved-theme='dark'] .tm-red { background: #431c20; color: #ff9ea3; }
+html[data-ac-resolved-theme='dark'] :is(.tm-amber, .tm-orange) { background: #40320f; color: #f0c872; }
+html[data-ac-resolved-theme='dark'] .tm-purple { background: #2c2150; color: #c9b3f7; }
+html[data-ac-resolved-theme='dark'] .tm-slate { background: #12344d; color: #b7cfe0; }
 
 .tm-dialog {
     margin: auto;
@@ -124,7 +135,7 @@
     max-height: calc(100dvh - 32px);
     overflow-y: auto;
     border: 1px solid var(--tm-line);
-    border-radius: 14px;
+    border-radius: var(--ac-radius-md);
     background: var(--tm-panel);
     padding: 22px;
     color: var(--tm-text);
@@ -132,7 +143,7 @@
 }
 
 .tm-dialog::backdrop {
-    background: rgba(7, 15, 27, .58);
+    background: rgba(1, 20, 35, .58);
     backdrop-filter: blur(4px);
 }
 
@@ -143,7 +154,7 @@
     width: min(740px, 96vw);
     height: 100dvh;
     max-height: 100dvh;
-    border-radius: 16px 0 0 16px;
+    border-radius: var(--ac-radius-md) 0 0 var(--ac-radius-md);
     padding: 22px;
 }
 
@@ -151,7 +162,7 @@
     width: 100%;
     min-width: 780px;
     text-align: start;
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .tm-table th {
@@ -160,12 +171,12 @@
     color: var(--tm-text-muted);
     font-weight: 500;
     text-align: start;
-    font-size: 10px;
+    font-size: 12px;
     white-space: nowrap;
 }
 
 .tm-table td {
-    padding: 11px 10px;
+    padding: 12px 10px;
     border-bottom: 1px solid var(--tm-line);
 }
 
@@ -205,35 +216,121 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
 }
 
 .tm-board-column {
-    border-radius: 12px;
+    border-radius: var(--ac-radius-md);
     padding: 10px;
     min-width: 0;
+    background: var(--ac-surface-soft);
 }
 
 .tm-board-card {
     border: 1px solid var(--tm-line);
-    border-radius: 9px;
+    border-radius: var(--ac-radius-sm);
     background: var(--tm-panel);
     color: var(--tm-text);
     padding: 13px;
     box-shadow: var(--ac-shadow-soft);
 }
 
-html[data-ac-resolved-theme='dark'] .task-module {
-    background: var(--ac-bg) !important;
+/* Section navigation as underlined tabs, so only real actions look like buttons. */
+.tm-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--tm-line);
 }
 
-html[data-ac-resolved-theme='dark'] .task-module .tm-board-column {
-    background: color-mix(in srgb, var(--ac-surface-soft) 82%, transparent) !important;
+.tm-tab {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 7px;
+    min-height: 44px;
+    border-bottom: 2px solid transparent;
+    border-radius: var(--ac-radius-xs) var(--ac-radius-xs) 0 0;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tm-text-muted);
+    transition:
+        background-color var(--ac-transition-fast) ease,
+        color var(--ac-transition-fast) ease;
 }
 
-html[data-ac-resolved-theme='dark'] .task-module .tm-board-card {
-    color: var(--ac-text) !important;
+.tm-tab:hover {
+    background: var(--tm-panel-soft);
+    color: var(--tm-text);
+}
+
+.tm-tab[aria-current='page'] {
+    border-bottom-color: var(--ac-accent);
+    background: var(--ac-accent-soft);
+    color: var(--tm-text);
+}
+
+/* Overflow menu on board cards for moving a task between stages. */
+.tm-menu {
+    position: relative;
+}
+
+.tm-menu > summary {
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    list-style: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--ac-radius-xs);
+    color: var(--tm-text-muted);
+}
+
+.tm-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+.tm-menu > summary:hover {
+    background: var(--tm-panel-soft);
+    color: var(--tm-text);
+}
+
+.tm-menu-list {
+    position: absolute;
+    z-index: 10;
+    inset-inline-end: 0;
+    top: 100%;
+    min-width: 170px;
+    margin-top: 4px;
+    border: 1px solid var(--tm-line);
+    border-radius: var(--ac-radius-sm);
+    background: var(--tm-panel);
+    padding: 6px;
+    box-shadow: var(--ac-shadow-panel);
+}
+
+.tm-menu-list button {
+    display: block;
+    width: 100%;
+    border-radius: var(--ac-radius-xs);
+    padding: 8px 10px;
+    text-align: start;
+    font-size: 13px;
+    color: var(--tm-text-soft);
+}
+
+.tm-menu-list button:hover:not(:disabled) {
+    background: var(--tm-panel-soft);
+    color: var(--tm-text);
+}
+
+.tm-menu-list button[aria-current='true'] {
+    color: var(--ac-accent-strong);
+    font-weight: 600;
 }
 
 @media (max-width: 640px) {

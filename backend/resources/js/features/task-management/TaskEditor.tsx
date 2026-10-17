@@ -607,7 +607,7 @@ export function TaskEditor({
         return (
             <div
                 role="status"
-                className="tm-panel p-12 text-center text-sm text-slate-400"
+                className="tm-panel p-12 text-center text-sm text-[var(--ac-text-muted)]"
             >
                 {text('جارٍ تحميل المهمة…', 'Loading task…')}
             </div>
@@ -698,7 +698,7 @@ export function TaskEditor({
                                         value={draft.description ?? ''}
                                         onChange={(event) => field('description', event.target.value)}
                                     />
-                                    <span className="text-end text-[9px] font-normal text-slate-400">
+                                    <span className="text-end text-[11px] font-normal text-[var(--ac-text-muted)]">
                                         {draft.description?.length ?? 0} / 20000
                                     </span>
                                 </label>
@@ -799,10 +799,10 @@ export function TaskEditor({
                                 icon={CalendarDays}
                             >
                                 <div className="mb-4">
-                                    <p className="mb-2 text-[11px] font-semibold">
+                                    <p className="mb-2 text-xs font-semibold">
                                         {text('المسؤولون عن المهمة', 'Task assignees')}
                                     </p>
-                                    <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-100 p-2">
+                                    <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-[var(--ac-line)] p-2">
                                         {data.members.map((member: Member) => {
                                             const isSelf = currentMember?.id === member.id;
                                             const assignmentLocked =
@@ -815,11 +815,11 @@ export function TaskEditor({
                                             return (
                                                 <label
                                                     key={member.id}
-                                                    className="flex items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-blue-50"
+                                                    className="flex items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-[var(--ac-bg-soft)]"
                                                 >
                                                     <input
                                                         type="checkbox"
-                                                        className="accent-blue-500"
+                                                        className="accent-[var(--ac-accent)]"
                                                         disabled={assignmentLocked}
                                                         checked={draft.assignees.includes(member.id)}
                                                         onChange={(event) => field(
@@ -836,7 +836,7 @@ export function TaskEditor({
                                                     />
                                                     <Avatar member={member} />
                                                     <span className="flex-1">{member.name}</span>
-                                                    <span className="text-[9px] text-slate-400">
+                                                    <span className="text-[11px] text-[var(--ac-text-muted)]">
                                                         {member.department ?? '—'}
                                                     </span>
                                                 </label>
@@ -844,7 +844,7 @@ export function TaskEditor({
                                         })}
                                     </div>
                                     {! canAssign && (
-                                        <p className="mt-2 text-[10px] text-slate-400">
+                                        <p className="mt-2 text-[11px] text-[var(--ac-text-muted)]">
                                             {text(
                                                 'إسناد المهمة لأعضاء آخرين يحتاج صلاحية الإسناد.',
                                                 'Assigning other members requires assignment permission.',
@@ -900,7 +900,7 @@ export function TaskEditor({
                                                     : 0,
                                             )}
                                         />
-                                        <span className="text-[9px] font-normal text-slate-400">
+                                        <span className="text-[11px] font-normal text-[var(--ac-text-muted)]">
                                             {text(
                                                 'مطلوب ويجب أن يكون أكبر من صفر.',
                                                 'Required and must be greater than zero.',
@@ -914,7 +914,7 @@ export function TaskEditor({
                                 title={text('الصلاحيات وسير العمل', 'Access & workflow')}
                                 icon={ShieldCheck}
                             >
-                                <p className="mb-4 text-[11px] leading-6 text-slate-400">
+                                <p className="mb-4 text-xs leading-6 text-[var(--ac-text-muted)]">
                                     {text(
                                         'حدد من يمكنه الوصول إلى المهمة، ضمن صلاحيات مساحة العمل.',
                                         'Choose who can access this task within their workspace permissions.',
@@ -945,11 +945,11 @@ export function TaskEditor({
                                     ]) => (
                                         <label
                                             key={value}
-                                            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${draft.visibility === value ? 'border-blue-200 bg-blue-50/50' : 'border-slate-100'}`}
+                                            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${draft.visibility === value ? 'border-[var(--ac-line-strong)] bg-[var(--ac-bg-soft)]' : 'border-[var(--ac-line)]'}`}
                                         >
                                             <input
                                                 type="radio"
-                                                className="mt-1 accent-blue-500"
+                                                className="mt-1 accent-[var(--ac-accent)]"
                                                 name="visibility"
                                                 value={value}
                                                 checked={draft.visibility === value}
@@ -959,14 +959,14 @@ export function TaskEditor({
                                                 <strong className="text-xs">
                                                     {ar ? arabic : english}
                                                 </strong>
-                                                <span className="mt-2 block text-[10px] leading-5 text-slate-400">
+                                                <span className="mt-2 block text-[11px] leading-5 text-[var(--ac-text-muted)]">
                                                     {ar ? hintAr : hintEn}
                                                 </span>
                                             </span>
                                         </label>
                                     ))}
                                 </div>
-                                <div className="mt-5 rounded-lg bg-emerald-50 p-3 text-[10px] leading-6 text-emerald-700">
+                                <div className="mt-5 rounded-lg bg-emerald-50 p-3 text-[11px] leading-6 text-emerald-700">
                                     {text(
                                         'تُحفظ التغييرات في سجل نشاط المهمة، ويخضع التعديل والتعليق لصلاحيات المستخدم.',
                                         'Changes are recorded in the task history. Editing and commenting follow user permissions.',
@@ -1010,7 +1010,7 @@ export function TaskEditor({
                                         </Badge>
                                     ))}
                                 </div>
-                                <p className="mt-4 text-[10px] leading-6 text-slate-400">
+                                <p className="mt-4 text-[11px] leading-6 text-[var(--ac-text-muted)]">
                                     {text(
                                         'حتى 15 وسمًا، وبحد أقصى 40 حرفًا لكل وسم.',
                                         'Up to 15 tags, with a maximum of 40 characters each.',
@@ -1025,7 +1025,7 @@ export function TaskEditor({
                                 {canUpload ? (
                                     <>
                                         <div
-                                            className="cursor-pointer rounded-xl border border-dashed border-blue-200 bg-blue-50/30 p-5 text-center transition hover:border-blue-300 hover:bg-blue-50/60"
+                                            className="cursor-pointer rounded-xl border border-dashed border-[var(--ac-line-strong)] bg-[var(--ac-bg-soft)] p-5 text-center transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-bg-soft)]"
                                             role="button"
                                             tabIndex={0}
                                             onClick={() => {
@@ -1057,15 +1057,15 @@ export function TaskEditor({
                                         >
                                             <UploadCloud
                                                 size={27}
-                                                className="mx-auto text-blue-400"
+                                                className="mx-auto text-[var(--ac-accent)]"
                                             />
-                                            <span className="my-2 block text-[11px] font-semibold text-blue-500">
+                                            <span className="my-2 block text-xs font-semibold text-[var(--ac-accent)]">
                                                 {text(
                                                     'اسحب الملفات هنا أو اضغط لاختيارها من جهازك',
                                                     'Drop files here or click to browse',
                                                 )}
                                             </span>
-                                            <p className="text-[9px] text-slate-400">
+                                            <p className="text-[11px] text-[var(--ac-text-muted)]">
                                                 20 MB · {text('10 ملفات كحد أقصى', 'Up to 10 files')}
                                             </p>
                                             <input
@@ -1082,7 +1082,7 @@ export function TaskEditor({
                                         </div>
 
                                         {files.length > 0 && (
-                                            <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-[9px] leading-5 text-blue-600">
+                                            <p className="mt-2 rounded-lg bg-[var(--ac-bg-soft)] px-3 py-2 text-[11px] leading-5 text-[var(--ac-accent-strong)]">
                                                 {record
                                                     ? text(
                                                         'تم تجهيز الملفات. سيتم رفعها عند حفظ تعديلات المهمة.',
@@ -1099,7 +1099,7 @@ export function TaskEditor({
                                             {files.map((file: File, index: number) => (
                                                 <div
                                                     key={`${file.name}-${index}`}
-                                                    className="flex items-center gap-2 rounded border border-slate-100 p-2 text-[10px]"
+                                                    className="flex items-center gap-2 rounded border border-[var(--ac-line)] p-2 text-[11px]"
                                                 >
                                                     <Paperclip size={12} />
                                                     <span className="min-w-0 flex-1 truncate">
@@ -1121,7 +1121,7 @@ export function TaskEditor({
                                         </div>
                                     </>
                                 ) : (
-                                    <p className="text-xs leading-6 text-slate-400">
+                                    <p className="text-xs leading-6 text-[var(--ac-text-muted)]">
                                         {text(
                                             'إضافة المرفقات تحتاج صلاحية تعديل المهام.',
                                             'Adding attachments requires task editing permission.',
@@ -1133,7 +1133,7 @@ export function TaskEditor({
                                     <a
                                         key={attachment.id}
                                         href={attachment.url}
-                                        className="mt-2 flex items-center gap-2 rounded border border-slate-100 p-2 text-[10px] text-blue-500"
+                                        className="mt-2 flex items-center gap-2 rounded border border-[var(--ac-line)] p-2 text-[11px] text-[var(--ac-accent)]"
                                     >
                                         <Paperclip size={12} />
                                         {attachment.name}
@@ -1152,7 +1152,7 @@ export function TaskEditor({
                                             className="flex items-center gap-2"
                                         >
                                             <input
-                                                className="accent-blue-500"
+                                                className="accent-[var(--ac-accent)]"
                                                 type="checkbox"
                                                 aria-label={item.title || text('مهمة فرعية', 'Subtask')}
                                                 checked={item.done}
@@ -1202,7 +1202,7 @@ export function TaskEditor({
                                             >
                                                 <X
                                                     size={12}
-                                                    className="text-slate-400"
+                                                    className="text-[var(--ac-text-muted)]"
                                                 />
                                             </button>
                                         </div>
@@ -1259,7 +1259,7 @@ export function TaskEditor({
                                     </button>
                                 </div>
 
-                                <p className="mt-4 text-[10px] leading-6 text-slate-400">
+                                <p className="mt-4 text-[11px] leading-6 text-[var(--ac-text-muted)]">
                                     {text(
                                         'عند إضافة مهام فرعية، تُحسب نسبة الإنجاز تلقائيًا.',
                                         'Progress is calculated automatically when subtasks are added.',
@@ -1275,7 +1275,7 @@ export function TaskEditor({
                             icon={Eye}
                         >
                             <div className="mb-3 flex items-center justify-between">
-                                <span className="text-[10px] text-slate-400">
+                                <span className="text-[11px] text-[var(--ac-text-muted)]">
                                     {record
                                         ? `TSK-${record.id}`
                                         : text('مهمة جديدة', 'New task')}
@@ -1288,12 +1288,12 @@ export function TaskEditor({
                             <h2 className="mb-2 text-sm font-bold leading-7">
                                 {draft.title || text('عنوان المهمة', 'Task title')}
                             </h2>
-                            <p className="mb-4 text-[11px] text-blue-500">
+                            <p className="mb-4 text-xs text-[var(--ac-accent)]">
                                 {data.projects.find(
                                     (project) => project.id === draft.project_id,
                                 )?.name ?? text('بدون مشروع', 'No project')}
                             </p>
-                            <p className="mb-5 line-clamp-5 whitespace-pre-wrap text-[11px] leading-6 text-slate-400">
+                            <p className="mb-5 line-clamp-5 whitespace-pre-wrap text-xs leading-6 text-[var(--ac-text-muted)]">
                                 {draft.description || text(
                                     'سيظهر وصف المهمة هنا…',
                                     'Your task description appears here…',
@@ -1309,15 +1309,15 @@ export function TaskEditor({
                                     />
                                 ))}
                             </div>
-                            <dl className="space-y-4 text-[11px]">
+                            <dl className="space-y-4 text-xs">
                                 <div className="flex justify-between">
-                                    <dt className="text-slate-400">
+                                    <dt className="text-[var(--ac-text-muted)]">
                                         {text('تاريخ الاستحقاق', 'Due date')}
                                     </dt>
                                     <dd>{dateLabel(draft.due_on, ar)}</dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-slate-400">
+                                    <dt className="text-[var(--ac-text-muted)]">
                                         {text('الحالة', 'Status')}
                                     </dt>
                                     <dd>
@@ -1328,7 +1328,7 @@ export function TaskEditor({
                                     </dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-slate-400">
+                                    <dt className="text-[var(--ac-text-muted)]">
                                         {text('الوقت المخطط', 'Estimated time')}
                                     </dt>
                                     <dd>
@@ -1345,7 +1345,7 @@ export function TaskEditor({
                             title={text('ملخص المهمة', 'Task summary')}
                             icon={Check}
                         >
-                            <div className="space-y-3 text-[11px] text-slate-500">
+                            <div className="space-y-3 text-xs text-[var(--ac-text-muted)]">
                                 <p>
                                     {draft.assignees.length} {text('أعضاء مسؤولون', 'assigned members')}
                                 </p>

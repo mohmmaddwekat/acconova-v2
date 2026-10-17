@@ -222,11 +222,11 @@ export function TaskDrawer({
                 task.checklist.map((item: ChecklistItem, index: number) => (
                     <label
                         key={`${index}-${item.title}`}
-                        className="flex items-start gap-2 rounded-lg border border-slate-100 p-3 text-xs"
+                        className="flex items-start gap-2 rounded-lg border border-[var(--ac-line)] p-3 text-xs"
                     >
                         <input
                             type="checkbox"
-                            className="mt-0.5 accent-blue-500"
+                            className="mt-0.5 accent-[var(--ac-accent)]"
                             checked={item.done}
                             disabled={! can('tasks.update') || busy}
                             onChange={(event) => void patch({
@@ -248,7 +248,7 @@ export function TaskDrawer({
                                 ),
                             })}
                         />
-                        <span className={item.done ? 'text-slate-400 line-through' : ''}>
+                        <span className={item.done ? 'text-[var(--ac-text-muted)] line-through' : ''}>
                             {item.title}
                         </span>
                     </label>
@@ -278,23 +278,23 @@ export function TaskDrawer({
                 <a
                     key={file.id}
                     href={file.url}
-                    className="flex items-center gap-3 rounded-lg border border-slate-100 p-3 hover:bg-blue-50"
+                    className="flex items-center gap-3 rounded-lg border border-[var(--ac-line)] p-3 hover:bg-[var(--ac-bg-soft)]"
                 >
                     <FileText
                         size={23}
-                        className="shrink-0 text-blue-500"
+                        className="shrink-0 text-[var(--ac-accent)]"
                     />
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-[11px] font-semibold">
+                        <p className="truncate text-xs font-semibold">
                             {file.name}
                         </p>
-                        <p className="mt-1 text-[9px] text-slate-400">
+                        <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
                             {(file.size / 1048576).toFixed(2)} MB
                         </p>
                     </div>
                     <Download
                         size={14}
-                        className="text-slate-400"
+                        className="text-[var(--ac-text-muted)]"
                     />
                 </a>
             ))}
@@ -312,7 +312,7 @@ export function TaskDrawer({
                 }
             }}
         >
-            <header className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+            <header className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ac-line)] pb-4">
                 <div className="flex flex-wrap gap-2">
                     {can('tasks.update') && (
                         <Link
@@ -379,7 +379,7 @@ export function TaskDrawer({
                     type="button"
                     disabled={busy}
                     aria-label={text('إغلاق التفاصيل', 'Close details')}
-                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-50"
+                    className="rounded-lg p-2 text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)]"
                     onClick={onClose}
                 >
                     <X size={19} />
@@ -445,7 +445,7 @@ export function TaskDrawer({
             {! detail || ! task ? (
                 <p
                     role="status"
-                    className="p-10 text-center text-xs text-slate-400"
+                    className="p-10 text-center text-xs text-[var(--ac-text-muted)]"
                 >
                     {text('جارٍ تحميل التفاصيل…', 'Loading details…')}
                 </p>
@@ -453,13 +453,13 @@ export function TaskDrawer({
                 <>
                     <div className="mb-6 flex items-start justify-between gap-5">
                         <div>
-                            <p className="mb-2 text-[10px] text-slate-400">
+                            <p className="mb-2 text-[11px] text-[var(--ac-text-muted)]">
                                 #TSK-{task.id}
                             </p>
                             <h1 className="text-lg font-bold leading-8">
                                 {task.title}
                             </h1>
-                            <p className="mt-2 text-xs leading-6 text-slate-400">
+                            <p className="mt-2 text-xs leading-6 text-[var(--ac-text-muted)]">
                                 {data.projects.find(
                                     (project) => project.id === task.project_id,
                                 )?.name ?? text('بدون مشروع', 'No project')}
@@ -472,9 +472,9 @@ export function TaskDrawer({
                                 background: `conic-gradient(#1670ff ${Math.min(100, Math.max(0, task.progress))}%, #edf3ff 0)`,
                             }}
                         >
-                            <div className="flex size-[66px] flex-col items-center justify-center rounded-full bg-white">
+                            <div className="flex size-[66px] flex-col items-center justify-center rounded-full bg-[var(--ac-surface)]">
                                 <strong className="text-lg">{task.progress}%</strong>
-                                <span className="text-[8px] text-slate-400">
+                                <span className="text-[11px] text-[var(--ac-text-muted)]">
                                     {text('نسبة الإنجاز', 'Progress')}
                                 </span>
                             </div>
@@ -489,7 +489,7 @@ export function TaskDrawer({
                         />
                     </div>
 
-                    <div className="mb-5 grid grid-cols-2 gap-3 rounded-xl border border-slate-100 p-4 sm:grid-cols-4">
+                    <div className="mb-5 grid grid-cols-2 gap-3 rounded-xl border border-[var(--ac-line)] p-4 sm:grid-cols-4">
                         <DetailCell label={text('الأولوية', 'Priority')}>
                             <PriorityBadge
                                 priority={task.priority}
@@ -502,7 +502,7 @@ export function TaskDrawer({
                                 <select
                                     aria-label={text('حالة المهمة', 'Task status')}
                                     disabled={busy}
-                                    className={`${input} !min-h-6 !p-1 !text-[10px]`}
+                                    className={`${input} !min-h-6 !p-1 !text-[11px]`}
                                     value={task.status}
                                     onChange={(event) => void patch({
                                         status: event.target.value as TaskStatus,
@@ -562,7 +562,7 @@ export function TaskDrawer({
                     </div>
 
                     <nav
-                        className="mb-5 flex overflow-x-auto border-b border-slate-100"
+                        className="mb-5 flex overflow-x-auto border-b border-[var(--ac-line)]"
                         aria-label={text('أقسام المهمة', 'Task sections')}
                     >
                         {tabs.map(([key, arabic, english, count]) => (
@@ -571,7 +571,7 @@ export function TaskDrawer({
                                 type="button"
                                 aria-pressed={tab === key}
                                 onClick={() => setTab(key)}
-                                className={`min-w-max border-b-2 px-3 py-3 text-[11px] ${tab === key ? 'border-blue-500 font-semibold text-blue-600' : 'border-transparent text-slate-400'}`}
+                                className={`min-w-max border-b-2 px-3 py-3 text-xs ${tab === key ? 'border-[var(--ac-accent)] font-semibold text-[var(--ac-accent-strong)]' : 'border-transparent text-[var(--ac-text-muted)]'}`}
                             >
                                 {ar ? arabic : english}
                                 {count !== undefined && ` (${count})`}
@@ -586,11 +586,11 @@ export function TaskDrawer({
                                     <h2 className="mb-3 flex items-center gap-2 text-xs font-bold">
                                         <FileText
                                             size={15}
-                                            className="text-blue-500"
+                                            className="text-[var(--ac-accent)]"
                                         />
                                         {text('الوصف', 'Description')}
                                     </h2>
-                                    <p className="whitespace-pre-wrap text-xs leading-7 text-slate-500">
+                                    <p className="whitespace-pre-wrap text-xs leading-7 text-[var(--ac-text-muted)]">
                                         {task.description || text(
                                             'لا يوجد وصف لهذه المهمة.',
                                             'No description provided.',
@@ -610,7 +610,7 @@ export function TaskDrawer({
                                             </Badge>
                                         ))}
                                         {! task.tags.length && (
-                                            <span className="text-xs text-slate-400">—</span>
+                                            <span className="text-xs text-[var(--ac-text-muted)]">—</span>
                                         )}
                                     </div>
                                 </div>
@@ -630,7 +630,7 @@ export function TaskDrawer({
                                 </h2>
                                 {attachmentList}
                                 {! detail.attachments.length && (
-                                    <p className="text-xs text-slate-400">
+                                    <p className="text-xs text-[var(--ac-text-muted)]">
                                         {text('لا توجد مرفقات.', 'No attachments.')}
                                     </p>
                                 )}
@@ -647,15 +647,15 @@ export function TaskDrawer({
                                     detail.comments.map((item: TaskComment) => (
                                         <article
                                             key={item.id}
-                                            className="rounded-xl border border-slate-100 bg-slate-50/50 p-4"
+                                            className="rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4"
                                         >
-                                            <header className="flex justify-between gap-3 text-[11px]">
+                                            <header className="flex justify-between gap-3 text-xs">
                                                 <strong>{item.name}</strong>
-                                                <span className="text-[9px] text-slate-400">
+                                                <span className="text-[11px] text-[var(--ac-text-muted)]">
                                                     {dateLabel(item.created_at, ar)}
                                                 </span>
                                             </header>
-                                            <p className="mt-3 whitespace-pre-wrap text-xs leading-6 text-slate-500">
+                                            <p className="mt-3 whitespace-pre-wrap text-xs leading-6 text-[var(--ac-text-muted)]">
                                                 {item.body}
                                             </p>
                                         </article>
@@ -711,10 +711,10 @@ export function TaskDrawer({
                             )}
 
                             {can('tasks.update') && (
-                                <div className="mt-5 rounded-xl border border-dashed border-blue-200 p-6 text-center">
+                                <div className="mt-5 rounded-xl border border-dashed border-[var(--ac-line-strong)] p-6 text-center">
                                     <UploadCloud
                                         size={27}
-                                        className="mx-auto mb-3 text-blue-400"
+                                        className="mx-auto mb-3 text-[var(--ac-accent)]"
                                     />
                                     <button
                                         type="button"
@@ -724,7 +724,7 @@ export function TaskDrawer({
                                     >
                                         {text('رفع مرفق', 'Upload attachment')}
                                     </button>
-                                    <p className="mt-3 text-[10px] text-slate-400">
+                                    <p className="mt-3 text-[11px] text-[var(--ac-text-muted)]">
                                         {text(
                                             'الحد الأقصى لحجم الملف 20 MB',
                                             'Maximum file size: 20 MB',
@@ -769,19 +769,19 @@ export function TaskDrawer({
                             {detail.events.map((event: TaskActivityEvent) => (
                                 <div
                                     key={event.id}
-                                    className="flex items-start gap-3 rounded-lg border border-slate-100 p-4"
+                                    className="flex items-start gap-3 rounded-lg border border-[var(--ac-line)] p-4"
                                 >
                                     <Activity
                                         size={17}
-                                        className="text-blue-400"
+                                        className="text-[var(--ac-accent)]"
                                     />
                                     <div className="min-w-0 flex-1">
                                         <strong className="text-xs">{event.name}</strong>
-                                        <p className="mt-2 text-[11px] text-slate-500">
+                                        <p className="mt-2 text-xs text-[var(--ac-text-muted)]">
                                             {actions[event.action]?.[ar ? 0 : 1] ?? event.action}
                                         </p>
                                     </div>
-                                    <span className="text-[9px] text-slate-400">
+                                    <span className="text-[11px] text-[var(--ac-text-muted)]">
                                         {dateLabel(event.created_at, ar)}
                                     </span>
                                 </div>
@@ -806,8 +806,8 @@ function DetailCell({
 }) {
     return (
         <div>
-            <p className="mb-2 text-[9px] text-slate-400">{label}</p>
-            <div className="flex flex-wrap items-center gap-1 text-[10px] font-medium">
+            <p className="mb-2 text-[11px] text-[var(--ac-text-muted)]">{label}</p>
+            <div className="flex flex-wrap items-center gap-1 text-[11px] font-medium">
                 {children}
             </div>
         </div>

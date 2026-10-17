@@ -154,9 +154,9 @@ export function MessageBell() {
 
             const timer =
                 window.setInterval(
-                    refresh,
-                    8000,
-                );
+                () => { if (! document.hidden) { refresh(); } },
+                8000,
+            );
 
             window.addEventListener(
                 'team-space-changed',

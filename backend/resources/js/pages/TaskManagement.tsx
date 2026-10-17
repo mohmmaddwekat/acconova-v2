@@ -624,7 +624,7 @@ function TaskWorkspace({
                 <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <h1 className="flex items-center gap-2 text-xl font-bold">
-                            <span className="text-blue-500">
+                            <span className="text-[var(--ac-accent)]">
                                 {view === 'team' || teamsView
                                     ? <UsersRound size={24} />
                                     : view === 'projects'
@@ -633,7 +633,7 @@ function TaskWorkspace({
                             </span>
                             {pageTitle[ar ? 0 : 1]}
                         </h1>
-                        <p className="mt-1.5 text-xs text-slate-400">
+                        <p className="mt-1.5 text-xs text-[var(--ac-text-muted)]">
                             {pageDescription[ar ? 0 : 1]}
                         </p>
                     </div>
@@ -688,7 +688,7 @@ function TaskWorkspace({
 
                 <nav
                     aria-label={text('إدارة المهام', 'Task management')}
-                    className="mb-5 flex gap-2 overflow-x-auto"
+                    className="tm-tabs"
                 >
                     {navigation.map((item: NavItem) => {
                         if (! can(item.permission)) {
@@ -705,7 +705,8 @@ function TaskWorkspace({
                             <Link
                                 key={item.key}
                                 href={`${base}${item.path}`}
-                                className={`${active ? primary : button} shrink-0`}
+                                className="tm-tab"
+                                aria-current={active ? 'page' : undefined}
                             >
                                 <Icon size={14} />
                                 <span>{ar ? item.ar : item.en}</span>
@@ -733,7 +734,7 @@ function TaskWorkspace({
                 {loading && ! data ? (
                     <div
                         role="status"
-                        className="tm-panel p-16 text-center text-sm text-slate-400"
+                        className="tm-panel p-16 text-center text-sm text-[var(--ac-text-muted)]"
                     >
                         {text('جارٍ تحميل مساحة المهام…', 'Loading tasks…')}
                     </div>
@@ -1103,13 +1104,13 @@ function FiltersBar({
         <div className="tm-panel mb-4 flex flex-wrap items-center gap-2 !p-3">
             <Filter
                 size={16}
-                className="text-blue-500"
+                className="text-[var(--ac-accent)]"
             />
 
             <label className="relative min-w-44 flex-[2]">
                 <Search
                     size={14}
-                    className="absolute start-3 top-3 text-slate-400"
+                    className="absolute start-3 top-3 text-[var(--ac-text-muted)]"
                 />
                 <input
                     className={`${input} !ps-9`}
@@ -1316,7 +1317,7 @@ function TaskTable({
                             type="button"
                             className={
                                 status === key
-                                    ? `${button} !border-blue-200 !bg-blue-50 !text-blue-600`
+                                    ? `${button} !border-[var(--ac-line-strong)] !bg-[var(--ac-bg-soft)] !text-[var(--ac-accent-strong)]`
                                     : button
                             }
                             key={key}
@@ -1327,7 +1328,7 @@ function TaskTable({
                             aria-pressed={status === key}
                         >
                             {label}
-                            <span className="rounded bg-slate-50 px-1.5 text-[10px]">
+                            <span className="rounded bg-[var(--ac-surface-soft)] px-1.5 text-[11px]">
                                 {data.tasks.filter((task: Task) => (
                                     ! key
                                     || (
@@ -1376,7 +1377,7 @@ function TaskTable({
                                     <input
                                         aria-label={ar ? 'تحديد مهام الصفحة' : 'Select page'}
                                         type="checkbox"
-                                        className="accent-blue-500"
+                                        className="accent-[var(--ac-accent)]"
                                         checked={allSelected}
                                         onChange={(event) => setSelected(
                                             event.target.checked
@@ -1412,7 +1413,7 @@ function TaskTable({
                                     <td>
                                         <input
                                             aria-label={`${ar ? 'تحديد' : 'Select'} ${task.title}`}
-                                            className="accent-blue-500"
+                                            className="accent-[var(--ac-accent)]"
                                             type="checkbox"
                                             checked={selected.includes(task.id)}
                                             onChange={(event) => setSelected(
@@ -1433,14 +1434,14 @@ function TaskTable({
                                             onClick={() => onOpen(task.id)}
                                             className="block max-w-72 text-start"
                                         >
-                                            <span className="flex items-center gap-2 font-semibold hover:text-blue-600">
+                                            <span className="flex items-center gap-2 font-semibold hover:text-[var(--ac-accent-strong)]">
                                                 <ListTodo
                                                     size={15}
-                                                    className="shrink-0 text-blue-500"
+                                                    className="shrink-0 text-[var(--ac-accent)]"
                                                 />
                                                 {task.title}
                                             </span>
-                                            <span className="mt-1 block truncate text-[9px] text-slate-400">
+                                            <span className="mt-1 block truncate text-[11px] text-[var(--ac-text-muted)]">
                                                 {task.description || `TSK-${task.id}`}
                                             </span>
                                         </button>
@@ -1470,7 +1471,7 @@ function TaskTable({
                                                 task={task}
                                                 members={data.members}
                                             />
-                                            <span className="text-[10px]">
+                                            <span className="text-[11px]">
                                                 {data.members.find(
                                                     (member: Member) => member.id === task.assignees[0],
                                                 )?.name ?? (ar ? 'غير مسندة' : 'Unassigned')}
@@ -1489,7 +1490,7 @@ function TaskTable({
                                     <td>
                                         <button
                                             type="button"
-                                            className="rounded border border-slate-100 p-1 text-slate-400 hover:text-blue-500"
+                                            className="rounded border border-[var(--ac-line)] p-1 text-[var(--ac-text-muted)] hover:text-[var(--ac-accent)]"
                                             aria-label={ar ? 'تفاصيل المهمة' : 'Task details'}
                                             onClick={() => onOpen(task.id)}
                                         >
@@ -1551,7 +1552,7 @@ function TaskTable({
                 />
             )}
 
-            <div className="mt-4 flex items-center justify-between gap-3 text-[10px] text-slate-400">
+            <div className="mt-4 flex items-center justify-between gap-3 text-[11px] text-[var(--ac-text-muted)]">
                 <span>
                     {ar ? 'إجمالي النتائج:' : 'Total results:'} {tasks.length}
                 </span>
@@ -1618,14 +1619,14 @@ function Board({
                     return (
                         <div
                             key={status}
-                            className={`flex items-center gap-3 rounded-xl border border-white px-4 py-3 tm-${meta.color}`}
+                            className={`flex items-center gap-3 rounded-xl border border-[var(--ac-surface)] px-4 py-3 tm-${meta.color}`}
                         >
                             <Icon size={23} />
                             <div>
                                 <strong className="text-xs">
                                     {meta[ar ? 'ar' : 'en']}
                                 </strong>
-                                <p className="mt-1 text-[10px] opacity-70">
+                                <p className="mt-1 text-[11px] opacity-70">
                                     {count} {ar ? 'مهمة في هذه المرحلة' : 'tasks in this stage'}
                                 </p>
                             </div>
@@ -1667,7 +1668,7 @@ function Board({
                                     <Icon size={18} />
                                     {meta[ar ? 'ar' : 'en']}
                                 </h2>
-                                <span className="rounded-full bg-white/60 px-2 py-1 text-xs">
+                                <span className="rounded-full bg-[var(--ac-surface)] px-2 py-1 text-xs">
                                     {statusTasks.length}
                                 </span>
                             </header>
@@ -1681,14 +1682,44 @@ function Board({
                                         onDragEnd={() => setDragged(null)}
                                         className={`tm-board-card text-[var(--ac-text)] ${dragged === task.id ? 'opacity-40' : ''}`}
                                     >
-                                        <button
-                                            type="button"
-                                            className="mb-3 w-full text-start text-xs font-semibold leading-6 disabled:cursor-default"
-                                            disabled={! onOpen}
-                                            onClick={() => onOpen?.(task.id)}
-                                        >
-                                            {task.title}
-                                        </button>
+                                        <div className="mb-3 flex items-start gap-1">
+                                            <button
+                                                type="button"
+                                                className="w-full text-start text-sm font-semibold leading-6 disabled:cursor-default"
+                                                disabled={! onOpen}
+                                                onClick={() => onOpen?.(task.id)}
+                                            >
+                                                {task.title}
+                                            </button>
+
+                                            {canEdit && (
+                                                <details className="tm-menu">
+                                                    <summary
+                                                        aria-label={`${ar ? 'نقل المهمة' : 'Move task'} ${task.title}`}
+                                                    >
+                                                        <MoreHorizontal size={16} />
+                                                    </summary>
+                                                    <div className="tm-menu-list">
+                                                        {statuses.map(([key, value]) => (
+                                                            <button
+                                                                key={key}
+                                                                type="button"
+                                                                disabled={busy}
+                                                                aria-current={task.status === key}
+                                                                onClick={(event) => {
+                                                                    event.currentTarget
+                                                                        .closest('details')
+                                                                        ?.removeAttribute('open');
+                                                                    onMove(task, key);
+                                                                }}
+                                                            >
+                                                                {value[ar ? 'ar' : 'en']}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </details>
+                                            )}
+                                        </div>
 
                                         <div className="mb-3 flex items-center justify-between gap-2">
                                             <PriorityBadge
@@ -1708,7 +1739,7 @@ function Board({
                                                 task={task}
                                                 ar={ar}
                                             />
-                                            <span className="flex items-center gap-2 text-[10px] text-slate-400">
+                                            <span className="flex items-center gap-2 text-[11px] text-[var(--ac-text-muted)]">
                                                 <span className="inline-flex items-center gap-1">
                                                     <MessageSquare size={11} />
                                                     {task.comments_count ?? 0}
@@ -1738,32 +1769,11 @@ function Board({
                                             ))}
                                         </div>
 
-                                        {canEdit && (
-                                            <select
-                                                className={`${input} mt-3 !min-h-7 !py-1.5 !text-[10px]`}
-                                                disabled={busy}
-                                                aria-label={`${ar ? 'نقل المهمة' : 'Move task'} ${task.title}`}
-                                                value={task.status}
-                                                onChange={(event) => onMove(
-                                                    task,
-                                                    event.target.value as TaskStatus,
-                                                )}
-                                            >
-                                                {statuses.map(([key, value]) => (
-                                                    <option
-                                                        key={key}
-                                                        value={key}
-                                                    >
-                                                        {value[ar ? 'ar' : 'en']}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        )}
                                     </article>
                                 ))}
 
                                 {! statusTasks.length && (
-                                    <div className="rounded-lg border border-dashed border-current/15 p-6 text-center text-[11px] opacity-70">
+                                    <div className="rounded-lg border border-dashed border-current/15 p-6 text-center text-xs opacity-70">
                                         {ar
                                             ? 'لا توجد مهام في هذه المرحلة'
                                             : 'No tasks in this stage'}
@@ -1773,7 +1783,7 @@ function Board({
 
                             {data.permissions.includes('tasks.create') && (
                                 <Link
-                                    className="mt-3 flex items-center justify-center gap-1 rounded-lg p-2 text-[11px] hover:bg-white/50"
+                                    className="mt-3 flex items-center justify-center gap-1 rounded-lg p-2 text-xs hover:bg-[var(--ac-surface)]"
                                     href={`${base}/create?status=${status}`}
                                 >
                                     <Plus size={13} />
@@ -1848,7 +1858,7 @@ function ProjectCards({
                                     <>
                                         <button
                                             type="button"
-                                            className="flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+                                            className="flex size-8 items-center justify-center rounded-lg border border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] transition hover:border-[var(--ac-line-strong)] hover:bg-[var(--ac-bg-soft)] hover:text-[var(--ac-accent-strong)]"
                                             aria-label={ar ? 'تعديل المشروع' : 'Edit project'}
                                             disabled={busy}
                                             onClick={() => onEdit(project)}
@@ -1857,7 +1867,7 @@ function ProjectCards({
                                         </button>
                                         <button
                                             type="button"
-                                            className="flex size-8 items-center justify-center rounded-lg border border-red-100 bg-white text-red-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                            className="flex size-8 items-center justify-center rounded-lg border border-red-100 bg-[var(--ac-surface)] text-red-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
                                             aria-label={ar ? 'حذف المشروع' : 'Delete project'}
                                             disabled={busy}
                                             onClick={() => onDelete(project)}
@@ -1869,7 +1879,7 @@ function ProjectCards({
                             </div>
                         )}
                     >
-                        <p className="mb-4 min-h-10 text-xs leading-6 text-slate-400">
+                        <p className="mb-4 min-h-10 text-xs leading-6 text-[var(--ac-text-muted)]">
                             {project.description || (
                                 ar
                                     ? 'لا يوجد وصف للمشروع.'
@@ -1878,17 +1888,17 @@ function ProjectCards({
                         </p>
 
                         {(project.starts_on || project.due_on) && (
-                            <div className="mb-4 grid grid-cols-2 gap-2 text-[10px]">
-                                <div className="rounded-lg bg-slate-50 p-2">
-                                    <span className="block text-slate-400">
+                            <div className="mb-4 grid grid-cols-2 gap-2 text-[11px]">
+                                <div className="rounded-lg bg-[var(--ac-surface-soft)] p-2">
+                                    <span className="block text-[var(--ac-text-muted)]">
                                         {ar ? 'البدء' : 'Start'}
                                     </span>
                                     <strong className="mt-1 block">
                                         {dateLabel(project.starts_on ?? null, ar)}
                                     </strong>
                                 </div>
-                                <div className="rounded-lg bg-slate-50 p-2">
-                                    <span className="block text-slate-400">
+                                <div className="rounded-lg bg-[var(--ac-surface-soft)] p-2">
+                                    <span className="block text-[var(--ac-text-muted)]">
                                         {ar ? 'الاستحقاق' : 'Due'}
                                     </span>
                                     <strong className="mt-1 block">
@@ -1905,7 +1915,7 @@ function ProjectCards({
                                     : 0
                             }
                         />
-                        <div className="my-4 flex justify-between text-[11px] text-slate-400">
+                        <div className="my-4 flex justify-between text-xs text-[var(--ac-text-muted)]">
                             <span>
                                 {completed} {ar ? 'مكتملة' : 'completed'}
                             </span>
@@ -1915,7 +1925,7 @@ function ProjectCards({
                         </div>
 
                         {canManage && items.length > 0 && (
-                            <p className="mb-3 rounded-lg bg-amber-50 p-2 text-[9px] leading-5 text-amber-700">
+                            <p className="mb-3 rounded-lg bg-amber-50 p-2 text-[11px] leading-5 text-amber-700">
                                 {ar
                                     ? 'لحذف المشروع، انقل أو أرشف المهام المرتبطة به أولًا.'
                                     : 'Move or archive linked tasks before deleting this project.'}
@@ -1956,7 +1966,7 @@ function Distribution({
           ]>).map(([key, meta], index) => ({
               label: meta[ar ? 'ar' : 'en'],
               count: tasks.filter((task: Task) => task.priority === key).length,
-              color: ['#fa5872', '#ffba38', '#28c58b'][index] ?? '#98a8c1',
+              color: ['#fa5872', '#ffba38', '#28c58b'][index] ?? '#9CD1FC',
           }))
         : (Object.entries(statusMeta) as Array<[
               TaskStatus,
@@ -1964,7 +1974,7 @@ function Distribution({
           ]>).map(([key, meta], index) => ({
               label: meta[ar ? 'ar' : 'en'],
               count: tasks.filter((task: Task) => task.status === key).length,
-              color: ['#98a8c1', '#3290ff', '#ffbd43', '#2dc78e'][index] ?? '#98a8c1',
+              color: ['#9CD1FC', '#38A3FA', '#ffbd43', '#2dc78e'][index] ?? '#9CD1FC',
           }));
 
     let offset = 0;
@@ -1986,12 +1996,12 @@ function Distribution({
                 style={{
                     background: tasks.length
                         ? `conic-gradient(${segments})`
-                        : '#edf2fa',
+                        : '#E6F3FE',
                 }}
             >
-                <div className="flex size-24 flex-col items-center justify-center rounded-full bg-white">
+                <div className="flex size-24 flex-col items-center justify-center rounded-full bg-[var(--ac-surface)]">
                     <strong className="text-2xl">{tasks.length}</strong>
-                    <span className="mt-1 text-[9px] text-slate-400">
+                    <span className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
                         {ar ? 'إجمالي المهام' : 'Total tasks'}
                     </span>
                 </div>
@@ -2001,17 +2011,17 @@ function Distribution({
                 {rows.map((row) => (
                     <p
                         key={row.label}
-                        className="flex items-center gap-3 text-[11px]"
+                        className="flex items-center gap-3 text-xs"
                     >
                         <span
                             className="size-2 rounded-full"
                             style={{ background: row.color }}
                         />
-                        <span className="min-w-14 text-slate-500">
+                        <span className="min-w-14 text-[var(--ac-text-muted)]">
                             {row.label}
                         </span>
                         <strong>{row.count}</strong>
-                        <span className="text-[9px] text-slate-400">
+                        <span className="text-[11px] text-[var(--ac-text-muted)]">
                             ({tasks.length
                                 ? Math.round(row.count / tasks.length * 100)
                                 : 0}%)
@@ -2078,7 +2088,7 @@ function Dashboard({
                 title={ar ? 'نشاط الفريق' : 'Team activity'}
                 icon={Activity}
             >
-                <p className="mb-5 text-[10px] text-slate-400">
+                <p className="mb-5 text-[11px] text-[var(--ac-text-muted)]">
                     {ar
                         ? 'آخر 100 تحديث متاح خلال 10 أسابيع'
                         : 'Up to 100 recent updates over 10 weeks'}
@@ -2092,17 +2102,17 @@ function Dashboard({
                             style={{
                                 background:
                                     day.count === 0
-                                        ? '#edf3fc'
+                                        ? '#E6F3FE'
                                         : day.count < 3
-                                            ? '#a8d7ff'
+                                            ? '#CDE8FE'
                                             : day.count < 6
-                                                ? '#58b1ff'
-                                                : '#1670ff',
+                                                ? '#6ABAF8'
+                                                : '#068CF0',
                             }}
                         />
                     ))}
                 </div>
-                <div className="mt-4 flex justify-between text-[9px] text-slate-400">
+                <div className="mt-4 flex justify-between text-[11px] text-[var(--ac-text-muted)]">
                     <span>{ar ? 'قبل 10 أسابيع' : '10 weeks ago'}</span>
                     <span>{ar ? 'اليوم' : 'Today'}</span>
                 </div>
@@ -2123,11 +2133,11 @@ function Dashboard({
 
                         return (
                             <div key={key}>
-                                <div className="mb-2 flex justify-between text-[11px]">
+                                <div className="mb-2 flex justify-between text-xs">
                                     <span>{meta[ar ? 'ar' : 'en']}</span>
-                                    <span className="text-slate-400">{count}</span>
+                                    <span className="text-[var(--ac-text-muted)]">{count}</span>
                                 </div>
-                                <div className="h-3 overflow-hidden rounded bg-slate-100">
+                                <div className="h-3 overflow-hidden rounded bg-[var(--ac-line)]">
                                     <div
                                         className={`h-full ${
                                             key === 'completed'
@@ -2135,8 +2145,8 @@ function Dashboard({
                                                 : key === 'review'
                                                     ? 'bg-amber-400'
                                                     : key === 'idea'
-                                                        ? 'bg-slate-300'
-                                                        : 'bg-blue-400'
+                                                        ? 'bg-[var(--ac-line-strong)]'
+                                                        : 'bg-[var(--ac-accent)]'
                                         }`}
                                         style={{
                                             width: `${tasks.length ? count / tasks.length * 100 : 0}%`,
@@ -2176,15 +2186,15 @@ function Dashboard({
                                 className="flex items-center gap-2"
                             >
                                 <Avatar member={member} />
-                                <span className="min-w-0 flex-1 truncate text-[11px]">
+                                <span className="min-w-0 flex-1 truncate text-xs">
                                     {member.name}
                                 </span>
-                                <span className="text-[10px] text-slate-400">
+                                <span className="text-[11px] text-[var(--ac-text-muted)]">
                                     {items.filter(
                                         (task: Task) => task.status !== 'completed',
                                     ).length} {ar ? 'نشطة' : 'active'}
                                 </span>
-                                <span className="text-[10px] text-red-400">
+                                <span className="text-[11px] text-red-400">
                                     {items.filter(overdue).length}
                                 </span>
                             </div>
@@ -2205,9 +2215,9 @@ function Dashboard({
                                 disabled={! onOpen}
                                 onClick={() => onOpen?.(task.id)}
                                 key={task.id}
-                                className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-3 text-start hover:bg-blue-50 disabled:cursor-default"
+                                className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--ac-line)] px-3 py-3 text-start hover:bg-[var(--ac-bg-soft)] disabled:cursor-default"
                             >
-                                <span className="min-w-0 flex-1 truncate text-[11px]">
+                                <span className="min-w-0 flex-1 truncate text-xs">
                                     {task.title}
                                 </span>
                                 <PriorityBadge
@@ -2242,10 +2252,10 @@ function Dashboard({
                             >
                                 <span className="mt-1 size-2 rounded-full bg-emerald-400" />
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-[11px] font-semibold">
+                                    <p className="text-xs font-semibold">
                                         {event.name}
                                     </p>
-                                    <p className="mt-1 truncate text-[10px] text-slate-400">
+                                    <p className="mt-1 truncate text-[11px] text-[var(--ac-text-muted)]">
                                         {actions[event.action]?.[ar ? 0 : 1] ?? event.action}
                                         {' · '}
                                         {tasks.find(
@@ -2253,7 +2263,7 @@ function Dashboard({
                                         )?.title ?? '—'}
                                     </p>
                                 </div>
-                                <span className="text-[9px] text-slate-400">
+                                <span className="text-[11px] text-[var(--ac-text-muted)]">
                                     {dateLabel(event.created_at, ar)}
                                 </span>
                             </div>
@@ -2464,11 +2474,11 @@ function TeamCenter({
 
             {section !== 'overview' && (
                 <div className="tm-panel mb-4 flex flex-wrap items-center gap-2 !p-3">
-                    <Search size={16} className="text-blue-500" />
+                    <Search size={16} className="text-[var(--ac-accent)]" />
                     <label className="relative min-w-52 flex-[2]">
                         <Search
                             size={14}
-                            className="absolute start-3 top-3 text-slate-400"
+                            className="absolute start-3 top-3 text-[var(--ac-text-muted)]"
                         />
                         <input
                             className={`${input} !ps-9`}
@@ -2514,7 +2524,7 @@ function TeamCenter({
             )}
 
             {teamLoading && ! team ? (
-                <div className="tm-panel p-12 text-center text-sm text-slate-400">
+                <div className="tm-panel p-12 text-center text-sm text-[var(--ac-text-muted)]">
                     {text('جارٍ تحميل بيانات الفريق…', 'Loading team data…')}
                 </div>
             ) : section === 'overview' ? (
@@ -2641,11 +2651,11 @@ function TeamMembersSurface({
                                 <p className="truncate text-xs font-semibold">
                                     {member.job_title ?? profile?.job_title ?? text('عضو فريق', 'Team member')}
                                 </p>
-                                <p className="mt-1 truncate text-[10px] text-slate-400">
+                                <p className="mt-1 truncate text-[11px] text-[var(--ac-text-muted)]">
                                     {profile?.department ?? text('بدون قسم', 'No department')}
                                 </p>
                                 {profile?.email && (
-                                    <p className="mt-1 truncate text-[9px] text-slate-400">
+                                    <p className="mt-1 truncate text-[11px] text-[var(--ac-text-muted)]">
                                         {profile.email}
                                     </p>
                                 )}
@@ -2653,11 +2663,11 @@ function TeamMembersSurface({
                         </div>
 
                         <div className="grid grid-cols-3 gap-2 text-center">
-                            <div className="rounded-lg bg-blue-50 p-3">
-                                <strong className="block text-sm text-blue-600">
+                            <div className="rounded-lg bg-[var(--ac-bg-soft)] p-3">
+                                <strong className="block text-sm text-[var(--ac-accent-strong)]">
                                     {member.active_tasks}
                                 </strong>
-                                <span className="mt-1 block text-[9px] text-slate-400">
+                                <span className="mt-1 block text-[11px] text-[var(--ac-text-muted)]">
                                     {text('نشطة', 'Active')}
                                 </span>
                             </div>
@@ -2665,7 +2675,7 @@ function TeamMembersSurface({
                                 <strong className="block text-sm text-emerald-600">
                                     {member.completed_tasks}
                                 </strong>
-                                <span className="mt-1 block text-[9px] text-slate-400">
+                                <span className="mt-1 block text-[11px] text-[var(--ac-text-muted)]">
                                     {text('مكتملة', 'Completed')}
                                 </span>
                             </div>
@@ -2673,15 +2683,15 @@ function TeamMembersSurface({
                                 <strong className="block text-sm text-red-500">
                                     {member.overdue_tasks}
                                 </strong>
-                                <span className="mt-1 block text-[9px] text-slate-400">
+                                <span className="mt-1 block text-[11px] text-[var(--ac-text-muted)]">
                                     {text('متأخرة', 'Overdue')}
                                 </span>
                             </div>
                         </div>
 
                         <div className="mt-5">
-                            <div className="mb-2 flex justify-between text-[10px]">
-                                <span className="text-slate-500">
+                            <div className="mb-2 flex justify-between text-[11px]">
+                                <span className="text-[var(--ac-text-muted)]">
                                     {text('معدل الإنجاز', 'Completion rate')}
                                 </span>
                                 <strong>{member.completion_rate}%</strong>
@@ -2924,11 +2934,11 @@ function DepartmentsSurface({
                         )}
                     >
                         <div className="grid grid-cols-3 gap-2 text-center">
-                            <div className="rounded-lg bg-blue-50 p-3">
-                                <strong className="block text-sm text-blue-600">
+                            <div className="rounded-lg bg-[var(--ac-bg-soft)] p-3">
+                                <strong className="block text-sm text-[var(--ac-accent-strong)]">
                                     {department.tasks_total}
                                 </strong>
-                                <span className="mt-1 block text-[9px] text-slate-400">
+                                <span className="mt-1 block text-[11px] text-[var(--ac-text-muted)]">
                                     {text('مهام', 'Tasks')}
                                 </span>
                             </div>
@@ -2936,7 +2946,7 @@ function DepartmentsSurface({
                                 <strong className="block text-sm text-emerald-600">
                                     {department.completed}
                                 </strong>
-                                <span className="mt-1 block text-[9px] text-slate-400">
+                                <span className="mt-1 block text-[11px] text-[var(--ac-text-muted)]">
                                     {text('مكتملة', 'Completed')}
                                 </span>
                             </div>
@@ -2944,14 +2954,14 @@ function DepartmentsSurface({
                                 <strong className="block text-sm text-red-500">
                                     {department.overdue}
                                 </strong>
-                                <span className="mt-1 block text-[9px] text-slate-400">
+                                <span className="mt-1 block text-[11px] text-[var(--ac-text-muted)]">
                                     {text('متأخرة', 'Overdue')}
                                 </span>
                             </div>
                         </div>
                         <div className="mt-5">
-                            <div className="mb-2 flex justify-between text-[10px]">
-                                <span className="text-slate-500">
+                            <div className="mb-2 flex justify-between text-[11px]">
+                                <span className="text-[var(--ac-text-muted)]">
                                     {text('معدل إنجاز القسم', 'Department completion')}
                                 </span>
                                 <strong>{department.completion_rate}%</strong>
@@ -3071,16 +3081,16 @@ function TeamWorkload({
                                 member={member}
                                 size="large"
                             />
-                            <p className="mt-2 truncate text-[10px] font-semibold">
+                            <p className="mt-2 truncate text-[11px] font-semibold">
                                 {member.name}
                             </p>
-                            <p className="mt-1 text-[9px] text-slate-400">
+                            <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
                                 {member.active} {ar ? 'مهام نشطة' : 'active tasks'}
                             </p>
                         </div>
                     ))}
                 </div>
-                <p className="mt-5 rounded-lg bg-blue-50 p-3 text-[10px] leading-5 text-blue-600">
+                <p className="mt-5 rounded-lg bg-[var(--ac-bg-soft)] p-3 text-[11px] leading-5 text-[var(--ac-accent-strong)]">
                     {ar
                         ? 'جميع الأرقام مبنية على المهام التي تسمح صلاحياتك بعرضها.'
                         : 'All metrics reflect the tasks visible within your permission scope.'}
@@ -3094,13 +3104,13 @@ function TeamWorkload({
                 <div className="space-y-5">
                     {departments.map((department: DepartmentWorkload) => (
                         <div key={department.name}>
-                            <div className="mb-2 flex justify-between text-[11px]">
+                            <div className="mb-2 flex justify-between text-xs">
                                 <span>{department.name}</span>
                                 <span>{department.active}</span>
                             </div>
-                            <div className="h-2 rounded bg-slate-100">
+                            <div className="h-2 rounded bg-[var(--ac-line)]">
                                 <div
-                                    className="h-2 rounded bg-blue-400"
+                                    className="h-2 rounded bg-[var(--ac-accent)]"
                                     style={{
                                         width: `${department.active / maxDepartmentActive * 100}%`,
                                     }}
@@ -3170,7 +3180,7 @@ function TeamWorkload({
                         </tbody>
                     </table>
                 </div>
-                <p className="mt-3 text-[10px] leading-5 text-slate-400">
+                <p className="mt-3 text-[11px] leading-5 text-[var(--ac-text-muted)]">
                     {ar
                         ? 'الساعات المخططة موزعة بالتساوي على المسؤولين عن المهمة؛ المؤشر يقارن عدد المهام بأعلى عدد لدى عضو، وليس قياسًا لساعات الحضور.'
                         : 'Planned hours are split across assignees. Bars compare active task counts with the busiest member, not attendance hours.'}
@@ -3185,12 +3195,12 @@ function TeamWorkload({
                     {departments.map((department: DepartmentWorkload) => (
                         <div
                             key={department.name}
-                            className="rounded-lg border border-slate-100 p-3"
+                            className="rounded-lg border border-[var(--ac-line)] p-3"
                         >
                             <h3 className="text-xs font-semibold">
                                 {department.name}
                             </h3>
-                            <div className="mt-3 flex justify-between text-[10px] text-slate-400">
+                            <div className="mt-3 flex justify-between text-[11px] text-[var(--ac-text-muted)]">
                                 <span>
                                     {department.members} {ar ? 'أعضاء' : 'members'}
                                 </span>
@@ -3222,7 +3232,7 @@ function TeamWorkload({
                         </span>
                     ))}
                 </div>
-                <p className="mt-4 text-[10px] text-slate-400">
+                <p className="mt-4 text-[11px] text-[var(--ac-text-muted)]">
                     {ar
                         ? 'تعرض هذه القائمة صلاحيات حسابك الحالي، ويمكن للمالك تعديل الأدوار من صفحة الصلاحيات.'
                         : 'These are your current permissions. The owner can manage roles on the permissions page.'}

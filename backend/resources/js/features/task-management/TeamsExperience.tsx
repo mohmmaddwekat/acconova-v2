@@ -101,7 +101,7 @@ const teamVisuals: Array<{
 ];
 
 const toneClasses: Record<TeamTone, string> = {
-    blue: 'bg-blue-500 text-white',
+    blue: 'bg-[var(--ac-accent)] text-white',
     green: 'bg-emerald-500 text-white',
     amber: 'bg-amber-400 text-white',
     purple: 'bg-violet-500 text-white',
@@ -295,7 +295,7 @@ function MissingTeam({
             icon={UsersRound}
         >
             <div className="py-8 text-center">
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-[var(--ac-text-muted)]">
                     {ar
                         ? 'لم يتم العثور على هذا الفريق ضمن نطاق صلاحياتك.'
                         : 'This team was not found in your permission scope.'}
@@ -377,14 +377,14 @@ function TeamsHub({
                         ))}
                     </select>
 
-                    <div className="flex rounded-xl border border-slate-200 bg-white p-1">
+                    <div className="flex rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-1">
                         <button
                             type="button"
                             className={
-                                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold transition '
+                                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[11px] font-semibold transition '
                                 + (viewMode === 'cards'
-                                    ? 'bg-blue-50 text-blue-600'
-                                    : 'text-slate-400 hover:text-slate-600')
+                                    ? 'bg-[var(--ac-bg-soft)] text-[var(--ac-accent-strong)]'
+                                    : 'text-[var(--ac-text-muted)] hover:text-[var(--ac-text)]')
                             }
                             onClick={() => setViewMode('cards')}
                         >
@@ -394,10 +394,10 @@ function TeamsHub({
                         <button
                             type="button"
                             className={
-                                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold transition '
+                                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[11px] font-semibold transition '
                                 + (viewMode === 'tree'
-                                    ? 'bg-blue-50 text-blue-600'
-                                    : 'text-slate-400 hover:text-slate-600')
+                                    ? 'bg-[var(--ac-bg-soft)] text-[var(--ac-accent-strong)]'
+                                    : 'text-[var(--ac-text-muted)] hover:text-[var(--ac-text)]')
                             }
                             onClick={() => setViewMode('tree')}
                         >
@@ -476,15 +476,15 @@ function TeamsHub({
                             {can('teams.create') && (
                                 <Link
                                     href={base + '/teams/create'}
-                                    className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-7 text-center transition hover:border-blue-300 hover:bg-blue-50/30"
+                                    className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] p-7 text-center transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-bg-soft)]"
                                 >
-                                    <span className="mb-4 flex size-14 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                                    <span className="mb-4 flex size-14 items-center justify-center rounded-full bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                         <UsersRound size={28} />
                                     </span>
                                     <strong className="text-sm">
                                         {text('إنشاء فريق رئيسي جديد', 'Create a new top-level team')}
                                     </strong>
-                                    <span className="mt-2 text-[11px] leading-6 text-slate-400">
+                                    <span className="mt-2 text-xs leading-6 text-[var(--ac-text-muted)]">
                                         {text('يمكنك بعدها إضافة فرق فرعية بداخله بلا حد ثابت.', 'You can then nest sub-teams below it without a fixed depth.')}
                                     </span>
                                     <span className={button + ' mt-5'}>
@@ -501,7 +501,7 @@ function TeamsHub({
                                     <h2 className="text-sm font-bold">
                                         {text('الهيكل التنظيمي للفرق', 'Team hierarchy')}
                                     </h2>
-                                    <p className="mt-1 text-[10px] text-slate-400">
+                                    <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
                                         {text(
                                             'كل فريق يمكن أن يحتوي فرقًا فرعية، والفرق الفرعية يمكن أن تحتوي فرقًا أخرى.',
                                             'Every team can contain sub-teams, with unlimited nesting.',
@@ -526,7 +526,7 @@ function TeamsHub({
                                 ))}
 
                                 {! rootTeams.length && (
-                                    <div className="py-10 text-center text-xs text-slate-400">
+                                    <div className="py-10 text-center text-xs text-[var(--ac-text-muted)]">
                                         {text('لا توجد فرق ضمن هذا القسم بعد.', 'No teams exist in this department yet.')}
                                     </div>
                                 )}
@@ -559,11 +559,11 @@ function TeamsHub({
                             <div className="space-y-4">
                                 {visibleTeams.map((team: UiTeam) => (
                                     <div key={team.id}>
-                                        <div className="mb-2 flex items-center justify-between text-[10px]">
+                                        <div className="mb-2 flex items-center justify-between text-[11px]">
                                             <span>{ar ? team.nameAr : team.nameEn}</span>
                                             <strong>{team.workload}%</strong>
                                         </div>
-                                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                                        <div className="h-2 overflow-hidden rounded-full bg-[var(--ac-line)]">
                                             <div
                                                 className={
                                                     'h-full rounded-full '
@@ -622,7 +622,7 @@ function TeamCard({
                         <h2 className="truncate text-sm font-bold">
                             {ar ? team.nameAr : team.nameEn}
                         </h2>
-                        <p className="mt-1 truncate text-[10px] text-slate-400">
+                        <p className="mt-1 truncate text-[11px] text-[var(--ac-text-muted)]">
                             {team.parentTeamName
                                 ? text('ضمن: ', 'Under: ') + team.parentTeamName
                                 : text('فريق رئيسي', 'Top-level team')}
@@ -644,7 +644,7 @@ function TeamCard({
                 </Badge>
             </div>
 
-            <p className="mb-4 min-h-8 text-[10px] leading-5 text-slate-400">
+            <p className="mb-4 min-h-8 text-[11px] leading-5 text-[var(--ac-text-muted)]">
                 {ar ? team.descriptionAr : team.descriptionEn}
             </p>
 
@@ -659,7 +659,7 @@ function TeamCard({
             </div>
 
             <div className="mb-4">
-                <p className="mb-2 text-[10px] text-slate-400">
+                <p className="mb-2 text-[11px] text-[var(--ac-text-muted)]">
                     {text('قائد الفريق', 'Team lead')}
                 </p>
                 <div className="flex items-center gap-2">
@@ -668,7 +668,7 @@ function TeamCard({
                         <p className="truncate text-xs font-semibold">
                             {team.leader?.name ?? text('لم يتم التعيين', 'Not assigned')}
                         </p>
-                        <p className="truncate text-[9px] text-slate-400">
+                        <p className="truncate text-[11px] text-[var(--ac-text-muted)]">
                             {team.leader?.job_title ?? text('قائد الفريق', 'Team lead')}
                         </p>
                     </div>
@@ -723,10 +723,10 @@ function TeamTreeNode({
     return (
         <div>
             <div
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-3 shadow-sm"
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-3 shadow-sm"
                 style={{ marginInlineStart: Math.min(depth, 8) * 22 }}
             >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ac-bg-soft)] text-[var(--ac-accent-strong)]">
                     {depth === 0 ? <UsersRound size={17} /> : <ListTree size={17} />}
                 </span>
 
@@ -741,7 +741,7 @@ function TeamTreeNode({
                                 : text('فرعي', 'Sub-team')}
                         </Badge>
                     </div>
-                    <p className="mt-1 text-[9px] text-slate-400">
+                    <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
                         {team.members.length} {text('أعضاء', 'members')}
                         {' · '}
                         {team.projects.length} {text('مشاريع', 'projects')}
@@ -800,9 +800,9 @@ function Metric({
     label: string;
 }) {
     return (
-        <div className="rounded-lg border border-slate-100 bg-slate-50/50 px-2 py-3">
+        <div className="rounded-lg border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-2 py-3">
             <strong className="block text-base">{value}</strong>
-            <span className="mt-1 block text-[9px] text-slate-400">{label}</span>
+            <span className="mt-1 block text-[11px] text-[var(--ac-text-muted)]">{label}</span>
         </div>
     );
 }
@@ -832,12 +832,12 @@ function TeamDistribution({
                 style={{
                     background: total && teams.length
                         ? 'conic-gradient(' + segments + ')'
-                        : '#edf2fa',
+                        : '#E6F3FE',
                 }}
             >
-                <div className="flex size-20 flex-col items-center justify-center rounded-full bg-white">
+                <div className="flex size-20 flex-col items-center justify-center rounded-full bg-[var(--ac-surface)]">
                     <strong className="text-2xl">{total}</strong>
-                    <span className="text-[9px] text-slate-400">
+                    <span className="text-[11px] text-[var(--ac-text-muted)]">
                         {ar ? 'موظف' : 'members'}
                     </span>
                 </div>
@@ -847,7 +847,7 @@ function TeamDistribution({
                 {teams.map((team: UiTeam, index: number) => (
                     <div
                         key={team.id}
-                        className="flex items-center gap-2 text-[10px]"
+                        className="flex items-center gap-2 text-[11px]"
                     >
                         <span
                             className="size-2 rounded-full"
@@ -1069,14 +1069,14 @@ function CreateTeamSurface({
         <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_330px]">
             <form onSubmit={submit} className="space-y-4">
                 {requestedParent && (
-                    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                    <div className="rounded-xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] p-4">
                         <div className="flex items-center gap-3">
-                            <ListTree size={18} className="text-blue-600" />
+                            <ListTree size={18} className="text-[var(--ac-accent-strong)]" />
                             <div>
-                                <strong className="text-xs text-blue-800">
+                                <strong className="text-xs text-[var(--ac-accent-strong)]">
                                     {text('إنشاء فريق فرعي', 'Creating a sub-team')}
                                 </strong>
-                                <p className="mt-1 text-[10px] text-blue-600">
+                                <p className="mt-1 text-[11px] text-[var(--ac-accent-strong)]">
                                     {text('سيتم إنشاء الفريق داخل ', 'This team will be created under ')}
                                     {ar ? requestedParent.nameAr : requestedParent.nameEn}
                                 </p>
@@ -1138,7 +1138,7 @@ function CreateTeamSurface({
                                         </option>
                                     ))}
                                 </select>
-                                <span className="text-[9px] font-normal text-slate-400">
+                                <span className="text-[11px] font-normal text-[var(--ac-text-muted)]">
                                     {text(
                                         'اختياري: اختر فريقًا أبًا لتحويل هذا الفريق إلى فريق فرعي.',
                                         'Optional: choose a parent to create this as a sub-team.',
@@ -1183,7 +1183,7 @@ function CreateTeamSurface({
                                 onChange={(event) => setDescription(event.target.value)}
                                 placeholder={text('اكتب وصفًا مختصرًا عن أهداف الفريق ومهامه…', 'Describe the team goals and responsibilities…')}
                             />
-                            <span className="text-[9px] font-normal text-slate-400">
+                            <span className="text-[11px] font-normal text-[var(--ac-text-muted)]">
                                 {description.length}/500
                             </span>
                         </label>
@@ -1197,7 +1197,7 @@ function CreateTeamSurface({
                     <div className="relative mb-3">
                         <Search
                             size={14}
-                            className="absolute start-3 top-3 text-slate-400"
+                            className="absolute start-3 top-3 text-[var(--ac-text-muted)]"
                         />
                         <input
                             className={input + ' !ps-9'}
@@ -1207,19 +1207,19 @@ function CreateTeamSurface({
                         />
 
                         {memberSearch.trim() && (
-                            <div className="absolute inset-x-0 top-[42px] z-30 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                            <div className="absolute inset-x-0 top-[42px] z-30 max-h-64 overflow-y-auto rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2 shadow-xl">
                                 {availableMembers.length ? (
                                     availableMembers.map((member: Member) => (
                                         <div
                                             key={member.id}
-                                            className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-slate-50"
+                                            className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--ac-surface-soft)]"
                                         >
                                             <Avatar member={member} />
                                             <div className="min-w-0 flex-1">
-                                                <p className="truncate text-[11px] font-semibold">
+                                                <p className="truncate text-xs font-semibold">
                                                     {member.name}
                                                 </p>
-                                                <p className="truncate text-[9px] text-slate-400">
+                                                <p className="truncate text-[11px] text-[var(--ac-text-muted)]">
                                                     {member.job_title ?? member.email ?? text('موظف', 'Employee')}
                                                 </p>
                                             </div>
@@ -1235,7 +1235,7 @@ function CreateTeamSurface({
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="px-3 py-4 text-center text-[10px] text-slate-400">
+                                    <p className="px-3 py-4 text-center text-[11px] text-[var(--ac-text-muted)]">
                                         {text(
                                             'لا يوجد موظفون متاحون يطابقون البحث.',
                                             'No available employees match this search.',
@@ -1259,14 +1259,14 @@ function CreateTeamSurface({
                             return (
                                 <span
                                     key={member.id}
-                                    className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-[10px] text-blue-700"
+                                    className="inline-flex items-center gap-2 rounded-full border border-[var(--ac-line-strong)] bg-[var(--ac-bg-soft)] px-3 py-1.5 text-[11px] text-[var(--ac-accent-strong)]"
                                 >
                                     <Avatar member={member} />
                                     {member.name}
                                     <button
                                         type="button"
                                         aria-label={text('إزالة العضو', 'Remove member')}
-                                        className="rounded-full p-0.5 hover:bg-blue-100"
+                                        className="rounded-full p-0.5 hover:bg-[var(--ac-surface-strong)]"
                                         onClick={() => removeMember(member.id)}
                                     >
                                         <X size={11} />
@@ -1276,7 +1276,7 @@ function CreateTeamSurface({
                         })}
 
                         {! selectedMembers.length && (
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-[11px] text-[var(--ac-text-muted)]">
                                 {text(
                                     'ابحث عن موظف ثم اضغط «إضافة».',
                                     'Search for an employee, then press “Add”.',
@@ -1285,7 +1285,7 @@ function CreateTeamSurface({
                         )}
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between gap-3 text-[9px] text-slate-400">
+                    <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-[var(--ac-text-muted)]">
                         <span>
                             {selectedMembers.length} / {Math.max(1, Number(capacity) || 1)}
                             {' '}
@@ -1309,7 +1309,7 @@ function CreateTeamSurface({
                                     setSelectedMembers((current: number[]) => current.slice(0, maxMembers));
                                 }}
                             />
-                            <span className="text-[9px] font-normal text-slate-400">
+                            <span className="text-[11px] font-normal text-[var(--ac-text-muted)]">
                                 {text('العدد الأقصى للأعضاء في الفريق', 'Maximum number of team members')}
                             </span>
                         </label>
@@ -1345,20 +1345,20 @@ function CreateTeamSurface({
                                     className={
                                         'flex items-center justify-between rounded-lg border p-3 text-start '
                                         + (selected
-                                            ? 'border-blue-200 bg-blue-50'
-                                            : 'border-slate-100 bg-white')
+                                            ? 'border-[var(--ac-line-strong)] bg-[var(--ac-bg-soft)]'
+                                            : 'border-[var(--ac-line)] bg-[var(--ac-surface)]')
                                     }
                                 >
                                     <span className="flex items-center gap-2 text-xs font-semibold">
-                                        <FolderKanban size={15} className="text-blue-500" />
+                                        <FolderKanban size={15} className="text-[var(--ac-accent)]" />
                                         {project.name}
                                     </span>
-                                    {selected && <CheckCircle2 size={16} className="text-blue-500" />}
+                                    {selected && <CheckCircle2 size={16} className="text-[var(--ac-accent)]" />}
                                 </button>
                             );
                         })}
                         {! data.projects.length && (
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-xs text-[var(--ac-text-muted)]">
                                 {text('لا توجد مشاريع حالية للربط.', 'There are no current projects to link.')}
                             </p>
                         )}
@@ -1368,7 +1368,7 @@ function CreateTeamSurface({
                 {submitError && (
                     <div
                         role="alert"
-                        className="rounded-xl border border-red-100 bg-red-50 p-3 text-[11px] text-red-600"
+                        className="rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-600"
                     >
                         {submitError}
                     </div>
@@ -1401,19 +1401,19 @@ function CreateTeamSurface({
                     title={text('معاينة الفريق', 'Team preview')}
                     icon={Sparkles}
                 >
-                    <div className="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-6 text-center">
-                        <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                    <div className="rounded-xl bg-[var(--ac-bg-soft)] p-6 text-center">
+                        <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-xl bg-[var(--ac-surface-strong)] text-[var(--ac-accent-strong)]">
                             <UsersRound size={28} />
                         </span>
                         <h3 className="font-bold">
                             {name || text('فريق جديد', 'New team')}
                         </h3>
-                        <p className="mt-1 text-[10px] text-slate-400">
+                        <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
                             {department || text('القسم الحالي', 'Current department')}
                         </p>
                     </div>
 
-                    <div className="mt-5 space-y-4 text-[11px]">
+                    <div className="mt-5 space-y-4 text-xs">
                         <PreviewRow
                             label={text('المستوى', 'Hierarchy')}
                             value={
@@ -1458,7 +1458,7 @@ function CreateTeamSurface({
                     title={text('قواعد الهيكل', 'Hierarchy rules')}
                     icon={ListTree}
                 >
-                    <div className="space-y-3 text-[10px] text-slate-500">
+                    <div className="space-y-3 text-[11px] text-[var(--ac-text-muted)]">
                         {[
                             text('الفريق الفرعي يبقى داخل نفس قسم الفريق الأب', 'A sub-team stays in the same department as its parent'),
                             text('يمكن إنشاء مستويات فرعية متعددة بدون حد ثابت', 'Sub-teams can be nested to multiple levels'),
@@ -1502,7 +1502,7 @@ function PreviewRow({
 }) {
     return (
         <div className="flex items-start justify-between gap-3">
-            <span className="text-slate-400">{label}</span>
+            <span className="text-[var(--ac-text-muted)]">{label}</span>
             <strong className="text-end">{value}</strong>
         </div>
     );
@@ -1674,7 +1674,7 @@ function TeamDetailSurface({
             {actionError && (
                 <div
                     role="alert"
-                    className="rounded-xl border border-red-100 bg-red-50 p-3 text-[11px] text-red-600"
+                    className="rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-600"
                 >
                     {actionError}
                 </div>
@@ -1689,7 +1689,7 @@ function TeamDetailSurface({
                         <h2 className="text-2xl font-bold">
                             {ar ? team.nameAr : team.nameEn}
                         </h2>
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
                             {ar ? team.descriptionAr : team.descriptionEn}
                         </p>
                     </div>
@@ -1708,10 +1708,10 @@ function TeamDetailSurface({
                             </button>
 
                             {moreOpen && (
-                                <div className="absolute end-0 top-11 z-30 w-44 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
+                                <div className="absolute end-0 top-11 z-30 w-44 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2 shadow-xl">
                                     <button
                                         type="button"
-                                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-[10px] text-red-500 hover:bg-red-50"
+                                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-[11px] text-red-500 hover:bg-red-50"
                                         disabled={busy}
                                         onClick={archiveTeam}
                                     >
@@ -1790,7 +1790,7 @@ function TeamDetailSurface({
                         <h3 className="text-lg font-bold">
                             {ar ? team.nameAr : team.nameEn}
                         </h3>
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
                             {ar ? team.descriptionAr : team.descriptionEn}
                         </p>
                         <div className="mt-3 flex items-center gap-2">
@@ -1799,7 +1799,7 @@ function TeamDetailSurface({
                                 <p className="text-xs font-semibold">
                                     {team.leader?.name ?? text('لم يتم تعيين قائد', 'No lead assigned')}
                                 </p>
-                                <p className="text-[9px] text-slate-400">
+                                <p className="text-[11px] text-[var(--ac-text-muted)]">
                                     {team.leader?.job_title ?? text('قائد الفريق', 'Team lead')}
                                 </p>
                             </div>
@@ -1847,7 +1847,7 @@ function TeamDetailSurface({
                     action={permissions.includes('teams.subteams.create') ? (
                         <Link
                             href={base + '/teams/' + team.id + '/create'}
-                            className="text-[10px] font-semibold text-blue-600"
+                            className="text-[11px] font-semibold text-[var(--ac-accent-strong)]"
                         >
                             <Plus size={12} />
                             {text('إضافة فريق فرعي', 'Add sub-team')}
@@ -1856,12 +1856,12 @@ function TeamDetailSurface({
                 >
                     <div className="space-y-3">
                         {team.parentTeamId !== null && (
-                            <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                            <div className="flex items-center justify-between rounded-xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] p-3">
                                 <div>
-                                    <p className="text-[9px] text-blue-500">
+                                    <p className="text-[11px] text-[var(--ac-accent)]">
                                         {text('الفريق الأب', 'Parent team')}
                                     </p>
-                                    <strong className="mt-1 block text-xs text-blue-800">
+                                    <strong className="mt-1 block text-xs text-[var(--ac-accent-strong)]">
                                         {team.parentTeamName ?? text('فريق أعلى', 'Parent team')}
                                     </strong>
                                 </div>
@@ -1877,16 +1877,16 @@ function TeamDetailSurface({
                         {immediateChildren.map((child: UiTeam) => (
                             <div
                                 key={child.id}
-                                className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 p-3"
+                                className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--ac-line)] p-3"
                             >
-                                <span className="flex size-9 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                                <span className="flex size-9 items-center justify-center rounded-lg bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                     <ListTree size={16} />
                                 </span>
                                 <div className="min-w-40 flex-1">
                                     <strong className="text-xs">
                                         {ar ? child.nameAr : child.nameEn}
                                     </strong>
-                                    <p className="mt-1 text-[9px] text-slate-400">
+                                    <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
                                         {child.members.length} {text('أعضاء', 'members')}
                                         {' · '}
                                         {child.childCount} {text('فرق فرعية', 'sub-teams')}
@@ -1902,7 +1902,7 @@ function TeamDetailSurface({
                         ))}
 
                         {team.parentTeamId === null && ! immediateChildren.length && (
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-xs text-[var(--ac-text-muted)]">
                                 {text('هذا الفريق لا يحتوي فرقًا فرعية بعد.', 'This team does not have sub-teams yet.')}
                             </p>
                         )}
@@ -1917,7 +1917,7 @@ function TeamDetailSurface({
                     action={(
                         <Link
                             href={base + '/teams/' + team.id + '/members'}
-                            className="text-[10px] font-semibold text-blue-600"
+                            className="text-[11px] font-semibold text-[var(--ac-accent-strong)]"
                         >
                             {text('عرض الكل', 'View all')}
                         </Link>
@@ -1934,7 +1934,7 @@ function TeamDetailSurface({
                                             <Badge color="blue">{text('القائد', 'Lead')}</Badge>
                                         )}
                                     </div>
-                                    <p className="mt-1 truncate text-[9px] text-slate-400">
+                                    <p className="mt-1 truncate text-[11px] text-[var(--ac-text-muted)]">
                                         {member.job_title ?? text('عضو فريق', 'Team member')}
                                     </p>
                                 </div>
@@ -1942,7 +1942,7 @@ function TeamDetailSurface({
                             </div>
                         ))}
                         {! team.members.length && (
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-xs text-[var(--ac-text-muted)]">
                                 {text('لا يوجد أعضاء في هذا الفريق بعد.', 'No team members yet.')}
                             </p>
                         )}
@@ -1964,15 +1964,15 @@ function TeamDetailSurface({
                             return (
                                 <div key={project.id}>
                                     <div className="mb-2 flex items-center justify-between gap-3">
-                                        <strong className="truncate text-[11px]">{project.name}</strong>
-                                        <span className="text-[10px] text-slate-400">{progress}%</span>
+                                        <strong className="truncate text-xs">{project.name}</strong>
+                                        <span className="text-[11px] text-[var(--ac-text-muted)]">{progress}%</span>
                                     </div>
                                     <Progress value={progress} label={false} />
                                 </div>
                             );
                         })}
                         {! team.projects.length && (
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-xs text-[var(--ac-text-muted)]">
                                 {text('لا توجد مشاريع مرتبطة بهذا الفريق.', 'No projects are linked to this team.')}
                             </p>
                         )}
@@ -1996,9 +1996,9 @@ function TeamDetailSurface({
                                         + '% 100%)',
                                 }}
                             >
-                                <div className="flex size-28 flex-col items-center justify-center rounded-full bg-white">
+                                <div className="flex size-28 flex-col items-center justify-center rounded-full bg-[var(--ac-surface)]">
                                     <strong className="text-2xl">{team.workload}%</strong>
-                                    <span className="text-[9px] text-slate-400">
+                                    <span className="text-[11px] text-[var(--ac-text-muted)]">
                                         {text('عبء العمل', 'Workload')}
                                     </span>
                                 </div>
@@ -2018,7 +2018,7 @@ function TeamDetailSurface({
                                 value={team.childCount}
                                 label={text('فرق مباشرة', 'Direct child teams')}
                             />
-                            <p className="text-[10px] leading-5 text-slate-400">
+                            <p className="text-[11px] leading-5 text-[var(--ac-text-muted)]">
                                 {text(
                                     'تحليلات عبء العمل مخفية حسب صلاحيات دورك.',
                                     'Workload analytics are hidden by your role permissions.',
@@ -2036,21 +2036,21 @@ function TeamDetailSurface({
                 >
                     <div className="space-y-3">
                         {team.tasks.slice(0, 5).map((task: Task) => (
-                            <div key={task.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3">
+                            <div key={task.id} className="flex items-center gap-3 rounded-lg border border-[var(--ac-line)] p-3">
                                 <CheckCircle2
                                     size={16}
                                     className={task.status === 'completed' ? 'text-emerald-500' : 'text-amber-400'}
                                 />
-                                <span className="min-w-0 flex-1 truncate text-[11px] font-semibold">
+                                <span className="min-w-0 flex-1 truncate text-xs font-semibold">
                                     {task.title}
                                 </span>
-                                <span className="text-[9px] text-slate-400">
+                                <span className="text-[11px] text-[var(--ac-text-muted)]">
                                     {task.progress}%
                                 </span>
                             </div>
                         ))}
                         {! team.tasks.length && (
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-xs text-[var(--ac-text-muted)]">
                                 {text('لا توجد مهام مرتبطة بأعضاء الفريق بعد.', 'No tasks are assigned to team members yet.')}
                             </p>
                         )}
@@ -2161,7 +2161,7 @@ function TeamDetailSurface({
                                     </option>
                                 ))}
                             </select>
-                            <span className="text-[9px] font-normal text-slate-400">
+                            <span className="text-[11px] font-normal text-[var(--ac-text-muted)]">
                                 {text(
                                     'لا يمكنك نقل الفريق تحت نفسه أو تحت أحد الفرق التابعة له.',
                                     'You cannot move a team below itself or one of its descendants.',
@@ -2204,7 +2204,7 @@ function TeamDetailSurface({
                             return (
                                 <label
                                     key={project.id}
-                                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50"
+                                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--ac-line)] p-3 hover:bg-[var(--ac-surface-soft)]"
                                 >
                                     <input
                                         type="checkbox"
@@ -2215,25 +2215,25 @@ function TeamDetailSurface({
                                                 : [...current, project.id]
                                         ))}
                                     />
-                                    <FolderKanban size={15} className="text-blue-500" />
+                                    <FolderKanban size={15} className="text-[var(--ac-accent)]" />
                                     <span className="text-xs font-semibold">{project.name}</span>
                                 </label>
                             );
                         })}
                         {projectsLoading && (
-                            <p className="py-6 text-center text-xs text-slate-400">
+                            <p className="py-6 text-center text-xs text-[var(--ac-text-muted)]">
                                 {text('جارٍ تحميل المشاريع…', 'Loading projects…')}
                             </p>
                         )}
                         {! projectsLoading && ! projectOptions.length && (
-                            <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center">
-                                <p className="text-xs font-semibold text-slate-600">
+                            <div className="rounded-xl border border-dashed border-[var(--ac-line)] p-6 text-center">
+                                <p className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {text(
                                         'لم يصل أي مشروع من قائمة المشاريع الحالية.',
                                         'No project was returned from the current project list.',
                                     )}
                                 </p>
-                                <p className="mt-2 text-[10px] leading-5 text-slate-400">
+                                <p className="mt-2 text-[11px] leading-5 text-[var(--ac-text-muted)]">
                                     {text(
                                         'إذا كنت ترى مشروعًا في صفحة المشاريع، أغلق النافذة وأعد فتحها؛ هذه النافذة تحدّث القائمة مباشرة من الخادم الآن.',
                                         'If a project exists on the Projects page, close and reopen this picker; it now refreshes directly from the server.',
@@ -2472,7 +2472,7 @@ function TeamMembersSurface({
                     <h2 className="text-2xl font-bold">
                         {ar ? team.nameAr : team.nameEn}
                     </h2>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-[var(--ac-text-muted)]">
                         {text('إدارة أعضاء الفريق وتوزيع الأدوار ومتابعة نسبة الانشغال', 'Manage team members, roles and utilization')}
                     </p>
                 </div>
@@ -2485,7 +2485,7 @@ function TeamMembersSurface({
             {actionError && (
                 <div
                     role="alert"
-                    className="rounded-xl border border-red-100 bg-red-50 p-3 text-[11px] text-red-600"
+                    className="rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-600"
                 >
                     {actionError}
                 </div>
@@ -2531,7 +2531,7 @@ function TeamMembersSurface({
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,2.1fr)_320px]">
                 <div className="tm-panel !p-0">
-                    <div className="border-b border-slate-100 px-4 pt-3">
+                    <div className="border-b border-[var(--ac-line)] px-4 pt-3">
                         <div className="flex gap-5 overflow-x-auto">
                             {tabs.map((tab) => (
                                 <button
@@ -2539,10 +2539,10 @@ function TeamMembersSurface({
                                     key={tab.key}
                                     onClick={() => setActiveTab(tab.key)}
                                     className={
-                                        'border-b-2 px-1 py-3 text-[11px] font-semibold transition '
+                                        'border-b-2 px-1 py-3 text-xs font-semibold transition '
                                         + (activeTab === tab.key
-                                            ? 'border-blue-500 text-blue-600'
-                                            : 'border-transparent text-slate-400 hover:text-slate-600')
+                                            ? 'border-[var(--ac-accent)] text-[var(--ac-accent-strong)]'
+                                            : 'border-transparent text-[var(--ac-text-muted)] hover:text-[var(--ac-text)]')
                                     }
                                 >
                                     {ar ? tab.ar : tab.en}
@@ -2553,7 +2553,7 @@ function TeamMembersSurface({
 
                     {activeTab === 'members' && (
                         <>
-                            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
+                            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--ac-line)] p-4">
                                 {can('teams.members.manage') && (
                                     <button
                                         type="button"
@@ -2572,7 +2572,7 @@ function TeamMembersSurface({
                                 <label className="relative min-w-48 flex-1">
                                     <Search
                                         size={14}
-                                        className="absolute start-3 top-3 text-slate-400"
+                                        className="absolute start-3 top-3 text-[var(--ac-text-muted)]"
                                     />
                                     <input
                                         className={input + ' !ps-9'}
@@ -2651,7 +2651,7 @@ function TeamMembersSurface({
                                                             <Avatar member={member} />
                                                             <div className="min-w-0">
                                                                 <p className="truncate font-semibold">{member.name}</p>
-                                                                <p className="truncate text-[9px] text-slate-400">
+                                                                <p className="truncate text-[11px] text-[var(--ac-text-muted)]">
                                                                     {member.email ?? '—'}
                                                                 </p>
                                                             </div>
@@ -2668,7 +2668,7 @@ function TeamMembersSurface({
                                                     <td>
                                                         {permissions.includes('teams.view_workload')
                                                             ? <Progress value={workload} />
-                                                            : <span className="text-[10px] text-slate-400">—</span>}
+                                                            : <span className="text-[11px] text-[var(--ac-text-muted)]">—</span>}
                                                     </td>
                                                     <td>
                                                         {isLead ? (
@@ -2700,7 +2700,7 @@ function TeamMembersSurface({
                             </div>
 
                             {! filtered.length && (
-                                <div className="p-8 text-center text-xs text-slate-400">
+                                <div className="p-8 text-center text-xs text-[var(--ac-text-muted)]">
                                     {text('لا يوجد أعضاء يطابقون البحث.', 'No members match the search.')}
                                 </div>
                             )}
@@ -2713,11 +2713,11 @@ function TeamMembersSurface({
                                 {team.tasks.map((task: Task) => (
                                     <div
                                         key={task.id}
-                                        className="grid gap-3 rounded-xl border border-slate-100 p-3 sm:grid-cols-[minmax(0,1fr)_120px_160px] sm:items-center"
+                                        className="grid gap-3 rounded-xl border border-[var(--ac-line)] p-3 sm:grid-cols-[minmax(0,1fr)_120px_160px] sm:items-center"
                                     >
                                         <div className="min-w-0">
                                             <p className="truncate text-xs font-semibold">{task.title}</p>
-                                            <p className="mt-1 text-[9px] text-slate-400">
+                                            <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">
                                                 {text('تقدم المهمة', 'Task progress')} · {task.progress}%
                                             </p>
                                         </div>
@@ -2730,7 +2730,7 @@ function TeamMembersSurface({
                                     </div>
                                 ))}
                                 {! team.tasks.length && (
-                                    <div className="py-10 text-center text-xs text-slate-400">
+                                    <div className="py-10 text-center text-xs text-[var(--ac-text-muted)]">
                                         {text('لا توجد مهام مرتبطة بهذا الفريق.', 'No tasks are linked to this team.')}
                                     </div>
                                 )}
@@ -2752,20 +2752,20 @@ function TeamMembersSurface({
                                     : 0;
 
                                 return (
-                                    <div key={project.id} className="rounded-xl border border-slate-100 p-4">
+                                    <div key={project.id} className="rounded-xl border border-[var(--ac-line)] p-4">
                                         <div className="mb-3 flex items-center gap-2">
-                                            <FolderKanban size={16} className="text-blue-500" />
+                                            <FolderKanban size={16} className="text-[var(--ac-accent)]" />
                                             <strong className="text-xs">{project.name}</strong>
                                         </div>
                                         <Progress value={progress} />
-                                        <p className="mt-2 text-[9px] text-slate-400">
+                                        <p className="mt-2 text-[11px] text-[var(--ac-text-muted)]">
                                             {projectTasks.length} {text('مهام مرتبطة', 'linked tasks')}
                                         </p>
                                     </div>
                                 );
                             })}
                             {! team.projects.length && (
-                                <div className="col-span-full py-10 text-center text-xs text-slate-400">
+                                <div className="col-span-full py-10 text-center text-xs text-[var(--ac-text-muted)]">
                                     {text('لا توجد مشاريع مرتبطة بهذا الفريق.', 'No projects are linked to this team.')}
                                 </div>
                             )}
@@ -2788,8 +2788,8 @@ function TeamMembersSurface({
                                 }
                                 label={text('الأولوية', 'Priority')}
                             />
-                            <div className="sm:col-span-2 rounded-xl border border-slate-100 p-4">
-                                <p className="text-[10px] text-slate-400">
+                            <div className="sm:col-span-2 rounded-xl border border-[var(--ac-line)] p-4">
+                                <p className="text-[11px] text-[var(--ac-text-muted)]">
                                     {text('قائد الفريق الحالي', 'Current team lead')}
                                 </p>
                                 <div className="mt-3 flex items-center gap-3">
@@ -2798,7 +2798,7 @@ function TeamMembersSurface({
                                         <p className="truncate text-xs font-semibold">
                                             {team.leader?.name ?? '—'}
                                         </p>
-                                        <p className="text-[9px] text-slate-400">
+                                        <p className="text-[11px] text-[var(--ac-text-muted)]">
                                             {team.leader?.job_title ?? text('قائد الفريق', 'Team lead')}
                                         </p>
                                     </div>
@@ -2836,18 +2836,18 @@ function TeamMembersSurface({
                                             + '%, #22b987 '
                                             + (100 / team.members.length)
                                             + '% 100%)'
-                                        : '#edf2fa',
+                                        : '#E6F3FE',
                                 }}
                             >
-                                <div className="flex size-24 flex-col items-center justify-center rounded-full bg-white">
+                                <div className="flex size-24 flex-col items-center justify-center rounded-full bg-[var(--ac-surface)]">
                                     <strong className="text-2xl">{team.members.length}</strong>
-                                    <span className="text-[9px] text-slate-400">
+                                    <span className="text-[11px] text-[var(--ac-text-muted)]">
                                         {text('أعضاء', 'members')}
                                     </span>
                                 </div>
                             </div>
                         </div>
-                        <div className="mt-3 space-y-2 text-[10px]">
+                        <div className="mt-3 space-y-2 text-[11px]">
                             <RoleRow label={text('قائد الفريق', 'Team lead')} count={team.leader ? 1 : 0} color="#2879ff" />
                             <RoleRow label={text('أعضاء الفريق', 'Team members')} count={Math.max(0, team.members.length - 1)} color="#22b987" />
                         </div>
@@ -2862,17 +2862,17 @@ function TeamMembersSurface({
                                 <div className="mb-3 flex items-center justify-between">
                                     <div>
                                         <strong className="text-xl">{averageWorkload}%</strong>
-                                        <p className="text-[9px] text-slate-400">
+                                        <p className="text-[11px] text-[var(--ac-text-muted)]">
                                             {text('متوسط نسبة الانشغال', 'Average utilization')}
                                         </p>
                                     </div>
-                                    <Gauge size={27} className="text-blue-500" />
+                                    <Gauge size={27} className="text-[var(--ac-accent)]" />
                                 </div>
                                 <Progress value={averageWorkload} label={false} />
                             </>
                         ) : (
-                            <div className="mb-3 rounded-lg bg-slate-50 p-3">
-                                <p className="text-[10px] text-slate-400">
+                            <div className="mb-3 rounded-lg bg-[var(--ac-surface-soft)] p-3">
+                                <p className="text-[11px] text-[var(--ac-text-muted)]">
                                     {text(
                                         'تحليلات عبء العمل مخفية حسب صلاحيات دورك.',
                                         'Workload analytics are hidden by your role permissions.',
@@ -2880,7 +2880,7 @@ function TeamMembersSurface({
                                 </p>
                             </div>
                         )}
-                        <div className="mt-3 flex justify-between text-[10px] text-slate-400">
+                        <div className="mt-3 flex justify-between text-[11px] text-[var(--ac-text-muted)]">
                             <span>
                                 {team.members.length} / {team.capacity}
                                 {' '}
@@ -2956,7 +2956,7 @@ function TeamMembersSurface({
                             )}
 
                             {! can('teams.members.manage') && ! can('teams.lead.manage') && (
-                                <p className="rounded-lg bg-slate-50 p-3 text-[10px] leading-5 text-slate-400">
+                                <p className="rounded-lg bg-[var(--ac-surface-soft)] p-3 text-[11px] leading-5 text-[var(--ac-text-muted)]">
                                     {text(
                                         'هذه الصفحة للعرض فقط حسب صلاحيات دورك.',
                                         'This page is read-only under your current role permissions.',
@@ -2966,7 +2966,7 @@ function TeamMembersSurface({
                         </div>
                     </Panel>
 
-                    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-[10px] leading-6 text-blue-700">
+                    <div className="rounded-xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] p-4 text-[11px] leading-6 text-[var(--ac-accent-strong)]">
                         <strong className="mb-1 block">{text('معلومة', 'Info')}</strong>
                         {text(
                             'يمكن إضافة أعضاء من نفس القسم، ونقل غير القائد بين فرق القسم نفسه.',
@@ -2990,11 +2990,11 @@ function TeamMembersSurface({
 
                     return (
                         <div className="space-y-3">
-                            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                            <div className="flex items-center gap-3 border-b border-[var(--ac-line)] pb-4">
                                 <Avatar member={member} size="large" />
                                 <div>
                                     <p className="text-sm font-bold">{member.name}</p>
-                                    <p className="text-[10px] text-slate-400">{member.job_title ?? '—'}</p>
+                                    <p className="text-[11px] text-[var(--ac-text-muted)]">{member.job_title ?? '—'}</p>
                                 </div>
                             </div>
                             <button
@@ -3058,7 +3058,7 @@ function TeamMembersSurface({
                             <Avatar member={profileMember} size="large" />
                             <div>
                                 <h3 className="font-bold">{profileMember.name}</h3>
-                                <p className="text-[10px] text-slate-400">
+                                <p className="text-[11px] text-[var(--ac-text-muted)]">
                                     {profileMember.job_title ?? text('عضو فريق', 'Team member')}
                                 </p>
                             </div>
@@ -3107,7 +3107,7 @@ function TeamMembersSurface({
                         </label>
                     )}
                     {! addCandidates.length && team.members.length < team.capacity && (
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-[var(--ac-text-muted)]">
                             {text('لا يوجد موظفون متاحون من نفس القسم.', 'No available employees remain in this department.')}
                         </p>
                     )}
@@ -3235,7 +3235,7 @@ function TeamMembersSurface({
                         </select>
                     </label>
                     {! targetTeams.length && (
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-[var(--ac-text-muted)]">
                             {text('لا يوجد فريق آخر متاح في نفس القسم.', 'No other available team exists in this department.')}
                         </p>
                     )}
@@ -3270,7 +3270,7 @@ function RoleRow({
     return (
         <div className="flex items-center gap-2">
             <span className="size-2 rounded-full" style={{ background: color }} />
-            <span className="flex-1 text-slate-500">{label}</span>
+            <span className="flex-1 text-[var(--ac-text-muted)]">{label}</span>
             <strong>{count}</strong>
         </div>
     );
@@ -3293,7 +3293,7 @@ function RecentActivity({
 
     if (! visible.length) {
         return (
-            <p className="text-[11px] leading-6 text-slate-400">
+            <p className="text-xs leading-6 text-[var(--ac-text-muted)]">
                 {text('سيظهر نشاط الفريق هنا عند تحديث المهام والمشاريع.', 'Team activity will appear here as work changes.')}
             </p>
         );
@@ -3303,10 +3303,10 @@ function RecentActivity({
         <div className="space-y-4">
             {visible.slice(0, 5).map((event: TaskActivityEvent) => (
                 <div key={event.id} className="flex items-start gap-3">
-                    <span className="mt-1.5 size-2 rounded-full bg-blue-400" />
+                    <span className="mt-1.5 size-2 rounded-full bg-[var(--ac-accent)]" />
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-[10px] font-semibold">{event.name}</p>
-                        <p className="mt-1 truncate text-[9px] text-slate-400">
+                        <p className="truncate text-[11px] font-semibold">{event.name}</p>
+                        <p className="mt-1 truncate text-[11px] text-[var(--ac-text-muted)]">
                             {event.action}
                         </p>
                     </div>

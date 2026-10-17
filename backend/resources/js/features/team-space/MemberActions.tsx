@@ -3,6 +3,7 @@ import { apiRequest } from '@/lib/http';
 import { Crown, MessageCircle, UserRound, VolumeX, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
+const avatarTones = ['bg-[#068CF0] text-white', 'bg-[#045495] text-white', 'bg-[#38A3FA] text-[#011C32]', 'bg-[#0570C7] text-white', 'bg-[#033863] text-white'];
 const actionClass = 'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-start text-sm hover:bg-[var(--ac-accent-soft)] focus-visible:outline-2 focus-visible:outline-[var(--ac-accent)] disabled:opacity-40';
 type Restriction = { expires_at: string | null } | null;
 type MemberProfile = { id: number; name: string; job_title: string | null; bio: string | null; avatar_url: string | null; can_mute_group: boolean; is_admin: boolean; can_change_admin: boolean; group_mute: Restriction; direct_block: Restriction };
@@ -11,8 +12,8 @@ export function MessagingDialog({ title, onClose, children, position }: { title:
     const ref = useRef<HTMLDialogElement>(null);
     const titleId = useId();
     useEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => dialog?.close(); }, []);
-    return <dialog ref={ref} style={position ? { top: position.top, left: position.left, right: 'auto', bottom: 'auto', margin: 0, width: Math.min(320, window.innerWidth - 24), maxHeight: Math.max(100, window.innerHeight - position.top - 12) } : undefined} aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) { onClose(); } }} className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-3xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 text-[var(--ac-text)] shadow-2xl backdrop:bg-black/35">
-        <div className="mb-4 flex items-center justify-between gap-3 border-b border-[var(--ac-line)] pb-4"><h2 id={titleId} className="font-semibold">{title}</h2><button type="button" aria-label="Close / إغلاق" onClick={onClose} className="rounded-full p-2 hover:bg-[var(--ac-surface-soft)]"><X size={18} /></button></div>
+    return <dialog ref={ref} style={position ? { top: position.top, left: position.left, right: 'auto', bottom: 'auto', margin: 0, width: Math.min(290, window.innerWidth - 24), maxHeight: Math.max(100, window.innerHeight - position.top - 12) } : undefined} aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) { onClose(); } }} className={position ? 'fixed overflow-y-auto rounded-[20px] border border-[var(--ac-line-strong)] bg-[var(--ac-surface)] p-[18px] text-[var(--ac-text)] shadow-[var(--ac-shadow-panel)] backdrop:bg-transparent' : 'fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-3xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 text-[var(--ac-text)] shadow-2xl backdrop:bg-black/35'}>
+        {position ? <h2 id={titleId} className="sr-only">{title}</h2> : <div className="mb-4 flex items-center justify-between gap-3 border-b border-[var(--ac-line)] pb-4"><h2 id={titleId} className="font-semibold">{title}</h2><button type="button" aria-label="Close / إغلاق" onClick={onClose} className="rounded-full p-2 hover:bg-[var(--ac-surface-soft)]"><X size={18} /></button></div>}
         {children}
     </dialog>;
 }
@@ -75,14 +76,19 @@ export function MemberActions({ conversationId, memberId, userId, name, ar, chil
             const rect = event.currentTarget.getBoundingClientRect();
             setPosition({ top: Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - 340)), left: Math.max(12, Math.min(rect.left, window.innerWidth - 332)) });
             setMode(initialMode);
-        }} className={triggerClassName ?? 'relative mt-1 flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--ac-accent-soft)] text-[10px] font-bold text-[var(--chat-accent-text,var(--ac-accent-strong))] ring-1 ring-[var(--ac-line)] hover:ring-[var(--ac-accent)]'}>{children}</button>
+        }} className={triggerClassName ?? `relative mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold hover:brightness-110 ${avatarTones[memberId % avatarTones.length]}`}>{children}</button>
         {mode && <MessagingDialog title={name} position={mode === 'menu' ? position : undefined} onClose={() => { if (!busy) { setMode(null); } }}>
             {error && <p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {!profile && !error && <p role="status">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>}
             {profile && mode === 'menu' && <div>
-                {memberId === userId && <p className="mb-2 rounded-xl bg-[var(--ac-surface-soft)] p-3 text-xs text-[var(--ac-text-soft)]">{ar ? 'هذا أنت. لمراسلة شخص، اختره من أعضاء الدردشة.' : 'This is you. Choose another chat member to message them.'}</p>}
-                {memberId !== userId && <button type="button" disabled={busy} onClick={() => void direct()} className={actionClass}><MessageCircle size={18} />{ar ? 'مراسلة' : 'Message'}</button>}
-                <button type="button" onClick={() => setMode('profile')} className={actionClass}><UserRound size={18} />{ar ? 'عرض الملف الشخصي' : 'View profile'}</button>
+                <div className="mb-3 flex flex-col items-center gap-1 text-center">
+                    {profile.avatar_url ? <img src={profile.avatar_url} alt="" className="size-14 rounded-full object-cover" /> : <span className={`flex size-14 items-center justify-center rounded-full text-xl font-semibold ${avatarTones[memberId % avatarTones.length]}`}>{profile.name.slice(0, 1)}</span>}
+                    <strong>{profile.name}</strong>
+                    {profile.job_title && <span className="text-xs text-[var(--ac-text-muted)]">{profile.job_title}</span>}
+                </div>
+                {memberId !== userId && <button type="button" disabled={busy} onClick={() => void direct()} className="mb-2 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--ac-accent-solid,#068CF0)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"><MessageCircle size={16} />{ar ? 'إرسال رسالة' : 'Send message'}</button>}
+                <button type="button" onClick={() => setMode('profile')} className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--ac-line)] px-4 py-2.5 text-sm font-semibold hover:bg-[var(--ac-accent-soft)]"><UserRound size={16} />{ar ? 'عرض الملف الشخصي' : 'View profile'}</button>
+                {(profile.can_change_admin || profile.can_mute_group || memberId !== userId) && <div className="my-2 h-px bg-[var(--ac-line)]" />}
                 {profile.can_change_admin && <button type="button" disabled={busy} onClick={() => void changeAdmin()} className={actionClass}><Crown size={18} />{profile.is_admin ? (ar ? 'إزالة صلاحية الأدمن' : 'Remove admin role') : (ar ? 'تعيين أدمن للمجموعة' : 'Make group admin')}</button>}
                 {profile.can_mute_group && <button type="button" onClick={() => setMode('group')} className={actionClass}><VolumeX size={18} />{ar ? 'كتم الكتابة داخل المجموعة' : 'Mute in this group'}</button>}
                 {memberId !== userId && <button type="button" onClick={() => setMode('direct')} className={actionClass}><VolumeX size={18} />{ar ? 'منع مراسلتي على الخاص' : 'Block private messages to me'}</button>}

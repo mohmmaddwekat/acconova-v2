@@ -184,7 +184,7 @@ export function Panel({
                     {Icon && (
                         <Icon
                             size={17}
-                            className="text-blue-500"
+                            className="text-[var(--ac-accent)]"
                         />
                     )}
                     {title}
@@ -215,10 +215,10 @@ export function Stat({
     return (
         <div className="tm-panel flex items-start justify-between gap-3">
             <div>
-                <p className="text-[11px] text-slate-500">{title}</p>
+                <p className="text-xs text-[var(--ac-text-muted)]">{title}</p>
                 <p className="mt-1 text-2xl font-bold tracking-tight">{value}</p>
                 {hint && (
-                    <p className="mt-1 text-[10px] text-slate-400">{hint}</p>
+                    <p className="mt-1 text-[11px] text-[var(--ac-text-muted)]">{hint}</p>
                 )}
             </div>
             <span className={`tm-icon tm-${color}`}>
@@ -312,7 +312,7 @@ export function Avatar({
     return (
         <span
             title={member?.name ?? '—'}
-            className={`inline-flex shrink-0 items-center justify-center rounded-full border-2 border-white font-bold text-slate-600 ${size === 'large' ? 'size-11 text-sm' : 'size-7 text-[9px]'}`}
+            className={`inline-flex shrink-0 items-center justify-center rounded-full border-2 border-[var(--ac-surface)] font-bold text-[var(--ac-text-soft)] ${size === 'large' ? 'size-11 text-sm' : 'size-7 text-[11px]'}`}
             style={{
                 background:
                     colors[(member?.id ?? 0) % colors.length],
@@ -342,7 +342,7 @@ export function Assignees({
                 />
             ))}
             {task.assignees.length > 3 && (
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[11px] text-[var(--ac-text-muted)]">
                     +{task.assignees.length - 3}
                 </span>
             )}
@@ -364,16 +364,16 @@ export function Progress({
 
     return (
         <div className="flex items-center gap-2">
-            <div className="h-1.5 min-w-10 flex-1 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-1.5 min-w-10 flex-1 overflow-hidden rounded-full bg-[var(--ac-line)]">
                 <div
-                    className={`h-full rounded-full ${safeValue === 100 ? 'bg-emerald-400' : 'bg-blue-500'}`}
+                    className={`h-full rounded-full ${safeValue === 100 ? 'bg-emerald-400' : 'bg-[var(--ac-accent)]'}`}
                     style={{
                         width: `${safeValue}%`,
                     }}
                 />
             </div>
             {label && (
-                <span className="text-[10px] tabular-nums">
+                <span className="text-[11px] tabular-nums">
                     {safeValue}%
                 </span>
             )}
@@ -392,12 +392,12 @@ export function Empty({
     text?: string;
 }) {
     return (
-        <div className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 p-6 text-center">
+        <div className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--ac-line)] p-6 text-center">
             <ListTodo
                 size={29}
                 className="text-blue-300"
             />
-            <p className="text-xs leading-6 text-slate-500">
+            <p className="text-xs leading-6 text-[var(--ac-text-muted)]">
                 {text ?? (
                     ar
                         ? 'لا توجد مهام تطابق الفلاتر الحالية.'
@@ -516,7 +516,7 @@ export function DueDate({
 
     return (
         <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${tone}`}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold ${tone}`}
         >
             <CalendarDays size={12} />
             {dateLabel(task.due_on, ar)}
@@ -534,7 +534,7 @@ export function CheckMark({
 }) {
     return (
         <span
-            className={`inline-flex size-4 items-center justify-center rounded-full ${value ? 'bg-emerald-100 text-emerald-500' : 'bg-slate-100 text-slate-300'}`}
+            className={`inline-flex size-4 items-center justify-center rounded-full ${value ? 'bg-emerald-100 text-emerald-500' : 'bg-[var(--ac-line)] text-slate-300'}`}
         >
             <Check size={10} />
         </span>
