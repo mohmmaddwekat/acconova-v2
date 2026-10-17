@@ -124,6 +124,7 @@ export function sendConversationMessage(
     conversationId: number,
     body: string,
     files: File[],
+    replyToId: number | null = null,
 ): Promise<{
     id: number;
 }> {
@@ -134,6 +135,10 @@ export function sendConversationMessage(
         'request_id',
         crypto.randomUUID(),
     );
+
+    if (replyToId) {
+        payload.append('reply_to_id', String(replyToId));
+    }
 
     if (
         body.trim()

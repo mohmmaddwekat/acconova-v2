@@ -1088,6 +1088,16 @@ class WorkspaceConversationController extends Controller
                         'message_id',
                     );
 
+        $replyParentIds = $messages->pluck('reply_to_id')->filter()->unique()->values()->all();
+
+        $replyParents = $replyParentIds === []
+            ? collect()
+            : DB::table('workspace_messages as parent')
+                ->join('users as parent_user', 'parent_user.id', '=', 'parent.user_id')
+                ->whereIn('parent.id', $replyParentIds)
+                ->get(['parent.id', 'parent.body', 'parent.deleted_at', 'parent_user.name'])
+                ->keyBy('id');
+
         $readers = DB::table('workspace_conversation_members as cm')->join('users as u', 'u.id', '=', 'cm.user_id')
             ->where('cm.conversation_id', $row->id)->where('cm.read_receipts', true)->get(['cm.user_id', 'cm.receipt_read_id', 'u.name']);
 
@@ -1100,6 +1110,7 @@ class WorkspaceConversationController extends Controller
                         $attachments,
                         $reactions,
                         $readers,
+                        $replyParents,
                         $row,
                         $userId,
                     ): array {
@@ -1190,6 +1201,7 @@ class WorkspaceConversationController extends Controller
 
                             'reactions' => $reactionGroups,
                             'pinned_at' => $message->pinned_at,
+                            'reply_to' => $this->replyPreview($replyParents->get($message->reply_to_id)),
                             'read_by' => $readers->filter(fn (object $reader): bool => (int) $reader->user_id !== (int) $message->user_id && (int) $reader->receipt_read_id >= (int) $message->id)->pluck('name')->values()->all(),
 
                             'attachments' => $deleted
@@ -1402,6 +1414,11 @@ class WorkspaceConversationController extends Controller
                     'uuid',
                 ],
 
+                'reply_to_id' => [
+                    'nullable',
+                    'integer',
+                ],
+
                 'attachments' => [
                     'sometimes',
                     'array',
@@ -1439,6 +1456,18 @@ class WorkspaceConversationController extends Controller
             );
 
         abort_if(app(MessageRestrictions::class)->forSender($row, (int) $request->user()->id) !== null, 403, 'Messaging is restricted for this conversation.');
+
+        $replyToId = null;
+
+        if (! empty($data['reply_to_id'])) {
+            $replyToId = DB::table('workspace_messages')
+                ->where('id', $data['reply_to_id'])
+                ->where('conversation_id', $row->id)
+                ->whereNull('deleted_at')
+                ->value('id');
+
+            abort_if($replyToId === null, 422, 'The message you are replying to is not available.');
+        }
 
         $existing =
             DB::table(
@@ -1550,6 +1579,7 @@ class WorkspaceConversationController extends Controller
                         $row,
                         $data,
                         $storedFiles,
+                        $replyToId,
                     ): int {
                         $messageId =
                             DB::table(
@@ -1562,6 +1592,8 @@ class WorkspaceConversationController extends Controller
                                     'user_id' => $request
                                         ->user()
                                         ->id,
+
+                                    'reply_to_id' => $replyToId,
 
                                     'request_id' => $data[
                                             'request_id'
@@ -2072,6 +2104,25 @@ class WorkspaceConversationController extends Controller
     /**
      * Resolve a conversation inside the active tenant and require membership.
      */
+    /**
+     * @return array{id: int, name: string, body: string, deleted: bool}|null
+     */
+    private function replyPreview(?object $parent): ?array
+    {
+        if ($parent === null) {
+            return null;
+        }
+
+        $deleted = $parent->deleted_at !== null;
+
+        return [
+            'id' => (int) $parent->id,
+            'name' => (string) $parent->name,
+            'body' => $deleted ? '' : mb_strimwidth((string) $parent->body, 0, 140, '…'),
+            'deleted' => $deleted,
+        ];
+    }
+
     private function conversation(
         Request $request,
         string $conversation,

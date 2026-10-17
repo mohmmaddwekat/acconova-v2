@@ -61,6 +61,7 @@ import {
     Pin,
     Plus,
     RotateCcw,
+    Reply,
     Search,
     Send,
     SmilePlus,
@@ -517,6 +518,8 @@ function MessagingWorkspace({
         useState<File[]>(
             [],
         );
+
+    const [replyingTo, setReplyingTo] = useState<TeamMessage | null>(null);
 
     const [
         recording,
@@ -2118,7 +2121,9 @@ function MessagingWorkspace({
                 selectedId,
                 messageBody,
                 pendingFiles,
+                replyingTo?.id ?? null,
             );
+            setReplyingTo(null);
 
             setMessageBody(
                 '',
@@ -2440,6 +2445,7 @@ function MessagingWorkspace({
             .catch((failure) => { if (!controller.signal.aborted) { setError(errorText(failure)); } });
         return () => controller.abort();
     }, [selectedId, threadRevision]);
+    useEffect(() => { setReplyingTo(null); }, [selectedId]);
     async function pinMessage(message: TeamMessage): Promise<void> {
         try {
             await apiRequest(`/api/team-space/${message.conversation_id}/settings`, { method: 'POST', body: JSON.stringify({ action: 'pin', message_id: message.id, pinned: !message.pinned_at }) });
@@ -3215,6 +3221,7 @@ function MessagingWorkspace({
                                                                     'everyone',
                                                                 )
                                                             }
+                                                            onReply={() => setReplyingTo(message)}
                                                             onReact={(
                                                                 reaction,
                                                             ) =>
@@ -3242,6 +3249,16 @@ function MessagingWorkspace({
                                     >
                                         {thread.restriction && <p role="status" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{ar ? (thread.restriction.scope === 'group' ? 'تم كتمك في المجموعة بواسطة ' : 'تم منع الرسائل الخاصة بواسطة ') : 'Messaging restricted by '}{thread.restriction.by}{thread.restriction.expires_at ? ` — ${ar ? 'حتى' : 'until'} ${new Date(thread.restriction.expires_at).toLocaleString(ar ? 'ar' : 'en')}` : (ar ? ' — حتى إلغاء المنع' : ' — until removed')}</p>}
                                         <fieldset disabled={Boolean(thread.restriction)} className="min-w-0 disabled:opacity-50">
+                                        {replyingTo && (
+                                            <div className="mx-auto mb-2 flex max-w-[820px] items-center gap-3 rounded-[12px] border-s-[3px] border-[var(--ac-accent)] bg-[var(--ac-surface-soft)] px-3 py-2 text-xs">
+                                                <Reply size={14} className="shrink-0 text-[var(--ac-accent)]" />
+                                                <div className="min-w-0 flex-1">
+                                                    <strong className="block truncate">{ar ? 'الرد على ' : 'Replying to '}{replyingTo.name}</strong>
+                                                    <span className="block truncate text-[var(--ac-text-muted)]">{replyingTo.body || (ar ? 'مرفق' : 'Attachment')}</span>
+                                                </div>
+                                                <button type="button" aria-label={ar ? 'إلغاء الرد' : 'Cancel reply'} onClick={() => setReplyingTo(null)} className="flex size-6 items-center justify-center rounded-full hover:bg-[var(--ac-accent-soft)]"><X size={12} /></button>
+                                            </div>
+                                        )}
                                         {pendingFiles.length >
                                             0 && (
                                             <div className="mx-auto mb-3 flex max-w-[820px] gap-2 overflow-x-auto">
@@ -4264,6 +4281,7 @@ function MessageBubble({
     onDeleteForMe,
     onUnsend,
     onReact,
+    onReply,
 }: {
     nickname?: string;
     onPin: () => void;
@@ -4285,6 +4303,7 @@ function MessageBubble({
     onReact: (
         reaction: string,
     ) => void;
+    onReply: () => void;
 }) {
     const [reactionsDialog, setReactionsDialog] = useState(false);
     const [reactionFilter, setReactionFilter] = useState('all');
@@ -4369,6 +4388,13 @@ function MessageBubble({
                             </p>
                         ) : (
                             <>
+                                {message.reply_to && (
+                                    <div className="mx-3 mt-3 rounded-[10px] border-s-[3px] border-[currentColor] bg-black/5 px-3 py-1.5 text-xs opacity-90">
+                                        <strong className="block truncate">{message.reply_to.name}</strong>
+                                        <span className="block truncate">{message.reply_to.deleted ? deletedLabel : message.reply_to.body || (ar ? 'مرفق' : 'Attachment')}</span>
+                                    </div>
+                                )}
+
                                 {message.attachments.map(
                                     (
                                         attachment,
@@ -4458,6 +4484,16 @@ function MessageBubble({
                                 ' ',
                             )}
                         >
+                            <button
+                                type="button"
+                                title={ar ? 'رد' : 'Reply'}
+                                aria-label={ar ? 'رد على الرسالة' : 'Reply to message'}
+                                onClick={onReply}
+                                className="flex size-8 items-center justify-center rounded-full hover:bg-[var(--ac-surface-soft)] focus-visible:outline-2 focus-visible:outline-[var(--ac-accent)]"
+                            >
+                                <Reply size={14} />
+                            </button>
+
                             <div className="relative">
                                 <button
                                     type="button"

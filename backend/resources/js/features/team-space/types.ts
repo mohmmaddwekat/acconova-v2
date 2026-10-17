@@ -66,6 +66,7 @@ export type MessageReaction = {
 
 export type TeamMessage = {
     pinned_at: string | null;
+    reply_to: { id: number; name: string; body: string; deleted: boolean } | null;
     read_by: string[];
     id: number;
     conversation_id: number;
