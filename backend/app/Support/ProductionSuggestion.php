@@ -113,15 +113,21 @@ final class ProductionSuggestion
             }
 
             $required =
-                ProductionConsumption::calculate(
-                    $outputQuantity,
-                    $option->quantity_per_unit,
+                OptionalComponentCap::apply(
+                    $rawMaterial->id,
+                    ProductionConsumption::calculate(
+                        $outputQuantity,
+                        $option->quantity_per_unit,
+                    ),
+                    (bool) $component->is_optional,
                 );
 
             $snapshotComponents[] = [
                 'component_id' => $component->id,
 
                 'component_name' => $component->name,
+
+                'is_optional' => (bool) $component->is_optional,
 
                 'option_id' => $option->id,
 

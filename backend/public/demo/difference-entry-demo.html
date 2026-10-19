@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>قيد الفروقات — ديمو</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--line:#e6e9f0;--line2:#d5dae5;--ink:#0f1b2d;--ink2:#5b6577;--ink3:#8a93a3;--navy:#0b1b33;--blue:#1677ff;--blue-bg:#e8f1ff;--green:#16a34a;--green-bg:#e8f7ee;--red:#dc2626;--red-bg:#fdecec;--amber:#d97706;--amber-bg:#fff4e0;--hover:#f7f9fc}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 80px}
+.switch{display:flex;gap:6px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px;margin-bottom:18px}
+.switch button{border:0;background:transparent;border-radius:10px;padding:9px 14px;cursor:pointer;color:var(--ink2);font-weight:500}
+.switch button.on{background:var(--navy);color:#fff}
+.switch .hint{margin-inline-start:auto;align-self:center;color:var(--ink3);font-size:12px;padding:0 8px}
+.btn{border:1px solid var(--line2);background:var(--card);border-radius:10px;padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:500}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--navy);color:#fff;border-color:transparent}
+.btn.primary:disabled{opacity:.5;cursor:not-allowed}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px}
+.head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.head h1{margin:0;font-size:22px;font-weight:600}
+.sub{color:var(--ink2);font-size:13px;margin-top:4px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.kpi{padding:14px 16px}.kpi .l{color:var(--ink2);font-size:12px}.kpi .v{font-size:22px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+.pos{color:var(--green)}.neg{color:var(--red)}
+table{width:100%;border-collapse:collapse}
+th{font-weight:500;color:var(--ink3);font-size:12px;text-align:right;padding:10px 14px;border-bottom:1px solid var(--line)}
+td{padding:11px 14px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+tr.new td{background:#eef4ff;animation:flash 1.6s ease}
+@keyframes flash{from{background:#cfe0ff}to{background:#eef4ff}}
+.tag{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--amber-bg);color:var(--amber);font-weight:500}
+.field{display:block;margin-top:12px}
+.field span{display:block;font-size:12px;color:var(--ink2);margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line2);border-radius:10px;padding:10px 12px;background:#fff;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
+.err{color:var(--red);font-size:12px;margin-top:4px;display:none}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg button{border:1px solid var(--line2);background:#fff;border-radius:12px;padding:12px;cursor:pointer;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px}
+.seg button.in{background:var(--green-bg);border-color:#9fd8b4;color:var(--green)}
+.seg button.out{background:var(--red-bg);border-color:#f3b4b4;color:var(--red)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line2);background:#fff;border-radius:999px;padding:6px 12px;cursor:pointer;font-size:13px}
+.chip.on{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
+.balbox{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center;margin-top:14px}
+.balbox>div{background:var(--bg);border-radius:12px;padding:10px}
+.balbox small{display:block;color:var(--ink3);font-size:11px}
+.balbox b{font-size:16px}
+.scrim{position:fixed;inset:0;background:rgba(15,27,45,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;inset-block:0;left:0;width:min(400px,100vw);background:#fff;z-index:20;transform:translateX(-102%);transition:transform .22s ease;display:flex;flex-direction:column;box-shadow:8px 0 30px rgba(15,27,45,.1)}
+.drawer.open{transform:none}
+.drawer .dh{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.drawer .db{padding:4px 18px 18px;overflow:auto;flex:1}
+.drawer .df{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:8px}
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:20;pointer-events:none;opacity:0;transition:opacity .18s}
+.modal.open{pointer-events:auto;opacity:1}
+.modal .box{background:#fff;border-radius:18px;width:min(440px,92vw);max-height:92vh;overflow-y:auto;padding:20px;box-shadow:0 20px 50px rgba(15,27,45,.2);transform:translateY(8px);transition:transform .18s}
+.modal.open .box{transform:none}
+.big{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.big button{border:1.5px solid var(--line2);background:#fff;border-radius:14px;padding:18px;text-align:right;cursor:pointer}
+.big button b{display:block;font-size:16px;margin-bottom:4px}
+.big button small{color:var(--ink2)}
+.big button.in{border-color:var(--green);background:var(--green-bg)}
+.big button.out{border-color:var(--red);background:var(--red-bg)}
+.steps{display:flex;gap:8px;margin-bottom:14px}
+.steps span{flex:1;height:4px;border-radius:4px;background:var(--line)}
+.steps span.on{background:var(--navy)}
+.preview{margin-top:14px;border:1px dashed var(--line2);border-radius:12px;overflow:hidden}
+.preview .row{display:grid;grid-template-columns:110px 1fr 110px 120px;gap:8px;padding:10px 12px;font-size:13px}
+.preview .row.h{color:var(--ink3);font-size:12px;border-bottom:1px solid var(--line)}
+.preview .row.me{background:#eef4ff}
+.toast{position:fixed;bottom:20px;left:50%;transform:translate(-50%,20px);background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;opacity:0;transition:all .2s;z-index:40}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.grid2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px}
+@media(max-width:820px){.grid2,.kpis{grid-template-columns:1fr}.big{grid-template-columns:1fr}}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="switch" id="switch">
+    <button data-v="A" class="on">A — لوحة جانبية</button>
+    <button data-v="B">B — صفحة كاملة</button>
+    <button data-v="C">C — نافذة سريعة</button>
+    <button data-v="D">D — خطوتين</button>
+    <span class="hint">جرّب تعمل قيد، وبيطلع بالكشف تحت</span>
+  </div>
+
+  <!-- Party account page (shared by A, C, D) -->
+  <section id="account">
+    <div class="head">
+      <div><h1>حساب كلين هوم</h1><div class="sub">عميل · نابلس · 0599 123 456</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn"><i class="ti ti-file-plus"></i> فاتورة</button>
+        <button class="btn"><i class="ti ti-cash"></i> قبض</button>
+        <button class="btn primary" id="openEntry"><i class="ti ti-arrows-diff"></i> قيد فروقات</button>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="card kpi"><div class="l">الرصيد الحالي</div><div class="v" id="kBal"></div></div>
+      <div class="card kpi"><div class="l">فروقات هالسنة</div><div class="v" id="kDiff"></div></div>
+      <div class="card kpi"><div class="l">آخر حركة</div><div class="v" style="font-size:16px" id="kLast"></div></div>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div style="padding:12px 14px;font-weight:600;border-bottom:1px solid var(--line)">كشف الحساب</div>
+      <table><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (لي عليه)</th><th>دائن (له علي)</th><th>الرصيد</th></tr></thead><tbody id="stmt"></tbody></table>
+    </div>
+  </section>
+
+  <!-- B: full page -->
+  <section id="pageB" class="hidden">
+    <div class="head">
+      <div><h1>إنشاء قيد فروقات</h1><div class="sub">فرق بالحساب مع زبون أو مورد، بدون بيع أو شراء أو حركة صندوق.</div></div>
+      <div style="display:flex;gap:8px"><button class="btn" data-back><i class="ti ti-arrow-right"></i> رجوع</button><button class="btn" data-draft>حفظ كمسودة</button><button class="btn primary" data-submit="B">اعتماد</button></div>
+    </div>
+    <div class="grid2">
+      <div class="card" style="padding:18px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+          <label class="field"><span>الطرف *</span><select><option>كلين هوم</option><option>الاشهب</option><option>بدر</option></select></label>
+          <label class="field"><span>على حساب</span><select><option>حساب الزبون</option><option>حساب المورد</option></select></label>
+          <label class="field"><span>الاتجاه *</span><select data-dir="B"><option value="in">لي عليه (هو مديون إلي)</option><option value="out">له علي (أنا مديون إله)</option></select></label>
+          <label class="field"><span>المبلغ *</span><input data-amt="B" type="number" min="0" step="0.01" placeholder="0.00"><div class="err">اكتب مبلغ أكبر من صفر</div></label>
+          <label class="field"><span>التاريخ *</span><input data-date="B" type="date"></label>
+          <label class="field"><span>السبب *</span><input data-reason="B" placeholder="مثال: نقص وزن خومر"><div class="err">اكتب السبب</div></label>
+        </div>
+        <label class="field"><span>ملاحظات</span><textarea rows="3" placeholder="اختياري"></textarea></label>
+      </div>
+      <div class="card" style="padding:18px">
+        <b>ملخص الحساب</b>
+        <div class="balbox"><div><small>قبل</small><b id="bBefore"></b></div><i class="ti ti-arrow-left" style="color:var(--ink3)"></i><div><small>بعد</small><b id="bAfter"></b></div></div>
+        <p class="sub" style="line-height:1.7">لا يتحرك مخزون ولا صندوق. يظهر بكشف الحساب كسطر "فروقات" مع السبب. بعد الاعتماد بيتصحح أو بيتلغى، والقديم بيروح للأرشيف.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<!-- A: drawer -->
+<aside class="drawer" id="drawerA" aria-label="قيد فروقات">
+  <div class="dh"><b>قيد فروقات · كلين هوم</b><button class="btn" data-close style="padding:6px 9px"><i class="ti ti-x"></i></button></div>
+  <div class="db">
+    <label class="field"><span>الاتجاه</span></label>
+    <div class="seg" data-seg="A"><button data-d="in" class="in"><i class="ti ti-arrow-down-left"></i> لي عليه</button><button data-d="out"><i class="ti ti-arrow-up-right"></i> له علي</button></div>
+    <label class="field"><span>المبلغ *</span><input data-amt="A" type="number" min="0" step="0.01" placeholder="0.00"><div class="err">اكتب مبلغ أكبر من صفر</div></label>
+    <label class="field"><span>السبب *</span><input data-reason="A" placeholder="مثال: فرق أسعار"><div class="err">اكتب السبب</div></label>
+    <label class="field"><span>التاريخ</span><input data-date="A" type="date"></label>
+    <div class="balbox"><div><small>قبل</small><b id="aBefore"></b></div><i class="ti ti-arrow-left" style="color:var(--ink3)"></i><div><small>بعد</small><b id="aAfter"></b></div></div>
+  </div>
+  <div class="df"><button class="btn" data-close>إلغاء</button><button class="btn primary" style="flex:1;justify-content:center" data-submit="A">اعتماد القيد</button></div>
+</aside>
+
+<!-- C: modal -->
+<div class="modal" id="modalC" role="dialog" aria-modal="true">
+  <div class="box">
+    <div style="display:flex;justify-content:space-between;align-items:center;position:sticky;top:-20px;z-index:2;background:#fff;margin:-20px -20px 0;padding:16px 20px;border-bottom:1px solid var(--line)"><b style="font-size:17px">فرق مع كلين هوم</b><button class="btn" data-close style="padding:6px 9px"><i class="ti ti-x"></i></button></div>
+    <div class="seg" data-seg="C" style="margin-top:14px"><button data-d="in" class="in"><i class="ti ti-arrow-down-left"></i> لي عليه</button><button data-d="out"><i class="ti ti-arrow-up-right"></i> له علي</button></div>
+    <label class="field"><span>المبلغ *</span><input data-amt="C" type="number" min="0" step="0.01" placeholder="0.00" style="font-size:22px;padding:12px"><div class="err">اكتب مبلغ أكبر من صفر</div></label>
+    <div class="field"><span>السبب</span>
+      <div class="chips" id="chipsC"><button class="chip on">فرق أسعار</button><button class="chip">فرق وزن</button><button class="chip">خصم متفق عليه</button><button class="chip">بضاعة تالفة</button><button class="chip" data-other>سبب آخر…</button></div>
+      <input data-reason="C" class="hidden" placeholder="اكتب السبب" style="margin-top:8px;width:100%;border:1px solid var(--line2);border-radius:10px;padding:10px 12px">
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:16px;cursor:pointer;font-size:13px;color:var(--ink2)">
+      <input type="checkbox" id="cShow" checked> شوف الرصيد قبل وبعد
+    </label>
+    <div id="cBox">
+      <div class="balbox"><div><small>قبل</small><b id="cBefore"></b></div><i class="ti ti-arrow-left" style="color:var(--ink3)"></i><div><small>بعد</small><b id="cAfter"></b></div></div>
+      <div class="sub" style="margin-top:10px">هيك رح يطلع بكشف الحساب:</div>
+      <div class="preview" style="margin-top:6px">
+        <div class="row h" style="grid-template-columns:90px 1fr 80px 100px"><span>التاريخ</span><span>البيان</span><span>المبلغ</span><span>الرصيد</span></div>
+        <div class="row me" id="cPrev" style="grid-template-columns:90px 1fr 80px 100px"></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
+      <button class="btn" data-close>إلغاء</button><button class="btn primary" data-submit="C">اعتماد</button>
+    </div>
+  </div>
+</div>
+
+<!-- D: two steps -->
+<div class="modal" id="modalD" role="dialog" aria-modal="true">
+  <div class="box" style="width:min(620px,94vw)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b style="font-size:17px">قيد فروقات · كلين هوم</b><button class="btn" data-close style="padding:6px 9px"><i class="ti ti-x"></i></button></div>
+    <div class="steps"><span class="on" id="s1"></span><span id="s2"></span></div>
+    <div id="d1">
+      <div class="sub" style="margin:0 0 10px">الخطوة 1 من 2: مين مديون لمين؟</div>
+      <div class="big" data-seg="D">
+        <button data-d="in"><b>كلين هوم مديون إلي</b><small>بيزيد اللي إلي عليه</small></button>
+        <button data-d="out"><b>أنا مديون لكلين هوم</b><small>بينقص اللي إلي عليه</small></button>
+      </div>
+    </div>
+    <div id="d2" class="hidden">
+      <div class="sub" style="margin:0">الخطوة 2 من 2: كم ولشو؟</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:0 10px">
+        <label class="field"><span>المبلغ *</span><input data-amt="D" type="number" min="0" step="0.01" placeholder="0.00"><div class="err">مبلغ أكبر من صفر</div></label>
+        <label class="field"><span>التاريخ</span><input data-date="D" type="date"></label>
+        <label class="field"><span>السبب *</span><input data-reason="D" placeholder="مثال: نقص وزن خومر"><div class="err">اكتب السبب</div></label>
+      </div>
+      <div class="sub" style="margin-top:14px">هيك رح يطلع بكشف الحساب:</div>
+      <div class="preview">
+        <div class="row h"><span>التاريخ</span><span>البيان</span><span>المبلغ</span><span>الرصيد</span></div>
+        <div class="row" id="dPrev1"></div>
+        <div class="row me" id="dPrev2"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:16px"><button class="btn" id="dBack"><i class="ti ti-arrow-right"></i> رجوع</button><button class="btn primary" data-submit="D">اعتماد القيد</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const today = new Date().toISOString().slice(0,10);
+const state = { view:'A', dir:{A:'in',B:'in',C:'in',D:null}, entries:[
+  {date:'2023-12-16', text:'فاتورة HIST-C01-20231216', debit:1500, credit:0},
+  {date:'2023-12-20', text:'سند قبض RCV-2026-0712', debit:0, credit:2400},
+  {date:'2024-01-03', text:'فاتورة 4471259', debit:3200, credit:0},
+] };
+const opening = 19833;
+const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
+const fmt = v => Math.round(Math.abs(v)).toLocaleString('en-US');
+const balText = v => v >= 0 ? '<span class="pos">لي عليه '+fmt(v)+'</span>' : '<span class="neg">له علي '+fmt(v)+'</span>';
+const current = () => state.entries.reduce((b,e)=>b+e.debit-e.credit, opening);
+const amtOf = k => Number(($('[data-amt="'+k+'"]')||{}).value) || 0;
+const after = k => { const d = state.dir[k]; const a = amtOf(k); return d === 'out' ? current() - a : current() + a; };
+
+$$('[data-date]').forEach(i => i.value = today);
+
+function renderAccount(){
+  let bal = opening;
+  $('#stmt').innerHTML = '<tr><td>2023-12-01</td><td style="color:var(--ink3)">رصيد سابق</td><td></td><td></td><td>'+balText(bal)+'</td></tr>' +
+    state.entries.map((e,i)=>{ bal += e.debit - e.credit; return '<tr class="'+(e.fresh?'new':'')+'"><td>'+e.date+'</td><td>'+(e.diff?'<span class="tag">فروقات</span> ':'')+e.text+'</td><td>'+(e.debit?fmt(e.debit):'')+'</td><td>'+(e.credit?fmt(e.credit):'')+'</td><td>'+balText(bal)+'</td></tr>'; }).join('');
+  $('#kBal').innerHTML = balText(current());
+  const diffs = state.entries.filter(e=>e.diff);
+  $('#kDiff').innerHTML = diffs.length ? diffs.length+' <span style="font-size:13px;color:var(--ink3)">قيد</span>' : '<span style="color:var(--ink3)">لا يوجد</span>';
+  $('#kLast').textContent = state.entries[state.entries.length-1].date;
+  state.entries.forEach(e=>e.fresh=false);
+}
+function renderPreviews(){
+  $('#aBefore').innerHTML = balText(current()); $('#aAfter').innerHTML = balText(after('A'));
+  $('#bBefore').innerHTML = balText(current()); $('#bAfter').innerHTML = balText(after('B'));
+  $('#cBefore').innerHTML = balText(current()); $('#cAfter').innerHTML = balText(after('C'));
+  const chipOn = $('#chipsC .chip.on'); const cReason = chipOn && chipOn.hasAttribute('data-other') ? ($('[data-reason="C"]').value || '…') : (chipOn ? chipOn.textContent : '…');
+  $('#cPrev').innerHTML = '<span>'+($('[data-date="D"]').value||today)+'</span><span><span class="tag">فروقات</span> '+cReason+'</span><span>'+(state.dir.C==='out'?'−':'+')+fmt(amtOf('C'))+'</span><span>'+balText(after('C'))+'</span>';
+  const last = state.entries[state.entries.length-1];
+  $('#dPrev1').innerHTML = '<span>'+last.date+'</span><span>'+last.text+'</span><span>'+fmt(last.debit||last.credit)+'</span><span>'+balText(current())+'</span>';
+  const reason = ($('[data-reason="D"]').value || '…');
+  $('#dPrev2').innerHTML = '<span>'+($('[data-date="D"]').value||today)+'</span><span><span class="tag">فروقات</span> '+reason+'</span><span>'+(state.dir.D==='out'?'−':'+')+fmt(amtOf('D'))+'</span><span>'+balText(after('D'))+'</span>';
+}
+
+function setView(v){
+  state.view = v; closeAll();
+  $$('#switch [data-v]').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
+  $('#account').classList.toggle('hidden', v==='B' && $('#pageB').dataset.open==='1');
+  $('#pageB').classList.add('hidden'); $('#pageB').dataset.open='';
+}
+function openEntry(){
+  const v = state.view;
+  if (v==='A'){ $('#drawerA').classList.add('open'); $('#scrim').classList.add('open'); setTimeout(()=>$('[data-amt="A"]').focus(),220); }
+  if (v==='B'){ $('#account').classList.add('hidden'); $('#pageB').classList.remove('hidden'); $('#pageB').dataset.open='1'; window.scrollTo(0,0); }
+  if (v==='C'){ $('#modalC').classList.add('open'); $('#scrim').classList.add('open'); setTimeout(()=>$('[data-amt="C"]').focus(),180); }
+  if (v==='D'){ state.dir.D=null; $$('[data-seg="D"] button').forEach(b=>b.className=''); $('#d1').classList.remove('hidden'); $('#d2').classList.add('hidden'); $('#s2').classList.remove('on'); $('#modalD').classList.add('open'); $('#scrim').classList.add('open'); }
+  renderPreviews();
+}
+function closeAll(){
+  ['#drawerA','#modalC','#modalD','#scrim'].forEach(s=>$(s).classList.remove('open'));
+  if (state.view==='B'){ $('#pageB').classList.add('hidden'); $('#account').classList.remove('hidden'); }
+}
+function resetForm(k){
+  const a=$('[data-amt="'+k+'"]'); if(a) a.value='';
+  const r=$('[data-reason="'+k+'"]'); if(r && k!=='C') r.value='';
+  $$('.err').forEach(e=>e.style.display='none');
+}
+function submit(k){
+  const amt = amtOf(k);
+  let reason = k==='C' ? ($('#chipsC .chip.on[data-other]') ? $('[data-reason="C"]').value.trim() : ($('#chipsC .chip.on')||{}).textContent) : ($('[data-reason="'+k+'"]').value||'').trim();
+  let ok = true;
+  const amtInput = $('[data-amt="'+k+'"]'), amtErr = amtInput.parentElement.querySelector('.err');
+  if (amt <= 0){ ok=false; if(amtErr) amtErr.style.display='block'; amtInput.focus(); } else if(amtErr) amtErr.style.display='none';
+  const rIn = $('[data-reason="'+k+'"]'), rErr = rIn && rIn.parentElement.querySelector('.err');
+  if (!reason){ ok=false; if(rErr) rErr.style.display='block'; else toast('اختار أو اكتب السبب'); } else if(rErr) rErr.style.display='none';
+  if (!ok) return;
+  const date = ($('[data-date="'+k+'"]')||{}).value || today;
+  const out = state.dir[k]==='out';
+  state.entries.push({date, text:reason, debit: out?0:amt, credit: out?amt:0, diff:true, fresh:true});
+  state.entries.sort((a,b)=>a.date.localeCompare(b.date));
+  resetForm(k); closeAll(); renderAccount(); renderPreviews();
+  toast('ديمو: انحفظ قيد فروقات '+(out?'له علي ':'لي عليه ')+fmt(amt));
+}
+let tt; function toast(t){ $('#toast').textContent=t; $('#toast').classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>$('#toast').classList.remove('show'),2200); }
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  const v = t.closest('#switch [data-v]'); if (v){ setView(v.dataset.v); return; }
+  if (t.closest('#openEntry')){ openEntry(); return; }
+  if (t.closest('[data-close]') || t.id==='scrim' || t.closest('[data-back]')){ closeAll(); return; }
+  if (t.closest('[data-draft]')){ toast('ديمو: انحفظ كمسودة'); return; }
+  const s = t.closest('[data-submit]'); if (s){ submit(s.dataset.submit); return; }
+  const segBtn = t.closest('[data-seg] [data-d]');
+  if (segBtn){ const k = segBtn.closest('[data-seg]').dataset.seg; state.dir[k]=segBtn.dataset.d;
+    segBtn.closest('[data-seg]').querySelectorAll('[data-d]').forEach(b=>b.className = b===segBtn ? segBtn.dataset.d : '');
+    if (k==='D'){ setTimeout(()=>{ $('#d1').classList.add('hidden'); $('#d2').classList.remove('hidden'); $('#s2').classList.add('on'); $('[data-amt="D"]').focus(); },180); }
+    renderPreviews(); return; }
+  if (t.closest('#dBack')){ $('#d2').classList.add('hidden'); $('#d1').classList.remove('hidden'); $('#s2').classList.remove('on'); return; }
+  const chip = t.closest('#chipsC .chip');
+  if (chip){ $$('#chipsC .chip').forEach(c=>c.classList.toggle('on', c===chip)); $('[data-reason="C"]').classList.toggle('hidden', !chip.hasAttribute('data-other')); if(chip.hasAttribute('data-other')) $('[data-reason="C"]').focus(); renderPreviews(); }
+});
+document.addEventListener('input', renderPreviews);
+document.getElementById('cShow').addEventListener('change', e => { document.getElementById('cBox').classList.toggle('hidden', !e.target.checked); });
+document.querySelector('[data-dir="B"]').addEventListener('change', e => { state.dir.B = e.target.value; renderPreviews(); });
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeAll(); });
+renderAccount(); renderPreviews();
+</script>
+</body>
+</html>

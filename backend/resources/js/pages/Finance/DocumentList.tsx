@@ -10,6 +10,7 @@ import {
 } from '@/components/data/ListPreferences';
 import { SavedViews } from '@/components/data/SavedViews';
 import { apiRequest } from '@/lib/http';
+import { useLiveTick } from '@/lib/live';
 import { Link } from '@inertiajs/react';
 import {
     Banknote,
@@ -21,7 +22,7 @@ import {
     TimerReset,
     WalletCards,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PaymentDialog } from './PaymentDialog';
 import { FinanceNav } from './FinanceNav';
 import { InvoiceAutomationLibrary } from './InvoiceAutomationLibrary';
@@ -275,7 +276,12 @@ export function DocumentList({
     );
 
 
+    const liveTick = useLiveTick();
+    const seenLiveTick = useRef(liveTick);
+
     useEffect(() => {
+        const silent = seenLiveTick.current !== liveTick;
+        seenLiveTick.current = liveTick;
         const controller = new AbortController();
         const params = new URLSearchParams({
             kind,
@@ -304,8 +310,10 @@ export function DocumentList({
             params.set('due_before', advancedFilterValues.due_before);
         }
 
-        setLoading(true);
-        setError('');
+        if (! silent) {
+            setLoading(true);
+            setError('');
+        }
 
         apiRequest<Response>(
             '/api/finance/documents?' + params.toString(),
@@ -315,7 +323,7 @@ export function DocumentList({
         )
             .then(setResponse)
             .catch((failure) => {
-                if (! controller.signal.aborted) {
+                if (! controller.signal.aborted && ! silent) {
                     setError(apiErrorText(failure));
                 }
             })
@@ -336,6 +344,7 @@ export function DocumentList({
         advancedFilterValues.due_after,
         advancedFilterValues.due_before,
         refreshKey,
+        liveTick,
     ]);
 
     const title = sales

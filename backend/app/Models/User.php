@@ -41,6 +41,8 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
             'temporary_password_expires_at' => 'datetime',
             'password_changed_at' => 'datetime',
             'must_change_password' => 'boolean',
+            'show_email' => 'boolean',
+            'show_phone' => 'boolean',
 
             'password' => 'hashed',
         ];

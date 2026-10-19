@@ -700,6 +700,7 @@ export function DocumentForm({
     const [savedNote] = useState<string | null>(() => takeSavedNote(kind));
     const [paymentOpen, setPaymentOpen] = useState(false);
     const afterPayment = useRef<(() => void) | null>(null);
+    const savedDraftId = useRef<number | null>(null);
 
     const [
         error,
@@ -2292,18 +2293,27 @@ export function DocumentForm({
         );
 
         try {
+            /*
+             * A new invoice is saved as a draft before the issue checks run. If
+             * those checks stop the issue, the next attempt must update that same
+             * draft; posting again would create a second draft for the same day.
+             */
+            const draftId =
+                initial?.id
+                ?? savedDraftId.current;
+
             const response =
                 await apiRequest<{
                     data:
                         DocumentDetail;
                 }>(
-                    initial?.id
+                    draftId
                         ? '/api/finance/documents/'
-                            + initial.id
+                            + draftId
                         : '/api/finance/documents',
                     {
                         method:
-                            initial?.id
+                            draftId
                                 ? 'PATCH'
                                 : 'POST',
 
@@ -2316,6 +2326,9 @@ export function DocumentForm({
 
             let document =
                 response.data;
+
+            savedDraftId.current =
+                document.id;
 
             if (issue) {
                 const preflight =

@@ -1,7 +1,10 @@
+import { ModalPortal } from '@/components/feedback/ModalPortal';
 import { AppShell } from '@/layouts/AppShell';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
+import { useLiveRefresh } from '@/lib/live';
 import { downloadCsv } from '@/pages/Finance/shared';
+import { PartyAdjustmentDialog } from '@/pages/Parties/PartyAdjustmentDialog';
 import { PartyFinancialOperations } from '@/pages/Parties/PartyFinancialOperations';
 import { Head, Link } from '@inertiajs/react';
 import {
@@ -26,6 +29,7 @@ import {
     RefreshCcw,
     RotateCcw,
     Save,
+    Scale,
     Search,
     ShoppingCart,
     UserRound,
@@ -35,6 +39,7 @@ import {
 import {
     useEffect,
     useMemo,
+    useRef,
     useState,
     type ReactNode,
 } from 'react';
@@ -62,14 +67,25 @@ type Aging = {
     over_90: string;
 };
 
+type AccountTransactionItem = {
+    description: string | null;
+    quantity: string;
+    unit_price: string;
+    line_subtotal: string;
+    discount_percent: string;
+    line_discount: string;
+    line_total: string;
+};
+
 type AccountTransaction = {
     id: string;
     source_id: number;
     side: 'customer' | 'supplier';
-    type: 'invoice' | 'cash' | 'opening_balance';
+    type: 'invoice' | 'cash' | 'opening_balance' | 'settlement' | 'adjustment';
     date: string;
     reference: string;
     description: string;
+    items?: AccountTransactionItem[];
     amount: string;
     currency: string;
     debit: string;
@@ -189,6 +205,26 @@ function yearStart(): string {
             1,
         ),
     );
+}
+
+function isValidDate(value: string): boolean {
+    if (! /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return false;
+    }
+
+    const year = Number(value.slice(0, 4));
+    const parsed = new Date(value + 'T00:00:00');
+
+    return year >= 2000
+        && year <= 2100
+        && ! Number.isNaN(parsed.getTime())
+        && dateValue(parsed) === value;
+}
+
+function isValidDateRange(from: string, to: string): boolean {
+    return isValidDate(from)
+        && isValidDate(to)
+        && from <= to;
 }
 
 function today(): string {
@@ -328,6 +364,10 @@ function transactionLabel(
             : 'Opening balance';
     }
 
+    if (transaction.type === 'adjustment') {
+        return ar ? 'فروقات' : 'Difference';
+    }
+
     if (
         transaction.type ===
         'invoice'
@@ -358,6 +398,27 @@ function transactionLabel(
                 ? 'دفع للمورد'
                 : 'Supplier payment'
         );
+}
+
+function displayQuantity(value: string): string {
+    const numeric = toNumber(value);
+
+    return Number.isInteger(numeric)
+        ? String(numeric)
+        : numeric.toFixed(2);
+}
+
+function transactionDescription(
+    transaction: AccountTransaction,
+    ar: boolean,
+): string {
+    if (transaction.id === 'carried-forward') {
+        return ar
+            ? 'رصيد مدور من الفترة السابقة'
+            : 'Balance brought forward';
+    }
+
+    return transaction.description;
 }
 
 function paymentMethodLabel(
@@ -522,6 +583,26 @@ export default function PartyAccount({
         null,
     );
 
+    const [adjustmentOpen, setAdjustmentOpen] = useState(false);
+
+    async function voidAdjustment(transaction: AccountTransaction): Promise<void> {
+        const reason = window.prompt(ar ? 'سبب إلغاء قيد الفروقات ' + transaction.reference + ':' : 'Reason for voiding ' + transaction.reference + ':');
+
+        if (! reason || reason.trim() === '') {
+            return;
+        }
+
+        try {
+            await apiRequest('/api/parties/' + String(partyId) + '/adjustments/' + String(transaction.source_id) + '/void', {
+                method: 'POST',
+                body: JSON.stringify({ reason: reason.trim() }),
+            });
+            await load();
+        } catch (failure) {
+            setError(failure instanceof ApiError ? failure.message : (ar ? 'تعذر إلغاء القيد.' : 'Could not void the entry.'));
+        }
+    }
+
     const [
         notes,
         setNotes,
@@ -536,13 +617,45 @@ export default function PartyAccount({
         '',
     );
 
-    async function load(): Promise<void> {
-        setLoading(
-            true,
+    const requestRef = useRef<{
+        controller: AbortController | null;
+        id: number;
+    }>({
+        controller: null,
+        id: 0,
+    });
+
+    const rangeValid =
+        isValidDateRange(
+            dateFrom,
+            dateTo,
         );
-        setError(
-            '',
-        );
+
+    async function load(
+        { silent = false }: { silent?: boolean } = {},
+    ): Promise<void> {
+        if (! rangeValid) {
+            return;
+        }
+
+        requestRef.current.controller?.abort();
+
+        const controller = new AbortController();
+        const requestId = requestRef.current.id + 1;
+
+        requestRef.current = {
+            controller,
+            id: requestId,
+        };
+
+        if (! silent) {
+            setLoading(
+                true,
+            );
+            setError(
+                '',
+            );
+        }
 
         try {
             const params =
@@ -565,41 +678,87 @@ export default function PartyAccount({
                     + '/account?'
                     + params
                         .toString(),
+                    {
+                        signal:
+                            controller
+                                .signal,
+                    },
                 );
+
+            if (
+                requestId
+                !== requestRef.current.id
+            ) {
+                return;
+            }
 
             setData(
                 response,
             );
 
-            setNotes(
-                response.party
-                    .notes
-                ?? '',
-            );
+            if (! silent) {
+                setNotes(
+                    response.party
+                        .notes
+                    ?? '',
+                );
+            }
         } catch (
             failure
         ) {
-            setError(
-                failure instanceof
-                ApiError
-                    ? failure
-                        .message
-                    : (
-                        ar
-                            ? 'تعذر تحميل كشف الحساب.'
-                            : 'Could not load the account statement.'
-                    ),
-            );
+            if (
+                controller.signal.aborted
+                || requestId
+                    !== requestRef.current.id
+            ) {
+                return;
+            }
+
+            if (! silent) {
+                setError(
+                    failure instanceof
+                    ApiError
+                        ? failure
+                            .message
+                        : (
+                            ar
+                                ? 'تعذر تحميل كشف الحساب.'
+                                : 'Could not load the account statement.'
+                        ),
+                );
+            }
         } finally {
-            setLoading(
-                false,
-            );
+            if (
+                requestId
+                === requestRef.current.id
+            ) {
+                setLoading(
+                    false,
+                );
+            }
         }
     }
 
     useEffect(
         () => {
-            void load();
+            if (! rangeValid) {
+                return;
+            }
+
+            const timer =
+                window.setTimeout(
+                    () => {
+                        void load();
+                    },
+                    data
+                        ? 350
+                        : 0,
+                );
+
+            return () => window
+                .clearTimeout(
+                    timer,
+                );
         },
         [
             partyId,
@@ -607,6 +766,20 @@ export default function PartyAccount({
             dateFrom,
             dateTo,
         ],
+    );
+
+    useEffect(
+        () => () => requestRef
+            .current
+            .controller
+            ?.abort(),
+        [],
+    );
+
+    useLiveRefresh(
+        () => void load({
+            silent: true,
+        }),
     );
 
     useEffect(
@@ -1142,6 +1315,9 @@ export default function PartyAccount({
                         ? 'الوصف'
                         : 'Description',
                     ar
+                        ? 'تفاصيل الأصناف'
+                        : 'Items',
+                    ar
                         ? 'مدين'
                         : 'Debit',
                     ar
@@ -1164,8 +1340,23 @@ export default function PartyAccount({
                             transaction,
                             ar,
                         ),
-                        transaction
-                            .description,
+                        transactionDescription(
+                            transaction,
+                            ar,
+                        ),
+                        (transaction.items ?? [])
+                            .map(item =>
+                                (item.description || (ar ? 'صنف' : 'Item'))
+                                + ' × '
+                                + displayQuantity(item.quantity)
+                                + ' @ '
+                                + item.unit_price
+                                + (toNumber(item.line_discount) > 0.00005
+                                    ? ' (' + (ar ? 'خصم ' : 'discount ') + item.line_discount + ')'
+                                    : '')
+                                + ' = '
+                                + item.line_total)
+                            .join(' | '),
                         transaction
                             .debit,
                         transaction
@@ -1499,6 +1690,18 @@ export default function PartyAccount({
                                             {ar
                                                 ? 'الرصيد المدور'
                                                 : 'Opening balance'}
+                                        </button>
+                                    )}
+
+                                    {((data.party.roles.includes('customer') && data.permissions.sales_manage)
+                                        || (data.party.roles.includes('supplier') && data.permissions.purchases_manage)) && (
+                                        <button
+                                            type="button"
+                                            className={button}
+                                            onClick={() => setAdjustmentOpen(true)}
+                                        >
+                                            <Scale size={13} />
+                                            {ar ? 'قيد فروقات' : 'Difference entry'}
                                         </button>
                                     )}
 
@@ -1986,6 +2189,14 @@ export default function PartyAccount({
                                                     )}
                                             />
                                         </div>
+
+                                        {! rangeValid && (
+                                            <span className="mt-1 block text-[9px] font-semibold text-[var(--ac-danger)]">
+                                                {ar
+                                                    ? 'تحقق من الفترة: يجب إدخال تاريخين صحيحين والبداية قبل النهاية.'
+                                                    : 'Check the range: enter two valid dates, start before end.'}
+                                            </span>
+                                        )}
                                     </label>
 
                                     <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
@@ -2106,6 +2317,9 @@ export default function PartyAccount({
                                                 <th className="px-4 py-3 text-start font-semibold">
                                                     {ar ? 'الوصف' : 'Description'}
                                                 </th>
+                                                <th className="px-4 py-3 text-start font-semibold">
+                                                    {ar ? 'تفاصيل الأصناف' : 'Items'}
+                                                </th>
                                                 <th className="px-4 py-3 text-end font-semibold">
                                                     {ar ? 'مدين' : 'Debit'}
                                                 </th>
@@ -2132,6 +2346,12 @@ export default function PartyAccount({
                                                         currency={data.currency}
                                                         locale={locale}
                                                         ar={ar}
+                                                        onVoid={
+                                                            transaction.type === 'adjustment'
+                                                            && (transaction.side === 'customer' ? data.permissions.sales_manage : data.permissions.purchases_manage)
+                                                                ? () => void voidAdjustment(transaction)
+                                                                : undefined
+                                                        }
                                                     />
                                                 ),
                                             )}
@@ -2139,7 +2359,7 @@ export default function PartyAccount({
                                             {visibleTransactions.length === 0 && (
                                                 <tr>
                                                     <td
-                                                        colSpan={8}
+                                                        colSpan={9}
                                                         className="px-5 py-14 text-center text-xs text-[var(--ac-text-muted)]"
                                                     >
                                                         {ar
@@ -2356,6 +2576,7 @@ export default function PartyAccount({
 
                         {openingOpen
                             && openingDraft && (
+                            <ModalPortal>
                             <OpeningBalanceDialog
                                 data={data}
                                 draft={openingDraft}
@@ -2368,6 +2589,26 @@ export default function PartyAccount({
                                     void saveOpeningBalances()}
                                 onClear={side =>
                                     void clearOpeningBalance(side)}
+                            />
+                            </ModalPortal>
+                        )}
+
+                        {adjustmentOpen && (
+                            <PartyAdjustmentDialog
+                                partyId={data.party.id}
+                                partyName={data.party.company_name || data.party.name || ''}
+                                roles={data.party.roles}
+                                canSales={data.permissions.sales_manage}
+                                canPurchases={data.permissions.purchases_manage}
+                                positions={data.positions}
+                                currency={data.currency}
+                                locale={locale}
+                                ar={ar}
+                                onClose={() => setAdjustmentOpen(false)}
+                                onSaved={() => {
+                                    setAdjustmentOpen(false);
+                                    void load();
+                                }}
                             />
                         )}
                     </>
@@ -2823,12 +3064,102 @@ function MetricCard({
     );
 }
 
+function TransactionItems({
+    transaction,
+    currency,
+    locale,
+    ar,
+}: {
+    transaction: AccountTransaction;
+    currency: string;
+    locale: string;
+    ar: boolean;
+}) {
+    const items = transaction.items ?? [];
+
+    if (items.length === 0) {
+        return (
+            <span className="text-[9px] text-[var(--ac-text-muted)]">
+                {transaction.type === 'invoice'
+                    ? (ar ? 'لا توجد أصناف' : 'No items')
+                    : '—'}
+            </span>
+        );
+    }
+
+    const total = items.reduce(
+        (sum, item) => sum + toNumber(item.line_total),
+        0,
+    );
+
+    return (
+        <div className="flex flex-col gap-1.5">
+            {items.map((item, index) => {
+                const discountPercent = toNumber(item.discount_percent);
+                const discountAmount = toNumber(item.line_discount);
+                const hasDiscount = discountPercent > 0.00005 || discountAmount > 0.00005;
+
+                return (
+                    <div
+                        key={index}
+                        className="flex flex-col gap-0.5 text-[9px] text-[var(--ac-text-soft)]"
+                    >
+                        <div className="flex items-baseline justify-between gap-3">
+                            <span className="min-w-0 truncate">
+                                {item.description || (ar ? 'صنف' : 'Item')}
+                                {' × '}
+                                {displayQuantity(item.quantity)}
+                            </span>
+
+                            <span className="shrink-0 font-semibold text-[var(--ac-text)]">
+                                {displayMoney(item.line_total, currency, locale)}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 text-[8px] text-[var(--ac-text-muted)]">
+                            <span>
+                                {displayMoney(item.unit_price, currency, locale)}
+                                {' / '}
+                                {ar ? 'وحدة' : 'unit'}
+                            </span>
+
+                            {hasDiscount && (
+                                <span className="font-semibold text-amber-600">
+                                    {ar ? 'خصم ' : 'Discount '}
+                                    {discountPercent > 0.00005
+                                        ? displayQuantity(item.discount_percent) + '%'
+                                        : ''}
+                                    {discountPercent > 0.00005 && discountAmount > 0.00005 ? ' · ' : ''}
+                                    {discountAmount > 0.00005
+                                        ? '-' + displayMoney(item.line_discount, currency, locale)
+                                        : ''}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                );
+            })}
+
+            <div className="mt-0.5 flex items-center justify-between gap-3 border-t border-dashed border-[var(--ac-line)] pt-1 text-[9px] font-bold text-[var(--ac-text)]">
+                <span>
+                    {ar ? 'الإجمالي' : 'Total'}
+                </span>
+
+                <span>
+                    {displayMoney(total, currency, locale)}
+                </span>
+            </div>
+        </div>
+    );
+}
+
 function TransactionRow({
     transaction,
     index,
     currency,
     locale,
     ar,
+    onVoid,
 }: {
     transaction:
         AccountTransaction;
@@ -2836,9 +3167,17 @@ function TransactionRow({
     currency: string;
     locale: string;
     ar: boolean;
+    onVoid?: () => void;
 }) {
     return (
-        <tr className="border-b border-[var(--ac-line)] last:border-b-0 hover:bg-[var(--ac-surface-soft)]">
+        <tr
+            className={[
+                'border-b border-[var(--ac-line)] last:border-b-0 hover:bg-[var(--ac-surface-soft)]',
+                transaction.id === 'carried-forward'
+                    ? 'bg-[var(--ac-accent-soft)] font-semibold'
+                    : '',
+            ].join(' ')}
+        >
             <td className="px-4 py-3 text-[var(--ac-text-muted)]">
                 {index}
             </td>
@@ -2885,7 +3224,9 @@ function TransactionRow({
                             : transaction.type ===
                                 'cash'
                                 ? 'bg-emerald-500/10 text-emerald-400'
-                                : 'bg-amber-500/10 text-amber-400',
+                                : transaction.type === 'adjustment'
+                                    ? 'bg-violet-500/10 text-violet-500'
+                                    : 'bg-amber-500/10 text-amber-400',
                     ].join(
                         ' ',
                     )}
@@ -2899,11 +3240,21 @@ function TransactionRow({
 
             <td className="max-w-[320px] px-4 py-3 text-[var(--ac-text-soft)]">
                 <div className="break-words">
-                    {
-                        transaction
-                            .description
-                    }
+                    {transactionDescription(
+                        transaction,
+                        ar,
+                    )}
                 </div>
+
+                {onVoid && (
+                    <button
+                        type="button"
+                        onClick={onVoid}
+                        className="mt-1 text-[9px] font-semibold text-red-500 hover:underline print:hidden"
+                    >
+                        {ar ? 'إلغاء القيد' : 'Void entry'}
+                    </button>
+                )}
 
                 {transaction.method && (
                     <div className="mt-1 text-[8px] text-[var(--ac-text-muted)]">
@@ -2933,6 +3284,15 @@ function TransactionRow({
                         )}
                     </div>
                 )}
+            </td>
+
+            <td className="min-w-[220px] max-w-[320px] px-4 py-3">
+                <TransactionItems
+                    transaction={transaction}
+                    currency={currency}
+                    locale={locale}
+                    ar={ar}
+                />
             </td>
 
             <td className="px-4 py-3 text-end font-semibold text-[var(--ac-text)]">
@@ -3039,11 +3399,22 @@ function TransactionCard({
             </div>
 
             <p className="mt-2 text-[10px] leading-5 text-[var(--ac-text-soft)]">
-                {
-                    transaction
-                        .description
-                }
+                {transactionDescription(
+                    transaction,
+                    ar,
+                )}
             </p>
+
+            {(transaction.items?.length ?? 0) > 0 && (
+                <div className="mt-2 rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-2">
+                    <TransactionItems
+                        transaction={transaction}
+                        currency={currency}
+                        locale={locale}
+                        ar={ar}
+                    />
+                </div>
+            )}
 
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                 <MiniValue
@@ -3725,7 +4096,7 @@ function PrintStatement({
             <style>
                 {[
                     '@media print {',
-                    '@page { size: A4; margin: 12mm; }',
+                    '@page { size: A4 landscape; margin: 10mm; }',
                     'body * { visibility: hidden !important; }',
                     '.party-account-print, .party-account-print * { visibility: visible !important; }',
                     '.party-account-print { display: block !important; position: absolute !important; inset: 0 !important; width: 100% !important; color: #172b4d !important; background: #fff !important; }',
@@ -3869,6 +4240,16 @@ function PrintStatement({
                                     ? 'النوع'
                                     : 'Type'}
                             </th>
+                            <th className="px-2 py-2 text-start">
+                                {ar
+                                    ? 'الوصف'
+                                    : 'Description'}
+                            </th>
+                            <th className="px-2 py-2 text-start">
+                                {ar
+                                    ? 'تفاصيل الأصناف'
+                                    : 'Items'}
+                            </th>
                             <th className="px-2 py-2 text-end">
                                 {ar
                                     ? 'مدين'
@@ -3928,6 +4309,22 @@ function PrintStatement({
                                         )}
                                     </td>
 
+                                    <td className="px-2 py-2">
+                                        {transactionDescription(
+                                            transaction,
+                                            ar,
+                                        )}
+                                    </td>
+
+                                    <td className="min-w-[150px] px-2 py-2">
+                                        <PrintItems
+                                            transaction={transaction}
+                                            currency={data.currency}
+                                            locale={locale}
+                                            ar={ar}
+                                        />
+                                    </td>
+
                                     <td className="px-2 py-2 text-end">
                                         {toNumber(
                                             transaction
@@ -3981,6 +4378,74 @@ function PrintStatement({
                     )}
                 </div>
             </article>
+        </div>
+    );
+}
+
+function PrintItems({
+    transaction,
+    currency,
+    locale,
+    ar,
+}: {
+    transaction: AccountTransaction;
+    currency: string;
+    locale: string;
+    ar: boolean;
+}) {
+    const items = transaction.items ?? [];
+
+    if (items.length === 0) {
+        return <span className="text-slate-400">—</span>;
+    }
+
+    const total = items.reduce(
+        (sum, item) => sum + toNumber(item.line_total),
+        0,
+    );
+
+    return (
+        <div className="flex flex-col gap-0.5">
+            {items.map((item, index) => {
+                const discountPercent = toNumber(item.discount_percent);
+                const discountAmount = toNumber(item.line_discount);
+
+                return (
+                    <div key={index}>
+                        <div className="flex justify-between gap-2">
+                            <span>
+                                {item.description || (ar ? 'صنف' : 'Item')}
+                                {' × '}
+                                {displayQuantity(item.quantity)}
+                                {' @ '}
+                                {displayMoney(item.unit_price, currency, locale)}
+                            </span>
+
+                            <span className="font-semibold">
+                                {displayMoney(item.line_total, currency, locale)}
+                            </span>
+                        </div>
+
+                        {(discountPercent > 0.00005 || discountAmount > 0.00005) && (
+                            <div className="text-[7px] text-slate-500">
+                                {ar ? 'خصم ' : 'Discount '}
+                                {discountPercent > 0.00005
+                                    ? displayQuantity(item.discount_percent) + '%'
+                                    : ''}
+                                {discountPercent > 0.00005 && discountAmount > 0.00005 ? ' · ' : ''}
+                                {discountAmount > 0.00005
+                                    ? '-' + displayMoney(item.line_discount, currency, locale)
+                                    : ''}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+
+            <div className="mt-0.5 flex justify-between gap-2 border-t border-dashed border-slate-300 pt-0.5 font-bold">
+                <span>{ar ? 'الإجمالي' : 'Total'}</span>
+                <span>{displayMoney(total, currency, locale)}</span>
+            </div>
         </div>
     );
 }

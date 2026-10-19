@@ -1,12 +1,14 @@
 import { AdminManualPaymentReviewLauncher } from '@/components/billing/AdminManualPaymentReviewLauncher';
 import { ManualPaymentRequestLauncher } from '@/components/billing/ManualPaymentRequestLauncher';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
+import { useLiveRemountKey } from '@/lib/live';
 import { initializeLocale } from '@/lib/locale';
 import '../css/app.css';
 import '../css/ai-sidekick.css';
 
 import { createInertiaApp } from '@inertiajs/react';
 import type { ResolvedComponent } from '@inertiajs/react';
+import type { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 
 /**
@@ -23,6 +25,38 @@ type InertiaPageModule = {
 const pages = import.meta.glob<InertiaPageModule>(
     './pages/**/*.tsx',
 );
+
+const liveWrappers = new WeakMap<object, ResolvedComponent>();
+
+/**
+ * Re-mount a page when the live watcher finds that its data went stale and the
+ * page cannot refresh itself. The wrapper is cached so ordinary navigation and
+ * Inertia state preservation behave exactly as before.
+ */
+function withLiveRemount(
+    Page: ResolvedComponent,
+): ResolvedComponent {
+    if (typeof Page !== 'function') {
+        return Page;
+    }
+
+    const cached = liveWrappers.get(Page);
+
+    if (cached) {
+        return cached;
+    }
+
+    const Wrapped = (props: Record<string, unknown>) => {
+        const key = useLiveRemountKey();
+        const Component = Page as ComponentType<Record<string, unknown>>;
+
+        return <Component key={key} {...props} />;
+    };
+
+    liveWrappers.set(Page, Wrapped);
+
+    return Wrapped;
+}
 
 const pageReloadKey =
     'acconova:inertia-page-import-reload';
@@ -104,7 +138,7 @@ async function resolvePage(
             clearReloadMarker();
         }
 
-        return module.default;
+        return withLiveRemount(module.default);
     } catch (error) {
         if (
             typeof window !==

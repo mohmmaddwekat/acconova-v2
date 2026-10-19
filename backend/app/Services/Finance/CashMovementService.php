@@ -9,6 +9,7 @@ use App\Models\FinancialDocument;
 use App\Models\GovernmentObligation;
 use App\Models\Party;
 use App\Tenancy\TenantContext;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -24,6 +25,13 @@ class CashMovementService
     {
         return DB::transaction(function () use ($data, $actorId): CashMovement {
             $this->assertReferences($data);
+            $data = $this->applyEndorsedCheque($data);
+            $this->assertUniqueCheque(
+                (string) $data['direction'],
+                $data['method'] ?? null,
+                $data['check_number'] ?? null,
+                $data['check_bank'] ?? null,
+            );
 
             $movement = CashMovement::create([
                 ...$this->payload($data),
@@ -68,6 +76,14 @@ class CashMovementService
 
             $data['direction'] = $direction;
             $this->assertReferences($data);
+            $data = $this->applyEndorsedCheque($data, $locked);
+            $this->assertUniqueCheque(
+                $direction,
+                $data['method'] ?? null,
+                $data['check_number'] ?? null,
+                $data['check_bank'] ?? null,
+                $locked,
+            );
 
             $locked->fill([
                 ...$this->payload([
@@ -109,6 +125,22 @@ class CashMovementService
             }
 
             $this->validateAllocations($locked);
+
+            $this->assertUniqueCheque(
+                $locked->direction,
+                $locked->method,
+                $locked->check_number,
+                $locked->check_bank,
+                $locked,
+            );
+
+            if (! $locked->corrected_from_id && ! $locked->reversal_of_id) {
+                $sameDay = $this->sameDayCashMovement($locked);
+
+                if ($sameDay) {
+                    $this->mergeIntoSameDay($locked, $sameDay);
+                }
+            }
 
             $source = null;
 
@@ -285,7 +317,7 @@ class CashMovementService
                 'category' => $locked->category,
                 'amount' => $locked->amount,
                 'currency' => $locked->currency,
-                'movement_date' => now()->toDateString(),
+                'movement_date' => $locked->movement_date?->format('Y-m-d') ?? now()->toDateString(),
                 'method' => $locked->method,
                 'account_label' => $locked->account_label,
                 'branch_label' => $locked->branch_label,
@@ -542,6 +574,232 @@ class CashMovementService
         ]);
     }
 
+    /**
+     * Received cheques still held by the business that can be endorsed to a payee:
+     * posted, pending incoming cheques not already used by a live outgoing cheque movement.
+     *
+     * @return Collection<int, CashMovement>
+     */
+    public function chequesOnHand(?int $excludeMovementId = null): Collection
+    {
+        $usedKeys = CashMovement::query()
+            ->where('method', 'check')
+            ->where('direction', 'outgoing')
+            ->whereIn('status', ['draft', 'posted'])
+            ->whereNull('reversal_of_id')
+            ->whereNotNull('check_number')
+            ->when($excludeMovementId, fn ($query, $id) => $query->where('id', '!=', $id))
+            ->get(['check_number', 'check_bank'])
+            ->map(fn (CashMovement $movement): string => $this->chequeKey($movement->check_number, $movement->check_bank));
+
+        return CashMovement::query()
+            ->with('party:id,name,company_name')
+            ->where('method', 'check')
+            ->where('direction', 'incoming')
+            ->where('status', 'posted')
+            ->whereNull('reversal_of_id')
+            ->where('check_status', 'pending')
+            ->whereNotNull('check_number')
+            ->orderBy('check_due_date')
+            ->orderBy('id')
+            ->get()
+            ->reject(fn (CashMovement $movement): bool => $usedKeys->contains(
+                $this->chequeKey($movement->check_number, $movement->check_bank),
+            ))
+            ->values();
+    }
+
+    /**
+     * An outgoing cheque payment that endorses a held cheque takes its details from that cheque.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function applyEndorsedCheque(array $data, ?CashMovement $self = null): array
+    {
+        $endorsedId = $data['method_details']['endorsed_movement_id'] ?? null;
+
+        if (($data['method'] ?? null) !== 'check' || $data['direction'] !== 'outgoing' || ! $endorsedId) {
+            if (is_array($data['method_details'] ?? null)) {
+                unset($data['method_details']['endorsed_movement_id']);
+            }
+
+            return $data;
+        }
+
+        $cheque = $this->chequesOnHand($self?->id)->firstWhere('id', (int) $endorsedId);
+
+        if (! $cheque) {
+            throw ValidationException::withMessages([
+                'method_details.endorsed_movement_id' => [$this->message(
+                    'الشيك المختار غير متوفر للتجيير (ربما تم تحصيله أو استخدامه في دفعة أخرى).',
+                    'The selected cheque is no longer available to endorse (it may be cleared or already used).',
+                )],
+            ]);
+        }
+
+        if (abs((float) $cheque->amount - (float) $data['amount']) > 0.0001 || $cheque->currency !== $data['currency']) {
+            throw ValidationException::withMessages([
+                'amount' => [$this->message(
+                    'مبلغ وعملة الدفعة يجب أن تطابق الشيك المجيّر.',
+                    'The payment amount and currency must match the endorsed cheque.',
+                )],
+            ]);
+        }
+
+        $data['check_number'] = $cheque->check_number;
+        $data['check_bank'] = $cheque->check_bank;
+        $data['check_due_date'] = $cheque->check_due_date?->format('Y-m-d');
+        $data['method_details']['endorsed_movement_id'] = $cheque->id;
+
+        return $data;
+    }
+
+    private function chequeKey(?string $checkNumber, ?string $checkBank): string
+    {
+        return $this->normalizeChequeNumber($checkNumber).'|'.$this->normalizeBank($checkBank);
+    }
+
+    /**
+     * The same cheque (number and bank) can only be recorded once per direction.
+     * An endorsed cheque legitimately appears once incoming and once outgoing.
+     */
+    private function assertUniqueCheque(
+        string $direction,
+        ?string $method,
+        ?string $checkNumber,
+        ?string $checkBank,
+        ?CashMovement $self = null,
+    ): void {
+        $number = $this->normalizeChequeNumber($checkNumber);
+
+        if ($method !== 'check' || $number === '') {
+            return;
+        }
+
+        $bank = $this->normalizeBank($checkBank);
+
+        $duplicate = CashMovement::query()
+            ->where('method', 'check')
+            ->where('direction', $direction)
+            ->whereIn('status', ['draft', 'posted'])
+            ->whereNull('reversal_of_id')
+            ->whereNotNull('check_number')
+            ->when($self, function ($query) use ($self): void {
+                $query
+                    ->where('id', '!=', $self->id)
+                    ->where(fn ($chain) => $chain->whereNull('corrected_from_id')->orWhere('corrected_from_id', '!=', $self->id));
+
+                if ($self->corrected_from_id) {
+                    $query->where('id', '!=', $self->corrected_from_id);
+                }
+            })
+            ->get(['id', 'number', 'check_number', 'check_bank'])
+            ->first(function (CashMovement $movement) use ($number, $bank): bool {
+                $otherBank = $this->normalizeBank($movement->check_bank);
+
+                return $this->normalizeChequeNumber($movement->check_number) === $number
+                    && ($bank === '' || $otherBank === '' || $bank === $otherBank);
+            });
+
+        if ($duplicate) {
+            throw ValidationException::withMessages([
+                'check_number' => [$this->message(
+                    sprintf('هذا الشيك مسجل من قبل في الحركة %s (نفس رقم الشيك ونفس البنك).', $duplicate->number),
+                    sprintf('This cheque is already recorded in %s (same cheque number and bank).', $duplicate->number),
+                )],
+            ]);
+        }
+    }
+
+    private function normalizeChequeNumber(?string $value): string
+    {
+        $value = trim((string) $value);
+        $digits = preg_replace('/\D+/', '', $value) ?? '';
+
+        return $digits !== '' ? ltrim($digits, '0') ?: '0' : mb_strtolower($value);
+    }
+
+    private function normalizeBank(?string $value): string
+    {
+        return mb_strtolower(preg_replace('/\s+/u', '', (string) $value) ?? '');
+    }
+
+    /**
+     * Find a posted cash receipt or payment for the same party, day and direction.
+     */
+    private function sameDayCashMovement(CashMovement $movement): ?CashMovement
+    {
+        if (
+            $movement->method !== 'cash'
+            || ! $movement->party_id
+            || $movement->government_obligation_id
+            || ! in_array($movement->category, ['customer_receipt', 'supplier_payment'], true)
+        ) {
+            return null;
+        }
+
+        return CashMovement::query()
+            ->with('allocations')
+            ->where('id', '!=', $movement->id)
+            ->where('status', 'posted')
+            ->whereNull('reversal_of_id')
+            ->whereNull('government_obligation_id')
+            ->where('method', 'cash')
+            ->where('direction', $movement->direction)
+            ->where('category', $movement->category)
+            ->where('party_id', $movement->party_id)
+            ->where('currency', $movement->currency)
+            ->where('department_id', $movement->department_id)
+            ->whereDate('movement_date', $movement->movement_date->format('Y-m-d'))
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
+     * Turn a new same-day cash movement into a correction of the existing one
+     * carrying the combined amount, so the day keeps one cash entry per party
+     * while the earlier entry stays in the audit trail as reversed.
+     */
+    private function mergeIntoSameDay(CashMovement $movement, CashMovement $existing): void
+    {
+        $combined = [];
+
+        foreach ([$existing->allocations, $movement->allocations] as $allocations) {
+            foreach ($allocations as $allocation) {
+                $id = (int) $allocation->financial_document_id;
+                $combined[$id] = ($combined[$id] ?? 0) + (float) $allocation->amount;
+            }
+        }
+
+        $movement->corrected_from_id = $existing->id;
+        $movement->amount = number_format((float) $existing->amount + (float) $movement->amount, 4, '.', '');
+        $movement->correction_reason = $this->message(
+            'دمج دفعة نقدية لنفس الطرف بنفس اليوم مع '.$existing->number,
+            'Merged same-day cash for the same party with '.$existing->number,
+        );
+        $movement->notes = trim(implode(' | ', array_filter([$existing->notes, $movement->notes])));
+        $movement->save();
+
+        $movement->allocations()->delete();
+
+        foreach ($combined as $documentId => $amount) {
+            CashAllocation::create([
+                'cash_movement_id' => $movement->id,
+                'financial_document_id' => $documentId,
+                'amount' => number_format($amount, 4, '.', ''),
+            ]);
+        }
+
+        $movement->unsetRelation('allocations');
+        $this->validateAllocations($movement);
+    }
+
+    private function message(string $arabic, string $english): string
+    {
+        return app()->getLocale() === 'ar' ? $arabic : $english;
+    }
+
     private function syncAllocations(CashMovement $movement, array $allocations): void
     {
         $movement->allocations()->delete();
@@ -560,6 +818,17 @@ class CashMovementService
 
         $movement->load('allocations.document');
         $this->validateAllocations($movement);
+
+        /* Paying invoices makes it a party receipt/payment, whatever category was picked, so the account statement and balance include it. */
+        $expected = $movement->direction === 'incoming' ? 'customer_receipt' : 'supplier_payment';
+
+        if (
+            $movement->allocations->isNotEmpty()
+            && ! in_array($movement->category, [$expected, 'correction', 'refund'], true)
+        ) {
+            $movement->category = $expected;
+            $movement->save();
+        }
     }
 
     private function validateAllocations(CashMovement $movement): void

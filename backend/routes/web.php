@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Account\ProfileCenterController;
 use App\Http\Controllers\Account\ProfileController;
+use App\Http\Controllers\Account\PublicProfileController;
 use App\Http\Controllers\Analytics\BusinessControlController;
 use App\Http\Controllers\Analytics\BusinessPulseController;
 use App\Http\Controllers\Analytics\DashboardIntelligenceController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Collaboration\RecordCollaborationController;
 use App\Http\Controllers\Documents\DocumentFulfillmentController;
 use App\Http\Controllers\Finance\BankReconciliationController;
 use App\Http\Controllers\Finance\CashMovementController;
+use App\Http\Controllers\Finance\FinanceArchiveController;
 use App\Http\Controllers\Finance\FinanceDocumentController;
 use App\Http\Controllers\Finance\FinanceImportController;
 use App\Http\Controllers\Finance\FinanceLookupController;
@@ -25,6 +27,7 @@ use App\Http\Controllers\Governance\BulkActionHistoryController;
 use App\Http\Controllers\Governance\NotificationRuleController;
 use App\Http\Controllers\Governance\RestoreCenterController;
 use App\Http\Controllers\Governance\SystemCheckController;
+use App\Http\Controllers\Live\LiveVersionController;
 use App\Http\Controllers\Operations\CommercialOperationsController;
 use App\Http\Controllers\Parties\CustomerIntelligenceController;
 use App\Http\Controllers\Parties\PartyPricingController;
@@ -256,6 +259,9 @@ Route::middleware([
         ->name('app.ai');
 
     Route::get('/app/profile', fn () => Inertia::render('Profile'))->name('app.profile');
+    Route::get('/app/people/{user}', fn (int $user) => Inertia::render('PublicProfile', ['userId' => $user]))
+        ->whereNumber('user')
+        ->name('app.people.show');
     Route::get('/app/team-space', fn () => Inertia::render('TeamSpace'))->name('app.team-space');
     Route::get(
         '/app/staff',
@@ -660,6 +666,11 @@ Route::middleware([
         '/app/admin/restore',
         fn () => Inertia::render('Admin/RestoreCenter'),
     )->name('app.admin.restore');
+
+    Route::get(
+        '/app/finance/archive',
+        fn () => Inertia::render('Finance/Archive'),
+    )->name('app.finance.archive');
 
     Route::get(
         '/app/finance/approvals',
@@ -1352,6 +1363,10 @@ Route::prefix(
         Route::post('finance-import/preview', [FinanceImportController::class, 'preview'])->middleware('throttle:12,1');
         Route::post('finance-import/commit', [FinanceImportController::class, 'commit'])->middleware('throttle:6,1');
 
+        Route::get('finance/archive', [FinanceArchiveController::class, 'index']);
+        Route::post('finance/archive/delete', [FinanceArchiveController::class, 'destroy'])->middleware('throttle:20,1');
+        Route::patch('finance/archive/settings', [FinanceArchiveController::class, 'settings']);
+
         Route::get('finance/documents', [FinanceDocumentController::class, 'index']);
         Route::post('finance/documents', [FinanceDocumentController::class, 'store']);
         Route::get('finance/documents/{document}', [FinanceDocumentController::class, 'show'])->whereNumber('document');
@@ -1383,6 +1398,7 @@ Route::prefix(
             'finance/cash-movements/duplicate-check',
             [CashMovementController::class, 'duplicateCheck'],
         );
+        Route::get('finance/cash-movements/cheques-on-hand', [CashMovementController::class, 'chequesOnHand']);
         Route::get('finance/cash-movements', [CashMovementController::class, 'index']);
         Route::post('finance/cash-movements', [CashMovementController::class, 'store']);
         Route::get('finance/cash-movements/{movement}', [CashMovementController::class, 'show'])->whereNumber('movement');
@@ -1640,6 +1656,8 @@ Route::prefix(
         'verified',
         ResolveOrganization::class,
     ])->group(function (): void {
+        Route::get('live/version', LiveVersionController::class);
+
         Route::get(
             'payment-plans',
             [
@@ -1730,6 +1748,9 @@ Route::middleware(['auth', 'throttle:30,1'])->prefix('api/profile')->group(funct
     Route::delete('/sessions', [ProfileController::class, 'sessions'])->middleware('throttle:6,1');
     Route::post('/email', [ProfileController::class, 'email'])->middleware('throttle:6,1');
     Route::get('/email/confirm', [ProfileController::class, 'confirmEmail'])->middleware('signed')->name('profile.email.confirm');
+    Route::patch('/privacy', [ProfileController::class, 'privacy']);
+    Route::get('/people/{user}', [PublicProfileController::class, 'show'])->whereNumber('user');
+    Route::get('/people/{user}/avatar', [PublicProfileController::class, 'avatar'])->whereNumber('user')->name('profile.people.avatar');
 });
 
 require __DIR__.'/api/ai.php';

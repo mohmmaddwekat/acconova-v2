@@ -22,6 +22,8 @@ return [
     'permanent_delete_requires_archive' => 'Archive this record before deleting it permanently.',
     'permanent_delete_blocked' => 'This record cannot be deleted permanently because protected business records still reference it. Archive it instead.',
 
+    'approval_required' => 'This action needs approval from someone else before it can continue, and was saved as a draft pending that (the requester cannot approve their own request). Ask another user with approval permission to review it on the Approvals page, or adjust the approval threshold/rule in Settings if no other reviewer is available.',
+
     'warehouse_default_archive_blocked' => 'Choose another default warehouse before archiving this warehouse.',
     'warehouse_stock_archive_blocked' => 'Move or adjust this warehouse stock to zero before archiving it.',
     'product_stock_archive_blocked' => 'Move or adjust this product inventory to zero before archiving it.',

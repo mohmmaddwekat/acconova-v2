@@ -8,6 +8,8 @@ use App\Models\Membership;
 use App\Models\StaffEntry;
 use App\Models\StaffMember;
 use App\Models\WorkspaceRole;
+use App\Services\Staff\StaffMonthlyEntitlementService;
+use App\Support\CompanyEmailDomains;
 use App\Support\InventoryQuantity as Decimal;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -1039,6 +1041,31 @@ class StaffController extends Controller
                 'max:50',
             ],
 
+            'contact_email' => [
+                'nullable',
+                'email:rfc',
+                'max:255',
+
+                function (
+                    string $attribute,
+                    mixed $value,
+                    \Closure $fail,
+                ): void {
+                    if (
+                        filled($value)
+                        && ! app(
+                            CompanyEmailDomains::class,
+                        )->allows(
+                            (string) $value,
+                        )
+                    ) {
+                        $fail(
+                            'The email must use your company domain.',
+                        );
+                    }
+                },
+            ],
+
             'user_id' => [
                 'nullable',
                 'integer',
@@ -1164,6 +1191,12 @@ class StaffController extends Controller
                 $this->rules(),
             );
 
+        if (array_key_exists('contact_email', $data)) {
+            $data['contact_email'] = filled($data['contact_email'])
+                ? strtolower(trim($data['contact_email']))
+                : null;
+        }
+
         $canManageAll =
             self::allowed(
                 'staff.manage',
@@ -1225,6 +1258,12 @@ class StaffController extends Controller
             $request->validate(
                 $this->rules(),
             );
+
+        if (array_key_exists('contact_email', $data)) {
+            $data['contact_email'] = filled($data['contact_email'])
+                ? strtolower(trim($data['contact_email']))
+                : null;
+        }
 
         /*
          * A department-scoped manager may not move an employee out of their
@@ -1295,6 +1334,17 @@ class StaffController extends Controller
                         ]);
                     }
 
+                    abort_if(
+                        $member->user_id
+                        && array_key_exists(
+                            'contact_email',
+                            $data,
+                        )
+                        && $data['contact_email'] !== $member->contact_email,
+                        422,
+                        'This employee already has an account, so the email cannot be changed here.',
+                    );
+
                     $before =
                         $member->toArray();
 
@@ -1323,6 +1373,20 @@ class StaffController extends Controller
                             'after' => $member->toArray(),
                         ],
                     ]);
+
+                    /*
+                     * Salary entries are derived from the terms history, so
+                     * rebuild them now instead of leaving the stored balance
+                     * stale until someone opens this employee's ledger.
+                     */
+                    app(
+                        StaffMonthlyEntitlementService::class,
+                    )->syncMember(
+                        $member,
+                        (int) $request
+                            ->user()
+                            ->id,
+                    );
 
                     return $member;
                 },

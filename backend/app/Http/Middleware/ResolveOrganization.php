@@ -55,6 +55,8 @@ class ResolveOrganization
                     throw $exception;
                 }
 
+                $request->attributes->set('tenant.organization_id', $context->id());
+
                 return $next($request);
             };
 

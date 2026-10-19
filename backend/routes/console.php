@@ -6,9 +6,11 @@ use App\Models\User;
 use App\Services\Billing\BillingGrowthLifecycleService;
 use App\Services\Billing\BillingGrowthService;
 use App\Services\Billing\StripeSubscriptionManager;
+use App\Services\Finance\FinanceArchiveService;
 use App\Services\Finance\InvoiceAutomationService;
 use App\Services\Notifications\NotificationCenter;
 use App\Services\Reports\ScheduledReportService;
+use App\Services\Staff\StaffMonthlyEntitlementService;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -93,6 +95,31 @@ Artisan::command('invoices:sync-recurring', function (): void {
 
 Schedule::command('invoices:sync-recurring')->hourly()->withoutOverlapping();
 
+Artisan::command('staff:sync-entitlements', function (): void {
+    $tenant = app(TenantContext::class);
+
+    Organization::query()->chunkById(100, function ($organizations) use ($tenant): void {
+        foreach ($organizations as $organization) {
+            $ownerId = $organization->users()
+                ->wherePivot('role', OrganizationRole::Owner->value)
+                ->value('users.id');
+
+            if (! $ownerId) {
+                continue;
+            }
+
+            try {
+                $tenant->set($organization, OrganizationRole::Owner);
+                app(StaffMonthlyEntitlementService::class)->syncOrganization((int) $ownerId);
+            } finally {
+                $tenant->clear();
+            }
+        }
+    });
+})->purpose('Accrue attendance-backed salary so every employee balance is current');
+
+Schedule::command('staff:sync-entitlements')->hourly()->withoutOverlapping();
+
 Artisan::command('billing:growth-sync', function (): void {
     Organization::query()->chunkById(100, function ($organizations): void {
         foreach ($organizations as $organization) {
@@ -121,6 +148,32 @@ Artisan::command('billing:sync-addons', function (): void {
     $this->table(['Add-on', 'Interval', 'Stripe Price', 'Status'], $rows);
     $this->info('AccoNova Stripe add-on catalog is ready.');
 })->purpose('Create or reuse recurring Stripe products and prices for capacity add-ons');
+
+Artisan::command('finance:purge-archive', function (): void {
+    $tenant = app(TenantContext::class);
+
+    Organization::query()->chunkById(100, function ($organizations) use ($tenant): void {
+        foreach ($organizations as $organization) {
+            if (! ($organization->preferences[FinanceArchiveService::AUTO_PURGE_PREFERENCE] ?? false)) {
+                continue;
+            }
+
+            $ownerId = $organization->users()
+                ->wherePivot('role', OrganizationRole::Owner->value)
+                ->value('users.id');
+
+            try {
+                $tenant->set($organization, OrganizationRole::Owner);
+                $deleted = app(FinanceArchiveService::class)->purgeOlderThan(now()->subMonth(), (int) $ownerId);
+                $this->info("{$organization->name}: {$deleted['documents']} invoices, {$deleted['movements']} cash movements, {$deleted['adjustments']} difference entries deleted.");
+            } finally {
+                $tenant->clear();
+            }
+        }
+    });
+})->purpose('Delete finance archive records older than a month for workspaces that turned on automatic clean-up');
+
+Schedule::command('finance:purge-archive')->monthly()->withoutOverlapping();
 
 Artisan::command('billing:revenue-report', function (): void {
     $metrics = app(BillingGrowthService::class)->platformMetrics();

@@ -282,49 +282,49 @@ class SupplierPaymentPlanTest extends TestCase
         $this->postJson("/api/finance/supplier-payment-plans/{$plan['id']}/approve")->assertForbidden();
     }
 
-    public function test_a_party_who_is_both_customer_and_supplier_is_planned_on_the_supplier_side_with_the_offset_noted(): void
+    public function test_a_party_who_is_both_customer_and_supplier_is_planned_on_the_net_amount_with_the_offset_noted(): void
     {
         $this->cash(1000);
         $dual = $this->party('Both Ways', ['customer', 'supplier']);
         $this->patchJson("/api/parties/{$dual}/opening-balances", [
-            'customer' => ['amount' => '500', 'as_of_date' => '2026-01-01'],
+            'customer' => ['amount' => '100', 'as_of_date' => '2026-01-01'],
             'supplier' => ['amount' => '300', 'as_of_date' => '2026-01-01'],
         ])->assertOk();
 
         $plan = $this->proposal('confirmed_only');
         $payment = $this->paymentsFor($plan, $dual)[0];
-        $this->assertSame('300.0000', $payment['amount'], 'only what we owe as a supplier, never the customer side');
+        $this->assertSame('200.0000', $payment['amount'], 'what we owe as a supplier less what the party owes us as a customer');
         $this->assertContains('also_customer', array_column($payment['reasons'], 'code'));
         $this->assertContains('carried_balance', array_column($payment['reasons'], 'code'));
     }
 
-    public function test_an_approved_settlement_lowers_the_payment_and_a_rejected_one_changes_nothing_while_the_net_position_holds(): void
+    public function test_a_settlement_moves_the_side_positions_but_the_netted_payment_holds(): void
     {
         $this->cash(1000);
         $dual = $this->party('Both Ways', ['customer', 'supplier']);
         $this->patchJson("/api/parties/{$dual}/opening-balances", [
-            'customer' => ['amount' => '500', 'as_of_date' => '2026-01-01'],
+            'customer' => ['amount' => '100', 'as_of_date' => '2026-01-01'],
             'supplier' => ['amount' => '300', 'as_of_date' => '2026-01-01'],
         ])->assertOk();
 
         $positions = fn (): array => $this->getJson("/api/parties/{$dual}/account?scope=all&date_from=2026-01-01&date_to=".now()->toDateString())->assertOk()->json('positions');
-        $body = fn (string $reference): array => ['amount' => '200', 'settlement_date' => now()->toDateString(), 'agreement_reference' => $reference, 'agreement_date' => now()->toDateString(), 'agreement_notes' => 'Signed'];
+        $body = fn (string $reference): array => ['amount' => '100', 'settlement_date' => now()->toDateString(), 'agreement_reference' => $reference, 'agreement_date' => now()->toDateString(), 'agreement_notes' => 'Signed'];
 
         $before = $positions();
-        $this->assertSame('300.0000', $this->paymentsFor($this->proposal('confirmed_only'), $dual)[0]['amount']);
+        $this->assertSame('200.0000', $this->paymentsFor($this->proposal('confirmed_only'), $dual)[0]['amount']);
 
         $rejected = $this->postJson("/api/parties/{$dual}/settlements", $body('AGR-R'))->assertCreated()->json('data.id');
         $this->postJson("/api/parties/{$dual}/settlements/{$rejected}/reject", ['reason' => 'Not agreed'])->assertOk();
         $this->assertSame($before, $positions(), 'a rejected settlement changes no balance');
-        $this->assertSame('300.0000', $this->paymentsFor($this->proposal('confirmed_only'), $dual)[0]['amount']);
+        $this->assertSame('200.0000', $this->paymentsFor($this->proposal('confirmed_only'), $dual)[0]['amount']);
 
         $approved = $this->postJson("/api/parties/{$dual}/settlements", $body('AGR-A'))->assertCreated()->json('data.id');
         $this->postJson("/api/parties/{$dual}/settlements/{$approved}/approve")->assertOk();
         $after = $positions();
 
-        $this->assertSame('300.0000', $after['customer']);
-        $this->assertSame('100.0000', $after['supplier']);
+        $this->assertSame('0.0000', $after['customer']);
+        $this->assertSame('200.0000', $after['supplier']);
         $this->assertEquals((float) $before['customer'] - (float) $before['supplier'], (float) $after['customer'] - (float) $after['supplier'], 'what the party owes us net of what we owe them is unchanged');
-        $this->assertSame('100.0000', $this->paymentsFor($this->proposal('confirmed_only'), $dual)[0]['amount'], 'the plan pays only what is still owed after the offset');
+        $this->assertSame('200.0000', $this->paymentsFor($this->proposal('confirmed_only'), $dual)[0]['amount'], 'the plan already paid the net amount, so the settlement does not change it');
     }
 }

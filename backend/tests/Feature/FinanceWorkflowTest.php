@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Tenancy\OrganizationAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class FinanceWorkflowTest extends TestCase
@@ -114,6 +115,392 @@ class FinanceWorkflowTest extends TestCase
             'auditable_id' => $documentId,
             'action' => 'superseded',
         ]);
+    }
+
+    public function test_correction_draft_opens_with_the_original_invoice_data(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance correction data');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Historical Customer');
+        $productId = $this->product('Historical Item', '3.5000', '2.0000');
+        $warehouseId = $this->warehouse('Main Warehouse');
+
+        $this->patchJson("/api/inventory/products/{$productId}/settings", ['track_inventory' => true, 'low_stock_threshold' => '1'])->assertOk();
+        $this->postJson("/api/inventory/products/{$productId}/opening-stock", ['warehouse_id' => $warehouseId, 'quantity' => '10'])->assertOk();
+
+        $documentId = $this->postJson('/api/finance/documents', [
+            ...$this->invoicePayload('sale_invoice', $customerId, $warehouseId, $productId, '4', '3.5'),
+            'external_number' => 'OLD-2021-7',
+            'notes' => 'Imported from the legacy ledger',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson("/api/finance/documents/{$documentId}/issue", ['acknowledge_warnings' => true])->assertOk();
+
+        $this->postJson("/api/finance/documents/{$documentId}/correct", ['reason' => 'Fix the quantity on an old invoice'])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'draft')
+            ->assertJsonPath('data.issue_date', '2026-09-20')
+            ->assertJsonPath('data.due_date', '2026-10-20')
+            ->assertJsonPath('data.external_number', 'OLD-2021-7')
+            ->assertJsonPath('data.notes', 'Imported from the legacy ledger')
+            ->assertJsonPath('data.party.id', $customerId)
+            ->assertJsonPath('data.lines.0.product_id', $productId)
+            ->assertJsonPath('data.lines.0.quantity', '4.0000')
+            ->assertJsonPath('data.lines.0.unit_price', '3.5000');
+    }
+
+    public function test_a_party_cannot_have_two_invoices_of_the_same_kind_on_one_day(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance same day');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Daily Customer');
+        $this->issuedServiceInvoice($customerId, '2026-09-20', '100');
+
+        $this->postJson('/api/finance/documents', $this->serviceInvoicePayload($customerId, '2026-09-20', '50'))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('issue_date');
+
+        $this->postJson('/api/finance/documents', $this->serviceInvoicePayload($customerId, '2026-09-21', '50'))
+            ->assertCreated();
+
+        /* An unfinished draft does not block the day; only issued invoices do. */
+        $this->postJson('/api/finance/documents', $this->serviceInvoicePayload($customerId, '2026-09-24', '70'))->assertCreated();
+        $this->issuedServiceInvoice($customerId, '2026-09-24', '80');
+    }
+
+    public function test_open_only_lists_payable_invoices_oldest_due_first_for_auto_allocation(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance open invoices');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'FIFO Customer');
+        $newestId = $this->issuedServiceInvoice($customerId, '2026-09-25', '300');
+        $oldestId = $this->issuedServiceInvoice($customerId, '2026-09-01', '100');
+        $middleId = $this->issuedServiceInvoice($customerId, '2026-09-10', '200');
+        $this->postJson('/api/finance/documents', $this->serviceInvoicePayload($customerId, '2026-08-01', '50'))->assertCreated();
+
+        $this->getJson("/api/finance/documents?kind=sale_invoice&party_id={$customerId}&open_only=1")
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.id', $oldestId)
+            ->assertJsonPath('data.1.id', $middleId)
+            ->assertJsonPath('data.2.id', $newestId);
+    }
+
+    public function test_same_amount_purchases_a_few_days_apart_issue_without_a_duplicate_warning(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance nearby purchases');
+        $this->actingInWorkspace($owner, $organization);
+
+        $supplierId = $this->party('supplier', 'Regular Supplier');
+        $purchase = fn (string $date) => [
+            ...$this->serviceInvoicePayload($supplierId, $date, '2400'),
+            'kind' => 'purchase_invoice',
+        ];
+
+        $firstId = $this->postJson('/api/finance/documents', $purchase('2023-12-14'))->assertCreated()->json('data.id');
+        $this->postJson("/api/finance/documents/{$firstId}/issue", ['acknowledge_warnings' => false])->assertOk();
+
+        $secondId = $this->postJson('/api/finance/documents', $purchase('2023-12-11'))->assertCreated()->json('data.id');
+        $this->getJson("/api/finance/documents/{$secondId}/warnings")->assertOk()->assertJsonCount(0, 'data');
+        $this->postJson("/api/finance/documents/{$secondId}/issue", ['acknowledge_warnings' => false])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'issued');
+    }
+
+    public function test_voided_and_superseded_invoices_can_be_deleted_but_active_ones_cannot(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance delete');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Delete Customer');
+
+        $voidedId = $this->issuedServiceInvoice($customerId, '2026-09-20', '100');
+        $this->deleteJson("/api/finance/documents/{$voidedId}")->assertUnprocessable()->assertJsonValidationErrors('status');
+        $this->postJson("/api/finance/documents/{$voidedId}/void", ['reason' => 'Entered by mistake'])->assertOk();
+        $this->deleteJson("/api/finance/documents/{$voidedId}")->assertNoContent();
+        $this->assertDatabaseMissing('financial_documents', ['id' => $voidedId]);
+
+        $originalId = $this->issuedServiceInvoice($customerId, '2026-09-22', '100');
+        $correctionId = $this->postJson("/api/finance/documents/{$originalId}/correct", ['reason' => 'Price changed after delivery'])
+            ->assertCreated()->json('data.id');
+        $this->postJson("/api/finance/documents/{$correctionId}/issue", ['acknowledge_warnings' => true])->assertOk();
+
+        $this->deleteJson("/api/finance/documents/{$originalId}")->assertNoContent();
+        $this->assertDatabaseHas('financial_documents', ['id' => $correctionId, 'status' => 'issued', 'corrected_from_id' => null]);
+    }
+
+    public function test_a_paid_invoice_can_be_voided_and_its_payment_stays_as_advance_credit(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance void paid');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Mistake Customer');
+        $invoiceId = $this->issuedServiceInvoice($customerId, '2026-09-20', '100');
+
+        $receiptId = $this->postJson('/api/finance/cash-movements', [
+            'direction' => 'incoming',
+            'party_id' => $customerId,
+            'category' => 'customer_receipt',
+            'amount' => '100',
+            'currency' => 'ILS',
+            'movement_date' => '2026-09-21',
+            'method' => 'cash',
+            'allocations' => [['financial_document_id' => $invoiceId, 'amount' => '100']],
+        ])->assertCreated()->json('data.id');
+        $this->postJson("/api/finance/cash-movements/{$receiptId}/post")->assertOk();
+        $this->getJson("/api/finance/documents/{$invoiceId}")->assertOk()->assertJsonPath('data.status', 'paid');
+
+        $this->postJson("/api/finance/documents/{$invoiceId}/void", ['reason' => 'Entered by mistake'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'voided');
+
+        $this->assertDatabaseMissing('cash_allocations', ['financial_document_id' => $invoiceId]);
+        $this->assertDatabaseHas('cash_movements', ['id' => $receiptId, 'status' => 'posted']);
+
+        $nextInvoiceId = $this->issuedServiceInvoice($customerId, '2026-09-25', '100');
+        $this->getJson("/api/finance/documents/{$nextInvoiceId}/available-credits")
+            ->assertOk()
+            ->assertJsonFragment(['id' => $receiptId]);
+    }
+
+    public function test_the_same_cheque_cannot_be_recorded_twice_in_one_direction(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance cheques');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Cheque Customer');
+        $cheque = fn (string $number, string $direction) => [
+            'direction' => $direction,
+            'party_id' => $direction === 'incoming' ? $customerId : null,
+            'category' => $direction === 'incoming' ? 'customer_receipt' : 'other_expense',
+            'amount' => '100',
+            'currency' => 'ILS',
+            'movement_date' => '2026-09-20',
+            'method' => 'check',
+            'check_number' => $number,
+            'check_bank' => 'Bank of Palestine',
+            'check_due_date' => '2026-10-01',
+            'allocations' => [],
+        ];
+
+        $this->postJson('/api/finance/cash-movements', $cheque('4521', 'incoming'))->assertCreated();
+
+        $this->postJson('/api/finance/cash-movements', $cheque('004521', 'incoming'))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('check_number');
+
+        $this->postJson('/api/finance/cash-movements', $cheque('4521', 'outgoing'))->assertCreated();
+    }
+
+    public function test_a_payment_can_endorse_a_received_cheque_on_hand(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance endorsement');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Cheque Customer');
+        $receivedId = $this->postJson('/api/finance/cash-movements', [
+            'direction' => 'incoming',
+            'party_id' => $customerId,
+            'category' => 'customer_receipt',
+            'amount' => '250',
+            'currency' => 'ILS',
+            'movement_date' => '2026-09-20',
+            'method' => 'check',
+            'check_number' => '7788',
+            'check_bank' => 'Bank of Palestine',
+            'check_due_date' => '2026-10-15',
+            'allocations' => [],
+        ])->assertCreated()->json('data.id');
+
+        $this->getJson('/api/finance/cash-movements/cheques-on-hand')->assertOk()->assertJsonCount(0, 'data');
+
+        $this->postJson("/api/finance/cash-movements/{$receivedId}/post")->assertOk();
+
+        $this->getJson('/api/finance/cash-movements/cheques-on-hand')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $receivedId)
+            ->assertJsonPath('data.0.check_number', '7788');
+
+        $payment = fn (string $amount) => [
+            'direction' => 'outgoing',
+            'category' => 'other_expense',
+            'amount' => $amount,
+            'currency' => 'ILS',
+            'movement_date' => '2026-09-25',
+            'method' => 'check',
+            'check_number' => 'typed-by-hand',
+            'check_bank' => 'Other bank',
+            'check_due_date' => '2026-12-01',
+            'method_details' => ['endorsed_movement_id' => $receivedId],
+            'allocations' => [],
+        ];
+
+        $this->postJson('/api/finance/cash-movements', $payment('100'))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('amount');
+
+        $paymentId = $this->postJson('/api/finance/cash-movements', $payment('250'))
+            ->assertCreated()
+            ->assertJsonPath('data.check_number', '7788')
+            ->assertJsonPath('data.check_bank', 'Bank of Palestine')
+            ->assertJsonPath('data.check_due_date', '2026-10-15')
+            ->json('data.id');
+
+        $this->getJson('/api/finance/cash-movements/cheques-on-hand')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson("/api/finance/cash-movements/cheques-on-hand?exclude_id={$paymentId}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->postJson('/api/finance/cash-movements', $payment('250'))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('method_details.endorsed_movement_id');
+    }
+
+    public function test_an_imported_receipt_keeps_its_method_when_edited_even_if_settings_disable_it(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance imported method');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Imported Customer');
+        $receipt = [
+            'direction' => 'incoming',
+            'party_id' => $customerId,
+            'category' => 'customer_receipt',
+            'amount' => '7500',
+            'currency' => 'ILS',
+            'movement_date' => '2024-10-01',
+            'method' => 'cash',
+            'allocations' => [],
+        ];
+
+        $receiptId = $this->postJson('/api/finance/cash-movements', $receipt)->assertCreated()->json('data.id');
+        $this->postJson("/api/finance/cash-movements/{$receiptId}/post")->assertOk();
+
+        /* Imports write "other" directly, even though the workspace does not offer it for new entries. */
+        DB::table('cash_movements')->where('id', $receiptId)->update(['method' => 'other']);
+
+        $draftId = $this->postJson("/api/finance/cash-movements/{$receiptId}/correct", ['reason' => 'Fix the amount'])
+            ->assertCreated()->json('data.id');
+
+        $this->patchJson("/api/finance/cash-movements/{$draftId}", [...$receipt, 'method' => 'other', 'amount' => '1711'])
+            ->assertOk()
+            ->assertJsonPath('data.amount', '1711.0000');
+
+        $this->postJson('/api/finance/cash-movements', [...$receipt, 'method' => 'other', 'movement_date' => '2024-10-02'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('method');
+    }
+
+    public function test_corrected_records_move_to_the_archive_and_can_be_deleted_from_it(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance archive');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Archive Customer');
+        $originalId = $this->issuedServiceInvoice($customerId, '2026-09-20', '100');
+        $replacementId = $this->postJson("/api/finance/documents/{$originalId}/correct", ['reason' => 'Wrong price entered'])
+            ->assertCreated()->json('data.id');
+        $this->postJson("/api/finance/documents/{$replacementId}/issue", ['acknowledge_warnings' => true])->assertOk();
+
+        $receiptId = $this->postJson('/api/finance/cash-movements', [
+            'direction' => 'incoming',
+            'party_id' => $customerId,
+            'category' => 'customer_receipt',
+            'amount' => '40',
+            'currency' => 'ILS',
+            'movement_date' => '2026-09-21',
+            'method' => 'cash',
+            'allocations' => [],
+        ])->assertCreated()->json('data.id');
+        $this->postJson("/api/finance/cash-movements/{$receiptId}/post")->assertOk();
+        $correctedReceiptId = $this->postJson("/api/finance/cash-movements/{$receiptId}/correct", ['reason' => 'Amount typo'])
+            ->assertCreated()->json('data.id');
+        $this->postJson("/api/finance/cash-movements/{$correctedReceiptId}/post")->assertOk();
+
+        $this->getJson("/api/finance/documents?kind=sale_invoice&party_id={$customerId}")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $replacementId);
+        $this->getJson("/api/finance/cash-movements?party_id={$customerId}")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $correctedReceiptId);
+
+        $this->getJson('/api/finance/archive')
+            ->assertOk()
+            ->assertJsonPath('data.documents.0.id', $originalId)
+            ->assertJsonPath('data.documents.0.status', 'superseded')
+            ->assertJsonPath('data.movements.0.id', $receiptId)
+            ->assertJsonPath('auto_purge', false);
+
+        $this->postJson('/api/finance/archive/delete', ['documents' => [$replacementId]])->assertUnprocessable();
+
+        $this->postJson('/api/finance/archive/delete', ['documents' => [$originalId], 'movements' => [$receiptId]])
+            ->assertOk()
+            ->assertJsonPath('data.documents', 1)
+            ->assertJsonPath('data.movements', 1);
+
+        $this->assertDatabaseMissing('financial_documents', ['id' => $originalId]);
+        $this->assertDatabaseMissing('cash_movements', ['id' => $receiptId]);
+        $this->assertDatabaseMissing('cash_movements', ['reversal_of_id' => $receiptId]);
+        $this->assertDatabaseHas('cash_movements', ['id' => $correctedReceiptId, 'status' => 'posted']);
+    }
+
+    public function test_monthly_clean_up_only_runs_when_enabled_and_only_for_old_archive_records(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance archive purge');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Purge Customer');
+        $oldId = $this->issuedServiceInvoice($customerId, '2026-08-01', '100');
+        $this->postJson("/api/finance/documents/{$oldId}/void", ['reason' => 'Old mistake'])->assertOk();
+        $recentId = $this->issuedServiceInvoice($customerId, '2026-09-01', '100');
+        $this->postJson("/api/finance/documents/{$recentId}/void", ['reason' => 'Recent mistake'])->assertOk();
+        DB::table('financial_documents')->where('id', $oldId)->update(['updated_at' => now()->subMonths(2)]);
+
+        $this->artisan('finance:purge-archive')->assertSuccessful();
+        $this->assertDatabaseHas('financial_documents', ['id' => $oldId]);
+
+        $this->patchJson('/api/finance/archive/settings', ['auto_purge' => true])
+            ->assertOk()->assertJsonPath('auto_purge', true);
+
+        $this->artisan('finance:purge-archive')->assertSuccessful();
+        $this->assertDatabaseMissing('financial_documents', ['id' => $oldId]);
+        $this->assertDatabaseHas('financial_documents', ['id' => $recentId, 'status' => 'voided']);
+    }
+
+    public function test_same_day_cash_from_one_party_is_merged_into_one_receipt(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance cash merge');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Cash Customer');
+        $invoiceId = $this->issuedServiceInvoice($customerId, '2026-09-20', '300');
+        $receipt = fn (string $amount) => $this->postJson('/api/finance/cash-movements', [
+            'direction' => 'incoming',
+            'party_id' => $customerId,
+            'category' => 'customer_receipt',
+            'amount' => $amount,
+            'currency' => 'ILS',
+            'movement_date' => '2026-09-25',
+            'method' => 'cash',
+            'notes' => 'Paid '.$amount,
+            'allocations' => [['financial_document_id' => $invoiceId, 'amount' => $amount]],
+        ])->assertCreated()->json('data.id');
+
+        $firstId = $receipt('100');
+        $this->postJson("/api/finance/cash-movements/{$firstId}/post")->assertOk();
+
+        $secondId = $receipt('50');
+        $this->postJson("/api/finance/cash-movements/{$secondId}/post")
+            ->assertOk()
+            ->assertJsonPath('data.amount', '150.0000')
+            ->assertJsonPath('data.corrected_from_id', $firstId);
+
+        $this->assertDatabaseHas('cash_movements', ['id' => $firstId, 'status' => 'reversed']);
+        $this->assertSame(1, DB::table('cash_movements')
+            ->where('party_id', $customerId)->where('status', 'posted')->whereNull('reversal_of_id')->count());
+        $this->assertDatabaseHas('financial_documents', ['id' => $invoiceId, 'balance_due' => '150.0000']);
     }
 
     public function test_purchase_invoice_adds_stock_and_outgoing_expense_can_exist_without_inventory(): void
@@ -567,7 +954,7 @@ class FinanceWorkflowTest extends TestCase
         $this->postJson('/api/finance/documents', [
             'kind' => 'sale_invoice',
             'party_id' => $partyId,
-            'issue_date' => '2026-09-20',
+            'issue_date' => '2026-09-23',
             'currency' => 'ILS',
             'lines' => [
                 [
@@ -1017,6 +1404,43 @@ class FinanceWorkflowTest extends TestCase
     }
 
     /** @return array<string, mixed> */
+    /**
+     * @return array<string, mixed>
+     */
+    private function serviceInvoicePayload(int $partyId, string $date, string $price): array
+    {
+        return [
+            'kind' => 'sale_invoice',
+            'party_id' => $partyId,
+            'issue_date' => $date,
+            'due_date' => $date,
+            'activity_type' => 'services',
+            'market_type' => 'local',
+            'currency' => 'ILS',
+            'exchange_rate' => '1',
+            'shipping_total' => '0',
+            'lines' => [[
+                'description' => 'Service',
+                'quantity' => '1',
+                'unit' => 'service',
+                'unit_price' => $price,
+                'discount_percent' => '0',
+                'tax_rate' => '0',
+                'affects_inventory' => false,
+            ]],
+        ];
+    }
+
+    private function issuedServiceInvoice(int $partyId, string $date, string $price): int
+    {
+        $id = $this->postJson('/api/finance/documents', $this->serviceInvoicePayload($partyId, $date, $price))
+            ->assertCreated()->json('data.id');
+
+        $this->postJson("/api/finance/documents/{$id}/issue", ['acknowledge_warnings' => true])->assertOk();
+
+        return (int) $id;
+    }
+
     private function invoicePayload(
         string $kind,
         int $partyId,

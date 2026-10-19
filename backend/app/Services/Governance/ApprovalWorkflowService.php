@@ -2,12 +2,12 @@
 
 namespace App\Services\Governance;
 
+use App\Exceptions\SafeValidationException;
 use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Services\Notifications\NotificationRuleService;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class ApprovalWorkflowService
 {
@@ -707,12 +707,9 @@ class ApprovalWorkflowService
             return;
         }
 
-        throw ValidationException::withMessages([
-            'approval' => [
-                'Approval required before this action can continue. Pending request(s): #'
-                .implode(', #', $pendingIds)
-                .'.',
-            ],
-        ]);
+        throw SafeValidationException::forField(
+            'approval',
+            'approval_required',
+        );
     }
 }

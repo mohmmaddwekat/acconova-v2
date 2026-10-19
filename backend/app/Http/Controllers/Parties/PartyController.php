@@ -18,6 +18,7 @@ use App\Http\Resources\PartyResource;
 use App\Queries\Parties\PartyIndexQuery;
 use App\Services\Collaboration\MentionNotifier;
 use App\Services\Finance\FinanceAuthorization;
+use App\Services\Parties\PartyBalanceOverview;
 use App\Services\Parties\PartyBalanceSummary;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -33,32 +34,28 @@ class PartyController extends Controller
         IndexPartyRequest $request,
         PartyIndexQuery $partyIndexQuery,
         PartyBalanceSummary $partyBalanceSummary,
+        PartyBalanceOverview $partyBalanceOverview,
     ): AnonymousResourceCollection {
+        [$canSales, $canPurchases, $canCash] = $this->balancePermissions($request);
+
+        $filters = $request->validated();
+
+        if (! empty($filters['balance'])) {
+            $filters['party_ids'] = $partyBalanceOverview->matchingIds(
+                $filters['balance'],
+                $canSales,
+                $canPurchases,
+                $canCash,
+            );
+        }
+
         $parties =
             $partyIndexQuery->execute(
-                $request->validated(),
+                $filters,
             );
 
         $collection =
             $parties->getCollection();
-
-        $canSales =
-            FinanceAuthorization::allows(
-                $request->user(),
-                'finance.sales.view',
-            );
-
-        $canPurchases =
-            FinanceAuthorization::allows(
-                $request->user(),
-                'finance.purchases.view',
-            );
-
-        $canCash =
-            FinanceAuthorization::allows(
-                $request->user(),
-                'finance.cash.view',
-            );
 
         $balances =
             $partyBalanceSummary->forParties(
@@ -67,6 +64,12 @@ class PartyController extends Controller
                 $canPurchases,
                 $canCash,
             );
+
+        $aging = $partyBalanceOverview->aging(
+            $balances,
+            $canSales,
+            $canPurchases,
+        );
 
         $organization =
             app(TenantContext::class)
@@ -85,6 +88,7 @@ class PartyController extends Controller
             $party,
         ) use (
             $balances,
+            $aging,
             $currency,
             $canSales,
             $canPurchases,
@@ -100,38 +104,7 @@ class PartyController extends Controller
                     )
                     ->all();
 
-            $hasCustomer =
-                in_array(
-                    'customer',
-                    $roles,
-                    true,
-                );
-
-            $hasSupplier =
-                in_array(
-                    'supplier',
-                    $roles,
-                    true,
-                );
-
-            $hasCompleteBalanceAccess =
-                ($hasCustomer || $hasSupplier)
-                && (
-                    ! $hasCustomer
-                    || (
-                        $canSales
-                        && $canCash
-                    )
-                )
-                && (
-                    ! $hasSupplier
-                    || (
-                        $canPurchases
-                        && $canCash
-                    )
-                );
-
-            if (! $hasCompleteBalanceAccess) {
+            if (! PartyBalanceOverview::canSeeBalance($roles, $canSales, $canPurchases, $canCash)) {
                 $party->setAttribute(
                     'balance_summary',
                     null,
@@ -177,6 +150,7 @@ class PartyController extends Controller
                         '',
                     ),
                     'currency' => $currency,
+                    'aging' => $aging[$party->id] ?? null,
                 ],
             );
         });
@@ -188,6 +162,47 @@ class PartyController extends Controller
         return PartyResource::collection(
             $parties,
         );
+    }
+
+    /**
+     * Return workspace-wide balance totals and tab counts for the Party index.
+     */
+    public function overview(
+        IndexPartyRequest $request,
+        PartyBalanceOverview $partyBalanceOverview,
+    ): JsonResponse {
+        [$canSales, $canPurchases, $canCash] = $this->balancePermissions($request);
+
+        $currency = strtoupper(
+            (string) (app(TenantContext::class)->organization()->preferences['currency'] ?? 'ILS'),
+        );
+
+        return response()->json([
+            'data' => [
+                ...$partyBalanceOverview->overview($canSales, $canPurchases, $canCash),
+                'balances_visible' => $canCash && ($canSales || $canPurchases),
+                'currency' => $currency,
+                'aging_days' => [
+                    'current' => PartyBalanceOverview::BUCKET_CURRENT_DAYS,
+                    'late' => PartyBalanceOverview::BUCKET_LATE_DAYS,
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Resolve which finance areas the viewer may read balances from.
+     *
+     * @return array{0: bool, 1: bool, 2: bool}
+     */
+    private function balancePermissions(
+        IndexPartyRequest $request,
+    ): array {
+        return [
+            FinanceAuthorization::allows($request->user(), 'finance.sales.view'),
+            FinanceAuthorization::allows($request->user(), 'finance.purchases.view'),
+            FinanceAuthorization::allows($request->user(), 'finance.cash.view'),
+        ];
     }
 
     /**

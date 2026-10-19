@@ -8,6 +8,7 @@ use App\Models\FinanceAuditEvent;
 use App\Models\FinancialDocument;
 use App\Services\Collaboration\MentionNotifier;
 use App\Services\Finance\CashMovementService;
+use App\Services\Finance\FinanceArchiveService;
 use App\Services\Finance\FinanceAuthorization;
 use App\Services\Finance\FinanceDocumentService;
 use App\Services\Governance\ApprovalWorkflowService;
@@ -26,6 +27,7 @@ class FinanceDocumentController extends Controller
             'status' => ['nullable', Rule::in(['draft', 'issued', 'partially_paid', 'paid', 'overpaid', 'superseded', 'voided'])],
             'party_id' => ['nullable', 'integer'],
             'search' => ['nullable', 'string', 'max:120'],
+            'open_only' => ['sometimes', 'boolean'],
             'min_total' => ['nullable', 'numeric', 'min:0'],
             'max_total' => ['nullable', 'numeric', 'min:0'],
             'due_after' => ['nullable', 'date'],
@@ -41,7 +43,12 @@ class FinanceDocumentController extends Controller
         $query = FinancialDocument::query()
             ->with('party:id,name,company_name')
             ->where('kind', $data['kind'])
-            ->when($data['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when(
+                $data['status'] ?? null,
+                fn ($query, $status) => $query->where('status', $status),
+                /* Replaced and voided invoices live in the finance archive, not the normal list. */
+                fn ($query) => $query->whereNotIn('status', FinanceArchiveService::ARCHIVED_DOCUMENT_STATUSES),
+            )
             ->when($data['party_id'] ?? null, fn ($query, $partyId) => $query->where('party_id', $partyId))
             ->when(isset($data['min_total']), fn ($query) => $query->where('total', '>=', $data['min_total']))
             ->when(isset($data['max_total']), fn ($query) => $query->where('total', '<=', $data['max_total']))
@@ -59,8 +66,19 @@ class FinanceDocumentController extends Controller
                             ->orWhere('company_name', 'like', '%'.$search.'%'));
                 });
             })
-            ->latest('issue_date')
-            ->latest('id');
+            ->when(
+                $request->boolean('open_only'),
+                /* Payable invoices only, oldest due first, so cash can be allocated first-in first-out. */
+                fn ($query) => $query
+                    ->whereIn('status', ['issued', 'partially_paid', 'overpaid', 'paid'])
+                    ->where('balance_due', '>', 0)
+                    ->orderByRaw('COALESCE(due_date, issue_date) asc')
+                    ->orderBy('issue_date')
+                    ->orderBy('id'),
+                fn ($query) => $query
+                    ->latest('issue_date')
+                    ->latest('id'),
+            );
 
         $summaryQuery = clone $query;
         $summaryRows = $summaryQuery->get(['status', 'total', 'paid_total', 'balance_due', 'due_date']);
@@ -314,7 +332,7 @@ class FinanceDocumentController extends Controller
     {
         $document = FinancialDocument::query()->findOrFail($document);
         $this->authorizeKind($request, $document->kind, true);
-        $service->deleteDraft($document, $request->user()->id);
+        $service->deleteDocument($document, $request->user()->id);
 
         return response()->noContent();
     }

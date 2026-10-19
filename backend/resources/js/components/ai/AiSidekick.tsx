@@ -104,8 +104,10 @@ function inferPageContext(): PageContext {
         .slice(0, 8);
 
     const main = document.querySelector<HTMLElement>('main');
+    // Keep line breaks so the server can send only the lines that changed.
     const visibleText = (main?.innerText ?? '')
-        .replace(/\s+/g, ' ')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\s*\n\s*/g, '\n')
         .trim()
         .slice(0, 6000);
 

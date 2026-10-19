@@ -5,6 +5,7 @@ namespace App\Services\Parties;
 use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Models\Party;
+use App\Models\PartyAdjustment;
 use App\Models\PartyOpeningBalance;
 use App\Models\PartySettlement;
 use Carbon\Carbon;
@@ -154,6 +155,14 @@ final class PartyBalanceSummary
             });
         }
 
+        foreach (['customer' => $canSales, 'supplier' => $canPurchases] as $side => $visible) {
+            if ($visible) {
+                $this->adjustmentTotals($ids, $side, $asOf)->each(function ($amount, $partyId) use (&$positions, $side): void {
+                    $positions[(int) $partyId][$side.'_position'] += (float) $amount;
+                });
+            }
+        }
+
         /*
          * An approved settlement reduces what the Party owes us and what we owe
          * it by the same agreed amount. Nothing is offset without one.
@@ -183,27 +192,24 @@ final class PartyBalanceSummary
                 (float) $position['supplier_position'];
 
             /*
-             * Keep the two obligations separate instead of netting them.
-             * This is essential for dual-role Parties. A supplier advance can
-             * coexist with customer credit and both sides remain visible.
+             * A dual-role Party has one account with the workspace: what it
+             * owes as a customer is offset by what we owe it as a supplier.
+             * The raw side positions stay available for statements.
              */
+            $net = round(
+                $customer - $supplier,
+                4,
+            );
+
             $position['owed_to_us'] =
                 max(
-                    $customer,
-                    0,
-                )
-                + max(
-                    -$supplier,
+                    $net,
                     0,
                 );
 
             $position['we_owe'] =
                 max(
-                    $supplier,
-                    0,
-                )
-                + max(
-                    -$customer,
+                    -$net,
                     0,
                 );
         }
@@ -395,6 +401,32 @@ final class PartyBalanceSummary
                 'aggregate',
                 'cash_movements.party_id',
             );
+    }
+
+    /**
+     * Sum posted difference entries ("قيد فروقات") for one side after the
+     * carried-balance cutoff, signed like that side's position.
+     *
+     * @param  list<int>  $partyIds
+     * @return Collection<int|string, numeric-string|float|int>
+     */
+    private function adjustmentTotals(array $partyIds, string $side, Carbon $asOf): Collection
+    {
+        $raising = $side === 'customer' ? PartyAdjustment::DIRECTION_OWED_TO_US : PartyAdjustment::DIRECTION_WE_OWE;
+
+        $query = PartyAdjustment::query()
+            ->whereIn('party_adjustments.party_id', $partyIds)
+            ->where('party_adjustments.side', $side)
+            ->where('party_adjustments.status', PartyAdjustment::STATUS_POSTED)
+            ->whereDate('party_adjustments.adjustment_date', '<=', $asOf->toDateString());
+
+        $this->afterOpeningCutoff($query, 'party_adjustments', 'adjustment_date', $side);
+
+        return $query
+            ->select('party_adjustments.party_id')
+            ->selectRaw('SUM(CASE WHEN party_adjustments.direction = ? THEN party_adjustments.amount ELSE -party_adjustments.amount END) as aggregate', [$raising])
+            ->groupBy('party_adjustments.party_id')
+            ->pluck('aggregate', 'party_adjustments.party_id');
     }
 
     /**

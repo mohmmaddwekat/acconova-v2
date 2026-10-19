@@ -10,6 +10,7 @@ use App\Models\ProductionRecipeComponent;
 use App\Models\ProductionRecipeOption;
 use App\Support\InventoryQuantity;
 use App\Support\MeasurementUnits;
+use App\Support\OptionalComponentCap;
 use App\Support\ProductionConsumption;
 use App\Support\RecipeQuantity;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,7 @@ class ProductionRecipeService
      *
      * @param  list<array{
      *     name: string,
+     *     is_optional?: bool,
      *     options: list<array{
      *         raw_material_id: int,
      *         quantity_per_unit: string,
@@ -213,6 +215,11 @@ class ProductionRecipeService
 
                             'position' => $componentPosition
                                 + 1,
+
+                            'is_optional' => (bool) (
+                                $componentData['is_optional']
+                                ?? false
+                            ),
                         ]);
 
                     $defaultCount =
@@ -515,9 +522,13 @@ class ProductionRecipeService
             }
 
             $required =
-                ProductionConsumption::calculate(
-                    $outputQuantity,
-                    $option->quantity_per_unit,
+                OptionalComponentCap::apply(
+                    $rawMaterial->id,
+                    ProductionConsumption::calculate(
+                        $outputQuantity,
+                        $option->quantity_per_unit,
+                    ),
+                    (bool) $component->is_optional,
                 );
 
             $requiredUnits =
@@ -552,6 +563,8 @@ class ProductionRecipeService
                 'component_id' => $component->id,
 
                 'component_name' => $component->name,
+
+                'is_optional' => (bool) $component->is_optional,
 
                 'option_id' => $option->id,
 

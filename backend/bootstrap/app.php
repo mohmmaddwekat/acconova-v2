@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\ForcePasswordChange;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetUserLocale;
+use App\Http\Middleware\TrackDataVersion;
 use App\Http\Middleware\TranslateMarketingResponse;
 use App\Support\SafeErrorResponse;
 use Illuminate\Foundation\Application;
@@ -75,6 +76,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             ForcePasswordChange::class,
             HandleInertiaRequests::class,
+            TrackDataVersion::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

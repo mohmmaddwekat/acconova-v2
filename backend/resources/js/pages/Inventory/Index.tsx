@@ -65,6 +65,7 @@ import {
     t,
     useLocale,
 } from '@/lib/i18n';
+import { useLiveRefresh } from '@/lib/live';
 import {
     getLocale,
 } from '@/lib/locale';
@@ -233,7 +234,7 @@ function InventoryWorkspace() {
      */
     const loadInventory =
         useCallback(
-            async (): Promise<void> => {
+            async (silent = false): Promise<void> => {
                 if (
                     ! workspace
                         .activeOrganization
@@ -249,13 +250,15 @@ function InventoryWorkspace() {
                     return;
                 }
 
-                setLoading(
-                    true,
-                );
+                if (! silent) {
+                    setLoading(
+                        true,
+                    );
 
-                setError(
-                    null,
-                );
+                    setError(
+                        null,
+                    );
+                }
 
                 try {
                     const [
@@ -280,6 +283,10 @@ function InventoryWorkspace() {
                 } catch (
                     exception
                 ) {
+                    if (silent) {
+                        return;
+                    }
+
                     setError(
                         exception instanceof
                         ApiError
@@ -306,6 +313,10 @@ function InventoryWorkspace() {
     }, [
         loadInventory,
     ]);
+
+    useLiveRefresh(
+        () => void loadInventory(true),
+    );
 
     /**
      * Open a clean warehouse creator.

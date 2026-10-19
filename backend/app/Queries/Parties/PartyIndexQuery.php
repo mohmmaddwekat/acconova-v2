@@ -52,6 +52,10 @@ class PartyIndexQuery
             $filters,
         );
 
+        if (array_key_exists('party_ids', $filters)) {
+            $query->whereIn('parties.id', $filters['party_ids'] ?: [0]);
+        }
+
         $this->applySort(
             $query,
             $filters,

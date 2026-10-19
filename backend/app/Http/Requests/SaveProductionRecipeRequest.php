@@ -71,6 +71,11 @@ class SaveProductionRecipeRequest extends FormRequest
                 'max:120',
             ],
 
+            'components.*.is_optional' => [
+                'sometimes',
+                'boolean',
+            ],
+
             'components.*.options' => [
                 'required',
                 'array',

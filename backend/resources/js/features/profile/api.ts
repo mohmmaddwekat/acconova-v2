@@ -5,6 +5,7 @@ import {
 import type {
     EmailChangePayload,
     ProfileResponse,
+    PublicProfile,
     UpdateProfilePayload,
 } from './types';
 
@@ -84,4 +85,26 @@ export function requestProfileEmailChange(
                 ),
         },
     );
+}
+
+/**
+ * Choose whether workspace colleagues can see the e-mail and phone.
+ */
+export function updateProfilePrivacy(
+    payload: { show_email?: boolean; show_phone?: boolean },
+): Promise<ProfileResponse> {
+    return apiRequest<ProfileResponse>(
+        '/api/profile/privacy',
+        {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        },
+    );
+}
+
+/**
+ * Load a colleague's read-only profile from the active workspace.
+ */
+export function fetchPublicProfile(userId: number): Promise<PublicProfile> {
+    return apiRequest<PublicProfile>(`/api/profile/people/${userId}`);
 }

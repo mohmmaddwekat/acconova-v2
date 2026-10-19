@@ -2,6 +2,7 @@
 
 namespace App\Queries\Products;
 
+use App\Models\FinancialDocumentLine;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -19,7 +20,8 @@ class ProductIndexQuery
         array $filters,
     ): Builder {
         $query =
-            Product::query()->withSum('inventoryBalances as stock_on_hand', 'on_hand')->withSum('inventoryBalances as stock_reserved', 'reserved');
+            Product::query()->withSum('inventoryBalances as stock_on_hand', 'on_hand')->withSum('inventoryBalances as stock_reserved', 'reserved')
+                ->addSelect(['monthly_sales' => $this->monthlySalesSubquery()]);
 
         $this->applyLifecycle(
             $query,
@@ -52,6 +54,21 @@ class ProductIndexQuery
         );
 
         return $query;
+    }
+
+    /**
+     * Average units sold per month over the last six months, from issued sales
+     * invoices, so the catalog can show how long the stock on hand will last.
+     */
+    private function monthlySalesSubquery(): Builder
+    {
+        return FinancialDocumentLine::query()
+            ->selectRaw('coalesce(sum(financial_document_lines.quantity), 0) / 6')
+            ->join('financial_documents', 'financial_documents.id', '=', 'financial_document_lines.financial_document_id')
+            ->whereColumn('financial_document_lines.product_id', 'products.id')
+            ->where('financial_documents.kind', 'sale_invoice')
+            ->whereNotIn('financial_documents.status', ['draft', 'voided', 'superseded'])
+            ->where('financial_documents.issue_date', '>=', now()->subMonths(6)->toDateString());
     }
 
     /**

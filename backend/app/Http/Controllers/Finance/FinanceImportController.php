@@ -410,10 +410,15 @@ class FinanceImportController extends Controller
                     }
 
                     $reference = trim((string) ($row['reference'] ?? '')) ?: $movementKey;
+
+                    /*
+                     * Match on reference and date only: same-day cash for one party is
+                     * merged into a single movement, so its amount no longer equals the
+                     * imported row and an amount match would import it twice on retry.
+                     */
                     $duplicate = CashMovement::query()
                         ->where('reference', $reference)
                         ->whereDate('movement_date', $movementDate)
-                        ->where('amount', $amount)
                         ->exists();
 
                     if ($duplicate) {

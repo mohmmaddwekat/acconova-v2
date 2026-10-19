@@ -1,6 +1,8 @@
 import type {
     Party,
+    PartyBalanceFilter,
     PartyIndexResponse,
+    PartyOverview,
     PartyRole,
     PartyType,
 } from '@/features/parties/types';
@@ -38,6 +40,8 @@ export type PartyFilters = {
     country_code?: string;
 
     sort?: PartySort;
+
+    balance?: PartyBalanceFilter;
 
     page?: number;
 
@@ -187,6 +191,10 @@ export function buildPartyQuery(
         );
     }
 
+    if (filters.balance) {
+        query.set('balance', filters.balance);
+    }
+
     if (filters.city?.trim()) {
         query.set('city', filters.city.trim());
     }
@@ -244,6 +252,15 @@ export async function fetchParties(
     return apiRequest<PartyIndexResponse>(
         `/api/parties?${buildPartyQuery(filters)}`,
     );
+}
+
+/**
+ * Load workspace-wide balance totals and tab counts for the Party index.
+ */
+export async function fetchPartyOverview(): Promise<PartyOverview> {
+    const response = await apiRequest<{ data: PartyOverview }>('/api/parties/overview');
+
+    return response.data;
 }
 
 /**

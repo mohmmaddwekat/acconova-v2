@@ -14,6 +14,7 @@ import { CommandRail } from '@/components/navigation/CommandRail';
 import { ContextBar } from '@/components/navigation/ContextBar';
 import { StaffSalaryAdjuster } from '@/components/staff/StaffSalaryAdjuster';
 import { apiRequest } from '@/lib/http';
+import { useLiveWatcher } from '@/lib/live';
 import {
     applyProfilePreferences,
     bindSystemTheme,
@@ -33,6 +34,9 @@ export function AppShell({ children }: PropsWithChildren) {
     const [railExpanded, setRailExpanded] = useState(false);
     const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
     const page = usePage();
+
+    useLiveWatcher();
+
     const currentPath = page.url.split('?')[0];
     const supportsGoogleImportSource = currentPath.endsWith('/import')
         || currentPath === '/app/finance/bank-reconciliation';

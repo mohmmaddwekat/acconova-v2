@@ -7,6 +7,9 @@ import {
 import type {
     ListDensity,
 } from '@/components/data/ListPreferences';
+import {
+    PartyAgingBar,
+} from '@/features/parties/components/PartyAgingBar';
 import type {
     Party,
 } from '@/features/parties/types';
@@ -114,6 +117,10 @@ function formatBalance(
             0,
         );
 
+    if (numeric < 0.005) {
+        return '—';
+    }
+
     const amount =
         numeric.toLocaleString(
             locale === 'ar'
@@ -147,6 +154,12 @@ function partyLocation(
 }
 
 /**
+ * Shared desktop grid for the Party header and rows; both must stay in sync.
+ */
+export const PARTY_ROW_GRID =
+    'lg:grid-cols-[auto_minmax(190px,1.2fr)_minmax(170px,1fr)_minmax(100px,0.55fr)_minmax(100px,0.55fr)_minmax(130px,0.7fr)_minmax(120px,0.65fr)_auto]';
+
+/**
  * Render one selectable Party operating row.
  */
 export function PartyListItem({
@@ -158,9 +171,10 @@ export function PartyListItem({
     columnOrder = [
         'identity',
         'contact',
-        'location',
         'owed_to_us',
         'we_owe',
+        'aging',
+        'location',
         'actions',
     ],
     hiddenColumns = [],
@@ -200,8 +214,8 @@ export function PartyListItem({
 
     const rowPadding =
         density === 'compact'
-            ? 'p-3 sm:p-3 lg:p-3'
-            : 'p-4 sm:p-5 lg:p-5';
+            ? 'p-3 sm:p-3 lg:px-5 lg:py-2'
+            : 'p-4 sm:p-4 lg:px-5 lg:py-3';
 
     const label =
         partyLabel(
@@ -261,8 +275,9 @@ export function PartyListItem({
                 handleRowDoubleClick
             }
             className={[
-                'ac-index-row group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)] sm:mx-4 lg:m-0 lg:grid-cols-[auto_minmax(210px,1.2fr)_minmax(165px,0.9fr)_minmax(105px,0.55fr)_minmax(105px,0.55fr)_minmax(135px,0.7fr)_auto] lg:items-center lg:gap-4 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none xl:px-6',
+                'ac-index-row group mx-3 my-3 grid min-w-0 gap-4 rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)] sm:mx-4 lg:m-0 lg:items-center lg:gap-4 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:shadow-none xl:px-6',
                 rowPadding,
+                PARTY_ROW_GRID,
             ].join(' ')}
         >
             {selectable && (
@@ -308,7 +323,7 @@ export function PartyListItem({
                 }
                 className="flex min-w-0 items-start gap-3 text-start sm:gap-4 lg:items-center"
             >
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)] transition duration-200 group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)] transition duration-200 group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]">
                     {party.type ===
                     'company' ? (
                         <Building2
@@ -332,7 +347,7 @@ export function PartyListItem({
                         }
                     </p>
 
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-1 flex flex-wrap gap-1.5">
                         {party.roles.map(
                             (
                                 role,
@@ -341,7 +356,7 @@ export function PartyListItem({
                                     key={
                                         role
                                     }
-                                    className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-accent-strong)]"
+                                    className="rounded-full bg-[var(--ac-accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--ac-accent-strong)]"
                                 >
                                     {t(
                                         role ===
@@ -368,7 +383,7 @@ export function PartyListItem({
             {visibleColumn('contact') && (
             <div
                 style={columnStyle('contact')}
-                className="grid min-w-0 gap-2 text-xs text-[var(--ac-text-soft)] sm:grid-cols-2 lg:grid-cols-1"
+                className="grid min-w-0 gap-1 text-xs text-[var(--ac-text-soft)] sm:grid-cols-2 lg:grid-cols-1"
             >
                 <div className="flex min-w-0 items-center gap-2">
                     <Mail
@@ -431,7 +446,14 @@ export function PartyListItem({
                         : 'Owes me'}
                 </p>
 
-                <bdi className="block truncate text-xs font-semibold tabular-nums text-[var(--ac-text)]">
+                <bdi
+                    className={[
+                        'block truncate text-sm font-semibold tabular-nums',
+                        Number(party.balance_summary?.owed_to_us ?? 0) > 0
+                            ? 'text-[var(--ac-success)]'
+                            : 'text-[var(--ac-text-muted)]',
+                    ].join(' ')}
+                >
                     {party.balance_summary
                         ? formatBalance(
                             party.balance_summary.owed_to_us,
@@ -454,7 +476,14 @@ export function PartyListItem({
                         : 'I owe'}
                 </p>
 
-                <bdi className="block truncate text-xs font-semibold tabular-nums text-[var(--ac-text)]">
+                <bdi
+                    className={[
+                        'block truncate text-sm font-semibold tabular-nums',
+                        Number(party.balance_summary?.we_owe ?? 0) > 0
+                            ? 'text-[var(--ac-danger)]'
+                            : 'text-[var(--ac-text-muted)]',
+                    ].join(' ')}
+                >
                     {party.balance_summary
                         ? formatBalance(
                             party.balance_summary.we_owe,
@@ -463,6 +492,25 @@ export function PartyListItem({
                         )
                         : '—'}
                 </bdi>
+            </div>
+            )}
+
+            {visibleColumn('aging') && (
+            <div
+                style={columnStyle('aging')}
+                className="min-w-0"
+            >
+                <p className="mb-1 text-[9px] font-semibold text-[var(--ac-text-muted)] lg:hidden">
+                    {locale === 'ar'
+                        ? 'عمر الدين'
+                        : 'Debt age'}
+                </p>
+
+                <PartyAgingBar
+                    aging={party.balance_summary?.aging}
+                    currency={party.balance_summary?.currency ?? ''}
+                    ar={locale === 'ar'}
+                />
             </div>
             )}
 
@@ -496,7 +544,7 @@ export function PartyListItem({
             {visibleColumn('actions') && (
             <div
                 style={columnStyle('actions')}
-                className="flex flex-wrap items-center gap-2 border-t border-[var(--ac-line)] pt-3 lg:justify-end lg:border-0 lg:pt-0"
+                className="flex flex-wrap items-center gap-0.5 border-t border-[var(--ac-line)] pt-3 transition-opacity lg:justify-end lg:border-0 lg:pt-0 lg:opacity-50 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100"
             >
                 <a
                     href={'/app/parties/' + String(party.id)}
@@ -510,7 +558,7 @@ export function PartyListItem({
                             ? 'فتح الحساب الكامل'
                             : 'Open full account'
                     }
-                    className="flex size-10 shrink-0 items-center justify-center rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)] transition duration-200 hover:border-[var(--ac-accent)] hover:bg-[var(--ac-surface-soft)]"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-[10px] text-[var(--ac-accent)] transition duration-200 hover:bg-[var(--ac-accent-soft)]"
                 >
                     <ReceiptText size={15} />
                 </a>
@@ -529,7 +577,7 @@ export function PartyListItem({
                             party,
                         )
                     }
-                    className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)]"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)] transition duration-200 hover:bg-[var(--ac-bg-soft)] hover:text-[var(--ac-text)]"
                 >
                     <ArrowUpRight
                         size={
@@ -554,7 +602,7 @@ export function PartyListItem({
                                     party,
                                 )
                             }
-                            className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-surface-strong)] hover:text-[var(--ac-text)]"
+                            className="flex size-8 shrink-0 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)] transition duration-200 hover:bg-[var(--ac-bg-soft)] hover:text-[var(--ac-text)]"
                         >
                             <Pencil
                                 size={
@@ -580,7 +628,7 @@ export function PartyListItem({
                                     party,
                                 )
                             }
-                            className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-soft)] transition duration-200 hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)]"
+                            className="flex size-8 shrink-0 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)] transition duration-200 hover:bg-[var(--ac-danger)]/8 hover:text-[var(--ac-danger)]"
                         >
                             <Archive
                                 size={

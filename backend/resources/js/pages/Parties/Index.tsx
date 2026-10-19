@@ -46,6 +46,7 @@ import {
     bulkPartyAction,
     fetchParties,
     fetchParty,
+    fetchPartyOverview,
     restoreParty,
     updateParty,
     type PartyBulkAction,
@@ -62,7 +63,14 @@ import {
     type PartyFilterState,
 } from '@/features/parties/components/PartyFilterPopover';
 import { PartyImportDialog } from '@/features/parties/components/PartyImportDialog';
-import { PartyListItem } from '@/features/parties/components/PartyListItem';
+import { PartyAgingLegend } from '@/features/parties/components/PartyAgingBar';
+import { PARTY_ROW_GRID, PartyListItem } from '@/features/parties/components/PartyListItem';
+import {
+    activeQuickTab,
+    PartyOverviewCards,
+    PartyQuickTabs,
+    type PartyQuickTab,
+} from '@/features/parties/components/PartyOverviewCards';
 import { PartySplitPreview } from '@/features/parties/components/PartySplitPreview';
 import {
     canArchiveParties,
@@ -70,9 +78,12 @@ import {
 } from '@/features/parties/permissions';
 import type {
     Party,
+    PartyBalanceFilter,
     PartyIndexResponse,
+    PartyOverview,
 } from '@/features/parties/types';
 import { ApiError, apiRequest } from '@/lib/http';
+import { useLiveRefresh } from '@/lib/live';
 import { AppShell } from '@/layouts/AppShell';
 import type {
     AppPageProps,
@@ -203,6 +214,12 @@ function PartiesWorkspace() {
         advancedConditions,
         setAdvancedConditions,
     ] = useState<AdvancedFilterCondition[]>([]);
+
+    const [balance, setBalance] =
+        useState<PartyBalanceFilter | undefined>(undefined);
+
+    const [overview, setOverview] =
+        useState<PartyOverview | null>(null);
 
     const [bulkEditOpen, setBulkEditOpen] =
         useState(false);
@@ -384,10 +401,6 @@ function PartiesWorkspace() {
             label: ar ? 'التواصل' : 'Contact',
         },
         {
-            key: 'location',
-            label: ar ? 'الموقع' : 'Location',
-        },
-        {
             key: 'owed_to_us',
             label: ar ? 'لي عليه' : 'Owes me',
         },
@@ -396,13 +409,21 @@ function PartiesWorkspace() {
             label: ar ? 'له عليّ' : 'I owe',
         },
         {
+            key: 'aging',
+            label: ar ? 'عمر الدين' : 'Debt age',
+        },
+        {
+            key: 'location',
+            label: ar ? 'الموقع' : 'Location',
+        },
+        {
             key: 'actions',
             label: ar ? 'الإجراءات' : 'Actions',
         },
     ];
 
     const listPreferences = useListPreferences(
-        `acconova:list-preferences:parties-v2:${activeOrganization?.id ?? 'none'}`,
+        `acconova:list-preferences:parties-v3:${activeOrganization?.id ?? 'none'}`,
         partyColumns,
     );
 
@@ -446,6 +467,8 @@ function PartiesWorkspace() {
         sort:
             filters.sort,
 
+        balance,
+
         ...advancedFilterValues,
 
         page,
@@ -461,7 +484,7 @@ function PartiesWorkspace() {
      */
     const loadParties =
         useCallback(
-            async (): Promise<void> => {
+            async (silent = false): Promise<void> => {
                 if (
                     ! activeOrganization
                 ) {
@@ -470,8 +493,10 @@ function PartiesWorkspace() {
                     return;
                 }
 
-                setLoading(true);
-                setError(null);
+                if (! silent) {
+                    setLoading(true);
+                    setError(null);
+                }
 
                 try {
                     const data =
@@ -482,9 +507,17 @@ function PartiesWorkspace() {
                     setResponse(
                         data,
                     );
+
+                    void fetchPartyOverview()
+                        .then(setOverview)
+                        .catch(() => setOverview(null));
                 } catch (
                     exception
                 ) {
+                    if (silent) {
+                        return;
+                    }
+
                     setError(
                         exception instanceof
                         ApiError
@@ -504,6 +537,7 @@ function PartiesWorkspace() {
                 filters.sort,
                 filters.status,
                 filters.type,
+                balance,
                 page,
                 perPage,
                 search,
@@ -517,6 +551,10 @@ function PartiesWorkspace() {
     }, [
         loadParties,
     ]);
+
+    useLiveRefresh(
+        () => void loadParties(true),
+    );
 
     useEffect(() => {
         const timeout =
@@ -560,10 +598,50 @@ function PartiesWorkspace() {
         );
     }, [
         filters,
+        balance,
         page,
         perPage,
         search,
     ]);
+
+    const quickTab = activeQuickTab(
+        filters.role,
+        balance,
+    );
+
+    /**
+     * Switch the role / overdue quick tab above the list.
+     */
+    function changeQuickTab(
+        tab: PartyQuickTab,
+    ): void {
+        setFilters((current) => ({
+            ...current,
+            role: tab === 'customer' || tab === 'supplier'
+                ? tab
+                : undefined,
+        }));
+
+        setBalance((current) =>
+            tab === 'overdue'
+                ? 'overdue'
+                : current === 'overdue'
+                    ? undefined
+                    : current,
+        );
+
+        setPage(1);
+    }
+
+    /**
+     * Toggle the balance filter from the summary cards.
+     */
+    function changeBalance(
+        next: PartyBalanceFilter | undefined,
+    ): void {
+        setBalance(next);
+        setPage(1);
+    }
 
 
 
@@ -1190,54 +1268,46 @@ function PartiesWorkspace() {
             <Head title={t('ui.relationships_acconova')} />
 
             <main className="mx-auto w-full max-w-[1680px] min-w-0 px-3 py-5 sm:px-5 sm:py-7 lg:px-8 lg:py-9 2xl:px-10">
-                <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_290px] xl:gap-8">
+                <section className="flex flex-wrap items-end justify-between gap-3">
                     <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                            <span className="relative flex size-2">
-                                <span className="absolute inline-flex size-full motion-safe:animate-ping rounded-full bg-[var(--ac-accent)] opacity-30" />
-
-                                <span className="relative inline-flex size-2 rounded-full bg-[var(--ac-accent)]" />
-                            </span>
-
-                            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--ac-accent-strong)] sm:text-[10px]">
-                                {t('ui.relationship_ledger')}
-                            </p>
-                        </div>
-
-                        <h1 className="mt-3 max-w-[800px] text-[2rem] font-medium leading-[0.94] tracking-[-0.055em] sm:text-[2.8rem] md:text-[3.5rem] lg:text-[4rem] xl:text-[4.7rem]">
-                            {t('ui.know_who_your_business_moves_with')}
+                        <h1 className="text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">
+                            {ar ? 'العلاقات' : 'Relationships'}
                         </h1>
 
-                        <p className="mt-4 max-w-[650px] text-[13px] leading-5 text-[var(--ac-text-soft)] sm:text-sm sm:leading-6">
-                            {t('ui.search_filter_import_export_maintain_notes_and_manage_customers_and_suppliers_from_on')}
+                        <p className="mt-1 text-sm text-[var(--ac-text-soft)]">
+                            {ar
+                                ? 'العملاء والموردون وأرصدتهم في مكان واحد'
+                                : 'Customers, suppliers and their balances in one place'}
+                            {activeOrganization && (
+                                <span className="text-[var(--ac-text-muted)]">
+                                    {' · '}
+                                    {total}{' '}
+                                    {t('ui.relationship')}
+                                </span>
+                            )}
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3 rounded-[20px] border border-[var(--ac-line)] bg-white p-4 shadow-[var(--ac-shadow-soft)] xl:flex-col xl:items-start xl:justify-end xl:p-5">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
-                            <UsersRound
-                                size={17}
-                            />
-                        </div>
-
-                        <div className="min-w-0">
-                            <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--ac-text-muted)]">
-                                {t('ui.matching_view')}
-                            </p>
-
-                            <p className="mt-1 text-xl font-semibold tracking-[-0.04em]">
-                                {total}{' '}
-                                {t('ui.relationship')}
-                            </p>
-
-                            <p className="mt-1 truncate text-[11px] text-[var(--ac-text-muted)]">
-                                {activeOrganization
-                                    ? t('workspace.inside', { name: activeOrganization.name })
-                                    : t('ui.no_workspace_selected')}
-                            </p>
-                        </div>
-                    </div>
+                    {activeOrganization && allowCreate && (
+                        <button
+                            type="button"
+                            onClick={openCreate}
+                            className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)] transition hover:-translate-y-0.5"
+                        >
+                            <Plus size={16} />
+                            {t('ui.new_relationship')}
+                        </button>
+                    )}
                 </section>
+
+                {activeOrganization && (
+                    <PartyOverviewCards
+                        overview={overview}
+                        balance={balance}
+                        ar={ar}
+                        onBalanceChange={changeBalance}
+                    />
+                )}
 
                 {activeOrganization && (
                     <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -1298,9 +1368,61 @@ function PartiesWorkspace() {
 
                 {activeOrganization && (
                     <section className="mt-7 overflow-visible rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] shadow-[var(--ac-shadow-soft)] lg:mt-10 lg:rounded-[28px]">
-                        <div className="rounded-t-[22px] border-b border-[var(--ac-line)] bg-white p-3 sm:p-5 lg:rounded-t-[28px] lg:p-6">
-                            <div className="grid gap-2 xl:grid-cols-[minmax(260px,1fr)_auto_auto] xl:items-center">
-                                <div className="relative">
+                        <div className="rounded-t-[22px] border-b border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 sm:p-5 lg:rounded-t-[28px] lg:p-6">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <PartyQuickTabs
+                                    overview={overview}
+                                    active={quickTab}
+                                    ar={ar}
+                                    onChange={changeQuickTab}
+                                />
+
+                                <div className="flex flex-wrap items-center gap-2 [&_a]:whitespace-nowrap [&_button]:whitespace-nowrap">
+                                    <SavedViews
+                                        storageKey={`acconova:saved-views:parties:${activeOrganization?.id ?? 'none'}`}
+                                        ar={ar}
+                                        value={{
+                                            search,
+                                            filters,
+                                            perPage,
+                                            advancedConditions,
+                                        }}
+                                        onApply={(saved) => {
+                                            setDraftSearch(saved.search);
+                                            setSearch(saved.search);
+                                            setFilters(saved.filters);
+                                            setPerPage(saved.perPage);
+                                            setAdvancedConditions(
+                                                saved.advancedConditions ?? [],
+                                            );
+                                            setPage(1);
+                                        }}
+                                    />
+
+                                    <PartyDataActions
+                                        filters={
+                                            partyFilters
+                                        }
+                                        canImport={allowEdit && allowCreate}
+                                        onImport={() =>
+                                            setImportOpen(
+                                                true,
+                                            )
+                                        }
+                                    />
+
+                                    <Link
+                                        href="/app/follow-ups"
+                                        className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm font-semibold text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-surface-soft)]"
+                                    >
+                                        <BellRing size={15} />
+                                        {ar ? 'قائمة المتابعة' : 'Follow-ups'}
+                                    </Link>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 flex flex-col gap-2 border-t border-[var(--ac-line)] pt-4 lg:flex-row lg:items-center">
+                                <div className="relative min-w-0 flex-1 lg:max-w-[460px]">
                                     <Search
                                         size={15}
                                         className="absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
@@ -1319,8 +1441,9 @@ function PartiesWorkspace() {
                                                     .value,
                                             )
                                         }
-                                        placeholder={t('ui.search_name_email_phone_tax_number_city')}
-                                        className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-bg)] ps-10 pe-11 text-sm outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[var(--ac-accent)] focus:bg-white focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
+                                        placeholder={ar ? 'ابحث بالاسم أو الهاتف أو المدينة' : 'Search name, phone or city'}
+                                        title={t('ui.search_name_email_phone_tax_number_city')}
+                                        className="h-10 w-full rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] ps-10 pe-11 text-sm outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[var(--ac-accent)] focus:bg-[var(--ac-surface)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                     />
 
                                     {draftSearch && (
@@ -1330,7 +1453,7 @@ function PartiesWorkspace() {
                                             onClick={
                                                 clearSearch
                                             }
-                                            className="absolute end-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)]"
+                                            className="absolute end-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-[10px] text-[var(--ac-text-muted)]"
                                         >
                                             <X
                                                 size={14}
@@ -1339,7 +1462,7 @@ function PartiesWorkspace() {
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2 sm:flex">
+                                <div className="flex flex-wrap items-center gap-2 [&_button]:whitespace-nowrap">
                                     <PartyFilterPopover
                                         value={
                                             filters
@@ -1407,27 +1530,6 @@ function PartiesWorkspace() {
                                             : 'Split view'}
                                     </button>
 
-                                    <SavedViews
-                                        storageKey={`acconova:saved-views:parties:${activeOrganization?.id ?? 'none'}`}
-                                        ar={ar}
-                                        value={{
-                                            search,
-                                            filters,
-                                            perPage,
-                                            advancedConditions,
-                                        }}
-                                        onApply={(saved) => {
-                                            setDraftSearch(saved.search);
-                                            setSearch(saved.search);
-                                            setFilters(saved.filters);
-                                            setPerPage(saved.perPage);
-                                            setAdvancedConditions(
-                                                saved.advancedConditions ?? [],
-                                            );
-                                            setPage(1);
-                                        }}
-                                    />
-
                                     {allowEdit && selectedIds.size > 0 && filters.status !== 'deleted' && (
                                         <button
                                             type="button"
@@ -1439,42 +1541,7 @@ function PartiesWorkspace() {
                                                 : `Bulk edit (${selectedIds.size})`}
                                         </button>
                                     )}
-
-                                    <PartyDataActions
-                                        filters={
-                                            partyFilters
-                                        }
-                                        canImport={allowEdit && allowCreate}
-                                        onImport={() =>
-                                            setImportOpen(
-                                                true,
-                                            )
-                                        }
-                                    />
                                 </div>
-
-                                <Link
-                                    href="/app/follow-ups"
-                                    className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:bg-[var(--ac-surface-soft)]"
-                                >
-                                    {ar ? 'قائمة المتابعة' : 'Follow-ups'}
-                                </Link>
-
-                                {allowCreate && (
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            openCreate
-                                        }
-                                        className="flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[var(--ac-text)] px-5 text-sm font-semibold text-white shadow-[var(--ac-shadow-soft)] transition hover:-translate-y-0.5 xl:w-auto"
-                                    >
-                                        <Plus
-                                            size={16}
-                                        />
-
-                                        {t('ui.new_relationship')}
-                                    </button>
-                                )}
                             </div>
 
                             {(search ||
@@ -1563,7 +1630,7 @@ function PartiesWorkspace() {
                                 }
                             >
                                 <div className="min-w-0">
-                                    <div className="hidden border-b border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-5 py-3 text-[10px] font-semibold text-[var(--ac-text-muted)] lg:grid lg:grid-cols-[auto_minmax(210px,1.2fr)_minmax(165px,0.9fr)_minmax(105px,0.55fr)_minmax(105px,0.55fr)_minmax(135px,0.7fr)_auto] lg:items-center lg:gap-4 xl:px-6">
+                                    <div className={`hidden border-b border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-5 py-3 text-[10px] font-semibold text-[var(--ac-text-muted)] lg:grid lg:items-center lg:gap-4 xl:px-6 ${PARTY_ROW_GRID}`}>
                                         <span aria-hidden="true" />
 
                                         {! listPreferences.hidden.includes('identity') && (
@@ -1615,6 +1682,19 @@ function PartiesWorkspace() {
                                                 }}
                                             >
                                                 {ar ? 'له عليّ' : 'I owe'}
+                                            </span>
+                                        )}
+
+                                        {! listPreferences.hidden.includes('aging') && (
+                                            <span
+                                                style={{
+                                                    order: Math.max(
+                                                        listPreferences.order.indexOf('aging'),
+                                                        0,
+                                                    ),
+                                                }}
+                                            >
+                                                {ar ? 'عمر الدين' : 'Debt age'}
                                             </span>
                                         )}
 
@@ -1733,6 +1813,12 @@ function PartiesWorkspace() {
                                         }
                                     />
                                 )}
+                            </div>
+                        )}
+
+                        {overview?.balances_visible && parties.length > 0 && (
+                            <div className="border-t border-[var(--ac-line)] px-5 py-3 xl:px-6">
+                                <PartyAgingLegend ar={ar} />
                             </div>
                         )}
 

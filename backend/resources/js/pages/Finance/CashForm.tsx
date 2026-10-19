@@ -1,3 +1,4 @@
+import { KeepOpenToggle } from '@/components/data/KeepOpenToggle';
 import { apiRequest } from '@/lib/http';
 import {
     useGlobalSave,
@@ -42,8 +43,21 @@ import {
 import type {
     CashDetail,
     DocumentDetail,
+    DocumentRow,
     FinanceLookups,
 } from './types';
+
+/** A received cheque still held by the business, which a payment can endorse. */
+type ChequeOnHand = {
+    id: number;
+    number: string;
+    amount: string;
+    currency: string;
+    check_number: string;
+    check_bank: string | null;
+    check_due_date: string | null;
+    party_name: string | null;
+};
 
 type AllocationDraft = {
     financial_document_id: number;
@@ -53,6 +67,44 @@ type AllocationDraft = {
     amount: string;
 };
 
+/**
+ * Spreads a cash amount over open invoices first-in first-out: the oldest due
+ * invoice is settled fully before the next one receives anything. Works in
+ * 1/10000 units so the split never drifts by floating-point rounding.
+ */
+function distributeOldestFirst(
+    totalAmount: string,
+    invoices: DocumentRow[],
+): AllocationDraft[] {
+    let remainingUnits = Math.round((Number(totalAmount) || 0) * 10000);
+    const drafts: AllocationDraft[] = [];
+
+    for (const invoice of invoices) {
+        if (remainingUnits <= 0) {
+            break;
+        }
+
+        const balanceUnits = Math.round((Number(invoice.balance_due) || 0) * 10000);
+
+        if (balanceUnits <= 0) {
+            continue;
+        }
+
+        const allocatedUnits = Math.min(balanceUnits, remainingUnits);
+        remainingUnits -= allocatedUnits;
+
+        drafts.push({
+            financial_document_id: invoice.id,
+            document_number: invoice.number,
+            document_total: invoice.total,
+            document_balance_due: invoice.balance_due,
+            amount: (allocatedUnits / 10000).toFixed(4),
+        });
+    }
+
+    return drafts;
+}
+
 export function CashForm({
     direction,
     lookups,
@@ -61,7 +113,11 @@ export function CashForm({
     embedded = false,
     defaultPartyId = null,
     onSaved,
+    keepOpen,
+    onKeepOpenChange,
 }: {
+    keepOpen?: boolean;
+    onKeepOpenChange?: (next: boolean) => void;
     direction: 'incoming' | 'outgoing';
     lookups: FinanceLookups;
     ar: boolean;
@@ -85,6 +141,7 @@ export function CashForm({
             : ['bank_transfer'];
     const initialMethodValue =
         initial?.method
+        ?? ['cash', 'check'].find(value => enabledMethodValues.includes(value))
         ?? enabledMethodValues[0]
         ?? 'bank_transfer';
     const configuredBankAccounts =
@@ -141,6 +198,12 @@ export function CashForm({
     const [checkNumber, setCheckNumber] = useState(initial?.check_number ?? '');
     const [checkBank, setCheckBank] = useState(initial?.check_bank ?? '');
     const [checkDueDate, setCheckDueDate] = useState(initial?.check_due_date ?? '');
+    const initialEndorsedId = initial?.method_details?.endorsed_movement_id;
+    const [endorsedChequeId, setEndorsedChequeId] = useState(
+        initialEndorsedId ? String(initialEndorsedId) : '',
+    );
+    const [chequesOnHand, setChequesOnHand] = useState<ChequeOnHand[]>([]);
+    const endorsing = ! incoming && method === 'check' && endorsedChequeId !== '';
     const [allocations, setAllocations] = useState<AllocationDraft[]>(
         initial?.allocations.map((allocation) => ({
             financial_document_id: allocation.financial_document_id,
@@ -151,7 +214,10 @@ export function CashForm({
         })) ?? [],
     );
     const [allocationSearch, setAllocationSearch] = useState('');
-    const [invoiceOptions, setInvoiceOptions] = useState<DocumentDetail[]>([]);
+    const [invoiceOptions, setInvoiceOptions] = useState<DocumentRow[]>([]);
+    const [openInvoices, setOpenInvoices] = useState<DocumentRow[]>([]);
+    /* New movements allocate themselves; any manual touch on the table switches this off. */
+    const [autoAllocate, setAutoAllocate] = useState(! initial?.allocations.length);
     const [loadingInvoices, setLoadingInvoices] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
@@ -183,6 +249,7 @@ export function CashForm({
         checkNumber,
         checkBank,
         checkDueDate,
+        endorsedChequeId,
         allocations,
     };
 
@@ -300,6 +367,7 @@ export function CashForm({
                     setPartyId(document.party?.id ? String(document.party.id) : '');
                     setAmount(document.balance_due);
                     setCategory(incoming ? 'customer_receipt' : 'supplier_payment');
+                    setAutoAllocate(false);
                     setAllocations([
                         {
                             financial_document_id: document.id,
@@ -466,10 +534,18 @@ export function CashForm({
             draft.checkDueDate
             ?? '',
         );
+        setEndorsedChequeId(
+            draft.endorsedChequeId
+            ?? '',
+        );
         setAllocations(
             draft.allocations
             ?? [],
         );
+
+        if (draft.allocations?.length) {
+            setAutoAllocate(false);
+        }
     }, [
         initial?.id,
         direction,
@@ -486,51 +562,124 @@ export function CashForm({
 
     const unallocated = Math.max((Number(amount) || 0) - allocated, 0);
 
+    async function fetchOpenInvoices(search = ''): Promise<DocumentRow[]> {
+        const params = new URLSearchParams({
+            kind: incoming ? 'sale_invoice' : 'purchase_invoice',
+            open_only: '1',
+            per_page: '100',
+        });
+
+        if (partyId) {
+            params.set('party_id', partyId);
+        }
+
+        if (search) {
+            params.set('search', search);
+        }
+
+        const response = await apiRequest<{ data: DocumentRow[] }>(
+            '/api/finance/documents?' + params.toString(),
+        );
+
+        return response.data.filter((row) => row.currency === currency);
+    }
+
+    /* Paying by cheque offers the received cheques still on hand for endorsement. */
+    useEffect(() => {
+        if (incoming || method !== 'check') {
+            return;
+        }
+
+        let cancelled = false;
+        const query = initial?.id ? '?exclude_id=' + initial.id : '';
+
+        apiRequest<{ data: ChequeOnHand[] }>('/api/finance/cash-movements/cheques-on-hand' + query)
+            .then((response) => {
+                if (! cancelled) {
+                    setChequesOnHand(response.data.filter((cheque) => cheque.currency === currency));
+                }
+            })
+            .catch(() => {
+                if (! cancelled) {
+                    setChequesOnHand([]);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [incoming, method, initial?.id, currency]);
+
+    function selectChequeOnHand(chequeId: string): void {
+        setEndorsedChequeId(chequeId);
+
+        const cheque = chequesOnHand.find((candidate) => String(candidate.id) === chequeId);
+
+        if (! cheque) {
+            setCheckNumber('');
+            setCheckBank('');
+            setCheckDueDate('');
+
+            return;
+        }
+
+        setCheckNumber(cheque.check_number);
+        setCheckBank(cheque.check_bank ?? '');
+        setCheckDueDate(cheque.check_due_date ?? '');
+        setAmount(cheque.amount);
+    }
+
+    /* Selecting a party loads its open invoices (oldest due first) without any click. */
+    useEffect(() => {
+        if (! partyId || ! canManage) {
+            setOpenInvoices([]);
+            setInvoiceOptions([]);
+
+            return;
+        }
+
+        let cancelled = false;
+        setLoadingInvoices(true);
+
+        fetchOpenInvoices()
+            .then((rows) => {
+                if (! cancelled) {
+                    setOpenInvoices(rows);
+                    setInvoiceOptions(rows);
+                }
+            })
+            .catch((failure) => {
+                if (! cancelled) {
+                    setError(apiErrorText(failure));
+                }
+            })
+            .finally(() => {
+                if (! cancelled) {
+                    setLoadingInvoices(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [partyId, direction]);
+
+    /* While auto mode is on, the split follows the amount and the party's open invoices. */
+    useEffect(() => {
+        if (! autoAllocate) {
+            return;
+        }
+
+        setAllocations(distributeOldestFirst(amount, openInvoices));
+    }, [autoAllocate, amount, openInvoices]);
+
     async function searchInvoices(): Promise<void> {
         setLoadingInvoices(true);
         setError('');
 
         try {
-            const params = new URLSearchParams({
-                kind: incoming ? 'sale_invoice' : 'purchase_invoice',
-                per_page: '100',
-            });
-
-            if (partyId) {
-                params.set('party_id', partyId);
-            }
-
-            if (allocationSearch.trim()) {
-                params.set('search', allocationSearch.trim());
-            }
-
-            const response = await apiRequest<{
-                data: {
-                    id: number;
-                    number: string;
-                    status: string;
-                    party: { id: number; name: string } | null;
-                    total: string;
-                    balance_due: string;
-                    currency: string;
-                }[];
-            }>('/api/finance/documents?' + params.toString());
-
-            const details = await Promise.all(
-                response.data
-                    .filter((row) =>
-                        ['issued', 'partially_paid', 'overpaid', 'paid'].includes(row.status),
-                    )
-                    .filter((row) => Number(row.balance_due) > 0)
-                    .slice(0, 20)
-                    .map((row) =>
-                        apiRequest<{ data: DocumentDetail }>(
-                            '/api/finance/documents/' + row.id,
-                        ).then((detail) => detail.data),
-                    ),
-            );
-
-            setInvoiceOptions(details);
+            setInvoiceOptions(await fetchOpenInvoices(allocationSearch.trim()));
         } catch (failure) {
             setError(apiErrorText(failure));
         } finally {
@@ -538,7 +687,7 @@ export function CashForm({
         }
     }
 
-    function addAllocation(document: DocumentDetail): void {
+    function addAllocation(document: DocumentRow): void {
         if (allocations.some((item) => item.financial_document_id === document.id)) {
             return;
         }
@@ -567,8 +716,7 @@ export function CashForm({
             return;
         }
 
-        if (! allocations.length) {
-        }
+        setAutoAllocate(false);
 
         const remainingAmount = Math.max(
             (Number(amount) || 0) - allocated,
@@ -616,6 +764,9 @@ export function CashForm({
             check_bank: method === 'check' ? checkBank : null,
             check_due_date: method === 'check' ? checkDueDate : null,
             check_status: method === 'check' ? 'pending' : null,
+            method_details: endorsing
+                ? { ...(initial?.method_details ?? {}), endorsed_movement_id: Number(endorsedChequeId) }
+                : initial?.method_details ?? null,
             notes: notes || null,
             allocations: allocations
                 .filter((allocation) => Number(allocation.amount) > 0)
@@ -873,8 +1024,8 @@ export function CashForm({
 
     const allMethods = [
         ['cash', text('نقدي', 'Cash')],
-        ['bank_transfer', text('تحويل بنكي', 'Bank transfer')],
         ['check', text('شيك', 'Check')],
+        ['bank_transfer', text('تحويل بنكي', 'Bank transfer')],
         ['card', text('بطاقة ائتمان / خصم', 'Card')],
         ['electronic_wallet', text('محفظة إلكترونية', 'E-wallet')],
         ['direct_debit', text('خصم مباشر', 'Direct debit')],
@@ -962,6 +1113,10 @@ export function CashForm({
                 )}
             </div>
 
+            {onKeepOpenChange && (
+                <KeepOpenToggle checked={keepOpen ?? true} onChange={onKeepOpenChange} ar={ar} />
+            )}
+
             {initial?.correction_reason && (
                 <div className="rounded-[14px] border border-violet-500/20 bg-violet-500/10 p-4 text-sm text-[var(--ac-text-soft)]">
                     <strong>{text('مسودة تصحيح:', 'Correction draft:')}</strong>{' '}
@@ -1045,6 +1200,7 @@ export function CashForm({
                                     step="0.0001"
                                     className={financeInput + ' mt-2'}
                                     value={amount}
+                                    readOnly={endorsing}
                                     onChange={(event) => setAmount(event.target.value)}
                                 />
                             </label>
@@ -1144,22 +1300,6 @@ export function CashForm({
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('القسم (اختياري)', 'Department (optional)')}
-                                <select
-                                    className={financeInput + ' mt-2'}
-                                    value={departmentId}
-                                    onChange={(event) => setDepartmentId(event.target.value)}
-                                >
-                                    <option value="">{text('بدون قسم', 'No department')}</option>
-                                    {lookups.departments.map((department) => (
-                                        <option key={department.id} value={department.id}>
-                                            {department.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
-                            <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('الفرع / الموقع (اختياري)', 'Branch / location (optional)')}
                                 <input
                                     className={financeInput + ' mt-2'}
@@ -1218,12 +1358,52 @@ export function CashForm({
                             title={text('بيانات الشيك', 'Check details')}
                             icon={Landmark}
                         >
+                            {! incoming && (
+                                <div className="border-b border-[var(--ac-line)] p-4">
+                                    <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
+                                        {text('مصدر الشيك', 'Cheque source')}
+                                        <select
+                                            className={financeInput + ' mt-2'}
+                                            value={endorsedChequeId}
+                                            onChange={(event) => selectChequeOnHand(event.target.value)}
+                                        >
+                                            <option value="">
+                                                {text('شيك جديد صادر من الشركة', 'New cheque issued by the company')}
+                                            </option>
+                                            {chequesOnHand.map((cheque) => (
+                                                <option key={cheque.id} value={String(cheque.id)}>
+                                                    {[
+                                                        text('شيك رقم ', 'Cheque #') + cheque.check_number,
+                                                        cheque.check_bank,
+                                                        Number(cheque.amount).toLocaleString() + ' ' + cheque.currency,
+                                                        cheque.check_due_date,
+                                                        cheque.party_name,
+                                                    ].filter(Boolean).join(' — ')}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <p className="mt-2 text-[11px] leading-5 text-[var(--ac-text-muted)]">
+                                        {chequesOnHand.length === 0
+                                            ? text(
+                                                'لا توجد شيكات مستلمة متاحة للتجيير حالياً. الشيكات المقبوضة المعتمدة وقيد التحصيل تظهر هنا.',
+                                                'No received cheques are available to endorse. Posted, pending received cheques appear here.',
+                                            )
+                                            : text(
+                                                'اختر شيكاً مستلماً من العملاء لتجييره للمستفيد، وستُعبأ بياناته ومبلغه تلقائياً.',
+                                                'Pick a cheque received from customers to endorse it to the payee; its details and amount fill in automatically.',
+                                            )}
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
                                 <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {text('رقم الشيك *', 'Check number *')}
                                     <input
                                         className={financeInput + ' mt-2'}
                                         value={checkNumber}
+                                        readOnly={endorsing}
                                         onChange={(event) => setCheckNumber(event.target.value)}
                                     />
                                 </label>
@@ -1233,6 +1413,7 @@ export function CashForm({
                                     <input
                                         className={financeInput + ' mt-2'}
                                         value={checkBank}
+                                        readOnly={endorsing}
                                         onChange={(event) => setCheckBank(event.target.value)}
                                     />
                                 </label>
@@ -1243,6 +1424,7 @@ export function CashForm({
                                         type="date"
                                         className={financeInput + ' mt-2'}
                                         value={checkDueDate}
+                                        readOnly={endorsing}
                                         onChange={(event) => setCheckDueDate(event.target.value)}
                                     />
                                 </label>
@@ -1278,15 +1460,48 @@ export function CashForm({
                         action={
                             <button
                                 type="button"
-                                className={financeButton}
-                                disabled={loadingInvoices}
-                                onClick={() => void searchInvoices()}
+                                className={autoAllocate ? financePrimary : financeButton}
+                                disabled={! partyId || loadingInvoices}
+                                title={
+                                    partyId
+                                        ? undefined
+                                        : text('اختر الطرف أولاً', 'Choose the party first')
+                                }
+                                onClick={() => {
+                                    setError('');
+                                    setAutoAllocate(true);
+                                    setAllocations(distributeOldestFirst(amount, openInvoices));
+                                }}
                             >
-                                {text('بحث عن فواتير', 'Find invoices')}
+                                {text('توزيع تلقائي (الأقدم أولاً)', 'Auto-allocate (oldest first)')}
                             </button>
                         }
                     >
                         <div className="space-y-4 p-4">
+                            {partyId && (
+                                <div className="flex items-start gap-2 rounded-[12px] border border-emerald-500/20 bg-emerald-500/10 p-3 text-[11px] leading-6 text-[var(--ac-text-soft)]">
+                                    <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-emerald-500" />
+                                    <span>
+                                        {loadingInvoices
+                                            ? text('جارٍ تحميل الفواتير المفتوحة...', 'Loading open invoices...')
+                                            : ! openInvoices.length
+                                              ? text(
+                                                  'لا توجد فواتير مفتوحة لهذا الطرف؛ سيبقى المبلغ كاملاً رصيداً مقدماً.',
+                                                  'This party has no open invoices; the whole amount stays as advance credit.',
+                                              )
+                                              : autoAllocate
+                                                ? text(
+                                                    'التوزيع تلقائي: يُسدَّد أقدم استحقاق أولاً ثم الذي يليه حسب المبلغ. عدّل أي سطر يدوياً لإيقاف التوزيع التلقائي.',
+                                                    'Auto allocation is on: the oldest due invoice is settled first, then the next, up to the amount. Edit any row to switch to manual.',
+                                                )
+                                                : text(
+                                                    'التوزيع يدوي الآن. اضغط "توزيع تلقائي" لإعادة التوزيع على الأقدم أولاً.',
+                                                    'Allocation is manual now. Press "Auto-allocate" to spread the amount oldest first again.',
+                                                )}
+                                    </span>
+                                </div>
+                            )}
+
                             <div className="rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-accent-soft)] p-3 text-[11px] leading-6 text-[var(--ac-text-soft)]">
                                 {text(
                                     'التوزيع اختياري وآمن: لا يمكن تخصيص أكثر من المتبقي على الفاتورة، وأي زيادة في المبلغ تبقى رصيداً مقدماً للطرف. مسودة الفاتورة يمكن حذفها قبل الإصدار فقط؛ أما الفاتورة الصادرة المرتبطة بدفعة فلا تُحذف، بل تُصحح أو تُلغى بعد معالجة الدفعة المرتبطة.',
@@ -1326,6 +1541,8 @@ export function CashForm({
                                                 <strong className="text-[var(--ac-accent)]">{document.number}</strong>
                                                 <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
                                                     {document.party?.name ?? '—'}
+                                                    {' · '}
+                                                    {text('استحقاق', 'Due')} {document.due_date ?? document.issue_date}
                                                 </p>
                                             </div>
                                             <Money
@@ -1373,29 +1590,31 @@ export function CashForm({
                                                             step="0.0001"
                                                             className={financeInput + ' max-w-36'}
                                                             value={allocation.amount}
-                                                            onChange={(event) =>
+                                                            onChange={(event) => {
+                                                                setAutoAllocate(false);
                                                                 setAllocations((current) =>
                                                                     current.map((item) =>
                                                                         item.financial_document_id === allocation.financial_document_id
                                                                             ? { ...item, amount: event.target.value }
                                                                             : item,
                                                                     ),
-                                                                )
-                                                            }
+                                                                );
+                                                            }}
                                                         />
                                                     </td>
                                                     <td className="px-3 py-3">
                                                         <button
                                                             type="button"
                                                             className={financeButton}
-                                                            onClick={() =>
+                                                            onClick={() => {
+                                                                setAutoAllocate(false);
                                                                 setAllocations((current) =>
                                                                     current.filter(
                                                                         (item) =>
                                                                             item.financial_document_id !== allocation.financial_document_id,
                                                                     ),
-                                                                )
-                                                            }
+                                                                );
+                                                            }}
                                                         >
                                                             {text('إزالة', 'Remove')}
                                                         </button>

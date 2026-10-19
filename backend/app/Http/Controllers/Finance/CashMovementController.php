@@ -44,7 +44,12 @@ class CashMovementController extends Controller
                 'amount',
             )
             ->when($data['direction'] ?? null, fn ($query, $direction) => $query->where('direction', $direction))
-            ->when($data['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when(
+                $data['status'] ?? null,
+                fn ($query, $status) => $query->where('status', $status),
+                /* Reversed movements and their reversal entries live in the finance archive. */
+                fn ($query) => $query->where('status', '!=', 'reversed')->whereNull('reversal_of_id'),
+            )
             ->when($data['category'] ?? null, fn ($query, $category) => $query->where('category', $category))
             ->when($data['party_id'] ?? null, fn ($query, $partyId) => $query->where('party_id', $partyId))
             ->when($data['method'] ?? null, fn ($query, $method) => $query->where('method', $method))
@@ -161,6 +166,33 @@ class CashMovementController extends Controller
         ]);
     }
 
+    /**
+     * Received cheques still on hand, offered when paying by endorsing a cheque.
+     */
+    public function chequesOnHand(Request $request, CashMovementService $service): JsonResponse
+    {
+        FinanceAuthorization::authorize($request->user(), 'finance.cash.view');
+
+        $data = $request->validate([
+            'exclude_id' => ['nullable', 'integer'],
+        ]);
+
+        return response()->json([
+            'data' => $service->chequesOnHand($data['exclude_id'] ?? null)
+                ->map(fn (CashMovement $movement): array => [
+                    'id' => $movement->id,
+                    'number' => $movement->number,
+                    'amount' => $movement->amount,
+                    'currency' => $movement->currency,
+                    'check_number' => $movement->check_number,
+                    'check_bank' => $movement->check_bank,
+                    'check_due_date' => $movement->check_due_date?->format('Y-m-d'),
+                    'party_name' => $movement->party?->company_name ?: $movement->party?->name,
+                ])
+                ->values(),
+        ]);
+    }
+
     public function duplicateCheck(Request $request): JsonResponse
     {
         FinanceAuthorization::authorize(
@@ -258,7 +290,7 @@ class CashMovementController extends Controller
     {
         $movement = CashMovement::query()->findOrFail($movement);
         $this->authorizeDirection($request, $movement->direction);
-        $data = $this->validatedMovement($request, $movement->direction);
+        $data = $this->validatedMovement($request, $movement->direction, $movement->method);
         $movement = $service->updateDraft($movement, $data, $request->user()->id);
 
         return response()->json(['data' => $this->detail($movement)]);
@@ -401,7 +433,11 @@ class CashMovementController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function validatedMovement(Request $request, ?string $forcedDirection = null): array
+    /**
+     * @param  string|null  $currentMethod  The method the edited movement already uses; it stays allowed
+     *                                      even if workspace settings no longer list it (for example imported records).
+     */
+    private function validatedMovement(Request $request, ?string $forcedDirection = null, ?string $currentMethod = null): array
     {
         $data = $request->validate([
             'direction' => [$forcedDirection ? 'sometimes' : 'required', Rule::in(['incoming', 'outgoing'])],
@@ -463,9 +499,11 @@ class CashMovementController extends Controller
             'check',
         ]);
 
-        if (! in_array($data['method'], $allowedMethods, true)) {
+        if (! in_array($data['method'], $allowedMethods, true) && $data['method'] !== $currentMethod) {
             throw ValidationException::withMessages([
-                'method' => ['This payment method is disabled in workspace settings.'],
+                'method' => [app()->getLocale() === 'ar'
+                    ? 'طريقة الدفع هذه غير مفعّلة في إعدادات مساحة العمل.'
+                    : 'This payment method is disabled in workspace settings.'],
             ]);
         }
 

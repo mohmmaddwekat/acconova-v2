@@ -1,4 +1,5 @@
 import { normalizeApiError } from './error-feedback';
+import { emitDataChanged } from './live';
 import { getLocale } from './locale';
 export type ApiErrorPayload = {
     message?: string;
@@ -234,6 +235,10 @@ export async function apiRequest<T>(
     if (! response.ok) {
         hideStaffImportProgress();
         return throwForApiError(response);
+    }
+
+    if (! ['GET', 'HEAD'].includes(method)) {
+        emitDataChanged(response.headers.get('X-Data-Version'));
     }
 
     if (response.status === 204) {

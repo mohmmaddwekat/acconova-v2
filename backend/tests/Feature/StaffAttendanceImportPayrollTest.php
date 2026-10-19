@@ -109,6 +109,9 @@ class StaffAttendanceImportPayrollTest extends TestCase
             'amount' => 115.36,
         ]);
 
+        // The organization middleware clears the tenant context when a request ends.
+        app(TenantContext::class)->set($organization, OrganizationRole::Owner);
+
         $this->assertSame(
             1,
             StaffEntry::where('staff_member_id', $staffId)

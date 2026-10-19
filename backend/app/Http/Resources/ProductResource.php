@@ -41,6 +41,7 @@ class ProductResource extends JsonResource
 
             'stock_on_hand' => $this->whenHas('stock_on_hand', fn () => $this->tracksInventory() ? (string) ($this->stock_on_hand ?? '0') : null),
             'stock_reserved' => $this->whenHas('stock_reserved', fn () => $this->tracksInventory() ? (string) ($this->stock_reserved ?? '0') : null),
+            'monthly_sales' => $this->whenHas('monthly_sales', fn () => $this->tracksInventory() ? (string) round((float) ($this->monthly_sales ?? 0), 2) : null),
 
             'track_inventory' => $this->tracksInventory(),
 

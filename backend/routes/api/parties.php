@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Parties\CreditController;
 use App\Http\Controllers\Parties\PartyAccountController;
+use App\Http\Controllers\Parties\PartyAdjustmentController;
 use App\Http\Controllers\Parties\PartyBulkActionController;
 use App\Http\Controllers\Parties\PartyBulkEditController;
 use App\Http\Controllers\Parties\PartyCollectionsController;
@@ -80,6 +81,14 @@ Route::middleware([
         ],
     );
 
+    Route::get(
+        'parties/overview',
+        [
+            PartyController::class,
+            'overview',
+        ],
+    );
+
     Route::post(
         'parties',
         [
@@ -101,6 +110,10 @@ Route::middleware([
             ->whereNumber(['party', 'settlement'])
             ->middleware('throttle:20,1');
     }
+    Route::post('parties/{party}/adjustments', [PartyAdjustmentController::class, 'store'])->whereNumber('party')->middleware('throttle:30,1');
+    Route::post('parties/{party}/adjustments/{adjustment}/void', [PartyAdjustmentController::class, 'void'])
+        ->whereNumber(['party', 'adjustment'])
+        ->middleware('throttle:30,1');
 
     Route::get(
         'parties/{party}/account',

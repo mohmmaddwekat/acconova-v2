@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\CashMovement;
 use App\Models\FinanceAuditEvent;
 use App\Models\FinancialDocument;
+use App\Models\FinancialDocumentLine;
 use App\Models\Party;
+use App\Models\PartyAdjustment;
 use App\Models\PartyOpeningBalance;
 use App\Models\PartySettlement;
 use App\Services\Finance\FinanceAuthorization;
@@ -208,6 +210,7 @@ class PartyAccountController extends Controller
 
         if ($canSales) {
             FinancialDocument::query()
+                ->with('lines')
                 ->where(
                     'party_id',
                     $party->id,
@@ -252,6 +255,7 @@ class PartyAccountController extends Controller
 
         if ($canPurchases) {
             FinancialDocument::query()
+                ->with('lines')
                 ->where(
                     'party_id',
                     $party->id,
@@ -392,6 +396,23 @@ class PartyAccountController extends Controller
                     }
 
                     $entries->push($this->settlementEntry($settlement, $side));
+                }
+            });
+
+        PartyAdjustment::query()
+            ->with('document:id,number')
+            ->where('party_id', $party->id)
+            ->where('status', PartyAdjustment::STATUS_POSTED)
+            ->whereDate('adjustment_date', '<=', $dateTo->toDateString())
+            ->orderBy('adjustment_date')
+            ->orderBy('id')
+            ->get()
+            ->each(function (PartyAdjustment $adjustment) use ($entries, $canSales, $canPurchases, $customerCutoff, $supplierCutoff): void {
+                $visible = $adjustment->side === 'customer' ? $canSales : $canPurchases;
+                $cutoff = $adjustment->side === 'customer' ? $customerCutoff : $supplierCutoff;
+
+                if ($visible && ! ($cutoff && $adjustment->adjustment_date->lte($cutoff))) {
+                    $entries->push($this->adjustmentEntry($adjustment));
                 }
             });
 
@@ -791,7 +812,13 @@ class PartyAccountController extends Controller
                     $agingAsOf,
                 ),
             ],
-            'transactions' => $rows,
+            'transactions' => $this->withCarriedForward(
+                $rows,
+                (float) $openingBalance,
+                $dateFrom,
+                $scope,
+                $currency,
+            ),
             'permissions' => [
                 'sales_view' => $canSales,
                 'sales_manage' => FinanceAuthorization::allows(
@@ -1145,6 +1172,43 @@ class PartyAccountController extends Controller
         ];
     }
 
+    /**
+     * Put the balance that existed before the selected period on the first line
+     * of the statement, so the running balance can be followed from the top.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function withCarriedForward(
+        Collection $rows,
+        float $openingBalance,
+        Carbon $dateFrom,
+        string $scope,
+        string $currency,
+    ): Collection {
+        if (abs($openingBalance) < 0.00005) {
+            return $rows;
+        }
+
+        return $rows->prepend([
+            'id' => 'carried-forward',
+            'source_id' => 0,
+            'side' => $scope === 'supplier' ? 'supplier' : 'customer',
+            'type' => 'opening_balance',
+            'date' => $dateFrom->format('Y-m-d'),
+            'reference' => '',
+            'description' => 'Balance brought forward',
+            'amount' => number_format(abs($openingBalance), 4, '.', ''),
+            'currency' => $currency,
+            'debit' => number_format(max($openingBalance, 0), 4, '.', ''),
+            'credit' => number_format(max(-$openingBalance, 0), 4, '.', ''),
+            'balance' => number_format($openingBalance, 4, '.', ''),
+            'url' => null,
+            'status' => 'posted',
+            'method' => null,
+        ])->values();
+    }
+
     private function documentEntry(
         FinancialDocument $document,
         string $side,
@@ -1164,6 +1228,18 @@ class PartyAccountController extends Controller
             'description' => $side === 'customer'
                     ? 'Sales invoice'
                     : 'Purchase invoice',
+            'items' => $document->lines
+                ->map(fn (FinancialDocumentLine $line): array => [
+                    'description' => $line->description,
+                    'quantity' => (string) $line->quantity,
+                    'unit_price' => (string) $line->unit_price,
+                    'line_subtotal' => (string) $line->line_subtotal,
+                    'discount_percent' => (string) $line->discount_percent,
+                    'line_discount' => (string) $line->line_discount,
+                    'line_total' => (string) $line->line_total,
+                ])
+                ->values()
+                ->all(),
             'amount' => $document->total,
             'currency' => $document->currency,
             'effect_customer' => $side === 'customer'
@@ -1216,6 +1292,34 @@ class PartyAccountController extends Controller
             'status' => $settlement->status,
             'method' => 'settlement',
             'sort_key' => '3-'.str_pad((string) $settlement->id, 12, '0', STR_PAD_LEFT),
+        ];
+    }
+
+    /**
+     * A posted difference entry ("قيد فروقات"); it moves only its own side.
+     *
+     * @return array<string, mixed>
+     */
+    private function adjustmentEntry(PartyAdjustment $adjustment): array
+    {
+        return [
+            'id' => 'adjustment-'.$adjustment->id,
+            'source_id' => $adjustment->id,
+            'side' => $adjustment->side,
+            'type' => 'adjustment',
+            'date' => $adjustment->adjustment_date->format('Y-m-d'),
+            'reference' => $adjustment->number,
+            'description' => $adjustment->document
+                ? $adjustment->reason.' — '.$adjustment->document->number
+                : $adjustment->reason,
+            'amount' => $adjustment->amount,
+            'currency' => $adjustment->currency,
+            'effect_customer' => $adjustment->customerEffect(),
+            'effect_supplier' => $adjustment->supplierEffect(),
+            'url' => null,
+            'status' => $adjustment->status,
+            'method' => null,
+            'sort_key' => '4-'.str_pad((string) $adjustment->id, 12, '0', STR_PAD_LEFT),
         ];
     }
 

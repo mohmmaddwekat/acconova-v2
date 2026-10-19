@@ -1,13 +1,16 @@
-import { activeProfileTab, ProfileCenter, ProfileTabs } from '@/features/profile/ProfileCenter';
+import '../../css/profile-page.css';
+
+import { activeProfileTab, ProfileCenter } from '@/features/profile/ProfileCenter';
 import {
     fetchProfile,
     requestProfileEmailChange,
     updateProfile,
+    updateProfilePrivacy,
     uploadProfileAvatar,
 } from '@/features/profile/api';
+import { roleLabel as formatRole } from '@/features/profile/roles';
 import type {
     ProfileResponse,
-    ProfileSession,
 } from '@/features/profile/types';
 import {
     AppShell,
@@ -32,27 +35,19 @@ import {
     Building2,
     CalendarDays,
     Camera,
+    Check,
     CheckCircle2,
-    Clock3,
-    Contact,
     Edit3,
-    Globe2,
-    KeyRound,
+    FileText,
     Laptop,
     Mail,
-    MapPin,
-    MonitorSmartphone,
     Phone,
     Save,
-    ShieldCheck,
-    Sparkles,
     UserRound,
-    UsersRound,
     X,
 } from 'lucide-react';
 import {
     useEffect,
-    useMemo,
     useRef,
     useState,
     type ChangeEvent,
@@ -876,6 +871,7 @@ export default function ProfilePage() {
                     onError={
                         setError
                     }
+                    onProfileChange={setProfile}
                 />
             )}
         </AppShell>
@@ -891,6 +887,7 @@ function ProfileOverview({
     copy,
     error,
     onError,
+    onProfileChange,
 }: {
     profile: ProfileResponse;
     ar: boolean;
@@ -899,7 +896,12 @@ function ProfileOverview({
     onError: (
         value: string,
     ) => void;
+    onProfileChange: (
+        profile: ProfileResponse,
+    ) => void;
 }) {
+    const [savingPrivacy, setSavingPrivacy] = useState<'show_email' | 'show_phone' | null>(null);
+
     const page =
         usePage<AppPageProps>();
 
@@ -933,452 +935,260 @@ function ProfileOverview({
             * 100,
         );
 
-    const roleLabel =
-        activeOrganization
-            ?.role
-            ?? '—';
+    const organizationName = activeOrganization?.name ?? '—';
+    const verified = Boolean(user.email_verified_at);
+
+    const checklist: [string, boolean][] = [
+        [ar ? 'الاسم' : 'Name', Boolean(user.name)],
+        [ar ? 'البريد الإلكتروني' : 'Email', Boolean(user.email)],
+        [ar ? 'رقم الهاتف' : 'Phone', Boolean(user.phone)],
+        [ar ? 'المسمى الوظيفي' : 'Job title', Boolean(user.job_title)],
+        [ar ? 'نبذة شخصية' : 'Bio', Boolean(user.bio)],
+        [ar ? 'صورة الملف' : 'Photo', Boolean(profile.avatar_url)],
+    ];
+
+    const securityItems: [string, boolean][] = [
+        [ar ? 'توثيق البريد الإلكتروني' : 'Email verified', verified],
+        [ar ? 'ثلاث جلسات نشطة أو أقل' : 'Three active sessions or fewer', profile.sessions.length <= 3],
+        [ar ? 'لا يوجد طلب تغيير بريد معلّق' : 'No pending email change', ! user.pending_email],
+    ];
+
+    const securityScore = securityItems.filter(([, ok]) => ok).length;
+
+    const tabs: [string, string, string][] = [
+        ['overview', 'نظرة عامة', 'Overview'],
+        ['activity', 'النشاط', 'Activity'],
+        ['settings', 'الإعدادات', 'Settings'],
+        ['security', 'الأمان', 'Security'],
+        ['files', 'الملفات والمستندات', 'Files & documents'],
+    ];
+
+    async function setVisibility(field: 'show_email' | 'show_phone', value: boolean): Promise<void> {
+        setSavingPrivacy(field);
+
+        try {
+            onProfileChange(await updateProfilePrivacy({ [field]: value }));
+        } catch (failure) {
+            onError(profileErrorText(failure));
+        } finally {
+            setSavingPrivacy(null);
+        }
+    }
+
+    const visibilityRow = (
+        field: 'show_email' | 'show_phone',
+        icon: ReactNode,
+        label: string,
+        value: string | null,
+    ): ReactNode => (
+        <div className="r">
+            <span className="ri">{icon}</span>
+
+            <div>
+                <small>{label}</small>
+
+                {value ? <b><bdi dir="ltr">{value}</bdi></b> : <Link href="/app/profile?view=edit" className="link">{ar ? 'أضف الآن' : 'Add now'}</Link>}
+            </div>
+
+            <div className="vis">
+                <span>{user[field] ? (ar ? 'ظاهر للزملاء' : 'Visible to colleagues') : (ar ? 'مخفي عن الزملاء' : 'Hidden from colleagues')}</span>
+
+                <button
+                    type="button"
+                    role="switch"
+                    className="sw"
+                    aria-checked={user[field]}
+                    aria-label={ar ? `إظهار ${label} للزملاء` : `Show ${label} to colleagues`}
+                    disabled={! value || savingPrivacy === field}
+                    onClick={() => void setVisibility(field, ! user[field])}
+                />
+            </div>
+        </div>
+    );
 
     return (
-        <main className="mx-auto w-full max-w-[1760px] px-3 py-5 sm:px-5 lg:px-8">
+        <main className="pf">
             {error && (
                 <InlineError
-                    message={
-                        error
-                    }
-                    onClose={() =>
-                        onError(
-                            '',
-                        )
-                    }
+                    message={error}
+                    onClose={() => onError('')}
                 />
             )}
 
-            <ProfileHero
-                profile={
-                    profile
-                }
-                ar={
-                    ar
-                }
-                statusLabel={
-                    copy.online
-                }
-                subtitle={
-                    copy.heroLine
-                }
-                organization={
-                    activeOrganization
-                        ?.name
-                    ?? '—'
-                }
-                role={
-                    roleLabel
-                }
-            />
+            <section className="idbar">
+                <span className="av" style={{ width: 60, height: 60, fontSize: 22 }}>
+                    {profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials(user.name)}
+                </span>
 
-            {activeTab === 'overview' && <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                <MetricCard
-                    icon={
-                        BadgeCheck
-                    }
-                    label={
-                        copy.profileComplete
-                    }
-                    value={`${profileCompletion}%`}
-                    hint={`${completedFields}/6 ${copy.fieldsComplete}`}
-                    progress={
-                        profileCompletion
-                    }
-                />
+                <div>
+                    <h1>{user.name}</h1>
 
-                <MetricCard
-                    icon={
-                        ShieldCheck
-                    }
-                    label={
-                        copy.verification
-                    }
-                    value={
-                        user.email_verified_at
-                            ? copy.verified
-                            : copy.unverified
-                    }
-                    positive={
-                        Boolean(
-                            user.email_verified_at,
-                        )
-                    }
-                />
+                    <p>{[user.job_title, organizationName].filter(Boolean).join(' · ')}</p>
+                </div>
 
-                <MetricCard
-                    icon={
-                        MonitorSmartphone
-                    }
-                    label={
-                        copy.activeSessions
-                    }
-                    value={String(
-                        profile.sessions.length,
-                    )}
-                />
+                <span className="badge ok"><i className="dot" />{copy.online}</span>
 
-                <MetricCard
-                    icon={
-                        UsersRound
-                    }
-                    label={
-                        copy.workspaces
-                    }
-                    value={String(
-                        page.props.workspace
-                            .organizations
-                            .length,
-                    )}
-                />
+                <span className="sp" />
 
-                <MetricCard
-                    icon={
-                        BriefcaseBusiness
-                    }
-                    label={
-                        copy.currentRole
-                    }
-                    value={
-                        roleLabel
-                    }
-                />
-            </div>
+                <Link href="/app/profile?view=edit" className="btn">
+                    <Edit3 size={16} />
 
-            }
-            <ProfileTabs ar={ar} active={activeTab} />
+                    {ar ? 'تعديل' : 'Edit'}
+                </Link>
+            </section>
 
-            {activeTab !== 'overview' ? <ProfileCenter tab={activeTab} profile={profile} ar={ar} /> : <>
-
-            <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,.65fr)]">
-                <div className="grid gap-4 lg:grid-cols-2">
-                    <ProfileCard
-                        title={
-                            copy.personalInfo
-                        }
-                        icon={
-                            UserRound
-                        }
-                        action={
-                            <Link
-                                href="/app/profile?view=edit"
-                                className={
-                                    secondaryButton
-                                }
-                            >
-                                <Edit3
-                                    size={
-                                        14
-                                    }
-                                />
-
-                                {
-                                    copy.edit
-                                }
-                            </Link>
-                        }
+            <nav className="seg2" aria-label={ar ? 'أقسام الملف الشخصي' : 'Profile sections'}>
+                {tabs.map(([key, arabic, english]) => (
+                    <Link
+                        key={key}
+                        preserveScroll
+                        href={key === 'overview' ? '/app/profile' : `/app/profile?view=${key}`}
+                        aria-current={key === activeTab ? 'page' : undefined}
                     >
-                        <InfoRow
-                            label={
-                                copy.fullName
-                            }
-                            value={
-                                user.name
-                            }
-                        />
+                        {ar ? arabic : english}
+                    </Link>
+                ))}
+            </nav>
 
-                        <InfoRow
-                            label={
-                                copy.jobTitle
-                            }
-                            value={
-                                user.job_title
-                                ?? copy.noValue
-                            }
-                        />
+            {activeTab !== 'overview' ? <ProfileCenter tab={activeTab} profile={profile} ar={ar} /> : (
+                <>
+                    <div className="widgets">
+                        <section className="w">
+                            <h3>{ar ? 'اكتمال الملف' : 'Profile completeness'}</h3>
 
-                        <InfoRow
-                            label={
-                                copy.accountCreated
-                            }
-                            value={formatDate(
-                                user.created_at,
-                                ar,
-                            )}
-                        />
+                            <p>{ar ? 'كل حقل يضيف نحو 17%' : 'Each field adds about 17%'}</p>
 
-                        <div className="mt-4 rounded-[16px] bg-[var(--ac-surface-soft)] p-4">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ac-text-muted)]">
-                                {
-                                    copy.bio
-                                }
-                            </p>
+                            <div className="big">
+                                <CompletionRing percent={profileCompletion} />
 
-                            <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
-                                {user.bio
-                                    || copy.noValue}
-                            </p>
-                        </div>
-                    </ProfileCard>
+                                <div>
+                                    <b>{completedFields}/6</b>
 
-                    <ProfileCard
-                        title={
-                            copy.contactInfo
-                        }
-                        icon={
-                            Contact
-                        }
-                    >
-                        <InfoRow
-                            icon={
-                                Mail
-                            }
-                            label={
-                                copy.email
-                            }
-                            value={
-                                user.email
-                            }
-                        />
-
-                        <InfoRow
-                            icon={
-                                Phone
-                            }
-                            label={
-                                copy.phone
-                            }
-                            value={
-                                user.phone
-                                ?? copy.noValue
-                            }
-                        />
-
-                        {user.pending_email && (
-                            <div className="mt-3 rounded-[15px] border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                                <strong>
-                                    {
-                                        copy.pendingEmail
-                                    }
-                                </strong>
-
-                                <p className="mt-1">
-                                    {
-                                        user.pending_email
-                                    }
-                                </p>
-                            </div>
-                        )}
-                    </ProfileCard>
-
-                    <ProfileCard
-                        title={
-                            copy.organization
-                        }
-                        icon={
-                            Building2
-                        }
-                    >
-                        <InfoRow
-                            icon={
-                                Building2
-                            }
-                            label={
-                                copy.company
-                            }
-                            value={
-                                activeOrganization
-                                    ?.name
-                                ?? copy.noValue
-                            }
-                        />
-
-                        <InfoRow
-                            icon={
-                                BriefcaseBusiness
-                            }
-                            label={
-                                copy.role
-                            }
-                            value={
-                                roleLabel
-                            }
-                        />
-
-                        <div className="mt-4 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] p-4 text-xs leading-5 text-[var(--ac-text-muted)]">
-                            {
-                                copy.workspaceRoleHint
-                            }
-                        </div>
-                    </ProfileCard>
-
-                    <ProfileCard
-                        title={
-                            copy.security
-                        }
-                        icon={
-                            ShieldCheck
-                        }
-                    >
-                        <div className="flex items-center gap-4 rounded-[18px] bg-[var(--ac-accent-soft)] p-4">
-                            <div className="flex size-12 shrink-0 items-center justify-center rounded-[15px] bg-white text-[var(--ac-accent-strong)] shadow-sm">
-                                <ShieldCheck
-                                    size={
-                                        21
-                                    }
-                                />
+                                    <small>{ar ? 'حقول مكتملة' : 'fields complete'}</small>
+                                </div>
                             </div>
 
                             <div>
-                                <strong className="text-sm">
-                                    {
-                                        copy.securityHealthy
-                                    }
-                                </strong>
+                                {checklist.map(([label, done]) => (
+                                    <div key={label} className={['todo', done ? 'done' : ''].join(' ')}>
+                                        <span className="tk"><Check size={14} /></span>
 
-                                <p className="mt-1 text-xs leading-5 text-[var(--ac-text-muted)]">
-                                    {
-                                        copy.securityDescription
-                                    }
-                                </p>
+                                        <span className="l">{label}</span>
+
+                                        {! done && <Link href="/app/profile?view=edit" className="link">{ar ? 'أضف' : 'Add'}</Link>}
+                                    </div>
+                                ))}
                             </div>
-                        </div>
+                        </section>
 
-                        <InfoRow
-                            label={
-                                copy.verification
-                            }
-                            value={
-                                user.email_verified_at
-                                    ? copy.verified
-                                    : copy.unverified
-                            }
-                        />
+                        <section className="w">
+                            <h3>{ar ? 'مستوى الأمان' : 'Security level'}</h3>
 
-                        <InfoRow
-                            label={
-                                copy.activeSessions
-                            }
-                            value={String(
-                                profile.sessions.length,
-                            )}
-                        />
-                    </ProfileCard>
-                </div>
+                            <p>{ar ? `${securityScore} من ${securityItems.length} إجراءات مكتملة` : `${securityScore} of ${securityItems.length} checks passed`}</p>
 
-                <div className="space-y-4">
-                    <ProfileCard
-                        title={
-                            copy.quickActions
-                        }
-                        icon={
-                            Sparkles
-                        }
-                    >
-                        <div className="space-y-2">
-                            <Link
-                                href="/app/profile?view=edit"
-                                className="flex w-full items-center gap-3 rounded-[15px] border border-[var(--ac-line)] bg-white p-3 text-start transition hover:bg-[var(--ac-accent-soft)]"
-                            >
-                                <span className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
-                                    <Edit3
-                                        size={
-                                            16
-                                        }
-                                    />
-                                </span>
+                            <div className="score">
+                                {securityItems.map(([label, ok]) => <i key={label} className={ok ? 'on' : ''} />)}
+                            </div>
 
-                                <span className="text-sm font-semibold">
-                                    {
-                                        copy.edit
-                                    }
-                                </span>
-                            </Link>
+                            <div>
+                                {securityItems.map(([label, ok]) => (
+                                    <div key={label} className={['todo', ok ? 'done ok' : ''].join(' ')}>
+                                        <span className="tk"><Check size={14} /></span>
 
-                            <div className="flex w-full items-center gap-3 rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3">
-                                <span className="flex size-10 items-center justify-center rounded-[13px] bg-white">
-                                    <KeyRound
-                                        size={
-                                            16
-                                        }
-                                    />
-                                </span>
+                                        <span className="l">{label}</span>
 
+                                        {! ok && <Link href="/app/profile?view=security" className="link">{ar ? 'عالج' : 'Fix'}</Link>}
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        <section className="w">
+                            <div className="w-h">
+                                <h3>{ar ? 'الجلسات النشطة' : 'Active sessions'}</h3>
+
+                                <Link href="/app/profile?view=security" className="link">{ar ? 'إدارة' : 'Manage'}</Link>
+                            </div>
+
+                            <div>
+                                {profile.sessions.length > 0 ? profile.sessions.slice(0, 4).map((session) => (
+                                    <div key={session.id} className="r">
+                                        <span className="ri"><Laptop size={18} /></span>
+
+                                        <div>
+                                            <b>{sessionLabel(session.agent)} {session.current && <span className="badge ok">{copy.currentSession}</span>}</b>
+
+                                            <small><bdi>{session.ip ?? '—'}</bdi> · <bdi>{formatSessionTime(session.last_activity, ar)}</bdi></small>
+                                        </div>
+                                    </div>
+                                )) : <p className="empty">{copy.noSessions}</p>}
+                            </div>
+                        </section>
+                    </div>
+
+                    <div className="lower">
+                        <section className="w">
+                            <div className="w-h">
                                 <div>
-                                    <p className="text-sm font-semibold">
-                                        {
-                                            copy.security
-                                        }
-                                    </p>
+                                    <h3>{ar ? 'المعلومات الشخصية' : 'Personal information'}</h3>
 
-                                    <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
-                                        {profile.sessions.length}
-                                        {' '}
-                                        {
-                                            copy.activeSessions
-                                        }
-                                    </p>
+                                    <p className="sub" style={{ marginBottom: 0 }}>{ar ? 'زملاؤك يشوفون اسمك ومسماك ونبذتك. البريد والهاتف مخفيان إلا إذا فعّلت ظهورهما.' : 'Colleagues see your name, title and bio. Email and phone stay hidden unless you show them.'}</p>
                                 </div>
-                            </div>
-                        </div>
-                    </ProfileCard>
 
-                    <ProfileCard
-                        title={
-                            copy.sessions
-                        }
-                        icon={
-                            Laptop
-                        }
-                    >
-                        <div className="space-y-2">
-                            {profile.sessions.length >
-                            0 ? (
-                                profile.sessions
-                                    .slice(
-                                        0,
-                                        4,
-                                    )
-                                    .map(
-                                        (
-                                            session,
-                                        ) => (
-                                            <SessionRow
-                                                key={
-                                                    session.id
-                                                }
-                                                session={
-                                                    session
-                                                }
-                                                ar={
-                                                    ar
-                                                }
-                                                currentLabel={
-                                                    copy.currentSession
-                                                }
-                                            />
-                                        ),
-                                    )
-                            ) : (
-                                <EmptyState
-                                    icon={
-                                        Laptop
-                                    }
-                                    text={
-                                        copy.noSessions
-                                    }
-                                />
-                            )}
-                        </div>
-                    </ProfileCard>
-                </div>
-            </div>
-            </>}
+                                <Link href="/app/profile?view=edit" className="ghost"><Edit3 size={14} />{ar ? 'تعديل' : 'Edit'}</Link>
+                            </div>
+
+                            <div>
+                                <div className="r"><span className="ri"><UserRound size={18} /></span><div><small>{copy.fullName}</small><b>{user.name}</b></div></div>
+
+                                <div className="r"><span className="ri"><BriefcaseBusiness size={18} /></span><div><small>{copy.jobTitle}</small><b>{user.job_title ?? copy.noValue}</b></div></div>
+
+                                {visibilityRow('show_email', <Mail size={18} />, copy.email, user.email)}
+
+                                {visibilityRow('show_phone', <Phone size={18} />, copy.phone, user.phone)}
+
+                                <div className="r"><span className="ri"><FileText size={18} /></span><div><small>{copy.bio}</small><p className="bio">{user.bio || copy.noValue}</p></div></div>
+                            </div>
+                        </section>
+
+                        <section className="w">
+                            <h3>{ar ? 'المؤسسة والدور' : 'Organization and role'}</h3>
+
+                            <p>{copy.workspaceRoleHint}</p>
+
+                            <div>
+                                <div className="r"><span className="ri"><Building2 size={18} /></span><div><small>{copy.company}</small><b>{organizationName}</b></div></div>
+
+                                <div className="r"><span className="ri"><BriefcaseBusiness size={18} /></span><div><small>{copy.role}</small><b>{formatRole(activeOrganization?.role, ar)}</b></div></div>
+
+                                <div className="r"><span className="ri"><CalendarDays size={18} /></span><div><small>{copy.accountCreated}</small><b>{formatDate(user.created_at, ar)}</b></div></div>
+                            </div>
+                        </section>
+                    </div>
+                </>
+            )}
         </main>
+    );
+}
+
+/**
+ * Completion ring used by the overview.
+ */
+function CompletionRing({ percent }: { percent: number }) {
+    const size = 84;
+    const radius = (size - 9) / 2;
+    const circumference = 2 * Math.PI * radius;
+
+    return (
+        <span className="pf-ring" style={{ width: size, height: size }}>
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+                <circle className="t" cx={size / 2} cy={size / 2} r={radius} />
+
+                <circle className="p" cx={size / 2} cy={size / 2} r={radius} style={{ strokeDasharray: circumference, strokeDashoffset: circumference * (1 - percent / 100) }} />
+            </svg>
+
+            <b>{percent}%</b>
+        </span>
     );
 }
 
@@ -2169,314 +1979,6 @@ function ProfileEditor({
 }
 
 /**
- * Render the shared large profile identity surface.
- */
-function ProfileHero({
-    profile,
-    ar,
-    statusLabel,
-    subtitle,
-    organization,
-    role,
-}: {
-    profile: ProfileResponse;
-    ar: boolean;
-    statusLabel: string;
-    subtitle: string;
-    organization: string;
-    role: string;
-}) {
-    return (
-        <section className="relative overflow-hidden rounded-[28px] border border-[var(--ac-line)] bg-white shadow-[var(--ac-shadow-soft)]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(77,190,157,.17),transparent_28%),radial-gradient(circle_at_85%_0%,rgba(56,133,116,.10),transparent_30%)]" />
-
-            <div className="absolute -start-16 top-8 size-48 rounded-full border border-[var(--ac-accent)]/10" />
-
-            <div className="relative flex flex-col gap-6 p-5 sm:p-7 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:text-start">
-                    <ProfileAvatar
-                        profile={
-                            profile
-                        }
-                        size="hero"
-                    />
-
-                    <div className="min-w-0">
-                        <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                            <h1 className="truncate text-2xl font-semibold tracking-[-0.05em] sm:text-3xl">
-                                {
-                                    profile.user.name
-                                }
-                            </h1>
-
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-bold text-emerald-700">
-                                <span className="size-2 rounded-full bg-emerald-500" />
-
-                                {
-                                    statusLabel
-                                }
-                            </span>
-                        </div>
-
-                        <p className="mt-2 text-sm font-semibold text-[var(--ac-text-soft)]">
-                            {profile.user
-                                .job_title
-                                || (
-                                    ar
-                                        ? 'لم يتم تحديد المسمى الوظيفي'
-                                        : 'No job title provided'
-                                )}
-                        </p>
-
-                        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-[11px] text-[var(--ac-text-muted)] sm:justify-start">
-                            <span className="inline-flex items-center gap-1.5">
-                                <Building2
-                                    size={
-                                        13
-                                    }
-                                />
-
-                                {
-                                    organization
-                                }
-                            </span>
-
-                            <span>
-                                ·
-                            </span>
-
-                            <span className="capitalize">
-                                {
-                                    role
-                                }
-                            </span>
-                        </div>
-
-                        <p className="mt-3 max-w-2xl text-xs leading-6 text-[var(--ac-text-muted)]">
-                            {
-                                subtitle
-                            }
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap justify-center gap-2 lg:justify-end">
-                    <Link
-                        href="/app/profile?view=edit"
-                        className={
-                            primaryButton
-                        }
-                    >
-                        <Edit3
-                            size={
-                                14
-                            }
-                        />
-
-                        {ar
-                            ? 'تعديل الملف الشخصي'
-                            : 'Edit profile'}
-                    </Link>
-
-                    <Link href="/app/profile?view=settings" className="inline-flex min-h-10 items-center gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)]/80 px-4 text-sm font-semibold backdrop-blur hover:bg-teal-50">
-                        <ShieldCheck
-                            size={
-                                14
-                            }
-                        />
-
-                        <span>{ar ? 'إدارة الحساب' : 'Manage account'}</span>
-                    </Link>
-                </div>
-            </div>
-        </section>
-    );
-}
-
-/**
- * Render one real profile summary metric.
- */
-function MetricCard({
-    icon:
-        Icon,
-    label,
-    value,
-    hint,
-    progress,
-    positive,
-}: {
-    icon:
-        typeof UserRound;
-    label: string;
-    value: string;
-    hint?: string;
-    progress?: number;
-    positive?: boolean;
-}) {
-    return (
-        <div className={`${cardClass} p-4`}>
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <p className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
-                        {
-                            label
-                        }
-                    </p>
-
-                    <p className="mt-2 text-xl font-semibold tracking-[-0.04em]">
-                        {
-                            value
-                        }
-                    </p>
-                </div>
-
-                <div className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
-                    <Icon
-                        size={
-                            17
-                        }
-                    />
-                </div>
-            </div>
-
-            {hint && (
-                <p className="mt-2 text-[9px] text-[var(--ac-text-muted)]">
-                    {
-                        hint
-                    }
-                </p>
-            )}
-
-            {typeof progress ===
-                'number' && (
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--ac-bg-soft)]">
-                    <div
-                        className="h-full rounded-full bg-[var(--ac-accent-strong)] transition-all"
-                        style={{
-                            width:
-                                `${Math.min(
-                                    100,
-                                    Math.max(
-                                        0,
-                                        progress,
-                                    ),
-                                )}%`,
-                        }}
-                    />
-                </div>
-            )}
-
-            {typeof positive ===
-                'boolean' && (
-                <div className="mt-3 flex items-center gap-1.5 text-[9px] font-semibold text-emerald-700">
-                    <CheckCircle2
-                        size={
-                            11
-                        }
-                    />
-
-                    {positive
-                        ? 'OK'
-                        : 'Needs attention'}
-                </div>
-            )}
-        </div>
-    );
-}
-
-/**
- * Render one profile content card.
- */
-function ProfileCard({
-    title,
-    icon:
-        Icon,
-    action,
-    children,
-}: {
-    title: string;
-    icon:
-        typeof UserRound;
-    action?: ReactNode;
-    children: ReactNode;
-}) {
-    return (
-        <section className={`${cardClass} p-5`}>
-            <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-[13px] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]">
-                        <Icon
-                            size={
-                                16
-                            }
-                        />
-                    </div>
-
-                    <h2 className="text-sm font-semibold">
-                        {
-                            title
-                        }
-                    </h2>
-                </div>
-
-                {
-                    action
-                }
-            </div>
-
-            <div className="mt-5">
-                {
-                    children
-                }
-            </div>
-        </section>
-    );
-}
-
-/**
- * Render one labeled data row.
- */
-function InfoRow({
-    icon:
-        Icon,
-    label,
-    value,
-}: {
-    icon?:
-        typeof Mail;
-    label: string;
-    value: string;
-}) {
-    return (
-        <div className="flex items-center gap-3 border-b border-[var(--ac-line)] py-3 last:border-b-0">
-            {Icon && (
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--ac-bg-soft)] text-[var(--ac-text-muted)]">
-                    <Icon
-                        size={
-                            13
-                        }
-                    />
-                </div>
-            )}
-
-            <div className="min-w-0 flex-1">
-                <p className="text-[9px] font-semibold text-[var(--ac-text-muted)]">
-                    {
-                        label
-                    }
-                </p>
-
-                <p className="mt-1 truncate text-xs font-semibold">
-                    {
-                        value
-                    }
-                </p>
-            </div>
-        </div>
-    );
-}
-
-/**
  * Render the authenticated user's avatar.
  */
 function ProfileAvatar({
@@ -2515,105 +2017,6 @@ function ProfileAvatar({
             {initials(
                 profile.user.name,
             )}
-        </div>
-    );
-}
-
-/**
- * Render one authenticated browser session.
- */
-function SessionRow({
-    session,
-    ar,
-    currentLabel,
-}: {
-    session:
-        ProfileSession;
-    ar: boolean;
-    currentLabel: string;
-}) {
-    return (
-        <div className="rounded-[15px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3">
-            <div className="flex items-start gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-white">
-                    <Laptop
-                        size={
-                            14
-                        }
-                    />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-[10px] font-semibold">
-                            {sessionLabel(
-                                session.agent,
-                            )}
-                        </p>
-
-                        {session.current && (
-                            <span className="rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-bold text-emerald-700">
-                                {
-                                    currentLabel
-                                }
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[8px] text-[var(--ac-text-muted)]">
-                        <span>
-                            {
-                                session.ip
-                                ?? '—'
-                            }
-                        </span>
-
-                        <span>
-                            <Clock3
-                                size={
-                                    9
-                                }
-                                className="me-1 inline"
-                            />
-
-                            {formatSessionTime(
-                                session.last_activity,
-                                ar,
-                            )}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-/**
- * Render one compact empty state.
- */
-function EmptyState({
-    icon:
-        Icon,
-    text,
-}: {
-    icon:
-        typeof Laptop;
-    text: string;
-}) {
-    return (
-        <div className="rounded-[16px] border border-dashed border-[var(--ac-line)] p-6 text-center">
-            <Icon
-                size={
-                    20
-                }
-                className="mx-auto text-[var(--ac-text-muted)]"
-            />
-
-            <p className="mt-2 text-[10px] text-[var(--ac-text-muted)]">
-                {
-                    text
-                }
-            </p>
         </div>
     );
 }

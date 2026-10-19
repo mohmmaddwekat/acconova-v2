@@ -353,7 +353,10 @@ final class SupplierPaymentPlanService
             }
 
             $weOwe = max(0.0, (float) ($owed[$partyId]['we_owe'] ?? 0.0));
-            $owedToUs = (float) ($owed[$partyId]['owed_to_us'] ?? 0.0);
+            $owedToUs = min(
+                max((float) ($owed[$partyId]['customer_position'] ?? 0.0), 0.0),
+                max((float) ($owed[$partyId]['supplier_position'] ?? 0.0), 0.0),
+            );
             $importance = $policy->party_priorities[(string) $partyId] ?? 'normal';
             $name = (string) ($party->company_name ?: $party->name);
             $invoices = collect($byParty[$partyId] ?? [])->sortBy('contractual_date')->values();
@@ -425,7 +428,7 @@ final class SupplierPaymentPlanService
         }
 
         if ($candidate['owed_to_us'] > 0.004) {
-            $reasons[] = ['code' => 'also_customer', 'text' => 'This party also owes you '.$this->money($candidate['owed_to_us']).' as a customer; an approved settlement could offset up to that amount before paying. Nothing is netted automatically.'];
+            $reasons[] = ['code' => 'also_customer', 'text' => $this->money($candidate['owed_to_us']).' this party owes you as a customer was offset against what you owe it.'];
         }
 
         if ($dependsOnExpected) {

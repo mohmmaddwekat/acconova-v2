@@ -17,6 +17,7 @@ import {
     Printer,
     RotateCcw,
     ShieldCheck,
+    Trash2,
     Wallet,
     XCircle,
 } from 'lucide-react';
@@ -485,6 +486,40 @@ export function DocumentDetail({
         }
     }
 
+    async function deleteDocument(): Promise<void> {
+        if (busy || ! canCopy) {
+            return;
+        }
+
+        if (! window.confirm(
+            text(
+                'حذف هذه الفاتورة نهائياً؟ الحذف مسموح فقط للفواتير الملغاة أو المستبدلة بتصحيح.',
+                'Delete this invoice permanently? Only voided invoices or invoices replaced by a correction can be deleted.',
+            ),
+        )) {
+            return;
+        }
+
+        setBusy(true);
+        setError('');
+
+        try {
+            await apiRequest(
+                '/api/finance/documents/' + document.id,
+                { method: 'DELETE' },
+            );
+
+            window.location.assign(
+                sales
+                    ? '/app/invoices'
+                    : '/app/invoices/purchases',
+            );
+        } catch (failure) {
+            setError(apiErrorText(failure));
+            setBusy(false);
+        }
+    }
+
     async function voidDocument(): Promise<void> {
         if (
             busy
@@ -496,8 +531,12 @@ export function DocumentDetail({
         const reason =
             window.prompt(
                 text(
-                    'سبب إلغاء الفاتورة؟ لا يمكن الإلغاء إذا عليها دفعات مؤكدة.',
-                    'Reason for voiding? A document with posted allocations cannot be voided.',
+                    Number(document.paid_total) > 0
+                        ? 'سبب إلغاء الفاتورة؟ الدفعات المرتبطة بها لن تُحذف، بل تُفك عن الفاتورة وتبقى رصيداً مقدماً لنفس الطرف.'
+                        : 'سبب إلغاء الفاتورة؟ (5 أحرف على الأقل)',
+                    Number(document.paid_total) > 0
+                        ? 'Reason for voiding? Linked payments are not deleted; they are released and stay as advance credit for the same party.'
+                        : 'Reason for voiding? (at least 5 characters)',
                 ),
             );
 
@@ -792,6 +831,8 @@ export function DocumentDetail({
                             && [
                                 'issued',
                                 'partially_paid',
+                                'paid',
+                                'overpaid',
                             ].includes(
                                 document.status,
                             ) && (
@@ -817,6 +858,39 @@ export function DocumentDetail({
                                 {text(
                                     'إلغاء',
                                     'Void',
+                                )}
+                            </button>
+                        )}
+
+                        {canCopy
+                            && [
+                                'voided',
+                                'superseded',
+                            ].includes(
+                                document.status,
+                            ) && (
+                            <button
+                                type="button"
+                                className={
+                                    financeButton
+                                    + ' !text-red-600'
+                                }
+                                disabled={
+                                    busy
+                                }
+                                onClick={() =>
+                                    void deleteDocument()
+                                }
+                            >
+                                <Trash2
+                                    size={
+                                        15
+                                    }
+                                />
+
+                                {text(
+                                    'حذف نهائي',
+                                    'Delete',
                                 )}
                             </button>
                         )}

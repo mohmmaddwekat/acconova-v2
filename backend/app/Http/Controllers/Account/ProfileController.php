@@ -46,6 +46,8 @@ class ProfileController extends Controller
                 'pending_email',
                 'email_verified_at',
                 'created_at',
+                'show_email',
+                'show_phone',
             ]);
 
         /*
@@ -151,6 +153,22 @@ class ProfileController extends Controller
         return $this->show(
             $request,
         );
+    }
+
+    /**
+     * Choose whether workspace colleagues can see the e-mail and phone.
+     */
+    public function privacy(
+        Request $request,
+    ): JsonResponse {
+        $data = $request->validate([
+            'show_email' => ['sometimes', 'boolean'],
+            'show_phone' => ['sometimes', 'boolean'],
+        ]);
+
+        $request->user()->forceFill($data)->save();
+
+        return $this->show($request);
     }
 
     /**

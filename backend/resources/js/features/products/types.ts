@@ -6,6 +6,7 @@ export type ProductType =
 export type Product = {
     stock_on_hand?: string | null;
     stock_reserved?: string | null;
+    monthly_sales?: string | null;
     id: number;
 
     type: ProductType;

@@ -26,6 +26,7 @@ const trustedServerValidationCodes =
         'password_reuse',
         'permanent_delete_requires_archive',
         'permanent_delete_blocked',
+        'approval_required',
     ]);
 
 const safeBusinessMessages: Record<

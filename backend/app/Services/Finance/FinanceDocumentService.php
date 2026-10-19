@@ -7,15 +7,20 @@ use App\Models\Department;
 use App\Models\FinancialDocument;
 use App\Models\FinancialDocumentLine;
 use App\Models\Party;
+use App\Models\PartyAdjustment;
 use App\Models\Product;
 use App\Models\TaxRule;
 use App\Models\Warehouse;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class FinanceDocumentService
 {
+    /** Invoice statuses that may be deleted outright. */
+    public const DELETABLE_STATUSES = ['draft', 'voided', 'superseded'];
+
     public function __construct(
         private readonly FinanceNumberService $numbers,
         private readonly FinanceAuditService $audit,
@@ -27,6 +32,7 @@ class FinanceDocumentService
         return DB::transaction(function () use ($data, $actorId): FinancialDocument {
             $kind = $data['kind'];
             $this->assertPartyRole((int) $data['party_id'], $kind);
+            $this->assertNoSameDayInvoice($kind, (int) $data['party_id'], (string) $data['issue_date']);
             $this->assertHeaderReferences($data);
 
             $document = FinancialDocument::create([
@@ -86,6 +92,7 @@ class FinanceDocumentService
                 (string) $locked->exchange_rate;
             $kind = $locked->kind;
             $this->assertPartyRole((int) $data['party_id'], $kind);
+            $this->assertNoSameDayInvoice($kind, (int) $data['party_id'], (string) $data['issue_date'], $locked);
             $this->assertHeaderReferences($data);
 
             $locked->fill([
@@ -124,7 +131,11 @@ class FinanceDocumentService
         }, 3);
     }
 
-    public function deleteDraft(FinancialDocument $document, int $actorId): void
+    /**
+     * Delete a draft, a voided invoice, or an invoice already replaced by a correction.
+     * Active issued invoices must be voided or corrected first.
+     */
+    public function deleteDocument(FinancialDocument $document, int $actorId): void
     {
         DB::transaction(function () use ($document, $actorId): void {
             $locked = FinancialDocument::query()
@@ -132,15 +143,30 @@ class FinanceDocumentService
                 ->lockForUpdate()
                 ->findOrFail($document->id);
 
-            if (! $locked->isDraft()) {
+            if (! in_array($locked->status, self::DELETABLE_STATUSES, true)) {
                 throw ValidationException::withMessages([
-                    'status' => ['Only draft invoices can be deleted. Issued invoices must be voided or corrected so the audit trail stays intact.'],
+                    'status' => [$this->message(
+                        'لا يمكن حذف فاتورة فعّالة. ألغِ الفاتورة أو صحّحها أولاً، ثم احذف الملغاة أو المستبدلة.',
+                        'Active invoices cannot be deleted. Void or correct the invoice first, then delete the voided or replaced copy.',
+                    )],
                 ]);
             }
 
             if ($locked->allocations->isNotEmpty()) {
                 throw ValidationException::withMessages([
-                    'payments' => ['Remove linked payment allocations before deleting this draft.'],
+                    'payments' => [$this->message(
+                        'هذه الفاتورة مرتبطة بدفعات. افصل الدفعات عنها قبل الحذف.',
+                        'Remove linked payment allocations before deleting this invoice.',
+                    )],
+                ]);
+            }
+
+            if (Schema::hasTable('return_requests') && DB::table('return_requests')->where('financial_document_id', $locked->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'returns' => [$this->message(
+                        'هذه الفاتورة مرتبطة بطلب إرجاع، لذلك لا يمكن حذفها.',
+                        'This invoice has a return request, so it cannot be deleted.',
+                    )],
                 ]);
             }
 
@@ -148,9 +174,9 @@ class FinanceDocumentService
 
             $this->audit->record(
                 $locked,
-                'draft_deleted',
+                $locked->isDraft() ? 'draft_deleted' : 'deleted',
                 $actorId,
-                'Draft deleted before issue',
+                $locked->isDraft() ? 'Draft deleted before issue' : 'Deleted '.$locked->status.' invoice',
                 $snapshot,
                 null,
             );
@@ -182,6 +208,13 @@ class FinanceDocumentService
                     'lines' => ['At least one invoice line is required.'],
                 ]);
             }
+
+            $this->assertNoSameDayInvoice(
+                $locked->kind,
+                (int) $locked->party_id,
+                $locked->issue_date->format('Y-m-d'),
+                $locked,
+            );
 
             $this->ensureTaxSnapshots($locked);
 
@@ -320,7 +353,7 @@ class FinanceDocumentService
                 'buyer_tax_snapshot' => $locked->buyer_tax_snapshot,
                 'revision' => $revision,
                 'status' => 'draft',
-                'issue_date' => now()->toDateString(),
+                'issue_date' => $locked->issue_date?->format('Y-m-d') ?? now()->toDateString(),
                 'due_date' => $locked->due_date?->format('Y-m-d'),
                 'activity_type' => $locked->activity_type,
                 'market_type' => $locked->market_type,
@@ -391,13 +424,19 @@ class FinanceDocumentService
                 ->lockForUpdate()
                 ->findOrFail($document->id);
 
-            if (! in_array($locked->status, ['issued', 'partially_paid'], true)) {
+            if (! in_array($locked->status, ['issued', 'partially_paid', 'paid', 'overpaid'], true)) {
                 throw ValidationException::withMessages([
                     'status' => ['This document cannot be voided.'],
                 ]);
             }
 
-            $hasBlockingAllocations = CashAllocation::query()
+            $before = $this->snapshot($locked);
+
+            /*
+             * Payments linked to an invoice entered by mistake are not lost: their allocations are
+             * released so the payment remains on the party's account as advance credit.
+             */
+            $releasedAllocations = CashAllocation::query()
                 ->where('financial_document_id', $locked->id)
                 ->whereHas('movement', function ($query): void {
                     $query
@@ -413,15 +452,12 @@ class FinanceDocumentService
                                 });
                         });
                 })
-                ->exists();
+                ->with('movement:id,number')
+                ->get();
 
-            if ($hasBlockingAllocations) {
-                throw ValidationException::withMessages([
-                    'payments' => ['Remove linked draft allocations, or reverse/correct active posted payments, before voiding this document.'],
-                ]);
-            }
-
-            $before = $this->snapshot($locked);
+            CashAllocation::query()
+                ->whereKey($releasedAllocations->modelKeys())
+                ->delete();
 
             $this->inventory->applyDocumentDelta(
                 $locked,
@@ -431,6 +467,9 @@ class FinanceDocumentService
             );
 
             $locked->status = 'voided';
+            $locked->paid_total = '0.0000';
+            $locked->balance_due = '0.0000';
+            $locked->credit_total = '0.0000';
             $locked->updated_by = $actorId;
             $locked->save();
 
@@ -440,7 +479,17 @@ class FinanceDocumentService
                 $actorId,
                 $reason,
                 $before,
-                $this->snapshot($locked),
+                [
+                    ...$this->snapshot($locked),
+                    'released_allocations' => $releasedAllocations
+                        ->map(fn (CashAllocation $allocation): array => [
+                            'cash_movement_id' => $allocation->cash_movement_id,
+                            'number' => $allocation->movement?->number,
+                            'amount' => $allocation->amount,
+                        ])
+                        ->values()
+                        ->all(),
+                ],
             );
 
             return $locked->fresh($this->relations());
@@ -465,6 +514,11 @@ class FinanceDocumentService
                             ->orWhereNotIn('check_status', ['bounced', 'cancelled']);
                     });
             })
+            ->sum('amount');
+
+        $paid += (float) PartyAdjustment::query()
+            ->where('financial_document_id', $document->id)
+            ->where('status', PartyAdjustment::STATUS_POSTED)
             ->sum('amount');
 
         $total = (float) $document->total;
@@ -534,44 +588,24 @@ class FinanceDocumentService
                 'This invoice contains tax but the seller tax/VAT number is missing from the tax invoice details.';
         }
 
-        if ($document->kind === 'purchase_invoice') {
+        /*
+         * Same-day duplicates are blocked outright (see assertNoSameDayInvoice), so
+         * the only remaining duplicate signal is a repeated supplier invoice number.
+         * Invoices a few days apart with the same amount are normal and not flagged.
+         */
+        if ($document->kind === 'purchase_invoice' && $document->external_number) {
             $duplicates = FinancialDocument::query()
                 ->where('id', '!=', $document->id)
+                ->when($document->corrected_from_id, fn ($query) => $query->where('id', '!=', $document->corrected_from_id))
                 ->where('kind', 'purchase_invoice')
                 ->where('party_id', $document->party_id)
                 ->whereIn('status', [
-                    'draft',
                     'issued',
                     'partially_paid',
                     'paid',
                     'overpaid',
                 ])
-                ->where(function ($query) use ($document): void {
-                    if ($document->external_number) {
-                        $query->where(
-                            'external_number',
-                            $document->external_number,
-                        );
-                    }
-
-                    $query->orWhere(function ($similar) use ($document): void {
-                        $similar
-                            ->whereBetween('issue_date', [
-                                $document->issue_date
-                                    ->copy()
-                                    ->subDays(3)
-                                    ->format('Y-m-d'),
-                                $document->issue_date
-                                    ->copy()
-                                    ->addDays(3)
-                                    ->format('Y-m-d'),
-                            ])
-                            ->whereRaw(
-                                'ABS(total - ?) <= 0.0001',
-                                [(float) $document->total],
-                            );
-                    });
-                })
+                ->where('external_number', $document->external_number)
                 ->latest('id')
                 ->limit(3)
                 ->get([
@@ -596,6 +630,47 @@ class FinanceDocumentService
         }
 
         return $warnings;
+    }
+
+    /**
+     * One issued invoice per party per day and kind. Unfinished drafts do not count,
+     * and a correction may share the date of the invoice it replaces.
+     */
+    private function assertNoSameDayInvoice(
+        string $kind,
+        int $partyId,
+        string $issueDate,
+        ?FinancialDocument $self = null,
+    ): void {
+        $existing = FinancialDocument::query()
+            ->where('kind', $kind)
+            ->where('party_id', $partyId)
+            ->whereDate('issue_date', substr($issueDate, 0, 10))
+            ->whereIn('status', ['issued', 'partially_paid', 'paid', 'overpaid'])
+            ->when($self, function ($query) use ($self): void {
+                $query
+                    ->where('id', '!=', $self->id)
+                    ->where(fn ($chain) => $chain->whereNull('corrected_from_id')->orWhere('corrected_from_id', '!=', $self->id));
+
+                if ($self->corrected_from_id) {
+                    $query->where('id', '!=', $self->corrected_from_id);
+                }
+            })
+            ->first(['id', 'number', 'status']);
+
+        if ($existing) {
+            throw ValidationException::withMessages([
+                'issue_date' => [$this->message(
+                    sprintf('يوجد فاتورة %s لنفس الطرف بنفس التاريخ (%s). عدّل تلك الفاتورة بدلاً من إضافة فاتورة جديدة.', $kind === 'sale_invoice' ? 'بيع' : 'شراء', $existing->number),
+                    sprintf('This party already has a %s invoice on this date (%s). Edit that invoice instead of adding another one.', $kind === 'sale_invoice' ? 'sales' : 'purchase', $existing->number),
+                )],
+            ]);
+        }
+    }
+
+    private function message(string $arabic, string $english): string
+    {
+        return app()->getLocale() === 'ar' ? $arabic : $english;
     }
 
     private function recordExchangeRateHistory(

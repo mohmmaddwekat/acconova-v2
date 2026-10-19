@@ -143,8 +143,53 @@ class OperationalIntelligenceWorkflowTest extends TestCase
         $firstApprovalId =
             (int) $requests[0]['id'];
 
+        $this->actingInWorkspace(
+            $reviewer,
+            $organization,
+        );
+
         $this->patchJson(
             "/api/approval-requests/{$firstApprovalId}",
+            [
+                'decision' => 'approved',
+            ],
+        )->assertOk();
+
+        $managerRequestId = (int) $this->postJson(
+            '/api/finance/documents',
+            [
+                'kind' => 'sale_invoice',
+                'party_id' => $customerId,
+                'issue_date' => '2026-09-21',
+                'currency' => 'ILS',
+                'lines' => [
+                    [
+                        'description' => 'Manager controlled service',
+                        'quantity' => '1',
+                        'unit' => 'service',
+                        'unit_price' => '20000',
+                        'discount_percent' => '20',
+                        'tax_rate' => '0',
+                        'affects_inventory' => false,
+                    ],
+                ],
+            ],
+        )->json('data.id');
+
+        $this->postJson(
+            "/api/finance/documents/{$managerRequestId}/issue",
+            [
+                'acknowledge_warnings' => false,
+            ],
+        )->assertUnprocessable();
+
+        $managerApprovalId = (int) DB::table('approval_requests')
+            ->where('requested_by', $reviewer->id)
+            ->where('status', 'pending')
+            ->value('id');
+
+        $this->patchJson(
+            "/api/approval-requests/{$managerApprovalId}",
             [
                 'decision' => 'approved',
             ],
@@ -155,7 +200,7 @@ class OperationalIntelligenceWorkflowTest extends TestCase
             );
 
         $this->actingInWorkspace(
-            $reviewer,
+            $owner,
             $organization,
         );
 
@@ -173,11 +218,6 @@ class OperationalIntelligenceWorkflowTest extends TestCase
                     'approved',
                 );
         }
-
-        $this->actingInWorkspace(
-            $owner,
-            $organization,
-        );
 
         $this->postJson(
             "/api/finance/documents/{$documentId}/issue",
@@ -235,6 +275,14 @@ class OperationalIntelligenceWorkflowTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(
                 'approval',
+            )
+            ->assertJsonPath(
+                'error_codes.approval',
+                ['approval_required'],
+            )
+            ->assertJsonPath(
+                'errors.approval.0',
+                __('feedback.approval_required'),
             );
 
         $approvalId = (int) $this->getJson(

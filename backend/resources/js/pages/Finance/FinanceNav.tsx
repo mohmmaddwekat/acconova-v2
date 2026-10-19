@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import {
+    Archive,
     Banknote,
     HandCoins,
     Landmark,
@@ -147,10 +148,23 @@ export function FinanceNav({
                 },
             )}
 
+            {(lookups.permissions.sales_view || lookups.permissions.purchases_view || lookups.permissions.cash_view) && (
+                <Link
+                    href="/app/finance/archive"
+                    className="ms-auto inline-flex min-h-9 items-center gap-2 rounded-[10px] border border-transparent px-3.5 py-2 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-line)] hover:bg-[var(--ac-accent-soft)] hover:text-[var(--ac-accent)]"
+                >
+                    <Archive size={14} />
+                    {text(
+                        'الأرشيف',
+                        'Archive',
+                    )}
+                </Link>
+            )}
+
             {canImport && (
                 <Link
                     href="/app/finance/import"
-                    className="ms-auto inline-flex min-h-9 items-center gap-2 rounded-[10px] border border-dashed border-[var(--ac-line-strong)] px-3.5 py-2 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)] hover:text-[var(--ac-accent)]"
+                    className="inline-flex min-h-9 items-center gap-2 rounded-[10px] border border-dashed border-[var(--ac-line-strong)] px-3.5 py-2 text-xs font-semibold text-[var(--ac-text-soft)] transition hover:border-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft)] hover:text-[var(--ac-accent)]"
                 >
                     <UploadCloud size={14} />
                     {text(

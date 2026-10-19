@@ -669,7 +669,7 @@ export function PartyFilterPopover({
                     )
                 }
                 className={[
-                    'group flex h-11 w-full items-center justify-center gap-2 rounded-[14px] border px-4 text-sm font-semibold transition duration-200 hover:-translate-y-px active:translate-y-0 motion-reduce:transform-none sm:w-auto',
+                    'group flex h-10 w-full items-center justify-center gap-2 rounded-[12px] border px-3 text-[11px] font-semibold transition duration-200 hover:-translate-y-px active:translate-y-0 motion-reduce:transform-none sm:w-auto',
                     open ||
                     count > 0
                         ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)] shadow-[var(--ac-shadow-soft)]'

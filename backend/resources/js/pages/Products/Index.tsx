@@ -14,6 +14,7 @@ import {
 import { SavedViews } from '@/components/data/SavedViews';
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { apiRequest } from '@/lib/http';
+import { useLiveRefresh } from '@/lib/live';
 import { useLocale } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import {
@@ -22,11 +23,13 @@ import {
     usePage,
 } from '@inertiajs/react';
 import {
+    List,
     Package,
     PanelRightOpen,
     Plus,
     Search,
     ShieldCheck,
+    Table,
     X,
 } from 'lucide-react';
 import {
@@ -65,6 +68,7 @@ import {
     ProductListItem,
 } from '@/features/products/components/ProductListItem';
 import { ProductSplitPreview } from '@/features/products/components/ProductSplitPreview';
+import { ProductTable } from '@/features/products/components/ProductTable';
 import {
     canArchiveProducts,
     canEditProducts,
@@ -202,6 +206,29 @@ function ProductsWorkspace() {
         splitView,
         setSplitView,
     ] = useState(false);
+
+    const [
+        tableView,
+        setTableView,
+    ] = useState<boolean>(() => {
+        try {
+            return window.localStorage.getItem('acconova:products:view') !== 'list';
+        } catch {
+            return true;
+        }
+    });
+
+    function toggleTableView(): void {
+        const next = ! tableView;
+
+        setTableView(next);
+
+        try {
+            window.localStorage.setItem('acconova:products:view', next ? 'table' : 'list');
+        } catch {
+            // The preference only lives in this browser; ignore blocked storage.
+        }
+    }
 
     const [
         pendingAction,
@@ -384,7 +411,7 @@ function ProductsWorkspace() {
      */
     const loadProducts =
         useCallback(
-            async (): Promise<void> => {
+            async (silent = false): Promise<void> => {
                 if (
                     ! activeOrganization
                 ) {
@@ -393,8 +420,10 @@ function ProductsWorkspace() {
                     return;
                 }
 
-                setLoading(true);
-                setError(null);
+                if (! silent) {
+                    setLoading(true);
+                    setError(null);
+                }
 
                 try {
                     setResponse(
@@ -405,6 +434,10 @@ function ProductsWorkspace() {
                 } catch (
                     exception
                 ) {
+                    if (silent) {
+                        return;
+                    }
+
                     setError(
                         exception instanceof
                         ApiError
@@ -437,6 +470,10 @@ function ProductsWorkspace() {
     }, [
         loadProducts,
     ]);
+
+    useLiveRefresh(
+        () => void loadProducts(true),
+    );
 
     useEffect(() => {
         const timeout =
@@ -954,6 +991,23 @@ function ProductsWorkspace() {
 
                                 <button
                                     type="button"
+                                    onClick={toggleTableView}
+                                    aria-pressed={tableView}
+                                    className={[
+                                        'inline-flex h-10 items-center justify-center gap-2 rounded-[12px] border px-3 text-[11px] font-semibold transition',
+                                        tableView
+                                            ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent)]'
+                                            : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
+                                    ].join(' ')}
+                                >
+                                    {tableView ? <Table size={14} /> : <List size={14} />}
+                                    {tableView
+                                        ? (ar ? 'جدول مضغوط' : 'Compact table')
+                                        : (ar ? 'قائمة' : 'List')}
+                                </button>
+
+                                <button
+                                    type="button"
                                     onClick={
                                         toggleSplitView
                                     }
@@ -1126,7 +1180,24 @@ function ProductsWorkspace() {
                             }
                         >
                             <div className="min-w-0">
-                                {products.map(
+                                {tableView ? (
+                                    <ProductTable
+                                        products={products}
+                                        selectedIds={selectedIds}
+                                        selectable={allowArchive}
+                                        onSelectionChange={(product, selected) => setSelectedIds((current) => {
+                                            const next = new Set(current);
+                                            if (selected) next.add(product.id); else next.delete(product.id);
+                                            return next;
+                                        })}
+                                        canEdit={allowEdit}
+                                        canArchive={allowArchive}
+                                        onView={openDetail}
+                                        onEdit={edit}
+                                        onArchive={(value) => setPendingAction({ kind: 'archive', product: value })}
+                                        onRestore={(value) => setPendingAction({ kind: 'restore', product: value })}
+                                    />
+                                ) : products.map(
                                     (
                                         product,
                                     ) => (

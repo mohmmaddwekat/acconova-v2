@@ -8,6 +8,7 @@ use App\Models\Organization;
 use App\Models\StaffMember;
 use App\Models\WorkspaceRole;
 use App\Notifications\StaffInvitationNotification;
+use App\Support\CompanyEmailDomains;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -24,13 +25,17 @@ class StaffInvitationController extends Controller
     public function store(Request $request, string $staff): JsonResponse
     {
         abort_unless(app(TenantContext::class)->role()->value === 'owner', 403);
-        $data = $request->validate(['email' => ['required', 'email', 'max:255'], 'workspace_role_id' => ['nullable', 'integer', Rule::exists('workspace_roles', 'id')->where('organization_id', app(TenantContext::class)->id())]]);
+        $data = $request->validate(['workspace_role_id' => ['nullable', 'integer', Rule::exists('workspace_roles', 'id')->where('organization_id', app(TenantContext::class)->id())]]);
         $token = Str::random(64);
-        DB::transaction(function () use ($staff, $data, $token): void {
+        $email = '';
+        DB::transaction(function () use ($staff, $data, $token, &$email): void {
             $member = StaffMember::lockForUpdate()->findOrFail($staff);
             abort_unless($member->active && ! $member->user_id, 409);
+            $email = strtolower(trim((string) $member->contact_email));
+            abort_if($email === '', 422, 'Add the employee email to their profile before sending an invitation.');
+            abort_unless(app(CompanyEmailDomains::class)->allows($email), 422, 'The invitation email must use your company domain.');
             DB::table('staff_invitations')->where('organization_id', $member->organization_id)->where('staff_member_id', $member->id)->whereNull('accepted_at')->delete();
-            DB::table('staff_invitations')->insert(['organization_id' => $member->organization_id, 'staff_member_id' => $member->id, 'workspace_role_id' => $data['workspace_role_id'] ?? null, 'email' => strtolower(trim($data['email'])), 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addDays(7), 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('staff_invitations')->insert(['organization_id' => $member->organization_id, 'staff_member_id' => $member->id, 'workspace_role_id' => $data['workspace_role_id'] ?? null, 'email' => $email, 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addDays(7), 'created_at' => now(), 'updated_at' => now()]);
         });
 
         $url = route('staff.invitation', ['token' => $token]);
@@ -38,9 +43,9 @@ class StaffInvitationController extends Controller
         $response = response()->json($payload, 201);
         $organizationName = app(TenantContext::class)->organization()->name;
         $locale = app()->getLocale();
-        DB::afterCommit(function () use ($data, $url, $organizationName, $locale, $response, $payload): void {
+        DB::afterCommit(function () use ($email, $url, $organizationName, $locale, $response, $payload): void {
             try {
-                Notification::route('mail', strtolower(trim($data['email'])))->notify((new StaffInvitationNotification($url, $organizationName))->locale($locale));
+                Notification::route('mail', $email)->notify((new StaffInvitationNotification($url, $organizationName))->locale($locale));
                 $response->setData([...$payload, 'email_sent' => true]);
             } catch (\Throwable $exception) {
                 report($exception);

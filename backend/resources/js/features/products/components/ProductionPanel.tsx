@@ -66,6 +66,7 @@ type RecipeOption = {
 type RecipeComponent = {
     id: number;
     name: string;
+    is_optional?: boolean;
     position: number;
     options: RecipeOption[];
 };
@@ -119,6 +120,7 @@ type EditableOption = {
 type EditableComponent = {
     localId: string;
     name: string;
+    isOptional: boolean;
     options: EditableOption[];
 };
 
@@ -625,6 +627,8 @@ export function ProductionPanel({
                               createLocalId(),
                           name:
                               component.name,
+                          isOptional:
+                              component.is_optional ?? false,
                           options:
                               component.options.map(
                                   (
@@ -657,6 +661,8 @@ export function ProductionPanel({
                               createLocalId(),
                           name:
                               '',
+                          isOptional:
+                              false,
                           options:
                               [],
                       },
@@ -716,6 +722,8 @@ export function ProductionPanel({
                         createLocalId(),
                     name:
                         '',
+                    isOptional:
+                        false,
                     options:
                         [],
                 },
@@ -1143,6 +1151,8 @@ export function ProductionPanel({
                                     ) => ({
                                         name:
                                             component.name.trim(),
+                                        is_optional:
+                                            component.isOptional,
                                         options:
                                             component.options.map(
                                                 (
@@ -1354,6 +1364,14 @@ export function ProductionPanel({
                                             component.name
                                         }
                                     </strong>
+
+                                    {component.is_optional && (
+                                        <span className="ms-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                            {document.documentElement.lang === 'ar'
+                                                ? 'اختياري'
+                                                : 'Optional'}
+                                        </span>
+                                    )}
 
                                     <div className="mt-2 space-y-2">
                                         {component.options.map(
@@ -1584,6 +1602,40 @@ export function ProductionPanel({
                                                     )
                                                 }
                                             />
+                                        </label>
+
+                                        <label className="mt-5 flex items-center gap-2 text-xs font-medium">
+                                            <input
+                                                type="checkbox"
+                                                checked={
+                                                    component.isOptional
+                                                }
+                                                onChange={(
+                                                    event,
+                                                ) =>
+                                                    setEditableComponents(
+                                                        (
+                                                            current,
+                                                        ) =>
+                                                            current.map(
+                                                                (
+                                                                    entry,
+                                                                ) =>
+                                                                    entry.localId ===
+                                                                    component.localId
+                                                                        ? {
+                                                                              ...entry,
+                                                                              isOptional:
+                                                                                  event.target.checked,
+                                                                          }
+                                                                        : entry,
+                                                            ),
+                                                    )
+                                                }
+                                            />
+                                            {document.documentElement.lang === 'ar'
+                                                ? 'اختياري (يتوقف لما يخلص)'
+                                                : 'Optional (stops when out of stock)'}
                                         </label>
 
                                         <button

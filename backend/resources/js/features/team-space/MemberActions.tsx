@@ -1,6 +1,7 @@
 import { createConversation } from './api';
 import { apiRequest } from '@/lib/http';
 import { Crown, MessageCircle, UserRound, VolumeX, X } from 'lucide-react';
+import { router } from '@inertiajs/react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 const avatarTones = ['bg-[#068CF0] text-white', 'bg-[#045495] text-white', 'bg-[#38A3FA] text-[#011C32]', 'bg-[#0570C7] text-white', 'bg-[#033863] text-white'];
@@ -70,9 +71,11 @@ export function MemberActions({ conversationId, memberId, userId, name, ar, chil
         } catch { setError(ar ? 'تعذر تغيير صلاحية الأدمن. تحقق من صلاحيتك وحاول مجددًا.' : 'Unable to change the admin role. Check your permission and retry.'); }
         finally { setBusy(false); }
     }
+    function openProfile(): void { router.visit(memberId === userId ? '/app/profile' : `/app/people/${memberId}`); }
     const active = mode === 'group' ? profile?.group_mute : profile?.direct_block;
     return <>
         <button type="button" aria-label={`${ar ? 'خيارات العضو' : 'Member actions'}: ${name}`} aria-haspopup="dialog" onClick={(event) => {
+            if (initialMode === 'profile') { openProfile(); return; }
             const rect = event.currentTarget.getBoundingClientRect();
             setPosition({ top: Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - 340)), left: Math.max(12, Math.min(rect.left, window.innerWidth - 332)) });
             setMode(initialMode);
@@ -87,15 +90,11 @@ export function MemberActions({ conversationId, memberId, userId, name, ar, chil
                     {profile.job_title && <span className="text-xs text-[var(--ac-text-muted)]">{profile.job_title}</span>}
                 </div>
                 {memberId !== userId && <button type="button" disabled={busy} onClick={() => void direct()} className="mb-2 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--ac-accent-solid,#068CF0)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"><MessageCircle size={16} />{ar ? 'إرسال رسالة' : 'Send message'}</button>}
-                <button type="button" onClick={() => setMode('profile')} className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--ac-line)] px-4 py-2.5 text-sm font-semibold hover:bg-[var(--ac-accent-soft)]"><UserRound size={16} />{ar ? 'عرض الملف الشخصي' : 'View profile'}</button>
+                <button type="button" onClick={openProfile} className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--ac-line)] px-4 py-2.5 text-sm font-semibold hover:bg-[var(--ac-accent-soft)]"><UserRound size={16} />{ar ? 'عرض الملف الشخصي' : 'View profile'}</button>
                 {(profile.can_change_admin || profile.can_mute_group || memberId !== userId) && <div className="my-2 h-px bg-[var(--ac-line)]" />}
                 {profile.can_change_admin && <button type="button" disabled={busy} onClick={() => void changeAdmin()} className={actionClass}><Crown size={18} />{profile.is_admin ? (ar ? 'إزالة صلاحية الأدمن' : 'Remove admin role') : (ar ? 'تعيين أدمن للمجموعة' : 'Make group admin')}</button>}
                 {profile.can_mute_group && <button type="button" onClick={() => setMode('group')} className={actionClass}><VolumeX size={18} />{ar ? 'كتم الكتابة داخل المجموعة' : 'Mute in this group'}</button>}
                 {memberId !== userId && <button type="button" onClick={() => setMode('direct')} className={actionClass}><VolumeX size={18} />{ar ? 'منع مراسلتي على الخاص' : 'Block private messages to me'}</button>}
-            </div>}
-            {profile && mode === 'profile' && <div className="space-y-3 text-center">
-                {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="mx-auto size-24 rounded-full object-cover" /> : <div className="mx-auto flex size-24 items-center justify-center rounded-full bg-[var(--ac-accent-soft)] text-3xl">{name.slice(0, 1)}</div>}
-                <h3 className="text-lg font-semibold">{profile.name}</h3><p className="text-sm text-[var(--ac-text-muted)]">{profile.job_title}</p><p className="whitespace-pre-wrap text-sm">{profile.bio || (ar ? 'لم يضف نبذة شخصية بعد.' : 'No bio yet.')}</p>
             </div>}
             {profile && (mode === 'group' || mode === 'direct') && <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void save(true); }}>
                 <p className="text-sm leading-6">{mode === 'group' ? (ar ? 'لن يتمكن هذا العضو من الكتابة في هذه المجموعة، وسيظهر له اسمك ومدة الكتم.' : 'This member cannot write in this group. They will see who muted them and for how long.') : (ar ? 'لن يتمكن هذا الشخص من إرسال رسائل خاصة لك. لا يؤثر ذلك على رسائله في المجموعات.' : 'This person cannot send you private messages. Group messages are unaffected.')}</p>

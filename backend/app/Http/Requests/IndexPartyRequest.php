@@ -80,6 +80,14 @@ class IndexPartyRequest extends FormRequest
                 'max:3',
             ],
 
+            'balance' => [
+                'nullable',
+                Rule::in([
+                    'receivable',
+                    'payable',
+                    'overdue',
+                ]),
+            ],
             'sort' => [
                 'nullable',
                 Rule::in([

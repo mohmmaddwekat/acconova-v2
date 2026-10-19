@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Governance;
 
+use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
 use App\Services\Finance\FinanceAuthorization;
 use App\Tenancy\TenantContext;
@@ -145,6 +146,8 @@ class ApprovalWorkflowController extends Controller
         if (
             (int) $row->requested_by
             === (int) $request->user()->id
+            && app(TenantContext::class)->role()
+            !== OrganizationRole::Owner
         ) {
             throw ValidationException::withMessages([
                 'approval' => [

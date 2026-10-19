@@ -16,6 +16,13 @@ class ProductionRecipeComponent extends Model
         'organization_id',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'is_optional' => 'boolean',
+        ];
+    }
+
     /**
      * Return the immutable recipe version owning this component.
      */

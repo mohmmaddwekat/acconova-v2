@@ -8,6 +8,53 @@ export type PartyRole =
     | 'supplier'
     | 'contact';
 
+export type PartyAging = {
+    current: number;
+
+    days_31_60: number;
+
+    over_60: number;
+
+    oldest_days: number;
+};
+
+export type PartyBalanceFilter =
+    | 'receivable'
+    | 'payable'
+    | 'overdue';
+
+export type PartyOverview = {
+    owed_to_us: number;
+
+    we_owe: number;
+
+    overdue: number;
+
+    balances_visible: boolean;
+
+    currency: string;
+
+    aging_days: {
+        current: number;
+
+        late: number;
+    };
+
+    counts: {
+        all: number;
+
+        customers: number;
+
+        suppliers: number;
+
+        receivable: number;
+
+        payable: number;
+
+        overdue: number;
+    };
+};
+
 export type Party = {
     id: number;
 
@@ -70,6 +117,7 @@ export type Party = {
             owed_to_us: string;
             we_owe: string;
             currency: string;
+            aging?: PartyAging | null;
         }
         | null;
 

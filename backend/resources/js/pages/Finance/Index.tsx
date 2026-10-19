@@ -4,7 +4,7 @@ import { useLocale } from '@/lib/i18n';
 import { Head } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { CashDetail } from './CashDetail';
-import { CashForm } from './CashForm';
+import { CashCreateStay } from './CashCreateStay';
 import { CashList } from './CashList';
 import { DocumentDetail } from './DocumentDetail';
 import { DocumentForm } from './DocumentForm';
@@ -209,7 +209,7 @@ function FinanceViewRenderer({
             return <CashList direction="outgoing" lookups={lookups} ar={ar} />;
 
         case 'payment-create':
-            return <CashForm direction="outgoing" lookups={lookups} ar={ar} />;
+            return <CashCreateStay direction="outgoing" lookups={lookups} ar={ar} />;
 
         case 'payment-detail':
             return recordId
@@ -220,7 +220,7 @@ function FinanceViewRenderer({
             return <CashList direction="incoming" lookups={lookups} ar={ar} />;
 
         case 'receipt-create':
-            return <CashForm direction="incoming" lookups={lookups} ar={ar} />;
+            return <CashCreateStay direction="incoming" lookups={lookups} ar={ar} />;
 
         case 'receipt-detail':
             return recordId

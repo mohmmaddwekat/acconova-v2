@@ -383,14 +383,62 @@ class PartyWorkflowTest extends TestCase
                 '60.0000',
             )
             ->assertJsonPath(
+                'transactions.0.id',
+                'carried-forward',
+            )
+            ->assertJsonPath(
+                'transactions.0.type',
+                'opening_balance',
+            )
+            ->assertJsonPath(
+                'transactions.1.type',
+                'invoice',
+            )
+            ->assertJsonPath(
+                'transactions.1.items.0.description',
+                'Customer service',
+            )
+            ->assertJsonPath(
+                'transactions.1.items.0.quantity',
+                '1.0000',
+            )
+            ->assertJsonPath(
+                'transactions.1.items.0.unit_price',
+                '100.0000',
+            )
+            ->assertJsonPath(
+                'transactions.1.items.0.line_subtotal',
+                '100.0000',
+            )
+            ->assertJsonPath(
+                'transactions.1.items.0.discount_percent',
+                '0.0000',
+            )
+            ->assertJsonPath(
+                'transactions.1.items.0.line_discount',
+                '0.0000',
+            )
+            ->assertJsonPath(
+                'transactions.1.items.0.line_total',
+                '100.0000',
+            )
+            ->assertJsonPath(
+                'transactions.2.items.0.description',
+                'Supplier service',
+            )
+            ->assertJsonPath(
+                'transactions.2.items.0.line_total',
+                '40.0000',
+            )
+            ->assertJsonPath(
                 'summary.closing_balance',
                 '0.0000',
             );
 
         /*
-         * The Party index must preserve both obligations instead of netting
-         * them away. Here customer credit means we owe the Party 10, while the
-         * supplier advance means the Party owes us 10 at the same time.
+         * The Party index nets the two sides. Customer credit means we owe the
+         * Party 10 and the supplier advance means it owes us 10, so the
+         * account is square while the raw side positions stay visible.
          */
         $this->getJson(
             '/api/parties?status=active',
@@ -406,11 +454,11 @@ class PartyWorkflowTest extends TestCase
             )
             ->assertJsonPath(
                 'data.0.balance_summary.owed_to_us',
-                '10.0000',
+                '0.0000',
             )
             ->assertJsonPath(
                 'data.0.balance_summary.we_owe',
-                '10.0000',
+                '0.0000',
             )
             ->assertJsonPath(
                 'data.0.balance_summary.currency',

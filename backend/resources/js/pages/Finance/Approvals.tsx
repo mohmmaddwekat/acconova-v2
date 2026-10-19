@@ -43,6 +43,7 @@ export default function Approvals() {
     const role =
         activeOrganization?.role
         ?? '';
+    const isOwner = role === 'owner';
     const canReview =
         activeOrganization?.permissions
             ? activeOrganization.permissions.includes(
@@ -385,6 +386,7 @@ export default function Approvals() {
                                                 {row.status ===
                                                     'pending'
                                                     && canReview
+                                                    && !isOwner
                                                     && auth.user?.id === row.requested_by && (
                                                         <div className="flex items-center rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-[9px] font-semibold text-amber-800">
                                                             {text(
@@ -397,7 +399,8 @@ export default function Approvals() {
                                                 {row.status ===
                                                     'pending'
                                                     && canReview
-                                                    && auth.user?.id !== row.requested_by && (
+                                                    && (isOwner
+                                                        || auth.user?.id !== row.requested_by) && (
                                                         <div className="flex items-center gap-2">
                                                             <button
                                                                 type="button"

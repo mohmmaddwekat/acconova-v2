@@ -1,6 +1,7 @@
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { SavedViews } from '@/components/data/SavedViews';
 import { apiRequest } from '@/lib/http';
+import { useLiveTick } from '@/lib/live';
 import { Link } from '@inertiajs/react';
 import {
     Banknote,
@@ -13,7 +14,7 @@ import {
     WalletCards,
     XCircle,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FinanceNav } from './FinanceNav';
 import { RecurringPaymentsPanel } from './RecurringPaymentsPanel';
 import {
@@ -86,7 +87,12 @@ export function CashList({
         setPaymentView(view);
     }
 
+    const liveTick = useLiveTick();
+    const seenLiveTick = useRef(liveTick);
+
     useEffect(() => {
+        const silent = seenLiveTick.current !== liveTick;
+        seenLiveTick.current = liveTick;
         const controller = new AbortController();
         const params = new URLSearchParams({
             direction,
@@ -107,8 +113,10 @@ export function CashList({
             params.set('category', category);
         }
 
-        setLoading(true);
-        setError('');
+        if (! silent) {
+            setLoading(true);
+            setError('');
+        }
 
         apiRequest<Response>(
             '/api/finance/cash-movements?' + params.toString(),
@@ -116,7 +124,7 @@ export function CashList({
         )
             .then(setResponse)
             .catch((failure) => {
-                if (! controller.signal.aborted) {
+                if (! controller.signal.aborted && ! silent) {
                     setError(apiErrorText(failure));
                 }
             })
@@ -127,7 +135,7 @@ export function CashList({
             });
 
         return () => controller.abort();
-    }, [direction, page, search, method, status, category]);
+    }, [direction, page, search, method, status, category, liveTick]);
 
     const title = incoming
         ? text('سجل المقبوضات', 'Receipts ledger')

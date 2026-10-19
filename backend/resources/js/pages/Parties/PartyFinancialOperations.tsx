@@ -2214,6 +2214,14 @@ function CashContent({
                                                                 row.number
                                                             }
                                                         </Link>
+
+                                                        {row.status === 'draft' && (
+                                                            <span className="mt-1 block w-fit rounded-full border border-[var(--ac-warning)]/40 bg-[var(--ac-warning)]/10 px-2 py-0.5 text-[9px] font-semibold text-[var(--ac-warning)]">
+                                                                {ar
+                                                                    ? 'مسودة — لم تُعتمد بعد'
+                                                                    : 'Draft — not posted yet'}
+                                                            </span>
+                                                        )}
                                                     </td>
 
                                                     <td className="px-3 py-3">

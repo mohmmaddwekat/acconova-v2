@@ -156,6 +156,8 @@ class ProductionRecipeController extends Controller
 
                         'position' => $component->position,
 
+                        'is_optional' => (bool) $component->is_optional,
+
                         'options' => $component
                             ->options
                             ->map(

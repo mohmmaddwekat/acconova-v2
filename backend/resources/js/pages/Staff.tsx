@@ -82,6 +82,7 @@ type Staff = {
     name: string;
     job_title: string | null;
     phone: string | null;
+    contact_email: string | null;
     email: string | null;
     user_id: number | null;
     basis: PayBasis;
@@ -522,6 +523,22 @@ function StaffWorkspace() {
     ] =
         useState<EntryCorrectionState | null>(
             null,
+        );
+
+    const [
+        confirmingInvite,
+        setConfirmingInvite,
+    ] =
+        useState(
+            false,
+        );
+
+    const [
+        inviteRole,
+        setInviteRole,
+    ] =
+        useState(
+            '',
         );
 
     const [
@@ -1171,12 +1188,7 @@ function StaffWorkspace() {
     /**
      * Invite an existing employee record into the Organization account system.
      */
-    async function inviteEmployee(
-        event:
-            FormEvent<HTMLFormElement>,
-    ): Promise<void> {
-        event.preventDefault();
-
+    async function inviteEmployee(): Promise<void> {
         if (
             ! selected
             || busy
@@ -1192,13 +1204,6 @@ function StaffWorkspace() {
             '',
         );
 
-        const values =
-            Object.fromEntries(
-                new FormData(
-                    event.currentTarget,
-                ),
-            );
-
         try {
             const response =
                 await apiRequest<{
@@ -1212,17 +1217,19 @@ function StaffWorkspace() {
 
                         body:
                             JSON.stringify({
-                                ...values,
-
                                 workspace_role_id:
-                                    values.workspace_role_id
+                                    inviteRole
                                         ? Number(
-                                              values.workspace_role_id,
+                                              inviteRole,
                                           )
                                         : null,
                             }),
                     },
                 );
+
+            setConfirmingInvite(
+                false,
+            );
 
             setInvitationUrl(
                 response.url,
@@ -2597,25 +2604,66 @@ function StaffWorkspace() {
                                                     <form
                                                         onSubmit={(
                                                             event,
-                                                        ) =>
-                                                            void inviteEmployee(
-                                                                event,
-                                                            )
-                                                        }
+                                                        ) => {
+                                                            event.preventDefault();
+
+                                                            if (
+                                                                ledger
+                                                                    .member
+                                                                    .contact_email
+                                                            ) {
+                                                                setConfirmingInvite(
+                                                                    true,
+                                                                );
+                                                            }
+                                                        }}
                                                         className="mt-4 space-y-3"
                                                     >
-                                                        <label className="block text-xs font-semibold">
+                                                        <div className="text-xs font-semibold">
                                                             Email
 
-                                                            <input
-                                                                required
-                                                                type="email"
-                                                                name="email"
-                                                                className={
-                                                                    field
-                                                                }
-                                                            />
-                                                        </label>
+                                                            <div
+                                                                className={`${field} flex items-center justify-between gap-3 !bg-[var(--ac-bg-soft)]`}
+                                                                dir="ltr"
+                                                            >
+                                                                <span className="truncate">
+                                                                    {ledger
+                                                                        .member
+                                                                        .contact_email
+                                                                        ?? '—'}
+                                                                </span>
+                                                            </div>
+
+                                                            <p className="mt-1.5 text-[11px] font-normal leading-5 text-[var(--ac-text-muted)]">
+                                                                {ledger
+                                                                    .member
+                                                                    .contact_email
+                                                                    ? ar
+                                                                        ? 'يُرسل إلى الإيميل المسجل في ملف الموظف فقط. لتغييره عدّل ملف الموظف قبل إرسال الدعوة.'
+                                                                        : 'Sent only to the email saved on the employee profile. To change it, edit the profile before inviting.'
+                                                                    : ar
+                                                                      ? 'أضف إيميل الموظف من ملفه أولًا ثم أرسل الدعوة.'
+                                                                      : 'Add the employee email on their profile first, then send the invite.'}
+                                                            </p>
+
+                                                            {! ledger
+                                                                .member
+                                                                .contact_email && (
+                                                                <button
+                                                                    type="button"
+                                                                    className={`${button} mt-2 w-full`}
+                                                                    onClick={() =>
+                                                                        setEdit(
+                                                                            ledger.member,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    {ar
+                                                                        ? 'تعديل ملف الموظف'
+                                                                        : 'Edit employee profile'}
+                                                                </button>
+                                                            )}
+                                                        </div>
 
                                                         <label className="block text-xs font-semibold">
                                                             {ar
@@ -2624,6 +2672,18 @@ function StaffWorkspace() {
 
                                                             <select
                                                                 name="workspace_role_id"
+                                                                value={
+                                                                    inviteRole
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    setInviteRole(
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                    )
+                                                                }
                                                                 className={
                                                                     field
                                                                 }
@@ -2655,24 +2715,93 @@ function StaffWorkspace() {
                                                             </select>
                                                         </label>
 
-                                                        <button
-                                                            disabled={
-                                                                busy
-                                                            }
-                                                            className={
-                                                                primaryButton
-                                                            }
-                                                        >
-                                                            <Send
-                                                                size={
-                                                                    14
-                                                                }
-                                                            />
+                                                        {confirmingInvite
+                                                            && ledger
+                                                                .member
+                                                                .contact_email ? (
+                                                            <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+                                                                <p className="leading-5">
+                                                                    {ar
+                                                                        ? 'سيتم إرسال دعوة تمنح الوصول إلى مساحة العمل إلى:'
+                                                                        : 'An invitation that grants access to this workspace will be sent to:'}
+                                                                </p>
 
-                                                            {ar
-                                                                ? 'إرسال الدعوة'
-                                                                : 'Send invite'}
-                                                        </button>
+                                                                <strong
+                                                                    dir="ltr"
+                                                                    className="block break-all text-sm"
+                                                                >
+                                                                    {
+                                                                        ledger
+                                                                            .member
+                                                                            .contact_email
+                                                                    }
+                                                                </strong>
+
+                                                                <div className="flex gap-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={
+                                                                            busy
+                                                                        }
+                                                                        onClick={() =>
+                                                                            void inviteEmployee()
+                                                                        }
+                                                                        className={`${primaryButton} flex-1`}
+                                                                    >
+                                                                        <Send
+                                                                            size={
+                                                                                14
+                                                                            }
+                                                                        />
+
+                                                                        {ar
+                                                                            ? 'تأكيد وإرسال'
+                                                                            : 'Confirm and send'}
+                                                                    </button>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={
+                                                                            busy
+                                                                        }
+                                                                        onClick={() =>
+                                                                            setConfirmingInvite(
+                                                                                false,
+                                                                            )
+                                                                        }
+                                                                        className={
+                                                                            button
+                                                                        }
+                                                                    >
+                                                                        {ar
+                                                                            ? 'إلغاء'
+                                                                            : 'Cancel'}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                disabled={
+                                                                    busy
+                                                                    || ! ledger
+                                                                        .member
+                                                                        .contact_email
+                                                                }
+                                                                className={
+                                                                    primaryButton
+                                                                }
+                                                            >
+                                                                <Send
+                                                                    size={
+                                                                        14
+                                                                    }
+                                                                />
+
+                                                                {ar
+                                                                    ? 'إرسال الدعوة'
+                                                                    : 'Send invite'}
+                                                            </button>
+                                                        )}
                                                     </form>
 
                                                     {invitationUrl && (
@@ -3544,6 +3673,44 @@ function StaffWorkspace() {
                                         field
                                     }
                                 />
+                            </label>
+
+                            <label className="text-xs font-semibold">
+                                {ar
+                                    ? 'إيميل العمل'
+                                    : 'Work email'}
+
+                                <input
+                                    type="email"
+                                    maxLength={
+                                        255
+                                    }
+                                    name="contact_email"
+                                    dir="ltr"
+                                    disabled={
+                                        Boolean(
+                                            member?.user_id,
+                                        )
+                                    }
+                                    defaultValue={
+                                        member?.contact_email
+                                        ?? member?.email
+                                        ?? ''
+                                    }
+                                    className={
+                                        field
+                                    }
+                                />
+
+                                <span className="mt-1.5 block text-[11px] font-normal leading-5 text-[var(--ac-text-muted)]">
+                                    {member?.user_id
+                                        ? ar
+                                            ? 'الموظف لديه حساب فعّال، لا يمكن تغيير الإيميل من هنا.'
+                                            : 'This employee already has an account, so the email cannot be changed here.'
+                                        : ar
+                                          ? 'يجب أن يكون من نطاق الشركة. تُرسل الدعوة لهذا العنوان فقط.'
+                                          : 'Must use your company domain. Invitations are sent to this address only.'}
+                                </span>
                             </label>
 
                             <label className="text-xs font-semibold">
