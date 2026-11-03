@@ -15,6 +15,7 @@ use App\Http\Controllers\Documents\DocumentFulfillmentController;
 use App\Http\Controllers\Finance\AutoAllocationController;
 use App\Http\Controllers\Finance\BankReconciliationController;
 use App\Http\Controllers\Finance\CashMovementController;
+use App\Http\Controllers\Finance\QuickEntryController;
 use App\Http\Controllers\Finance\FinanceArchiveController;
 use App\Http\Controllers\Finance\FinanceDocumentController;
 use App\Http\Controllers\Finance\FinanceImportController;
@@ -519,6 +520,11 @@ Route::middleware([
         '/app/finance/anomalies',
         fn () => Inertia::render('Finance/AnomalyCenter'),
     )->name('app.finance.anomalies');
+
+    Route::get(
+        '/app/finance/quick-entry',
+        fn () => Inertia::render('Finance/QuickEntry'),
+    )->name('app.finance.quick-entry');
 
     Route::get(
         '/app/finance/unallocated',
@@ -1396,6 +1402,8 @@ Route::prefix(
         Route::post('finance/documents/{document}/void', [FinanceDocumentController::class, 'void'])->whereNumber('document');
         Route::get('finance/documents/{document}/available-credits', [FinanceDocumentController::class, 'availableCredits'])->whereNumber('document');
         Route::post('finance/documents/{document}/apply-credit', [FinanceDocumentController::class, 'applyCredit'])->whereNumber('document');
+
+        Route::post('finance/quick-entry', [QuickEntryController::class, 'store']);
 
         Route::get('finance/auto-allocation', [AutoAllocationController::class, 'index']);
         Route::post('finance/auto-allocation/preview', [AutoAllocationController::class, 'preview']);

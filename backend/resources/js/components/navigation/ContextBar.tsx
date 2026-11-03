@@ -136,6 +136,10 @@ export function ContextBar({
             'أعمار الذمم الدائنة',
             'A/P aging',
         ],
+        '/app/finance/quick-entry': [
+            'إدخال الفواتير والدفعات',
+            'Quick entry',
+        ],
         '/app/finance/unallocated': [
             'دفعات غير مخصصة',
             'Unallocated payments',

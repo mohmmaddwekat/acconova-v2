@@ -6,6 +6,7 @@ import {
     ChartColumn,
     ClipboardCheck,
     ClipboardList,
+    FilePlus2,
     FileSpreadsheet,
     HandCoins,
     Landmark,
@@ -78,6 +79,19 @@ export function FinanceHub({
             icon: Banknote,
             visible: lookups.permissions.cash_view
                 || lookups.permissions.recurring_payments_view,
+        },
+        {
+            title: text('إدخال الفواتير والدفعات', 'Quick entry'),
+            description: text(
+                'إدخال سريع لفواتير البيع والشراء والمتفرقات والقبض والدفع، بمنتجاتها وخصمها ودفعتها، في جدول واحد.',
+                'Fast entry of sales, purchase and walk-in invoices, receipts and payments with products, discount and payment in one table.',
+            ),
+            href: '/app/finance/quick-entry',
+            icon: FilePlus2,
+            visible: lookups.permissions.sales_manage
+                || lookups.permissions.purchases_manage
+                || lookups.permissions.cash_receive
+                || lookups.permissions.cash_pay,
         },
         {
             title: text('دفعات غير مخصصة', 'Unallocated payments'),
