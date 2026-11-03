@@ -63,8 +63,13 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          # Keys copied on Windows carry CRLF line endings, which OpenSSH cannot read.
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null || {
+            echo "::error::The SSH_PRIVATE_KEY secret is not a valid private key. Paste the whole file, from BEGIN to END."
+            exit 1
+          }
           ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
           {
             echo "SSH_TARGET=${{ secrets.SSH_USER }}@${SSH_HOST}"
