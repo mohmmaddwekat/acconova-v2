@@ -7,6 +7,7 @@ use App\Http\Controllers\Analytics\BusinessControlController;
 use App\Http\Controllers\Analytics\BusinessPulseController;
 use App\Http\Controllers\Analytics\DashboardIntelligenceController;
 use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\Auth\MobileAuthController;
 use App\Http\Controllers\Billing\BillingCheckoutController;
 use App\Http\Controllers\Billing\BillingOverviewController;
 use App\Http\Controllers\Billing\BillingWebhookController;
@@ -56,6 +57,7 @@ use App\Http\Middleware\RequireActiveSubscription;
 use App\Http\Middleware\ResolveOrganization;
 use App\Services\Finance\FinanceAuthorization;
 use App\Services\Workspace\WorkspaceFeaturePermissions;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -1790,3 +1792,23 @@ Route::middleware(['auth', 'throttle:30,1'])->prefix('api/profile')->group(funct
 });
 
 require __DIR__.'/api/ai.php';
+
+/*
+ * Mobile API — token-based authentication via Laravel Passport.
+ * Guest endpoints return a Bearer token; protected endpoints require one.
+ */
+Route::prefix('api/mobile')->withoutMiddleware([
+    ValidateCsrfToken::class,
+])->group(function (): void {
+    Route::post('login', [MobileAuthController::class, 'login'])
+        ->middleware(['guest:api', 'throttle:auth'])
+        ->name('mobile.login');
+
+    Route::middleware('auth:api')->group(function (): void {
+        Route::post('logout', [MobileAuthController::class, 'logout'])
+            ->name('mobile.logout');
+
+        Route::get('user', [MobileAuthController::class, 'user'])
+            ->name('mobile.user');
+    });
+});
