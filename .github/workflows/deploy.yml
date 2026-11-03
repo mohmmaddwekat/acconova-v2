@@ -1,0 +1,97 @@
+name: Deploy to Hostinger
+
+# Runs after the "Foundation" test workflow succeeds on main, or by hand from
+# the Actions tab. Nothing is deployed until the repository variable
+# DEPLOY_ENABLED is set to "true".
+on:
+  workflow_run:
+    workflows: ["Foundation"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      REMOTE_HOME_APP: domains/acconova.net/acconova
+      REMOTE_HOME_PUBLIC: domains/acconova.net/public_html
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, pdo_sqlite
+          coverage: none
+
+      - name: Install production PHP dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Build the front end
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          {
+            echo "SSH_TARGET=${{ secrets.SSH_USER }}@${SSH_HOST}"
+            echo "SSH_CMD=ssh -i $HOME/.ssh/deploy_key -p ${SSH_PORT} -o StrictHostKeyChecking=yes"
+          } >> "$GITHUB_ENV"
+
+      - name: Server checks, database backup, maintenance mode on
+        run: $SSH_CMD "$SSH_TARGET" "PHP_BIN=${{ secrets.PHP_BIN || 'php' }} bash -s -- pre" < ../.github/scripts/deploy-remote.sh
+
+      - name: Upload the application
+        run: |
+          for dir in app bootstrap config database lang resources routes vendor; do
+            rsync -az --delete -e "$SSH_CMD" --exclude='/cache/*' "$dir/" "$SSH_TARGET:$REMOTE_HOME_APP/$dir/"
+          done
+          rsync -az -e "$SSH_CMD" artisan composer.json composer.lock "$SSH_TARGET:$REMOTE_HOME_APP/"
+
+      - name: Upload the public files
+        run: |
+          rsync -az --delete -e "$SSH_CMD" public/build/ "$SSH_TARGET:$REMOTE_HOME_PUBLIC/build/"
+          rsync -az -e "$SSH_CMD" \
+            --exclude=/build --exclude=/hot --exclude=/index.php \
+            --exclude='/*.dev.json' --exclude='/*-demo.html' --exclude=/demo \
+            public/ "$SSH_TARGET:$REMOTE_HOME_PUBLIC/"
+
+      - name: Migrate and rebuild caches
+        run: $SSH_CMD "$SSH_TARGET" "PHP_BIN=${{ secrets.PHP_BIN || 'php' }} bash -s -- post" < ../.github/scripts/deploy-remote.sh
+
+      - name: Maintenance mode off
+        if: always()
+        run: $SSH_CMD "$SSH_TARGET" "PHP_BIN=${{ secrets.PHP_BIN || 'php' }} bash -s -- up" < ../.github/scripts/deploy-remote.sh

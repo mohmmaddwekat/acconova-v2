@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# Runs ON the Hostinger server over SSH:  ssh ... 'bash -s -- <pre|post|up>' < deploy-remote.sh
+#
+#   pre   check PHP, back up the database, switch maintenance mode on
+#   post  migrate, rebuild framework caches, restart queue workers
+#   up    switch maintenance mode off (always run last, even after a failure)
+set -euo pipefail
+
+APP_DIR="${APP_DIR:-$HOME/domains/acconova.net/acconova}"
+PHP_BIN="${PHP_BIN:-php}"
+BACKUP_DIR="${BACKUP_DIR:-$HOME/backups}"
+KEEP_BACKUPS=7
+
+cd "$APP_DIR"
+
+artisan() {
+    "$PHP_BIN" artisan "$@"
+}
+
+# Reads a DB_* value from .env with the same parser Laravel uses.
+env_value() {
+    "$PHP_BIN" -r '
+        require "vendor/autoload.php";
+        $values = Dotenv\Dotenv::createArrayBacked(getcwd())->load();
+        echo $values[$argv[1]] ?? "";
+    ' "$1"
+}
+
+backup_database() {
+    if [ ! -f vendor/autoload.php ]; then
+        echo "::warning::vendor/ is missing, database backup skipped"
+        return 0
+    fi
+
+    if ! command -v mysqldump >/dev/null 2>&1; then
+        echo "::warning::mysqldump is not available on the server, database backup skipped"
+        return 0
+    fi
+
+    mkdir -p "$BACKUP_DIR"
+    chmod 700 "$BACKUP_DIR"
+
+    local options file database
+    options="$(mktemp)"
+    chmod 600 "$options"
+
+    "$PHP_BIN" -r '
+        require "vendor/autoload.php";
+        $values = Dotenv\Dotenv::createArrayBacked(getcwd())->load();
+        $quote = fn ($value) => "\"".addcslashes((string) $value, "\"\\")."\"";
+        echo "[client]\n";
+        echo "user=".$quote($values["DB_USERNAME"] ?? "")."\n";
+        echo "password=".$quote($values["DB_PASSWORD"] ?? "")."\n";
+        echo "host=".$quote($values["DB_HOST"] ?? "127.0.0.1")."\n";
+        echo "port=".($values["DB_PORT"] ?? "3306")."\n";
+    ' > "$options"
+
+    database="$(env_value DB_DATABASE)"
+    file="$BACKUP_DIR/pre-deploy-$(date +%Y%m%d-%H%M%S).sql.gz"
+
+    if mysqldump --defaults-extra-file="$options" --single-transaction --no-tablespaces --routines --triggers "$database" | gzip > "$file"; then
+        echo "Database backup written to $file ($(du -h "$file" | cut -f1))"
+    else
+        rm -f "$options" "$file"
+        echo "::error::Database backup failed, deploy stopped before touching anything"
+        exit 1
+    fi
+
+    rm -f "$options"
+
+    # Keep only the newest backups.
+    ls -1t "$BACKUP_DIR"/pre-deploy-*.sql.gz 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm --
+}
+
+case "${1:-}" in
+    pre)
+        "$PHP_BIN" -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);' || {
+            echo "::error::The server CLI PHP is $("$PHP_BIN" -r 'echo PHP_VERSION;'), the app needs 8.3 or newer"
+            exit 1
+        }
+
+        test -f .env || {
+            echo "::error::.env is missing in $APP_DIR"
+            exit 1
+        }
+
+        backup_database
+        artisan down --retry=60 || true
+        ;;
+
+    post)
+        artisan migrate --force
+        artisan package:discover --ansi
+        artisan optimize
+        artisan queue:restart || true
+        ;;
+
+    up)
+        artisan up || true
+        ;;
+
+    *)
+        echo "Usage: bash -s -- <pre|post|up>" >&2
+        exit 2
+        ;;
+esac
