@@ -1,4 +1,5 @@
 import { AppShell } from '@/layouts/AppShell';
+import { DataPagination } from '@/components/data/DataPagination';
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
@@ -15,8 +16,6 @@ import {
     BarChart3,
     CalendarDays,
     CheckCircle2,
-    ChevronLeft,
-    ChevronRight,
     Clock3,
     Filter,
     Flag,
@@ -83,6 +82,7 @@ import {
     type TeamsView,
 } from '@/features/task-management/TeamsExperience';
 import '../../css/task-management.css';
+import { Select } from '@/components/ui/Select';
 
 type Filters = {
     search: string;
@@ -944,7 +944,7 @@ function TaskWorkspace({
 
                         <label className="tm-field mb-5">
                             {text('لون المشروع', 'Project color')}
-                            <select
+                            <Select
                                 className={input}
                                 name="color"
                                 defaultValue={editingProject?.color ?? 'blue'}
@@ -953,7 +953,7 @@ function TaskWorkspace({
                                 <option value="green">{text('أخضر', 'Green')}</option>
                                 <option value="purple">{text('بنفسجي', 'Purple')}</option>
                                 <option value="orange">{text('برتقالي', 'Orange')}</option>
-                            </select>
+                            </Select>
                         </label>
 
                         {error && (
@@ -1121,7 +1121,7 @@ function FiltersBar({
                 />
             </label>
 
-            <select
+            <Select
                 className={`${input} min-w-28 flex-1 !w-auto`}
                 aria-label={ar ? 'المشروع' : 'Project'}
                 value={filters.project}
@@ -1136,9 +1136,9 @@ function FiltersBar({
                         {project.name}
                     </option>
                 ))}
-            </select>
+            </Select>
 
-            <select
+            <Select
                 className={`${input} min-w-28 flex-1 !w-auto`}
                 aria-label={ar ? 'الموظف' : 'Assignee'}
                 value={filters.assignee}
@@ -1153,9 +1153,9 @@ function FiltersBar({
                         {member.name}
                     </option>
                 ))}
-            </select>
+            </Select>
 
-            <select
+            <Select
                 className={`${input} min-w-24 flex-1 !w-auto`}
                 aria-label={ar ? 'الأولوية' : 'Priority'}
                 value={filters.priority}
@@ -1173,9 +1173,9 @@ function FiltersBar({
                         {meta[ar ? 'ar' : 'en']}
                     </option>
                 ))}
-            </select>
+            </Select>
 
-            <select
+            <Select
                 className={`${input} min-w-24 flex-1 !w-auto`}
                 aria-label={ar ? 'القسم' : 'Department'}
                 value={filters.department}
@@ -1190,9 +1190,9 @@ function FiltersBar({
                         {department}
                     </option>
                 ))}
-            </select>
+            </Select>
 
-            <select
+            <Select
                 className={`${input} min-w-24 flex-1 !w-auto`}
                 aria-label={ar ? 'الاستحقاق' : 'Due date'}
                 value={filters.due}
@@ -1201,7 +1201,7 @@ function FiltersBar({
                 <option value="">{ar ? 'كل التواريخ' : 'All dates'}</option>
                 <option value="today">{ar ? 'تستحق اليوم' : 'Due today'}</option>
                 <option value="overdue">{ar ? 'متأخرة' : 'Overdue'}</option>
-            </select>
+            </Select>
 
             <button
                 type="button"
@@ -1233,6 +1233,7 @@ function TaskTable({
     onStatus: (status: string) => void;
 }) {
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(25);
     const [sort, setSort] = useState('due');
     const [selected, setSelected] = useState<number[]>([]);
 
@@ -1244,9 +1245,9 @@ function TaskTable({
                 : (a.due_on ?? '9999').localeCompare(b.due_on ?? '9999')
     ));
 
-    const pages = Math.max(1, Math.ceil(sorted.length / 12));
+    const pages = Math.max(1, Math.ceil(sorted.length / perPage));
     const current = Math.min(page, pages);
-    const visible = sorted.slice((current - 1) * 12, current * 12);
+    const visible = sorted.slice((current - 1) * perPage, current * perPage);
     const allSelected =
         visible.length > 0
         && visible.every((task: Task) => selected.includes(task.id));
@@ -1343,7 +1344,7 @@ function TaskTable({
                 </div>
 
                 <div className="flex gap-2">
-                    <select
+                    <Select
                         aria-label={ar ? 'ترتيب المهام' : 'Sort tasks'}
                         className={`${input} !w-auto`}
                         value={sort}
@@ -1352,7 +1353,7 @@ function TaskTable({
                         <option value="due">{ar ? 'تاريخ الاستحقاق' : 'Due date'}</option>
                         <option value="recent">{ar ? 'الأحدث' : 'Newest'}</option>
                         <option value="title">{ar ? 'العنوان' : 'Title'}</option>
-                    </select>
+                    </Select>
                     <button
                         type="button"
                         className={button}
@@ -1552,31 +1553,8 @@ function TaskTable({
                 />
             )}
 
-            <div className="mt-4 flex items-center justify-between gap-3 text-[11px] text-[var(--ac-text-muted)]">
-                <span>
-                    {ar ? 'إجمالي النتائج:' : 'Total results:'} {tasks.length}
-                </span>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        className={button}
-                        disabled={current === 1}
-                        onClick={() => setPage(current - 1)}
-                        aria-label={ar ? 'السابق' : 'Previous'}
-                    >
-                        <ChevronRight size={12} />
-                    </button>
-                    <span>{current} / {pages}</span>
-                    <button
-                        type="button"
-                        className={button}
-                        disabled={current === pages}
-                        onClick={() => setPage(current + 1)}
-                        aria-label={ar ? 'التالي' : 'Next'}
-                    >
-                        <ChevronLeft size={12} />
-                    </button>
-                </div>
+            <div className="mt-4 overflow-hidden rounded-[18px] border border-[var(--ac-line)]">
+                <DataPagination page={current} lastPage={pages} perPage={perPage} total={tasks.length} onPageChange={setPage} onPerPageChange={(value) => { setPerPage(value); setPage(1); }} />
             </div>
         </section>
     );
@@ -2488,7 +2466,7 @@ function TeamCenter({
                             onChange={(event) => setSearch(event.target.value)}
                         />
                     </label>
-                    <select
+                    <Select
                         className={`${input} min-w-40 !w-auto`}
                         aria-label={text('القسم', 'Department')}
                         value={department}
@@ -2500,7 +2478,7 @@ function TeamCenter({
                         {departmentNames.map((name: string) => (
                             <option key={name} value={name}>{name}</option>
                         ))}
-                    </select>
+                    </Select>
                     <button
                         type="button"
                         className={button}

@@ -22,6 +22,7 @@ import {
     useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { Select } from '@/components/ui/Select';
 
 export type CollaborationRecordType =
     | 'party'
@@ -735,7 +736,7 @@ export function RecordCollaborationPanel({
                                 className="h-10 w-full rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-xs"
                             />
                             {relationshipOptions.length > 0 && (
-                                <select
+                                <Select
                                     value={relationshipPartyId}
                                     onChange={(event) =>
                                         setRelationshipPartyId(
@@ -752,7 +753,7 @@ export function RecordCollaborationPanel({
                                             {option.email ? ' · ' + option.email : ''}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                             )}
                         </div>
 

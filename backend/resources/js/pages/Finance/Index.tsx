@@ -10,6 +10,8 @@ import { DocumentDetail } from './DocumentDetail';
 import { DocumentForm } from './DocumentForm';
 import { DocumentList } from './DocumentList';
 import { FinanceHub } from './FinanceHub';
+import { MiscSaleCreate } from './MiscSaleCreate';
+import { PettyExpenses } from './PettyExpenses';
 import { Taxes } from './Taxes';
 import { apiErrorText } from './shared';
 import type {
@@ -81,6 +83,12 @@ export default function FinanceIndex({
                 return ar ? 'تفاصيل المقبوض' : 'Receipt details';
             case 'taxes':
                 return ar ? 'الضرائب والمستحقات' : 'Taxes & obligations';
+            case 'petty-expenses':
+                return ar ? 'النثريات' : 'Petty expenses';
+            case 'misc-sales-list':
+                return ar ? 'مبيعات متفرقات' : 'Walk-in sales';
+            case 'misc-sales-create':
+                return ar ? 'إضافة فاتورة متفرقات' : 'Add walk-in sale';
         }
     })();
 
@@ -136,7 +144,10 @@ function canOpenFinanceView(
                 || permissions.recurring_payments_view;
         case 'sales-list':
         case 'sales-detail':
+        case 'misc-sales-list':
             return permissions.sales_view;
+        case 'misc-sales-create':
+            return permissions.sales_manage && permissions.cash_receive;
         case 'sales-create':
             return permissions.sales_manage;
         case 'purchase-list':
@@ -146,6 +157,7 @@ function canOpenFinanceView(
             return permissions.purchases_manage;
         case 'payment-list':
         case 'payment-detail':
+        case 'petty-expenses':
         case 'receipt-list':
         case 'receipt-detail':
             return permissions.cash_view;
@@ -229,5 +241,14 @@ function FinanceViewRenderer({
 
         case 'taxes':
             return <Taxes lookups={lookups} ar={ar} />;
+
+        case 'petty-expenses':
+            return <PettyExpenses lookups={lookups} ar={ar} />;
+
+        case 'misc-sales-list':
+            return <DocumentList kind="sale_invoice" misc lookups={lookups} ar={ar} />;
+
+        case 'misc-sales-create':
+            return <MiscSaleCreate lookups={lookups} ar={ar} />;
     }
 }

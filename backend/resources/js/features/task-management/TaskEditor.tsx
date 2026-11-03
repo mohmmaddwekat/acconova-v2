@@ -59,6 +59,7 @@ import type {
     TaskPayload,
     TaskStatus,
 } from './types';
+import { Select } from '@/components/ui/Select';
 
 /**
  * Render the shared create/edit task form with permission-aware assignment,
@@ -706,7 +707,7 @@ export function TaskEditor({
                                 <div className="grid grid-cols-2 gap-3">
                                     <label className="tm-field">
                                         {text('المشروع', 'Project')}
-                                        <select
+                                        <Select
                                             className={input}
                                             required
                                             value={draft.project_id ?? ''}
@@ -728,12 +729,12 @@ export function TaskEditor({
                                                     {project.name}
                                                 </option>
                                             ))}
-                                        </select>
+                                        </Select>
                                     </label>
 
                                     <label className="tm-field">
                                         {text('الحالة', 'Status')}
-                                        <select
+                                        <Select
                                             className={input}
                                             value={draft.status}
                                             onChange={(event) => field(
@@ -752,12 +753,12 @@ export function TaskEditor({
                                                     {meta[ar ? 'ar' : 'en']}
                                                 </option>
                                             ))}
-                                        </select>
+                                        </Select>
                                     </label>
 
                                     <label className="tm-field">
                                         {text('الأولوية', 'Priority')}
-                                        <select
+                                        <Select
                                             className={input}
                                             value={draft.priority}
                                             onChange={(event) => field(
@@ -768,7 +769,7 @@ export function TaskEditor({
                                             <option value="high">{text('عالية', 'High')}</option>
                                             <option value="medium">{text('متوسطة', 'Medium')}</option>
                                             <option value="low">{text('منخفضة', 'Low')}</option>
-                                        </select>
+                                        </Select>
                                     </label>
 
                                     <label className="tm-field">

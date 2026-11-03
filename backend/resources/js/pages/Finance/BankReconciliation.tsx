@@ -22,6 +22,7 @@ import {
     useState,
     type ChangeEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type SuggestedMatch = {
     id: number;
@@ -671,7 +672,7 @@ export default function BankReconciliation() {
                             )}
                         </button>
 
-                        <select
+                        <Select
                             value={
                                 status
                             }
@@ -709,7 +710,7 @@ export default function BankReconciliation() {
                                     'All',
                                 )}
                             </option>
-                        </select>
+                        </Select>
                     </div>
                 </div>
 

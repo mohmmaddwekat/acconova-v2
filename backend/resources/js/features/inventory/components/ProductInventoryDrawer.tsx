@@ -42,6 +42,7 @@ import {
 import {
     createPortal,
 } from 'react-dom';
+import { Select } from '@/components/ui/Select';
 
 type InventoryAction =
     | 'opening'
@@ -878,7 +879,7 @@ export function ProductInventoryDrawer({
                                                         )}
                                                     </span>
 
-                                                    <select
+                                                    <Select
                                                         required
                                                         value={
                                                             warehouseId
@@ -916,7 +917,7 @@ export function ProductInventoryDrawer({
                                                                 </option>
                                                             ),
                                                         )}
-                                                    </select>
+                                                    </Select>
                                                 </label>
 
                                                 {action ===
@@ -928,7 +929,7 @@ export function ProductInventoryDrawer({
                                                             )}
                                                         </span>
 
-                                                        <select
+                                                        <Select
                                                             required
                                                             value={
                                                                 destinationWarehouseId
@@ -976,7 +977,7 @@ export function ProductInventoryDrawer({
                                                                         </option>
                                                                     ),
                                                                 )}
-                                                        </select>
+                                                        </Select>
                                                     </label>
                                                 )}
 

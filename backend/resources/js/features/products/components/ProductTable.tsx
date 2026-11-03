@@ -1,4 +1,10 @@
 import { PermanentDeleteControl } from '@/components/data/PermanentDeleteControl';
+import {
+    ColumnFilterText,
+    SortableTh,
+    type TableSort,
+} from '@/components/data/SortableHeader';
+import type { ProductSort } from '@/features/products/api';
 import type { Product } from '@/features/products/types';
 import { t, useLocale } from '@/lib/i18n';
 import { getLocale } from '@/lib/locale';
@@ -27,6 +33,22 @@ type ProductTableProps = {
     onArchive: (product: Product) => void;
 
     onRestore: (product: Product) => void;
+
+    sort: ProductSort;
+
+    onSort: (sort: ProductSort) => void;
+
+    search: string;
+
+    onSearch: (value: string) => void;
+};
+
+/** Header sort keys mapped to the catalog's ascending and descending sorts. */
+const SORTS: Record<string, [ProductSort, ProductSort]> = {
+    name: ['name_asc', 'name_desc'],
+    price: ['price_low', 'price_high'],
+    stock: ['stock_low', 'stock_high'],
+    sales: ['sales_low', 'sales_high'],
 };
 
 /**
@@ -90,8 +112,30 @@ export function ProductTable({
     onEdit,
     onArchive,
     onRestore,
+    sort,
+    onSort,
+    search,
+    onSearch,
 }: ProductTableProps) {
     useLocale();
+
+    const tableSort: TableSort = (() => {
+        for (const [key, [ascending, descending]] of Object.entries(SORTS)) {
+            if (sort === ascending) {
+                return { key, direction: 'asc' as const };
+            }
+
+            if (sort === descending) {
+                return { key, direction: 'desc' as const };
+            }
+        }
+
+        return null;
+    })();
+
+    function changeSort(next: TableSort): void {
+        onSort(next ? SORTS[next.key][next.direction === 'asc' ? 0 : 1] : 'name_asc');
+    }
 
     const ar = getLocale() === 'ar';
     const number = (value: number): string => Math.round(value).toLocaleString('en-US');
@@ -149,10 +193,19 @@ export function ProductTable({
                 <thead>
                     <tr className="bg-[var(--ac-bg-soft)] text-xs text-[var(--ac-text-soft)]">
                         {selectable && <th className="w-10 px-3 py-2.5" />}
-                        <th className="px-3 py-2.5 text-start font-medium">{label.product}</th>
-                        <th className="px-3 py-2.5 text-start font-medium">{label.price}</th>
-                        <th className="px-3 py-2.5 text-start font-medium">{label.stock}</th>
-                        <th className="px-3 py-2.5 text-start font-medium">{label.sales}</th>
+                        <SortableTh
+                            ar={ar}
+                            label={label.product}
+                            sortKey="name"
+                            sort={tableSort}
+                            onSort={changeSort}
+                            className="py-2.5 font-medium"
+                            filterActive={search !== ''}
+                            filter={<ColumnFilterText ar={ar} value={search} onChange={onSearch} placeholder={ar ? 'اسم المنتج أو الرمز' : 'Name or SKU'} />}
+                        />
+                        <SortableTh ar={ar} label={label.price} sortKey="price" sort={tableSort} onSort={changeSort} className="py-2.5 font-medium" />
+                        <SortableTh ar={ar} label={label.stock} sortKey="stock" sort={tableSort} onSort={changeSort} className="py-2.5 font-medium" />
+                        <SortableTh ar={ar} label={label.sales} sortKey="sales" sort={tableSort} onSort={changeSort} className="py-2.5 font-medium" />
                         <th className="px-3 py-2.5 text-start font-medium">{label.cover}</th>
                         <th className="px-3 py-2.5 text-start font-medium">{label.status}</th>
                         <th className="w-px px-3 py-2.5" />

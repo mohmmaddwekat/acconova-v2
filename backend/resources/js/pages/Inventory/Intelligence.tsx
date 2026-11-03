@@ -1,3 +1,4 @@
+import { useTableView } from '@/components/data/useTableView';
 import { AppShell } from '@/layouts/AppShell';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
@@ -130,6 +131,16 @@ export default function InventoryIntelligence() {
                         : data?.aging ?? [],
         [data, tab],
     );
+    const view = useTableView(rows, {
+        name: (row) => `${row.name} ${row.sku ?? ''}`,
+        available: (row) => Number(row.available),
+        demand_30_days: (row) => Number(row.demand_30_days),
+        daily_demand: (row) => Number(row.daily_demand),
+        reorder_quantity: (row) => Number(row.reorder_quantity),
+        stockout_days: (row) => row.stockout_days,
+        dead_stock_days: (row) => row.dead_stock_days,
+        frozen_capital: (row) => Number(row.frozen_capital),
+    });
 
     const text = (
         arabic: string,
@@ -383,53 +394,18 @@ export default function InventoryIntelligence() {
                                 <table className="w-full min-w-[1050px] text-xs">
                                     <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                         <tr>
-                                            {[
-                                                text(
-                                                    'المنتج',
-                                                    'Product',
-                                                ),
-                                                text(
-                                                    'المتاح',
-                                                    'Available',
-                                                ),
-                                                text(
-                                                    'طلب 30 يوم',
-                                                    '30d demand',
-                                                ),
-                                                text(
-                                                    'طلب يومي',
-                                                    'Daily demand',
-                                                ),
-                                                text(
-                                                    'إعادة الطلب',
-                                                    'Reorder qty',
-                                                ),
-                                                text(
-                                                    'أيام للنفاد',
-                                                    'Days to stockout',
-                                                ),
-                                                text(
-                                                    'أيام بلا حركة',
-                                                    'Idle days',
-                                                ),
-                                                text(
-                                                    'رأس مال مجمد',
-                                                    'Frozen capital',
-                                                ),
-                                            ].map(
-                                                label => (
-                                                    <th
-                                                        key={label}
-                                                        className="px-4 py-3 text-start font-semibold"
-                                                    >
-                                                        {label}
-                                                    </th>
-                                                ),
-                                            )}
+                                            {view.th('name', text('المنتج', 'Product'), { className: 'py-3' })}
+                                            {view.th('available', text('المتاح', 'Available'), { className: 'py-3' })}
+                                            {view.th('demand_30_days', text('طلب 30 يوم', '30d demand'), { className: 'py-3' })}
+                                            {view.th('daily_demand', text('طلب يومي', 'Daily demand'), { className: 'py-3' })}
+                                            {view.th('reorder_quantity', text('إعادة الطلب', 'Reorder qty'), { className: 'py-3' })}
+                                            {view.th('stockout_days', text('أيام للنفاد', 'Days to stockout'), { className: 'py-3' })}
+                                            {view.th('dead_stock_days', text('أيام بلا حركة', 'Idle days'), { className: 'py-3' })}
+                                            {view.th('frozen_capital', text('رأس مال مجمد', 'Frozen capital'), { className: 'py-3' })}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {rows.length === 0 ? (
+                                        {view.rows.length === 0 ? (
                                             <tr>
                                                 <td
                                                     colSpan={
@@ -443,7 +419,7 @@ export default function InventoryIntelligence() {
                                                     )}
                                                 </td>
                                             </tr>
-                                        ) : rows.map(
+                                        ) : view.rows.map(
                                             row => (
                                                 <tr
                                                     key={

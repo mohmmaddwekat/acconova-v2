@@ -17,7 +17,11 @@ export type ProductSort =
     | 'price_low'
     | 'price_high'
     | 'newest'
-    | 'oldest';
+    | 'oldest'
+    | 'stock_low'
+    | 'stock_high'
+    | 'sales_low'
+    | 'sales_high';
 
 export type ProductQuality =
     | 'missing_sku'

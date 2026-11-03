@@ -829,6 +829,7 @@ export function DocumentDetail({
 
                         {canCorrect
                             && [
+                                'draft',
                                 'issued',
                                 'partially_paid',
                                 'paid',

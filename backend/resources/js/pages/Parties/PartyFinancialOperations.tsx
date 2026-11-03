@@ -1,4 +1,5 @@
 import { ApiError, apiRequest } from '@/lib/http';
+import { DataPagination } from '@/components/data/DataPagination';
 import { downloadCsv } from '@/pages/Finance/shared';
 import type {
     CashRow,
@@ -27,6 +28,7 @@ import {
     type ComponentType,
     type ReactNode,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type PartySide =
     | 'customer'
@@ -453,6 +455,8 @@ export function PartyFinancialOperations({
         1,
     );
 
+    const [perPage, setPerPage] = useState(10);
+
     const [
         loading,
         setLoading,
@@ -530,6 +534,7 @@ export function PartyFinancialOperations({
             status,
             method,
             tab,
+            perPage,
         ],
     );
 
@@ -562,7 +567,7 @@ export function PartyFinancialOperations({
                                     page,
                                 ),
                             per_page:
-                                '10',
+                                String(perPage),
                         });
 
                     if (
@@ -696,6 +701,7 @@ export function PartyFinancialOperations({
             status,
             method,
             page,
+            perPage,
             tab,
             ar,
         ],
@@ -1111,7 +1117,7 @@ export function PartyFinancialOperations({
 
                             {tab ===
                             'invoices' ? (
-                                <select
+                                <Select
                                     className={input + ' mt-2'}
                                     value={
                                         status
@@ -1153,9 +1159,9 @@ export function PartyFinancialOperations({
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             ) : (
-                                <select
+                                <Select
                                     className={input + ' mt-2'}
                                     value={
                                         method
@@ -1197,7 +1203,7 @@ export function PartyFinancialOperations({
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             )}
                         </label>
 
@@ -1323,69 +1329,17 @@ export function PartyFinancialOperations({
                         />
                     )}
 
-                    {meta
-                        && meta.last_page
-                            > 1 && (
-                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ac-line)] pt-4 text-[10px] text-[var(--ac-text-muted)]">
-                            <span>
-                                {ar
-                                    ? 'صفحة '
-                                        + String(
-                                            meta.current_page,
-                                        )
-                                        + ' من '
-                                        + String(
-                                            meta.last_page,
-                                        )
-                                    : 'Page '
-                                        + String(
-                                            meta.current_page,
-                                        )
-                                        + ' of '
-                                        + String(
-                                            meta.last_page,
-                                        )}
-                            </span>
-
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    className={button}
-                                    disabled={
-                                        page <=
-                                        1
-                                    }
-                                    onClick={() =>
-                                        setPage(
-                                            current =>
-                                                current
-                                                - 1,
-                                        )}
-                                >
-                                    {ar
-                                        ? 'السابق'
-                                        : 'Previous'}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    className={button}
-                                    disabled={
-                                        page >=
-                                        meta.last_page
-                                    }
-                                    onClick={() =>
-                                        setPage(
-                                            current =>
-                                                current
-                                                + 1,
-                                        )}
-                                >
-                                    {ar
-                                        ? 'التالي'
-                                        : 'Next'}
-                                </button>
-                            </div>
+                    {meta && (
+                        <div className="mt-4 overflow-hidden rounded-[18px] border border-[var(--ac-line)]">
+                            <DataPagination
+                                page={meta.current_page}
+                                lastPage={meta.last_page}
+                                perPage={meta.per_page}
+                                total={meta.total}
+                                loading={loading}
+                                onPageChange={setPage}
+                                onPerPageChange={(value) => { setPerPage(value); setPage(1); }}
+                            />
                         </div>
                     )}
                 </div>

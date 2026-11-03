@@ -46,6 +46,7 @@ import type {
     DocumentRow,
     FinanceLookups,
 } from './types';
+import { Select } from '@/components/ui/Select';
 
 /** A received cheque still held by the business, which a payment can endorse. */
 type ChequeOnHand = {
@@ -1141,7 +1142,7 @@ export function CashForm({
                                 {incoming
                                     ? text('مصدر المقبوض *', 'Receipt source *')
                                     : text('فئة الدفع *', 'Payment category *')}
-                                <select
+                                <Select
                                     className={financeInput + ' mt-2'}
                                     value={category}
                                     onChange={(event) => {
@@ -1155,7 +1156,7 @@ export function CashForm({
                                         .map(([value, label]) => (
                                             <option key={value} value={value}>{label}</option>
                                         ))}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
@@ -1176,7 +1177,7 @@ export function CashForm({
                                             ? 'Supplier *'
                                             : 'Beneficiary / supplier',
                                     )}
-                                <select
+                                <Select
                                     className={financeInput + ' mt-2'}
                                     value={partyId}
                                     onChange={(event) => setPartyId(event.target.value)}
@@ -1189,7 +1190,7 @@ export function CashForm({
                                             {party.name}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
@@ -1232,7 +1233,7 @@ export function CashForm({
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('طريقة الدفع / القبض *', 'Payment method *')}
-                                <select
+                                <Select
                                     className={financeInput + ' mt-2'}
                                     value={method}
                                     onChange={(event) => {
@@ -1253,13 +1254,13 @@ export function CashForm({
                                     {methods.map(([value, label]) => (
                                         <option key={value} value={value}>{label}</option>
                                     ))}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('الحساب / الصندوق (اختياري)', 'Account / cash box (optional)')}
                                 {method === 'bank_transfer' && configuredBankAccounts.length > 0 ? (
-                                    <select
+                                    <Select
                                         className={financeInput + ' mt-2'}
                                         value={accountLabel}
                                         onChange={(event) => setAccountLabel(event.target.value)}
@@ -1279,7 +1280,7 @@ export function CashForm({
                                                 </option>
                                             );
                                         })}
-                                    </select>
+                                    </Select>
                                 ) : (
                                     <input
                                         className={financeInput + ' mt-2'}
@@ -1320,7 +1321,7 @@ export function CashForm({
                             {! incoming && (
                                 <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {text('مستحق حكومي مرتبط (اختياري)', 'Government obligation (optional)')}
-                                    <select
+                                    <Select
                                         className={financeInput + ' mt-2'}
                                         value={governmentObligationId}
                                         onChange={(event) => {
@@ -1347,7 +1348,7 @@ export function CashForm({
                                                 {obligation.title} · {obligation.authority_name} · {obligation.balance_due} {obligation.currency}
                                             </option>
                                         ))}
-                                    </select>
+                                    </Select>
                                 </label>
                             )}
                         </div>
@@ -1362,7 +1363,7 @@ export function CashForm({
                                 <div className="border-b border-[var(--ac-line)] p-4">
                                     <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                         {text('مصدر الشيك', 'Cheque source')}
-                                        <select
+                                        <Select
                                             className={financeInput + ' mt-2'}
                                             value={endorsedChequeId}
                                             onChange={(event) => selectChequeOnHand(event.target.value)}
@@ -1381,7 +1382,7 @@ export function CashForm({
                                                     ].filter(Boolean).join(' — ')}
                                                 </option>
                                             ))}
-                                        </select>
+                                        </Select>
                                     </label>
                                     <p className="mt-2 text-[11px] leading-5 text-[var(--ac-text-muted)]">
                                         {chequesOnHand.length === 0

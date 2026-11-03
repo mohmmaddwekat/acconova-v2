@@ -13,6 +13,7 @@ use App\Support\CompanyEmailDomains;
 use App\Support\InventoryQuantity as Decimal;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -219,6 +220,34 @@ class StaffController extends Controller
     }
 
     /**
+     * Order the directory by the column chosen in the table header; names
+     * stay the tie breaker and the default order.
+     *
+     * @param  Builder<StaffMember>  $query
+     * @return Builder<StaffMember>
+     */
+    private static function applyIndexSort(
+        $query,
+        ?string $sort,
+        string $direction,
+    ) {
+        match ($sort) {
+            'department' => $query->orderByRaw(
+                '(select departments.name from departments where departments.id = staff_members.department_id) '.$direction,
+            ),
+            'contact' => $query->orderBy('phone', $direction),
+            'basis' => $query->orderBy('basis', $direction),
+            'balance' => $query->orderBy('balance', $direction),
+            'status' => $query->orderBy('active', $direction),
+            default => $query->orderBy('name', $sort === 'name' ? $direction : 'asc'),
+        };
+
+        return $sort !== null && $sort !== 'name'
+            ? $query->orderBy('name')
+            : $query;
+    }
+
+    /**
      * Return Staff records visible to the current permission scope.
      */
     public function index(
@@ -301,6 +330,23 @@ class StaffController extends Controller
                     'min:20',
                     'max:100',
                 ],
+
+                'sort' => [
+                    'nullable',
+                    Rule::in([
+                        'name',
+                        'department',
+                        'contact',
+                        'basis',
+                        'balance',
+                        'status',
+                    ]),
+                ],
+
+                'sort_direction' => [
+                    'nullable',
+                    Rule::in(['asc', 'desc']),
+                ],
             ]);
 
         if (
@@ -372,10 +418,13 @@ class StaffController extends Controller
         );
 
         return response()->json([
-            'data' => $query
-                ->orderBy(
-                    'name',
-                )
+            'data' => self::applyIndexSort(
+                $query,
+                $filters['sort'] ?? null,
+                ($filters['sort_direction'] ?? 'asc') === 'desc'
+                    ? 'desc'
+                    : 'asc',
+            )
                 ->paginate(
                     (int) (
                         $filters['per_page']
@@ -1404,6 +1453,11 @@ class StaffController extends Controller
         Request $request,
         string $staff,
     ): JsonResponse {
+        $pagination = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
         $member =
             StaffMember::findOrFail(
                 $staff,
@@ -1491,7 +1545,7 @@ class StaffController extends Controller
                     'id',
                 )
                 ->paginate(
-                    30,
+                    $pagination['per_page'] ?? 25,
                 ),
         ]);
     }

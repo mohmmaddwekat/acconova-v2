@@ -1,6 +1,7 @@
 import { ApiError, apiRequest } from '@/lib/http';
 import { BellRing, ChevronDown, LoaderCircle, PhoneCall, RefreshCw, Settings2 } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type NextAction = {
     key: string;
@@ -329,15 +330,15 @@ export function CollectionFollowUpPanel({ ar }: { ar: boolean }) {
                             <form onSubmit={(event) => void logContact(event, item.party_id)} className="mt-3 grid gap-2 rounded-[12px] bg-[var(--ac-surface-soft)] p-3 sm:grid-cols-2">
                                 <label className="text-xs">
                                     {ar ? 'القناة' : 'Channel'}
-                                    <select name="channel" className={inputClass} defaultValue={item.next_action.suggested_channel}>
+                                    <Select name="channel" className={inputClass} defaultValue={item.next_action.suggested_channel}>
                                         {CHANNELS.map((channel) => <option key={channel} value={channel}>{t(labels.channels[channel], channel)}</option>)}
-                                    </select>
+                                    </Select>
                                 </label>
                                 <label className="text-xs">
                                     {ar ? 'النتيجة' : 'Outcome'}
-                                    <select name="outcome" className={inputClass} defaultValue="reached">
+                                    <Select name="outcome" className={inputClass} defaultValue="reached">
                                         {OUTCOMES.map((outcome) => <option key={outcome} value={outcome}>{t(labels.outcomes[outcome], outcome)}</option>)}
-                                    </select>
+                                    </Select>
                                 </label>
                                 <label className="text-xs sm:col-span-2">
                                     {ar ? 'ملاحظة' : 'Note'}

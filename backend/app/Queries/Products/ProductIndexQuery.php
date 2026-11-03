@@ -335,6 +335,14 @@ class ProductIndexQuery
                     'name',
                 ),
 
+            'stock_low' => $query->orderBy('stock_on_hand')->orderBy('name'),
+
+            'stock_high' => $query->orderByDesc('stock_on_hand')->orderBy('name'),
+
+            'sales_low' => $query->orderBy('monthly_sales')->orderBy('name'),
+
+            'sales_high' => $query->orderByDesc('monthly_sales')->orderBy('name'),
+
             'newest' => $query
                 ->orderByDesc(
                     'created_at',

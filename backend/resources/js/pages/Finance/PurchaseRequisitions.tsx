@@ -1,3 +1,4 @@
+import { useTableView } from '@/components/data/useTableView';
 import { apiRequest } from '@/lib/http';
 import { AppShell } from '@/layouts/AppShell';
 import { useLocale } from '@/lib/i18n';
@@ -19,6 +20,7 @@ import {
     useMemo,
     useState,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type RequisitionRow = {
     id: number;
@@ -89,6 +91,14 @@ export default function PurchaseRequisitions() {
     ] = useState<ReqResponse | null>(
         null,
     );
+    const view = useTableView(response?.data ?? [], {
+        number: (row) => `${row.number} ${row.requested_by_name ?? ''}`,
+        item: (row) => `${row.product_name ?? ''} ${row.description}`,
+        quantity: (row) => Number(row.quantity),
+        supplier: (row) => row.supplier_name,
+        needed_by: (row) => row.needed_by,
+        status: (row) => row.status,
+    });
     const [
         status,
         setStatus,
@@ -417,7 +427,7 @@ export default function PurchaseRequisitions() {
                         </div>
                     </div>
 
-                    <select
+                    <Select
                         value={
                             status
                         }
@@ -461,7 +471,7 @@ export default function PurchaseRequisitions() {
                                 'Converted',
                             )}
                         </option>
-                    </select>
+                    </Select>
                 </div>
 
                 <section className="mt-6 rounded-[22px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[var(--ac-shadow-soft)]">
@@ -473,7 +483,7 @@ export default function PurchaseRequisitions() {
                     </h2>
 
                     <div className="mt-4 grid gap-2 lg:grid-cols-3">
-                        <select
+                        <Select
                             value={
                                 productId
                             }
@@ -513,7 +523,7 @@ export default function PurchaseRequisitions() {
                                     </option>
                                 ),
                             )}
-                        </select>
+                        </Select>
 
                         <input
                             value={
@@ -536,7 +546,7 @@ export default function PurchaseRequisitions() {
                             className="h-10 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-xs"
                         />
 
-                        <select
+                        <Select
                             value={
                                 supplierId
                             }
@@ -572,7 +582,7 @@ export default function PurchaseRequisitions() {
                                     </option>
                                 ),
                             )}
-                        </select>
+                        </Select>
 
                         <input
                             type="number"
@@ -717,54 +727,20 @@ export default function PurchaseRequisitions() {
                             <table className="w-full min-w-[1120px] text-xs">
                                 <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                     <tr>
-                                        {[
-                                            text(
-                                                'الطلب',
-                                                'Request',
-                                            ),
-                                            text(
-                                                'الصنف',
-                                                'Item',
-                                            ),
-                                            text(
-                                                'الكمية',
-                                                'Quantity',
-                                            ),
-                                            text(
-                                                'المورد',
-                                                'Supplier',
-                                            ),
-                                            text(
-                                                'مطلوب قبل',
-                                                'Needed by',
-                                            ),
-                                            text(
-                                                'الحالة',
-                                                'Status',
-                                            ),
-                                            text(
-                                                'إجراء',
-                                                'Action',
-                                            ),
-                                        ].map(
-                                            label => (
-                                                <th
-                                                    key={
-                                                        label
-                                                    }
-                                                    className="px-4 py-3 text-start font-semibold"
-                                                >
-                                                    {
-                                                        label
-                                                    }
-                                                </th>
-                                            ),
-                                        )}
+                                        {view.th('number', text('الطلب', 'Request'), { className: 'py-3' })}
+                                        {view.th('item', text('الصنف', 'Item'), { className: 'py-3' })}
+                                        {view.th('quantity', text('الكمية', 'Quantity'), { className: 'py-3' })}
+                                        {view.th('supplier', text('المورد', 'Supplier'), { className: 'py-3' })}
+                                        {view.th('needed_by', text('مطلوب قبل', 'Needed by'), { className: 'py-3' })}
+                                        {view.th('status', text('الحالة', 'Status'), { className: 'py-3' })}
+                                        <th className="px-4 py-3 text-start font-semibold">
+                                            {text('إجراء', 'Action')}
+                                        </th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
-                                    {response.data.map(
+                                    {view.rows.map(
                                         row => (
                                             <tr
                                                 key={

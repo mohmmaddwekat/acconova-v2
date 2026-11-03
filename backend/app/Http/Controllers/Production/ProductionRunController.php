@@ -6,11 +6,13 @@ use App\Enums\OrganizationRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DeleteProductionRunRequest;
 use App\Http\Requests\PostProductionRunRequest;
+use App\Http\Requests\QuickProductionRunRequest;
 use App\Http\Requests\ReverseProductionRunRequest;
 use App\Http\Requests\SaveProductionRunRequest;
 use App\Http\Resources\ProductionRunResource;
 use App\Models\ProductionRun;
 use App\Services\Production\ProductionRunService;
+use App\Services\Production\QuickProductionEntryService;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,6 +31,9 @@ class ProductionRunController extends Controller
 
         $data =
             $request->validate([
+                'archived' => ['sometimes', 'boolean'],
+                'sort' => ['sometimes', 'in:occurred_on,run_number,status'],
+                'direction' => ['sometimes', 'in:asc,desc'],
                 'status' => [
                     'sometimes',
                     'nullable',
@@ -64,11 +69,15 @@ class ProductionRunController extends Controller
 
         $query =
             ProductionRun::query()
+                ->when(
+                    (bool) ($data['archived'] ?? false),
+                    fn ($builder) => $builder->onlyTrashed()->where('status', 'draft'),
+                )
                 ->with(
                     $this->relations(),
                 )
-                ->orderByDesc('occurred_on')
-                ->orderByDesc('id');
+                ->orderBy($data['sort'] ?? 'occurred_on', $data['direction'] ?? 'desc')
+                ->orderBy('id', $data['direction'] ?? 'desc');
 
         if (! empty($data['status'])) {
             $query->where(
@@ -99,7 +108,13 @@ class ProductionRunController extends Controller
                             'note',
                             'like',
                             '%'.$search.'%',
-                        );
+                        )
+                        ->orWhereHas('outputs.product', function ($product) use ($search): void {
+                            $product->where(function ($fields) use ($search): void {
+                                $fields->where('name', 'like', '%'.$search.'%')
+                                    ->orWhere('sku', 'like', '%'.$search.'%');
+                            });
+                        });
                 },
             );
         }
@@ -149,6 +164,33 @@ class ProductionRunController extends Controller
             ->setStatusCode(
                 Response::HTTP_CREATED,
             );
+    }
+
+    /**
+     * Create one Production Run per row from each Product's active Recipe.
+     *
+     * Posting needs an operational management role; other members get drafts.
+     */
+    public function quick(
+        QuickProductionRunRequest $request,
+        QuickProductionEntryService $quick,
+    ): JsonResponse {
+        $data = $request->validated();
+
+        $canPost = in_array(
+            app(TenantContext::class)->role(),
+            [OrganizationRole::Owner, OrganizationRole::Admin, OrganizationRole::Manager],
+            true,
+        );
+
+        $results = $quick->enter(
+            $data['rows'],
+            (int) $data['warehouse_id'],
+            $canPost && (bool) ($data['post'] ?? false),
+            $request->user()->id,
+        );
+
+        return response()->json(['data' => $results], Response::HTTP_CREATED);
     }
 
     /**
@@ -224,6 +266,34 @@ class ProductionRunController extends Controller
             (int) $request->validated(
                 'expected_revision',
             ),
+        );
+
+        return response()->noContent();
+    }
+
+    /**
+     * Restore one archived Production Draft.
+     */
+    public function restore(
+        string $run,
+        ProductionRunService $service,
+    ): ProductionRunResource {
+        return new ProductionRunResource(
+            $service->restoreDraft((int) $run),
+        );
+    }
+
+    /**
+     * Permanently delete one archived Production Draft.
+     */
+    public function forceDestroy(
+        DeleteProductionRunRequest $request,
+        ProductionRunService $service,
+        string $run,
+    ): Response {
+        $service->forceDeleteDraft(
+            (int) $run,
+            (int) $request->validated('expected_revision'),
         );
 
         return response()->noContent();

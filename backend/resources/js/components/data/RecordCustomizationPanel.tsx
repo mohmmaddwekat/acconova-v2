@@ -1,6 +1,7 @@
 import { ApiError, apiRequest } from '@/lib/http';
 import { Check, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type CustomField = {
     id: number;
@@ -196,7 +197,7 @@ export function RecordCustomizationPanel({
                         <span className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--ac-text-muted)]">
                             {ar ? 'الحالة الخاصة' : 'Custom status'}
                         </span>
-                        <select
+                        <Select
                             value={statusId}
                             disabled={! data.can_edit}
                             onChange={event =>
@@ -215,7 +216,7 @@ export function RecordCustomizationPanel({
                                     {status.label}
                                 </option>
                             ))}
-                        </select>
+                        </Select>
                     </label>
                 )}
 
@@ -234,7 +235,7 @@ export function RecordCustomizationPanel({
                         </span>
 
                         {field.field_type === 'select' ? (
-                            <select
+                            <Select
                                 value={values[String(field.id)] ?? ''}
                                 disabled={! data.can_edit}
                                 onChange={event =>
@@ -254,7 +255,7 @@ export function RecordCustomizationPanel({
                                         {option}
                                     </option>
                                 ))}
-                            </select>
+                            </Select>
                         ) : field.field_type === 'checkbox' ? (
                             <label className="mt-2 flex h-10 items-center gap-2 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-xs text-[var(--ac-text-soft)]">
                                 <input

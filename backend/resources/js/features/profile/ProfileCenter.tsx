@@ -1,15 +1,17 @@
 import { apiRequest, ApiError } from '@/lib/http';
+import { DataPagination } from '@/components/data/DataPagination';
 import {
     applyProfilePreferences,
     defaultProfilePreferences,
 } from '@/lib/profilePreferences';
 import type { AppPageProps } from '@/types/app';
 import { Link, usePage } from '@inertiajs/react';
-import { Activity, Bell, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Download, FileText, Filter, Folder, Globe2, Grid2X2, KeyRound, Laptop, Link2, LockKeyhole, Mail, Monitor, Moon, Palette, Pin, RotateCcw, Save, Search, Settings2, ShieldCheck, Star, Sun, UploadCloud, UserRound, UsersRound, X, type LucideIcon } from 'lucide-react';
+import { Activity, Bell, CalendarDays, CheckCircle2, Clock3, Download, FileText, Filter, Folder, Globe2, Grid2X2, KeyRound, Laptop, Link2, LockKeyhole, Mail, Monitor, Moon, Palette, Pin, RotateCcw, Save, Search, Settings2, ShieldCheck, Star, Sun, UploadCloud, UserRound, UsersRound, X, type LucideIcon } from 'lucide-react';
 import '../../../css/profile-center.css';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { fetchProfile } from './api';
 import type { ProfileResponse } from './types';
+import { Select } from '@/components/ui/Select';
 
 export type ProfileTab = 'overview' | 'activity' | 'settings' | 'security' | 'files';
 type Category = 'personal' | 'work' | 'policies' | 'certificates' | 'financial' | 'other';
@@ -93,6 +95,7 @@ function FilesPanel({ files, ar, preferences, onFiles }: { files: ProfileFile[];
     const [extension, setExtension] = useState('all');
     const [sort, setSort] = useState('recent');
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(preferences.page_size);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
@@ -101,9 +104,9 @@ function FilesPanel({ files, ar, preferences, onFiles }: { files: ProfileFile[];
     const actionLock = useRef(false);
     const text = (arabic: string, english: string) => ar ? arabic : english;
     const filtered = files.filter((file) => (category === 'all' || (category === 'favorite' ? file.favorite : file.category === category)) && (extension === 'all' || file.extension === extension) && file.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())).sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : sort === 'size' ? b.size - a.size : b.id - a.id);
-    const pages = Math.max(1, Math.ceil(filtered.length / preferences.page_size));
+    const pages = Math.max(1, Math.ceil(filtered.length / perPage));
     const currentPage = Math.min(page, pages);
-    const displayed = filtered.slice((currentPage - 1) * preferences.page_size, currentPage * preferences.page_size);
+    const displayed = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
     async function upload(file?: File) {
         if (!file || actionLock.current) { return; }
         if (file.size > 50 * 1024 * 1024) { setError(text('الحد الأقصى لحجم الملف 50 MB.', 'Maximum file size is 50 MB.')); return; }
@@ -126,12 +129,12 @@ function FilesPanel({ files, ar, preferences, onFiles }: { files: ProfileFile[];
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Stat title={text('جميع الملفات', 'All files')} value={files.length} icon={FileText} /><Stat title={text('المستندات الشخصية', 'Personal documents')} value={files.filter((f) => f.category === 'personal').length} icon={UserRound} /><Stat title={text('مستندات العمل', 'Work documents')} value={files.filter((f) => f.category === 'work').length} icon={Folder} /><Stat title={text('المفضلة', 'Favorites')} value={files.filter((f) => f.favorite).length} icon={Star} /><Stat title={text('التخزين المستخدم', 'Storage used')} value={sizeLabel(files.reduce((total, f) => total + f.size, 0))} icon={UploadCloud} /></div>
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_250px]">
             <div className="min-w-0 space-y-4">
-                <div className="grid gap-3 md:grid-cols-3"><div className={`${panel} p-2`}><div onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); void upload(event.dataTransfer.files[0]); }} className={`flex h-full min-h-56 flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-4 text-center ${dragging ? 'border-teal-500 bg-teal-50' : 'border-teal-200'}`}><UploadCloud size={38} className="text-teal-600" /><h2 className="text-sm font-bold">{text('رفع ملف جديد', 'Upload a new file')}</h2><p className={`text-[11px] leading-5 ${muted}`}>{text('اسحب ملفًا هنا أو اختره من جهازك', 'Drop a file here or select one from your device')}</p><select aria-label={text('تصنيف الملف المرفوع', 'Upload category')} className={input} value={uploadCategory} onChange={(event) => setUploadCategory(event.target.value as Category)}>{categories.map(([key, arabic, english]) => <option key={key} value={key}>{ar ? arabic : english}</option>)}</select><button className={`${primary} w-full`} disabled={busy} onClick={() => fileInput.current?.click()}>{busy ? text('جارٍ الحفظ…', 'Saving…') : text('اختيار الملف', 'Select file')}</button><input ref={fileInput} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.zip,.txt,.csv" onChange={(event) => void upload(event.target.files?.[0])} /><p className={`text-[10px] ${muted}`}>{text('الحد الأقصى لحجم الملف: 50 MB', 'Maximum file size: 50 MB')}</p></div></div><Card title={text('الملفات الأخيرة', 'Recent files')} icon={Clock3}>{fileList(files)}</Card><Card title={text('الملفات المثبتة', 'Pinned files')} icon={Pin}>{fileList(files.filter((f) => f.pinned))}</Card></div>
+                <div className="grid gap-3 md:grid-cols-3"><div className={`${panel} p-2`}><div onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); void upload(event.dataTransfer.files[0]); }} className={`flex h-full min-h-56 flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-4 text-center ${dragging ? 'border-teal-500 bg-teal-50' : 'border-teal-200'}`}><UploadCloud size={38} className="text-teal-600" /><h2 className="text-sm font-bold">{text('رفع ملف جديد', 'Upload a new file')}</h2><p className={`text-[11px] leading-5 ${muted}`}>{text('اسحب ملفًا هنا أو اختره من جهازك', 'Drop a file here or select one from your device')}</p><Select aria-label={text('تصنيف الملف المرفوع', 'Upload category')} className={input} value={uploadCategory} onChange={(event) => setUploadCategory(event.target.value as Category)}>{categories.map(([key, arabic, english]) => <option key={key} value={key}>{ar ? arabic : english}</option>)}</Select><button className={`${primary} w-full`} disabled={busy} onClick={() => fileInput.current?.click()}>{busy ? text('جارٍ الحفظ…', 'Saving…') : text('اختيار الملف', 'Select file')}</button><input ref={fileInput} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.zip,.txt,.csv" onChange={(event) => void upload(event.target.files?.[0])} /><p className={`text-[10px] ${muted}`}>{text('الحد الأقصى لحجم الملف: 50 MB', 'Maximum file size: 50 MB')}</p></div></div><Card title={text('الملفات الأخيرة', 'Recent files')} icon={Clock3}>{fileList(files)}</Card><Card title={text('الملفات المثبتة', 'Pinned files')} icon={Pin}>{fileList(files.filter((f) => f.pinned))}</Card></div>
                 <div className={`${panel} flex flex-wrap items-center gap-2 p-3`}><span className="me-2 text-xs font-bold">{text('أنواع الملفات', 'File types')}</span>{['all', ...Array.from(new Set(files.map((file) => file.extension))).sort()].map((type) => <button key={type} aria-pressed={extension === type} onClick={() => { setExtension(type); setPage(1); }} className={`${button} ${extension === type ? '!border-teal-500 !bg-teal-50 text-teal-700' : ''}`}>{type === 'all' ? text('الكل', 'All') : type.toUpperCase()}<span className={muted}>{type === 'all' ? files.length : files.filter((f) => f.extension === type).length}</span></button>)}</div>
                 <Card title={text('جميع الملفات والمستندات', 'All files & documents')} icon={FileText}>
-                    <div className="mb-4 flex flex-wrap gap-2"><label className="relative min-w-40 flex-1"><Search size={16} className={`absolute start-3 top-3 ${muted}`} /><input aria-label={text('البحث في الملفات', 'Search files')} placeholder={text('البحث في الملفات…', 'Search files…')} className={`${input} ps-9`} value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} /></label><select aria-label={text('ترتيب الملفات', 'Sort files')} className={`${input} !w-auto`} value={sort} onChange={(event) => setSort(event.target.value)}><option value="recent">{text('الأحدث أولًا', 'Newest first')}</option><option value="name">{text('اسم الملف', 'File name')}</option><option value="size">{text('حجم الملف', 'File size')}</option></select></div>
+                    <div className="mb-4 flex flex-wrap gap-2"><label className="relative min-w-40 flex-1"><Search size={16} className={`absolute start-3 top-3 ${muted}`} /><input aria-label={text('البحث في الملفات', 'Search files')} placeholder={text('البحث في الملفات…', 'Search files…')} className={`${input} ps-9`} value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} /></label><Select aria-label={text('ترتيب الملفات', 'Sort files')} className={`${input} !w-auto`} value={sort} onChange={(event) => setSort(event.target.value)}><option value="recent">{text('الأحدث أولًا', 'Newest first')}</option><option value="name">{text('اسم الملف', 'File name')}</option><option value="size">{text('حجم الملف', 'File size')}</option></Select></div>
                     {displayed.length ? <div className="overflow-x-auto"><table className="w-full min-w-[630px] text-start text-xs"><thead className={`bg-[var(--ac-surface-soft)] text-[10px] ${muted}`}><tr>{[text('اسم الملف', 'File name'), text('التصنيف', 'Category'), text('تاريخ التعديل', 'Modified'), text('الحجم', 'Size'), text('الوصول', 'Access'), text('الإجراءات', 'Actions')].map((label) => <th key={label} className="p-3 text-start font-medium">{label}</th>)}</tr></thead><tbody>{displayed.map((file) => <tr key={file.id} className="border-b border-[var(--ac-line)] last:border-0 hover:bg-teal-50/40"><td className={preferences.density === 'compact' ? 'p-2' : 'p-3'}><a href={file.download_url} className="flex max-w-64 items-center gap-2"><FileBadge extension={file.extension} /><span className="truncate">{file.name}</span></a></td><td className="p-2"><span className="rounded-full bg-teal-50 px-2 py-1 text-[10px] text-teal-700">{categories.find(([key]) => key === file.category)?.[ar ? 1 : 2]}</span></td><td className={`p-2 text-[10px] ${muted}`}>{dateLabel(file.updated_at, preferences)}</td><td className="p-2"><bdi>{sizeLabel(file.size)}</bdi></td><td className="p-2"><span className={`flex items-center gap-1 text-[10px] ${muted}`}><LockKeyhole size={12} />{text('خاص', 'Private')}</span></td><td className="p-2"><div className="flex gap-1"><button className="rounded p-2 hover:bg-teal-50 disabled:opacity-40" disabled={busy} aria-label={text('المفضلة', 'Favorite')} aria-pressed={file.favorite} onClick={() => void toggle(file, 'favorite')}><Star size={15} className={file.favorite ? 'fill-amber-400 text-amber-500' : muted} /></button><button className="rounded p-2 hover:bg-teal-50 disabled:opacity-40" disabled={busy} aria-label={text('تثبيت الملف', 'Pin file')} aria-pressed={file.pinned} onClick={() => void toggle(file, 'pinned')}><Pin size={15} className={file.pinned ? 'fill-teal-100 text-teal-600' : muted} /></button><a className="rounded p-2 hover:bg-teal-50" href={file.download_url} aria-label={text('تنزيل الملف', 'Download file')}><Download size={15} /></a></div></td></tr>)}</tbody></table></div> : <Empty>{files.length ? text('لا توجد ملفات تطابق البحث.', 'No matching files.') : text('ابدأ برفع أول مستند. ملفاتك خاصة بحسابك.', 'Upload your first document. Your files are private to your account.')}</Empty>}
-                    <div className={`mt-4 flex items-center justify-between text-[11px] ${muted}`}><span>{filtered.length} {text('ملف', 'files')}</span><div className="flex items-center gap-3"><button className={button} disabled={currentPage === 1} aria-label={text('السابق', 'Previous')} onClick={() => setPage(currentPage - 1)}><ChevronRight size={14} /></button><span>{currentPage} / {pages}</span><button className={button} disabled={currentPage === pages} aria-label={text('التالي', 'Next')} onClick={() => setPage(currentPage + 1)}><ChevronLeft size={14} /></button></div></div>
+                    <div className="mt-4 overflow-hidden rounded-[18px] border border-[var(--ac-line)]"><DataPagination page={currentPage} lastPage={pages} perPage={perPage} total={filtered.length} onPageChange={setPage} onPerPageChange={(value) => { setPerPage(value); setPage(1); }} /></div>
                 </Card>
             </div>
             <aside className="space-y-4"><Card title={text('الفئات الرئيسية', 'Categories')} icon={Folder}><div className="space-y-1">{([['all', 'جميع الملفات', 'All files'], ['favorite', 'المفضلة', 'Favorites'], ...categories] as const).map(([key, arabic, english]) => <button key={key} onClick={() => { setCategory(key); setPage(1); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-xs ${category === key ? 'bg-teal-50 font-semibold text-teal-700' : `${muted} hover:bg-slate-50`}`}><span>{ar ? arabic : english}</span><span>{files.filter((file) => key === 'all' || (key === 'favorite' ? file.favorite : file.category === key)).length}</span></button>)}</div></Card><Card title={text('أذونات الوصول', 'Access permissions')} icon={ShieldCheck}><span className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-xs text-teal-700"><LockKeyhole size={13} />{text('أنت المالك', 'You are the owner')}</span><p className={`mt-3 text-xs leading-6 ${muted}`}>{text('المستندات محفوظة بشكل خاص، ولا يمكن لأي حساب آخر عرضها أو تنزيلها.', 'Documents are private. Other accounts cannot view or download them.')}</p></Card></aside>
@@ -403,7 +406,7 @@ function SettingsPanel({
                                 <label className="block text-xs">
                                     {text('لغة واجهة النظام', 'Interface language')}
 
-                                    <select
+                                    <Select
                                         className={`${input} mt-2`}
                                         value={draft.locale}
                                         onChange={(event) =>
@@ -415,13 +418,13 @@ function SettingsPanel({
                                     >
                                         <option value="ar">العربية</option>
                                         <option value="en">English</option>
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 <label className="block text-xs">
                                     {text('المنطقة الزمنية', 'Time zone')}
 
-                                    <select
+                                    <Select
                                         className={`${input} mt-2`}
                                         value={draft.timezone}
                                         onChange={(event) =>
@@ -448,7 +451,7 @@ function SettingsPanel({
                                                 {zone}
                                             </option>
                                         ))}
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 <p className={`text-[11px] leading-6 ${muted}`}>
@@ -473,7 +476,7 @@ function SettingsPanel({
                                 <label className="block text-xs">
                                     {text('تنسيق التاريخ', 'Date format')}
 
-                                    <select
+                                    <Select
                                         className={`${input} mt-2`}
                                         value={draft.date_format}
                                         onChange={(event) =>
@@ -489,13 +492,13 @@ function SettingsPanel({
                                         <option value="long">
                                             {text('تاريخ كامل', 'Long date')}
                                         </option>
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 <label className="block text-xs">
                                     {text('تنسيق الوقت', 'Time format')}
 
-                                    <select
+                                    <Select
                                         className={`${input} mt-2`}
                                         value={draft.hour_cycle}
                                         onChange={(event) =>
@@ -511,13 +514,13 @@ function SettingsPanel({
                                         <option value="h23">
                                             {text('24 ساعة', '24 hours')}
                                         </option>
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 <label className="block text-xs">
                                     {text('بداية الأسبوع', 'Week starts on')}
 
-                                    <select
+                                    <Select
                                         className={`${input} mt-2`}
                                         value={draft.week_start}
                                         onChange={(event) =>
@@ -536,7 +539,7 @@ function SettingsPanel({
                                         <option value="saturday">
                                             {text('السبت', 'Saturday')}
                                         </option>
-                                    </select>
+                                    </Select>
                                 </label>
                             </div>
                         </Card>
@@ -649,7 +652,7 @@ function SettingsPanel({
                             <label className="block text-xs">
                                 {text('عدد الملفات في الصفحة', 'Files per page')}
 
-                                <select
+                                <Select
                                     className={`${input} mt-2`}
                                     value={draft.page_size}
                                     onChange={(event) =>
@@ -673,7 +676,7 @@ function SettingsPanel({
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             </label>
 
                             <div className={`mt-5 rounded-lg bg-slate-50 p-3 text-xs leading-6 ${muted}`}>
@@ -1028,5 +1031,5 @@ function ActivityPanel({ files, profile, ar, preferences }: { files: ProfileFile
         const csv = '\uFEFF' + rows.map((row) => row.map((value) => `"${(/^[=+@\-\t\r]/.test(value) ? "'" : '') + value.replaceAll('"', '""')}"`).join(',')).join('\r\n');
         const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'profile-activity.csv'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
-    return <><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat title={text('النشاط في الفترة المحددة', 'Activity in selected period')} value={filtered.length} icon={Activity} /><Stat title={text('الملفات المرفوعة', 'Uploaded files')} value={fileCount} icon={UploadCloud} /><Stat title={text('نشاط الجلسات', 'Session activity')} value={sessionCount} icon={Clock3} /><Stat title={text('الجلسات الحالية', 'Current sessions')} value={profile.sessions.length} icon={Monitor} /></div><div className="grid items-start gap-4 xl:grid-cols-[240px_minmax(0,1fr)_260px]"><aside className="space-y-4"><Card title={text('فلاتر سريعة', 'Quick filters')} icon={Filter}><div className="grid grid-cols-2 gap-2">{[['today', 'اليوم', 'Today'], ['week', 'هذا الأسبوع', 'This week'], ['month', 'هذا الشهر', 'This month'], ['all', 'كل الوقت', 'All time']].map(([key, arabic, english]) => <button key={key} aria-pressed={period === key} className={period === key ? primary : button} onClick={() => setPeriod(key)}>{ar ? arabic : english}</button>)}</div></Card><Card title={text('أحدث الأنشطة', 'Latest activity')} icon={Activity}><div className="space-y-5">{records.slice(0, 5).map((record) => <a key={record.id} href={record.href} className="flex items-start gap-2"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-teal-500" /><div className="min-w-0"><p className="truncate text-xs">{record.title}</p><p className={`mt-1 truncate text-[10px] ${muted}`}>{record.detail}</p></div></a>)}</div></Card><div className="rounded-xl border border-teal-100 bg-teal-50 p-4 text-xs leading-6 text-teal-800">{text('يعرض السجل عمليات رفع ملفاتك وآخر نشاط لكل جلسة محفوظة.', 'This feed includes file uploads and the latest activity of each stored session.')}</div></aside><Card title={text('سجل النشاط', 'Activity timeline')} icon={Activity} action={<button className={`${button} text-teal-700`} disabled={!filtered.length} onClick={exportActivity}><Download size={14} />{text('تصدير', 'Export')}</button>}><label className="mb-5 block"><span className={`mb-2 block text-[11px] ${muted}`}>{text('نوع النشاط', 'Activity type')}</span><select className={input} value={kind} onChange={(event) => setKind(event.target.value)}><option value="all">{text('كل الأنواع', 'All types')}</option><option value="files">{text('الملفات', 'Files')}</option><option value="sessions">{text('الجلسات', 'Sessions')}</option><option value="account">{text('الحساب', 'Account')}</option></select></label>{groups.size ? Array.from(groups).map(([date, items]) => <div key={date} className="mb-5 last:mb-0"><h3 className={`mb-2 text-xs font-semibold ${muted}`}>{dateLabel(items[0].date.toISOString(), preferences)}</h3><div className="divide-y divide-[var(--ac-line)] rounded-xl border border-[var(--ac-line)]">{items.map((record) => <div key={record.id} className="flex items-center gap-3 p-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-600"><record.icon size={17} /></span><div className="min-w-0 flex-1"><p className="text-xs font-semibold">{record.title}</p><p className={`mt-1 truncate text-[11px] ${muted}`}>{record.detail}</p></div><div className="shrink-0 text-end"><p className={`text-[10px] ${muted}`}>{new Intl.DateTimeFormat(ar ? 'ar' : 'en', { timeZone: preferences.timezone, hour: '2-digit', minute: '2-digit', hourCycle: preferences.hour_cycle }).format(record.date)}</p><a className="mt-1 inline-block text-[10px] text-teal-600 hover:underline" href={record.href}>{text('عرض التفاصيل', 'View details')}</a></div></div>)}</div></div>) : <Empty>{text('لا يوجد نشاط يطابق الفترة والفلاتر المحددة.', 'No activity matches this period and filter.')}</Empty>}</Card><aside className="space-y-4"><Card title={text('مخطط النشاط', 'Activity chart')} icon={Activity}><p className={`text-[10px] ${muted}`}>{text('آخر 7 أيام', 'Last 7 days')}</p><div className="mt-5 flex h-36 items-end justify-between gap-2">{days.map((day) => <div key={day.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"><span className="text-[10px]">{day.count}</span><div className="w-full max-w-7 rounded-t-md bg-gradient-to-t from-teal-500 to-teal-200" style={{ height: `${Math.max(3, day.count / max * 80)}px` }} /><span className={`text-[8px] ${muted}`}>{day.label}</span></div>)}</div></Card><Card title={text('توزيع النشاط حسب النوع', 'Activity by type')} icon={Grid2X2}><div className="mx-auto flex size-32 items-center justify-center rounded-full" style={{ background: `conic-gradient(#0d9488 ${filePercent}%, #dbeafe 0)` }}><div className="flex size-24 flex-col items-center justify-center rounded-full bg-white"><strong className="text-2xl">{filtered.length}</strong><span className={`text-[10px] ${muted}`}>{text('نشاط', 'events')}</span></div></div><div className="mt-5 space-y-3 text-xs"><p className="flex justify-between"><span>{text('الملفات', 'Files')}</span><strong className="text-teal-600">{fileCount}</strong></p><p className="flex justify-between"><span>{text('الجلسات', 'Sessions')}</span><strong>{sessionCount}</strong></p><p className="flex justify-between"><span>{text('الحساب', 'Account')}</span><strong>{filtered.filter((record) => record.type === 'account').length}</strong></p></div></Card></aside></div></>;
+    return <><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat title={text('النشاط في الفترة المحددة', 'Activity in selected period')} value={filtered.length} icon={Activity} /><Stat title={text('الملفات المرفوعة', 'Uploaded files')} value={fileCount} icon={UploadCloud} /><Stat title={text('نشاط الجلسات', 'Session activity')} value={sessionCount} icon={Clock3} /><Stat title={text('الجلسات الحالية', 'Current sessions')} value={profile.sessions.length} icon={Monitor} /></div><div className="grid items-start gap-4 xl:grid-cols-[240px_minmax(0,1fr)_260px]"><aside className="space-y-4"><Card title={text('فلاتر سريعة', 'Quick filters')} icon={Filter}><div className="grid grid-cols-2 gap-2">{[['today', 'اليوم', 'Today'], ['week', 'هذا الأسبوع', 'This week'], ['month', 'هذا الشهر', 'This month'], ['all', 'كل الوقت', 'All time']].map(([key, arabic, english]) => <button key={key} aria-pressed={period === key} className={period === key ? primary : button} onClick={() => setPeriod(key)}>{ar ? arabic : english}</button>)}</div></Card><Card title={text('أحدث الأنشطة', 'Latest activity')} icon={Activity}><div className="space-y-5">{records.slice(0, 5).map((record) => <a key={record.id} href={record.href} className="flex items-start gap-2"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-teal-500" /><div className="min-w-0"><p className="truncate text-xs">{record.title}</p><p className={`mt-1 truncate text-[10px] ${muted}`}>{record.detail}</p></div></a>)}</div></Card><div className="rounded-xl border border-teal-100 bg-teal-50 p-4 text-xs leading-6 text-teal-800">{text('يعرض السجل عمليات رفع ملفاتك وآخر نشاط لكل جلسة محفوظة.', 'This feed includes file uploads and the latest activity of each stored session.')}</div></aside><Card title={text('سجل النشاط', 'Activity timeline')} icon={Activity} action={<button className={`${button} text-teal-700`} disabled={!filtered.length} onClick={exportActivity}><Download size={14} />{text('تصدير', 'Export')}</button>}><label className="mb-5 block"><span className={`mb-2 block text-[11px] ${muted}`}>{text('نوع النشاط', 'Activity type')}</span><Select className={input} value={kind} onChange={(event) => setKind(event.target.value)}><option value="all">{text('كل الأنواع', 'All types')}</option><option value="files">{text('الملفات', 'Files')}</option><option value="sessions">{text('الجلسات', 'Sessions')}</option><option value="account">{text('الحساب', 'Account')}</option></Select></label>{groups.size ? Array.from(groups).map(([date, items]) => <div key={date} className="mb-5 last:mb-0"><h3 className={`mb-2 text-xs font-semibold ${muted}`}>{dateLabel(items[0].date.toISOString(), preferences)}</h3><div className="divide-y divide-[var(--ac-line)] rounded-xl border border-[var(--ac-line)]">{items.map((record) => <div key={record.id} className="flex items-center gap-3 p-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-600"><record.icon size={17} /></span><div className="min-w-0 flex-1"><p className="text-xs font-semibold">{record.title}</p><p className={`mt-1 truncate text-[11px] ${muted}`}>{record.detail}</p></div><div className="shrink-0 text-end"><p className={`text-[10px] ${muted}`}>{new Intl.DateTimeFormat(ar ? 'ar' : 'en', { timeZone: preferences.timezone, hour: '2-digit', minute: '2-digit', hourCycle: preferences.hour_cycle }).format(record.date)}</p><a className="mt-1 inline-block text-[10px] text-teal-600 hover:underline" href={record.href}>{text('عرض التفاصيل', 'View details')}</a></div></div>)}</div></div>) : <Empty>{text('لا يوجد نشاط يطابق الفترة والفلاتر المحددة.', 'No activity matches this period and filter.')}</Empty>}</Card><aside className="space-y-4"><Card title={text('مخطط النشاط', 'Activity chart')} icon={Activity}><p className={`text-[10px] ${muted}`}>{text('آخر 7 أيام', 'Last 7 days')}</p><div className="mt-5 flex h-36 items-end justify-between gap-2">{days.map((day) => <div key={day.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"><span className="text-[10px]">{day.count}</span><div className="w-full max-w-7 rounded-t-md bg-gradient-to-t from-teal-500 to-teal-200" style={{ height: `${Math.max(3, day.count / max * 80)}px` }} /><span className={`text-[8px] ${muted}`}>{day.label}</span></div>)}</div></Card><Card title={text('توزيع النشاط حسب النوع', 'Activity by type')} icon={Grid2X2}><div className="mx-auto flex size-32 items-center justify-center rounded-full" style={{ background: `conic-gradient(#0d9488 ${filePercent}%, #dbeafe 0)` }}><div className="flex size-24 flex-col items-center justify-center rounded-full bg-white"><strong className="text-2xl">{filtered.length}</strong><span className={`text-[10px] ${muted}`}>{text('نشاط', 'events')}</span></div></div><div className="mt-5 space-y-3 text-xs"><p className="flex justify-between"><span>{text('الملفات', 'Files')}</span><strong className="text-teal-600">{fileCount}</strong></p><p className="flex justify-between"><span>{text('الجلسات', 'Sessions')}</span><strong>{sessionCount}</strong></p><p className="flex justify-between"><span>{text('الحساب', 'Account')}</span><strong>{filtered.filter((record) => record.type === 'account').length}</strong></p></div></Card></aside></div></>;
 }

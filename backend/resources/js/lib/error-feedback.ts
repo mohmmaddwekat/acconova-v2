@@ -59,6 +59,124 @@ const safeBusinessMessages: Record<
     },
 };
 
+const fieldLabels: Record<
+    string,
+    { ar: string; en: string }
+> = {
+    party_id: { ar: 'الطرف', en: 'Party' },
+    contact_id: { ar: 'الطرف', en: 'Party' },
+    customer_id: { ar: 'العميل', en: 'Customer' },
+    supplier_id: { ar: 'المورد', en: 'Supplier' },
+    warehouse_id: { ar: 'المستودع', en: 'Warehouse' },
+    department_id: { ar: 'القسم', en: 'Department' },
+    issue_date: { ar: 'تاريخ الإصدار', en: 'Issue date' },
+    due_date: { ar: 'تاريخ الاستحقاق', en: 'Due date' },
+    currency: { ar: 'العملة', en: 'Currency' },
+    exchange_rate: { ar: 'سعر الصرف', en: 'Exchange rate' },
+    shipping_total: { ar: 'الشحن', en: 'Shipping' },
+    payment_terms: { ar: 'شروط الدفع', en: 'Payment terms' },
+    branch_label: { ar: 'الفرع / الموقع', en: 'Branch / location' },
+    activity_type: { ar: 'نوع النشاط', en: 'Activity type' },
+    market_type: { ar: 'السوق', en: 'Market' },
+    notes: { ar: 'الملاحظات', en: 'Notes' },
+    internal_notes: { ar: 'الملاحظات الداخلية', en: 'Internal notes' },
+    amount: { ar: 'المبلغ', en: 'Amount' },
+    lines: { ar: 'بنود الفاتورة', en: 'Invoice items' },
+    'lines.*.product_id': { ar: 'الصنف', en: 'Item' },
+    'lines.*.warehouse_id': { ar: 'المستودع', en: 'Warehouse' },
+    'lines.*.tax_rule_id': { ar: 'قاعدة الضريبة', en: 'Tax rule' },
+    'lines.*.description': { ar: 'الوصف', en: 'Description' },
+    'lines.*.unit': { ar: 'الوحدة', en: 'Unit' },
+    'lines.*.quantity': { ar: 'الكمية', en: 'Quantity' },
+    'lines.*.unit_price': { ar: 'سعر الوحدة', en: 'Unit price' },
+    'lines.*.discount_percent': { ar: 'نسبة الخصم', en: 'Discount %' },
+    'lines.*.discount_value': { ar: 'قيمة الخصم', en: 'Discount value' },
+    'lines.*.tax_rate': { ar: 'نسبة الضريبة', en: 'Tax rate' },
+};
+
+/**
+ * Resolve a human label for a validation field, including numbered line items.
+ */
+function fieldLabel(
+    field: string,
+): string | null {
+    const locale = getLocale();
+    const line = /^lines\.(\d+)(?:\.(.+))?$/.exec(field);
+
+    if (line) {
+        const row = `${locale === 'ar' ? 'بند' : 'Item'} ${Number(line[1]) + 1}`;
+        const inner = line[2]
+            ? fieldLabels[`lines.*.${line[2]}`]?.[locale]
+            : null;
+
+        return inner ? `${row} — ${inner}` : row;
+    }
+
+    return fieldLabels[field]?.[locale] ?? null;
+}
+
+/**
+ * Translate the first recognised Laravel rule into an actionable sentence.
+ *
+ * Only rule names and numeric/field-name parameters are used, never server text.
+ */
+function specificRuleMessage(
+    rules: string[],
+    params: Record<string, string[]>,
+): string | null {
+    for (const rule of rules) {
+        const [first, second] = params[rule] ?? [];
+
+        switch (rule) {
+            case 'date':
+            case 'dateformat':
+                return t('errors.rule.date');
+            case 'numeric':
+                return t('errors.rule.numeric');
+            case 'integer':
+                return t('errors.rule.integer');
+            case 'in':
+            case 'enum':
+                return t('errors.rule.in');
+            case 'exists':
+                return t('errors.rule.exists');
+            case 'regex':
+                return t('errors.rule.format');
+            case 'min':
+                if (first) {
+                    return t('errors.rule.min', { limit: first });
+                }
+                break;
+            case 'max':
+                if (first) {
+                    return t('errors.rule.max', { limit: first });
+                }
+                break;
+            case 'gt':
+                if (first) {
+                    return t('errors.rule.gt', { limit: first });
+                }
+                break;
+            case 'between':
+                if (first && second) {
+                    return t('errors.rule.between', { min: first, max: second });
+                }
+                break;
+            case 'after':
+            case 'afterorequal': {
+                const other = first ? fieldLabel(first) : null;
+
+                if (other) {
+                    return t('errors.rule.after', { field: other });
+                }
+                break;
+            }
+        }
+    }
+
+    return null;
+}
+
 /**
  * Normalize transport failures into translated, user-safe feedback.
  *
@@ -119,6 +237,33 @@ export function normalizeApiError(
               )
             : {};
 
+    const safeErrors =
+        input.safe_errors &&
+        typeof input.safe_errors ===
+            'object'
+            ? (
+                  input.safe_errors as Record<
+                      string,
+                      unknown
+                  >
+              )
+            : {};
+
+    const paramsByField =
+        input.error_params &&
+        typeof input.error_params ===
+            'object'
+            ? (
+                  input.error_params as Record<
+                      string,
+                      Record<
+                          string,
+                          string[]
+                      >
+                  >
+              )
+            : {};
+
     if (
         status ===
         422
@@ -157,6 +302,7 @@ export function normalizeApiError(
                     : [];
 
             const trustedBusinessValidation =
+                safeErrors[field] === true ||
                 rules.some(
                     (
                         code,
@@ -181,8 +327,8 @@ export function normalizeApiError(
                 continue;
             }
 
-            const key:
-                TranslationKey =
+            const knownKey:
+                TranslationKey | null =
                 rules.includes(
                     'unique',
                 )
@@ -204,14 +350,36 @@ export function normalizeApiError(
                         : field ===
                             'file'
                           ? 'errors.file'
-                          : 'errors.invalidField';
+                          : null;
+
+            const message =
+                knownKey
+                    ? t(
+                          knownKey,
+                      )
+                    : (
+                          specificRuleMessage(
+                              rules,
+                              paramsByField[
+                                  field
+                              ] ?? {},
+                          )
+                          ?? t(
+                              'errors.invalidField',
+                          )
+                      );
+
+            const label =
+                fieldLabel(
+                    field,
+                );
 
             fieldErrors[
                 field
             ] = [
-                t(
-                    key,
-                ),
+                label
+                    ? `${label}: ${message}`
+                    : message,
             ];
         }
     }

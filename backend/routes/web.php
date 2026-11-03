@@ -12,6 +12,7 @@ use App\Http\Controllers\Billing\BillingOverviewController;
 use App\Http\Controllers\Billing\BillingWebhookController;
 use App\Http\Controllers\Collaboration\RecordCollaborationController;
 use App\Http\Controllers\Documents\DocumentFulfillmentController;
+use App\Http\Controllers\Finance\AutoAllocationController;
 use App\Http\Controllers\Finance\BankReconciliationController;
 use App\Http\Controllers\Finance\CashMovementController;
 use App\Http\Controllers\Finance\FinanceArchiveController;
@@ -19,7 +20,9 @@ use App\Http\Controllers\Finance\FinanceDocumentController;
 use App\Http\Controllers\Finance\FinanceImportController;
 use App\Http\Controllers\Finance\FinanceLookupController;
 use App\Http\Controllers\Finance\InvoiceAutomationController;
+use App\Http\Controllers\Finance\MiscSaleController;
 use App\Http\Controllers\Finance\PaymentPlanController;
+use App\Http\Controllers\Finance\PettyExpenseController;
 use App\Http\Controllers\Finance\TaxComplianceController;
 use App\Http\Controllers\Governance\ApprovalWorkflowController;
 use App\Http\Controllers\Governance\AuditCenterController;
@@ -463,6 +466,21 @@ Route::middleware([
     )->name('app.payments');
 
     Route::get(
+        '/app/misc-sales',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'misc-sales-list']),
+    )->name('app.misc-sales');
+
+    Route::get(
+        '/app/misc-sales/create',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'misc-sales-create']),
+    )->name('app.misc-sales.create');
+
+    Route::get(
+        '/app/finance/petty-expenses',
+        fn () => Inertia::render('Finance/Index', ['financeView' => 'petty-expenses']),
+    )->name('app.finance.petty-expenses');
+
+    Route::get(
         '/app/payments/create',
         fn () => Inertia::render('Finance/Index', ['financeView' => 'payment-create']),
     )->name('app.payments.create');
@@ -504,7 +522,7 @@ Route::middleware([
 
     Route::get(
         '/app/finance/unallocated',
-        fn () => Inertia::render('Operations/Workspace', ['feature' => 'unallocated']),
+        fn () => Inertia::render('Finance/AutoAllocation'),
     )->name('app.finance.unallocated');
 
     Route::get(
@@ -1379,6 +1397,10 @@ Route::prefix(
         Route::get('finance/documents/{document}/available-credits', [FinanceDocumentController::class, 'availableCredits'])->whereNumber('document');
         Route::post('finance/documents/{document}/apply-credit', [FinanceDocumentController::class, 'applyCredit'])->whereNumber('document');
 
+        Route::get('finance/auto-allocation', [AutoAllocationController::class, 'index']);
+        Route::post('finance/auto-allocation/preview', [AutoAllocationController::class, 'preview']);
+        Route::post('finance/auto-allocation/apply', [AutoAllocationController::class, 'apply']);
+
         Route::get(
             'finance/documents/{document}/fulfillments',
             [DocumentFulfillmentController::class, 'index'],
@@ -1399,6 +1421,12 @@ Route::prefix(
             [CashMovementController::class, 'duplicateCheck'],
         );
         Route::get('finance/cash-movements/cheques-on-hand', [CashMovementController::class, 'chequesOnHand']);
+        Route::get('finance/misc-sales/summary', [MiscSaleController::class, 'summary']);
+        Route::post('finance/misc-sales', [MiscSaleController::class, 'store']);
+        Route::get('finance/petty-expenses/summary', [PettyExpenseController::class, 'summary']);
+        Route::post('finance/petty-expenses', [PettyExpenseController::class, 'store']);
+        Route::post('finance/petty-expenses/delete', [PettyExpenseController::class, 'destroyMany']);
+        Route::patch('finance/petty-expenses/{movement}', [PettyExpenseController::class, 'update'])->whereNumber('movement');
         Route::get('finance/cash-movements', [CashMovementController::class, 'index']);
         Route::post('finance/cash-movements', [CashMovementController::class, 'store']);
         Route::get('finance/cash-movements/{movement}', [CashMovementController::class, 'show'])->whereNumber('movement');

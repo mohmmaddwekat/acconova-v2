@@ -30,6 +30,7 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Feature =
     | 'unallocated'
@@ -1316,7 +1317,7 @@ export default function OperationsWorkspace({
                             </div>
 
                             {statusOptions.length > 1 && (
-                                <select
+                                <Select
                                     value={statusFilter}
                                     onChange={event =>
                                         setStatusFilter(
@@ -1341,7 +1342,7 @@ export default function OperationsWorkspace({
                                             )}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                             )}
 
                             <span className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
@@ -2813,7 +2814,7 @@ function TradeLinesEditor({
                         key={index}
                         className="grid gap-2 rounded-[13px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.6fr_.7fr_.8fr_auto_auto]"
                     >
-                        <select
+                        <Select
                             value={line.product_id}
                             onChange={event => {
                                 const selected =
@@ -2852,9 +2853,9 @@ function TradeLinesEditor({
                                     {option.label}
                                 </option>
                             ))}
-                        </select>
+                        </Select>
 
-                        <select
+                        <Select
                             value={line.warehouse_id}
                             onChange={event => {
                                 const selectedProduct =
@@ -2889,7 +2890,7 @@ function TradeLinesEditor({
                                     {option.label}
                                 </option>
                             ))}
-                        </select>
+                        </Select>
 
                         <input
                             required
@@ -3011,7 +3012,7 @@ function FieldInput({
             </span>
 
             {field.type === 'select' ? (
-                <select
+                <Select
                     required={field.required}
                     value={value}
                     onChange={(event) =>
@@ -3027,7 +3028,7 @@ function FieldInput({
                             {option.label}
                         </option>
                     ))}
-                </select>
+                </Select>
             ) : field.type === 'textarea' ? (
                 <textarea
                     required={field.required}
@@ -3658,7 +3659,7 @@ function RowActions({
                 )
                 && (
                     <div className="flex flex-wrap items-center gap-2">
-                        <select
+                        <Select
                             value={serialCustomer}
                             onChange={event => {
                                 onSerialCustomerChange(
@@ -3683,9 +3684,9 @@ function RowActions({
                                         {option.label}
                                     </option>
                                 ))}
-                        </select>
+                        </Select>
 
-                        <select
+                        <Select
                             value={serialSaleInvoice}
                             onChange={event =>
                                 onSerialSaleInvoiceChange(
@@ -3737,7 +3738,7 @@ function RowActions({
                                             .join(' · ')}
                                     </option>
                                 ))}
-                        </select>
+                        </Select>
 
                         <button
                             type="button"

@@ -58,6 +58,7 @@ import type {
     TaskData,
     TaskTeam,
 } from './types';
+import { Select } from '@/components/ui/Select';
 
 export type TeamsView =
     | 'teams'
@@ -361,7 +362,7 @@ function TeamsHub({
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                    <select
+                    <Select
                         className={input + ' min-w-52 !w-auto'}
                         aria-label={text('القسم', 'Department')}
                         value={department}
@@ -375,7 +376,7 @@ function TeamsHub({
                         {departments.map((name: string) => (
                             <option key={name} value={name}>{name}</option>
                         ))}
-                    </select>
+                    </Select>
 
                     <div className="flex rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] p-1">
                         <button
@@ -1104,7 +1105,7 @@ function CreateTeamSurface({
                         <div className="grid gap-4 md:grid-cols-2">
                             <label className="tm-field">
                                 {text('القسم', 'Department')}
-                                <select
+                                <Select
                                     className={input}
                                     value={department}
                                     disabled={Boolean(selectedParent)}
@@ -1118,12 +1119,12 @@ function CreateTeamSurface({
                                             {departmentName}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="tm-field">
                                 {text('الفريق الأب', 'Parent team')}
-                                <select
+                                <Select
                                     className={input}
                                     value={parentId}
                                     disabled={! canCreateChild || Boolean(requestedParent)}
@@ -1137,7 +1138,7 @@ function CreateTeamSurface({
                                             {ar ? team.nameAr : team.nameEn}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                                 <span className="text-[11px] font-normal text-[var(--ac-text-muted)]">
                                     {text(
                                         'اختياري: اختر فريقًا أبًا لتحويل هذا الفريق إلى فريق فرعي.',
@@ -1149,7 +1150,7 @@ function CreateTeamSurface({
 
                         <label className="tm-field">
                             {text('قائد الفريق', 'Team lead')}
-                            <select
+                            <Select
                                 className={input}
                                 value={leader}
                                 required
@@ -1170,7 +1171,7 @@ function CreateTeamSurface({
                                         {member.name}
                                     </option>
                                 ))}
-                            </select>
+                            </Select>
                         </label>
 
                         <label className="tm-field">
@@ -1316,7 +1317,7 @@ function CreateTeamSurface({
 
                         <label className="tm-field">
                             {text('مستوى الأولوية', 'Priority level')}
-                            <select
+                            <Select
                                 className={input}
                                 value={priority}
                                 onChange={(event) => setPriority(event.target.value)}
@@ -1324,7 +1325,7 @@ function CreateTeamSurface({
                                 <option value="low">{text('منخفضة', 'Low')}</option>
                                 <option value="medium">{text('متوسطة', 'Medium')}</option>
                                 <option value="high">{text('عالية', 'High')}</option>
-                            </select>
+                            </Select>
                         </label>
                     </div>
                 </Panel>
@@ -2115,7 +2116,7 @@ function TeamDetailSurface({
                                 </label>
                                 <label className="tm-field">
                                     {text('الأولوية', 'Priority')}
-                                    <select
+                                    <Select
                                         className={input}
                                         value={editPriority}
                                         onChange={(event) => setEditPriority(event.target.value as 'low' | 'medium' | 'high')}
@@ -2123,7 +2124,7 @@ function TeamDetailSurface({
                                         <option value="low">{text('منخفضة', 'Low')}</option>
                                         <option value="medium">{text('متوسطة', 'Medium')}</option>
                                         <option value="high">{text('عالية', 'High')}</option>
-                                    </select>
+                                    </Select>
                                 </label>
                             </div>
                         </>
@@ -2132,7 +2133,7 @@ function TeamDetailSurface({
                     {can('teams.lead.manage') && (
                         <label className="tm-field">
                             {text('قائد الفريق', 'Team lead')}
-                            <select
+                            <Select
                                 className={input}
                                 value={editLeader}
                                 onChange={(event) => setEditLeader(event.target.value)}
@@ -2140,14 +2141,14 @@ function TeamDetailSurface({
                                 {team.members.map((member: Member) => (
                                     <option key={member.id} value={member.id}>{member.name}</option>
                                 ))}
-                            </select>
+                            </Select>
                         </label>
                     )}
 
                     {permissions.includes('teams.move') && (
                         <label className="tm-field">
                             {text('الموقع داخل الهيكل', 'Hierarchy position')}
-                            <select
+                            <Select
                                 className={input}
                                 value={editParent}
                                 onChange={(event) => setEditParent(event.target.value)}
@@ -2160,7 +2161,7 @@ function TeamDetailSurface({
                                         {ar ? option.nameAr : option.nameEn}
                                     </option>
                                 ))}
-                            </select>
+                            </Select>
                             <span className="text-[11px] font-normal text-[var(--ac-text-muted)]">
                                 {text(
                                     'لا يمكنك نقل الفريق تحت نفسه أو تحت أحد الفرق التابعة له.',
@@ -2582,7 +2583,7 @@ function TeamMembersSurface({
                                     />
                                 </label>
 
-                                <select
+                                <Select
                                     className={input + ' !w-auto min-w-32'}
                                     value={roleFilter}
                                     onChange={(event) => setRoleFilter(event.target.value as 'all' | 'lead' | 'member')}
@@ -2590,8 +2591,8 @@ function TeamMembersSurface({
                                     <option value="all">{text('جميع الأدوار', 'All roles')}</option>
                                     <option value="lead">{text('قائد الفريق', 'Team lead')}</option>
                                     <option value="member">{text('عضو', 'Member')}</option>
-                                </select>
-                                <select
+                                </Select>
+                                <Select
                                     className={input + ' !w-auto min-w-32'}
                                     value={statusFilter}
                                     onChange={(event) => setStatusFilter(event.target.value as 'all' | 'available' | 'busy')}
@@ -2599,7 +2600,7 @@ function TeamMembersSurface({
                                     <option value="all">{text('جميع الحالات', 'All statuses')}</option>
                                     <option value="available">{text('متاح', 'Available')}</option>
                                     <option value="busy">{text('مشغول', 'Busy')}</option>
-                                </select>
+                                </Select>
                                 <button
                                     type="button"
                                     className={button}
@@ -3092,7 +3093,7 @@ function TeamMembersSurface({
                     ) : (
                         <label className="tm-field">
                             {text('الموظف', 'Employee')}
-                            <select
+                            <Select
                                 className={input}
                                 value={candidateId}
                                 onChange={(event) => setCandidateId(event.target.value)}
@@ -3103,7 +3104,7 @@ function TeamMembersSurface({
                                         {member.name} — {member.job_title ?? text('موظف', 'Employee')}
                                     </option>
                                 ))}
-                            </select>
+                            </Select>
                         </label>
                     )}
                     {! addCandidates.length && team.members.length < team.capacity && (
@@ -3135,7 +3136,7 @@ function TeamMembersSurface({
                 <div className="space-y-4">
                     <label className="tm-field">
                         {text('قائد الفريق', 'Team lead')}
-                        <select
+                        <Select
                             className={input}
                             value={leadId}
                             onChange={(event) => setLeadId(event.target.value)}
@@ -3143,7 +3144,7 @@ function TeamMembersSurface({
                             {team.members.map((member: Member) => (
                                 <option key={member.id} value={member.id}>{member.name}</option>
                             ))}
-                        </select>
+                        </Select>
                     </label>
                     <div className="flex justify-end gap-2">
                         <button type="button" className={button} disabled={busy} onClick={() => setLeadOpen(false)}>
@@ -3169,7 +3170,7 @@ function TeamMembersSurface({
                 <div className="space-y-4">
                     <label className="tm-field">
                         {text('اختر العضو', 'Choose member')}
-                        <select
+                        <Select
                             className={input}
                             value={removeId}
                             onChange={(event) => setRemoveId(event.target.value)}
@@ -3180,7 +3181,7 @@ function TeamMembersSurface({
                                 .map((member: Member) => (
                                     <option key={member.id} value={member.id}>{member.name}</option>
                                 ))}
-                        </select>
+                        </Select>
                     </label>
                     <div className="flex justify-end gap-2">
                         <button type="button" className={button} disabled={busy} onClick={() => setRemoveOpen(false)}>
@@ -3206,7 +3207,7 @@ function TeamMembersSurface({
                 <div className="space-y-4">
                     <label className="tm-field">
                         {text('العضو', 'Member')}
-                        <select
+                        <Select
                             className={input}
                             value={transferMemberId}
                             onChange={(event) => setTransferMemberId(event.target.value)}
@@ -3217,11 +3218,11 @@ function TeamMembersSurface({
                                 .map((member: Member) => (
                                     <option key={member.id} value={member.id}>{member.name}</option>
                                 ))}
-                        </select>
+                        </Select>
                     </label>
                     <label className="tm-field">
                         {text('الفريق الهدف', 'Target team')}
-                        <select
+                        <Select
                             className={input}
                             value={targetTeamId}
                             onChange={(event) => setTargetTeamId(event.target.value)}
@@ -3232,7 +3233,7 @@ function TeamMembersSurface({
                                     {target.name} ({target.member_ids.length}/{target.capacity})
                                 </option>
                             ))}
-                        </select>
+                        </Select>
                     </label>
                     {! targetTeams.length && (
                         <p className="text-xs text-[var(--ac-text-muted)]">

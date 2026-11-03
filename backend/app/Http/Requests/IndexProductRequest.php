@@ -85,6 +85,10 @@ class IndexProductRequest extends FormRequest
                     'price_high',
                     'newest',
                     'oldest',
+                    'stock_low',
+                    'stock_high',
+                    'sales_low',
+                    'sales_high',
                 ]),
             ],
 

@@ -11,6 +11,7 @@ import {
     useEffect,
     useState,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type PaymentPromise = {
     id: number;
@@ -256,7 +257,7 @@ export function PaymentPromisePanel({
                             ? 'الفاتورة (اختياري)'
                             : 'Invoice (optional)'}
                     </span>
-                    <select
+                    <Select
                         value={invoiceId}
                         onChange={event =>
                             setInvoiceId(event.target.value)
@@ -281,7 +282,7 @@ export function PaymentPromisePanel({
                                 ).toLocaleString()}
                             </option>
                         ))}
-                    </select>
+                    </Select>
                 </label>
 
                 <label>

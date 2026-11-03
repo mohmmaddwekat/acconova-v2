@@ -4,7 +4,6 @@ import {
     ExternalLink,
     ImagePlus,
     LoaderCircle,
-    MessageCircle,
     Plus,
     Send,
     Sparkles,
@@ -19,6 +18,10 @@ import {
     type FormEvent,
 } from 'react';
 
+import {
+    aiStateEvent,
+    aiToggleEvent,
+} from '@/components/ai/AiToggleButton';
 import {
     aiImageErrorMessage,
     aiMessageHasImage,
@@ -180,6 +183,35 @@ export function AiSidekick() {
             // Session persistence is optional.
         }
     }, [open]);
+
+    const available = authorized && ! hiddenOnFullAssistant;
+
+    useEffect(() => {
+        const publish = (): void => {
+            window.dispatchEvent(new CustomEvent(aiStateEvent, {
+                detail: { open: open && available, available },
+            }));
+        };
+        const toggle = (): void => setOpen(current => ! current);
+
+        window.addEventListener(aiToggleEvent, toggle);
+        window.addEventListener('acconova:ai-sync', publish);
+        publish();
+
+        document.documentElement.style.setProperty(
+            '--ac-ai-width',
+            open && available ? '400px' : '0px',
+        );
+
+        return () => {
+            window.removeEventListener(aiToggleEvent, toggle);
+            window.removeEventListener('acconova:ai-sync', publish);
+        };
+    }, [open, available]);
+
+    useEffect(() => () => {
+        document.documentElement.style.removeProperty('--ac-ai-width');
+    }, []);
 
     useEffect(() => {
         if (! open || loaded || ! authorized) return;
@@ -412,7 +444,7 @@ export function AiSidekick() {
             {open && (
                 <section
                     aria-label={ar ? 'مساعد AccoNova' : 'AccoNova assistant'}
-                    className="fixed bottom-[5.35rem] right-3 z-[90] flex h-[min(680px,72dvh)] w-[calc(100vw-1.5rem)] max-w-[400px] flex-col overflow-hidden rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-2xl sm:right-6 sm:w-[400px]"
+                    className="fixed inset-y-0 end-0 z-[60] flex w-full flex-col overflow-hidden border-s border-[var(--ac-line)] bg-[var(--ac-surface)] max-md:z-[90] md:w-[400px]"
                 >
                     <header className="flex items-center justify-between gap-3 border-b border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 py-3.5">
                         <div className="flex min-w-0 items-center gap-3">
@@ -640,20 +672,6 @@ export function AiSidekick() {
                 </section>
             )}
 
-            <button
-                type="button"
-                onClick={() => setOpen(current => ! current)}
-                aria-label={open
-                    ? (ar ? 'إغلاق مساعد AccoNova' : 'Close AccoNova assistant')
-                    : (ar ? 'فتح مساعد AccoNova' : 'Open AccoNova assistant')}
-                title={ar ? 'اسأل AccoNova AI' : 'Ask AccoNova AI'}
-                className="fixed bottom-5 right-4 z-[91] flex size-14 items-center justify-center rounded-full border border-[var(--ac-line)] bg-[var(--ac-accent)] text-white shadow-xl transition duration-200 hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-[var(--ac-accent)]/20 sm:bottom-6 sm:right-6"
-            >
-                {open ? <X size={22} /> : <MessageCircle size={22} />}
-                {! open && (
-                    <span className="absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-[var(--ac-surface)] bg-emerald-500" />
-                )}
-            </button>
         </div>
     );
 }

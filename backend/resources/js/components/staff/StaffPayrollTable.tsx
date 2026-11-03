@@ -1,10 +1,10 @@
+import { useTableView } from '@/components/data/useTableView';
+import { DataPagination } from '@/components/data/DataPagination';
 import { ModalPortal } from '@/components/feedback/ModalPortal';
 import { apiRequest } from '@/lib/http';
 import type { AppPageProps } from '@/types/app';
 import { usePage } from '@inertiajs/react';
 import {
-    ChevronLeft,
-    ChevronRight,
     Pencil,
     Printer,
     Trash2,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import './StaffPayrollTable.css';
+import { Select } from '@/components/ui/Select';
 
 export type StaffPayrollEmployee = {
     id: number;
@@ -136,7 +137,7 @@ export function StaffPayrollTable({
     const [year, setYear] = useState('all');
     const [showEmpty, setShowEmpty] = useState(false);
     const [page, setPage] = useState(1);
-    const [perPage, setPerPage] = useState<10 | 20 | 50 | 100>(10);
+    const [perPage, setPerPage] = useState(10);
     const [paymentRow, setPaymentRow] = useState<StaffPayrollRow | null>(null);
     const [paymentCorrection, setPaymentCorrection] = useState<PaymentCorrection | null>(null);
     const [paymentBusy, setPaymentBusy] = useState(false);
@@ -153,13 +154,29 @@ export function StaffPayrollTable({
         [liveRows],
     );
 
-    const filteredRows = useMemo(() => {
+    const periodRows = useMemo(() => {
         return liveRows.filter((row) => {
             if (year !== 'all' && !row.period.startsWith(`${year}-`)) return false;
             if (!showEmpty && row.status === 'empty') return false;
             return true;
         });
     }, [liveRows, year, showEmpty]);
+    const tableView = useTableView(periodRows, {
+        period: (row) => row.period,
+        attendance: (row) => row.present,
+        work: (row) => Number(row.work),
+        overtime: (row) => Number(row.overtime),
+        bonus: (row) => Number(row.bonus),
+        allowances: (row) => Number(row.allowances),
+        gross: (row) => Number(row.gross_earnings),
+        deductions: (row) => Number(row.deductions),
+        advances: (row) => Number(row.advances),
+        net: (row) => Number(row.net_entitlement),
+        paid: (row) => Number(row.payments),
+        remaining: (row) => Number(row.remaining),
+        status: (row) => row.status,
+    });
+    const filteredRows = tableView.rows;
 
     const pageCount = Math.max(1, Math.ceil(filteredRows.length / perPage));
     const visibleRows = filteredRows.slice((page - 1) * perPage, page * perPage);
@@ -221,8 +238,6 @@ export function StaffPayrollTable({
         overpaid: 'bg-violet-50 text-violet-700',
     };
 
-    const start = filteredRows.length ? (page - 1) * perPage + 1 : 0;
-    const end = Math.min(page * perPage, filteredRows.length);
     const printPeriod = year === 'all'
         ? (ar ? 'كل السنوات' : 'All years')
         : year;
@@ -297,24 +312,10 @@ export function StaffPayrollTable({
                         <div className="flex flex-wrap items-center gap-2">
                             <label className="flex items-center gap-2 text-xs font-semibold">
                                 <span>{ar ? 'السنة' : 'Year'}</span>
-                                <select value={year} onChange={(event) => setYear(event.target.value)} className={selectClass}>
+                                <Select value={year} onChange={(event) => setYear(event.target.value)} className={selectClass}>
                                     <option value="all">{ar ? 'كل السنوات' : 'All years'}</option>
                                     {years.map((item) => <option key={item} value={item}>{item}</option>)}
-                                </select>
-                            </label>
-
-                            <label className="flex items-center gap-2 text-xs font-semibold">
-                                <span>{ar ? 'الصفوف' : 'Rows'}</span>
-                                <select
-                                    value={perPage}
-                                    onChange={(event) => setPerPage(Number(event.target.value) as 10 | 20 | 50 | 100)}
-                                    className={selectClass}
-                                >
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="flex h-10 cursor-pointer items-center gap-2 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold">
@@ -356,19 +357,19 @@ export function StaffPayrollTable({
                         <table className="w-full min-w-[1840px] text-start text-xs">
                             <thead className="bg-[var(--ac-surface-soft)] text-[10px] text-[var(--ac-text-muted)]">
                                 <tr>
-                                    <th className="ac-payroll-period px-4 py-3 text-start font-semibold">{ar ? 'الشهر' : 'Month'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'الحضور / الكمية' : 'Attendance / quantity'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'الشغل / الراتب' : 'Work / salary'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'الإضافي' : 'Overtime'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'المكافآت' : 'Bonuses'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'البدلات' : 'Allowances'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'إجمالي الكسب' : 'Gross'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'الخصومات' : 'Deductions'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'السلف' : 'Advances'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'صافي المستحق' : 'Net entitlement'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'المدفوع' : 'Paid'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'المتبقي' : 'Remaining'}</th>
-                                    <th className="px-4 py-3 text-start font-semibold">{ar ? 'الحالة' : 'Status'}</th>
+                                    {tableView.th('period', ar ? 'الشهر' : 'Month', { className: 'ac-payroll-period py-3' })}
+                                    {tableView.th('attendance', ar ? 'الحضور / الكمية' : 'Attendance / quantity', { className: 'py-3', filterable: false })}
+                                    {tableView.th('work', ar ? 'الشغل / الراتب' : 'Work / salary', { className: 'py-3', filterable: false })}
+                                    {tableView.th('overtime', ar ? 'الإضافي' : 'Overtime', { className: 'py-3', filterable: false })}
+                                    {tableView.th('bonus', ar ? 'المكافآت' : 'Bonuses', { className: 'py-3', filterable: false })}
+                                    {tableView.th('allowances', ar ? 'البدلات' : 'Allowances', { className: 'py-3', filterable: false })}
+                                    {tableView.th('gross', ar ? 'إجمالي الكسب' : 'Gross', { className: 'py-3', filterable: false })}
+                                    {tableView.th('deductions', ar ? 'الخصومات' : 'Deductions', { className: 'py-3', filterable: false })}
+                                    {tableView.th('advances', ar ? 'السلف' : 'Advances', { className: 'py-3', filterable: false })}
+                                    {tableView.th('net', ar ? 'صافي المستحق' : 'Net entitlement', { className: 'py-3', filterable: false })}
+                                    {tableView.th('paid', ar ? 'المدفوع' : 'Paid', { className: 'py-3', filterable: false })}
+                                    {tableView.th('remaining', ar ? 'المتبقي' : 'Remaining', { className: 'py-3', filterable: false })}
+                                    {tableView.th('status', ar ? 'الحالة' : 'Status', { className: 'py-3' })}
                                 </tr>
                             </thead>
 
@@ -451,24 +452,7 @@ export function StaffPayrollTable({
                     </div>
                 )}
 
-                {filteredRows.length > 0 && (
-                    <div className="flex flex-col gap-3 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-[10px] text-[var(--ac-text-muted)]">
-                            {ar ? 'عرض' : 'Showing'} {start}–{end} {ar ? 'من' : 'of'} {filteredRows.length}
-                            {' · '}{ar ? 'صفحة' : 'Page'} {page} / {pageCount}
-                        </p>
-                        <div className="flex gap-2">
-                            <button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className={buttonClass}>
-                                {ar ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-                                {ar ? 'السابق' : 'Previous'}
-                            </button>
-                            <button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))} className={buttonClass}>
-                                {ar ? 'التالي' : 'Next'}
-                                {ar ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-                            </button>
-                        </div>
-                    </div>
-                )}
+                <DataPagination page={page} lastPage={pageCount} perPage={perPage} total={filteredRows.length} loading={loading} onPageChange={setPage} onPerPageChange={(value) => { setPerPage(value); setPage(1); }} />
             </section>
 
             <PayrollPrintSheet

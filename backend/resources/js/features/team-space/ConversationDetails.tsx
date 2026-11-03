@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { DataPagination } from '@/components/data/DataPagination';
 import { BellOff, Bell, Search, Pin, Pencil, Image, Type, Users, File, ShieldCheck, Flag, LogOut, MessageCircle, Archive, UserPlus } from 'lucide-react';
 import { apiRequest, ApiError } from '@/lib/http';
 import { MemberActions, MessagingDialog } from './MemberActions';
 import type { Conversation, ThreadResponse } from './types';
+import { Select } from '@/components/ui/Select';
 
 export type ConversationSettings = {
     theme: string; quick_reaction: string; can_customize: boolean; avatar_url: string | null;
@@ -51,8 +53,9 @@ export function ConversationDetails({ conversation, thread, settings, ar, userId
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(25);
     const [libKind, setLibKind] = useState<'media' | 'files' | 'links'>('media');
-    const [library, setLibrary] = useState<{ data: LibraryItem[]; last_page: number } | null>(null);
+    const [library, setLibrary] = useState<{ data: LibraryItem[]; current_page: number; last_page: number; per_page: number; total: number } | null>(null);
     const upload = useRef<HTMLInputElement>(null);
     const group = conversation.kind === 'group';
     const admin = group && thread.can_manage;
@@ -74,10 +77,10 @@ export function ConversationDetails({ conversation, thread, settings, ar, userId
     }
     useEffect(() => {
         const controller = new AbortController(); setLibrary(null);
-        apiRequest<{ data: LibraryItem[]; last_page: number }>(`/api/team-space/${conversation.id}/library?kind=${libKind}&page=${page}`, { signal: controller.signal }).then(setLibrary)
+        apiRequest<{ data: LibraryItem[]; current_page: number; last_page: number; per_page: number; total: number }>(`/api/team-space/${conversation.id}/library?kind=${libKind}&page=${page}&per_page=${perPage}`, { signal: controller.signal }).then(setLibrary)
             .catch(() => { if (!controller.signal.aborted) { setError(ar ? 'تعذر تحميل العناصر.' : 'Unable to load items.'); } });
         return () => controller.abort();
-    }, [libKind, page, conversation.id, ar]);
+    }, [libKind, page, perPage, conversation.id, ar]);
     function mute(): void {
         if (settings?.notifications_muted) { void save('notifications', { muted: false }); return; }
         open('notifications');
@@ -143,11 +146,7 @@ export function ConversationDetails({ conversation, thread, settings, ar, userId
                     : libKind === 'files'
                         ? <div className="flist">{library.data.map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer"><File size={16} />{item.name}</a>)}</div>
                         : <div className="flist">{library.data.flatMap((item) => (item.body?.match(/https?:\/\/[^\s<>]+/g) ?? []).map((url, index) => <a key={`${item.id}-${index}`} href={url} target="_blank" rel="noreferrer">{url}</a>))}</div>)}
-                {library && library.last_page > 1 && <div className="mt-3 flex items-center justify-between text-sm">
-                    <button type="button" className="ghost" disabled={page <= 1} onClick={() => setPage(page - 1)}>{ar ? 'السابق' : 'Previous'}</button>
-                    <span className="lbl">{page} / {library.last_page}</span>
-                    <button type="button" className="ghost" disabled={page >= library.last_page} onClick={() => setPage(page + 1)}>{ar ? 'التالي' : 'Next'}</button>
-                </div>}
+                {library && <div className="mt-3 overflow-hidden rounded-[16px] border border-[var(--ac-line)]"><DataPagination page={library.current_page} lastPage={library.last_page} perPage={library.per_page} total={library.total} onPageChange={setPage} onPerPageChange={(value) => { setPerPage(value); setPage(1); }} /></div>}
             </div>
         </details>
         <details className="sec" open>
@@ -183,12 +182,12 @@ export function ConversationDetails({ conversation, thread, settings, ar, userId
             {error && <p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {mode === 'members' && memberEditor}
             {(mode === 'name' || mode === 'report' || mode === 'nickname') && <form onSubmit={(event) => { event.preventDefault(); void save(mode, mode === 'name' ? { name: value } : mode === 'report' ? { reason: value } : { user_id: personId, nickname: value || null }); }} className="space-y-4">
-                {mode === 'nickname' && <label className="block text-sm">{ar ? 'العضو' : 'Member'}<select value={personId} onChange={(event) => { setPersonId(Number(event.target.value)); setValue(settings?.nicknames[event.target.value] ?? ''); }} className={inputClass}>{thread.members.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}</select></label>}
+                {mode === 'nickname' && <label className="block text-sm">{ar ? 'العضو' : 'Member'}<Select value={personId} onChange={(event) => { setPersonId(Number(event.target.value)); setValue(settings?.nicknames[event.target.value] ?? ''); }} className={inputClass}>{thread.members.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}</Select></label>}
                 <label className="block text-sm">{mode === 'report' ? (ar ? 'سبب البلاغ (سيظهر لأدمن المجموعة)' : 'Reason (visible to the group admin)') : mode === 'nickname' ? (ar ? 'اللقب — اتركه فارغًا لإزالته' : 'Nickname — leave empty to remove') : (ar ? 'اسم الدردشة' : 'Chat name')}<textarea required={mode !== 'nickname'} minLength={mode === 'report' ? 5 : undefined} maxLength={mode === 'report' ? 2000 : mode === 'name' ? 120 : 80} rows={mode === 'report' ? 4 : 2} value={value} onChange={(event) => setValue(event.target.value)} className={inputClass} /></label><button disabled={busy} className={buttonClass}>{ar ? 'حفظ' : 'Save'}</button>
             </form>}
             {mode === 'theme' && <div className="grid grid-cols-4 gap-2">{Object.entries(chatThemes).filter(([key]) => key !== 'dark').map(([key, theme], index) => <button key={key} type="button" aria-pressed={settings?.theme === key} disabled={busy} onClick={() => void save('theme', { value: key })} className="flex flex-col items-center gap-2 text-xs"><span style={{ background: theme.bubble }} className={`size-11 rounded-full border-2 ${settings?.theme === key ? 'border-[var(--ac-accent)]' : 'border-[var(--ac-surface)] shadow'}`} />{(ar ? ['افتراضي', 'أزرق', 'بنفسجي', 'وردي', 'داكن'] : ['Default', 'Blue', 'Purple', 'Rose', 'Dark'])[index]}</button>)}</div>}
             {mode === 'emoji' && <div className="grid grid-cols-3 gap-3">{emojiChoices.map((emoji) => <button type="button" key={emoji} disabled={busy} onClick={() => void save('emoji', { value: emoji })} aria-pressed={settings?.quick_reaction === emoji} className="rounded-xl bg-[var(--ac-surface-soft)] p-4 text-3xl hover:bg-[var(--ac-accent-soft)]">{emoji}</button>)}</div>}
-            {mode === 'notifications' && <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); saveMute(); }}><p className="text-sm">{ar ? 'يوقف التنبيهات لهذه المحادثة فقط؛ تبقى الرسائل متاحة.' : 'Silences alerts for this chat only. Messages remain available.'}</p><label className="block text-sm">{ar ? 'المدة' : 'Duration'}<select className={inputClass} value={duration} onChange={(event) => setDuration(event.target.value)}><option value="60">{ar ? 'ساعة' : 'One hour'}</option><option value="480">{ar ? '8 ساعات' : '8 hours'}</option><option value="1440">{ar ? 'يوم' : 'One day'}</option><option value="custom">{ar ? 'موعد محدد' : 'Custom time'}</option><option value="forever">{ar ? 'حتى ألغي الكتم' : 'Until I unmute'}</option></select></label>{duration === 'custom' && <input type="datetime-local" aria-label={ar ? 'حتى' : 'Until'} value={until} required onChange={(event) => setUntil(event.target.value)} className={inputClass} />}<button disabled={busy} className={buttonClass}>{ar ? 'كتم الإشعارات' : 'Mute notifications'}</button></form>}
+            {mode === 'notifications' && <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); saveMute(); }}><p className="text-sm">{ar ? 'يوقف التنبيهات لهذه المحادثة فقط؛ تبقى الرسائل متاحة.' : 'Silences alerts for this chat only. Messages remain available.'}</p><label className="block text-sm">{ar ? 'المدة' : 'Duration'}<Select className={inputClass} value={duration} onChange={(event) => setDuration(event.target.value)}><option value="60">{ar ? 'ساعة' : 'One hour'}</option><option value="480">{ar ? '8 ساعات' : '8 hours'}</option><option value="1440">{ar ? 'يوم' : 'One day'}</option><option value="custom">{ar ? 'موعد محدد' : 'Custom time'}</option><option value="forever">{ar ? 'حتى ألغي الكتم' : 'Until I unmute'}</option></Select></label>{duration === 'custom' && <input type="datetime-local" aria-label={ar ? 'حتى' : 'Until'} value={until} required onChange={(event) => setUntil(event.target.value)} className={inputClass} />}<button disabled={busy} className={buttonClass}>{ar ? 'كتم الإشعارات' : 'Mute notifications'}</button></form>}
             {mode === 'leave' && <div className="space-y-4"><p className="text-sm leading-6">{ar ? 'لن تتمكن من فتح المجموعة أو إرسال الرسائل بعد مغادرتها، إلا إذا تمت إضافتك مجددًا.' : 'You cannot open or message this group after leaving unless added again.'}</p>{admin && <p className="rounded-xl bg-amber-50 p-3 text-sm">{ar ? 'ستنتقل إدارة المجموعة تلقائيًا إلى أحد الأعضاء المتبقين.' : 'Administration transfers to a remaining member.'}</p>}<button type="button" disabled={busy} onClick={() => void save('leave')} className="rounded-xl bg-red-600 px-4 py-2 text-white">{labels.leave}</button></div>}
             {mode === 'pins' && <div className="space-y-3">{settings?.pins.length ? settings.pins.map((pin) => <div key={pin.id} className="rounded-xl bg-[var(--ac-surface-soft)] p-3"><strong className="text-xs">{pin.name}</strong><p className="my-2 whitespace-pre-wrap break-words text-sm">{pin.body || (ar ? 'رسالة تحتوي على مرفق' : 'Message with attachment')}</p><button type="button" disabled={busy} onClick={() => void save('pin', { message_id: pin.id, pinned: false })} className="text-xs text-red-600">{ar ? 'إلغاء التثبيت' : 'Unpin'}</button></div>) : <p className="text-sm">{ar ? 'لا توجد رسائل مثبتة. ثبّت رسالة من قائمة خياراتها.' : 'No pinned messages. Pin a message from its menu.'}</p>}</div>}
             {mode === 'reports' && <div className="space-y-3">{settings?.reports.length ? settings.reports.map((report) => <div key={report.id} className="rounded-xl bg-[var(--ac-surface-soft)] p-3"><strong className="text-sm">{report.name}</strong><p className="mt-2 whitespace-pre-wrap break-words text-sm">{report.reason}</p><time className="mt-2 block text-xs text-[var(--ac-text-muted)]">{new Date(report.created_at).toLocaleString(ar ? 'ar' : 'en')}</time></div>) : <p className="text-sm">{ar ? 'لا توجد بلاغات.' : 'No reports.'}</p>}</div>}

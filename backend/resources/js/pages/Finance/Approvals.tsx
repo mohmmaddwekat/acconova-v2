@@ -16,6 +16,7 @@ import {
     useEffect,
     useState,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type ApprovalRow = {
     id: number;
@@ -245,7 +246,7 @@ export default function Approvals() {
                         </div>
                     </div>
 
-                    <select
+                    <Select
                         value={
                             status
                         }
@@ -283,7 +284,7 @@ export default function Approvals() {
                                 'All',
                             )}
                         </option>
-                    </select>
+                    </Select>
                 </div>
 
                 {error && (

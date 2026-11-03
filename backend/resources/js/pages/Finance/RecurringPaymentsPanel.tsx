@@ -1,4 +1,5 @@
 import { ApiError, apiRequest } from '@/lib/http';
+import { DataPagination } from '@/components/data/DataPagination';
 import { t, useLocale } from '@/lib/i18n';
 import type { AppPageProps } from '@/types/app';
 import { usePage } from '@inertiajs/react';
@@ -68,7 +69,10 @@ type Payment = {
 type Result<T> = {
     data: T[];
     meta: {
+        current_page: number;
         last_page: number;
+        per_page: number;
+        total: number;
     };
 };
 
@@ -181,6 +185,9 @@ export function RecurringPaymentsPanel() {
     const [lastPage, setLastPage] =
         useState(1);
 
+    const [perPage, setPerPage] = useState(25);
+    const [total, setTotal] = useState(0);
+
     const [selected, setSelected] =
         useState<Plan | null>(null);
 
@@ -250,10 +257,12 @@ export function RecurringPaymentsPanel() {
         const path = tab === 'history'
             ? '/api/payment-records?page='
                 + String(page)
+                + '&per_page=' + String(perPage)
             : '/api/payment-plans?status='
                 + tab
                 + '&page='
                 + String(page)
+                + '&per_page=' + String(perPage)
                 + (
                     direction
                         ? '&direction='
@@ -275,6 +284,7 @@ export function RecurringPaymentsPanel() {
                 setLastPage(
                     result.meta.last_page,
                 );
+                setTotal(result.meta.total);
 
                 if (tab === 'history') {
                     setRecords(
@@ -317,6 +327,7 @@ export function RecurringPaymentsPanel() {
         allowed,
         tab,
         page,
+        perPage,
         direction,
         revision,
     ]);
@@ -1278,48 +1289,16 @@ export function RecurringPaymentsPanel() {
                     </div>
                 )}
 
-                {!loading
-                    && !loadError
-                    && lastPage > 1 && (
-                    <div className="flex items-center justify-between border-t border-[var(--ac-line)] p-4 text-xs text-[var(--ac-text-muted)]">
-                        <button
-                            type="button"
-                            className={financeButton}
-                            disabled={page <= 1}
-                            onClick={() =>
-                                setPage(
-                                    value => value - 1,
-                                )
-                            }
-                        >
-                            {text(
-                                'السابق',
-                                'Previous',
-                            )}
-                        </button>
-
-                        <span>
-                            {page}
-                            {' / '}
-                            {lastPage}
-                        </span>
-
-                        <button
-                            type="button"
-                            className={financeButton}
-                            disabled={page >= lastPage}
-                            onClick={() =>
-                                setPage(
-                                    value => value + 1,
-                                )
-                            }
-                        >
-                            {text(
-                                'التالي',
-                                'Next',
-                            )}
-                        </button>
-                    </div>
+                {!loadError && (
+                    <DataPagination
+                        page={page}
+                        lastPage={lastPage}
+                        perPage={perPage}
+                        total={total}
+                        loading={loading}
+                        onPageChange={setPage}
+                        onPerPageChange={(value) => { setPerPage(value); setPage(1); }}
+                    />
                 )}
             </FPanel>
         </div>

@@ -1,13 +1,13 @@
 import { ApiError, apiRequest } from '@/lib/http';
+import { DataPagination } from '@/components/data/DataPagination';
 import { useLocale } from '@/lib/i18n';
 import {
-    ChevronLeft,
-    ChevronRight,
     Loader2,
     Search,
     WalletCards,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Kind = 'payment' | 'bonus' | 'allowance' | 'deduction' | 'advance';
 
@@ -26,6 +26,7 @@ type RosterResponse = {
     pagination: {
         current_page: number;
         last_page: number;
+        per_page: number;
         total: number;
         from: number | null;
         to: number | null;
@@ -92,6 +93,7 @@ export function StaffBulkTransactions() {
     const [department, setDepartment] = useState('');
     const [onlyDue, setOnlyDue] = useState(false);
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(50);
     const [roster, setRoster] = useState<RosterResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -118,11 +120,11 @@ export function StaffBulkTransactions() {
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearch, department, onlyDue]);
+    }, [debouncedSearch, department, onlyDue, perPage]);
 
     useEffect(() => {
         const controller = new AbortController();
-        const params = new URLSearchParams({ page: String(page), per_page: '50' });
+        const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
         if (debouncedSearch) params.set('search', debouncedSearch);
         if (department) params.set('department_id', department);
         if (onlyDue) params.set('only_due', '1');
@@ -150,7 +152,7 @@ export function StaffBulkTransactions() {
             });
 
         return () => controller.abort();
-    }, [page, debouncedSearch, department, onlyDue, revision]);
+    }, [page, perPage, debouncedSearch, department, onlyDue, revision]);
 
     const filled = useMemo(
         () =>
@@ -285,9 +287,9 @@ export function StaffBulkTransactions() {
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                     <label className="text-[10px] font-semibold">
                         {ar ? 'نوع العملية' : 'Transaction type'}
-                        <select value={kind} onChange={(event) => setKind(event.target.value as Kind)} className={`${field} mt-1`}>
+                        <Select value={kind} onChange={(event) => setKind(event.target.value as Kind)} className={`${field} mt-1`}>
                             {kinds.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                        </select>
+                        </Select>
                     </label>
                     <label className="text-[10px] font-semibold">
                         {ar ? 'التاريخ' : 'Date'}
@@ -299,10 +301,10 @@ export function StaffBulkTransactions() {
                     </label>
                     <label className="text-[10px] font-semibold">
                         {ar ? 'القسم' : 'Department'}
-                        <select value={department} onChange={(event) => setDepartment(event.target.value)} className={`${field} mt-1`}>
+                        <Select value={department} onChange={(event) => setDepartment(event.target.value)} className={`${field} mt-1`}>
                             <option value="">{ar ? 'كل الأقسام' : 'All departments'}</option>
                             {roster?.departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                        </select>
+                        </Select>
                     </label>
                 </div>
 
@@ -401,21 +403,16 @@ export function StaffBulkTransactions() {
                 </div>
             )}
 
-            {roster && roster.pagination.total > 0 && (
-                <div className="flex flex-col gap-3 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-[10px] text-[var(--ac-text-muted)]">
-                        {roster.pagination.from ?? 0}–{roster.pagination.to ?? 0} / {roster.pagination.total}
-                        {' · '}{ar ? 'صفحة' : 'Page'} {roster.pagination.current_page} / {Math.max(1, roster.pagination.last_page)}
-                    </span>
-                    <div className="flex gap-2">
-                        <button type="button" className={button} disabled={page <= 1 || loading || saving} onClick={() => setPage((value) => Math.max(1, value - 1))}>
-                            {ar ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}{ar ? 'السابق' : 'Previous'}
-                        </button>
-                        <button type="button" className={button} disabled={page >= roster.pagination.last_page || loading || saving} onClick={() => setPage((value) => Math.min(roster.pagination.last_page, value + 1))}>
-                            {ar ? 'التالي' : 'Next'}{ar ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-                        </button>
-                    </div>
-                </div>
+            {roster && (
+                <DataPagination
+                    page={roster.pagination.current_page}
+                    lastPage={roster.pagination.last_page}
+                    perPage={roster.pagination.per_page}
+                    total={roster.pagination.total}
+                    loading={loading || saving}
+                    onPageChange={setPage}
+                    onPerPageChange={(value) => { setPerPage(value); setPage(1); }}
+                />
             )}
         </section>
     );

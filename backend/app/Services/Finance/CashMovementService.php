@@ -1093,6 +1093,7 @@ class CashMovementService
             'branch_label' => $data['branch_label'] ?? null,
             'cost_center' => $data['cost_center'] ?? null,
             'reference' => $data['reference'] ?? null,
+            ...(array_key_exists('is_misc_sale', $data) ? ['is_misc_sale' => (bool) $data['is_misc_sale']] : []),
             'check_number' => $check ? ($data['check_number'] ?? null) : null,
             'check_bank' => $check ? ($data['check_bank'] ?? null) : null,
             'check_due_date' => $check ? ($data['check_due_date'] ?? null) : null,

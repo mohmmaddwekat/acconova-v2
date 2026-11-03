@@ -153,6 +153,10 @@ export type ProductionRun = {
 
     created_at: string;
 
+    is_archived: boolean;
+
+    deleted_at: string | null;
+
     posted_at:
         | string
         | null;
@@ -207,6 +211,8 @@ export type ProductionRecipeOption = {
         unit: string;
 
         track_inventory: boolean;
+
+        available_quantity?: string;
     };
 };
 
@@ -216,6 +222,8 @@ export type ProductionRecipeComponent = {
     name: string;
 
     position: number;
+
+    is_optional?: boolean;
 
     options: ProductionRecipeOption[];
 };

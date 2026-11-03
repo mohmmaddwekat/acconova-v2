@@ -29,6 +29,7 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Feature =
     | 'expiry-alerts'
@@ -1076,7 +1077,7 @@ export default function ControlWorkspace({
 
                             {statusOptions.length
                                 > 1 && (
-                                <select
+                                <Select
                                     value={
                                         statusFilter
                                     }
@@ -1110,7 +1111,7 @@ export default function ControlWorkspace({
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             )}
 
                             <span className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
@@ -2120,7 +2121,7 @@ function FieldInput({
             {field.type
                 === 'select'
                 ? (
-                    <select
+                    <Select
                         required={
                             field.required
                         }
@@ -2153,7 +2154,7 @@ function FieldInput({
                                 </option>
                             ),
                         )}
-                    </select>
+                    </Select>
                 )
                 : field.type
                     === 'textarea'

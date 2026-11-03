@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Production;
 use App\Enums\ProductType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SaveProductionRecipeRequest;
+use App\Models\InventoryBalance;
 use App\Models\Product;
 use App\Models\ProductionRecipe;
 use App\Services\Production\ProductionRecipeService;
@@ -131,6 +132,17 @@ class ProductionRecipeController extends Controller
             'components.options.rawMaterial',
         );
 
+        $onHandByProduct = InventoryBalance::query()
+            ->whereIn(
+                'product_id',
+                $recipe->components
+                    ->flatMap(fn ($component) => $component->options->pluck('raw_material_id'))
+                    ->unique(),
+            )
+            ->selectRaw('product_id, SUM(on_hand) as on_hand')
+            ->groupBy('product_id')
+            ->pluck('on_hand', 'product_id');
+
         return [
             'id' => $recipe->id,
 
@@ -163,7 +175,7 @@ class ProductionRecipeController extends Controller
                             ->map(
                                 function (
                                     $option,
-                                ): array {
+                                ) use ($onHandByProduct): array {
                                     $raw =
                                         $option
                                             ->rawMaterial;
@@ -210,6 +222,8 @@ class ProductionRecipeController extends Controller
 
                                             'track_inventory' => $raw
                                                 ->tracksInventory(),
+
+                                            'available_quantity' => (string) ($onHandByProduct[$raw->id] ?? '0'),
                                         ],
                                     ];
                                 },

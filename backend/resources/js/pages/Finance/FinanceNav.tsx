@@ -2,9 +2,11 @@ import { Link } from '@inertiajs/react';
 import {
     Archive,
     Banknote,
+    Coins,
     HandCoins,
     Landmark,
     ReceiptText,
+    ShoppingBasket,
     ShoppingCart,
     UploadCloud,
 } from 'lucide-react';
@@ -14,9 +16,11 @@ import type {
 
 type FinanceDestination =
     | 'sales'
+    | 'misc'
     | 'purchases'
     | 'receipts'
     | 'payments'
+    | 'petty'
     | 'taxes';
 
 export function FinanceNav({
@@ -49,6 +53,15 @@ export function FinanceNav({
             }
             : null,
 
+        lookups.permissions.sales_view
+            ? {
+                key: 'misc' as const,
+                href: '/app/misc-sales',
+                label: text('مبيعات متفرقات', 'Walk-in sales'),
+                icon: ShoppingBasket,
+            }
+            : null,
+
         lookups.permissions.purchases_view
             ? {
                 key: 'purchases' as const,
@@ -73,6 +86,15 @@ export function FinanceNav({
                 href: '/app/payments',
                 label: text('المدفوعات', 'Payments'),
                 icon: Banknote,
+            }
+            : null,
+
+        lookups.permissions.cash_view
+            ? {
+                key: 'petty' as const,
+                href: '/app/finance/petty-expenses',
+                label: text('النثريات', 'Petty expenses'),
+                icon: Coins,
             }
             : null,
 

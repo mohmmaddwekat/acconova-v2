@@ -1,3 +1,4 @@
+import { useTableView } from '@/components/data/useTableView';
 import { apiRequest } from '@/lib/http';
 import { Link } from '@inertiajs/react';
 import {
@@ -192,6 +193,19 @@ export function InventoryIntelligencePanel({
                 view,
             ],
         );
+
+    const tableView = useTableView(rows, {
+        name: (row) => `${row.name} ${row.sku ?? ''}`,
+        available: (row) => Number(row.available),
+        metric: (row) => view === 'reorder'
+            ? Number(row.reorder_quantity)
+            : view === 'stockout'
+                ? row.stockout_days
+                : view === 'aging'
+                    ? row.inventory_age_days
+                    : row.dead_stock_days,
+        frozen_capital: (row) => Number(row.frozen_capital),
+    });
 
     if (loading) {
         return (
@@ -455,16 +469,8 @@ export function InventoryIntelligencePanel({
                         <table className="w-full min-w-[820px] text-xs">
                             <thead className="text-[9px] uppercase tracking-[0.08em] text-[var(--ac-text-muted)]">
                                 <tr>
-                                    <th className="px-4 py-3 text-start">
-                                        {ar
-                                            ? 'المنتج'
-                                            : 'Product'}
-                                    </th>
-                                    <th className="px-4 py-3 text-start">
-                                        {ar
-                                            ? 'المتاح'
-                                            : 'Available'}
-                                    </th>
+                                    {tableView.th('name', ar ? 'المنتج' : 'Product', { className: 'py-3' })}
+                                    {tableView.th('available', ar ? 'المتاح' : 'Available', { className: 'py-3' })}
                                     <th className="px-4 py-3 text-start">
                                         {view ===
                                         'reorder'
@@ -493,16 +499,12 @@ export function InventoryIntelligencePanel({
                                                             : 'No outbound movement'
                                                     )}
                                     </th>
-                                    <th className="px-4 py-3 text-start">
-                                        {ar
-                                            ? 'رأس المال'
-                                            : 'Capital'}
-                                    </th>
+                                    {tableView.th('frozen_capital', ar ? 'رأس المال' : 'Capital', { className: 'py-3' })}
                                 </tr>
                             </thead>
 
                             <tbody>
-                                {rows.map(
+                                {tableView.rows.map(
                                     row => (
                                         <tr
                                             key={

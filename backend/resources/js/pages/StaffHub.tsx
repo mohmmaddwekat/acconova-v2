@@ -38,6 +38,7 @@ import {
     UsersRound,
     WalletCards,
 } from 'lucide-react';
+import { useTableView } from '@/components/data/useTableView';
 import {
     useEffect,
     useMemo,
@@ -372,6 +373,13 @@ export default function StaffHubPage() {
         useState<StaffOverview | null>(
             null,
         );
+    const attendanceView = useTableView(data?.attendance.rows ?? [], {
+        name: (row) => `${row.name} ${row.job_title ?? ''}`,
+        department: (row) => row.department,
+        status: (row) => row.status,
+        quantity: (row) => row.quantity,
+        overtime: (row) => Number(row.overtime_hours),
+    });
 
     useEffect(
         () => {
@@ -924,15 +932,15 @@ export default function StaffHubPage() {
                                         <table className="w-full min-w-[760px] text-start text-xs">
                                             <thead className="bg-[var(--ac-surface-soft)] text-[10px] text-[var(--ac-text-muted)]">
                                                 <tr>
-                                                    <th className="px-5 py-3 text-start">{ar ? 'الموظف' : 'Employee'}</th>
-                                                    <th className="px-5 py-3 text-start">{ar ? 'القسم' : 'Department'}</th>
-                                                    <th className="px-5 py-3 text-start">{ar ? 'الحالة' : 'Status'}</th>
-                                                    <th className="px-5 py-3 text-start">{ar ? 'الكمية/الساعات' : 'Quantity / hours'}</th>
-                                                    <th className="px-5 py-3 text-start">{ar ? 'الإضافي' : 'Overtime'}</th>
+                                                    {attendanceView.th('name', ar ? 'الموظف' : 'Employee', { className: 'py-3' })}
+                                                    {attendanceView.th('department', ar ? 'القسم' : 'Department', { className: 'py-3' })}
+                                                    {attendanceView.th('status', ar ? 'الحالة' : 'Status', { className: 'py-3' })}
+                                                    {attendanceView.th('quantity', ar ? 'الكمية/الساعات' : 'Quantity / hours', { className: 'py-3' })}
+                                                    {attendanceView.th('overtime', ar ? 'الإضافي' : 'Overtime', { className: 'py-3' })}
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-[var(--ac-line)]">
-                                                {data.attendance.rows.map((row) => (
+                                                {attendanceView.rows.map((row) => (
                                                     <tr key={row.id}>
                                                         <td className="px-5 py-4">
                                                             <strong className="block">{row.name}</strong>

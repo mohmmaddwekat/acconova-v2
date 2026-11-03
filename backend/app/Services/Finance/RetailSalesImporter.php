@@ -169,6 +169,7 @@ class RetailSalesImporter
 
                 $draft = $this->documents->createDraft([
                     'kind' => 'sale_invoice',
+                    'is_misc_sale' => true,
                     'party_id' => $party->id,
                     'warehouse_id' => null,
                     'department_id' => null,
@@ -192,6 +193,7 @@ class RetailSalesImporter
 
                 $receipt = $this->cash->createDraft([
                     'direction' => 'incoming',
+                    'is_misc_sale' => true,
                     'party_id' => $party->id,
                     'government_obligation_id' => null,
                     'department_id' => null,

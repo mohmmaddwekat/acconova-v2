@@ -44,6 +44,7 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type RolesView =
     | 'members'
@@ -2636,7 +2637,7 @@ function RoleWorkspace() {
                                             copy.employee
                                         }
 
-                                        <select
+                                        <Select
                                             value={
                                                 selectedMemberId
                                             }
@@ -2679,7 +2680,7 @@ function RoleWorkspace() {
                                                     </option>
                                                 ),
                                             )}
-                                        </select>
+                                        </Select>
                                     </label>
 
                                     <div>
@@ -2703,7 +2704,7 @@ function RoleWorkspace() {
                                             copy.newRole
                                         }
 
-                                        <select
+                                        <Select
                                             value={
                                                 selectedRoleId
                                             }
@@ -2741,7 +2742,7 @@ function RoleWorkspace() {
                                                     </option>
                                                 ),
                                             )}
-                                        </select>
+                                        </Select>
                                     </label>
 
                                     <label className="text-xs font-semibold">

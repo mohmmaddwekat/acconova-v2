@@ -9,6 +9,7 @@ import {
     useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { Select } from '@/components/ui/Select';
 
 export function InvoiceAutomationActions({
     documentId,
@@ -232,7 +233,7 @@ export function InvoiceAutomationActions({
                             <div className="mt-4 grid gap-3 sm:grid-cols-2">
                                 <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                     {ar ? 'التكرار' : 'Frequency'}
-                                    <select
+                                    <Select
                                         value={frequency}
                                         onChange={(event) =>
                                             setFrequency(
@@ -249,7 +250,7 @@ export function InvoiceAutomationActions({
                                         <option value="quarterly">
                                             {ar ? 'ربع سنوي' : 'Quarterly'}
                                         </option>
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 <label className="text-xs font-semibold text-[var(--ac-text-soft)]">

@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { DataPagination } from '@/components/data/DataPagination';
 import type { AppPageProps } from '@/types/app';
 import { fetchParties } from '@/features/parties/api';
 import type { Party } from '@/features/parties/types';
@@ -21,7 +22,7 @@ type ServiceOperation = {
 
 type OperationsResponse = {
     data: ServiceOperation[];
-    meta: { current_page: number; last_page: number };
+    meta: { current_page: number; last_page: number; per_page: number; total: number };
 };
 
 const inputClass = 'mt-1 w-full rounded-xl border border-[var(--ac-line)] bg-white px-3 py-2 text-sm focus:outline-2 focus:outline-[var(--ac-accent)]';
@@ -46,6 +47,7 @@ export function ServiceOperationsPanel({ product, canEdit }: { product: Product;
     const permissions=usePage<AppPageProps>().props.workspace.activeOrganization?.permissions;
     const canRecord = (permissions ? permissions.some(p=>['products.manage','products.service'].includes(p)) : canEdit) && product.type === 'service' && !product.deleted_at;
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(25);
     const [revision, setRevision] = useState(0);
     const [history, setHistory] = useState<OperationsResponse | null>(null);
     const [historyError, setHistoryError] = useState('');
@@ -72,7 +74,7 @@ export function ServiceOperationsPanel({ product, canEdit }: { product: Product;
         const controller = new AbortController();
         setLoading(true);
         setHistoryError('');
-        apiRequest<OperationsResponse>(`${endpoint}?page=${page}`, { signal: controller.signal })
+        apiRequest<OperationsResponse>(`${endpoint}?page=${page}&per_page=${perPage}`, { signal: controller.signal })
             .then(setHistory)
             .catch((failure: unknown) => {
                 if (!controller.signal.aborted) {
@@ -81,7 +83,7 @@ export function ServiceOperationsPanel({ product, canEdit }: { product: Product;
             })
             .finally(() => { if (!controller.signal.aborted) { setLoading(false); } });
         return () => controller.abort();
-    }, [endpoint, page, revision]);
+    }, [endpoint, page, perPage, revision]);
 
     useEffect(() => {
         if (!canRecord || customer) { return; }
@@ -213,11 +215,9 @@ export function ServiceOperationsPanel({ product, canEdit }: { product: Product;
                             </li>
                         ))}
                     </ul>
-                    {history.meta.last_page > 1 && <div className="mt-3 flex items-center justify-between gap-2">
-                        <button type="button" className={buttonClass} disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>{t('catalog.operations.previous')}</button>
-                        <span className="text-xs">{page} / {history.meta.last_page}</span>
-                        <button type="button" className={buttonClass} disabled={page >= history.meta.last_page} onClick={() => setPage((value) => value + 1)}>{t('catalog.operations.next')}</button>
-                    </div>}
+                    <div className="mt-3 overflow-hidden rounded-[18px] border border-[var(--ac-line)]">
+                        <DataPagination page={history.meta.current_page} lastPage={history.meta.last_page} perPage={history.meta.per_page} total={history.meta.total} loading={loading} onPageChange={setPage} onPerPageChange={(value) => { setPerPage(value); setPage(1); }} />
+                    </div>
                 </>
             ) : <p className="mt-3 text-xs text-[var(--ac-text-muted)]">{t('catalog.operations.empty')}</p>}
         </section>

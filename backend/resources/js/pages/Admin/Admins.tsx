@@ -3,6 +3,7 @@ import { useLocale } from '@/lib/i18n';
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type AdminRow = {
     id: number;
@@ -176,7 +177,7 @@ export default function Admins({ admins: initialAdmins, candidates: initialCandi
                             </div>
                         </div>
                         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                            <select
+                            <Select
                                 value={selectedUserId}
                                 onChange={(event) => setSelectedUserId(event.target.value ? Number(event.target.value) : '')}
                                 className={control}
@@ -188,7 +189,7 @@ export default function Admins({ admins: initialAdmins, candidates: initialCandi
                                         {candidate.name} — {candidate.email}
                                     </option>
                                 ))}
-                            </select>
+                            </Select>
                             <button type="button" className={primary} onClick={() => void addAdmin()} disabled={!selectedCandidate || busy}>
                                 <UserPlus size={16} />
                                 {busy ? text('جارٍ الإضافة...', 'Adding...') : text('إضافة كـ Admin', 'Add as Admin')}

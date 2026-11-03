@@ -83,6 +83,14 @@ Route::middleware([
             ],
         );
 
+        Route::post(
+            'production-runs/quick',
+            [
+                ProductionRunController::class,
+                'quick',
+            ],
+        );
+
         Route::get(
             'inventory/transfer-requests',
             [InventoryTransferWorkflowController::class, 'index'],
@@ -117,6 +125,16 @@ Route::middleware([
         )->whereNumber(
             'run',
         );
+
+        Route::post(
+            'production-runs/{run}/restore',
+            [ProductionRunController::class, 'restore'],
+        )->whereNumber('run');
+
+        Route::delete(
+            'production-runs/{run}/force',
+            [ProductionRunController::class, 'forceDestroy'],
+        )->whereNumber('run');
 
         Route::post(
             'production-runs/{run}/post',

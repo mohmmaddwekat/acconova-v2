@@ -15,6 +15,7 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Employee = {
     id: number;
@@ -233,7 +234,7 @@ export function StaffSalaryAdjuster() {
                         <div className="mt-5 grid gap-4 sm:grid-cols-2">
                             <label className="text-xs font-semibold text-[var(--ac-text)] sm:col-span-2">
                                 {ar ? 'الموظف' : 'Employee'}
-                                <select
+                                <Select
                                     required
                                     value={selectedId}
                                     onChange={event => setSelectedId(event.target.value)}
@@ -247,7 +248,7 @@ export function StaffSalaryAdjuster() {
                                             {employee.name}{employee.job_title ? ` · ${employee.job_title}` : ''}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                             </label>
 
                             {selected && (

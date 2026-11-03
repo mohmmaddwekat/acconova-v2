@@ -13,6 +13,7 @@ use App\Services\Finance\FinanceAuthorization;
 use App\Services\Finance\FinanceDocumentService;
 use App\Services\Governance\ApprovalWorkflowService;
 use App\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -28,12 +29,15 @@ class FinanceDocumentController extends Controller
             'party_id' => ['nullable', 'integer'],
             'search' => ['nullable', 'string', 'max:120'],
             'open_only' => ['sometimes', 'boolean'],
+            'misc' => ['sometimes', 'boolean'],
             'min_total' => ['nullable', 'numeric', 'min:0'],
             'max_total' => ['nullable', 'numeric', 'min:0'],
             'due_after' => ['nullable', 'date'],
             'due_before' => ['nullable', 'date'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'sort' => ['nullable', Rule::in(['number', 'party', 'issue_date', 'due_date', 'total', 'paid', 'outstanding', 'status'])],
+            'sort_direction' => ['nullable', Rule::in(['asc', 'desc'])],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'between:10,100'],
         ]);
@@ -43,6 +47,8 @@ class FinanceDocumentController extends Controller
         $query = FinancialDocument::query()
             ->with('party:id,name,company_name')
             ->where('kind', $data['kind'])
+            /* Walk-in (متفرقات) sales live on their own page, not in the normal invoice list. */
+            ->where('is_misc_sale', $request->boolean('misc'))
             ->when(
                 $data['status'] ?? null,
                 fn ($query, $status) => $query->where('status', $status),
@@ -75,9 +81,7 @@ class FinanceDocumentController extends Controller
                     ->orderByRaw('COALESCE(due_date, issue_date) asc')
                     ->orderBy('issue_date')
                     ->orderBy('id'),
-                fn ($query) => $query
-                    ->latest('issue_date')
-                    ->latest('id'),
+                fn ($query) => $this->applySort($query, $data['sort'] ?? null, $data['sort_direction'] ?? 'asc'),
             );
 
         $summaryQuery = clone $query;
@@ -119,6 +123,35 @@ class FinanceDocumentController extends Controller
                 ),
             ],
         ]);
+    }
+
+    /**
+     * Order the list by a column chosen in the table header; without a choice
+     * the newest invoices come first.
+     *
+     * @param  Builder<FinancialDocument>  $query
+     */
+    private function applySort(Builder $query, ?string $sort, string $direction): Builder
+    {
+        $columns = [
+            'number' => 'number',
+            'issue_date' => 'issue_date',
+            'due_date' => 'due_date',
+            'total' => 'total',
+            'paid' => 'paid_total',
+            'outstanding' => 'balance_due',
+            'status' => 'status',
+        ];
+
+        if ($sort === 'party') {
+            $query->orderByRaw('(select coalesce(nullif(parties.company_name, ""), parties.name) from parties where parties.id = financial_documents.party_id) '.($direction === 'desc' ? 'desc' : 'asc'));
+        } elseif ($sort !== null && isset($columns[$sort])) {
+            $query->orderBy($columns[$sort], $direction);
+        } else {
+            return $query->latest('issue_date')->latest('id');
+        }
+
+        return $query->orderByDesc('id');
     }
 
     public function show(Request $request, string $document, FinanceDocumentService $service): JsonResponse
@@ -446,6 +479,8 @@ class FinanceDocumentController extends Controller
             'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999999'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0', 'max:999999999999'],
             'lines.*.price_status' => ['nullable', Rule::in(['estimated', 'final'])],
+            'document_discount_type' => ['nullable', Rule::in(['percent', 'fixed'])],
+            'document_discount_value' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'lines.*.discount_percent' => ['nullable', 'numeric', 'between:0,100'],
             'lines.*.discount_type' => ['nullable', Rule::in(['percent', 'fixed'])],
             'lines.*.discount_value' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
@@ -513,6 +548,8 @@ class FinanceDocumentController extends Controller
             'exchange_rate' => $document->exchange_rate,
             'subtotal' => $document->subtotal,
             'discount_total' => $document->discount_total,
+            'document_discount_type' => $document->document_discount_type,
+            'document_discount_value' => $document->document_discount_value,
             'tax_total' => $document->tax_total,
             'shipping_total' => $document->shipping_total,
             'seller_tax_snapshot' => $document->seller_tax_snapshot,

@@ -1,4 +1,5 @@
 import { ModalPortal } from '@/components/feedback/ModalPortal';
+import { DataPagination } from '@/components/data/DataPagination';
 import { AppShell } from '@/layouts/AppShell';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
@@ -12,8 +13,6 @@ import {
     ArrowUpRight,
     Banknote,
     Building2,
-    ChevronLeft,
-    ChevronRight,
     CircleDollarSign,
     Clock3,
     Download,
@@ -43,6 +42,7 @@ import {
     useState,
     type ReactNode,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Scope = 'all' | 'customer' | 'supplier';
 type AccountTab = 'overview' | 'statement' | 'invoices' | 'payments' | 'aging';
@@ -2202,7 +2202,7 @@ export default function PartyAccount({
                                     <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
                                         {ar ? 'نوع الحركة' : 'Transaction type'}
 
-                                        <select
+                                        <Select
                                             className={input + ' mt-2'}
                                             value={transactionType}
                                             onChange={event =>
@@ -2222,7 +2222,7 @@ export default function PartyAccount({
                                             <option value="opening_balance">
                                                 {ar ? 'الرصيد المدور' : 'Opening balance'}
                                             </option>
-                                        </select>
+                                        </Select>
                                     </label>
 
                                     <label className="text-[10px] font-semibold text-[var(--ac-text-soft)]">
@@ -2399,68 +2399,14 @@ export default function PartyAccount({
                                     )}
                                 </div>
 
-                                <div className="flex flex-col gap-3 border-t border-[var(--ac-line)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="flex items-center gap-2 text-[9px] text-[var(--ac-text-muted)]">
-                                        <span>
-                                            {ar ? 'عرض' : 'Show'}
-                                        </span>
-
-                                        <select
-                                            className="h-8 rounded-[9px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-[9px] text-[var(--ac-text)]"
-                                            value={pageSize}
-                                            onChange={event => {
-                                                setPageSize(
-                                                    Number(event.target.value),
-                                                );
-                                                setPage(1);
-                                            }}
-                                        >
-                                            <option value={10}>10</option>
-                                            <option value={20}>20</option>
-                                            <option value={50}>50</option>
-                                        </select>
-
-                                        <span>
-                                            {ar
-                                                ? 'من '
-                                                    + String(filtered.length)
-                                                    + ' حركة'
-                                                : 'of '
-                                                    + String(filtered.length)
-                                                    + ' transactions'}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            className="flex size-9 items-center justify-center rounded-[10px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] disabled:opacity-30"
-                                            disabled={page <= 1}
-                                            onClick={() =>
-                                                setPage(current => current - 1)}
-                                        >
-                                            {ar
-                                                ? <ChevronRight size={14} />
-                                                : <ChevronLeft size={14} />}
-                                        </button>
-
-                                        <span className="min-w-10 rounded-[10px] bg-[var(--ac-accent)] px-3 py-2 text-center text-[10px] font-bold text-white">
-                                            {page}
-                                        </span>
-
-                                        <button
-                                            type="button"
-                                            className="flex size-9 items-center justify-center rounded-[10px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] disabled:opacity-30"
-                                            disabled={page >= lastPage}
-                                            onClick={() =>
-                                                setPage(current => current + 1)}
-                                        >
-                                            {ar
-                                                ? <ChevronLeft size={14} />
-                                                : <ChevronRight size={14} />}
-                                        </button>
-                                    </div>
-                                </div>
+                                <DataPagination
+                                    page={page}
+                                    lastPage={lastPage}
+                                    perPage={pageSize}
+                                    total={filtered.length}
+                                    onPageChange={setPage}
+                                    onPerPageChange={(value) => { setPageSize(value); setPage(1); }}
+                                />
                             </div>
 
                             <div className="mt-4 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
@@ -3926,7 +3872,7 @@ function OpeningSideEditor({
                     ? 'الحالة'
                     : 'Balance direction'}
 
-                <select
+                <Select
                     className={
                         input
                         + ' mt-2'
@@ -3963,7 +3909,7 @@ function OpeningSideEditor({
                             </option>
                         ),
                     )}
-                </select>
+                </Select>
             </label>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-2">

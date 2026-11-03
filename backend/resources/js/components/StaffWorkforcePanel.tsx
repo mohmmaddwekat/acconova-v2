@@ -1,10 +1,9 @@
 import { ModalPortal } from '@/components/feedback/ModalPortal';
+import { DataPagination } from '@/components/data/DataPagination';
 import { StaffPayrollTable, type StaffPayrollEmployee, type StaffPayrollRow } from '@/components/staff/StaffPayrollTable';
 import { ApiError, apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
 import {
-    ChevronLeft,
-    ChevronRight,
     Pencil,
     Plus,
     RotateCcw,
@@ -17,6 +16,7 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type AttendanceRow = {
     id: number;
@@ -145,7 +145,7 @@ export function StaffWorkforcePanel({
     const [historyStatus, setHistoryStatus] = useState<'' | 'present' | 'absent'>('');
     const [historyMonth, setHistoryMonth] = useState('');
     const [historySort, setHistorySort] = useState<'desc' | 'asc'>('desc');
-    const [perPage, setPerPage] = useState<10 | 20 | 50 | 100>(10);
+    const [perPage, setPerPage] = useState(10);
 
     const copy = ar
         ? {
@@ -456,10 +456,10 @@ export function StaffWorkforcePanel({
 
                                 <label className="text-xs font-semibold">
                                     {copy.attendance}
-                                    <select value={status} onChange={(event) => setStatus(event.target.value as 'present' | 'absent')} className={field}>
+                                    <Select value={status} onChange={(event) => setStatus(event.target.value as 'present' | 'absent')} className={field}>
                                         <option value="present">{copy.present}</option>
                                         <option value="absent">{copy.absent}</option>
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 {status === 'present' && ['hour', 'piece'].includes(basis) && (
@@ -531,21 +531,21 @@ export function StaffWorkforcePanel({
                                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={copy.search} className={`${compactField} ps-9`} />
                             </label>
                             <input type="month" value={historyMonth} onChange={(event) => setHistoryMonth(event.target.value)} aria-label={copy.month} className={compactField} />
-                            <select value={historyStatus} onChange={(event) => setHistoryStatus(event.target.value as '' | 'present' | 'absent')} className={compactField}>
+                            <Select value={historyStatus} onChange={(event) => setHistoryStatus(event.target.value as '' | 'present' | 'absent')} className={compactField}>
                                 <option value="">{copy.statusAll}</option>
                                 <option value="present">{copy.present}</option>
                                 <option value="absent">{copy.absent}</option>
-                            </select>
-                            <select value={historySort} onChange={(event) => setHistorySort(event.target.value as 'desc' | 'asc')} className={compactField}>
+                            </Select>
+                            <Select value={historySort} onChange={(event) => setHistorySort(event.target.value as 'desc' | 'asc')} className={compactField}>
                                 <option value="desc">{copy.newest}</option>
                                 <option value="asc">{copy.oldest}</option>
-                            </select>
-                            <select value={perPage} onChange={(event) => setPerPage(Number(event.target.value) as 10 | 20 | 50 | 100)} className={compactField} aria-label={copy.rows}>
+                            </Select>
+                            <Select value={perPage} onChange={(event) => setPerPage(Number(event.target.value) as 10 | 20 | 50 | 100)} className={compactField} aria-label={copy.rows}>
                                 <option value={10}>10</option>
                                 <option value={20}>20</option>
                                 <option value={50}>50</option>
                                 <option value={100}>100</option>
-                            </select>
+                            </Select>
                             <button type="button" className={button} onClick={clearAttendanceFilters}>
                                 <RotateCcw size={13} />
                                 {copy.clear}
@@ -604,23 +604,16 @@ export function StaffWorkforcePanel({
                         </div>
                     )}
 
-                    {attendance && attendance.total > 0 && (
-                        <div className="flex flex-col gap-3 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-[11px] text-[var(--ac-text-muted)]">
-                                {copy.showing} {attendance.from ?? 0}–{attendance.to ?? 0} {copy.of} {attendance.total} {copy.record}
-                                {' · '}{copy.page} {attendance.current_page} / {Math.max(1, attendance.last_page)}
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <button type="button" className={button} disabled={page <= 1 || loading} onClick={() => setPage((current) => Math.max(1, current - 1))}>
-                                    {ar ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-                                    {copy.previous}
-                                </button>
-                                <button type="button" className={button} disabled={page >= attendance.last_page || loading} onClick={() => setPage((current) => Math.min(attendance.last_page, current + 1))}>
-                                    {copy.next}
-                                    {ar ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-                                </button>
-                            </div>
-                        </div>
+                    {attendance && (
+                        <DataPagination
+                            page={attendance.current_page}
+                            lastPage={attendance.last_page}
+                            perPage={attendance.per_page}
+                            total={attendance.total}
+                            loading={loading}
+                            onPageChange={setPage}
+                            onPerPageChange={(value) => { setPerPage(value); setPage(1); }}
+                        />
                     )}
                 </section>
 
@@ -658,11 +651,11 @@ export function StaffWorkforcePanel({
                                 </label>
                                 <label className="text-xs font-semibold">
                                     {copy.kind}
-                                    <select name="kind" className={field}>
+                                    <Select name="kind" className={field}>
                                         <option value="allowance">{copy.allowance}</option>
                                         <option value="bonus">{copy.bonus}</option>
                                         <option value="deduction">{copy.deduction}</option>
-                                    </select>
+                                    </Select>
                                 </label>
                                 <label className="text-xs font-semibold">
                                     {copy.amount} ({currency})
@@ -798,10 +791,10 @@ function CorrectionDialog({
                         </label>
                         <label className="block text-xs font-semibold">
                             {copy.attendance}
-                            <select name="status" defaultValue={correction.row.status} className={field}>
+                            <Select name="status" defaultValue={correction.row.status} className={field}>
                                 <option value="present">{copy.present}</option>
                                 <option value="absent">{copy.absent}</option>
-                            </select>
+                            </Select>
                         </label>
                         <label className="block text-xs font-semibold">
                             {copy.quantity}

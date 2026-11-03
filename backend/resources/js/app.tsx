@@ -5,6 +5,7 @@ import { useLiveRemountKey } from '@/lib/live';
 import { initializeLocale } from '@/lib/locale';
 import '../css/app.css';
 import '../css/ai-sidekick.css';
+import '../css/web-awesome-select.css';
 
 import { createInertiaApp } from '@inertiajs/react';
 import type { ResolvedComponent } from '@inertiajs/react';

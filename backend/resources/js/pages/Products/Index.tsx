@@ -1196,6 +1196,17 @@ function ProductsWorkspace() {
                                         onEdit={edit}
                                         onArchive={(value) => setPendingAction({ kind: 'archive', product: value })}
                                         onRestore={(value) => setPendingAction({ kind: 'restore', product: value })}
+                                        sort={filters.sort}
+                                        onSort={(next) => {
+                                            setFilters((current) => ({ ...current, sort: next }));
+                                            setPage(1);
+                                        }}
+                                        search={search}
+                                        onSearch={(value) => {
+                                            setDraftSearch(value);
+                                            setSearch(value);
+                                            setPage(1);
+                                        }}
                                     />
                                 ) : products.map(
                                     (

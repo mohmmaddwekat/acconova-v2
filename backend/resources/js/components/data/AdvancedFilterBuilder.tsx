@@ -1,3 +1,4 @@
+import { AnchoredPanel } from '@/components/data/AnchoredPanel';
 import {
     Filter,
     Plus,
@@ -6,8 +7,10 @@ import {
 } from 'lucide-react';
 import {
     useMemo,
+    useRef,
     useState,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 export type AdvancedFilterOperator =
     | 'equals'
@@ -79,6 +82,7 @@ export function AdvancedFilterBuilder({
     ar: boolean;
 }) {
     const [open, setOpen] = useState(false);
+    const anchorRef = useRef<HTMLDivElement>(null);
     const fieldMap = useMemo(
         () => new Map(fields.map((field) => [field.key, field])),
         [fields],
@@ -138,7 +142,7 @@ export function AdvancedFilterBuilder({
     }
 
     return (
-        <div className="relative">
+        <div className="relative" ref={anchorRef}>
             <button
                 type="button"
                 onClick={() => setOpen((current) => ! current)}
@@ -153,8 +157,14 @@ export function AdvancedFilterBuilder({
                 )}
             </button>
 
-            {open && (
-                <div className="absolute end-0 top-12 z-[90] w-[min(94vw,620px)] rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[0_24px_70px_rgba(1,20,35,.22)]">
+            <AnchoredPanel
+                anchorRef={anchorRef}
+                open={open}
+                onClose={() => setOpen(false)}
+                width={620}
+                className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 shadow-[0_24px_70px_rgba(1,20,35,.22)]"
+            >
+                <div>
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <h3 className="text-sm font-bold text-[var(--ac-text)]">
@@ -207,7 +217,7 @@ export function AdvancedFilterBuilder({
                                             : 'AND'}
                                     </span>
 
-                                    <select
+                                    <Select
                                         value={condition.field}
                                         onChange={(event) =>
                                             patch(condition.id, {
@@ -220,9 +230,9 @@ export function AdvancedFilterBuilder({
                                                 {item.label}
                                             </option>
                                         ))}
-                                    </select>
+                                    </Select>
 
-                                    <select
+                                    <Select
                                         value={condition.operator}
                                         onChange={(event) =>
                                             patch(condition.id, {
@@ -235,7 +245,7 @@ export function AdvancedFilterBuilder({
                                                 {operatorLabel(operator, ar)}
                                             </option>
                                         ))}
-                                    </select>
+                                    </Select>
 
                                     <input
                                         type={
@@ -291,7 +301,7 @@ export function AdvancedFilterBuilder({
                         )}
                     </div>
                 </div>
-            )}
+            </AnchoredPanel>
         </div>
     );
 }

@@ -21,6 +21,7 @@ import {
     useMemo,
     useState,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Diff = {
     field: string;
@@ -298,7 +299,7 @@ export default function AuditCenter() {
                         />
                     </label>
 
-                    <select
+                    <Select
                         value={userId}
                         onChange={
                             event =>
@@ -329,7 +330,7 @@ export default function AuditCenter() {
                                 </option>
                             ),
                         )}
-                    </select>
+                    </Select>
 
                     <input
                         type="date"

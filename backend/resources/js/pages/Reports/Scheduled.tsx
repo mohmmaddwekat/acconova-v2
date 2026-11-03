@@ -26,6 +26,7 @@ import {
     type FormEvent,
     type ReactNode,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Schedule = {
     id: number;
@@ -507,7 +508,7 @@ export default function ScheduledReports() {
                             >
                                 <div className="relative">
                                     <BarChart3 className="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 text-[var(--ac-accent)]" size={14} />
-                                    <select
+                                    <Select
                                         className={input + ' appearance-none pe-10'}
                                         value={form.report_type}
                                         onChange={event =>
@@ -532,7 +533,7 @@ export default function ScheduledReports() {
                                                 {label(value, ar)}
                                             </option>
                                         ))}
-                                    </select>
+                                    </Select>
                                 </div>
                             </FieldLabel>
 
@@ -546,7 +547,7 @@ export default function ScheduledReports() {
                             >
                                 <div className="relative">
                                     <CalendarDays className="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 text-[var(--ac-accent)]" size={14} />
-                                    <select
+                                    <Select
                                         className={input + ' appearance-none pe-10'}
                                         value={form.cadence}
                                         onChange={event =>
@@ -569,7 +570,7 @@ export default function ScheduledReports() {
                                                 {label(value, ar)}
                                             </option>
                                         ))}
-                                    </select>
+                                    </Select>
                                 </div>
                             </FieldLabel>
 

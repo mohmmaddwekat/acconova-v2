@@ -35,6 +35,7 @@ import {
     useState,
     type DragEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Feature = {
     number: number;
@@ -2545,7 +2546,7 @@ export default function ReportStudio() {
                                             'Dimension',
                                         )}
                                     </span>
-                                    <select
+                                    <Select
                                         className={
                                             input
                                             + ' w-full'
@@ -2587,7 +2588,7 @@ export default function ReportStudio() {
                                                 </option>
                                             ),
                                         )}
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 <label className="space-y-1">
@@ -2597,7 +2598,7 @@ export default function ReportStudio() {
                                             'Metric',
                                         )}
                                     </span>
-                                    <select
+                                    <Select
                                         className={
                                             input
                                             + ' w-full'
@@ -2638,7 +2639,7 @@ export default function ReportStudio() {
                                                 </option>
                                             ),
                                         )}
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 <div className="flex items-end">
@@ -2673,7 +2674,7 @@ export default function ReportStudio() {
                                                 'Comparison mode',
                                             )}
                                         </span>
-                                        <select
+                                        <Select
                                             className={
                                                 input
                                                 + ' w-full'
@@ -2712,7 +2713,7 @@ export default function ReportStudio() {
                                                     </option>
                                                 ),
                                             )}
-                                        </select>
+                                        </Select>
                                     </label>
                                 </div>
                             )}
@@ -2812,7 +2813,7 @@ export default function ReportStudio() {
                             {selected ===
                                 'exception-builder' && (
                                 <div className="mt-4 grid gap-3 md:grid-cols-3">
-                                    <select
+                                    <Select
                                         className={
                                             input
                                         }
@@ -2864,9 +2865,9 @@ export default function ReportStudio() {
                                                 'Discount %',
                                             )}
                                         </option>
-                                    </select>
+                                    </Select>
 
-                                    <select
+                                    <Select
                                         className={
                                             input
                                         }
@@ -2894,7 +2895,7 @@ export default function ReportStudio() {
                                         <option value="gte">
                                             ≥
                                         </option>
-                                    </select>
+                                    </Select>
 
                                     <input
                                         type="number"
@@ -2938,7 +2939,7 @@ export default function ReportStudio() {
                                 </div>
 
                                 <div className="mt-3 grid gap-2 md:grid-cols-4">
-                                    <select
+                                    <Select
                                         className={
                                             input
                                         }
@@ -2977,7 +2978,7 @@ export default function ReportStudio() {
                                                 </option>
                                             ),
                                         )}
-                                    </select>
+                                    </Select>
 
                                     <input
                                         type="number"
@@ -3275,7 +3276,7 @@ export default function ReportStudio() {
                                     </div>
 
                                     <div className="mt-3 grid gap-2 md:grid-cols-4">
-                                        <select
+                                        <Select
                                             className={
                                                 input
                                             }
@@ -3314,9 +3315,9 @@ export default function ReportStudio() {
                                                     </option>
                                                 ),
                                             )}
-                                        </select>
+                                        </Select>
 
-                                        <select
+                                        <Select
                                             className={
                                                 input
                                             }
@@ -3355,9 +3356,9 @@ export default function ReportStudio() {
                                                     </option>
                                                 ),
                                             )}
-                                        </select>
+                                        </Select>
 
-                                        <select
+                                        <Select
                                             className={
                                                 input
                                             }
@@ -3410,7 +3411,7 @@ export default function ReportStudio() {
                                                     </option>
                                                 ),
                                             )}
-                                        </select>
+                                        </Select>
 
                                         <button
                                             type="button"
@@ -3823,7 +3824,7 @@ export default function ReportStudio() {
                                                     'Aggregation',
                                                 )}
                                             </span>
-                                            <select
+                                            <Select
                                                 className={
                                                     input
                                                     + ' w-full'
@@ -3862,7 +3863,7 @@ export default function ReportStudio() {
                                                         'Count',
                                                     )}
                                                 </option>
-                                            </select>
+                                            </Select>
                                         </label>
 
                                         {pivotData && (
@@ -3998,7 +3999,7 @@ export default function ReportStudio() {
                                             )}
                                         </h3>
 
-                                        <select
+                                        <Select
                                             className={
                                                 input
                                                 + ' mt-3 w-full'
@@ -4044,7 +4045,7 @@ export default function ReportStudio() {
                                                     </option>
                                                 ),
                                             )}
-                                        </select>
+                                        </Select>
 
                                         <textarea
                                             className="mt-2 min-h-20 w-full rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3 text-xs text-[var(--ac-text)] outline-none"

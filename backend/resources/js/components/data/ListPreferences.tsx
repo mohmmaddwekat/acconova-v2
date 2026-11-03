@@ -1,3 +1,4 @@
+import { AnchoredPanel } from '@/components/data/AnchoredPanel';
 import {
     Columns3,
     GripVertical,
@@ -7,6 +8,7 @@ import {
 import {
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from 'react';
 
@@ -181,6 +183,7 @@ export function ListPreferencesControl({
     ar: boolean;
 }) {
     const [open, setOpen] = useState(false);
+    const anchorRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState<string | null>(null);
     const byKey = new Map(
         columns.map((column) => [column.key, column]),
@@ -207,7 +210,7 @@ export function ListPreferencesControl({
     }
 
     return (
-        <div className="relative">
+        <div className="relative" ref={anchorRef}>
             <button
                 type="button"
                 onClick={() => setOpen((value) => ! value)}
@@ -217,8 +220,14 @@ export function ListPreferencesControl({
                 {ar ? 'الأعمدة والعرض' : 'Columns & view'}
             </button>
 
-            {open && (
-                <div className="absolute end-0 top-12 z-[80] w-[300px] rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 shadow-[0_22px_60px_rgba(1,20,35,.2)]">
+            <AnchoredPanel
+                anchorRef={anchorRef}
+                open={open}
+                onClose={() => setOpen(false)}
+                width={300}
+                className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 shadow-[0_22px_60px_rgba(1,20,35,.2)]"
+            >
+                <div>
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <p className="text-xs font-bold text-[var(--ac-text)]">
@@ -317,7 +326,7 @@ export function ListPreferencesControl({
                         </div>
                     </div>
                 </div>
-            )}
+            </AnchoredPanel>
         </div>
     );
 }

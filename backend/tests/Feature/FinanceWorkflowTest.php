@@ -1149,6 +1149,26 @@ class FinanceWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_a_draft_invoice_can_be_archived_and_appears_in_the_finance_archive(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance archive draft');
+        $this->actingInWorkspace($owner, $organization);
+
+        $draftId = $this->postJson('/api/finance/documents', $this->serviceInvoicePayload(
+            $this->party('customer', 'Archive Draft Customer'),
+            '2026-09-20',
+            '100',
+        ))->assertCreated()->json('data.id');
+
+        $this->postJson("/api/finance/documents/{$draftId}/void", ['reason' => 'Draft not needed'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'voided');
+
+        $this->getJson('/api/finance/archive')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $draftId, 'status' => 'voided']);
+    }
+
     public function test_draft_invoice_can_be_deleted_but_issued_invoice_requires_void_or_correction(): void
     {
         [$owner, $organization] = $this->workspace('owner', 'Finance delete safety');
@@ -1429,6 +1449,40 @@ class FinanceWorkflowTest extends TestCase
                 'affects_inventory' => false,
             ]],
         ];
+    }
+
+    public function test_correction_draft_sees_its_own_allocation_as_available_invoice_balance(): void
+    {
+        [$owner, $organization] = $this->workspace('owner', 'Finance correction allocation');
+        $this->actingInWorkspace($owner, $organization);
+
+        $customerId = $this->party('customer', 'Correction Allocation Customer');
+        $invoiceId = $this->issuedServiceInvoice($customerId, '2026-09-20', '100');
+
+        $receiptId = $this->postJson('/api/finance/cash-movements', [
+            'direction' => 'incoming',
+            'party_id' => $customerId,
+            'category' => 'customer_receipt',
+            'amount' => '100',
+            'currency' => 'ILS',
+            'movement_date' => '2026-09-21',
+            'method' => 'cash',
+            'allocations' => [['financial_document_id' => $invoiceId, 'amount' => '100']],
+        ])->assertCreated()->json('data.id');
+        $this->postJson("/api/finance/cash-movements/{$receiptId}/post")->assertOk();
+
+        $draftId = $this->postJson("/api/finance/cash-movements/{$receiptId}/correct", ['reason' => 'Change the date'])
+            ->assertCreated()
+            ->assertJsonPath('data.allocations.0.document_balance_due', '100.0000')
+            ->json('data.id');
+
+        $this->getJson("/api/finance/cash-movements/{$draftId}")
+            ->assertOk()
+            ->assertJsonPath('data.allocations.0.document_balance_due', '100.0000');
+
+        $this->getJson("/api/finance/cash-movements/{$receiptId}")
+            ->assertOk()
+            ->assertJsonPath('data.allocations.0.document_balance_due', '0.0000');
     }
 
     private function issuedServiceInvoice(int $partyId, string $date, string $price): int

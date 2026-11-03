@@ -18,6 +18,7 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Column = {
     key: string;
@@ -462,7 +463,7 @@ export default function ReportBuilder() {
                             <h2 className="text-xs font-bold text-[var(--ac-text)]">
                                 {text('مصدر البيانات', 'Dataset')}
                             </h2>
-                            <select
+                            <Select
                                 className={control + ' mt-3'}
                                 value={datasetKey}
                                 disabled={loading}
@@ -473,7 +474,7 @@ export default function ReportBuilder() {
                                         {datasetLabel(item.key, item.label, ar)}
                                     </option>
                                 ))}
-                            </select>
+                            </Select>
                         </section>
 
                         <section className="rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4">
@@ -672,7 +673,7 @@ export default function ReportBuilder() {
                                         key={index}
                                         className="grid gap-2 md:grid-cols-[1fr_150px_1fr_auto]"
                                     >
-                                        <select
+                                        <Select
                                             className={control}
                                             value={filter.field}
                                             onChange={event =>
@@ -693,9 +694,9 @@ export default function ReportBuilder() {
                                                     {builderColumnLabel(column.key, column.label, ar)}
                                                 </option>
                                             ))}
-                                        </select>
+                                        </Select>
 
-                                        <select
+                                        <Select
                                             className={control}
                                             value={filter.operator}
                                             onChange={event =>
@@ -716,7 +717,7 @@ export default function ReportBuilder() {
                                             <option value="contains">{text('يحتوي', 'contains')}</option>
                                             <option value="gte">≥</option>
                                             <option value="lte">≤</option>
-                                        </select>
+                                        </Select>
 
                                         <input
                                             className={control}
@@ -765,7 +766,7 @@ export default function ReportBuilder() {
                             <div className="mt-4 grid gap-3 md:grid-cols-3">
                                 <label className="text-[9px] font-semibold text-[var(--ac-text-muted)]">
                                     {text('تجميع حسب', 'Group by')}
-                                    <select
+                                    <Select
                                         className={control + ' mt-1'}
                                         value={groupBy}
                                         onChange={event => setGroupBy(event.target.value)}
@@ -776,12 +777,12 @@ export default function ReportBuilder() {
                                                 {column.label}
                                             </option>
                                         ))}
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 <label className="text-[9px] font-semibold text-[var(--ac-text-muted)]">
                                     {text('ترتيب حسب', 'Sort by')}
-                                    <select
+                                    <Select
                                         className={control + ' mt-1'}
                                         value={sortBy}
                                         onChange={event => setSortBy(event.target.value)}
@@ -792,12 +793,12 @@ export default function ReportBuilder() {
                                                 {column.label}
                                             </option>
                                         ))}
-                                    </select>
+                                    </Select>
                                 </label>
 
                                 <label className="text-[9px] font-semibold text-[var(--ac-text-muted)]">
                                     {text('الاتجاه', 'Direction')}
-                                    <select
+                                    <Select
                                         className={control + ' mt-1'}
                                         value={sortDirection}
                                         onChange={event =>
@@ -806,7 +807,7 @@ export default function ReportBuilder() {
                                     >
                                         <option value="asc">{text('تصاعدي', 'ASC')}</option>
                                         <option value="desc">{text('تنازلي', 'DESC')}</option>
-                                    </select>
+                                    </Select>
                                 </label>
                             </div>
 

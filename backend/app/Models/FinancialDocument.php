@@ -18,6 +18,7 @@ class FinancialDocument extends Model
         'warehouse_id',
         'department_id',
         'kind',
+        'is_misc_sale',
         'number',
         'external_number',
         'seller_tax_snapshot',
@@ -33,6 +34,8 @@ class FinancialDocument extends Model
         'exchange_rate',
         'subtotal',
         'discount_total',
+        'document_discount_type',
+        'document_discount_value',
         'tax_total',
         'shipping_total',
         'total',
@@ -52,6 +55,7 @@ class FinancialDocument extends Model
     protected function casts(): array
     {
         return [
+            'is_misc_sale' => 'boolean',
             'revision' => 'integer',
             'seller_tax_snapshot' => 'array',
             'buyer_tax_snapshot' => 'array',
@@ -60,6 +64,7 @@ class FinancialDocument extends Model
             'exchange_rate' => 'decimal:8',
             'subtotal' => 'decimal:4',
             'discount_total' => 'decimal:4',
+            'document_discount_value' => 'decimal:4',
             'tax_total' => 'decimal:4',
             'shipping_total' => 'decimal:4',
             'total' => 'decimal:4',

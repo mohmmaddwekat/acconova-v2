@@ -5,6 +5,7 @@ import {
     Star,
 } from 'lucide-react';
 
+import { AiToggleButton } from '@/components/ai/AiToggleButton';
 import {
     AccountMenu,
 } from '@/components/navigation/AccountMenu';
@@ -414,6 +415,8 @@ export function ContextBar({
                             }
                         />
                     </button>
+
+                    <AiToggleButton />
 
                     <LanguageSwitcher />
 

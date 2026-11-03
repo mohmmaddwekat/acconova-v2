@@ -1,6 +1,8 @@
+import { useTableView } from '@/components/data/useTableView';
 import { ApiError, apiRequest } from '@/lib/http';
 import { CheckCircle2, LoaderCircle, TriangleAlert, Wand2 } from 'lucide-react';
 import { useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Reason = { code: string; text: string };
 type Payment = {
@@ -40,6 +42,13 @@ export function SupplierPaymentPlanPanel({ ar }: { ar: boolean }) {
     const label = (key: string): string => (names[key] ? names[key][ar ? 0 : 1] : key);
     const [scenario, setScenario] = useState<(typeof SCENARIOS)[number]>('expected');
     const [proposal, setProposal] = useState<Proposal | null>(null);
+    const view = useTableView(proposal?.payments ?? [], {
+        party: (payment) => payment.party,
+        pay_on: (payment) => payment.pay_on,
+        amount: (payment) => Number(payment.amount),
+        kind: (payment) => payment.kind,
+        reason: (payment) => payment.reasons.map((reason) => reason.text).join(' '),
+    });
     const [saved, setSaved] = useState<SavedPlan | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
@@ -85,9 +94,9 @@ export function SupplierPaymentPlanPanel({ ar }: { ar: boolean }) {
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <select aria-label={text('السيناريو', 'Scenario')} value={scenario} onChange={(event) => setScenario(event.target.value as (typeof SCENARIOS)[number])} className={control}>
+                    <Select aria-label={text('السيناريو', 'Scenario')} value={scenario} onChange={(event) => setScenario(event.target.value as (typeof SCENARIOS)[number])} className={control}>
                         {SCENARIOS.map((item) => <option key={item} value={item}>{label(item)}</option>)}
-                    </select>
+                    </Select>
                     <button type="button" className={control} disabled={busy} onClick={() => void build()}>
                         {busy ? <LoaderCircle size={14} className="animate-spin" /> : null}{text('اقترح خطة', 'Propose a plan')}
                     </button>
@@ -113,15 +122,15 @@ export function SupplierPaymentPlanPanel({ ar }: { ar: boolean }) {
                         <table className="w-full min-w-[720px] text-start text-xs">
                             <thead className="bg-[var(--ac-surface-soft)] text-[10px] text-[var(--ac-text-muted)]">
                                 <tr>
-                                    <th className="px-3 py-2 text-start">{text('المورد', 'Supplier')}</th>
-                                    <th className="px-3 py-2 text-start">{text('التاريخ', 'Pay on')}</th>
-                                    <th className="px-3 py-2 text-start">{text('المبلغ', 'Amount')}</th>
-                                    <th className="px-3 py-2 text-start">{text('النوع', 'Type')}</th>
-                                    <th className="px-3 py-2 text-start">{text('السبب', 'Why')}</th>
+                                    {view.th('party', text('المورد', 'Supplier'), { className: 'py-2' })}
+                                    {view.th('pay_on', text('التاريخ', 'Pay on'), { className: 'py-2' })}
+                                    {view.th('amount', text('المبلغ', 'Amount'), { className: 'py-2' })}
+                                    {view.th('kind', text('النوع', 'Type'), { className: 'py-2' })}
+                                    {view.th('reason', text('السبب', 'Why'), { className: 'py-2' })}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--ac-line)]">
-                                {proposal.payments.map((payment, index) => (
+                                {view.rows.map((payment, index) => (
                                     <tr key={payment.key + index} className={payment.depends_on_expected ? 'bg-amber-50/60' : ''}>
                                         <td className="px-3 py-2"><strong className="block">{payment.party}</strong><span className="text-[10px] text-[var(--ac-text-muted)]">{payment.label}</span></td>
                                         <td className="px-3 py-2">{payment.pay_on}</td>

@@ -20,6 +20,7 @@ import {
     X,
 } from 'lucide-react';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type ImportType = 'employees' | 'attendance' | 'transactions';
 
@@ -535,11 +536,11 @@ export default function StaffImportPage() {
                                         <h2 className="text-sm font-bold">{ar ? '3. اختر الورقة وطابق الأعمدة' : '3. Choose sheet and map columns'}</h2>
                                         <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">{preview.name}</p>
                                     </div>
-                                    <select value={sheetName} onChange={(event) => selectSheet(event.target.value)} className={`${field} max-w-xs`}>
+                                    <Select value={sheetName} onChange={(event) => selectSheet(event.target.value)} className={`${field} max-w-xs`}>
                                         {preview.sheets.map((sheet) => (
                                             <option key={sheet.name} value={sheet.name}>{sheet.name} · {sheet.row_count} {ar ? 'صف' : 'rows'}</option>
                                         ))}
-                                    </select>
+                                    </Select>
                                 </div>
 
                                 {selectedSheet && (
@@ -579,14 +580,14 @@ export default function StaffImportPage() {
                                                 <label key={definition.key} className="text-xs font-semibold">
                                                     {ar ? definition.ar : definition.en}
                                                     {definition.required && <span className="ms-1 text-red-500">*</span>}
-                                                    <select
+                                                    <Select
                                                         value={mapping[definition.key] ?? ''}
                                                         onChange={(event) => setMapping((current) => ({ ...current, [definition.key]: event.target.value }))}
                                                         className={`${field} mt-2`}
                                                     >
                                                         <option value="">{ar ? 'لا يوجد عمود' : 'Not mapped'}</option>
                                                         {availableHeaders.map((header) => <option key={header} value={header}>{header}</option>)}
-                                                    </select>
+                                                    </Select>
                                                 </label>
                                             ))}
                                         </div>
@@ -666,18 +667,18 @@ export default function StaffImportPage() {
                                                     <div className="grid gap-3 md:grid-cols-[1.2fr_.8fr_1fr_1fr_auto] md:items-end">
                                                         <label className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
                                                             {ar ? 'العمود' : 'Column'}
-                                                            <select
+                                                            <Select
                                                                 value={rule.column}
                                                                 onChange={(event) => updateFilter(rule.id, { column: event.target.value })}
                                                                 className={`${field} mt-1.5`}
                                                             >
                                                                 {selectedSheet.headers.map((header) => <option key={header} value={header}>{header}</option>)}
-                                                            </select>
+                                                            </Select>
                                                         </label>
 
                                                         <label className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
                                                             {ar ? 'نوع القيمة' : 'Value type'}
-                                                            <select
+                                                            <Select
                                                                 value={rule.valueType}
                                                                 onChange={(event) => updateFilter(rule.id, { valueType: event.target.value as FilterValueType })}
                                                                 className={`${field} mt-1.5`}
@@ -685,12 +686,12 @@ export default function StaffImportPage() {
                                                                 {(Object.keys(valueTypeLabels) as FilterValueType[]).map((key) => (
                                                                     <option key={key} value={key}>{ar ? valueTypeLabels[key].ar : valueTypeLabels[key].en}</option>
                                                                 ))}
-                                                            </select>
+                                                            </Select>
                                                         </label>
 
                                                         <label className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
                                                             {ar ? 'الشرط' : 'Condition'}
-                                                            <select
+                                                            <Select
                                                                 value={rule.operator}
                                                                 onChange={(event) => updateFilter(rule.id, { operator: event.target.value })}
                                                                 className={`${field} mt-1.5`}
@@ -698,7 +699,7 @@ export default function StaffImportPage() {
                                                                 {operatorOptions.map((option) => (
                                                                     <option key={option.value} value={option.value}>{ar ? option.ar : option.en}</option>
                                                                 ))}
-                                                            </select>
+                                                            </Select>
                                                         </label>
 
                                                         <label className="text-[10px] font-semibold text-[var(--ac-text-muted)]">
@@ -746,20 +747,20 @@ export default function StaffImportPage() {
                                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                                     <label className="text-xs font-semibold">
                                         {matchLabel}
-                                        <select value={matchBy} onChange={(event) => setMatchBy(event.target.value as 'name' | 'phone' | 'email')} className={`${field} mt-2`}>
+                                        <Select value={matchBy} onChange={(event) => setMatchBy(event.target.value as 'name' | 'phone' | 'email')} className={`${field} mt-2`}>
                                             <option value="phone">{ar ? 'رقم الهاتف' : 'Phone'}</option>
                                             <option value="email">{ar ? 'البريد الإلكتروني' : 'Email'}</option>
                                             <option value="name">{ar ? 'الاسم' : 'Name'}</option>
-                                        </select>
+                                        </Select>
                                     </label>
 
                                     {type !== 'transactions' ? (
                                         <label className="text-xs font-semibold">
                                             {ar ? 'إذا وجد سجل مكرر' : 'When duplicate exists'}
-                                            <select value={duplicateStrategy} onChange={(event) => setDuplicateStrategy(event.target.value as 'skip' | 'update')} className={`${field} mt-2`}>
+                                            <Select value={duplicateStrategy} onChange={(event) => setDuplicateStrategy(event.target.value as 'skip' | 'update')} className={`${field} mt-2`}>
                                                 <option value="skip">{ar ? 'تخطيه بدون تغيير' : 'Skip'}</option>
                                                 <option value="update">{ar ? 'تحديث الموجود' : 'Update existing'}</option>
-                                            </select>
+                                            </Select>
                                         </label>
                                     ) : (
                                         <div className="rounded-[15px] bg-[var(--ac-surface-soft)] p-4 text-xs leading-5 text-[var(--ac-text-muted)]">

@@ -37,6 +37,10 @@ class ProductionRunResource extends JsonResource
                 ->created_at
                 ->toIso8601String(),
 
+            'is_archived' => $this->trashed(),
+
+            'deleted_at' => $this->deleted_at?->toIso8601String(),
+
             'posted_at' => $this
                 ->posted_at
                 ?->toIso8601String(),

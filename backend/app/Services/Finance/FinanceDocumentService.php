@@ -32,7 +32,10 @@ class FinanceDocumentService
         return DB::transaction(function () use ($data, $actorId): FinancialDocument {
             $kind = $data['kind'];
             $this->assertPartyRole((int) $data['party_id'], $kind);
-            $this->assertNoSameDayInvoice($kind, (int) $data['party_id'], (string) $data['issue_date']);
+            if (! ($data['is_misc_sale'] ?? false)) {
+                $this->assertNoSameDayInvoice($kind, (int) $data['party_id'], (string) $data['issue_date']);
+            }
+
             $this->assertHeaderReferences($data);
 
             $document = FinancialDocument::create([
@@ -59,6 +62,7 @@ class FinanceDocumentService
             );
 
             $this->syncLines($document, $data['lines']);
+            $this->applyDocumentDiscount($document);
             $this->recalculateTotals($document, (string) ($data['shipping_total'] ?? '0'));
 
             $this->audit->record(
@@ -92,7 +96,10 @@ class FinanceDocumentService
                 (string) $locked->exchange_rate;
             $kind = $locked->kind;
             $this->assertPartyRole((int) $data['party_id'], $kind);
-            $this->assertNoSameDayInvoice($kind, (int) $data['party_id'], (string) $data['issue_date'], $locked);
+            if (! $locked->is_misc_sale) {
+                $this->assertNoSameDayInvoice($kind, (int) $data['party_id'], (string) $data['issue_date'], $locked);
+            }
+
             $this->assertHeaderReferences($data);
 
             $locked->fill([
@@ -116,6 +123,7 @@ class FinanceDocumentService
             }
 
             $this->syncLines($locked, $data['lines']);
+            $this->applyDocumentDiscount($locked);
             $this->recalculateTotals($locked, (string) ($data['shipping_total'] ?? '0'));
 
             $this->audit->record(
@@ -209,12 +217,14 @@ class FinanceDocumentService
                 ]);
             }
 
-            $this->assertNoSameDayInvoice(
-                $locked->kind,
-                (int) $locked->party_id,
-                $locked->issue_date->format('Y-m-d'),
-                $locked,
-            );
+            if (! $locked->is_misc_sale) {
+                $this->assertNoSameDayInvoice(
+                    $locked->kind,
+                    (int) $locked->party_id,
+                    $locked->issue_date->format('Y-m-d'),
+                    $locked,
+                );
+            }
 
             $this->ensureTaxSnapshots($locked);
 
@@ -424,7 +434,7 @@ class FinanceDocumentService
                 ->lockForUpdate()
                 ->findOrFail($document->id);
 
-            if (! in_array($locked->status, ['issued', 'partially_paid', 'paid', 'overpaid'], true)) {
+            if (! in_array($locked->status, ['draft', 'issued', 'partially_paid', 'paid', 'overpaid'], true)) {
                 throw ValidationException::withMessages([
                     'status' => ['This document cannot be voided.'],
                 ]);
@@ -726,6 +736,11 @@ class FinanceDocumentService
             'payment_terms' => $data['payment_terms'] ?? null,
             'notes' => $data['notes'] ?? null,
             'internal_notes' => $data['internal_notes'] ?? null,
+            ...(array_key_exists('is_misc_sale', $data) ? ['is_misc_sale' => (bool) $data['is_misc_sale']] : []),
+            'document_discount_type' => in_array($data['document_discount_type'] ?? 'percent', ['percent', 'fixed'], true)
+                ? ($data['document_discount_type'] ?? 'percent')
+                : 'percent',
+            'document_discount_value' => number_format(max((float) ($data['document_discount_value'] ?? 0), 0), 4, '.', ''),
         ];
     }
 
@@ -870,6 +885,73 @@ class FinanceDocumentService
                 'line_tax' => number_format($tax, 4, '.', ''),
                 'line_total' => number_format($total, 4, '.', ''),
                 'affects_inventory' => $affectsInventory,
+            ]);
+        }
+    }
+
+    /**
+     * Spread the invoice-wide discount over the lines in proportion to what each
+     * line is worth after its own discount, so tax, margins and stock valuation
+     * keep working per line while the user types one discount for the whole invoice.
+     */
+    private function applyDocumentDiscount(FinancialDocument $document): void
+    {
+        $value = (float) $document->document_discount_value;
+
+        if ($value <= 0) {
+            return;
+        }
+
+        $lines = $document->lines()->with('taxRule')->orderBy('position')->get();
+        $net = (float) $lines->sum(fn ($line) => (float) $line->line_subtotal - (float) $line->line_discount);
+
+        if ($net <= 0) {
+            return;
+        }
+
+        $type = $document->document_discount_type;
+
+        if ($type === 'percent' && $value > 100) {
+            throw ValidationException::withMessages([
+                'document_discount_value' => ['Percentage discount must be between 0 and 100.'],
+            ]);
+        }
+
+        $discount = $type === 'fixed' ? $value : $net * ($value / 100);
+
+        if ($discount > $net + 0.00005) {
+            throw ValidationException::withMessages([
+                'document_discount_value' => ['The invoice discount cannot exceed the invoice subtotal after line discounts.'],
+            ]);
+        }
+
+        $discount = round(min($discount, $net), 4);
+        $remaining = $discount;
+
+        foreach ($lines as $index => $line) {
+            $lineNet = (float) $line->line_subtotal - (float) $line->line_discount;
+            $share = $index === $lines->count() - 1
+                ? $remaining
+                : round($discount * ($lineNet / $net), 4);
+            $share = min($share, $lineNet);
+            $remaining = round($remaining - $share, 4);
+
+            $newDiscount = (float) $line->line_discount + $share;
+            $taxable = max((float) $line->line_subtotal - $newDiscount, 0);
+            $taxRate = (float) $line->tax_rate;
+
+            if ($line->taxRule?->inclusive && $taxRate > 0) {
+                $tax = round($taxable - ($taxable / (1 + ($taxRate / 100))), 4);
+                $total = $taxable;
+            } else {
+                $tax = round($taxable * ($taxRate / 100), 4);
+                $total = round($taxable + $tax, 4);
+            }
+
+            $line->update([
+                'line_discount' => number_format($newDiscount, 4, '.', ''),
+                'line_tax' => number_format($tax, 4, '.', ''),
+                'line_total' => number_format($total, 4, '.', ''),
             ]);
         }
     }

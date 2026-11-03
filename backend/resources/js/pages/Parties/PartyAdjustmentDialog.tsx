@@ -2,6 +2,7 @@ import { ModalPortal } from '@/components/feedback/ModalPortal';
 import { ApiError, apiRequest } from '@/lib/http';
 import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type OpenInvoice = { id: number; number: string; balance_due: string; issue_date?: string | null };
 
@@ -252,7 +253,7 @@ export function PartyAdjustmentDialog({
                             <span className="mb-1.5 block text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('خصم على فاتورة (اختياري)', 'Discount on an invoice (optional)')}
                             </span>
-                            <select
+                            <Select
                                 value={documentId}
                                 onChange={(event) => chooseInvoice(event.target.value)}
                                 className="h-11 w-full rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-xs text-[var(--ac-text)] outline-none focus:border-[var(--ac-accent)]"
@@ -263,7 +264,7 @@ export function PartyAdjustmentDialog({
                                         {invoice.number + ' · ' + text('المتبقي ', 'Open ') + money(Number(invoice.balance_due))}
                                     </option>
                                 ))}
-                            </select>
+                            </Select>
                             {chosenInvoice && (
                                 <small className="mt-1 block text-[11px] text-[var(--ac-text-muted)]">
                                     {text(

@@ -1,4 +1,5 @@
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
+import { DataPagination } from '@/components/data/DataPagination';
 import {
     AdvancedFilterBuilder,
     type AdvancedFilterCondition,
@@ -9,10 +10,18 @@ import {
     type ListColumn,
 } from '@/components/data/ListPreferences';
 import { SavedViews } from '@/components/data/SavedViews';
+import {
+    ColumnFilterRange,
+    ColumnFilterSelect,
+    ColumnFilterText,
+    SortableTh,
+    type TableSort,
+} from '@/components/data/SortableHeader';
 import { apiRequest } from '@/lib/http';
 import { useLiveTick } from '@/lib/live';
 import { Link } from '@inertiajs/react';
 import {
+    Archive,
     Banknote,
     CalendarDays,
     Download,
@@ -23,6 +32,7 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { PaymentDialog } from './PaymentDialog';
 import { FinanceNav } from './FinanceNav';
 import { InvoiceAutomationLibrary } from './InvoiceAutomationLibrary';
@@ -42,6 +52,7 @@ import type {
     DocumentRow,
     FinanceLookups,
 } from './types';
+import { Select } from '@/components/ui/Select';
 
 type Response = {
     data: DocumentRow[];
@@ -126,10 +137,13 @@ function dueDateTone(
 
 export function DocumentList({
     kind,
+    misc = false,
     lookups,
     ar,
 }: {
     kind: 'sale_invoice' | 'purchase_invoice';
+    /** Walk-in (متفرقات) sales: their own list, create page and no manual receipt button. */
+    misc?: boolean;
     lookups: FinanceLookups;
     ar: boolean;
 }) {
@@ -153,10 +167,29 @@ export function DocumentList({
         setAdvancedConditions,
     ] = useState<AdvancedFilterCondition[]>([]);
 
+    const [tableSort, setTableSort] = useState<TableSort>(null);
+
+    const [columnFilters, setColumnFilters] = useState({
+        min_total: '',
+        max_total: '',
+        date_from: '',
+        date_to: '',
+        due_after: '',
+        due_before: '',
+    });
+
+    function changeColumnFilter(
+        patch: Partial<typeof columnFilters>,
+    ): void {
+        setColumnFilters((current) => ({ ...current, ...patch }));
+        setPage(1);
+    }
+
     const [
         page,
         setPage,
     ] = useState(1);
+    const [perPage, setPerPage] = useState(20);
 
     const [
         error,
@@ -171,6 +204,7 @@ export function DocumentList({
     const sales = kind === 'sale_invoice';
     const [paymentOpen, setPaymentOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [archivingId, setArchivingId] = useState<number | null>(null);
     const canRecordCash = sales
         ? lookups.permissions.cash_receive
         : lookups.permissions.cash_pay;
@@ -227,7 +261,7 @@ export function DocumentList({
     ];
 
     const listPreferences = useListPreferences(
-        `acconova:list-preferences:finance:${kind}`,
+        `acconova:list-preferences:finance:${kind}${misc ? ':misc' : ''}`,
         invoiceColumns,
     );
 
@@ -286,8 +320,12 @@ export function DocumentList({
         const params = new URLSearchParams({
             kind,
             page: String(page),
-            per_page: '20',
+            per_page: String(perPage),
         });
+
+        if (misc) {
+            params.set('misc', '1');
+        }
 
         if (search.trim()) {
             params.set('search', search.trim());
@@ -297,17 +335,32 @@ export function DocumentList({
             params.set('status', status);
         }
 
-        if (advancedFilterValues.min_total) {
-            params.set('min_total', advancedFilterValues.min_total);
+        const minTotal = columnFilters.min_total || advancedFilterValues.min_total;
+        const maxTotal = columnFilters.max_total || advancedFilterValues.max_total;
+        const dueAfter = columnFilters.due_after || advancedFilterValues.due_after;
+        const dueBefore = columnFilters.due_before || advancedFilterValues.due_before;
+
+        if (minTotal) {
+            params.set('min_total', minTotal);
         }
-        if (advancedFilterValues.max_total) {
-            params.set('max_total', advancedFilterValues.max_total);
+        if (maxTotal) {
+            params.set('max_total', maxTotal);
         }
-        if (advancedFilterValues.due_after) {
-            params.set('due_after', advancedFilterValues.due_after);
+        if (dueAfter) {
+            params.set('due_after', dueAfter);
         }
-        if (advancedFilterValues.due_before) {
-            params.set('due_before', advancedFilterValues.due_before);
+        if (dueBefore) {
+            params.set('due_before', dueBefore);
+        }
+        if (columnFilters.date_from) {
+            params.set('date_from', columnFilters.date_from);
+        }
+        if (columnFilters.date_to) {
+            params.set('date_to', columnFilters.date_to);
+        }
+        if (tableSort) {
+            params.set('sort', tableSort.key);
+            params.set('sort_direction', tableSort.direction);
         }
 
         if (! silent) {
@@ -336,22 +389,33 @@ export function DocumentList({
         return () => controller.abort();
     }, [
         kind,
+        misc,
         page,
+        perPage,
         search,
         status,
         advancedFilterValues.min_total,
         advancedFilterValues.max_total,
         advancedFilterValues.due_after,
         advancedFilterValues.due_before,
+        columnFilters,
+        tableSort,
         refreshKey,
         liveTick,
     ]);
 
-    const title = sales
+    const title = misc
+        ? text('فواتير مبيعات متفرقات', 'Walk-in sales invoices')
+        : sales
         ? text('فواتير البيع', 'Sales invoices')
         : text('فواتير الشراء', 'Purchase invoices');
 
-    const subtitle = sales
+    const subtitle = misc
+        ? text(
+            'مبيعات سريعة بدون زبون محدد. كل فاتورة تُحفظ مدفوعة نقداً مع قبض نقدي تلقائي.',
+            'Quick sales with no named customer. Each invoice is saved paid in cash with an automatic receipt.',
+        )
+        : sales
         ? text(
             'إدارة دورة البيع من المسودة إلى الإصدار والتحصيل، مع تتبع الرصيد والتصحيحات دون محو التاريخ.',
             'Manage sales from draft through issue and collection, with balances and immutable corrections.',
@@ -361,7 +425,9 @@ export function DocumentList({
             'Manage supplier invoices for raw materials, resale goods, services, freight, assets and related costs.',
         );
 
-    const createHref = sales
+    const createHref = misc
+        ? '/app/misc-sales/create'
+        : sales
         ? '/app/invoices/sales/create'
         : '/app/invoices/purchases/create';
 
@@ -369,6 +435,32 @@ export function DocumentList({
         sales
             ? '/app/invoices/sales/' + id
             : '/app/invoices/purchases/' + id;
+
+    async function archiveDocument(row: DocumentRow): Promise<void> {
+        const reason = window.prompt(text(
+            'سبب أرشفة الفاتورة؟ سيتم إلغاء أثرها المالي والمخزني. (5 أحرف على الأقل)',
+            'Archive reason? Its financial and inventory effect will be cancelled. (at least 5 characters)',
+        ));
+
+        if (! reason || reason.trim().length < 5) {
+            return;
+        }
+
+        setArchivingId(row.id);
+        setError('');
+
+        try {
+            await apiRequest(`/api/finance/documents/${row.id}/void`, {
+                method: 'POST',
+                body: JSON.stringify({ reason: reason.trim() }),
+            });
+            setRefreshKey((value) => value + 1);
+        } catch (failure) {
+            setError(apiErrorText(failure));
+        } finally {
+            setArchivingId(null);
+        }
+    }
 
     function exportRows(): void {
         const rows = response?.data ?? [];
@@ -402,6 +494,29 @@ export function DocumentList({
         );
     }
 
+    const hasFilters = search !== ''
+        || status !== ''
+        || advancedConditions.length > 0
+        || Object.values(columnFilters).some((value) => value !== '');
+
+    function clearAllFilters(): void {
+        setSearch('');
+        setStatus('');
+        setAdvancedConditions([]);
+        setColumnFilters({
+            min_total: '',
+            max_total: '',
+            date_from: '',
+            date_to: '',
+            due_after: '',
+            due_before: '',
+        });
+        setPage(1);
+    }
+
+    const showEmptyState = ! response
+        || (response.data.length === 0 && ! hasFilters && tableSort === null);
+
     const statuses = [
         ['draft', text('مسودة', 'Draft')],
         ['issued', text('غير مدفوعة', 'Issued')],
@@ -429,7 +544,7 @@ export function DocumentList({
                             {text('تصدير', 'Export')}
                         </button>
 
-                        {canRecordCash && (
+                        {canRecordCash && ! misc && (
                             <button
                                 type="button"
                                 className={financeButton}
@@ -448,7 +563,9 @@ export function DocumentList({
                                 className={financePrimary}
                             >
                                 <Plus size={15} />
-                                {sales
+                                {misc
+                                    ? text('إضافة فاتورة متفرقات', 'Add walk-in sale')
+                                    : sales
                                     ? text('إنشاء فاتورة بيع', 'Create sales invoice')
                                     : text('إنشاء فاتورة شراء', 'Create purchase invoice')}
                             </Link>
@@ -508,7 +625,7 @@ export function DocumentList({
             <FinanceNav
                 lookups={lookups}
                 ar={ar}
-                active={sales ? 'sales' : 'purchases'}
+                active={misc ? 'misc' : sales ? 'sales' : 'purchases'}
             />
 
             <FPanel
@@ -535,7 +652,7 @@ export function DocumentList({
                         />
                     </label>
 
-                    <select
+                    <Select
                         className={financeInput}
                         value={status}
                         onChange={(event) => {
@@ -551,7 +668,7 @@ export function DocumentList({
                                 {label}
                             </option>
                         ))}
-                    </select>
+                    </Select>
 
                     <button
                         type="button"
@@ -646,11 +763,11 @@ export function DocumentList({
                 }
                 icon={FileText}
             >
-                {loading ? (
+                {loading && ! response ? (
                     <div className="p-12 text-center text-sm text-slate-400">
                         {text('جارٍ تحميل الفواتير...', 'Loading invoices...')}
                     </div>
-                ) : ! response?.data.length ? (
+                ) : showEmptyState ? (
                     <SmartEmptyState
                         icon={FileText}
                         title={text(
@@ -696,7 +813,7 @@ export function DocumentList({
                     />
                 ) : (
                     <>
-                        <div className="overflow-x-auto">
+                        <div className={['overflow-x-auto transition-opacity', loading ? 'opacity-50' : ''].join(' ')}>
                             <table className="w-full min-w-[760px] text-xs">
                                 <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                     <tr>
@@ -705,24 +822,124 @@ export function DocumentList({
                                                 (item) => item.key === key,
                                             );
 
-                                            return column ? (
-                                                <th
+                                            if (! column) {
+                                                return null;
+                                            }
+
+                                            const sortKeys: Record<string, string> = {
+                                                number: 'number',
+                                                party: 'party',
+                                                issue_date: 'issue_date',
+                                                due_date: 'due_date',
+                                                total: 'total',
+                                                paid: 'paid',
+                                                outstanding: 'outstanding',
+                                                status: 'status',
+                                            };
+
+                                            let filter: ReactNode;
+                                            let filterActive = false;
+
+                                            if (key === 'number' || key === 'party') {
+                                                filterActive = search !== '';
+                                                filter = (
+                                                    <ColumnFilterText
+                                                        ar={ar}
+                                                        value={search}
+                                                        onChange={(value) => {
+                                                            setSearch(value);
+                                                            setPage(1);
+                                                        }}
+                                                        placeholder={text('رقم الفاتورة أو الاسم', 'Invoice number or name')}
+                                                    />
+                                                );
+                                            } else if (key === 'issue_date') {
+                                                filterActive = columnFilters.date_from !== '' || columnFilters.date_to !== '';
+                                                filter = (
+                                                    <ColumnFilterRange
+                                                        ar={ar}
+                                                        type="date"
+                                                        from={columnFilters.date_from}
+                                                        to={columnFilters.date_to}
+                                                        onChange={(from, to) => changeColumnFilter({ date_from: from, date_to: to })}
+                                                    />
+                                                );
+                                            } else if (key === 'due_date') {
+                                                filterActive = columnFilters.due_after !== '' || columnFilters.due_before !== '';
+                                                filter = (
+                                                    <ColumnFilterRange
+                                                        ar={ar}
+                                                        type="date"
+                                                        from={columnFilters.due_after}
+                                                        to={columnFilters.due_before}
+                                                        onChange={(from, to) => changeColumnFilter({ due_after: from, due_before: to })}
+                                                    />
+                                                );
+                                            } else if (key === 'total') {
+                                                filterActive = columnFilters.min_total !== '' || columnFilters.max_total !== '';
+                                                filter = (
+                                                    <ColumnFilterRange
+                                                        ar={ar}
+                                                        type="number"
+                                                        from={columnFilters.min_total}
+                                                        to={columnFilters.max_total}
+                                                        onChange={(from, to) => changeColumnFilter({ min_total: from, max_total: to })}
+                                                    />
+                                                );
+                                            } else if (key === 'status') {
+                                                filterActive = status !== '';
+                                                filter = (
+                                                    <ColumnFilterSelect
+                                                        value={status}
+                                                        options={statuses as [string, string][]}
+                                                        allLabel={text('جميع الحالات', 'All statuses')}
+                                                        onChange={(value) => {
+                                                            setStatus(value);
+                                                            setPage(1);
+                                                        }}
+                                                    />
+                                                );
+                                            }
+
+                                            return (
+                                                <SortableTh
                                                     key={key}
-                                                    className={[
-                                                        'px-3 text-start font-semibold',
-                                                        listPreferences.density === 'compact'
-                                                            ? 'py-2'
-                                                            : 'py-3',
-                                                    ].join(' ')}
-                                                >
-                                                    {column.label}
-                                                </th>
-                                            ) : null;
+                                                    ar={ar}
+                                                    label={column.label}
+                                                    sortKey={sortKeys[key]}
+                                                    sort={tableSort}
+                                                    onSort={(next) => {
+                                                        setTableSort(next);
+                                                        setPage(1);
+                                                    }}
+                                                    filter={filter}
+                                                    filterActive={filterActive}
+                                                    className={listPreferences.density === 'compact' ? 'py-2' : 'py-3'}
+                                                />
+                                            );
                                         })}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {response.data.map((row) => (
+                                    {response?.data.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={listPreferences.visibleKeys.length}
+                                                className="px-4 py-10 text-center text-sm text-[var(--ac-text-muted)]"
+                                            >
+                                                {text('لا توجد فواتير مطابقة للفلاتر.', 'No invoices match the filters.')}
+                                                {' '}
+                                                <button
+                                                    type="button"
+                                                    className="font-semibold text-[var(--ac-accent)] underline"
+                                                    onClick={clearAllFilters}
+                                                >
+                                                    {text('مسح كل الفلاتر', 'Clear all filters')}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {response?.data.map((row) => (
                                         <tr
                                             key={row.id}
                                             className="border-t border-[var(--ac-line)] text-[var(--ac-text-soft)] hover:bg-[var(--ac-surface-soft)]"
@@ -819,9 +1036,26 @@ export function DocumentList({
 
                                                 return (
                                                     <td key={key} className={cellClass}>
-                                                        <Link href={showHref(row.id)} className={financeButton}>
-                                                            {text('عرض', 'Open')}
-                                                        </Link>
+                                                        <div className="flex items-center gap-2">
+                                                            <Link href={showHref(row.id)} className={financeButton}>
+                                                                {text('عرض', 'Open')}
+                                                            </Link>
+                                                            {canManage
+                                                                && lookups.permissions.documents_correct
+                                                                && ['draft', 'issued', 'partially_paid', 'paid', 'overpaid'].includes(row.status) && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={archivingId === row.id}
+                                                                    onClick={() => void archiveDocument(row)}
+                                                                    className={financeButton}
+                                                                >
+                                                                    <Archive size={14} />
+                                                                    {archivingId === row.id
+                                                                        ? text('جارٍ الأرشفة...', 'Archiving...')
+                                                                        : text('أرشفة', 'Archive')}
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 );
                                             })}
@@ -831,34 +1065,15 @@ export function DocumentList({
                             </table>
                         </div>
 
-                        {response.meta.last_page > 1 && (
-                            <div className="flex items-center justify-between border-t border-[#edf3fa] p-4 text-xs text-slate-500">
-                                <span>
-                                    {text('صفحة', 'Page')}{' '}
-                                    {response.meta.current_page}{' / '}
-                                    {response.meta.last_page}
-                                </span>
-
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        className={financeButton}
-                                        disabled={page <= 1}
-                                        onClick={() => setPage((value) => value - 1)}
-                                    >
-                                        {text('السابق', 'Previous')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={financeButton}
-                                        disabled={page >= response.meta.last_page}
-                                        onClick={() => setPage((value) => value + 1)}
-                                    >
-                                        {text('التالي', 'Next')}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        <DataPagination
+                            page={response.meta.current_page}
+                            lastPage={response.meta.last_page}
+                            perPage={response.meta.per_page}
+                            total={response.meta.total}
+                            loading={loading}
+                            onPageChange={setPage}
+                            onPerPageChange={(value) => { setPerPage(value); setPage(1); }}
+                        />
                     </>
                 )}
             </FPanel>

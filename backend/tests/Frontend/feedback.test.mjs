@@ -66,6 +66,46 @@ test('technical messages and malformed validation payloads never reach the user'
     assert.doesNotThrow(() => api.normalizeApiError({ status: 422, errors: null, error_codes: 'broken' }));
 });
 
+test('validation failures name the field and the broken rule', () => {
+    api.setLocale('ar');
+    const { fieldErrors } = api.normalizeApiError({
+        status: 422,
+        errors: {
+            'lines.1.quantity': ['x'], due_date: ['x'], exchange_rate: ['x'], unknown_field: ['x'],
+        },
+        error_codes: {
+            'lines.1.quantity': ['numeric', 'gt'], due_date: ['dateformat', 'afterorequal'],
+            exchange_rate: ['numeric', 'max'], unknown_field: ['weird'],
+        },
+        error_params: {
+            'lines.1.quantity': { gt: ['0'] }, due_date: { afterorequal: ['issue_date'] },
+            exchange_rate: { max: ['999999999'] },
+        },
+    });
+    assert.equal(fieldErrors['lines.1.quantity'][0], 'بند 2 — الكمية: أدخل رقمًا صحيحًا.');
+    assert.equal(fieldErrors.due_date[0], 'تاريخ الاستحقاق: أدخل تاريخًا صحيحًا.');
+    assert.equal(fieldErrors.exchange_rate[0], 'سعر الصرف: أدخل رقمًا صحيحًا.');
+    assert.equal(fieldErrors.unknown_field[0], api.t('errors.invalidField'));
+    const afterOnly = api.normalizeApiError({
+        status: 422, errors: { due_date: ['x'] }, error_codes: { due_date: ['afterorequal'] },
+        error_params: { due_date: { afterorequal: ['issue_date'] } },
+    }).fieldErrors.due_date[0];
+    assert.ok(afterOnly.includes('تاريخ الإصدار'));
+    api.setLocale('en');
+});
+
+test('server-translated business errors such as insufficient stock are shown as sent', () => {
+    const message = 'لا توجد كمية متاحة كافية لتنفيذ هذه العملية.';
+    const { fieldErrors } = api.normalizeApiError({
+        status: 422, errors: { inventory: [message] },
+        error_codes: { inventory: ['inventory_insufficient_stock'] }, safe_errors: { inventory: true },
+    });
+    assert.equal(fieldErrors.inventory[0], message);
+    assert.equal(api.normalizeApiError({
+        status: 422, errors: { inventory: [message] }, error_codes: { inventory: ['inventory_insufficient_stock'] },
+    }).fieldErrors.inventory[0], api.t('errors.invalidField'));
+});
+
 test('all literal translation calls reference existing dictionary entries', async () => {
     const files = await readdir('resources/js', { recursive: true });
     for (const file of files.filter((file) => /\.tsx?$/.test(file) && !file.includes('locales'))) {

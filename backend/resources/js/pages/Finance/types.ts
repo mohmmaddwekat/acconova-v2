@@ -12,7 +12,10 @@ export type FinanceView =
     | 'receipt-list'
     | 'receipt-create'
     | 'receipt-detail'
-    | 'taxes';
+    | 'taxes'
+    | 'petty-expenses'
+    | 'misc-sales-list'
+    | 'misc-sales-create';
 
 export type LookupParty = {
     id: number;
@@ -223,6 +226,8 @@ export type DocumentDetail = DocumentRow & {
     exchange_rate: string;
     subtotal: string;
     discount_total: string;
+    document_discount_type?: 'percent' | 'fixed';
+    document_discount_value?: string;
     tax_total: string;
     shipping_total: string;
     seller_tax_snapshot: TaxPartySnapshot | null;

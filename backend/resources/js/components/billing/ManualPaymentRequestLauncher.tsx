@@ -13,6 +13,7 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type BillingPlan = {
     key: string;
@@ -328,7 +329,7 @@ export function ManualPaymentRequestLauncher() {
                                     <div className="grid gap-4 sm:grid-cols-2">
                                         <label className="block">
                                             <span className="text-[9px] font-bold text-[var(--acs-text-soft)]">{text('الباقة', 'Plan')}</span>
-                                            <select
+                                            <Select
                                                 value={planKey}
                                                 onChange={event => setPlanKey(event.target.value)}
                                                 className="mt-2 min-h-11 w-full rounded-[11px] border border-[var(--acs-line)] bg-[var(--acs-control)] px-3 text-xs text-[var(--acs-text)] outline-none focus:border-[var(--acs-accent)]"
@@ -338,19 +339,19 @@ export function ManualPaymentRequestLauncher() {
                                                         {ar ? plan.name_ar : plan.name_en}
                                                     </option>
                                                 ))}
-                                            </select>
+                                            </Select>
                                         </label>
 
                                         <label className="block">
                                             <span className="text-[9px] font-bold text-[var(--acs-text-soft)]">{text('الفترة', 'Interval')}</span>
-                                            <select
+                                            <Select
                                                 value={interval}
                                                 onChange={event => setInterval(event.target.value as 'month' | 'year')}
                                                 className="mt-2 min-h-11 w-full rounded-[11px] border border-[var(--acs-line)] bg-[var(--acs-control)] px-3 text-xs text-[var(--acs-text)] outline-none focus:border-[var(--acs-accent)]"
                                             >
                                                 <option value="month">{text('شهري', 'Monthly')}</option>
                                                 <option value="year">{text('سنوي', 'Yearly')}</option>
-                                            </select>
+                                            </Select>
                                         </label>
                                     </div>
 

@@ -2,6 +2,7 @@ import type { Party } from '@/features/parties/types';
 import { ApiError, apiRequest } from '@/lib/http';
 import { Gauge, LoaderCircle, Settings2 } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Reason = { code: string; text: string; value?: unknown; threshold?: unknown };
 
@@ -287,9 +288,9 @@ export function PartyCreditPanel({ party, ar }: { party: Party; ar: boolean }) {
                         <p className="font-bold sm:col-span-2">{ar ? 'القرار النهائي للتاجر' : 'Merchant\'s final decision'}</p>
                         <label>
                             {ar ? 'القرار' : 'Decision'}
-                            <select name="decision" defaultValue={KEYS.includes(recommended as typeof KEYS[number]) ? recommended : data.recommendation.fallback ?? 'cash_only'} className={input}>
+                            <Select name="decision" defaultValue={KEYS.includes(recommended as typeof KEYS[number]) ? recommended : data.recommendation.fallback ?? 'cash_only'} className={input}>
                                 {KEYS.map((key) => <option key={key} value={key}>{t(key)}</option>)}
-                            </select>
+                            </Select>
                         </label>
                         <label>
                             {ar ? 'السقف' : 'Credit limit'}
@@ -332,10 +333,10 @@ export function PartyCreditPanel({ party, ar }: { party: Party; ar: boolean }) {
                     ))}
                     <label className="sm:col-span-2">
                         {ar ? 'شروط العميل الجديد' : 'New customer terms'}
-                        <select name="new_customer_terms" defaultValue={String(policy.new_customer_terms ?? 'advance_payment')} className={input}>
+                        <Select name="new_customer_terms" defaultValue={String(policy.new_customer_terms ?? 'advance_payment')} className={input}>
                             <option value="advance_payment">{t('advance_payment')}</option>
                             <option value="cash_only">{t('cash_only')}</option>
-                        </select>
+                        </Select>
                     </label>
                     <button type="submit" disabled={busy} className={button + ' sm:col-span-2'}>{ar ? 'حفظ السياسة' : 'Save policy'}</button>
                 </form>

@@ -3,6 +3,7 @@ import { apiRequest } from '@/lib/http';
 import { Crown, MessageCircle, UserRound, VolumeX, X } from 'lucide-react';
 import { router } from '@inertiajs/react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Select } from '@/components/ui/Select';
 
 const avatarTones = ['bg-[#068CF0] text-white', 'bg-[#045495] text-white', 'bg-[#38A3FA] text-[#011C32]', 'bg-[#0570C7] text-white', 'bg-[#033863] text-white'];
 const actionClass = 'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-start text-sm hover:bg-[var(--ac-accent-soft)] focus-visible:outline-2 focus-visible:outline-[var(--ac-accent)] disabled:opacity-40';
@@ -99,9 +100,9 @@ export function MemberActions({ conversationId, memberId, userId, name, ar, chil
             {profile && (mode === 'group' || mode === 'direct') && <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void save(true); }}>
                 <p className="text-sm leading-6">{mode === 'group' ? (ar ? 'لن يتمكن هذا العضو من الكتابة في هذه المجموعة، وسيظهر له اسمك ومدة الكتم.' : 'This member cannot write in this group. They will see who muted them and for how long.') : (ar ? 'لن يتمكن هذا الشخص من إرسال رسائل خاصة لك. لا يؤثر ذلك على رسائله في المجموعات.' : 'This person cannot send you private messages. Group messages are unaffected.')}</p>
                 {active && <p className="rounded-xl bg-amber-50 p-3 text-sm">{ar ? 'المنع الحالي: ' : 'Currently blocked: '}{active.expires_at ? new Date(active.expires_at).toLocaleString(ar ? 'ar' : 'en') : (ar ? 'حتى إلغائه' : 'until removed')}</p>}
-                <label className="block text-sm">{ar ? 'المدة' : 'Duration'}<select value={duration} onChange={(event) => setDuration(event.target.value)} className="mt-2 w-full rounded-xl border p-3">
+                <label className="block text-sm">{ar ? 'المدة' : 'Duration'}<Select value={duration} onChange={(event) => setDuration(event.target.value)} className="mt-2 w-full rounded-xl border p-3">
                     <option value="60">{ar ? 'ساعة' : 'One hour'}</option><option value="1440">{ar ? 'يوم' : 'One day'}</option><option value="10080">{ar ? 'أسبوع' : 'One week'}</option><option value="custom">{ar ? 'تاريخ ووقت محدد' : 'Custom date and time'}</option><option value="forever">{ar ? 'دائمًا حتى ألغي المنع' : 'Until I remove it'}</option>
-                </select></label>
+                </Select></label>
                 {duration === 'custom' && <label className="block text-sm">{ar ? 'حتى (بتوقيت جهازك)' : 'Until (your local time)'}<input type="datetime-local" required value={until} onChange={(event) => setUntil(event.target.value)} className="mt-2 w-full rounded-xl border p-3" /></label>}
                 <div className="flex gap-2"><button disabled={busy} className="rounded-xl bg-[var(--ac-accent-strong)] px-4 py-2 text-sm text-white disabled:opacity-40">{ar ? 'حفظ' : 'Save'}</button>{active && <button type="button" disabled={busy} onClick={() => void save(false)} className="rounded-xl border px-4 py-2 text-sm">{ar ? 'إلغاء المنع' : 'Remove restriction'}</button>}</div>
             </form>}

@@ -32,6 +32,7 @@ import {
     type FormEvent,
     type ReactNode,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type WidgetKey =
     | 'kpi_targets'
@@ -1683,7 +1684,7 @@ export function BusinessIntelligenceDashboard({
                         </div>
 
                         <div className="mt-4 space-y-3">
-                            <select
+                            <Select
                                 value={
                                     targetForm.metric
                                 }
@@ -1723,7 +1724,7 @@ export function BusinessIntelligenceDashboard({
                                         </option>
                                     ),
                                 )}
-                            </select>
+                            </Select>
                             <input
                                 type="number"
                                 min="0.01"

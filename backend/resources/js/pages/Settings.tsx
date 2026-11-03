@@ -56,6 +56,7 @@ import {
     useState,
     type ReactNode,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type BankAccount = {
     id: string;
@@ -906,7 +907,7 @@ function SettingsWorkspace() {
                                         >
                                             <label className="block text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('اللغة', 'Language')}
-                                                <select
+                                                <Select
                                                     className={input}
                                                     value={profilePreferences.locale}
                                                     onChange={event =>
@@ -918,7 +919,7 @@ function SettingsWorkspace() {
                                                 >
                                                     <option value="ar">العربية</option>
                                                     <option value="en">English</option>
-                                                </select>
+                                                </Select>
                                             </label>
                                             <label className="mt-4 block text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('المنطقة الزمنية', 'Timezone')}
@@ -1107,7 +1108,7 @@ function SettingsWorkspace() {
                                     <SettingsCard title={text('السنة المالية', 'Fiscal year')} description={text('بداية السنة المالية للمؤسسة.', 'Workspace fiscal-year start.')} icon={CalendarDays}>
                                         <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                             {text('تبدأ السنة المالية في', 'Fiscal year starts in')}
-                                            <select
+                                            <Select
                                                 className={input}
                                                 value={settings.fiscal_year_start_month}
                                                 onChange={event => updateSetting('fiscal_year_start_month', Number(event.target.value))}
@@ -1118,7 +1119,7 @@ function SettingsWorkspace() {
                                                 ].map((month, index) => (
                                                     <option key={month} value={index + 1}>{month}</option>
                                                 ))}
-                                            </select>
+                                            </Select>
                                         </label>
                                     </SettingsCard>
 
@@ -1499,7 +1500,7 @@ function SettingsWorkspace() {
                                                         </div>
                                                         <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                             {text('القالب', 'Template')}
-                                                            <select
+                                                            <Select
                                                                 className={input}
                                                                 value={settings.purchase_template}
                                                                 onChange={event => updateSetting(
@@ -1511,7 +1512,7 @@ function SettingsWorkspace() {
                                                                 <option value="classic">{text('كلاسيكي', 'Classic')}</option>
                                                                 <option value="modern">{text('مودرن', 'Modern')}</option>
                                                                 <option value="simple">{text('بسيط', 'Simple')}</option>
-                                                            </select>
+                                                            </Select>
                                                         </label>
                                                     </div>
                                                 </SettingsCard>
@@ -1535,7 +1536,7 @@ function SettingsWorkspace() {
                                                         </div>
                                                         <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                             {text('القالب', 'Template')}
-                                                            <select
+                                                            <Select
                                                                 className={input}
                                                                 value={settings.receipt_template}
                                                                 onChange={event => updateSetting(
@@ -1547,7 +1548,7 @@ function SettingsWorkspace() {
                                                                 <option value="classic">{text('كلاسيكي', 'Classic')}</option>
                                                                 <option value="modern">{text('مودرن', 'Modern')}</option>
                                                                 <option value="simple">{text('بسيط', 'Simple')}</option>
-                                                            </select>
+                                                            </Select>
                                                         </label>
                                                     </div>
                                                 </SettingsCard>
@@ -1798,17 +1799,17 @@ function SettingsWorkspace() {
                                         >
                                             <label className="text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('حجم الورق', 'Paper size')}
-                                                <select className={input} value={settings.print_paper_size} onChange={event => updateSetting('print_paper_size', event.target.value as WorkspaceSettings['print_paper_size'])}>
+                                                <Select className={input} value={settings.print_paper_size} onChange={event => updateSetting('print_paper_size', event.target.value as WorkspaceSettings['print_paper_size'])}>
                                                     <option value="a4">A4 (210 × 297 mm)</option>
                                                     <option value="letter">Letter (216 × 279 mm)</option>
-                                                </select>
+                                                </Select>
                                             </label>
                                             <label className="mt-4 block text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('هوامش الطباعة', 'Print margins')}
-                                                <select className={input} value={settings.print_margins} onChange={event => updateSetting('print_margins', event.target.value as WorkspaceSettings['print_margins'])}>
+                                                <Select className={input} value={settings.print_margins} onChange={event => updateSetting('print_margins', event.target.value as WorkspaceSettings['print_margins'])}>
                                                     <option value="normal">{text('عادية', 'Normal')}</option>
                                                     <option value="compact">{text('ضيقة', 'Compact')}</option>
-                                                </select>
+                                                </Select>
                                             </label>
                                             <p className="mt-4 text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('موقع الهوية', 'Brand position')}
@@ -2075,11 +2076,11 @@ function SettingsWorkspace() {
                                             <SettingRow label={text('تقليل الحركة', 'Reduce motion')} checked={profilePreferences.reduced_motion} onChange={() => void changeProfilePreferences({ reduced_motion: !profilePreferences.reduced_motion })} />
                                             <label className="mt-3 block text-[11px] font-semibold text-[var(--acs-text-soft)]">
                                                 {text('عدد العناصر في الصفحة', 'Items per page')}
-                                                <select className={input} value={profilePreferences.page_size} onChange={event => void changeProfilePreferences({ page_size: Number(event.target.value) })}>
+                                                <Select className={input} value={profilePreferences.page_size} onChange={event => void changeProfilePreferences({ page_size: Number(event.target.value) })}>
                                                     <option value={10}>10</option>
                                                     <option value={25}>25</option>
                                                     <option value={50}>50</option>
-                                                </select>
+                                                </Select>
                                             </label>
                                         </SettingsCard>
                                     </div>

@@ -138,6 +138,45 @@ class ProductionRecipeWorkflowTest extends TestCase
     }
 
     /**
+     * Verify the Recipe response exposes optional flags and available stock
+     * so the editor can skip optional materials that are out of stock.
+     */
+    public function test_recipe_response_exposes_optional_flag_and_available_stock(): void
+    {
+        [$owner, $organization] = $this->workspace();
+
+        $this->actingInWorkspace($owner, $organization);
+
+        $finished = $this->createCatalogItem('product', 'Bottle', 'piece');
+        $stocked = $this->createCatalogItem('raw_material', 'Plastic', 'kg');
+        $empty = $this->createCatalogItem('raw_material', 'Filler', 'kg');
+        $warehouse = $this->createWarehouse();
+
+        foreach ([$finished, $stocked, $empty] as $id) {
+            $this->enableTracking($id);
+        }
+
+        $this->postJson("/api/inventory/products/{$stocked}/opening-stock", [
+            'warehouse_id' => $warehouse,
+            'quantity' => '10',
+        ])->assertOk();
+
+        $this->postJson("/api/products/{$finished}/production-recipe", [
+            'components' => [
+                ['name' => 'Plastic', 'options' => [['raw_material_id' => $stocked, 'quantity_per_unit' => '0.3000', 'is_default' => true]]],
+                ['name' => 'Filler', 'is_optional' => true, 'options' => [['raw_material_id' => $empty, 'quantity_per_unit' => '1.0000', 'is_default' => true]]],
+            ],
+        ])->assertCreated();
+
+        $this->getJson("/api/products/{$finished}/production-recipe")
+            ->assertOk()
+            ->assertJsonPath('data.active.components.0.is_optional', false)
+            ->assertJsonPath('data.active.components.0.options.0.raw_material.available_quantity', '10.0000')
+            ->assertJsonPath('data.active.components.1.is_optional', true)
+            ->assertJsonPath('data.active.components.1.options.0.raw_material.available_quantity', '0');
+    }
+
+    /**
      * Verify an improved Raw Material may replace the default with its own
      * consumption ratio.
      */

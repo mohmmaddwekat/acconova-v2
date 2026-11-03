@@ -45,6 +45,7 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type RecipeRawMaterial = {
     id: number;
@@ -1828,7 +1829,7 @@ export function ProductionPanel({
                                                         <label className="mt-4 block text-xs font-semibold">
                                                             {copy.usageUnit}
 
-                                                            <select
+                                                            <Select
                                                                 value={
                                                                     option.usageUnit
                                                                 }
@@ -1863,7 +1864,7 @@ export function ProductionPanel({
                                                                         </option>
                                                                     ),
                                                                 )}
-                                                            </select>
+                                                            </Select>
                                                         </label>
 
                                                         {option.entryMode ===

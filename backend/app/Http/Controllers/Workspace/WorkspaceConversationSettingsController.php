@@ -53,14 +53,15 @@ class WorkspaceConversationSettingsController extends Controller
     public function library(Request $request, string $conversation): JsonResponse
     {
         $this->conversation($request, $conversation);
-        $data = $request->validate(['kind' => ['required', Rule::in(['media', 'files', 'links'])], 'page' => ['sometimes', 'integer', 'min:1']]);
+        $data = $request->validate(['kind' => ['required', Rule::in(['media', 'files', 'links'])], 'page' => ['sometimes', 'integer', 'min:1'], 'per_page' => ['sometimes', 'integer', 'min:1', 'max:100']]);
+        $perPage = $data['per_page'] ?? 25;
         $query = $this->visibleMessages($request, $conversation);
         if ($data['kind'] === 'links') {
-            $result = $query->where('m.body', 'like', '%http%')->latest('m.id')->select(['m.id', 'm.body'])->paginate(30);
+            $result = $query->where('m.body', 'like', '%http%')->latest('m.id')->select(['m.id', 'm.body'])->paginate($perPage);
         } else {
             $result = $query->join('workspace_message_attachments as a', 'a.message_id', '=', 'm.id')
                 ->when($data['kind'] === 'media', fn (Builder $query): Builder => $query->whereIn('a.kind', ['image', 'video']))
-                ->latest('a.id')->select(['a.id', 'a.kind', 'a.original_name as name', 'a.size'])->paginate(30);
+                ->latest('a.id')->select(['a.id', 'a.kind', 'a.original_name as name', 'a.size'])->paginate($perPage);
             $result->through(fn (object $item): array => (array) $item + ['url' => url('/api/team-space/'.$conversation.'/messages').'?attachment='.$item->id]);
         }
 

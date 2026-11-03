@@ -160,6 +160,41 @@ class ProductionRunService
     }
 
     /**
+     * Restore one archived Production Draft.
+     */
+    public function restoreDraft(int $runId): ProductionRun
+    {
+        return DB::transaction(function () use ($runId): ProductionRun {
+            $run = ProductionRun::onlyTrashed()
+                ->lockForUpdate()
+                ->findOrFail($runId);
+
+            $this->guardDraft($run);
+            $run->restore();
+
+            return $this->loadRun($run);
+        }, 3);
+    }
+
+    /**
+     * Permanently delete one archived Production Draft and its child rows.
+     */
+    public function forceDeleteDraft(
+        int $runId,
+        int $expectedRevision,
+    ): void {
+        DB::transaction(function () use ($runId, $expectedRevision): void {
+            $run = ProductionRun::onlyTrashed()
+                ->lockForUpdate()
+                ->findOrFail($runId);
+
+            $this->guardDraft($run);
+            $this->guardRevision($run, $expectedRevision);
+            $run->forceDelete();
+        }, 3);
+    }
+
+    /**
      * Preview actual Inventory consumption and optional Recipe suggestions.
      *
      * @return array<string, mixed>

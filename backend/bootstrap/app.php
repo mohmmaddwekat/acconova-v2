@@ -14,7 +14,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-return Application::configure(basePath: dirname(__DIR__))
+$app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
@@ -88,3 +88,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 || $request->expectsJson(),
         );
     })->create();
+
+/*
+ * On shared hosting the app lives in a folder next to the web root
+ * (`public_html`), so the public path must point there instead of ./public.
+ */
+if (is_dir($sharedHostingPublic = dirname(__DIR__, 2).'/public_html')) {
+    $app->usePublicPath($sharedHostingPublic);
+}
+
+return $app;

@@ -1,3 +1,4 @@
+import { useTableView } from '@/components/data/useTableView';
 import { apiRequest } from '@/lib/http';
 import { Link } from '@inertiajs/react';
 import {
@@ -26,10 +27,12 @@ import {
     todayValue,
 } from './shared';
 import type {
+    CashRow,
     FinanceLookups,
     GovernmentObligation,
     TaxRule,
 } from './types';
+import { Select } from '@/components/ui/Select';
 
 type TaxResponse = {
     currency: string;
@@ -88,6 +91,20 @@ export function Taxes({
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [revision, setRevision] = useState(0);
+    const [paidGovernment, setPaidGovernment] = useState<{ data: CashRow[]; meta: { total: number } } | null>(null);
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        apiRequest<{ data: CashRow[]; meta: { total: number } }>(
+            '/api/finance/cash-movements?direction=outgoing&government=1&per_page=100',
+            { signal: controller.signal },
+        )
+            .then(setPaidGovernment)
+            .catch(() => undefined);
+
+        return () => controller.abort();
+    }, [revision]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -107,6 +124,15 @@ export function Taxes({
     }, [revision]);
 
     const rules = data?.rules ?? [];
+    const rulesView = useTableView(rules, {
+        name: (rule) => `${rule.name} ${rule.code}`,
+        jurisdiction: (rule) => `${rule.country_code} ${rule.region_code ?? ''}`,
+        tax_type: (rule) => rule.tax_type,
+        rate: (rule) => Number(rule.rate),
+        applies_to: (rule) => rule.applies_to,
+        effective: (rule) => rule.effective_from,
+        active: (rule) => (rule.active ? 1 : 0),
+    });
     const obligations = data?.obligations ?? [];
     const openObligations = obligations.filter((item) =>
         ['open', 'partial'].includes(item.status),
@@ -361,7 +387,7 @@ export function Taxes({
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('نوع الضريبة', 'Tax type')}
-                                <select
+                                <Select
                                     className={financeInput + ' mt-2'}
                                     value={ruleDraft.tax_type}
                                     onChange={(event) => setRuleDraft((current) => ({ ...current, tax_type: event.target.value }))}
@@ -380,7 +406,7 @@ export function Taxes({
                                     ].map(([value, label]) => (
                                         <option key={value} value={value}>{label}</option>
                                     ))}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
@@ -424,7 +450,7 @@ export function Taxes({
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('تطبق على', 'Applies to')}
-                                <select
+                                <Select
                                     className={financeInput + ' mt-2'}
                                     value={ruleDraft.applies_to}
                                     onChange={(event) => setRuleDraft((current) => ({
@@ -435,7 +461,7 @@ export function Taxes({
                                     <option value="both">{text('البيع والشراء', 'Sales & purchases')}</option>
                                     <option value="sales">{text('البيع', 'Sales')}</option>
                                     <option value="purchases">{text('الشراء', 'Purchases')}</option>
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
@@ -531,7 +557,7 @@ export function Taxes({
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('النوع', 'Type')}
-                                <select name="obligation_type" className={financeInput + ' mt-2'} defaultValue="vat">
+                                <Select name="obligation_type" className={financeInput + ' mt-2'} defaultValue="vat">
                                     {[
                                         ['vat', 'VAT'],
                                         ['sales_tax', text('ضريبة مبيعات', 'Sales tax')],
@@ -547,19 +573,19 @@ export function Taxes({
                                     ].map(([value, label]) => (
                                         <option key={value} value={value}>{label}</option>
                                     ))}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('قاعدة مرتبطة', 'Linked tax rule')}
-                                <select name="tax_rule_id" className={financeInput + ' mt-2'} defaultValue="">
+                                <Select name="tax_rule_id" className={financeInput + ' mt-2'} defaultValue="">
                                     <option value="">{text('بدون قاعدة', 'No rule')}</option>
                                     {rules.map((rule) => (
                                         <option key={rule.id} value={rule.id}>
                                             {rule.name} · {rule.country_code}{rule.region_code ? '-' + rule.region_code : ''}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
@@ -635,22 +661,18 @@ export function Taxes({
                             <table className="w-full min-w-[900px] text-xs">
                                 <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                     <tr>
-                                        {[
-                                            text('القاعدة', 'Rule'),
-                                            text('الدولة / المنطقة', 'Jurisdiction'),
-                                            text('النوع', 'Type'),
-                                            text('النسبة', 'Rate'),
-                                            text('تطبق على', 'Applies to'),
-                                            text('السريان', 'Effective'),
-                                            text('الحالة', 'Status'),
-                                            text('إجراء', 'Action'),
-                                        ].map((label) => (
-                                            <th key={label} className="px-3 py-3 text-start">{label}</th>
-                                        ))}
+                                        {rulesView.th('name', text('القاعدة', 'Rule'), { className: 'py-3' })}
+                                        {rulesView.th('jurisdiction', text('الدولة / المنطقة', 'Jurisdiction'), { className: 'py-3' })}
+                                        {rulesView.th('tax_type', text('النوع', 'Type'), { className: 'py-3' })}
+                                        {rulesView.th('rate', text('النسبة', 'Rate'), { className: 'py-3' })}
+                                        {rulesView.th('applies_to', text('تطبق على', 'Applies to'), { className: 'py-3' })}
+                                        {rulesView.th('effective', text('السريان', 'Effective'), { className: 'py-3' })}
+                                        {rulesView.th('active', text('الحالة', 'Status'), { className: 'py-3', filterable: false })}
+                                        <th className="px-3 py-3 text-start">{text('إجراء', 'Action')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {rules.map((rule) => (
+                                    {rulesView.rows.map((rule) => (
                                         <tr key={rule.id} className="border-t border-[var(--ac-line)]">
                                             <td className="px-3 py-3">
                                                 <strong className="text-[var(--ac-text)]">{rule.name}</strong>
@@ -751,6 +773,50 @@ export function Taxes({
                     </div>
                 </FPanel>
             </div>
+
+            <FPanel
+                title={text('مدفوعات حكومية سابقة', 'Past government payments') + (paidGovernment ? ' (' + paidGovernment.meta.total + ')' : '')}
+                icon={Landmark}
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[640px] text-xs">
+                        <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
+                            <tr>
+                                {[text('رقم الحركة', 'Movement'), text('التاريخ', 'Date'), text('النوع', 'Type'), text('المرجع', 'Reference'), text('المبلغ', 'Amount')].map((label) => (
+                                    <th key={label} className="px-3 py-2.5 text-start">{label}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {paidGovernment?.data.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-8 text-center text-[var(--ac-text-muted)]">
+                                        {text('لا توجد مدفوعات حكومية مسجلة.', 'No government payments recorded.')}
+                                    </td>
+                                </tr>
+                            )}
+                            {paidGovernment?.data.map((row) => (
+                                <tr key={row.id} className="border-t border-[var(--ac-line)] hover:bg-blue-50/40">
+                                    <td className="px-3 py-2.5 font-semibold text-[var(--ac-accent)]">
+                                        <Link href={'/app/payments/' + row.id}>{row.number}</Link>
+                                    </td>
+                                    <td className="px-3 py-2.5">{row.movement_date}</td>
+                                    <td className="px-3 py-2.5">
+                                        {row.category === 'tax_payment' ? text('ضريبة', 'Tax') : text('رسوم حكومية', 'Government fee')}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-[var(--ac-text-muted)]">{row.reference ?? '—'}</td>
+                                    <td className="px-3 py-2.5 font-bold"><Money value={row.amount} currency={row.currency} compact /></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {paidGovernment && paidGovernment.meta.total > paidGovernment.data.length && (
+                    <p className="border-t border-[var(--ac-line)] px-4 py-3 text-xs text-[var(--ac-text-muted)]">
+                        {text('يظهر آخر 100 فقط. استخدم صفحة المدفوعات للبحث في الباقي.', 'Showing the latest 100 only.')}
+                    </p>
+                )}
+            </FPanel>
 
             <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-800">
                 <strong>{text('مهم:', 'Important:')}</strong>{' '}

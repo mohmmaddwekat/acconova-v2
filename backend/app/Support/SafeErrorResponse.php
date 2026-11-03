@@ -129,6 +129,8 @@ class SafeErrorResponse
                         $payload['error_codes'][$field] =
                             $safeCodes;
 
+                        $payload['safe_errors'][$field] = true;
+
                         continue;
                     }
                 }
@@ -202,6 +204,31 @@ class SafeErrorResponse
                     : [
                         $rule,
                     ];
+
+                foreach (
+                    $failed[$field] ?? [] as $ruleName => $ruleParams
+                ) {
+                    $safeParams = array_values(
+                        array_filter(
+                            array_map(
+                                strval(...),
+                                array_filter(
+                                    (array) $ruleParams,
+                                    is_scalar(...),
+                                ),
+                            ),
+                            fn (string $param): bool => preg_match(
+                                '/^[A-Za-z0-9_.*\-]{1,40}$/',
+                                $param,
+                            ) === 1,
+                        ),
+                    );
+
+                    if ($safeParams !== []) {
+                        $payload['error_params'][$field][strtolower($ruleName)] =
+                            $safeParams;
+                    }
+                }
             }
         }
 

@@ -23,6 +23,7 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type GrowthSnapshot = {
     health: {
@@ -426,13 +427,13 @@ export function BillingGrowthCenter() {
                     </div>
                     {showCancel && ! data.cancellation.scheduled && (
                         <div className="mt-3 space-y-2 rounded-[12px] border border-[var(--acs-line)] p-3">
-                            <select className={input} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)}>
+                            <Select className={input} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)}>
                                 <option value="too_expensive">{text('السعر مرتفع', 'Too expensive')}</option>
                                 <option value="not_using">{text('لا أستخدمه كفاية', 'Not using it enough')}</option>
                                 <option value="missing_feature">{text('ميزة مفقودة', 'Missing feature')}</option>
                                 <option value="temporary">{text('توقف مؤقت', 'Temporary pause')}</option>
                                 <option value="other">{text('سبب آخر', 'Other')}</option>
-                            </select>
+                            </Select>
                             <textarea className={input} rows={2} value={cancelFeedback} onChange={(event) => setCancelFeedback(event.target.value)} placeholder={text('ملاحظتك تساعدنا نحسن AccoNova', 'Your feedback helps improve AccoNova')} />
                             <button className={button} disabled={!!busy} onClick={() => void action('cancel', '/api/billing/growth/cancel', { reason: cancelReason, feedback: cancelFeedback.trim() || null })}>{text('إيقاف التجديد بنهاية الفترة', 'Stop renewal at period end')}</button>
                         </div>

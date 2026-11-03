@@ -11,11 +11,92 @@ use App\Models\Warehouse;
 use App\Tenancy\OrganizationAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ProductionRunWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_draft_can_be_archived_restored_and_permanently_deleted(): void
+    {
+        $workspace = $this->workspace();
+        $run = $this->postJson('/api/production-runs', [
+            'occurred_on' => '2026-10-29',
+            'outputs' => [[
+                'product_id' => $workspace['red_box']->id,
+                'warehouse_id' => $workspace['finished']->id,
+                'quantity' => '10',
+                'materials' => [[
+                    'raw_material_id' => $workspace['plastic']->id,
+                    'warehouse_id' => $workspace['raw']->id,
+                    'actual_quantity' => '1',
+                ]],
+            ]],
+        ])->assertCreated()->json('data');
+
+        $this->deleteJson("/api/production-runs/{$run['id']}", [
+            'expected_revision' => $run['revision'],
+        ])->assertNoContent();
+
+        $this->getJson('/api/production-runs')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/production-runs?archived=1')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $run['id'])
+            ->assertJsonPath('data.0.is_archived', true);
+
+        $this->postJson("/api/production-runs/{$run['id']}/restore")
+            ->assertOk()
+            ->assertJsonPath('data.is_archived', false);
+        $this->getJson('/api/production-runs')->assertOk()->assertJsonPath('data.0.id', $run['id']);
+
+        $this->deleteJson("/api/production-runs/{$run['id']}", [
+            'expected_revision' => $run['revision'],
+        ])->assertNoContent();
+        $this->deleteJson("/api/production-runs/{$run['id']}/force", [
+            'expected_revision' => $run['revision'],
+        ])->assertNoContent();
+
+        $this->assertDatabaseMissing('production_runs', ['id' => $run['id']]);
+        $this->assertDatabaseMissing('production_run_outputs', ['production_run_id' => $run['id']]);
+    }
+
+    public function test_history_searches_products_and_combines_filters_and_sorting(): void
+    {
+        $workspace = $this->workspace();
+        $workspace['red_box']->update(['name' => 'سائل أصفر', 'sku' => 'YELLOW-LIQUID']);
+        $ids = [];
+        foreach (['2026-01-01', '2026-01-03', '2026-01-02'] as $date) {
+            $ids[] = $this->postJson('/api/production-runs', [
+                'occurred_on' => $date,
+                'outputs' => [[
+                    'product_id' => $workspace['red_box']->id,
+                    'warehouse_id' => $workspace['finished']->id,
+                    'quantity' => '10',
+                    'materials' => [[
+                        'raw_material_id' => $workspace['plastic']->id,
+                        'warehouse_id' => $workspace['raw']->id,
+                        'actual_quantity' => '1',
+                    ]],
+                ]],
+            ])->assertCreated()->json('data.id');
+        }
+
+        foreach (['أصفر', 'YELLOW-LIQUID'] as $search) {
+            $this->getJson('/api/production-runs?'.http_build_query([
+                'search' => $search, 'status' => 'draft',
+                'from' => '2026-01-02', 'to' => '2026-01-03',
+                'sort' => 'occurred_on', 'direction' => 'asc',
+            ]))->assertOk()->assertJsonPath('meta.total', 2)
+                ->assertJsonPath('data.0.id', $ids[2])
+                ->assertJsonPath('data.1.id', $ids[1]);
+        }
+
+        $this->getJson('/api/production-runs?search=missing-product')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/production-runs?search=YELLOW&status=posted')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/production-runs?sort=run_number&direction=asc')->assertOk()->assertJsonPath('data.0.id', $ids[0]);
+        $this->getJson('/api/production-runs?sort=invalid')->assertUnprocessable();
+    }
 
     /**
      * Verify actual consumption overrides Recipe suggestions.
@@ -800,6 +881,67 @@ class ProductionRunWorkflowTest extends TestCase
                 'data.status',
                 'reversed',
             );
+    }
+
+    public function test_quick_entry_posts_one_run_per_row_from_the_active_recipe(): void
+    {
+        $workspace = $this->workspace();
+        $this->recipe($workspace['red_box'], [['material' => $workspace['plastic'], 'rate' => '0.2500']]);
+
+        $response = $this->postJson('/api/production-runs/quick', [
+            'warehouse_id' => $workspace['raw']->id,
+            'post' => true,
+            'rows' => [
+                ['occurred_on' => '2026-10-01', 'product_id' => $workspace['red_box']->id, 'quantity' => '100'],
+                ['occurred_on' => '2026-10-02', 'product_id' => $workspace['red_box']->id, 'quantity' => '40'],
+                ['occurred_on' => '2026-10-03', 'product_id' => $workspace['yellow_box']->id, 'quantity' => '10'],
+            ],
+        ])->assertCreated();
+
+        $response
+            ->assertJsonPath('data.0.status', 'posted')
+            ->assertJsonPath('data.1.status', 'posted')
+            ->assertJsonPath('data.2.status', 'failed')
+            ->assertJsonPath('data.2.message', 'no_active_recipe');
+
+        $this->assertDatabaseCount('production_runs', 2);
+        $this->assertSame(
+            '965.0000',
+            (string) DB::table('inventory_balances')
+                ->where('product_id', $workspace['plastic']->id)
+                ->where('warehouse_id', $workspace['raw']->id)
+                ->value('on_hand'),
+        );
+    }
+
+    public function test_quick_entry_without_posting_only_saves_drafts(): void
+    {
+        $workspace = $this->workspace();
+        $this->recipe($workspace['red_box'], [['material' => $workspace['plastic'], 'rate' => '0.2500']]);
+
+        $this->postJson('/api/production-runs/quick', [
+            'warehouse_id' => $workspace['raw']->id,
+            'rows' => [['occurred_on' => '2026-10-01', 'product_id' => $workspace['red_box']->id, 'quantity' => '100']],
+        ])->assertCreated()->assertJsonPath('data.0.status', 'draft');
+
+        $this->assertDatabaseHas('production_runs', ['status' => 'draft']);
+        $this->assertSame(
+            '1000.0000',
+            (string) DB::table('inventory_balances')
+                ->where('product_id', $workspace['plastic']->id)
+                ->where('warehouse_id', $workspace['raw']->id)
+                ->value('on_hand'),
+        );
+    }
+
+    public function test_quick_entry_rejects_future_dates(): void
+    {
+        $workspace = $this->workspace();
+
+        $this->postJson('/api/production-runs/quick', [
+            'warehouse_id' => $workspace['raw']->id,
+            'rows' => [['occurred_on' => now()->addDay()->toDateString(), 'product_id' => $workspace['red_box']->id, 'quantity' => '1']],
+        ])->assertUnprocessable();
     }
 
     /**

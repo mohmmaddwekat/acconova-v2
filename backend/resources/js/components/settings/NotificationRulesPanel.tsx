@@ -10,6 +10,7 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type NotificationRule = {
     id: number;
@@ -389,7 +390,7 @@ export function NotificationRulesPanel({
                         />
 
                         <div className="grid gap-2 sm:grid-cols-2">
-                            <select
+                            <Select
                                 className={control}
                                 value={
                                     form.category
@@ -430,9 +431,9 @@ export function NotificationRulesPanel({
                                         </option>
                                     ),
                                 )}
-                            </select>
+                            </Select>
 
-                            <select
+                            <Select
                                 className={control}
                                 value={
                                     form.kind
@@ -473,11 +474,11 @@ export function NotificationRulesPanel({
                                         </option>
                                     ),
                                 )}
-                            </select>
+                            </Select>
                         </div>
 
                         <div className="grid gap-2 sm:grid-cols-3">
-                            <select
+                            <Select
                                 className={control}
                                 value={
                                     form.field
@@ -512,9 +513,9 @@ export function NotificationRulesPanel({
                                         </option>
                                     ),
                                 )}
-                            </select>
+                            </Select>
 
-                            <select
+                            <Select
                                 className={control}
                                 value={
                                     form.operator
@@ -555,7 +556,7 @@ export function NotificationRulesPanel({
                                         </option>
                                     ),
                                 )}
-                            </select>
+                            </Select>
 
                             <input
                                 className={control}

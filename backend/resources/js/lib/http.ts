@@ -6,6 +6,8 @@ export type ApiErrorPayload = {
     code?: string;
     error_id?: string;
     error_codes?: Record<string, string[]>;
+    safe_errors?: Record<string, boolean>;
+    error_params?: Record<string, Record<string, string[]>>;
     errors?: Record<string, string[]>;
 };
 

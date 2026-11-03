@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Models\CashAllocation;
 use App\Models\CashMovement;
 use App\Models\FinanceAuditEvent;
 use App\Services\Finance\CashMovementService;
@@ -26,23 +27,25 @@ class CashMovementController extends Controller
             'status' => ['nullable', Rule::in(['draft', 'posted', 'reversed'])],
             'category' => ['nullable', 'string', 'max:48'],
             'party_id' => ['nullable', 'integer'],
+            'petty' => ['sometimes', 'boolean'],
+            'misc' => ['sometimes', 'boolean'],
+            'exclude_petty' => ['sometimes', 'boolean'],
+            'government' => ['sometimes', 'boolean'],
             'method' => ['nullable', 'string', 'max:32'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'min_amount' => ['nullable', 'numeric', 'min:0'],
+            'max_amount' => ['nullable', 'numeric', 'min:0'],
+            'sort' => ['nullable', Rule::in(['number', 'date', 'party', 'category', 'method', 'reference', 'amount', 'status'])],
+            'sort_direction' => ['nullable', Rule::in(['asc', 'desc'])],
             'search' => ['nullable', 'string', 'max:120'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'between:10,100'],
         ]);
 
-        $query = CashMovement::query()
-            ->with([
-                'party:id,name,company_name',
-                'allocations.document:id,number',
-            ])
-            ->withSum(
-                'allocations as allocated_total',
-                'amount',
-            )
+        $filtered = CashMovement::query()
+            /* Walk-in (متفرقات) receipts live on their own page, not in the normal receipts list. */
+            ->where('is_misc_sale', $request->boolean('misc'))
             ->when($data['direction'] ?? null, fn ($query, $direction) => $query->where('direction', $direction))
             ->when(
                 $data['status'] ?? null,
@@ -52,9 +55,14 @@ class CashMovementController extends Controller
             )
             ->when($data['category'] ?? null, fn ($query, $category) => $query->where('category', $category))
             ->when($data['party_id'] ?? null, fn ($query, $partyId) => $query->where('party_id', $partyId))
+            ->when($data['petty'] ?? false, fn ($query) => $query->whereNull('party_id')->whereIn('category', PettyExpenseController::CATEGORIES))
+            ->when($data['exclude_petty'] ?? false, fn ($query) => $query->whereNot(fn ($inner) => $inner->whereNull('party_id')->whereIn('category', PettyExpenseController::CATEGORIES)))
+            ->when($data['government'] ?? false, fn ($query) => $query->whereIn('category', ['tax_payment', 'government_fee']))
             ->when($data['method'] ?? null, fn ($query, $method) => $query->where('method', $method))
             ->when($data['date_from'] ?? null, fn ($query, $date) => $query->whereDate('movement_date', '>=', $date))
             ->when($data['date_to'] ?? null, fn ($query, $date) => $query->whereDate('movement_date', '<=', $date))
+            ->when($data['min_amount'] ?? null, fn ($query, $amount) => $query->where('amount', '>=', $amount))
+            ->when($data['max_amount'] ?? null, fn ($query, $amount) => $query->where('amount', '<=', $amount))
             ->when($data['search'] ?? null, function ($query, $search): void {
                 $query->where(function ($inner) use ($search): void {
                     $inner
@@ -65,29 +73,56 @@ class CashMovementController extends Controller
                             ->where('name', 'like', '%'.$search.'%')
                             ->orWhere('company_name', 'like', '%'.$search.'%'));
                 });
-            })
-            ->latest('movement_date')
-            ->latest('id');
+            });
 
-        $summaryRows = (clone $query)->get([
-            'direction',
-            'status',
-            'amount',
-            'method',
-            'check_status',
-            'reversal_of_id',
-        ]);
+        /*
+         * The summary is aggregated in SQL instead of loading every matching
+         * movement into memory.
+         */
+        $summaryGroups = (clone $filtered)
+            ->toBase()
+            ->reorder()
+            ->selectRaw('direction, status, method, check_status, (reversal_of_id is null) as is_original, count(*) as row_count, sum(amount) as total_amount')
+            ->groupBy('direction', 'status', 'method', 'check_status', 'is_original')
+            ->get();
+        $query = (clone $filtered)
+            ->with([
+                'party:id,name,company_name',
+                'allocations.document:id,number',
+            ])
+            ->withSum(
+                'allocations as allocated_total',
+                'amount',
+            )
+            ->tap(function ($query) use ($data): void {
+                $columns = [
+                    'number' => 'number',
+                    'date' => 'movement_date',
+                    'category' => 'category',
+                    'method' => 'method',
+                    'reference' => 'reference',
+                    'amount' => 'amount',
+                    'status' => 'status',
+                ];
+                $sort = $data['sort'] ?? null;
+                $direction = ($data['sort_direction'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
 
-        $effectivePostedRows = $summaryRows
+                if ($sort === 'party') {
+                    $query->orderByRaw('(select coalesce(nullif(parties.company_name, ""), parties.name) from parties where parties.id = cash_movements.party_id) '.$direction)->orderByDesc('id');
+                } elseif ($sort !== null && isset($columns[$sort])) {
+                    $query->orderBy($columns[$sort], $direction)->orderByDesc('id');
+                } else {
+                    $query->latest('movement_date')->latest('id');
+                }
+            });
+
+        $effectivePostedGroups = $summaryGroups
             ->where('status', 'posted')
+            ->where('is_original', 1)
             ->filter(
-                fn (CashMovement $movement): bool => $movement->reversal_of_id === null
-                    && (
-                        $movement->method !== 'check'
-                        || ! in_array($movement->check_status, ['bounced', 'cancelled'], true)
-                    ),
+                fn (object $group): bool => $group->method !== 'check'
+                    || ! in_array($group->check_status, ['bounced', 'cancelled'], true),
             );
-
         $paginator = $query->paginate($data['per_page'] ?? 20);
 
         return response()->json([
@@ -99,38 +134,27 @@ class CashMovementController extends Controller
                 'total' => $paginator->total(),
             ],
             'summary' => [
-                'count' => $summaryRows->count(),
+                'count' => (int) $summaryGroups->sum('row_count'),
                 'posted_incoming' => number_format(
-                    (float) $effectivePostedRows
-                        ->where('direction', 'incoming')
-                        ->sum(fn (CashMovement $row): float => (float) $row->amount),
+                    (float) $effectivePostedGroups->where('direction', 'incoming')->sum('total_amount'),
                     4,
                     '.',
                     '',
                 ),
                 'posted_outgoing' => number_format(
-                    (float) $effectivePostedRows
-                        ->where('direction', 'outgoing')
-                        ->sum(fn (CashMovement $row): float => (float) $row->amount),
+                    (float) $effectivePostedGroups->where('direction', 'outgoing')->sum('total_amount'),
                     4,
                     '.',
                     '',
                 ),
-                'drafts' => $summaryRows->where('status', 'draft')->count(),
-                'reversed' => $summaryRows->where('status', 'reversed')->count(),
-                'methods' => $effectivePostedRows
+                'drafts' => (int) $summaryGroups->where('status', 'draft')->sum('row_count'),
+                'reversed' => (int) $summaryGroups->where('status', 'reversed')->sum('row_count'),
+                'methods' => $effectivePostedGroups
                     ->groupBy('method')
                     ->map(
-                        fn ($rows): array => [
-                            'count' => $rows->count(),
-                            'amount' => number_format(
-                                (float) $rows->sum(
-                                    fn (CashMovement $row): float => (float) $row->amount,
-                                ),
-                                4,
-                                '.',
-                                '',
-                            ),
+                        fn ($groups): array => [
+                            'count' => (int) $groups->sum('row_count'),
+                            'amount' => number_format((float) $groups->sum('total_amount'), 4, '.', ''),
                         ],
                     )
                     ->all(),
@@ -624,7 +648,7 @@ class CashMovementController extends Controller
                 'financial_document_id' => $allocation->financial_document_id,
                 'document_number' => $allocation->document?->number,
                 'document_total' => $allocation->document?->total,
-                'document_balance_due' => $allocation->document?->balance_due,
+                'document_balance_due' => $this->availableInvoiceBalance($movement, $allocation),
                 'amount' => $allocation->amount,
             ])->values(),
             'government_obligation' => $movement->governmentObligation ? [
@@ -634,5 +658,26 @@ class CashMovementController extends Controller
                 'balance_due' => $movement->governmentObligation->balance_due,
             ] : null,
         ];
+    }
+
+    /**
+     * Balance a draft can still allocate to the invoice. A correction draft
+     * replaces its posted source, whose allocation is reversed on posting, so
+     * that amount counts as available again.
+     */
+    private function availableInvoiceBalance(CashMovement $movement, CashAllocation $allocation): ?string
+    {
+        $balance = $allocation->document?->balance_due;
+
+        if ($balance === null || $movement->status !== 'draft' || ! $movement->corrected_from_id) {
+            return $balance;
+        }
+
+        $released = (float) CashAllocation::query()
+            ->where('cash_movement_id', $movement->corrected_from_id)
+            ->where('financial_document_id', $allocation->financial_document_id)
+            ->sum('amount');
+
+        return number_format((float) $balance + $released, 4, '.', '');
     }
 }

@@ -25,10 +25,13 @@ class ServiceOperationController extends Controller
     {
         $catalogItem = Product::withTrashed()->findOrFail($product);
         Gate::authorize('view', $catalogItem);
-        $request->validate(['page' => ['sometimes', 'integer', 'min:1']]);
+        $data = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
 
         return ServiceOperationResource::collection(
-            ServiceOperation::query()->where('product_id', $catalogItem->id)->latest('id')->paginate(10),
+            ServiceOperation::query()->where('product_id', $catalogItem->id)->latest('id')->paginate($data['per_page'] ?? 25),
         );
     }
 

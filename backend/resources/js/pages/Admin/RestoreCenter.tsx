@@ -21,6 +21,7 @@ import {
     useMemo,
     useState,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type RestoreItem = {
     type:
@@ -298,7 +299,7 @@ export default function RestoreCenter() {
                         />
                     </div>
 
-                    <select
+                    <Select
                         value={type}
                         onChange={
                             event =>
@@ -328,7 +329,7 @@ export default function RestoreCenter() {
                                 ? 'مستودعات'
                                 : 'Warehouses'}
                         </option>
-                    </select>
+                    </Select>
 
                     <Link
                         href="/app/audit"

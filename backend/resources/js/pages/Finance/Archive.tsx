@@ -1,3 +1,4 @@
+import { useTableView } from '@/components/data/useTableView';
 import { apiRequest } from '@/lib/http';
 import { AppShell } from '@/layouts/AppShell';
 import { useLocale } from '@/lib/i18n';
@@ -84,10 +85,20 @@ export default function FinanceArchive() {
         void load();
     }, []);
 
-    const visible = useMemo(
+    const typeVisible = useMemo(
         () => rows.filter((row) => filter === 'all' || row.kind === filter),
         [rows, filter],
     );
+    const view = useTableView(typeVisible, {
+        number: (row) => row.number,
+        kind: (row) => row.kind,
+        party: (row) => row.party,
+        date: (row) => row.date,
+        amount: (row) => Number(row.amount),
+        status: (row) => row.status,
+        replaced_by: (row) => row.replaced_by,
+    });
+    const visible = view.rows;
 
     const counts = useMemo(() => {
         const result: Record<Filter, number> = { all: rows.length, sale_invoice: 0, purchase_invoice: 0, incoming: 0, outgoing: 0, adjustment: 0 };
@@ -336,13 +347,13 @@ export default function FinanceArchive() {
                                                 />
                                             )}
                                         </th>
-                                        <th className="px-3 py-3 text-start">{text('الرقم', 'Number')}</th>
-                                        <th className="px-3 py-3 text-start">{text('النوع', 'Type')}</th>
-                                        <th className="px-3 py-3 text-start">{text('الطرف', 'Party')}</th>
-                                        <th className="px-3 py-3 text-start">{text('التاريخ', 'Date')}</th>
-                                        <th className="px-3 py-3 text-end">{text('المبلغ', 'Amount')}</th>
-                                        <th className="px-3 py-3 text-start">{text('الحالة', 'Status')}</th>
-                                        <th className="px-3 py-3 text-start">{text('النسخة الجديدة', 'New version')}</th>
+                                        {view.th('number', text('الرقم', 'Number'), { className: 'py-3' })}
+                                        {view.th('kind', text('النوع', 'Type'), { className: 'py-3' })}
+                                        {view.th('party', text('الطرف', 'Party'), { className: 'py-3' })}
+                                        {view.th('date', text('التاريخ', 'Date'), { className: 'py-3' })}
+                                        {view.th('amount', text('المبلغ', 'Amount'), { className: 'py-3' })}
+                                        {view.th('status', text('الحالة', 'Status'), { className: 'py-3' })}
+                                        {view.th('replaced_by', text('النسخة الجديدة', 'New version'), { className: 'py-3' })}
                                     </tr>
                                 </thead>
                                 <tbody>

@@ -2466,6 +2466,8 @@ final class WorkspaceFeaturePermissions
             ['POST', 'api/finance/documents/*/correct', 'finance.documents.correct'],
             ['POST', 'api/finance/documents/*/void', 'finance.documents.void'],
             ['POST', 'api/finance/documents/*/apply-credit', 'finance.documents.apply_credit'],
+            ['POST', 'api/finance/auto-allocation/preview', 'finance.cash.view'],
+            ['POST', 'api/finance/auto-allocation/apply', 'finance.documents.apply_credit'],
             ['GET', 'api/finance/documents/*/fulfillments', 'finance.fulfillments.view'],
             ['POST', 'api/finance/documents/*/fulfillments', 'finance.fulfillments.manage'],
             ['DELETE', 'api/finance/documents/*/fulfillments/*', 'finance.fulfillments.manage'],

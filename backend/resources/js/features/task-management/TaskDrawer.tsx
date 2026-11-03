@@ -50,6 +50,7 @@ import type {
     TaskDetail,
     TaskStatus,
 } from './types';
+import { Select } from '@/components/ui/Select';
 
 type DrawerTab =
     | 'details'
@@ -499,7 +500,7 @@ export function TaskDrawer({
 
                         <DetailCell label={text('الحالة', 'Status')}>
                             {can('tasks.update') ? (
-                                <select
+                                <Select
                                     aria-label={text('حالة المهمة', 'Task status')}
                                     disabled={busy}
                                     className={`${input} !min-h-6 !p-1 !text-[11px]`}
@@ -519,7 +520,7 @@ export function TaskDrawer({
                                             {value[ar ? 'ar' : 'en']}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                             ) : (
                                 <StatusBadge
                                     status={task.status}

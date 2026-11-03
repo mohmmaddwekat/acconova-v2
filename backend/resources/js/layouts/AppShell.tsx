@@ -207,7 +207,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
             <div
                 className={[
-                    'min-h-dvh min-w-0 transition-[padding] duration-300 ease-out',
+                    'min-h-dvh min-w-0 transition-[padding] duration-300 ease-out md:pe-[var(--ac-ai-width,0px)]',
                     railExpanded
                         ? 'md:ps-[248px]'
                         : 'md:ps-[84px]',

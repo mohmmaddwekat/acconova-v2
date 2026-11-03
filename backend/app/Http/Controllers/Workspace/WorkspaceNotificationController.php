@@ -59,14 +59,14 @@ class WorkspaceNotificationController extends Controller
 
     public function index(Request $request, NotificationCenter $center): AnonymousResourceCollection
     {
-        $data = $request->validate(['page' => ['sometimes', 'integer', 'min:1'], 'unread' => ['sometimes', 'boolean'],
+        $data = $request->validate(['page' => ['sometimes', 'integer', 'min:1'], 'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'], 'unread' => ['sometimes', 'boolean'],
             'category' => ['nullable', Rule::in(['stock', 'payments', 'activity', 'messages'])]]);
         $center->syncDue(app(TenantContext::class)->id());
 
         return WorkspaceNotificationResource::collection($this->query($request)
             ->when($data['unread'] ?? false, fn (Builder $query): Builder => $query->whereNull('read_at'))
             ->when($data['category'] ?? null, fn (Builder $query, string $category): Builder => $query->where('category', $category))
-            ->latest('id')->paginate(20));
+            ->latest('id')->paginate($data['per_page'] ?? 25));
     }
 
     public function digest(

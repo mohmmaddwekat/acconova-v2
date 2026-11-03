@@ -13,6 +13,7 @@ class CashMovement extends Model
 
     protected $fillable = [
         'party_id',
+        'is_misc_sale',
         'government_obligation_id',
         'department_id',
         'corrected_from_id',

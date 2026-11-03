@@ -1,4 +1,5 @@
 import { SmartEmptyState } from '@/components/data/SmartEmptyState';
+import { DataPagination } from '@/components/data/DataPagination';
 import { AppShell } from '@/layouts/AppShell';
 import { ApiError, apiRequest } from '@/lib/http';
 import { t, useLocale } from '@/lib/i18n';
@@ -158,13 +159,16 @@ function NotificationWorkspace() {
         useState('');
     const [page, setPage] =
         useState(1);
+    const [perPage, setPerPage] = useState(25);
     const [revision, setRevision] =
         useState(0);
     const [result, setResult] =
         useState<{
             data: Notice[];
             meta: {
+                current_page: number;
                 last_page: number;
+                per_page: number;
                 total: number;
             };
         } | null>(null);
@@ -188,7 +192,7 @@ function NotificationWorkspace() {
 
         Promise.all([
             apiRequest<NonNullable<typeof result>>(
-                `/api/notifications?page=${page}&unread=${unread ? 1 : 0}${category ? `&category=${category}` : ''}`,
+                `/api/notifications?page=${page}&per_page=${perPage}&unread=${unread ? 1 : 0}${category ? `&category=${category}` : ''}`,
                 {
                     signal:
                         controller.signal,
@@ -252,6 +256,7 @@ function NotificationWorkspace() {
         unread,
         category,
         page,
+        perPage,
         revision,
     ]);
 
@@ -915,59 +920,9 @@ function NotificationWorkspace() {
                         </ul>
                     )}
     
-                    {! error
-                    && result
-                    && result.meta
-                        .last_page > 1 && (
-                        <div className="mt-6 flex items-center justify-between">
-                            <button
-                                className={
-                                    button
-                                }
-                                disabled={
-                                    loading
-                                    || page <= 1
-                                }
-                                onClick={() =>
-                                    setPage(
-                                        value =>
-                                            value - 1,
-                                    )
-                                }
-                            >
-                                {t(
-                                    'catalog.operations.previous',
-                                )}
-                            </button>
-                            <span className="text-xs">
-                                {page}
-                                {' / '}
-                                {
-                                    result.meta
-                                        .last_page
-                                }
-                            </span>
-                            <button
-                                className={
-                                    button
-                                }
-                                disabled={
-                                    loading
-                                    || page
-                                    >= result.meta
-                                        .last_page
-                                }
-                                onClick={() =>
-                                    setPage(
-                                        value =>
-                                            value + 1,
-                                    )
-                                }
-                            >
-                                {t(
-                                    'catalog.operations.next',
-                                )}
-                            </button>
+                    {!error && result && (
+                        <div className="mt-6 overflow-hidden rounded-[18px] border border-[var(--ac-line)]">
+                            <DataPagination page={result.meta.current_page} lastPage={result.meta.last_page} perPage={result.meta.per_page} total={result.meta.total} loading={loading} onPageChange={setPage} onPerPageChange={(value) => { setPerPage(value); setPage(1); }} />
                         </div>
                     )}
                     </>

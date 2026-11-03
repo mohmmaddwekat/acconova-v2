@@ -1,3 +1,8 @@
+import {
+    SortableTh,
+    type TableSort,
+} from '@/components/data/SortableHeader';
+import { DataPagination } from '@/components/data/DataPagination';
 import { ModalPortal } from '@/components/feedback/ModalPortal';
 import {
     StaffWorkforcePanel,
@@ -70,6 +75,7 @@ import {
     useState,
     type FormEvent,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type PayBasis =
     | 'hour'
@@ -141,15 +147,19 @@ type Ledger = {
     corrections: Correction[];
     entries: {
         data: Entry[];
-        current_page?: number;
+        current_page: number;
         last_page: number;
+        per_page: number;
+        total: number;
     };
 };
 
 type StaffIndex = {
     data: {
         data: Staff[];
+        current_page: number;
         last_page: number;
+        per_page: number;
         total: number;
     };
     can_invite: boolean;
@@ -400,6 +410,8 @@ function StaffWorkspace() {
             1,
         );
 
+    const [staffSort, setStaffSort] = useState<TableSort>(null);
+
     const [
         perPage,
         setPerPage,
@@ -584,6 +596,8 @@ function StaffWorkspace() {
         && ! busy,
         ar,
     );
+
+    const [ledgerPerPage, setLedgerPerPage] = useState(25);
 
     useGlobalSave(
         () =>
@@ -777,7 +791,11 @@ function StaffWorkspace() {
                         apiRequest<StaffIndex>(
                             `/api/staff?page=${page}&per_page=${perPage}&search=${encodeURIComponent(
                                 search,
-                            )}&department_id=${department}&basis=${basisFilter}&active=${activeFilter}&include_accounts=${isEditing ? 1 : 0}`,
+                            )}&department_id=${department}&basis=${basisFilter}&active=${activeFilter}&include_accounts=${isEditing ? 1 : 0}${
+                                staffSort
+                                    ? `&sort=${staffSort.key}&sort_direction=${staffSort.direction}`
+                                    : ''
+                            }`,
                             {
                                 signal:
                                     controller.signal,
@@ -839,6 +857,7 @@ function StaffWorkspace() {
             basisFilter,
             activeFilter,
             isEditing,
+            staffSort,
             c.failed,
         ],
     );
@@ -863,7 +882,7 @@ function StaffWorkspace() {
                 new AbortController();
 
             apiRequest<Ledger>(
-                `/api/staff/${selected}/ledger?page=${ledgerPage}`,
+                `/api/staff/${selected}/ledger?page=${ledgerPage}&per_page=${ledgerPerPage}`,
                 {
                     signal:
                         controller.signal,
@@ -898,6 +917,7 @@ function StaffWorkspace() {
         [
             selected,
             ledgerPage,
+            ledgerPerPage,
             revision,
             c.failed,
         ],
@@ -1649,7 +1669,7 @@ function StaffWorkspace() {
                                     c.department
                                 }
 
-                                <select
+                                <Select
                                     value={
                                         department
                                     }
@@ -1694,7 +1714,7 @@ function StaffWorkspace() {
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold">
@@ -1702,7 +1722,7 @@ function StaffWorkspace() {
                                     c.basis
                                 }
 
-                                <select
+                                <Select
                                     value={
                                         basisFilter
                                     }
@@ -1756,7 +1776,7 @@ function StaffWorkspace() {
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold">
@@ -1764,7 +1784,7 @@ function StaffWorkspace() {
                                     c.status
                                 }
 
-                                <select
+                                <Select
                                     value={
                                         activeFilter
                                     }
@@ -1802,48 +1822,9 @@ function StaffWorkspace() {
                                             c.inactive
                                         }
                                     </option>
-                                </select>
+                                </Select>
                             </label>
 
-                            <label className="text-xs font-semibold">
-                                {ar
-                                    ? 'عدد الصفوف'
-                                    : 'Rows per page'}
-
-                                <select
-                                    value={
-                                        perPage
-                                    }
-                                    onChange={(
-                                        event,
-                                    ) => {
-                                        setPerPage(
-                                            Number(
-                                                event
-                                                    .target
-                                                    .value,
-                                            ),
-                                        );
-
-                                        setPage(
-                                            1,
-                                        );
-                                    }}
-                                    className={
-                                        field
-                                    }
-                                >
-                                    <option value="20">
-                                        20
-                                    </option>
-                                    <option value="50">
-                                        50
-                                    </option>
-                                    <option value="100">
-                                        100
-                                    </option>
-                                </select>
-                            </label>
                         </div>
 
                         <div className="border-b border-[var(--ac-line)] px-4 py-3">
@@ -1935,24 +1916,27 @@ function StaffWorkspace() {
                                 <table className="w-full min-w-[980px] text-start text-xs">
                                     <thead className="bg-[var(--ac-surface-soft)] text-[10px] text-[var(--ac-text-muted)]">
                                         <tr>
-                                            <th className="px-5 py-3 text-start">
-                                                {ar ? 'الموظف' : 'Employee'}
-                                            </th>
-                                            <th className="px-5 py-3 text-start">
-                                                {c.department}
-                                            </th>
-                                            <th className="px-5 py-3 text-start">
-                                                {ar ? 'التواصل' : 'Contact'}
-                                            </th>
-                                            <th className="px-5 py-3 text-start">
-                                                {c.basis}
-                                            </th>
-                                            <th className="px-5 py-3 text-start">
-                                                {c.balance}
-                                            </th>
-                                            <th className="px-5 py-3 text-start">
-                                                {c.status}
-                                            </th>
+                                            {([
+                                                ['name', ar ? 'الموظف' : 'Employee'],
+                                                ['department', c.department],
+                                                ['contact', ar ? 'التواصل' : 'Contact'],
+                                                ['basis', c.basis],
+                                                ['balance', c.balance],
+                                                ['status', c.status],
+                                            ] as const).map(([key, label]) => (
+                                                <SortableTh
+                                                    key={key}
+                                                    ar={ar}
+                                                    label={label}
+                                                    sortKey={key}
+                                                    sort={staffSort}
+                                                    onSort={(next) => {
+                                                        setStaffSort(next);
+                                                        setPage(1);
+                                                    }}
+                                                    className="py-3"
+                                                />
+                                            ))}
                                             <th className="px-5 py-3 text-end">
                                                 {ar ? 'فتح' : 'Open'}
                                             </th>
@@ -2132,61 +2116,17 @@ function StaffWorkspace() {
                             </div>
                         )}
 
-                        {result
-                            && result.data.last_page >
-                                1 && (
-                                <div className="flex items-center justify-between border-t border-[var(--ac-line)] p-4">
-                                    <button
-                                        type="button"
-                                        className={
-                                            button
-                                        }
-                                        disabled={
-                                            page ===
-                                            1
-                                        }
-                                        onClick={() =>
-                                            setPage(
-                                                (
-                                                    current,
-                                                ) =>
-                                                    current
-                                                    - 1,
-                                            )
-                                        }
-                                    >
-                                        {
-                                            c.previous
-                                        }
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className={
-                                            button
-                                        }
-                                        disabled={
-                                            page >=
-                                            result
-                                                .data
-                                                .last_page
-                                        }
-                                        onClick={() =>
-                                            setPage(
-                                                (
-                                                    current,
-                                                ) =>
-                                                    current
-                                                    + 1,
-                                            )
-                                        }
-                                    >
-                                        {
-                                            c.more
-                                        }
-                                    </button>
-                                </div>
-                            )}
+                        {result && (
+                            <DataPagination
+                                page={result.data.current_page}
+                                lastPage={result.data.last_page}
+                                perPage={result.data.per_page}
+                                total={result.data.total}
+                                loading={loading}
+                                onPageChange={setPage}
+                                onPerPageChange={(value) => { setPerPage(value); setPage(1); }}
+                            />
+                        )}
                     </section>
                 )}
 
@@ -2670,7 +2610,7 @@ function StaffWorkspace() {
                                                                 ? 'الدور'
                                                                 : 'Role'}
 
-                                                            <select
+                                                            <Select
                                                                 name="workspace_role_id"
                                                                 value={
                                                                     inviteRole
@@ -2712,7 +2652,7 @@ function StaffWorkspace() {
                                                                         </option>
                                                                     ),
                                                                 )}
-                                                            </select>
+                                                            </Select>
                                                         </label>
 
                                                         {confirmingInvite
@@ -3038,7 +2978,7 @@ function StaffWorkspace() {
                                                                 ? 'نوع العملية'
                                                                 : 'Transaction type'}
 
-                                                            <select
+                                                            <Select
                                                                 name="kind"
                                                                 className={
                                                                     field
@@ -3073,7 +3013,7 @@ function StaffWorkspace() {
                                                                         ? 'سلفة'
                                                                         : 'Advance'}
                                                                 </option>
-                                                            </select>
+                                                            </Select>
                                                         </label>
 
                                                         <label className="block text-xs font-semibold">
@@ -3429,60 +3369,14 @@ function StaffWorkspace() {
                                                 )}
                                             </div>
 
-                                            {ledger.entries.last_page >
-                                                1 && (
-                                                <div className="flex justify-between border-t border-[var(--ac-line)] p-4">
-                                                    <button
-                                                        type="button"
-                                                        className={
-                                                            button
-                                                        }
-                                                        disabled={
-                                                            ledgerPage ===
-                                                            1
-                                                        }
-                                                        onClick={() =>
-                                                            setLedgerPage(
-                                                                (
-                                                                    current,
-                                                                ) =>
-                                                                    current
-                                                                    - 1,
-                                                            )
-                                                        }
-                                                    >
-                                                        {
-                                                            c.previous
-                                                        }
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        className={
-                                                            button
-                                                        }
-                                                        disabled={
-                                                            ledgerPage >=
-                                                            ledger
-                                                                .entries
-                                                                .last_page
-                                                        }
-                                                        onClick={() =>
-                                                            setLedgerPage(
-                                                                (
-                                                                    current,
-                                                                ) =>
-                                                                    current
-                                                                    + 1,
-                                                            )
-                                                        }
-                                                    >
-                                                        {
-                                                            c.more
-                                                        }
-                                                    </button>
-                                                </div>
-                                            )}
+                                            <DataPagination
+                                                page={ledger.entries.current_page}
+                                                lastPage={ledger.entries.last_page}
+                                                perPage={ledger.entries.per_page}
+                                                total={ledger.entries.total}
+                                                onPageChange={setLedgerPage}
+                                                onPerPageChange={(value) => { setLedgerPerPage(value); setLedgerPage(1); }}
+                                            />
                                         </section>
 
                                         <section className="rounded-[22px] border border-[var(--ac-line)] bg-white p-5">
@@ -3718,7 +3612,7 @@ function StaffWorkspace() {
                                     c.department
                                 }
 
-                                <select
+                                <Select
                                     name="department_id"
                                     defaultValue={
                                         member?.department_id
@@ -3752,7 +3646,7 @@ function StaffWorkspace() {
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold">
@@ -3760,7 +3654,7 @@ function StaffWorkspace() {
                                     c.basis
                                 }
 
-                                <select
+                                <Select
                                     name="basis"
                                     defaultValue={
                                         member?.basis
@@ -3797,7 +3691,7 @@ function StaffWorkspace() {
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold">
@@ -3888,7 +3782,7 @@ function StaffWorkspace() {
                                     c.status
                                 }
 
-                                <select
+                                <Select
                                     name="active"
                                     defaultValue={
                                         member?.active ===
@@ -3911,7 +3805,7 @@ function StaffWorkspace() {
                                             c.inactive
                                         }
                                     </option>
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold sm:col-span-2">
@@ -3919,7 +3813,7 @@ function StaffWorkspace() {
                                     c.access
                                 }
 
-                                <select
+                                <Select
                                     name="user_id"
                                     value={
                                         linkedUserId
@@ -3978,7 +3872,7 @@ function StaffWorkspace() {
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             </label>
 
                             <input

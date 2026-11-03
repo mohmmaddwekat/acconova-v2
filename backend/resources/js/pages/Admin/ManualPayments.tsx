@@ -17,6 +17,7 @@ import {
     XCircle,
 } from 'lucide-react';
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type OrganizationOption = {
     id: number;
@@ -407,22 +408,22 @@ export default function ManualPayments(props: Props) {
                                 <p className="mt-1 text-xs leading-5 text-slate-500">{text('للدفعات التي استلمتها الإدارة بدون أن يرسل العميل طلبًا.', 'For payments received by the admin without a customer request.')}</p>
                                 <form onSubmit={submit} className="mt-5 space-y-4">
                                     <Field label={text('المؤسسة', 'Organization')}>
-                                        <select value={form.organization_id} onChange={event => setForm(current => ({ ...current, organization_id: event.target.value }))} className={input} required>
+                                        <Select value={form.organization_id} onChange={event => setForm(current => ({ ...current, organization_id: event.target.value }))} className={input} required>
                                             <option value="">{text('اختر مؤسسة', 'Choose organization')}</option>
                                             {props.organizations.map(organization => <option key={organization.id} value={organization.id}>{organization.name} · #{organization.id}</option>)}
-                                        </select>
+                                        </Select>
                                     </Field>
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         <Field label={text('الباقة', 'Plan')}>
-                                            <select value={form.plan_key} onChange={event => setForm(current => ({ ...current, plan_key: event.target.value }))} className={input} required>
+                                            <Select value={form.plan_key} onChange={event => setForm(current => ({ ...current, plan_key: event.target.value }))} className={input} required>
                                                 {props.plans.map(plan => <option key={plan.key} value={plan.key}>{ar ? plan.name_ar : plan.name_en}</option>)}
-                                            </select>
+                                            </Select>
                                         </Field>
                                         <Field label={text('الدورة', 'Interval')}>
-                                            <select value={form.billing_interval} onChange={event => setForm(current => ({ ...current, billing_interval: event.target.value }))} className={input}>
+                                            <Select value={form.billing_interval} onChange={event => setForm(current => ({ ...current, billing_interval: event.target.value }))} className={input}>
                                                 <option value="month">{text('شهري', 'Monthly')}</option>
                                                 <option value="year">{text('سنوي', 'Yearly')}</option>
-                                            </select>
+                                            </Select>
                                         </Field>
                                     </div>
                                     <div className="grid gap-3 sm:grid-cols-2">
@@ -430,13 +431,13 @@ export default function ManualPayments(props: Props) {
                                             <input type="number" min="1" max="36" value={form.period_count} onChange={event => setForm(current => ({ ...current, period_count: event.target.value }))} className={input} required />
                                         </Field>
                                         <Field label={text('طريقة الدفع', 'Method')}>
-                                            <select value={form.method} onChange={event => setForm(current => ({ ...current, method: event.target.value }))} className={input}>
+                                            <Select value={form.method} onChange={event => setForm(current => ({ ...current, method: event.target.value }))} className={input}>
                                                 <option value="cash">{text('كاش', 'Cash')}</option>
                                                 <option value="bank_transfer">{text('تحويل بنكي', 'Bank transfer')}</option>
                                                 <option value="card_terminal">{text('جهاز دفع / POS', 'POS / card terminal')}</option>
                                                 <option value="mobile_wallet">{text('محفظة إلكترونية', 'Mobile wallet')}</option>
                                                 <option value="other">{text('أخرى', 'Other')}</option>
-                                            </select>
+                                            </Select>
                                         </Field>
                                     </div>
                                     <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-950">

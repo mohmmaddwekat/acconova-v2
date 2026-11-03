@@ -11,6 +11,7 @@ import {
     useMemo,
     useState,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type PartyPrice = {
     product_id: number;
@@ -196,7 +197,7 @@ export function PartyPricingPanel({
 
             {canEdit && (
                 <div className="mt-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_130px_minmax(0,.8fr)_auto]">
-                    <select
+                    <Select
                         value={productId}
                         onChange={(event) => setProductId(event.target.value)}
                         className="h-10 rounded-[11px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-3 text-xs text-[var(--ac-text)]"
@@ -213,7 +214,7 @@ export function PartyPricingPanel({
                                 {product.sku ? ' · ' + product.sku : ''}
                             </option>
                         ))}
-                    </select>
+                    </Select>
 
                     <input
                         type="number"

@@ -4,6 +4,7 @@ import { useLocale } from '@/lib/i18n';
 import { Head } from '@inertiajs/react';
 import { Boxes, RefreshCcw, UsersRound } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type BulkHistoryRow = {
     id: number;
@@ -169,7 +170,7 @@ export default function BulkActions() {
                 </section>
 
                 <section className="mt-4 grid gap-3 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]">
-                    <select
+                    <Select
                         value={entityType}
                         onChange={event => setEntityType(event.target.value)}
                         className={control}
@@ -183,9 +184,9 @@ export default function BulkActions() {
                         <option value="product">
                             {ar ? 'المنتجات' : 'Products'}
                         </option>
-                    </select>
+                    </Select>
 
-                    <select
+                    <Select
                         value={action}
                         onChange={event => setAction(event.target.value)}
                         className={control}
@@ -202,9 +203,9 @@ export default function BulkActions() {
                         <option value="bulk_edit">
                             {ar ? 'تعديل جماعي' : 'Bulk edit'}
                         </option>
-                    </select>
+                    </Select>
 
-                    <select
+                    <Select
                         value={userId}
                         onChange={event => setUserId(event.target.value)}
                         className={control}
@@ -220,7 +221,7 @@ export default function BulkActions() {
                                 {user.name}
                             </option>
                         ))}
-                    </select>
+                    </Select>
 
                     <input
                         type="date"

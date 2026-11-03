@@ -1,4 +1,13 @@
 import { InventoryDataActions } from '@/components/data/InventoryDataActions';
+import { QuickProductionEntry } from '@/features/production/components/QuickProductionEntry';
+import { DataPagination } from '@/components/data/DataPagination';
+import {
+    ColumnFilterRange,
+    ColumnFilterSelect,
+    ColumnFilterText,
+    SortableTh,
+    type TableSort,
+} from '@/components/data/SortableHeader';
 import {
     Head,
     Link,
@@ -6,17 +15,16 @@ import {
 } from '@inertiajs/react';
 import {
     AlertTriangle,
+    Archive,
     ArrowLeftRight,
     Beaker,
     CheckCircle2,
-    ChevronLeft,
-    ChevronRight,
     Factory,
     FlaskConical,
     PackagePlus,
+    Zap,
     Plus,
     RefreshCcw,
-    Search,
     Trash2,
     X,
 } from 'lucide-react';
@@ -25,6 +33,7 @@ import {
     useEffect,
     useMemo,
     useState,
+    type ReactNode,
 } from 'react';
 
 import {
@@ -70,6 +79,7 @@ import {
 import type {
     AppPageProps,
 } from '@/types/app';
+import { Select } from '@/components/ui/Select';
 
 type Copy = {
     title: string;
@@ -156,7 +166,7 @@ function getCopy(
                 'عملية إنتاج جديدة',
 
             search:
-                'ابحث برقم العملية أو الملاحظة…',
+                'ابحث باسم المنتج أو رمزه أو رقم العملية أو الملاحظة…',
 
             allStatuses:
                 'كل الحالات',
@@ -342,7 +352,7 @@ function getCopy(
             'New Production Run',
 
         search:
-            'Search run number or note…',
+            'Search product name, SKU, run number or note…',
 
         allStatuses:
             'All statuses',
@@ -674,6 +684,20 @@ function recipeSuggestions(
             ] =
                 option.id;
 
+            // Optional components are consumed only while the raw material
+            // is in stock, so an unavailable one never becomes a row.
+            if (
+                component.is_optional
+                && Number(
+                    option
+                        .raw_material
+                        .available_quantity
+                    ?? 0,
+                ) <= 0
+            ) {
+                return;
+            }
+
             const existing =
                 grouped.get(
                     option
@@ -979,6 +1003,8 @@ export default function ProductionIndex() {
         useState(
             1,
         );
+    const [perPage, setPerPage] = useState(25);
+    const [total, setTotal] = useState(0);
 
     const [
         loading,
@@ -1029,6 +1055,13 @@ export default function ProductionIndex() {
     /**
      * Reload list data for the current filters.
      */
+    const [from, setFrom] = useState('');
+    const [to, setTo] = useState('');
+    const [sort, setSort] = useState('occurred_on');
+    const [headerSort, setHeaderSort] = useState<TableSort>(null);
+    const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
+    const [archived, setArchived] = useState(false);
+
     const loadRuns =
         useCallback(
             async (): Promise<void> => {
@@ -1046,6 +1079,12 @@ export default function ProductionIndex() {
                             search,
                             status,
                             page,
+                            perPage,
+                            from,
+                            to,
+                            sort,
+                            direction,
+                            archived,
                         });
 
                     setRuns(
@@ -1056,6 +1095,7 @@ export default function ProductionIndex() {
                         response.meta
                             .last_page,
                     );
+                    setTotal(response.meta.total);
                 } catch (
                     exception
                 ) {
@@ -1073,7 +1113,13 @@ export default function ProductionIndex() {
             },
             [
                 copy.loadFailed,
+                archived,
+                from,
+                to,
+                sort,
+                direction,
                 page,
+                perPage,
                 search,
                 status,
             ],
@@ -1188,6 +1234,8 @@ export default function ProductionIndex() {
     /**
      * Open a new Production Draft editor.
      */
+    const [quickOpen, setQuickOpen] = useState(false);
+
     function openNewRun(): void {
         setEditingRun(
             null,
@@ -1222,6 +1270,37 @@ export default function ProductionIndex() {
      */
     function handleChanged(): void {
         void loadRuns();
+    }
+
+    async function restoreArchivedRun(run: ProductionRun): Promise<void> {
+        try {
+            await apiRequest(`/api/production-runs/${run.id}/restore`, {
+                method: 'POST',
+            });
+            await loadRuns();
+        } catch (failure) {
+            setError(failure instanceof Error ? failure.message : copy.loadFailed);
+        }
+    }
+
+    async function permanentlyDeleteRun(run: ProductionRun): Promise<void> {
+        const message = locale === 'ar'
+            ? `حذف المسودة ${run.run_number} نهائيًا؟ لا يمكن التراجع.`
+            : `Permanently delete draft ${run.run_number}? This cannot be undone.`;
+
+        if (! window.confirm(message)) {
+            return;
+        }
+
+        try {
+            await apiRequest(`/api/production-runs/${run.id}/force`, {
+                method: 'DELETE',
+                body: JSON.stringify({ expected_revision: run.revision }),
+            });
+            await loadRuns();
+        } catch (failure) {
+            setError(failure instanceof Error ? failure.message : copy.loadFailed);
+        }
     }
 
     return (
@@ -1282,8 +1361,22 @@ export default function ProductionIndex() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                    <InventoryDataActions module="production-runs" canImport={canManage} onImported={() => void loadRuns()} />
-                    {canManage && (
+                    {! archived && <InventoryDataActions module="production-runs" canImport={canManage} onImported={() => void loadRuns()} />}
+                    {canManage && <button type="button" onClick={() => { setArchived((value) => ! value); setStatus(''); setPage(1); setDetailRun(null); }} className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm font-semibold">
+                        {archived ? <RefreshCcw size={16} /> : <Archive size={16} />}
+                        {archived ? (locale === 'ar' ? 'العمليات' : 'Production runs') : (locale === 'ar' ? 'الأرشيف' : 'Archive')}
+                    </button>}
+                    {canManage && ! archived && (
+                        <button
+                            type="button"
+                            onClick={() => setQuickOpen(true)}
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm font-semibold"
+                        >
+                            <Zap size={16} />
+                            {locale === 'ar' ? 'إدخال سريع' : 'Quick entry'}
+                        </button>
+                    )}
+                    {canManage && ! archived && (
                         <button
                             type="button"
                             onClick={
@@ -1305,328 +1398,226 @@ export default function ProductionIndex() {
                     </div>
                 </div>
 
-                <div className="mb-5 grid gap-3 rounded-[24px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-3 shadow-[var(--ac-shadow-soft)] md:grid-cols-[1fr_220px]">
-                    <label className="relative">
-                        <Search
-                            size={
-                                16
-                            }
-                            className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
-                        />
-
-                        <input
-                            value={
-                                search
-                            }
-                            onChange={(
-                                event,
-                            ) => {
-                                setSearch(
-                                    event
-                                        .target
-                                        .value,
-                                );
-
-                                setPage(
-                                    1,
-                                );
+                {(search || status || from || to || sort !== 'occurred_on' || direction !== 'desc') && (
+                    <div className="mb-3 flex justify-end">
+                        <button
+                            type="button"
+                            className="h-9 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold"
+                            onClick={() => {
+                                setSearch('');
+                                setStatus('');
+                                setFrom('');
+                                setTo('');
+                                setSort('occurred_on');
+                                setDirection('desc');
+                                setHeaderSort(null);
+                                setPage(1);
                             }}
-                            placeholder={
-                                copy.search
-                            }
-                            className="h-11 w-full rounded-xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] ps-10 pe-3 text-sm outline-none transition focus:border-[var(--ac-accent)]"
-                        />
-                    </label>
-
-                    <select
-                        value={
-                            status
-                        }
-                        onChange={(
-                            event,
-                        ) => {
-                            setStatus(
-                                event
-                                    .target
-                                    .value as
-                                    | ProductionRunStatus
-                                    | '',
-                            );
-
-                            setPage(
-                                1,
-                            );
-                        }}
-                        className="h-11 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] px-3 text-sm outline-none"
-                    >
-                        <option value="">
-                            {
-                                copy.allStatuses
-                            }
-                        </option>
-
-                        <option value="draft">
-                            {
-                                copy.draft
-                            }
-                        </option>
-
-                        <option value="posted">
-                            {
-                                copy.posted
-                            }
-                        </option>
-
-                        <option value="partially_reversed">
-                            {
-                                copy.partial
-                            }
-                        </option>
-
-                        <option value="reversed">
-                            {
-                                copy.reversed
-                            }
-                        </option>
-                    </select>
-                </div>
+                        >
+                            {locale === 'ar' ? 'مسح كل الفلاتر' : 'Clear all filters'}
+                        </button>
+                    </div>
+                )}
 
                 {error && (
                     <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {
-                            error
-                        }
+                        {error}
                     </div>
+                )}
+
+                {quickOpen && (
+                    <QuickProductionEntry
+                        products={products}
+                        warehouses={warehouses}
+                        ar={locale === 'ar'}
+                        onClose={() => setQuickOpen(false)}
+                        onDone={() => void loadRuns()}
+                    />
                 )}
 
                 <section className="overflow-hidden rounded-[26px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[var(--ac-shadow-soft)]">
-                    {loading ? (
-                        <div className="flex min-h-64 items-center justify-center text-sm text-[var(--ac-text-muted)]">
-                            {
-                                copy.loading
-                            }
-                        </div>
-                    ) : runs.length ===
-                      0 ? (
-                        <div className="flex min-h-72 flex-col items-center justify-center px-5 text-center">
-                            <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-[var(--ac-bg-soft)]">
-                                <Factory
-                                    size={
-                                        23
-                                    }
-                                />
-                            </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[720px] text-sm">
+                            <thead className="bg-[var(--ac-bg-soft)] text-[11px] text-[var(--ac-text-muted)]">
+                                <tr>
+                                    {([
+                                        ['run_number', copy.run],
+                                        ['occurred_on', copy.date],
+                                        ['products', copy.products],
+                                        ['status', copy.status],
+                                    ] as Array<[string, string]>).map(([key, label]) => {
+                                        const ar = locale === 'ar';
+                                        const tableSort: TableSort = headerSort;
+                                        let filter: ReactNode = null;
+                                        let filterActive = false;
 
-                            <h2 className="font-semibold">
-                                {
-                                    copy.noRuns
-                                }
-                            </h2>
-
-                            <p className="mt-2 max-w-md text-sm leading-6 text-[var(--ac-text-muted)]">
-                                {
-                                    copy.noRunsHelp
-                                }
-                            </p>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="hidden grid-cols-[170px_140px_1fr_160px] gap-4 border-b border-[var(--ac-line)] bg-[var(--ac-bg-soft)] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ac-text-muted)] md:grid">
-                                <span>
-                                    {
-                                        copy.run
-                                    }
-                                </span>
-
-                                <span>
-                                    {
-                                        copy.date
-                                    }
-                                </span>
-
-                                <span>
-                                    {
-                                        copy.products
-                                    }
-                                </span>
-
-                                <span>
-                                    {
-                                        copy.status
-                                    }
-                                </span>
-                            </div>
-
-                            {runs.map(
-                                (
-                                    run,
-                                ) => (
-                                    <button
-                                        type="button"
-                                        key={
-                                            run.id
+                                        if (key === 'run_number' || key === 'products') {
+                                            filterActive = search !== '';
+                                            filter = (
+                                                <ColumnFilterText
+                                                    ar={ar}
+                                                    value={search}
+                                                    onChange={(value) => {
+                                                        setSearch(value);
+                                                        setPage(1);
+                                                    }}
+                                                    placeholder={ar ? 'رقم العملية أو منتج أو ملاحظة' : 'Run number, product or note'}
+                                                />
+                                            );
+                                        } else if (key === 'occurred_on') {
+                                            filterActive = from !== '' || to !== '';
+                                            filter = (
+                                                <ColumnFilterRange
+                                                    ar={ar}
+                                                    type="date"
+                                                    from={from}
+                                                    to={to}
+                                                    onChange={(nextFrom, nextTo) => {
+                                                        setFrom(nextFrom);
+                                                        setTo(nextTo);
+                                                        setPage(1);
+                                                    }}
+                                                />
+                                            );
+                                        } else if (key === 'status') {
+                                            filterActive = status !== '';
+                                            filter = (
+                                                <ColumnFilterSelect
+                                                    value={status}
+                                                    options={[
+                                                        ['draft', copy.draft],
+                                                        ['posted', copy.posted],
+                                                        ['partially_reversed', copy.partial],
+                                                        ['reversed', copy.reversed],
+                                                    ]}
+                                                    allLabel={copy.allStatuses}
+                                                    onChange={(value) => {
+                                                        setStatus(value as ProductionRunStatus | '');
+                                                        setPage(1);
+                                                    }}
+                                                />
+                                            );
                                         }
-                                        onClick={() =>
-                                            setDetailRun(
-                                                run,
-                                            )
-                                        }
-                                        className="grid w-full gap-3 border-b border-[var(--ac-line)] px-5 py-4 text-start transition last:border-b-0 hover:bg-[var(--ac-bg-soft)] md:grid-cols-[170px_140px_1fr_160px] md:items-center md:gap-4"
+
+                                        return (
+                                            <SortableTh
+                                                key={key}
+                                                ar={ar}
+                                                label={label}
+                                                sortKey={key === 'products' ? undefined : key}
+                                                sort={tableSort}
+                                                onSort={(next) => {
+                                                    setHeaderSort(next);
+                                                    setSort(next?.key ?? 'occurred_on');
+                                                    setDirection(next?.direction ?? 'desc');
+
+                                                    setPage(1);
+                                                }}
+                                                filter={filter}
+                                                filterActive={filterActive}
+                                                className="py-3"
+                                            />
+                                        );
+                                    })}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading && (
+                                    <tr>
+                                        <td colSpan={4} className="px-4 py-16 text-center text-[var(--ac-text-muted)]">
+                                            {copy.loading}
+                                        </td>
+                                    </tr>
+                                )}
+
+                                {! loading && runs.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="px-5 py-14 text-center">
+                                            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-[var(--ac-bg-soft)]">
+                                                <Factory size={23} />
+                                            </div>
+                                            <h2 className="font-semibold">{copy.noRuns}</h2>
+                                            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ac-text-muted)]">
+                                                {copy.noRunsHelp}
+                                            </p>
+                                        </td>
+                                    </tr>
+                                )}
+
+                                {! loading && runs.map((run) => (
+                                    <tr
+                                        role={archived ? undefined : 'button'}
+                                        tabIndex={archived ? undefined : 0}
+                                        key={run.id}
+                                        onClick={() => { if (! archived) setDetailRun(run); }}
+                                        onKeyDown={(event) => { if (! archived && (event.key === 'Enter' || event.key === ' ')) setDetailRun(run); }}
+                                        className={[
+                                            'border-t border-[var(--ac-line)] transition hover:bg-[var(--ac-bg-soft)]',
+                                            archived ? '' : 'cursor-pointer',
+                                        ].join(' ')}
                                     >
-                                        <div>
-                                            <p className="text-sm font-semibold">
-                                                {
-                                                    run.run_number
-                                                }
-                                            </p>
+                                        <td className="px-3 py-4 align-middle">
+                                            <p className="font-semibold">{run.run_number}</p>
+                                        </td>
 
-                                            <p className="mt-1 line-clamp-1 text-xs text-[var(--ac-text-muted)] md:hidden">
-                                                {
-                                                    run.note
-                                                    ?? '—'
-                                                }
-                                            </p>
-                                        </div>
+                                        <td className="px-3 py-4 align-middle text-[var(--ac-text-soft)]">
+                                            {run.occurred_on}
+                                        </td>
 
-                                        <span className="text-sm text-[var(--ac-text-soft)]">
-                                            {
-                                                run.occurred_on
-                                            }
-                                        </span>
+                                        <td className="px-3 py-4 align-middle">
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {run.outputs.slice(0, 4).map((output) => (
+                                                    <span
+                                                        key={output.id}
+                                                        className="rounded-full bg-[var(--ac-bg-soft)] px-2.5 py-1 text-xs"
+                                                    >
+                                                        {output.product.name}
+                                                        {' × '}
+                                                        {output.quantity}
+                                                    </span>
+                                                ))}
 
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {run.outputs
-                                                .slice(
-                                                    0,
-                                                    4,
-                                                )
-                                                .map(
-                                                    (
-                                                        output,
-                                                    ) => (
-                                                        <span
-                                                            key={
-                                                                output.id
-                                                            }
-                                                            className="rounded-full bg-[var(--ac-bg-soft)] px-2.5 py-1 text-xs"
-                                                        >
-                                                            {
-                                                                output
-                                                                    .product
-                                                                    .name
-                                                            }
-
-                                                            {' × '}
-
-                                                            {
-                                                                output.quantity
-                                                            }
-                                                        </span>
-                                                    ),
+                                                {run.outputs.length > 4 && (
+                                                    <span className="rounded-full bg-[var(--ac-bg-soft)] px-2.5 py-1 text-xs">
+                                                        +{run.outputs.length - 4}
+                                                    </span>
                                                 )}
+                                            </div>
+                                        </td>
 
-                                            {run
-                                                .outputs
-                                                .length >
-                                                4 && (
-                                                <span className="rounded-full bg-[var(--ac-bg-soft)] px-2.5 py-1 text-xs">
-                                                    +
-                                                    {run
-                                                        .outputs
-                                                        .length -
-                                                        4}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <StatusBadge
-                                            status={
-                                                run.status
-                                            }
-                                            copy={
-                                                copy
-                                            }
-                                        />
-                                    </button>
-                                ),
-                            )}
-                        </>
-                    )}
+                                        <td className="px-3 py-4 align-middle">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <StatusBadge status={run.status} copy={copy} />
+                                                {archived && canManage && (
+                                                    <>
+                                                        <button type="button" onClick={() => void restoreArchivedRun(run)} className="rounded-lg border border-[var(--ac-line)] px-2.5 py-1.5 text-xs font-semibold text-[var(--ac-accent-strong)]">
+                                                            {locale === 'ar' ? 'استرجاع' : 'Restore'}
+                                                        </button>
+                                                        <button type="button" onClick={() => void permanentlyDeleteRun(run)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700">
+                                                            {locale === 'ar' ? 'حذف نهائي' : 'Delete forever'}
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </section>
 
-                {lastPage >
-                    1 && (
-                    <div className="mt-4 flex items-center justify-end gap-2">
-                        <button
-                            type="button"
-                            disabled={
-                                page <=
-                                1
-                            }
-                            onClick={() =>
-                                setPage(
-                                    (
-                                        current,
-                                    ) =>
-                                        Math.max(
-                                            1,
-                                            current -
-                                                1,
-                                        ),
-                                )
-                            }
-                            className="inline-flex h-10 items-center gap-1 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold disabled:opacity-40"
-                        >
-                            <ChevronLeft
-                                size={
-                                    15
-                                }
-                            />
-
-                            {
-                                copy.previous
-                            }
-                        </button>
-
-                        <span className="px-2 text-xs text-[var(--ac-text-muted)]">
-                            {page} /{' '}
-                            {
-                                lastPage
-                            }
-                        </span>
-
-                        <button
-                            type="button"
-                            disabled={
-                                page >=
-                                lastPage
-                            }
-                            onClick={() =>
-                                setPage(
-                                    (
-                                        current,
-                                    ) =>
-                                        Math.min(
-                                            lastPage,
-                                            current +
-                                                1,
-                                        ),
-                                )
-                            }
-                            className="inline-flex h-10 items-center gap-1 rounded-xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 text-xs font-semibold disabled:opacity-40"
-                        >
-                            {
-                                copy.next
-                            }
-
-                            <ChevronRight
-                                size={
-                                    15
-                                }
-                            />
-                        </button>
-                    </div>
-                )}
+                <div className="mt-4 overflow-hidden rounded-[22px] border border-[var(--ac-line)]">
+                    <DataPagination
+                        page={page}
+                        lastPage={lastPage}
+                        perPage={perPage}
+                        total={total}
+                        loading={loading}
+                        onPageChange={setPage}
+                        onPerPageChange={(value) => { setPerPage(value); setPage(1); }}
+                    />
+                </div>
             </main>
 
             <ProductionEditor
@@ -2751,7 +2742,7 @@ function ProductionEditor({
                                                 copy.product
                                             }
 
-                                            <select
+                                            <Select
                                                 value={
                                                     output.productId
                                                 }
@@ -2793,7 +2784,7 @@ function ProductionEditor({
                                                         </option>
                                                     ),
                                                 )}
-                                            </select>
+                                            </Select>
                                         </label>
 
                                         <label className="text-xs font-semibold">
@@ -2832,7 +2823,7 @@ function ProductionEditor({
                                                 copy.outputWarehouse
                                             }
 
-                                            <select
+                                            <Select
                                                 value={
                                                     output.warehouseId
                                                 }
@@ -2883,7 +2874,7 @@ function ProductionEditor({
                                                         </option>
                                                     ),
                                                 )}
-                                            </select>
+                                            </Select>
                                         </label>
                                     </div>
 
@@ -3080,7 +3071,7 @@ function ProductionEditor({
                                                                     copy.rawMaterial
                                                                 }
 
-                                                                <select
+                                                                <Select
                                                                     value={
                                                                         material.rawMaterialId
                                                                     }
@@ -3142,7 +3133,7 @@ function ProductionEditor({
                                                                             </option>
                                                                         ),
                                                                     )}
-                                                                </select>
+                                                                </Select>
                                                             </label>
 
                                                             <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ac-text-muted)]">
@@ -3150,7 +3141,7 @@ function ProductionEditor({
                                                                     copy.sourceWarehouse
                                                                 }
 
-                                                                <select
+                                                                <Select
                                                                     value={
                                                                         material.warehouseId
                                                                     }
@@ -3208,7 +3199,7 @@ function ProductionEditor({
                                                                             </option>
                                                                         ),
                                                                     )}
-                                                                </select>
+                                                                </Select>
                                                             </label>
 
                                                             <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ac-text-muted)]">
@@ -3384,7 +3375,7 @@ function ProductionEditor({
                             </p>
                         )}
 
-                    {savedRun && <button type="button" disabled={busy} className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 disabled:opacity-50" onClick={async () => {if(!window.confirm(copy.draft + ' ? ' + (document.documentElement.lang === 'ar' ? 'حذف المسودة؟' : 'Delete draft?')))return;setBusy(true);try{await apiRequest('/api/production-runs/'+savedRun.id,{method:'DELETE',body:JSON.stringify({expected_revision:savedRun.revision})});onChanged();onClose();}catch(failure){setError(failure instanceof Error ? failure.message : String(failure));}finally{setBusy(false);}}}>{document.documentElement.lang === 'ar' ? 'حذف المسودة' : 'Delete draft'}</button>}<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    {savedRun && <button type="button" disabled={busy} className="rounded-xl border border-[var(--ac-line)] bg-[var(--ac-bg-soft)] px-4 py-2 text-sm font-semibold disabled:opacity-50" onClick={async () => {if(!window.confirm(document.documentElement.lang === 'ar' ? 'أرشفة المسودة؟' : 'Archive draft?'))return;setBusy(true);try{await apiRequest('/api/production-runs/'+savedRun.id,{method:'DELETE',body:JSON.stringify({expected_revision:savedRun.revision})});onChanged();onClose();}catch(failure){setError(failure instanceof Error ? failure.message : String(failure));}finally{setBusy(false);}}}>{document.documentElement.lang === 'ar' ? 'أرشفة المسودة' : 'Archive draft'}</button>}<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                         <button
                             type="button"
                             onClick={

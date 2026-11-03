@@ -22,10 +22,26 @@ export async function fetchProductionRuns(
             | '';
 
         page?: number;
+        perPage?: number;
+        from?: string;
+        to?: string;
+        sort?: string;
+        direction?: 'asc' | 'desc';
+        archived?: boolean;
     } = {},
 ): Promise<ProductionRunIndexResponse> {
     const query =
         new URLSearchParams();
+
+    if (filters.archived) {
+        query.set('archived', '1');
+    }
+
+    for (const key of ['from', 'to', 'sort', 'direction'] as const) {
+        if (filters[key]) {
+            query.set(key, filters[key]);
+        }
+    }
 
     if (filters.search?.trim()) {
         query.set(
@@ -50,7 +66,7 @@ export async function fetchProductionRuns(
 
     query.set(
         'per_page',
-        '25',
+        String(filters.perPage ?? 25),
     );
 
     return apiRequest<ProductionRunIndexResponse>(
@@ -242,4 +258,37 @@ export async function fetchProductionRecipe(
     return apiRequest<ProductionRecipeResponse>(
         `/api/products/${productId}/production-recipe`,
     );
+}
+
+export type QuickProductionRow = {
+    occurred_on: string;
+    product_id: number;
+    quantity: string;
+};
+
+export type QuickProductionResult = {
+    index: number;
+    status: 'posted' | 'draft' | 'failed';
+    run_id: number | null;
+    run_number: string | null;
+    message: string | null;
+};
+
+/**
+ * Create one Production Run per row from each Product's active Recipe.
+ */
+export async function quickProductionEntry(payload: {
+    warehouse_id: number;
+    post: boolean;
+    rows: QuickProductionRow[];
+}): Promise<QuickProductionResult[]> {
+    const response = await apiRequest<{ data: QuickProductionResult[] }>(
+        '/api/production-runs/quick',
+        {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        },
+    );
+
+    return response.data;
 }

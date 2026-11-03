@@ -1,15 +1,15 @@
 import { ApiError, apiRequest } from '@/lib/http';
+import { DataPagination } from '@/components/data/DataPagination';
 import { useLocale } from '@/lib/i18n';
 import {
     Check,
-    ChevronLeft,
-    ChevronRight,
     Loader2,
     Search,
     UsersRound,
     X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type Basis = 'hour' | 'day' | 'month' | 'piece';
 type Status = 'present' | 'absent';
@@ -117,7 +117,7 @@ export function StaffBulkAttendance() {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [department, setDepartment] = useState('');
     const [page, setPage] = useState(1);
-    const [perPage, setPerPage] = useState<20 | 50 | 100>(50);
+    const [perPage, setPerPage] = useState(50);
     const [roster, setRoster] = useState<RosterResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -437,17 +437,17 @@ export function StaffBulkAttendance() {
                     </label>
                     <label className="text-[10px] font-semibold">
                         {ar ? 'القسم' : 'Department'}
-                        <select value={department} onChange={(event) => setDepartment(event.target.value)} className={`${field} mt-1`}>
+                        <Select value={department} onChange={(event) => setDepartment(event.target.value)} className={`${field} mt-1`}>
                             <option value="">{ar ? 'كل الأقسام' : 'All departments'}</option>
                             {roster?.departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                        </select>
+                        </Select>
                     </label>
                     <label className="text-[10px] font-semibold">
                         {ar ? 'الحالة الافتراضية' : 'Default status'}
-                        <select value={status} onChange={(event) => setStatus(event.target.value as Status)} className={`${field} mt-1`}>
+                        <Select value={status} onChange={(event) => setStatus(event.target.value as Status)} className={`${field} mt-1`}>
                             <option value="present">{ar ? 'حاضر' : 'Present'}</option>
                             <option value="absent">{ar ? 'غائب' : 'Absent'}</option>
-                        </select>
+                        </Select>
                     </label>
                     <label className="text-[10px] font-semibold">
                         {ar ? 'ساعات / كمية' : 'Hours / quantity'}
@@ -455,9 +455,9 @@ export function StaffBulkAttendance() {
                     </label>
                     <label className="text-[10px] font-semibold">
                         {ar ? 'عدد الصفوف' : 'Rows'}
-                        <select value={perPage} onChange={(event) => setPerPage(Number(event.target.value) as 20 | 50 | 100)} className={`${field} mt-1`}>
+                        <Select value={perPage} onChange={(event) => setPerPage(Number(event.target.value) as 20 | 50 | 100)} className={`${field} mt-1`}>
                             <option value={20}>20</option><option value={50}>50</option><option value={100}>100</option>
-                        </select>
+                        </Select>
                     </label>
                 </div>
 
@@ -643,10 +643,10 @@ export function StaffBulkAttendance() {
                                             ) : <span className="text-[var(--ac-text-muted)]">{ar ? 'غير مسجل' : 'Not recorded'}</span>}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <select value={values.status} onChange={(event) => setRow(row.id, { status: event.target.value as Status })} className={field}>
+                                            <Select value={values.status} onChange={(event) => setRow(row.id, { status: event.target.value as Status })} className={field}>
                                                 <option value="present">{ar ? 'حاضر' : 'Present'}</option>
                                                 <option value="absent">{ar ? 'غائب' : 'Absent'}</option>
-                                            </select>
+                                            </Select>
                                         </td>
                                         <td className="px-4 py-3">
                                             {quantityAutomatic ? (
@@ -710,21 +710,16 @@ export function StaffBulkAttendance() {
                 </div>
             )}
 
-            {roster && roster.pagination.total > 0 && (
-                <div className="flex flex-col gap-3 border-t border-[var(--ac-line)] bg-[var(--ac-surface-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-[10px] text-[var(--ac-text-muted)]">
-                        {roster.pagination.from ?? 0}–{roster.pagination.to ?? 0} / {roster.pagination.total}
-                        {' · '}{ar ? 'صفحة' : 'Page'} {roster.pagination.current_page} / {Math.max(1, roster.pagination.last_page)}
-                    </span>
-                    <div className="flex gap-2">
-                        <button type="button" className={button} disabled={page <= 1 || loading || saving} onClick={() => setPage((value) => Math.max(1, value - 1))}>
-                            {ar ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}{ar ? 'السابق' : 'Previous'}
-                        </button>
-                        <button type="button" className={button} disabled={page >= roster.pagination.last_page || loading || saving} onClick={() => setPage((value) => Math.min(roster.pagination.last_page, value + 1))}>
-                            {ar ? 'التالي' : 'Next'}{ar ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-                        </button>
-                    </div>
-                </div>
+            {roster && (
+                <DataPagination
+                    page={roster.pagination.current_page}
+                    lastPage={roster.pagination.last_page}
+                    perPage={roster.pagination.per_page}
+                    total={roster.pagination.total}
+                    loading={loading || saving}
+                    onPageChange={setPage}
+                    onPerPageChange={(value) => { setPerPage(value); setPage(1); }}
+                />
             )}
         </section>
     );

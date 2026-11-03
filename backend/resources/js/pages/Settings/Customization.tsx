@@ -4,6 +4,7 @@ import { useLocale } from '@/lib/i18n';
 import { Head } from '@inertiajs/react';
 import { Plus, RefreshCcw, ShieldCheck, Tags, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type FieldDef = {
     id: number;
@@ -359,7 +360,7 @@ export default function Customization() {
                             </h2>
 
                             <div className="mt-4 space-y-3">
-                                <select
+                                <Select
                                     className={input}
                                     value={fieldForm.entity_type}
                                     onChange={event =>
@@ -374,7 +375,7 @@ export default function Customization() {
                                             {friendly(entity, ar)}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
 
                                 <input
                                     className={input}
@@ -404,7 +405,7 @@ export default function Customization() {
                                     }
                                 />
 
-                                <select
+                                <Select
                                     className={input}
                                     value={fieldForm.field_type}
                                     onChange={event =>
@@ -419,7 +420,7 @@ export default function Customization() {
                                             {friendly(value, ar)}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
 
                                 {fieldForm.field_type === 'select' && (
                                     <input
@@ -489,7 +490,7 @@ export default function Customization() {
                             </h2>
 
                             <div className="mt-4 space-y-3">
-                                <select
+                                <Select
                                     className={input}
                                     value={statusForm.entity_type}
                                     onChange={event =>
@@ -504,7 +505,7 @@ export default function Customization() {
                                             {friendly(entity, ar)}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
 
                                 <input
                                     className={input}
@@ -610,7 +611,7 @@ export default function Customization() {
                                     }
                                 />
 
-                                <select
+                                <Select
                                     className={input}
                                     value={ruleForm.subject_type}
                                     onChange={event => {
@@ -630,9 +631,9 @@ export default function Customization() {
                                             {friendly(value, ar)}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
 
-                                <select
+                                <Select
                                     className={input}
                                     value={ruleForm.condition_field}
                                     onChange={event =>
@@ -650,9 +651,9 @@ export default function Customization() {
                                             {friendly(value, ar)}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
 
-                                <select
+                                <Select
                                     className={input}
                                     value={ruleForm.operator}
                                     onChange={event =>
@@ -667,7 +668,7 @@ export default function Customization() {
                                             {friendly(value, ar)}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
 
                                 <input
                                     className={input}

@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/data/SearchableSelect';
 import { KeepOpenToggle, SavedNote, useKeepOpenPreference } from '@/components/data/KeepOpenToggle';
 import { apiRequest } from '@/lib/http';
 import {
@@ -38,7 +39,6 @@ import {
     FinanceHeader,
     Money,
     apiErrorText,
-    addDays,
     financeButton,
     financeInput,
     financePrimary,
@@ -47,9 +47,11 @@ import {
 import type {
     DocumentDetail,
     DocumentLine,
+    DocumentRow,
     FinanceLookups,
     TaxPartySnapshot,
 } from './types';
+import { Select } from '@/components/ui/Select';
 
 type EditableLine = DocumentLine & {
     client_id: string;
@@ -79,7 +81,7 @@ function emptyLine(
         unit_price: '0',
         price_status: 'final',
         discount_percent: '0',
-        discount_type: 'percent',
+        discount_type: 'fixed',
         discount_value: '0',
         tax_rate: '0',
         affects_inventory: false,
@@ -528,10 +530,7 @@ export function DocumentForm({
         setDueDate,
     ] = useState(
         initial?.due_date
-        ?? addDays(
-            issueDate,
-            30,
-        ),
+        ?? '',
     );
 
     const [
@@ -560,13 +559,7 @@ export function DocumentForm({
             ? String(
                 initial.warehouse_id,
             )
-            : (
-                defaultWarehouse
-                    ? String(
-                        defaultWarehouse.id,
-                    )
-                    : ''
-            ),
+            : '',
     );
 
     const [
@@ -599,7 +592,7 @@ export function DocumentForm({
         setPaymentTerms,
     ] = useState(
         initial?.payment_terms
-        ?? '30',
+        ?? '',
     );
 
     const [
@@ -609,6 +602,50 @@ export function DocumentForm({
         initial?.shipping_total
         ?? '0',
     );
+
+    const [docDiscountType, setDocDiscountType] = useState<'percent' | 'fixed'>(
+        initial?.document_discount_type ?? 'fixed',
+    );
+    const [docDiscountValue, setDocDiscountValue] = useState(
+        Number(initial?.document_discount_value) > 0
+            ? String(Number(initial?.document_discount_value))
+            : '0',
+    );
+
+    const enabledPayMethods = lookups.settings.payment_methods.length
+        ? lookups.settings.payment_methods
+        : ['bank_transfer'];
+    const payMethodChoices = ([
+        ['cash', text('نقدي', 'Cash')],
+        ['bank_transfer', text('تحويل بنكي', 'Bank transfer')],
+        ['card', text('بطاقة', 'Card')],
+        ['electronic_wallet', text('محفظة إلكترونية', 'E-wallet')],
+    ] as Array<[string, string]>).filter(([value]) => enabledPayMethods.includes(value));
+    const primaryBank = lookups.settings.bank_accounts.find(account => account.is_primary)
+        ?? lookups.settings.bank_accounts[0]
+        ?? null;
+    const [payOn, setPayOn] = useState(false);
+    const [payMode, setPayMode] = useState<'invoice' | 'all' | 'custom'>('invoice');
+    const [collapsedLines, setCollapsedLines] = useState<Set<string>>(() => new Set());
+
+    function toggleLine(clientId: string): void {
+        setCollapsedLines(current => {
+            const next = new Set(current);
+
+            if (next.has(clientId)) {
+                next.delete(clientId);
+            } else {
+                next.add(clientId);
+            }
+
+            return next;
+        });
+    }
+    const [payAmount, setPayAmount] = useState('');
+    const [payMethod, setPayMethod] = useState(payMethodChoices[0]?.[0] ?? 'cash');
+    const [payRef, setPayRef] = useState('');
+    const [oldInvoices, setOldInvoices] = useState<DocumentRow[]>([]);
+    const [skippedInvoices, setSkippedInvoices] = useState<number[]>([]);
 
     const [
         notes,
@@ -856,10 +893,7 @@ export function DocumentForm({
             );
             setDueDate(
                 draft.dueDate
-                || addDays(
-                    todayValue(),
-                    30,
-                ),
+                ?? '',
             );
             setActivityType(
                 draft.activityType
@@ -883,7 +917,7 @@ export function DocumentForm({
             );
             setPaymentTerms(
                 draft.paymentTerms
-                ?? '30',
+                ?? '',
             );
             setShippingTotal(
                 draft.shippingTotal
@@ -1006,10 +1040,7 @@ export function DocumentForm({
                             selectedIssueDate:
                                 date,
                             dueDate:
-                                addDays(
-                                    date,
-                                    30,
-                                ),
+                                '',
                             activityType:
                                 source.activity_type
                                 ?? 'trade',
@@ -1033,7 +1064,7 @@ export function DocumentForm({
                                 ?? '',
                             paymentTerms:
                                 source.payment_terms
-                                ?? '30',
+                                ?? '',
                             shippingTotal:
                                 source.shipping_total
                                 ?? '0',
@@ -1580,7 +1611,7 @@ export function DocumentForm({
     const calculated =
         useMemo(
             () => {
-                const rows =
+                const baseRows =
                     lines.map(
                         line => {
                             const quantity =
@@ -1683,6 +1714,43 @@ export function DocumentForm({
                         },
                     );
 
+                const lineNet = baseRows.reduce(
+                    (sum, row) => sum + row.subtotal - row.discount,
+                    0,
+                );
+                const docValue = Math.max(Number(docDiscountValue) || 0, 0);
+                const docDiscount = lineNet > 0
+                    ? Math.min(
+                        docDiscountType === 'fixed'
+                            ? docValue
+                            : lineNet * (Math.min(docValue, 100) / 100),
+                        lineNet,
+                    )
+                    : 0;
+
+                const rows = baseRows.map((row, index) => {
+                    if (docDiscount <= 0) {
+                        return row;
+                    }
+
+                    const net = row.subtotal - row.discount;
+                    const share = docDiscount * (net / lineNet);
+                    const line = lines[index];
+                    const rule = availableTaxRules.find(item => item.id === line.tax_rule_id);
+                    const taxRate = Number(line.tax_rate) || 0;
+                    const taxable = Math.max(net - share, 0);
+                    const tax = rule?.inclusive && taxRate > 0
+                        ? taxable - (taxable / (1 + (taxRate / 100)))
+                        : taxable * (taxRate / 100);
+
+                    return {
+                        subtotal: row.subtotal,
+                        discount: row.discount + share,
+                        tax,
+                        total: rule?.inclusive ? taxable : taxable + tax,
+                    };
+                });
+
                 const subtotal =
                     rows.reduce(
                         (
@@ -1746,8 +1814,145 @@ export function DocumentForm({
                 lines,
                 shippingTotal,
                 availableTaxRules,
+                docDiscountType,
+                docDiscountValue,
             ],
         );
+
+    const payment = useMemo(() => {
+        const round4 = (value: number): number => Math.round(value * 10000) / 10000;
+        const total = round4(calculated.total);
+        const selectedOldTotal = oldInvoices
+            .filter(invoice => ! skippedInvoices.includes(invoice.id))
+            .reduce((sum, invoice) => sum + (Number(invoice.balance_due) || 0), 0);
+        const raw = ! payOn
+            ? 0
+            : payMode === 'invoice'
+                ? total
+                : payMode === 'all'
+                    ? round4(total + selectedOldTotal)
+                    : round4(Number(payAmount) || 0);
+        const forInvoice = Math.min(raw, total);
+        let left = round4(raw - forInvoice);
+        const old = oldInvoices.map(invoice => {
+            const skipped = skippedInvoices.includes(invoice.id);
+            const applied = skipped
+                ? 0
+                : Math.min(left, Number(invoice.balance_due) || 0);
+            left = round4(left - applied);
+
+            return { invoice, skipped, applied };
+        });
+
+        return {
+            raw,
+            forInvoice,
+            old,
+            credit: Math.max(left, 0),
+            oldTotal: oldInvoices.reduce(
+                (sum, invoice) => sum + (Number(invoice.balance_due) || 0),
+                0,
+            ),
+        };
+    }, [
+        calculated.total,
+        oldInvoices,
+        skippedInvoices,
+        payOn,
+        payMode,
+        payAmount,
+    ]);
+
+    useEffect(() => {
+        if (! payOn || ! partyId) {
+            setOldInvoices([]);
+
+            return;
+        }
+
+        let cancelled = false;
+
+        apiRequest<{ data: DocumentRow[] }>(
+            '/api/finance/documents?'
+            + new URLSearchParams({
+                kind,
+                open_only: '1',
+                per_page: '100',
+                party_id: partyId,
+            }).toString(),
+        )
+            .then(response => {
+                if (! cancelled) {
+                    setOldInvoices(
+                        response.data.filter(
+                            row => row.currency === currency
+                                && row.id !== initial?.id,
+                        ),
+                    );
+                }
+            })
+            .catch(() => {
+                if (! cancelled) {
+                    setOldInvoices([]);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [payOn, partyId, kind, currency, initial?.id]);
+
+    async function recordInlinePayment(
+        issued: DocumentDetail,
+    ): Promise<void> {
+        const money = (value: number): string => value.toFixed(4);
+        const allocations = [
+            {
+                financial_document_id: issued.id,
+                amount: money(payment.forInvoice),
+            },
+            ...payment.old
+                .filter(row => row.applied > 0.00005)
+                .map(row => ({
+                    financial_document_id: row.invoice.id,
+                    amount: money(row.applied),
+                })),
+        ].filter(row => Number(row.amount) > 0);
+
+        const movement = await apiRequest<{ data: { id: number } }>(
+            '/api/finance/cash-movements',
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    direction: sales ? 'incoming' : 'outgoing',
+                    party_id: Number(partyId),
+                    category: sales ? 'customer_receipt' : 'supplier_payment',
+                    amount: money(payment.raw),
+                    currency,
+                    movement_date: selectedIssueDate,
+                    method: payMethod,
+                    account_label:
+                        payMethod === 'bank_transfer' && primaryBank
+                            ? [
+                                primaryBank.bank_name,
+                                primaryBank.account_name,
+                                primaryBank.iban || primaryBank.account_number,
+                            ].filter(Boolean).join(' · ')
+                            : null,
+                    reference: payRef || null,
+                    allocations,
+                }),
+            },
+        );
+
+        await apiRequest(
+            '/api/finance/cash-movements/' + movement.data.id + '/post',
+            {
+                method: 'POST',
+                body: JSON.stringify({ acknowledge_duplicate: false }),
+            },
+        );
+    }
 
     const warnings =
         useMemo(
@@ -2084,6 +2289,11 @@ export function DocumentForm({
             shipping_total:
                 shippingTotal
                     || '0',
+            document_discount_type:
+                docDiscountType,
+            document_discount_value:
+                docDiscountValue
+                    || '0',
             payment_terms:
                 paymentTerms
                     || null,
@@ -2222,6 +2432,27 @@ export function DocumentForm({
             return;
         }
 
+        const incompleteLine =
+            lines.findIndex(
+                line =>
+                    (! line.product_id && ! line.description.trim())
+                    || ! (Number(line.quantity) > 0)
+                    || line.unit_price === ''
+                    || ! Number.isFinite(Number(line.unit_price))
+                    || Number(line.unit_price) < 0,
+            );
+
+        if (incompleteLine !== -1) {
+            setError(
+                text(
+                    'البند ' + String(incompleteLine + 1) + ' غير مكتمل: اختر المنتج أو اكتب وصفاً، وأدخل كمية أكبر من صفر وسعراً صحيحاً، أو احذف البند الفارغ.',
+                    'Line ' + String(incompleteLine + 1) + ' is incomplete: pick a product or enter a description, with a quantity above zero and a valid price, or remove the empty line.',
+                ),
+            );
+
+            return;
+        }
+
         if (! partyId) {
             setError(
                 sales
@@ -2326,6 +2557,7 @@ export function DocumentForm({
 
             let document =
                 response.data;
+            let paymentFailure = '';
 
             savedDraftId.current =
                 document.id;
@@ -2397,6 +2629,14 @@ export function DocumentForm({
 
                 document =
                     issued.data;
+
+                if (payOn && payment.raw > 0.00005) {
+                    try {
+                        await recordInlinePayment(document);
+                    } catch (failure) {
+                        paymentFailure = apiErrorText(failure);
+                    }
+                }
             }
 
             clearLocalDraft(
@@ -2426,6 +2666,18 @@ export function DocumentForm({
                         : '/app/invoices/purchases/' + saved.id,
                 );
             };
+
+            if (paymentFailure) {
+                setError(
+                    text(
+                        'تم إصدار الفاتورة، لكن تعذّر تسجيل الدفعة: ',
+                        'The invoice was issued, but the payment could not be recorded: ',
+                    ) + paymentFailure,
+                );
+                window.setTimeout(finish, 4000);
+
+                return;
+            }
 
             if (thenPay && issue) {
                 afterPayment.current = finish;
@@ -2768,7 +3020,7 @@ export function DocumentForm({
                                         'Supplier *',
                                     )}
 
-                                <select
+                                <Select
                                     className={
                                         financeInput
                                         + ' mt-2'
@@ -2813,7 +3065,7 @@ export function DocumentForm({
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
@@ -2953,7 +3205,7 @@ export function DocumentForm({
                                     'Market',
                                 )}
 
-                                <select
+                                <Select
                                     className={
                                         financeInput
                                         + ' mt-2'
@@ -2988,7 +3240,7 @@ export function DocumentForm({
                                             'Export',
                                         )}
                                     </option>
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
@@ -2997,7 +3249,7 @@ export function DocumentForm({
                                     'Business activity',
                                 )}
 
-                                <select
+                                <Select
                                     className={
                                         financeInput
                                         + ' mt-2'
@@ -3033,7 +3285,7 @@ export function DocumentForm({
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
@@ -3042,7 +3294,7 @@ export function DocumentForm({
                                     'Default warehouse (optional)',
                                 )}
 
-                                <select
+                                <Select
                                     className={
                                         financeInput
                                         + ' mt-2'
@@ -3082,7 +3334,7 @@ export function DocumentForm({
                                             </option>
                                         ),
                                     )}
-                                </select>
+                                </Select>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
@@ -3150,37 +3402,61 @@ export function DocumentForm({
                             Package
                         }
                         action={
-                            <button
-                                type="button"
-                                className={
-                                    financePrimary
-                                }
-                                onClick={() =>
-                                    setLines(
-                                        current => [
-                                            ...current,
-                                            emptyLine(
-                                                warehouseId
-                                                    ? Number(
-                                                        warehouseId,
-                                                    )
-                                                    : null,
-                                            ),
-                                        ],
-                                    )
-                                }
-                            >
-                                <Plus
-                                    size={
-                                        14
-                                    }
-                                />
-
-                                {text(
-                                    'إضافة بند',
-                                    'Add line',
+                            <div className="flex flex-wrap items-center gap-2">
+                                {lines.length > 1 && (
+                                    <button
+                                        type="button"
+                                        className={financeButton}
+                                        onClick={() =>
+                                            setCollapsedLines(
+                                                collapsedLines.size >= lines.length
+                                                    ? new Set()
+                                                    : new Set(lines.map(item => item.client_id)),
+                                            )
+                                        }
+                                    >
+                                        <ChevronDown
+                                            size={14}
+                                            className={collapsedLines.size >= lines.length ? '' : 'rotate-180'}
+                                        />
+                                        {collapsedLines.size >= lines.length
+                                            ? text('توسيع الكل', 'Expand all')
+                                            : text('طي الكل', 'Collapse all')}
+                                    </button>
                                 )}
-                            </button>
+
+                                <button
+                                    type="button"
+                                    className={
+                                        financePrimary
+                                    }
+                                    onClick={() =>
+                                        setLines(
+                                            current => [
+                                                ...current,
+                                                emptyLine(
+                                                    warehouseId
+                                                        ? Number(
+                                                            warehouseId,
+                                                        )
+                                                        : null,
+                                                ),
+                                            ],
+                                        )
+                                    }
+                                >
+                                    <Plus
+                                        size={
+                                            14
+                                        }
+                                    />
+
+                                    {text(
+                                        'إضافة بند',
+                                        'Add line',
+                                    )}
+                                </button>
+                            </div>
                         }
                     >
                         <div className="space-y-4 p-4">
@@ -3199,6 +3475,25 @@ export function DocumentForm({
                                             line.client_id
                                         ];
 
+                                    const isCollapsed =
+                                        collapsedLines.has(
+                                            line.client_id,
+                                        );
+
+                                    const productName =
+                                        (line.product_id
+                                            ? lookups.products.find(
+                                                product =>
+                                                    product.id ===
+                                                    line.product_id,
+                                            )?.name
+                                            : null)
+                                        || line.description
+                                        || text(
+                                            'بند يدوي / خدمة / مصروف',
+                                            'Manual line / service / expense',
+                                        );
+
                                     return (
                                         <article
                                             key={
@@ -3207,34 +3502,47 @@ export function DocumentForm({
                                             className="overflow-hidden rounded-[20px] border border-[var(--ac-line)] bg-[var(--ac-surface)] shadow-[0_10px_30px_rgba(25,74,135,.055)]"
                                         >
                                             <div className="flex items-center justify-between gap-3 border-b border-[var(--ac-line)] bg-gradient-to-l from-[var(--ac-surface-soft)] via-[var(--ac-surface)] to-[var(--ac-surface)] px-4 py-3 sm:px-5">
-                                                <div className="flex min-w-0 items-center gap-3">
+                                                <div
+                                                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
+                                                    onClick={() => toggleLine(line.client_id)}
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        className="flex size-9 shrink-0 items-center justify-center rounded-[11px] border border-[var(--ac-line)] text-[var(--ac-text-muted)] transition hover:border-[var(--ac-accent)] hover:text-[var(--ac-accent)]"
+                                                        aria-expanded={! isCollapsed}
+                                                        aria-label={isCollapsed
+                                                            ? text('توسيع البند', 'Expand line')
+                                                            : text('طي البند', 'Collapse line')}
+                                                        onClick={event => {
+                                                            event.stopPropagation();
+                                                            toggleLine(line.client_id);
+                                                        }}
+                                                    >
+                                                        <ChevronDown
+                                                            size={16}
+                                                            className={isCollapsed ? '-rotate-90 rtl:rotate-90' : ''}
+                                                        />
+                                                    </button>
+
                                                     <span className="flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--ac-accent-solid)] text-xs font-bold text-white">
                                                         {index + 1}
                                                     </span>
 
                                                     <div className="min-w-0">
-                                                        <p className="text-xs font-bold text-[var(--ac-text)]">
-                                                            {text(
-                                                                'بند الفاتورة',
-                                                                'Invoice line',
-                                                            )}
-                                                        </p>
-
-                                                        <p className="mt-0.5 truncate text-[10px] text-[var(--ac-text-muted)]">
-                                                            {line.product_id
-                                                                ? (
-                                                                    lookups.products.find(
-                                                                        product =>
-                                                                            product.id ===
-                                                                            line.product_id,
-                                                                    )?.name
-                                                                    ?? line.description
-                                                                )
+                                                        <p className="truncate text-xs font-bold text-[var(--ac-text)]">
+                                                            {isCollapsed
+                                                                ? productName
                                                                 : text(
-                                                                    'بند يدوي / خدمة / مصروف',
-                                                                    'Manual line / service / expense',
+                                                                    'بند الفاتورة',
+                                                                    'Invoice line',
                                                                 )}
                                                         </p>
+
+                                                        {! isCollapsed && (
+                                                            <p className="mt-0.5 truncate text-[10px] text-[var(--ac-text-muted)]">
+                                                                {productName}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -3264,6 +3572,66 @@ export function DocumentForm({
                                                 </button>
                                             </div>
 
+                                            {isCollapsed && (
+                                                <dl
+                                                    className="grid cursor-pointer grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 text-xs sm:grid-cols-4 sm:px-5"
+                                                    onClick={() => toggleLine(line.client_id)}
+                                                >
+                                                    <div>
+                                                        <dt className="text-[10px] font-medium text-[var(--ac-text-muted)]">
+                                                            {text('الكمية', 'Quantity')}
+                                                        </dt>
+                                                        <dd className="mt-1 font-bold text-[var(--ac-text)]">
+                                                            <bdi>{line.quantity || '0'}</bdi>
+                                                            {line.unit ? ' ' + line.unit : ''}
+                                                        </dd>
+                                                    </div>
+
+                                                    <div>
+                                                        <dt className="text-[10px] font-medium text-[var(--ac-text-muted)]">
+                                                            {text('سعر الوحدة', 'Unit price')}
+                                                        </dt>
+                                                        <dd className="mt-1 font-bold text-[var(--ac-text)]">
+                                                            <Money value={Number(line.unit_price) || 0} currency={currency} />
+                                                        </dd>
+                                                    </div>
+
+                                                    <div>
+                                                        <dt className="text-[10px] font-medium text-[var(--ac-text-muted)]">
+                                                            {text('الخصم', 'Discount')}
+                                                        </dt>
+                                                        <dd className={[
+                                                            'mt-1 font-bold',
+                                                            (row?.discount ?? 0) > 0
+                                                                ? 'text-amber-500'
+                                                                : 'text-[var(--ac-text-muted)]',
+                                                        ].join(' ')}>
+                                                            {(row?.discount ?? 0) > 0 ? (
+                                                                <>
+                                                                    <Money value={row?.discount ?? 0} currency={currency} />
+                                                                    {line.discount_type === 'percent'
+                                                                    && Number(line.discount_percent) > 0
+                                                                        ? ' (' + Number(line.discount_percent) + '%)'
+                                                                        : ''}
+                                                                </>
+                                                            ) : (
+                                                                text('بدون خصم', 'No discount')
+                                                            )}
+                                                        </dd>
+                                                    </div>
+
+                                                    <div>
+                                                        <dt className="text-[10px] font-medium text-[var(--ac-text-muted)]">
+                                                            {text('إجمالي البند', 'Line total')}
+                                                        </dt>
+                                                        <dd className="mt-1 font-bold text-[var(--ac-accent)]">
+                                                            <Money value={row?.total ?? 0} currency={currency} />
+                                                        </dd>
+                                                    </div>
+                                                </dl>
+                                            )}
+
+                                            {! isCollapsed && (
                                             <div className="space-y-4 p-4 sm:p-5">
                                                 <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(280px,2.2fr)_120px_140px_minmax(190px,1fr)]">
                                                     <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
@@ -3272,64 +3640,56 @@ export function DocumentForm({
                                                             'Product / service',
                                                         )}
 
-                                                        <select
-                                                            className={
-                                                                financeInput
-                                                                + ' mt-2'
-                                                            }
-                                                            value={
-                                                                line.product_id
-                                                                ?? ''
-                                                            }
-                                                            onChange={
-                                                                event =>
-                                                                    selectProduct(
-                                                                        line,
-                                                                        event.target.value,
-                                                                    )
-                                                            }
-                                                        >
-                                                            <option value="">
-                                                                {text(
+                                                        <div className="mt-2">
+                                                            <SearchableSelect
+                                                                ar={ar}
+                                                                value={
+                                                                    line.product_id
+                                                                        ? String(line.product_id)
+                                                                        : ''
+                                                                }
+                                                                onChange={
+                                                                    value =>
+                                                                        selectProduct(
+                                                                            line,
+                                                                            value,
+                                                                        )
+                                                                }
+                                                                emptyLabel={text(
                                                                     'بند يدوي — خدمة، مصروف أو بند غير مسجل',
                                                                     'Manual line — service, expense or unlisted item',
                                                                 )}
-                                                            </option>
-
-                                                            {lookups.products
-                                                                .filter(
-                                                                    product =>
-                                                                        product.id ===
-                                                                            line.product_id
-                                                                        || ! lines.some(
-                                                                            item =>
-                                                                                item.client_id !==
-                                                                                    line.client_id
-                                                                                && item.product_id ===
-                                                                                    product.id,
-                                                                        ),
-                                                                )
-                                                                .map(
-                                                                    product => (
-                                                                        <option
-                                                                            key={
-                                                                                product.id
-                                                                            }
-                                                                            value={
-                                                                                product.id
-                                                                            }
-                                                                        >
-                                                                            {
-                                                                                product.name
-                                                                            }
-                                                                            {product.sku
-                                                                                ? ' · '
-                                                                                    + product.sku
-                                                                                : ''}
-                                                                        </option>
-                                                                    ),
+                                                                searchPlaceholder={text(
+                                                                    'ابحث بالاسم أو الرمز…',
+                                                                    'Search by name or SKU…',
                                                                 )}
-                                                        </select>
+                                                                options={lookups.products
+                                                                    .filter(
+                                                                        product =>
+                                                                            product.id ===
+                                                                                line.product_id
+                                                                            || ! lines.some(
+                                                                                item =>
+                                                                                    item.client_id !==
+                                                                                        line.client_id
+                                                                                    && item.product_id ===
+                                                                                        product.id,
+                                                                            ),
+                                                                    )
+                                                                    .map(
+                                                                        product => ({
+                                                                            value: String(product.id),
+                                                                            label: product.name,
+                                                                            hint: [
+                                                                                product.sku,
+                                                                                product.unit,
+                                                                            ]
+                                                                                .filter(Boolean)
+                                                                                .join(' · ') || undefined,
+                                                                        }),
+                                                                    )}
+                                                            />
+                                                        </div>
                                                     </label>
 
                                                     <label className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
@@ -3814,7 +4174,7 @@ export function DocumentForm({
                                                                 'Tax rule (optional)',
                                                             )}
 
-                                                            <select
+                                                            <Select
                                                                 className={
                                                                     financeInput
                                                                     + ' mt-2'
@@ -3855,7 +4215,7 @@ export function DocumentForm({
                                                                         </option>
                                                                     ),
                                                                 )}
-                                                            </select>
+                                                            </Select>
                                                         </label>
 
                                                         <div className="text-[11px] font-semibold text-[var(--ac-text-soft)]">
@@ -3914,7 +4274,7 @@ export function DocumentForm({
                                                                     'Warehouse *',
                                                                 )}
 
-                                                                <select
+                                                                <Select
                                                                     className={
                                                                         financeInput
                                                                         + ' mt-2'
@@ -3961,7 +4321,7 @@ export function DocumentForm({
                                                                             </option>
                                                                         ),
                                                                     )}
-                                                                </select>
+                                                                </Select>
                                                             </label>
                                                         ) : (
                                                             <div className="rounded-[12px] border border-dashed border-[var(--ac-line)] bg-[var(--ac-surface)] px-3 py-3 text-[10px] leading-5 text-[var(--ac-text-muted)]">
@@ -3974,6 +4334,7 @@ export function DocumentForm({
                                                     </div>
                                                 </details>
                                             </div>
+                                            )}
                                         </article>
                                     );
                                 },
@@ -4176,7 +4537,7 @@ export function DocumentForm({
                     </div>
                 </div>
 
-                <aside className="space-y-4 xl:sticky xl:top-24">
+                <aside className="space-y-4 xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto xl:pe-1">
                     <FPanel
                         title={
                             sales
@@ -4345,6 +4706,56 @@ export function DocumentForm({
                                 </strong>
                             </div>
 
+                            <div className="space-y-2 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                    <strong className="text-[11px] text-[var(--ac-text)]">
+                                        {text(
+                                            'خصم عام على الفاتورة كلها',
+                                            'Invoice-wide discount',
+                                        )}
+                                    </strong>
+
+                                    <div
+                                        role="group"
+                                        aria-label={text('نوع الخصم', 'Discount type')}
+                                        className="inline-flex rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-0.5"
+                                    >
+                                        {(['percent', 'fixed'] as const).map(option => (
+                                            <button
+                                                key={option}
+                                                type="button"
+                                                onClick={() => setDocDiscountType(option)}
+                                                className={[
+                                                    'h-7 min-w-9 rounded-[8px] px-2 text-[11px] font-bold transition',
+                                                    docDiscountType === option
+                                                        ? 'bg-[var(--ac-accent-solid)] text-[var(--ac-accent-solid-text)]'
+                                                        : 'text-[var(--ac-text-muted)]',
+                                                ].join(' ')}
+                                            >
+                                                {option === 'percent' ? '%' : currency}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    aria-label={text('قيمة الخصم العام', 'Invoice discount value')}
+                                    className={financeInput}
+                                    value={docDiscountValue}
+                                    onChange={event => setDocDiscountValue(event.target.value)}
+                                />
+
+                                <p className="text-[10px] leading-5 text-[var(--ac-text-muted)]">
+                                    {text(
+                                        'يُوزَّع تلقائياً على البنود حسب قيمتها، فلا حاجة لإدخال خصم لكل صنف.',
+                                        'Spread over the lines by value, so no per-line discount is needed.',
+                                    )}
+                                </p>
+                            </div>
+
                             <div className="mt-3 border-t border-[var(--ac-line-strong)] pt-4">
                                 <div className="flex items-end justify-between gap-4">
                                     <span className="font-bold text-[var(--ac-text)]">
@@ -4366,6 +4777,218 @@ export function DocumentForm({
                                     </strong>
                                 </div>
                             </div>
+                        </div>
+                    </FPanel>
+
+                    <FPanel
+                        title={sales
+                            ? text('قبض مع الفاتورة', 'Receipt with invoice')
+                            : text('دفعة مع الفاتورة', 'Payment with invoice')}
+                        icon={Banknote}
+                    >
+                        <div className="space-y-3 p-4 text-xs">
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={payOn}
+                                onClick={() => setPayOn(value => ! value)}
+                                className="flex w-full items-center justify-between gap-3 text-start"
+                            >
+                                <span>
+                                    <strong className="block text-[var(--ac-text)]">
+                                        {sales
+                                            ? text('تسجيل قبض الآن', 'Record a receipt now')
+                                            : text('تسجيل دفعة الآن', 'Record a payment now')}
+                                    </strong>
+                                    <span className="text-[10px] text-[var(--ac-text-muted)]">
+                                        {text(
+                                            'اختياري · بتاريخ الفاتورة · يُسجَّل عند الإصدار',
+                                            'Optional · dated like the invoice · recorded on issue',
+                                        )}
+                                    </span>
+                                </span>
+
+                                <span
+                                    className={[
+                                        'relative h-6 w-11 shrink-0 rounded-full transition',
+                                        payOn ? 'bg-[var(--ac-accent-solid)]' : 'bg-[var(--ac-line-strong)]',
+                                    ].join(' ')}
+                                >
+                                    <span
+                                        className={[
+                                            'absolute top-0.5 size-5 rounded-full bg-white shadow transition-all',
+                                            payOn ? 'start-[1.375rem]' : 'start-0.5',
+                                        ].join(' ')}
+                                    />
+                                </span>
+                            </button>
+
+                            {payOn && (
+                                <div className="space-y-3 rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] p-3">
+                                    {! partyId && (
+                                        <p className="text-amber-600">
+                                            {sales
+                                                ? text('اختر العميل أولاً لتسجيل القبض.', 'Choose the customer first.')
+                                                : text('اختر المورد أولاً لتسجيل الدفعة.', 'Choose the supplier first.')}
+                                        </p>
+                                    )}
+
+                                    <p className="text-[10px] text-[var(--ac-text-muted)]">
+                                        {text('تاريخ الدفعة: ', 'Payment date: ')}
+                                        <strong className="text-[var(--ac-text)]">{selectedIssueDate}</strong>
+                                        {text(' (تاريخ الفاتورة)', ' (invoice date)')}
+                                    </p>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPayMode('invoice')}
+                                            className={payMode === 'invoice' ? financePrimary : financeButton}
+                                        >
+                                            {text('هذه الفاتورة فقط', 'This invoice only')}
+                                        </button>
+
+                                        {payment.oldTotal > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setPayMode('all')}
+                                                className={payMode === 'all' ? financePrimary : financeButton}
+                                            >
+                                                {text('+ المستحق السابق', '+ previous balance')}
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <label className="block font-semibold text-[var(--ac-text-soft)]">
+                                        {sales ? text('المبلغ المقبوض', 'Amount received') : text('المبلغ المدفوع', 'Amount paid')}
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            className={financeInput + ' mt-1'}
+                                            value={
+                                                payMode === 'custom'
+                                                    ? payAmount
+                                                    : payment.raw.toFixed(2)
+                                            }
+                                            onChange={event => {
+                                                setPayMode('custom');
+                                                setPayAmount(event.target.value);
+                                            }}
+                                        />
+                                    </label>
+
+                                    <div className="overflow-hidden rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
+                                        <div className="flex items-center justify-between gap-2 border-b border-[var(--ac-line)] px-3 py-2">
+                                            <span className="font-semibold">{text('هذه الفاتورة', 'This invoice')}</span>
+                                            <strong><Money value={payment.forInvoice} currency={currency} /></strong>
+                                        </div>
+
+                                        {payment.old.length > 1 && (
+                                            <label className="flex cursor-pointer items-center gap-2 border-b border-[var(--ac-line)] bg-[var(--ac-surface-soft,transparent)] px-3 py-2 font-semibold">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={payment.old.every(row => ! row.skipped)}
+                                                    ref={element => {
+                                                        if (element) {
+                                                            const skippedCount = payment.old.filter(row => row.skipped).length;
+
+                                                            element.indeterminate = skippedCount > 0 && skippedCount < payment.old.length;
+                                                        }
+                                                    }}
+                                                    onChange={event => {
+                                                        const ids = payment.old.map(row => row.invoice.id);
+
+                                                        setSkippedInvoices(current =>
+                                                            event.target.checked
+                                                                ? current.filter(id => ! ids.includes(id))
+                                                                : Array.from(new Set([...current, ...ids])),
+                                                        );
+                                                    }}
+                                                />
+                                                {text('تحديد الكل', 'Select all')}
+                                            </label>
+                                        )}
+
+                                        {payment.old.map(row => (
+                                            <label
+                                                key={row.invoice.id}
+                                                className={[
+                                                    'flex items-center justify-between gap-2 border-b border-[var(--ac-line)] px-3 py-2',
+                                                    row.skipped ? 'opacity-50' : '',
+                                                ].join(' ')}
+                                            >
+                                                <span className="flex min-w-0 items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={! row.skipped}
+                                                        onChange={() => {
+                                                            setSkippedInvoices(current =>
+                                                                current.includes(row.invoice.id)
+                                                                    ? current.filter(id => id !== row.invoice.id)
+                                                                    : [...current, row.invoice.id],
+                                                            );
+                                                        }}
+                                                    />
+                                                    <span className="min-w-0">
+                                                        <span className="block truncate font-semibold">{row.invoice.number}</span>
+                                                        <span className="text-[10px] text-[var(--ac-text-muted)]">
+                                                            {text('رصيد ', 'Balance ')}
+                                                            <Money value={Number(row.invoice.balance_due) || 0} currency={currency} />
+                                                        </span>
+                                                    </span>
+                                                </span>
+
+                                                <strong className={row.applied > 0 ? 'text-emerald-600' : 'text-[var(--ac-text-muted)]'}>
+                                                    {row.applied > 0
+                                                        ? <Money value={row.applied} currency={currency} />
+                                                        : '—'}
+                                                </strong>
+                                            </label>
+                                        ))}
+
+                                        {payment.credit > 0.00005 && (
+                                            <div className="flex items-center justify-between gap-2 bg-amber-500/10 px-3 py-2 text-amber-700">
+                                                <span>
+                                                    {sales
+                                                        ? text('رصيد دائن للعميل', 'Customer credit')
+                                                        : text('رصيد دائن لدى المورد', 'Supplier credit')}
+                                                </span>
+                                                <strong><Money value={payment.credit} currency={currency} /></strong>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <label className="block font-semibold text-[var(--ac-text-soft)]">
+                                        {text('طريقة الدفع', 'Method')}
+                                        <Select
+                                            className={financeInput + ' mt-1'}
+                                            value={payMethod}
+                                            onChange={event => setPayMethod(event.target.value)}
+                                        >
+                                            {payMethodChoices.map(([value, label]) => (
+                                                <option key={value} value={value}>{label}</option>
+                                            ))}
+                                        </Select>
+                                    </label>
+
+                                    <label className="block font-semibold text-[var(--ac-text-soft)]">
+                                        {text('مرجع (اختياري)', 'Reference (optional)')}
+                                        <input
+                                            className={financeInput + ' mt-1'}
+                                            value={payRef}
+                                            onChange={event => setPayRef(event.target.value)}
+                                        />
+                                    </label>
+
+                                    <p className="text-[10px] leading-5 text-[var(--ac-text-muted)]">
+                                        {text(
+                                            'تُسجَّل الدفعة وتُعتمد تلقائياً عند الضغط على «اعتماد وإصدار». حفظ المسودة لا يسجّل دفعة. للشيكات استخدم «إصدار وتسجيل مقبوض».',
+                                            'The payment is recorded and posted when you press Issue. Saving a draft records no payment. For cheques use "Issue and record receipt".',
+                                        )}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </FPanel>
 

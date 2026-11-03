@@ -1,3 +1,4 @@
+import { useTableView } from '@/components/data/useTableView';
 import { apiRequest } from '@/lib/http';
 import { AppShell } from '@/layouts/AppShell';
 import { useLocale } from '@/lib/i18n';
@@ -19,6 +20,7 @@ import {
     useMemo,
     useState,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type TransferRow = {
     id: number;
@@ -90,6 +92,13 @@ export default function InventoryTransfers() {
     ] = useState<TransferResponse | null>(
         null,
     );
+    const view = useTableView(response?.data ?? [], {
+        product: (row) => row.product_name,
+        route: (row) => `${row.source_warehouse_name} ${row.destination_warehouse_name}`,
+        quantity: (row) => Number(row.quantity),
+        status: (row) => row.status,
+        requested: (row) => `${row.requested_by_name ?? ''} ${row.created_at}`,
+    });
     const [
         status,
         setStatus,
@@ -346,7 +355,7 @@ export default function InventoryTransfers() {
                         </div>
                     </div>
 
-                    <select
+                    <Select
                         value={
                             status
                         }
@@ -396,7 +405,7 @@ export default function InventoryTransfers() {
                                 'Rejected',
                             )}
                         </option>
-                    </select>
+                    </Select>
                 </div>
 
                 {canManage && (
@@ -409,7 +418,7 @@ export default function InventoryTransfers() {
                     </h2>
 
                     <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,.8fr)_minmax(0,.8fr)_130px_minmax(0,.8fr)_auto]">
-                        <select
+                        <Select
                             value={
                                 productId
                             }
@@ -449,9 +458,9 @@ export default function InventoryTransfers() {
                                     </option>
                                 ),
                             )}
-                        </select>
+                        </Select>
 
-                        <select
+                        <Select
                             value={
                                 sourceId
                             }
@@ -487,9 +496,9 @@ export default function InventoryTransfers() {
                                     </option>
                                 ),
                             )}
-                        </select>
+                        </Select>
 
-                        <select
+                        <Select
                             value={
                                 destinationId
                             }
@@ -525,7 +534,7 @@ export default function InventoryTransfers() {
                                     </option>
                                 ),
                             )}
-                        </select>
+                        </Select>
 
                         <input
                             type="number"
@@ -631,50 +640,19 @@ export default function InventoryTransfers() {
                             <table className="w-full min-w-[1040px] text-xs">
                                 <thead className="bg-[var(--ac-surface-soft)] text-[var(--ac-text-muted)]">
                                     <tr>
-                                        {[
-                                            text(
-                                                'المنتج',
-                                                'Product',
-                                            ),
-                                            text(
-                                                'المسار',
-                                                'Route',
-                                            ),
-                                            text(
-                                                'الكمية',
-                                                'Quantity',
-                                            ),
-                                            text(
-                                                'الحالة',
-                                                'Status',
-                                            ),
-                                            text(
-                                                'الطلب',
-                                                'Requested',
-                                            ),
-                                            text(
-                                                'الإجراءات',
-                                                'Actions',
-                                            ),
-                                        ].map(
-                                            label => (
-                                                <th
-                                                    key={
-                                                        label
-                                                    }
-                                                    className="px-4 py-3 text-start font-semibold"
-                                                >
-                                                    {
-                                                        label
-                                                    }
-                                                </th>
-                                            ),
-                                        )}
+                                        {view.th('product', text('المنتج', 'Product'), { className: 'py-3' })}
+                                        {view.th('route', text('المسار', 'Route'), { className: 'py-3' })}
+                                        {view.th('quantity', text('الكمية', 'Quantity'), { className: 'py-3' })}
+                                        {view.th('status', text('الحالة', 'Status'), { className: 'py-3' })}
+                                        {view.th('requested', text('الطلب', 'Requested'), { className: 'py-3' })}
+                                        <th className="px-4 py-3 text-start font-semibold">
+                                            {text('الإجراءات', 'Actions')}
+                                        </th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
-                                    {response.data.map(
+                                    {view.rows.map(
                                         row => (
                                             <tr
                                                 key={

@@ -26,12 +26,13 @@ class PaymentPlanController extends Controller
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             'direction' => ['nullable', Rule::in(['incoming', 'outgoing'])],
             'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
         return PaymentPlanResource::collection(PaymentPlan::query()->withCount('records')
             ->where('active', ($data['status'] ?? 'active') === 'active')
             ->when($data['direction'] ?? null, fn ($query, $direction) => $query->where('direction', $direction))
-            ->orderBy('next_due_on')->orderBy('id')->paginate(20));
+            ->orderBy('next_due_on')->orderBy('id')->paginate($data['per_page'] ?? 25));
     }
 
     public function store(StorePaymentPlanRequest $request): JsonResponse
@@ -91,9 +92,12 @@ class PaymentPlanController extends Controller
     public function history(Request $request): AnonymousResourceCollection
     {
         Gate::authorize('viewAny', PaymentPlan::class);
-        $request->validate(['page' => ['sometimes', 'integer', 'min:1']]);
+        $data = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
 
-        return PaymentRecordResource::collection(PaymentRecord::query()->latest('paid_on')->latest('id')->paginate(20));
+        return PaymentRecordResource::collection(PaymentRecord::query()->latest('paid_on')->latest('id')->paginate($data['per_page'] ?? 25));
     }
 
     public function reminders(): JsonResponse

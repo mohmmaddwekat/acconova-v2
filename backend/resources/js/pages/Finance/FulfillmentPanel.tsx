@@ -10,6 +10,7 @@ import {
     useMemo,
     useState,
 } from 'react';
+import { Select } from '@/components/ui/Select';
 
 type FulfillmentEvent = {
     id: number;
@@ -224,7 +225,7 @@ export function FulfillmentPanel({
 
             {canManage && openLines.length > 0 && (
                 <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_120px_150px_minmax(0,.8fr)_auto]">
-                    <select
+                    <Select
                         value={lineId}
                         onChange={(event) => {
                             const next = event.target.value;
@@ -254,7 +255,7 @@ export function FulfillmentPanel({
                                 {text('متبقي', 'remaining')} {Number(line.remaining_quantity).toLocaleString()}
                             </option>
                         ))}
-                    </select>
+                    </Select>
 
                     <input
                         type="number"
