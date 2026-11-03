@@ -33,6 +33,10 @@ class ProductionCostingTest extends TestCase
 
     public function test_unit_cost_adds_the_months_wages_and_expenses_to_material_cost_and_recosts_sales(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            $this->markTestSkipped('The monthly costing uses MySQL DATE_FORMAT, which SQLite does not have.');
+        }
+
         $organization = Organization::create(['name' => 'Costing Co']);
         app(TenantContext::class)->set($organization, OrganizationRole::Owner);
         $warehouse = Warehouse::create(['code' => 'WH-1', 'name' => 'Main', 'is_default' => true]);

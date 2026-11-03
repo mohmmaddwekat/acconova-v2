@@ -35,7 +35,7 @@ class StaffImportTemplateTest extends TestCase
 
         $middleware = $route->gatherMiddleware();
 
-        $this->assertContains('throttle:15,1', $middleware);
+        $this->assertContains('throttle:120,1', $middleware);
         $this->assertNotContains('throttle:6,1', $middleware);
     }
 
@@ -63,7 +63,7 @@ class StaffImportTemplateTest extends TestCase
             $workbook = IOFactory::load($temporaryPath);
 
             $this->assertSame(
-                ['الموظفون', 'الحضور', 'الرواتب', 'تعليمات'],
+                ['الموظفون', 'الحضور', 'الدفعات والحركات', 'تعليمات'],
                 $workbook->getSheetNames(),
             );
             $this->assertSame(
@@ -75,8 +75,8 @@ class StaffImportTemplateTest extends TestCase
                 $workbook->getSheetByName('الحضور')?->getCell('A1')->getValue(),
             );
             $this->assertSame(
-                'نوع العملية',
-                $workbook->getSheetByName('الرواتب')?->getCell('B1')->getValue(),
+                'نوع الحركة',
+                $workbook->getSheetByName('الدفعات والحركات')?->getCell('B1')->getValue(),
             );
 
             $workbook->disconnectWorksheets();

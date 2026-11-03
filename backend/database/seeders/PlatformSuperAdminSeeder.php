@@ -38,7 +38,7 @@ class PlatformSuperAdminSeeder extends Seeder
         }
 
         if (! $user) {
-            $user = new User();
+            $user = new User;
             $user->email = $email;
         }
 

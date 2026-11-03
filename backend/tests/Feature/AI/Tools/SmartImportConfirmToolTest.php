@@ -265,6 +265,10 @@ class SmartImportConfirmToolTest extends TestCase
      */
     public function test_confirm_locks_the_draft_row_before_committing(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            $this->markTestSkipped('SQLite has no row locks, so there is no "for update" query to inspect.');
+        }
+
         app(TenantContext::class)->set($this->organization, OrganizationRole::Employee);
         $this->grantPermissions($this->otherUser, ['ai.business_data.write', 'parties.import.commit']);
 

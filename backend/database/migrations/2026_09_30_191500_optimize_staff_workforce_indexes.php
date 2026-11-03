@@ -47,6 +47,17 @@ return new class extends Migration
 
     public function down(): void
     {
+        /*
+         * The composite indexes above are also what backs each table's
+         * organization_id foreign key, so MySQL refuses to drop them unless
+         * a plain index on that column exists again first.
+         */
+        foreach (['staff_adjustments', 'staff_entries', 'staff_attendances', 'staff_members'] as $tableName) {
+            Schema::table($tableName, function (Blueprint $table): void {
+                $table->index('organization_id');
+            });
+        }
+
         Schema::table('staff_adjustments', function (Blueprint $table): void {
             $table->dropIndex('idx_adj_member_period');
         });

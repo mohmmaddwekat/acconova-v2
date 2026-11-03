@@ -24,6 +24,10 @@ class ImportExpensesTest extends TestCase
 
     public function test_bills_are_reconciled_by_month_and_small_expenses_are_merged_per_day(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            $this->markTestSkipped('The month grouping uses MySQL DATE_FORMAT, which SQLite does not have.');
+        }
+
         $user = User::factory()->create();
         $organization = Organization::create(['name' => 'Expense Co']);
         $organization->users()->attach($user->id, ['role' => OrganizationRole::Owner->value]);

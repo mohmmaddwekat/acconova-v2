@@ -80,7 +80,7 @@ class CustomerCasesTest extends TestCase
     private function cheque(int $party, int $document, int $amount, int $paidDaysAgo, int $chequeDueInDays = 10): int
     {
         return $this->pay($party, $document, $amount, $paidDaysAgo, 'check', [
-            'check_number' => 'CHK-'.$document, 'check_bank' => 'Bank', 'check_due_date' => now()->addDays($chequeDueInDays)->toDateString(),
+            'check_number' => 'CHK-'.$document.'-'.$paidDaysAgo, 'check_bank' => 'Bank', 'check_due_date' => now()->addDays($chequeDueInDays)->toDateString(),
         ]);
     }
 
@@ -200,7 +200,7 @@ class CustomerCasesTest extends TestCase
     public function test_a_partial_payment_alerts_only_for_the_unpaid_part_and_asks_for_an_advance(): void
     {
         $party = $this->history('Pays Partly', [-20, -20, -20, -20]);
-        $invoice = $this->invoice($party, 500, 40, 10);
+        $invoice = $this->invoice($party, 500, 39, 10);
         $this->pay($party, $invoice, 200, 3);
 
         $statement = $this->statement($party);
@@ -246,7 +246,7 @@ class CustomerCasesTest extends TestCase
     public function test_an_uncashed_cheque_is_not_a_payment_and_not_a_guarantee(): void
     {
         $party = $this->history('Cheque In Hand', [-20, -20, -20, -20]);
-        $invoice = $this->invoice($party, 300, 40, 15);
+        $invoice = $this->invoice($party, 300, 39, 15);
         $cheque = $this->cheque($party, $invoice, 300, 2, 10);
 
         $statement = $this->statement($party);

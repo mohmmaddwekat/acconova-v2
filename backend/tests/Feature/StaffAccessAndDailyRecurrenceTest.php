@@ -91,17 +91,18 @@ class StaffAccessAndDailyRecurrenceTest extends TestCase
     {
         Notification::fake();
         [$owner,$org] = $this->workspace();
-        $staff = $this->staff();
-        $response = $this->postJson('/api/staff/'.$staff.'/invitation', ['email' => 'new@example.com'])->assertCreated();
+        $email = 'new@'.substr(strrchr($owner->email, '@'), 1);
+        $staff = $this->staff(['contact_email' => $email]);
+        $response = $this->postJson('/api/staff/'.$staff.'/invitation')->assertCreated();
         $token = basename($response->json('url'));
         $this->assertDatabaseMissing('staff_invitations', ['token_hash' => $token]);
         $wrong = User::factory()->create();
         $this->actingAs($wrong);
         $this->postJson('/api/staff-invitations/'.$token.'/accept')->assertForbidden();
         $this->postJson('/api/logout')->assertNoContent();
-        $this->postJson('/api/register', ['name' => 'New', 'email' => 'new@example.com', 'password' => 'StrongPassword123!', 'password_confirmation' => 'StrongPassword123!'])->assertCreated();
+        $this->postJson('/api/register', ['name' => 'New', 'email' => $email, 'password' => 'StrongPassword123!', 'password_confirmation' => 'StrongPassword123!'])->assertCreated();
         $this->postJson('/api/staff-invitations/'.$token.'/accept')->assertForbidden();
-        $user = User::where('email', 'new@example.com')->firstOrFail();
+        $user = User::where('email', $email)->firstOrFail();
         $user->markEmailAsVerified();
         $this->actingAs($user);
         $this->postJson('/api/staff-invitations/'.$token.'/accept')->assertOk();
@@ -112,10 +113,10 @@ class StaffAccessAndDailyRecurrenceTest extends TestCase
 
     public function test_reissuing_and_expiring_invitation_invalidates_old_links(): void
     {
-        $this->workspace();
-        $staff = $this->staff();
-        $old = $this->postJson('/api/staff/'.$staff.'/invitation', ['email' => 'a@example.com'])->assertCreated()->json('url');
-        $new = $this->postJson('/api/staff/'.$staff.'/invitation', ['email' => 'b@example.com'])->assertCreated()->json('url');
+        [$owner] = $this->workspace();
+        $staff = $this->staff(['contact_email' => 'a@'.substr(strrchr($owner->email, '@'), 1)]);
+        $old = $this->postJson('/api/staff/'.$staff.'/invitation')->assertCreated()->json('url');
+        $new = $this->postJson('/api/staff/'.$staff.'/invitation')->assertCreated()->json('url');
         $this->get($old)->assertNotFound();
         $this->travel(8)->days();
         $this->get($new)->assertNotFound();

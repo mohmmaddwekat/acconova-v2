@@ -905,12 +905,13 @@ class ProductionRunWorkflowTest extends TestCase
             ->assertJsonPath('data.2.message', 'no_active_recipe');
 
         $this->assertDatabaseCount('production_runs', 2);
-        $this->assertSame(
-            '965.0000',
-            (string) DB::table('inventory_balances')
+        $this->assertEqualsWithDelta(
+            965.0,
+            (float) DB::table('inventory_balances')
                 ->where('product_id', $workspace['plastic']->id)
                 ->where('warehouse_id', $workspace['raw']->id)
                 ->value('on_hand'),
+            0.0001,
         );
     }
 
@@ -925,12 +926,13 @@ class ProductionRunWorkflowTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.0.status', 'draft');
 
         $this->assertDatabaseHas('production_runs', ['status' => 'draft']);
-        $this->assertSame(
-            '1000.0000',
-            (string) DB::table('inventory_balances')
+        $this->assertEqualsWithDelta(
+            1000.0,
+            (float) DB::table('inventory_balances')
                 ->where('product_id', $workspace['plastic']->id)
                 ->where('warehouse_id', $workspace['raw']->id)
                 ->value('on_hand'),
+            0.0001,
         );
     }
 

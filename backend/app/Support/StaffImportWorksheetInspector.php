@@ -26,7 +26,7 @@ class StaffImportWorksheetInspector
             ];
         }
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
 
         if ($zip->open($path) !== true) {
             return $this->fallback($fallbackLastRow);
@@ -42,7 +42,7 @@ class StaffImportWorksheetInspector
             $zip->close();
         }
 
-        $reader = new XMLReader();
+        $reader = new XMLReader;
         $uri = 'zip://'.str_replace('\\', '/', realpath($path) ?: $path).'#'.$target;
 
         if (! @$reader->open($uri, null, LIBXML_NONET | LIBXML_COMPACT)) {
@@ -78,6 +78,7 @@ class StaffImportWorksheetInspector
                     // Styled empty cells are represented by <c .../> without any of
                     // these value/formula nodes, so they do not inflate row counts.
                     $rowHasData = true;
+
                     continue;
                 }
 
@@ -106,7 +107,7 @@ class StaffImportWorksheetInspector
 
     private function worksheetTarget(string $path, string $sheetName): ?string
     {
-        $workbookReader = new XMLReader();
+        $workbookReader = new XMLReader;
         $workbookUri = 'zip://'.str_replace('\\', '/', realpath($path) ?: $path).'#xl/workbook.xml';
 
         if (! @$workbookReader->open($workbookUri, null, LIBXML_NONET | LIBXML_COMPACT)) {
@@ -139,7 +140,7 @@ class StaffImportWorksheetInspector
             return null;
         }
 
-        $relsReader = new XMLReader();
+        $relsReader = new XMLReader;
         $relsUri = 'zip://'.str_replace('\\', '/', realpath($path) ?: $path).'#xl/_rels/workbook.xml.rels';
 
         if (! @$relsReader->open($relsUri, null, LIBXML_NONET | LIBXML_COMPACT)) {
@@ -185,6 +186,7 @@ class StaffImportWorksheetInspector
 
             if ($segment === '..') {
                 array_pop($segments);
+
                 continue;
             }
 

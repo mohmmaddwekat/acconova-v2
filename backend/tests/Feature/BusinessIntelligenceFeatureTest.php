@@ -461,7 +461,7 @@ class BusinessIntelligenceFeatureTest extends TestCase
                     'affects_inventory' => false,
                 ],
             ],
-            today()->toDateString(),
+            today()->subDay()->toDateString(),
             'SUP-INV-100',
         );
 

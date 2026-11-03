@@ -2,6 +2,7 @@
 
 namespace App\Services\Finance;
 
+use App\Exceptions\SafeValidationException;
 use App\Models\CashAllocation;
 use App\Models\Department;
 use App\Models\FinancialDocument;
@@ -669,12 +670,7 @@ class FinanceDocumentService
             ->first(['id', 'number', 'status']);
 
         if ($existing) {
-            throw ValidationException::withMessages([
-                'issue_date' => [$this->message(
-                    sprintf('يوجد فاتورة %s لنفس الطرف بنفس التاريخ (%s). عدّل تلك الفاتورة بدلاً من إضافة فاتورة جديدة.', $kind === 'sale_invoice' ? 'بيع' : 'شراء', $existing->number),
-                    sprintf('This party already has a %s invoice on this date (%s). Edit that invoice instead of adding another one.', $kind === 'sale_invoice' ? 'sales' : 'purchase', $existing->number),
-                )],
-            ]);
+            throw SafeValidationException::forField('issue_date', 'same_day_invoice');
         }
     }
 

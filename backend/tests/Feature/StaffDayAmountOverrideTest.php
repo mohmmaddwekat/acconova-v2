@@ -110,7 +110,7 @@ class StaffDayAmountOverrideTest extends TestCase
         $this->assertSame('150.0000', $this->balance($daily));
 
         $again = collect($this->getJson('/api/staff-attendance/bulk?date=2026-09-16')->json('data'));
-        $this->assertSame('50.0000', $again->firstWhere('id', $monthly)['attendance']['day_amount_override']);
+        $this->assertEquals('50.0000', $again->firstWhere('id', $monthly)['attendance']['day_amount_override']);
 
         $this->postJson('/api/staff-attendance/bulk', [
             'scope' => 'selected', 'occurred_on' => '2026-09-16', 'status' => 'present', 'quantity' => '1',

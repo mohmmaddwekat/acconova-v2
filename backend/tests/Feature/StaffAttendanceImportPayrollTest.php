@@ -27,6 +27,7 @@ class StaffAttendanceImportPayrollTest extends TestCase
         $this->actingAs($user)->withSession([
             OrganizationAccess::SESSION_KEY => $organization->id,
         ]);
+        $this->travelTo(now()->setDate(2026, 9, 1));
 
         $staffId = $this
             ->postJson('/api/staff', [
@@ -146,6 +147,7 @@ class StaffAttendanceImportPayrollTest extends TestCase
         $this->actingAs($user)->withSession([
             OrganizationAccess::SESSION_KEY => $organization->id,
         ]);
+        $this->travelTo(now()->setDate(2026, 9, 1));
 
         $staffId = $this
             ->postJson('/api/staff', [

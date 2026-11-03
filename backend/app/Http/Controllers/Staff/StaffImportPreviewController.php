@@ -102,6 +102,7 @@ class StaffImportPreviewController extends Controller
                 $sheet = $spreadsheet->getSheetByName($sheetName);
                 if (! $sheet) {
                     $spreadsheet->disconnectWorksheets();
+
                     continue;
                 }
 

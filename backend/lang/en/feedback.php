@@ -70,4 +70,5 @@ return [
     'import_fix' => 'Fix the invalid spreadsheet rows before importing.',
     'import_limit' => 'This import contains more than 5,000 rows. Split it into smaller files for this version.',
     'import_mode' => 'Choose whether to skip or update duplicate records.',
+    'same_day_invoice' => 'This party already has an invoice of the same type on this date. Edit that invoice instead of adding another one, or change the invoice date.',
 ];

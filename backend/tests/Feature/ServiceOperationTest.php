@@ -163,8 +163,9 @@ class ServiceOperationTest extends TestCase
         $customer = $this->customer();
         ServiceOperation::factory()->count(11)->create(['product_id' => $service->id, 'party_id' => $customer->id]);
         $service->update(['type' => 'product']);
-        $this->getJson($this->endpoint($service))->assertOk()->assertJsonCount(10, 'data')->assertJsonPath('meta.last_page', 2);
-        $this->getJson($this->endpoint($service).'?page=2')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson($this->endpoint($service).'?per_page=10')->assertOk()->assertJsonCount(10, 'data')->assertJsonPath('meta.last_page', 2);
+        $this->getJson($this->endpoint($service).'?per_page=10&page=2')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson($this->endpoint($service))->assertOk()->assertJsonCount(11, 'data')->assertJsonPath('meta.last_page', 1);
         $this->postJson($this->endpoint($service), $this->payload($customer))->assertNotFound();
     }
 

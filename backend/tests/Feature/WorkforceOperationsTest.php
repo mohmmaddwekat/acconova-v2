@@ -42,7 +42,7 @@ class WorkforceOperationsTest extends TestCase
     public function test_attendance_earns_by_basis_and_overtime_without_paying(): void
     {
         $this->workspace();
-        foreach (['day' => ['100', '100.0000'], 'hour' => ['10', '100.0000'], 'piece' => ['2', '20.0000'], 'month' => ['3000', '115.3846']] as $basis => [$rate,$expected]) {
+        foreach (['day' => ['100', '100.0000'], 'hour' => ['10', '100.0000'], 'piece' => ['2', '20.0000'], 'month' => ['3000', '1730.7692']] as $basis => [$rate,$expected]) {
             $staff = $this->staff($basis, $rate);
             $this->attendance($staff)->assertCreated();
             $this->getJson('/api/staff/'.$staff.'/ledger')->assertOk()->assertJsonPath('balance', $expected);
@@ -125,11 +125,12 @@ class WorkforceOperationsTest extends TestCase
         $this->workspace();
         $id = $this->staff('month', '2600');
 
+        // 2600 a month over 26 working days is 100 a day, and 15 working days have passed by 17 Sep.
         $this->attendance($id)->assertCreated();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '100.0000');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '1500.0000');
 
-        $this->attendance($id, ['occurred_on' => '2026-09-17'])->assertCreated();
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '200.0000');
+        $this->attendance($id, ['occurred_on' => '2026-09-17', 'status' => 'absent'])->assertCreated();
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '1400.0000');
 
         $rows = collect(
             $this->getJson('/api/staff/'.$id.'/workforce')
@@ -143,12 +144,12 @@ class WorkforceOperationsTest extends TestCase
             'reason' => 'Wrong attendance row',
         ])->assertOk();
 
-        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '100.0000');
+        $this->getJson('/api/staff/'.$id.'/ledger')->assertJsonPath('balance', '1500.0000');
         $this->assertDatabaseHas('staff_entries', [
             'staff_member_id' => $id,
             'kind' => 'work',
             'occurred_on' => '2026-09-01',
-            'amount' => '100.0000',
+            'amount' => '1500.0000',
         ]);
     }
 

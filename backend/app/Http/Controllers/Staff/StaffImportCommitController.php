@@ -167,7 +167,7 @@ class StaffImportCommitController extends Controller
                 fn (array $row): bool => ! $this->rowHasSpreadsheetError($row),
             ));
 
-            $chunkBook = new Spreadsheet();
+            $chunkBook = new Spreadsheet;
             $chunkSheet = $chunkBook->getActiveSheet();
             $chunkSheet->setTitle(substr($sheetName, 0, 31));
             $chunkSheet->fromArray($header, null, 'A1', true);
