@@ -3,13 +3,13 @@
 use App\Http\Controllers\Parties\CreditController;
 use App\Http\Controllers\Parties\PartyAccountController;
 use App\Http\Controllers\Parties\PartyAdjustmentController;
-use App\Http\Controllers\Parties\PartyOffsetController;
 use App\Http\Controllers\Parties\PartyBulkActionController;
 use App\Http\Controllers\Parties\PartyBulkEditController;
 use App\Http\Controllers\Parties\PartyCollectionsController;
 use App\Http\Controllers\Parties\PartyController;
 use App\Http\Controllers\Parties\PartyDataTransferController;
 use App\Http\Controllers\Parties\PartyInsightsController;
+use App\Http\Controllers\Parties\PartyOffsetController;
 use App\Http\Controllers\Parties\PartyPermanentDeletionController;
 use App\Http\Controllers\Parties\PartySettlementController;
 use App\Http\Middleware\ResolveOrganization;
