@@ -4,6 +4,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  ViewStyle,
 } from 'react-native';
 import { Colors, Radius, Spacing } from '../../constants/theme';
 
@@ -13,6 +14,7 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   variant?: 'primary' | 'ghost';
+  style?: ViewStyle;
 }
 
 export function Button({
@@ -21,6 +23,7 @@ export function Button({
   loading = false,
   disabled = false,
   variant = 'primary',
+  style,
 }: ButtonProps) {
   const isPrimary = variant === 'primary';
 
@@ -35,6 +38,7 @@ export function Button({
         styles.base,
         isPrimary ? styles.primary : styles.ghost,
         (pressed || disabled || loading) && styles.pressed,
+        style,
       ]}
     >
       {loading ? (
@@ -50,7 +54,7 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 48,
+    height: 52,
     borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',

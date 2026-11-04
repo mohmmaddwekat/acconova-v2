@@ -1,12 +1,29 @@
 import { Tabs } from 'expo-router';
-import { StyleSheet, Text } from 'react-native';
-import { Colors } from '../../constants/theme';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon, IconName } from '../../components/ui/Icon';
+import { Colors, Layout } from '../../constants/theme';
 
-function Icon({ glyph, color }: { glyph: string; color: string }) {
-  return <Text style={[styles.icon, { color }]}>{glyph}</Text>;
+function tabIcon(name: IconName) {
+  function TabIcon({ color }: { color: unknown }) {
+    return <Icon name={name} size={24} color={String(color)} />;
+  }
+  return TabIcon;
 }
 
+function EntryIcon() {
+  return (
+    <View style={styles.fab}>
+      <Icon name="plus" size={22} color="#fff" strokeWidth={2.4} />
+    </View>
+  );
+}
+
+const HIDDEN = ['notifications', 'parties', 'reports', 'ai', 'invoice/[id]', 'party/[id]', 'new-invoice', 'employees'];
+
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -17,58 +34,40 @@ export default function TabsLayout() {
           backgroundColor: Colors.surface,
           borderTopColor: Colors.line,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 10,
+          height: Layout.tabBarHeight + insets.bottom,
+          paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 8),
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'الرئيسية',
-          tabBarIcon: ({ color }) => <Icon glyph="⌂" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="invoices"
-        options={{
-          title: 'الفواتير',
-          tabBarIcon: ({ color }) => <Icon glyph="📄" color={color} />,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'الرئيسية', tabBarIcon: tabIcon('home') }} />
+      <Tabs.Screen name="invoices" options={{ title: 'الفواتير', tabBarIcon: tabIcon('file') }} />
       <Tabs.Screen
         name="quick-entry"
-        options={{
-          title: 'إدخال',
-          tabBarIcon: ({ color }) => <Icon glyph="＋" color={color} />,
-        }}
+        options={{ title: 'إدخال', tabBarIcon: () => <EntryIcon />, tabBarActiveTintColor: Colors.accent }}
       />
-      <Tabs.Screen
-        name="approvals"
-        options={{
-          title: 'موافقات',
-          tabBarIcon: ({ color }) => <Icon glyph="✓" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="more"
-        options={{
-          title: 'المزيد',
-          tabBarIcon: ({ color }) => <Icon glyph="⋯" color={color} />,
-        }}
-      />
-      {/* Hidden from tab bar — accessible via navigation */}
-      <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="parties" options={{ href: null }} />
-      <Tabs.Screen name="reports" options={{ href: null }} />
-      <Tabs.Screen name="ai" options={{ href: null }} />
-      <Tabs.Screen name="invoice/[id]" options={{ href: null }} />
-      <Tabs.Screen name="party/[id]" options={{ href: null }} />
+      <Tabs.Screen name="approvals" options={{ title: 'موافقات', tabBarIcon: tabIcon('checkSquare') }} />
+      <Tabs.Screen name="more" options={{ title: 'المزيد', tabBarIcon: tabIcon('more') }} />
+      {HIDDEN.map((name) => (
+        <Tabs.Screen key={name} name={name} options={{ href: null }} />
+      ))}
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  icon: { fontSize: 20 },
+  fab: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.accent,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
 });

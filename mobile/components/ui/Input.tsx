@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Colors, Radius, Spacing } from '../../constants/theme';
+import { Icon } from './Icon';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -42,10 +43,10 @@ export function Input({ label, error, style, secureTextEntry, ...props }: InputP
           <TouchableOpacity
             style={styles.eyeBtn}
             onPress={() => setHidden((h) => !h)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             accessibilityLabel={hidden ? 'إظهار كلمة السر' : 'إخفاء كلمة السر'}
           >
-            <Text style={styles.eyeIcon}>{hidden ? '👁' : '🙈'}</Text>
+            <Icon name={hidden ? 'eye' : 'eyeOff'} size={20} color={Colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -93,10 +94,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 36,
-  },
-  eyeIcon: {
-    fontSize: 18,
+    width: 44,
   },
   error: {
     fontSize: 12,

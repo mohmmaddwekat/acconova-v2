@@ -57,6 +57,7 @@ class MobileAuthController extends Controller
         return response()->json([
             'token' => $token,
             'user' => (new UserResource($user))->resolve($request),
+            'organizations' => $this->organizationsFor($user),
         ]);
     }
 
@@ -77,6 +78,26 @@ class MobileAuthController extends Controller
     {
         return response()->json([
             'user' => (new UserResource($request->user()))->resolve($request),
+            'organizations' => $this->organizationsFor($request->user()),
         ]);
+    }
+
+    /**
+     * Organizations the mobile client may send in the X-Organization-Id header.
+     *
+     * @return list<array{id: int, name: string, role: string}>
+     */
+    private function organizationsFor(User $user): array
+    {
+        return $user->organizations()
+            ->orderBy('organizations.id')
+            ->get()
+            ->map(fn ($organization): array => [
+                'id' => (int) $organization->id,
+                'name' => (string) $organization->name,
+                'role' => (string) $organization->pivot->role,
+            ])
+            ->values()
+            ->all();
     }
 }

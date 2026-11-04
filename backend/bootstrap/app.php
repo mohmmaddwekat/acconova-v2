@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\ApplyMobileOrganization;
+use App\Http\Middleware\AuthenticateMobileToken;
 use App\Http\Middleware\ClearTenantContext;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\ForcePasswordChange;
@@ -7,10 +9,12 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetUserLocale;
 use App\Http\Middleware\TrackDataVersion;
 use App\Http\Middleware\TranslateMarketingResponse;
+use App\Http\Middleware\ValidateCsrfToken as AppValidateCsrfToken;
 use App\Support\SafeErrorResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -52,6 +56,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(ClearTenantContext::class);
+        $middleware->prepend(AuthenticateMobileToken::class);
         $middleware->prepend(SetUserLocale::class);
         $middleware->encryptCookies(except: ['acconova_locale']);
 
@@ -74,11 +79,15 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'api/mobile/*',
         ]);
 
-        $middleware->web(append: [
-            ForcePasswordChange::class,
-            HandleInertiaRequests::class,
-            TrackDataVersion::class,
-        ]);
+        $middleware->web(
+            replace: [ValidateCsrfToken::class => AppValidateCsrfToken::class],
+            append: [
+                ApplyMobileOrganization::class,
+                ForcePasswordChange::class,
+                HandleInertiaRequests::class,
+                TrackDataVersion::class,
+            ],
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->respond(SafeErrorResponse::render(...));

@@ -12,6 +12,7 @@
       "bundleIdentifier": "net.acconova.mobile"
     },
     "android": {
+      "supportsRtl": true,
       "package": "net.acconova.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#068CF0",

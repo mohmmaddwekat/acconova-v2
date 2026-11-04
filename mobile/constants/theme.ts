@@ -60,3 +60,26 @@ export const Spacing = {
   xl: 32,
   xxl: 48,
 };
+
+// Semantic surfaces for status chips, banners and category tints
+export const Tint = {
+  successBg: '#DCFCE7',
+  dangerBg: '#FEE2E2',
+  warningBg: '#FEF3C7',
+  infoBg: '#E0F2FE',
+  purple: '#7C3AED',
+  purpleBg: '#EDE9FE',
+  overlay: 'rgba(1, 28, 50, 0.55)',
+};
+
+// Strong status colors with >= 4.5:1 contrast on white (used for text)
+export const StatusText = {
+  success: '#15803D',
+  danger: '#B91C1C',
+  warning: '#B45309',
+};
+
+export const Layout = {
+  minTouch: 44,
+  tabBarHeight: 64,
+};

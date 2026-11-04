@@ -1,188 +1,216 @@
-import { useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
-import { Colors, Radius, Spacing } from '../../constants/theme';
-import { api } from '../../lib/api';
+import { Chip } from '../../components/ui/Chip';
+import { Numpad } from '../../components/ui/Numpad';
+import { PickerSheet } from '../../components/ui/PickerSheet';
+import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { SelectField } from '../../components/ui/SelectField';
+import { StickyFooter } from '../../components/ui/StickyFooter';
+import { useToast } from '../../components/ui/Toast';
+import { Colors, Layout, Radius, StatusText } from '../../constants/theme';
+import { apiErrorMessage, CURRENCY_SYMBOL } from '../../lib/format';
+import { PartyOption, useParties } from '../../lib/lookups';
+import { submitQuickEntry } from '../../lib/quickEntry';
 
-type EntryType = 'revenue' | 'expense' | 'transfer';
+type EntryType = 'receipt' | 'payment';
+type Method = 'cash' | 'transfer';
 
-const ENTRY_TYPES: { key: EntryType; label: string; color: string }[] = [
-  { key: 'revenue', label: 'إيراد', color: Colors.success },
-  { key: 'expense', label: 'مصروف', color: Colors.danger },
-  { key: 'transfer', label: 'تحويل', color: Colors.accent },
+const TYPES: { key: EntryType; label: string; color: string }[] = [
+  { key: 'receipt', label: 'قبض (إيراد)', color: '#0570C4' },
+  { key: 'payment', label: 'دفع (مصروف)', color: StatusText.danger },
 ];
 
+const METHODS: { key: Method; label: string }[] = [
+  { key: 'cash', label: 'نقدي' },
+  { key: 'transfer', label: 'تحويل' },
+];
+
+function formatAmount(value: string): string {
+  if (value.endsWith('.')) return Number(value.slice(0, -1)).toLocaleString('en-US') + '.';
+  const [int, dec] = value.split('.');
+  const intText = Number(int).toLocaleString('en-US');
+  return dec != null ? `${intText}.${dec}` : intText;
+}
+
 export default function QuickEntryScreen() {
-  const [type, setType] = useState<EntryType>('revenue');
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
+  const toast = useToast();
+  const { items: parties, loading: partiesLoading } = useParties();
+  const [type, setType] = useState<EntryType>('receipt');
+  const [amount, setAmount] = useState('0');
+  const [party, setParty] = useState<PartyOption | null>(null);
+  const [method, setMethod] = useState<Method>('cash');
   const [reference, setReference] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [partyError, setPartyError] = useState<string | undefined>();
 
-  async function handleSubmit() {
-    if (!amount || isNaN(Number(amount))) {
-      Alert.alert('خطأ', 'أدخل مبلغاً صحيحاً');
+  const active = TYPES.find((t) => t.key === type)!;
+  const wantedPartyType = type === 'receipt' ? 'customer' : 'supplier';
+  const eligibleParties = useMemo(
+    () => parties.filter((p) => !p.type || p.type === wantedPartyType),
+    [parties, wantedPartyType],
+  );
+
+  async function save(another: boolean) {
+    if (Number(amount) <= 0) {
+      toast('أدخل المبلغ أولاً');
       return;
     }
-    if (!description.trim()) {
-      Alert.alert('خطأ', 'أدخل وصفاً للقيد');
+    if (!party) {
+      setPartyError('اختر الطرف');
       return;
     }
-
-    setLoading(true);
+    setSaving(true);
     try {
-      await api.post('/finance/quick-entries', {
+      await submitQuickEntry({
         type,
-        amount: Number(amount),
-        description: description.trim(),
+        party_id: party.id,
         reference: reference.trim() || undefined,
+        payment: { amount: Number(amount), method },
       });
-      Alert.alert('تم', 'تم حفظ القيد بنجاح ✅');
-      setAmount('');
-      setDescription('');
+      toast('تم حفظ القيد');
+      setAmount('0');
       setReference('');
+      if (!another) {
+        setParty(null);
+        router.navigate('/(tabs)');
+      }
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'تعذّر حفظ القيد';
-      Alert.alert('خطأ', msg);
+      toast(err?.response ? apiErrorMessage(err, 'تعذّر حفظ القيد') : err?.message ?? 'تعذّر الاتصال بالخادم');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Text style={styles.title}>إدخال سريع</Text>
-      </View>
+    <View style={styles.flex}>
+      <ScreenHeader title="إدخال سريع" tone="solid" color={active.color} showBack={false}>
+        <View style={styles.headerBody}>
+          <View style={styles.toggle}>
+            {TYPES.map((t) => (
+              <Pressable
+                key={t.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: type === t.key }}
+                onPress={() => {
+                  setType(t.key);
+                  setParty(null);
+                }}
+                style={[styles.toggleBtn, type === t.key && styles.toggleBtnOn]}
+              >
+                <Text style={[styles.toggleText, type === t.key && { color: t.color }]}>{t.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.amountHint}>المبلغ ({CURRENCY_SYMBOL})</Text>
+          <Text style={styles.amount} accessibilityLiveRegion="polite" numberOfLines={1} adjustsFontSizeToFit>
+            {formatAmount(amount)}
+          </Text>
+        </View>
+      </ScreenHeader>
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {/* Entry Type */}
-          <Card>
-            <Text style={styles.fieldLabel}>نوع القيد</Text>
-            <View style={styles.typeRow}>
-              {ENTRY_TYPES.map((t) => (
-                <Pressable
-                  key={t.key}
-                  style={[
-                    styles.typeBtn,
-                    type === t.key && { backgroundColor: t.color, borderColor: t.color },
-                  ]}
-                  onPress={() => setType(t.key)}
-                >
-                  <Text
-                    style={[
-                      styles.typeBtnText,
-                      type === t.key && { color: '#fff' },
-                    ]}
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          <Numpad value={amount} onChange={setAmount} />
+
+          <View style={styles.divider} />
+
+          {eligibleParties.length > 0 && (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.sectionLabel}>الأكثر استخداماً</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestRow}>
+                {eligibleParties.slice(0, 4).map((p) => (
+                  <Pressable
+                    key={p.id}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setParty(p);
+                      setPartyError(undefined);
+                    }}
+                    style={[styles.suggest, party?.id === p.id && styles.suggestOn]}
                   >
-                    {t.label}
-                  </Text>
-                </Pressable>
+                    <Text style={styles.suggestText} numberOfLines={1}>{p.name}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          <SelectField
+            label={type === 'receipt' ? 'العميل' : 'المورد'}
+            value={party?.name}
+            placeholder={partiesLoading ? 'جارٍ التحميل...' : 'اختر الطرف'}
+            onPress={() => setPickerOpen(true)}
+            error={partyError}
+          />
+
+          <View style={{ gap: 6 }}>
+            <Text style={styles.sectionLabel}>طريقة الدفع</Text>
+            <View style={styles.methods}>
+              {METHODS.map((m) => (
+                <Chip key={m.key} label={m.label} selected={method === m.key} onPress={() => setMethod(m.key)} />
               ))}
             </View>
-          </Card>
+          </View>
 
-          {/* Amount */}
-          <Card>
-            <Text style={styles.fieldLabel}>المبلغ</Text>
-            <View style={styles.amountRow}>
-              <TextInput
-                style={styles.amountInput}
-                value={amount}
-                onChangeText={setAmount}
-                placeholder="0.00"
-                placeholderTextColor={Colors.textFaint}
-                keyboardType="decimal-pad"
-              />
-              <Text style={styles.currency}>ر.س</Text>
-            </View>
-          </Card>
-
-          {/* Description & Reference */}
-          <Card style={{ gap: Spacing.md }}>
-            <Input
-              label="الوصف"
-              value={description}
-              onChangeText={setDescription}
-              placeholder="وصف القيد..."
-              multiline
-            />
-            <Input
-              label="المرجع (اختياري)"
-              value={reference}
-              onChangeText={setReference}
-              placeholder="رقم الفاتورة أو المرجع..."
-            />
-          </Card>
-
-          <Button label="حفظ القيد" onPress={handleSubmit} loading={loading} />
+          <TextInput
+            value={reference}
+            onChangeText={setReference}
+            placeholder="مرجع / ملاحظة (اختياري)"
+            placeholderTextColor={Colors.textFaint}
+            style={styles.reference}
+            maxLength={96}
+            accessibilityLabel="مرجع أو ملاحظة"
+          />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      <StickyFooter>
+        <Button label="حفظ وإدخال آخر" variant="ghost" onPress={() => save(true)} disabled={saving} style={styles.another} />
+        <Button label="حفظ القيد" onPress={() => save(false)} loading={saving} style={{ flex: 1 }} />
+      </StickyFooter>
+
+      <PickerSheet
+        visible={pickerOpen}
+        title={type === 'receipt' ? 'اختيار العميل' : 'اختيار المورد'}
+        loading={partiesLoading}
+        items={eligibleParties.map((p) => ({ id: p.id, title: p.name }))}
+        onSelect={(item) => {
+          setParty(parties.find((p) => p.id === item.id) ?? null);
+          setPartyError(undefined);
+          setPickerOpen(false);
+        }}
+        onClose={() => setPickerOpen(false)}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  flex: { flex: 1 },
-  header: {
-    padding: Spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.line,
-    backgroundColor: Colors.surface,
+  flex: { flex: 1, backgroundColor: Colors.bg },
+  headerBody: { gap: 10, paddingBottom: 8 },
+  toggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 12, padding: 3, gap: 3 },
+  toggleBtn: { flex: 1, minHeight: Layout.minTouch, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  toggleBtnOn: { backgroundColor: '#fff' },
+  toggleText: { fontSize: 14, fontWeight: '800', color: 'rgba(255,255,255,0.9)' },
+  amountHint: { textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
+  amount: { textAlign: 'center', fontSize: 44, fontWeight: '800', color: '#fff', letterSpacing: -1 },
+  body: { padding: 14, gap: 12 },
+  divider: { height: 1, backgroundColor: Colors.line },
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: Colors.textMuted, textAlign: 'right' },
+  suggestRow: { gap: 8, flexDirection: 'row' },
+  suggest: {
+    minHeight: Layout.minTouch, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.line,
+    backgroundColor: Colors.surface, justifyContent: 'center', maxWidth: 200,
   },
-  title: { fontSize: 18, fontWeight: '700', color: Colors.text },
-  scroll: { padding: Spacing.lg, gap: Spacing.md },
-  fieldLabel: { fontSize: 13, fontWeight: '500', color: Colors.textSoft, marginBottom: 8 },
-  typeRow: { flexDirection: 'row', gap: Spacing.sm },
-  typeBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: Radius.xs,
-    borderWidth: 1.5,
-    borderColor: Colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
+  suggestOn: { borderColor: Colors.accent, backgroundColor: Colors.accentSoft },
+  suggestText: { fontSize: 14, fontWeight: '700', color: Colors.text },
+  methods: { flexDirection: 'row', gap: 8 },
+  reference: {
+    minHeight: 52, borderRadius: Radius.xs, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.surface,
+    paddingHorizontal: 14, fontSize: 15, color: Colors.text, textAlign: 'right',
   },
-  typeBtnText: { fontSize: 14, fontWeight: '600', color: Colors.textSoft },
-  amountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.line,
-    borderRadius: Radius.xs,
-    overflow: 'hidden',
-  },
-  amountInput: {
-    flex: 1,
-    height: 56,
-    paddingHorizontal: Spacing.md,
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.text,
-    textAlign: 'right',
-  },
-  currency: {
-    paddingHorizontal: Spacing.md,
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
+  another: { paddingHorizontal: 14 },
 });
