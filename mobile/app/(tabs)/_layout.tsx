@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, IconName } from '../../components/ui/Icon';
 import { Colors, Layout } from '../../constants/theme';
+import { useAuth } from '../../lib/AuthContext';
 
 function tabIcon(name: IconName) {
   function TabIcon({ color }: { color: unknown }) {
@@ -23,9 +24,11 @@ const HIDDEN = ['notifications', 'parties', 'reports', 'ai', 'invoice/[id]', 'pa
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { activeOrganizationId } = useAuth();
 
   return (
     <Tabs
+      key={activeOrganizationId ?? 'none'}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.accent,
@@ -45,7 +48,12 @@ export default function TabsLayout() {
       <Tabs.Screen name="invoices" options={{ title: 'الفواتير', tabBarIcon: tabIcon('file') }} />
       <Tabs.Screen
         name="quick-entry"
-        options={{ title: 'إدخال', tabBarIcon: () => <EntryIcon />, tabBarActiveTintColor: Colors.accent }}
+        options={{
+          title: 'إدخال',
+          tabBarIcon: () => <EntryIcon />,
+          tabBarIconStyle: { width: 42, height: 42, marginTop: -8 },
+          tabBarActiveTintColor: Colors.accent,
+        }}
       />
       <Tabs.Screen name="approvals" options={{ title: 'موافقات', tabBarIcon: tabIcon('checkSquare') }} />
       <Tabs.Screen name="more" options={{ title: 'المزيد', tabBarIcon: tabIcon('more') }} />

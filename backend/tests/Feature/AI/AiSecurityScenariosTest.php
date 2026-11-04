@@ -15,6 +15,7 @@ use App\Models\WorkspaceRole;
 use App\Services\AI\AiActionMatrix;
 use App\Services\AI\AiAssistantOrchestrator;
 use App\Services\AI\AiWriteToolRegistry;
+use App\Services\Workspace\WorkspacePermissions;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -117,6 +118,7 @@ class AiSecurityScenariosTest extends TestCase
     {
         $custom = WorkspaceRole::create(['name' => 'Custom '.uniqid(), 'base_role' => 'employee', 'is_custom' => true, 'permissions' => $permissions]);
         Membership::query()->where('user_id', $user->id)->update(['workspace_role_id' => $custom->id]);
+        WorkspacePermissions::flushCustomCache();
         app(TenantContext::class)->set($this->organization, $role);
     }
 

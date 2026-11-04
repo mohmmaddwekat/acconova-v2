@@ -25,7 +25,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => { void restore(); }, [restore]);
 
   return <SessionContext.Provider value={{ user, loading, error, restore,
-    signIn: async (email, password) => { setUser(await login(email.trim(), password)); },
+    signIn: async (email, password) => { setUser((await login(email.trim(), password)).user); },
     signOut: async () => {
       await logout();
       setUser(null);

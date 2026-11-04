@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\ValidateCsrfToken;
 use App\Models\Organization;
 use App\Models\User;
 use Database\Seeders\PassportMobileClientSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Laravel\Passport\Passport;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class MobileApiAccessTest extends TestCase
@@ -20,7 +24,9 @@ class MobileApiAccessTest extends TestCase
     {
         parent::setUp();
 
-        $this->artisan('passport:keys', ['--no-interaction' => true]);
+        if (! is_file(Passport::keyPath('oauth-private.key'))) {
+            $this->artisan('passport:keys');
+        }
         $this->seed(PassportMobileClientSeeder::class);
 
         $this->user = User::factory()->create(['password' => 'Secret-Passw0rd!']);
@@ -101,11 +107,16 @@ class MobileApiAccessTest extends TestCase
         $this->postJson('/api/parties', [])->assertUnauthorized();
     }
 
-    public function test_session_requests_still_require_a_csrf_token(): void
+    public function test_only_mobile_token_requests_are_exempt_from_csrf(): void
     {
-        $this->actingAs($this->user)
-            ->withMiddleware()
-            ->postJson('/api/parties', ['type' => 'company', 'company_name' => 'X', 'roles' => ['customer']])
-            ->assertStatus(419);
+        $middleware = app(ValidateCsrfToken::class);
+        $exempt = new ReflectionMethod($middleware, 'inExceptArray');
+
+        $sessionRequest = Request::create('/api/parties', 'POST');
+        $this->assertFalse($exempt->invoke($middleware, $sessionRequest));
+
+        $tokenRequest = Request::create('/api/parties', 'POST');
+        $tokenRequest->attributes->set('mobile_token_auth', true);
+        $this->assertTrue($exempt->invoke($middleware, $tokenRequest));
     }
 }

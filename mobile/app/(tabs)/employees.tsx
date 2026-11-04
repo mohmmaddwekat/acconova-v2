@@ -233,7 +233,7 @@ export default function EmployeesScreen() {
         visible={!!paying}
         title="تأكيد صرف الراتب"
         description="سيتم تسجيل قيد صرف للموظف في سجل الرواتب."
-        rows={paying ? [{ label: 'الموظف', value: paying.name }, { label: 'الشهر', value: new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' }) }] : []}
+        rows={paying ? [{ label: 'الموظف', value: paying.name }, { label: 'الشهر', value: new Date().toLocaleDateString('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' }) }] : []}
         amountInput={paying ? { label: 'المبلغ', initial: String(Number(paying.rate) || '') } : undefined}
         confirmLabel="صرف الآن"
         loading={paySaving}

@@ -73,7 +73,7 @@ export default function DashboardScreen() {
         <View>
           <Text style={styles.greeting}>مرحباً، {user?.name?.split(' ')[0] ?? 'بك'}</Text>
           <Text style={styles.date}>
-            {new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {new Date().toLocaleDateString('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long' })}
           </Text>
         </View>
         <Pressable
@@ -150,16 +150,16 @@ const styles = StyleSheet.create({
     backgroundColor: Tint.warningBg, borderRadius: Radius.xs,
   },
   errorText: { flex: 1, fontSize: 13, fontWeight: '600', color: StatusText.warning, textAlign: 'right' },
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
   kpiCard: {
     width: '48%', backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line,
     padding: 16, gap: 4, ...Shadow.soft,
   },
   kpiValue: { fontSize: 22, fontWeight: '800', textAlign: 'right' },
   kpiLabel: { fontSize: 13, color: Colors.textMuted, textAlign: 'right' },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
   action: {
-    width: '31.5%', backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line,
+    width: '31%', backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line,
     paddingVertical: 14, paddingHorizontal: 6, alignItems: 'center', gap: 8, minHeight: 92, ...Shadow.soft,
   },
   actionIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

@@ -1,7 +1,10 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon, IconName } from '../../components/ui/Icon';
+import { PickerSheet } from '../../components/ui/PickerSheet';
+import { useToast } from '../../components/ui/Toast';
 import { Colors, Layout, Radius, Shadow, Spacing, StatusText, Tint } from '../../constants/theme';
 import { useAuth } from '../../lib/AuthContext';
 
@@ -37,7 +40,10 @@ const GROUPS: { title: string; items: MenuItem[] }[] = [
 
 export default function MoreScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const toast = useToast();
+  const { user, logout, organizations, activeOrganizationId, switchOrganization } = useAuth();
+  const [orgPicker, setOrgPicker] = useState(false);
+  const activeOrganization = organizations.find((o) => o.id === activeOrganizationId);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -51,6 +57,19 @@ export default function MoreScreen() {
             <Text style={styles.email}>{user?.email ?? '—'}</Text>
           </View>
         </View>
+
+        {organizations.length > 1 && (
+          <Pressable accessibilityRole="button" onPress={() => setOrgPicker(true)} style={styles.orgRow}>
+            <View style={[styles.rowIcon, { backgroundColor: Colors.accentSoft }]}>
+              <Icon name="home" size={22} color={Colors.accent} />
+            </View>
+            <View style={styles.rowContent}>
+              <Text style={styles.rowSub}>المؤسسة الحالية</Text>
+              <Text style={styles.rowLabel}>{activeOrganization?.name ?? '—'}</Text>
+            </View>
+            <Icon name="chevronDown" size={20} color={Colors.textFaint} />
+          </Pressable>
+        )}
 
         {GROUPS.map((group) => (
           <View key={group.title} style={{ gap: 8 }}>
@@ -86,6 +105,17 @@ export default function MoreScreen() {
           <Text style={styles.logoutText}>تسجيل الخروج</Text>
         </Pressable>
       </ScrollView>
+      <PickerSheet
+        visible={orgPicker}
+        title="تبديل المؤسسة"
+        items={organizations.map((o) => ({ id: o.id, title: o.name, subtitle: o.role }))}
+        onSelect={async (item) => {
+          setOrgPicker(false);
+          await switchOrganization(Number(item.id));
+          toast('تم التبديل إلى ' + item.title);
+        }}
+        onClose={() => setOrgPicker(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -111,6 +141,10 @@ const styles = StyleSheet.create({
   rowContent: { flex: 1 },
   rowLabel: { fontSize: 15, fontWeight: '700', color: Colors.text, textAlign: 'right' },
   rowSub: { fontSize: 13, color: Colors.textMuted, marginTop: 2, textAlign: 'right' },
+  orgRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, minHeight: 68,
+    backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line,
+  },
   logoutBtn: {
     minHeight: Layout.minTouch + 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Tint.dangerBg,

@@ -8,10 +8,27 @@ export interface User {
   avatar?: string;
 }
 
-export async function login(email: string, password: string): Promise<User> {
+export interface Organization {
+  id: number;
+  name: string;
+  role: string;
+}
+
+/** Keeps the stored workspace valid for this user, defaulting to their first one. */
+async function syncActiveOrganization(organizations: Organization[]): Promise<number | null> {
+  const stored = await AuthStorage.getOrganizationId();
+  const active = organizations.find((o) => o.id === stored) ?? organizations[0];
+  if (!active) return null;
+  if (active.id !== stored) await AuthStorage.saveOrganizationId(active.id);
+  return active.id;
+}
+
+export async function login(email: string, password: string): Promise<{ user: User; organizations: Organization[] }> {
   const { data } = await api.post('/mobile/login', { email, password });
   await AuthStorage.saveToken(data.token);
-  return data.user;
+  const organizations: Organization[] = data.organizations ?? [];
+  await syncActiveOrganization(organizations);
+  return { user: data.user, organizations };
 }
 
 export async function logout(): Promise<void> {
@@ -25,14 +42,17 @@ export async function logout(): Promise<void> {
   await AuthStorage.clearToken();
 }
 
-export async function getUser(): Promise<User | null> {
+export async function getSession(): Promise<{ user: User; organizations: Organization[] } | null> {
   const token = await AuthStorage.getToken();
   if (!token) {
     return null;
   }
   try {
     const { data } = await api.get('/mobile/user');
-    return data.user ?? null;
+    if (!data.user) return null;
+    const organizations: Organization[] = data.organizations ?? [];
+    await syncActiveOrganization(organizations);
+    return { user: data.user, organizations };
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === 401) {
       await AuthStorage.clearToken();
@@ -41,4 +61,12 @@ export async function getUser(): Promise<User | null> {
     // so the app shows login instead of crashing
     return null;
   }
+}
+
+export async function getUser(): Promise<User | null> {
+  return (await getSession())?.user ?? null;
+}
+
+export async function switchOrganization(id: number): Promise<void> {
+  await AuthStorage.saveOrganizationId(id);
 }

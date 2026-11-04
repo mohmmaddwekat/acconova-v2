@@ -29,6 +29,7 @@ class PassportMobileClientSeeder extends Seeder
         Artisan::call('passport:client', [
             '--personal' => true,
             '--name' => 'Acconova Mobile',
+            '--provider' => 'users',
             '--no-interaction' => true,
         ]);
 
