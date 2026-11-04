@@ -1,3 +1,4 @@
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import '../../css/profile-page.css';
 
 import { activeProfileTab, ProfileCenter } from '@/features/profile/ProfileCenter';
@@ -1911,9 +1912,8 @@ function ProfileEditor({
                                     copy.password
                                 }
 
-                                <input
+                                <PasswordInput
                                     required
-                                    type="password"
                                     autoComplete="current-password"
                                     value={
                                         currentPassword

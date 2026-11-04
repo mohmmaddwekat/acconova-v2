@@ -1,3 +1,4 @@
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import {
     ConfirmDialog,
 } from '@/components/feedback/ConfirmDialog';
@@ -2758,8 +2759,7 @@ function RoleWorkspace() {
                                                 className="absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--ac-text-muted)]"
                                             />
 
-                                            <input
-                                                type="password"
+                                            <PasswordInput
                                                 autoComplete="current-password"
                                                 value={
                                                     ownerPassword

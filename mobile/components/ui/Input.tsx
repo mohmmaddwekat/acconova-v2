@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Colors, Radius, Spacing } from '../../constants/theme';
 
 interface InputProps extends TextInputProps {
@@ -7,24 +14,41 @@ interface InputProps extends TextInputProps {
   error?: string;
 }
 
-export function Input({ label, error, style, ...props }: InputProps) {
+export function Input({ label, error, style, secureTextEntry, ...props }: InputProps) {
   const [focused, setFocused] = useState(false);
+  const [hidden, setHidden] = useState(secureTextEntry ?? false);
+
+  const isPassword = secureTextEntry === true;
 
   return (
     <View style={styles.wrapper}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <TextInput
-        {...props}
-        style={[
-          styles.input,
-          focused && styles.inputFocused,
-          error && styles.inputError,
-          style,
-        ]}
-        placeholderTextColor={Colors.textFaint}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-      />
+      <View style={styles.row}>
+        <TextInput
+          {...props}
+          secureTextEntry={hidden}
+          style={[
+            styles.input,
+            focused && styles.inputFocused,
+            error && styles.inputError,
+            isPassword && styles.inputWithToggle,
+            style,
+          ]}
+          placeholderTextColor={Colors.textFaint}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        />
+        {isPassword && (
+          <TouchableOpacity
+            style={styles.eyeBtn}
+            onPress={() => setHidden((h) => !h)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel={hidden ? 'إظهار كلمة السر' : 'إخفاء كلمة السر'}
+          >
+            <Text style={styles.eyeIcon}>{hidden ? '👁' : '🙈'}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
@@ -40,6 +64,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.textSoft,
   },
+  row: {
+    position: 'relative',
+  },
   input: {
     height: 48,
     borderRadius: Radius.xs,
@@ -50,12 +77,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.text,
   },
+  inputWithToggle: {
+    paddingRight: 48,
+  },
   inputFocused: {
     borderColor: Colors.accent,
-    backgroundColor: Colors.surface,
   },
   inputError: {
     borderColor: Colors.danger,
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 36,
+  },
+  eyeIcon: {
+    fontSize: 18,
   },
   error: {
     fontSize: 12,

@@ -1,5 +1,5 @@
-import { api, AuthStorage } from './api';
 import { isAxiosError } from 'axios';
+import { api, AuthStorage } from './api';
 
 export interface User {
   id: number;
@@ -18,7 +18,9 @@ export async function logout(): Promise<void> {
   try {
     await api.post('/mobile/logout');
   } catch (error) {
-    if (!isAxiosError(error) || error.response?.status !== 401) throw error;
+    if (!isAxiosError(error) || error.response?.status !== 401) {
+      // ignore errors on logout — we clear the token regardless
+    }
   }
   await AuthStorage.clearToken();
 }
@@ -30,12 +32,13 @@ export async function getUser(): Promise<User | null> {
   }
   try {
     const { data } = await api.get('/mobile/user');
-    return data.user;
+    return data.user ?? null;
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === 401) {
       await AuthStorage.clearToken();
-      return null;
     }
-    throw error;
+    // Return null on ANY error (network down, timeout, server error)
+    // so the app shows login instead of crashing
+    return null;
   }
 }

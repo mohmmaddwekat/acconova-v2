@@ -105,34 +105,40 @@ const normalize = (value: string): string =>
         .replace(/ة/g, 'ه')
         .trim();
 
-function parseDate(value: string, year: number): { iso: string; display: string } | null {
-    const match = value.trim().replace(/[.-]/g, '/').match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/);
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+function todayIso(): string {
+    const now = new Date();
+
+    return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+}
+
+/** Validates the `YYYY-MM-DD` value of a native date input; future dates are rejected like the server does. */
+function parseDate(value: string): { iso: string; display: string } | null {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
     if (! match) {
         return null;
     }
 
-    const day = Number(match[1]);
+    const year = Number(match[1]);
     const month = Number(match[2]);
-    const fullYear = match[3]
-        ? (match[3].length === 2 ? 2000 + Number(match[3]) : Number(match[3]))
-        : year;
-    const date = new Date(fullYear, month - 1, day);
+    const day = Number(match[3]);
+    const date = new Date(year, month - 1, day);
 
     if (
-        date.getFullYear() !== fullYear
+        date.getFullYear() !== year
         || date.getMonth() !== month - 1
         || date.getDate() !== day
-        || fullYear < 2000
+        || year < 2000
+        || value > todayIso()
     ) {
         return null;
     }
 
-    const pad = (n: number): string => String(n).padStart(2, '0');
-
     return {
-        iso: `${fullYear}-${pad(month)}-${pad(day)}`,
-        display: `${pad(day)}/${pad(month)}/${fullYear}`,
+        iso: value,
+        display: `${pad2(day)}/${pad2(month)}/${year}`,
     };
 }
 
@@ -203,12 +209,10 @@ export default function QuickEntry() {
     const text = (arabic: string, english: string): string => (ar ? arabic : english);
     const container = useRef<HTMLDivElement>(null);
     const pendingFocus = useRef<{ id: number; field: string } | null>(null);
-    const year = new Date().getFullYear();
 
     const [lookups, setLookups] = useState<FinanceLookups | null>(null);
     const [rows, setRows] = useState<Row[]>([]);
     const [filter, setFilter] = useState<'all' | RowType>('all');
-    const [dateYear, setDateYear] = useState(year);
     const [openDocs, setOpenDocs] = useState<Record<string, OpenDoc[]>>({});
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -263,7 +267,7 @@ export default function QuickEntry() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [productById]);
 
-    const dateOf = (row: Row) => parseDate(row.date, dateYear);
+    const dateOf = (row: Row) => parseDate(row.date);
     const sideOf = (row: Row) => TYPE_META[row.type].side;
     const isInvoice = (row: Row) => TYPE_META[row.type].invoice;
     const payOf = (row: Row): number => {
@@ -314,7 +318,7 @@ export default function QuickEntry() {
             found.pay = text('أدخل المبلغ', 'Enter the amount');
         }
 
-        if (row.type !== 'misc' && payOf(row) > 0 && row.method === 'check' && (! row.checkNo || ! parseDate(row.checkDue, dateYear))) {
+        if (row.type !== 'misc' && payOf(row) > 0 && row.method === 'check' && (! row.checkNo || ! parseDate(row.checkDue))) {
             found.check = text('رقم الشيك وتاريخ استحقاقه مطلوبان', 'Check number and due date are required');
         }
 
@@ -333,9 +337,9 @@ export default function QuickEntry() {
 
         return map;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rows, dateYear, productById]);
+    }, [rows, productById]);
 
-    const problems = (row: Row): Record<string, string> | null =>
+    const problems =(row: Row): Record<string, string> | null =>
         problemMap.has(row.id) ? (problemMap.get(row.id) ?? null) : computeProblems(row);
 
     const isReady = (row: Row): boolean => {
@@ -416,7 +420,7 @@ export default function QuickEntry() {
 
         return result;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rows, openDocs, dateYear, productById]);
+    }, [rows, openDocs, productById]);
 
     /* ---------- data helpers ---------- */
     const patch = (id: number, changes: Partial<Row>) =>
@@ -659,7 +663,7 @@ export default function QuickEntry() {
                             full: isInvoice(row) && row.full ? true : undefined,
                             method: row.method,
                             check_number: row.method === 'check' ? row.checkNo : undefined,
-                            check_due_date: row.method === 'check' ? parseDate(row.checkDue, dateYear)?.iso : undefined,
+                            check_due_date: row.method === 'check' ? parseDate(row.checkDue)?.iso : undefined,
                         },
                 };
             });
@@ -728,7 +732,7 @@ export default function QuickEntry() {
 
         return { ready, invalid };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rows, dateYear, productById]);
+    }, [rows, productById]);
 
     const balance = (value: number, row: Row) => {
         if (Math.abs(value) < 0.005) {
@@ -915,7 +919,7 @@ export default function QuickEntry() {
                             </div>
                             <div className="col-span-2">
                                 <label className="mb-1 block text-[10px] font-semibold text-[var(--ac-text-muted)]">{text('تاريخ استحقاق الشيك', 'Check due date')}</label>
-                                <input className={field} dir="ltr" value={row.checkDue} onChange={(e) => patch(row.id, { checkDue: e.target.value })} placeholder="15/3" />
+                                <input type="date" className={field} dir="ltr" min="2000-01-01" value={row.checkDue} onChange={(e) => patch(row.id, { checkDue: e.target.value })} />
                             </div>
                         </>
                     )}
@@ -1045,12 +1049,6 @@ export default function QuickEntry() {
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <label className="flex items-center gap-2 text-xs text-[var(--ac-text-muted)]">
-                            {text('السنة الافتراضية', 'Default year')}
-                            <select className={field + ' !h-11 !w-24 !rounded-2xl'} value={dateYear} onChange={(e) => setDateYear(Number(e.target.value))}>
-                                {Array.from({ length: 8 }, (_, i) => year - i).map((y) => <option key={y} value={y}>{y}</option>)}
-                            </select>
-                        </label>
                         <button type="button" className={btnPrimary} disabled={saving || ! summary.ready.length} onClick={() => void save()}>
                             <Save size={17} />{saving ? text('جارٍ الحفظ…', 'Saving…') : text(`حفظ الجاهز (${summary.ready.length})`, `Save ready (${summary.ready.length})`)}
                         </button>
@@ -1083,13 +1081,13 @@ export default function QuickEntry() {
                         <span><kbd className="rounded border border-[var(--ac-line)] px-1">Enter</kbd> {text('الحقل التالي، وفي آخر حقل صف جديد بنفس التاريخ والرقم التالي', 'next field; at the last field a new row')}</span>
                         <span><kbd className="rounded border border-[var(--ac-line)] px-1">F2</kbd> {text('فتح الصف', 'open row')}</span>
                         <span>{text('الخصم: 5% أو مبلغ', 'Discount: 5% or amount')}</span>
-                        <span>{text('التاريخ: اكتب 5/1 فقط', 'Date: type 5/1')}</span>
+                        <span>{text('التاريخ: اختر من التقويم أو اكتبه', 'Date: pick from the calendar or type it')}</span>
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1320px] table-fixed text-sm">
+                        <table className="w-full min-w-[1364px] table-fixed text-sm">
                             <colgroup>
-                                <col style={{ width: 40 }} /><col style={{ width: 128 }} /><col style={{ width: 116 }} /><col style={{ width: 104 }} /><col style={{ width: 176 }} /><col style={{ width: 120 }} /><col style={{ width: 96 }} /><col style={{ width: 104 }} /><col style={{ width: 176 }} /><col style={{ width: 84 }} /><col style={{ width: 160 }} /><col style={{ width: 44 }} />
+                                <col style={{ width: 40 }} /><col style={{ width: 128 }} /><col style={{ width: 160 }} /><col style={{ width: 104 }} /><col style={{ width: 176 }} /><col style={{ width: 120 }} /><col style={{ width: 96 }} /><col style={{ width: 104 }} /><col style={{ width: 176 }} /><col style={{ width: 84 }} /><col style={{ width: 160 }} /><col style={{ width: 44 }} />
                             </colgroup>
                             <thead className="bg-[var(--ac-bg-soft)] text-[11px] text-[var(--ac-text-muted)]">
                                 <tr>
@@ -1139,21 +1137,16 @@ export default function QuickEntry() {
                                                 </td>
                                                 <td className={cell}>
                                                     <input
+                                                        type="date"
                                                         className={cellInput + bad('date')}
                                                         data-row={row.id}
                                                         data-f="date"
-                                                        dir="ltr"
+                                                        min="2000-01-01"
+                                                        max={todayIso()}
                                                         value={row.date}
-                                                        placeholder="5/1"
+                                                        aria-label={text('التاريخ', 'Date')}
                                                         title={found.date}
                                                         onChange={(e) => patch(row.id, { date: e.target.value })}
-                                                        onBlur={(e) => {
-                                                            const parsed = parseDate(e.target.value, dateYear);
-
-                                                            if (parsed) {
-                                                                patch(row.id, { date: parsed.display });
-                                                            }
-                                                        }}
                                                         onKeyDown={(e) => onKey(e, row, 'date')}
                                                     />
                                                 </td>

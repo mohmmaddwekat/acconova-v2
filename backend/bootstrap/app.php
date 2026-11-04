@@ -71,6 +71,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
 
         $middleware->validateCsrfTokens(except: [
             'api/billing/webhook',
+            'api/mobile/*',
         ]);
 
         $middleware->web(append: [

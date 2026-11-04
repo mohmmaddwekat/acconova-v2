@@ -1,3 +1,4 @@
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ApiError, apiRequest } from '@/lib/http';
 import { Head } from '@inertiajs/react';
 import { KeyRound, Mail, ShieldCheck } from 'lucide-react';
@@ -65,10 +66,10 @@ export default function ChangeRequiredPassword({ expiresAt }: Props) {
 
                 <form className="mt-6 space-y-4" onSubmit={submit}>
                     <label className="block text-sm font-bold">كلمة المرور الجديدة
-                        <input type="password" minLength={12} required value={password} onChange={event => setPassword(event.target.value)} className="mt-2 w-full rounded-xl border border-sky-800 bg-[#061d30] px-4 py-3 outline-none focus:border-sky-400" autoComplete="new-password" />
+                        <PasswordInput minLength={12} required value={password} onChange={event => setPassword(event.target.value)} className="mt-2 w-full rounded-xl border border-sky-800 bg-[#061d30] px-4 py-3 outline-none focus:border-sky-400" autoComplete="new-password" />
                     </label>
                     <label className="block text-sm font-bold">تأكيد كلمة المرور
-                        <input type="password" minLength={12} required value={confirmation} onChange={event => setConfirmation(event.target.value)} className="mt-2 w-full rounded-xl border border-sky-800 bg-[#061d30] px-4 py-3 outline-none focus:border-sky-400" autoComplete="new-password" />
+                        <PasswordInput minLength={12} required value={confirmation} onChange={event => setConfirmation(event.target.value)} className="mt-2 w-full rounded-xl border border-sky-800 bg-[#061d30] px-4 py-3 outline-none focus:border-sky-400" autoComplete="new-password" />
                     </label>
                     <p className="text-xs leading-6 text-slate-400">استخدم 12 حرفًا على الأقل مع أحرف كبيرة وصغيرة وأرقام ورمز.</p>
                     <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3 font-black text-white hover:bg-sky-400 disabled:opacity-50"><KeyRound size={17} />حفظ ومتابعة</button>

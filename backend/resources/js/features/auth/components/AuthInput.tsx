@@ -1,3 +1,5 @@
+import { PasswordInput } from '@/components/ui/PasswordInput';
+
 type AuthInputProps = {
     label: string;
     value: string;
@@ -22,24 +24,40 @@ export function AuthInput({
     placeholder,
     minLength,
 }: AuthInputProps) {
+    const className = 'h-12 w-full rounded-[16px] border border-[var(--ac-line-strong)] bg-white px-4 text-sm text-[var(--ac-text)] outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]';
+
     return (
         <label className="block">
             <span className="mb-2 block text-sm font-medium text-[var(--ac-text)]">
                 {label}
             </span>
 
-            <input
-                type={type} dir={['email', 'tel', 'number'].includes(type) ? 'ltr' : undefined}
-                value={value}
-                autoComplete={autoComplete}
-                placeholder={placeholder}
-                minLength={minLength}
-                onChange={(event) =>
-                    onChange(event.target.value)
-                }
-                className="h-12 w-full rounded-[16px] border border-[var(--ac-line-strong)] bg-white px-4 text-sm text-[var(--ac-text)] outline-none transition placeholder:text-[var(--ac-text-faint)] focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
-                required
-            />
+            {type === 'password' ? (
+                <PasswordInput
+                    value={value}
+                    autoComplete={autoComplete}
+                    placeholder={placeholder}
+                    minLength={minLength}
+                    onChange={(event) =>
+                        onChange(event.target.value)
+                    }
+                    className={className}
+                    required
+                />
+            ) : (
+                <input
+                    type={type} dir={['email', 'tel', 'number'].includes(type) ? 'ltr' : undefined}
+                    value={value}
+                    autoComplete={autoComplete}
+                    placeholder={placeholder}
+                    minLength={minLength}
+                    onChange={(event) =>
+                        onChange(event.target.value)
+                    }
+                    className={className}
+                    required
+                />
+            )}
 
             {error && (
                 <p className="mt-2 text-xs text-[var(--ac-danger)]">
