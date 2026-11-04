@@ -94,6 +94,17 @@ export function FinanceHub({
                 || lookups.permissions.cash_pay,
         },
         {
+            title: text('مقاصة العميل والمورد', 'Customer-supplier offsets'),
+            description: text(
+                'تسديد فواتير البيع من فواتير الشراء لنفس الطرف دون حركة نقدية.',
+                'Settle sales invoices against purchase invoices of the same party with no cash movement.',
+            ),
+            href: '/app/finance/offsets',
+            icon: Scale,
+            visible: lookups.permissions.sales_manage
+                && lookups.permissions.purchases_manage,
+        },
+        {
             title: text('دفعات غير مخصصة', 'Unallocated payments'),
             description: text(
                 'دفعات دخلت أو خرجت وبقي منها مبلغ غير مربوط بفاتورة.',

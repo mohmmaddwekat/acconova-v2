@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
@@ -15,28 +15,42 @@ import { Colors, Spacing } from '../../constants/theme';
 import { useAuth } from '../../lib/AuthContext';
 
 export default function LoginScreen() {
-  const { user, login } = useAuth();
+  const { login } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  if (user) return <Redirect href="/(tabs)" />;
-
   async function handleLogin() {
     setErrors({});
-    if (!email) { setErrors((e) => ({ ...e, email: 'البريد الإلكتروني مطلوب' })); return; }
-    if (!password) { setErrors((e) => ({ ...e, password: 'كلمة المرور مطلوبة' })); return; }
+
+    if (!email.trim()) {
+      setErrors((e) => ({ ...e, email: 'البريد الإلكتروني مطلوب' }));
+      return;
+    }
+    if (!password) {
+      setErrors((e) => ({ ...e, password: 'كلمة المرور مطلوبة' }));
+      return;
+    }
 
     setLoading(true);
     try {
       await login(email.trim().toLowerCase(), password);
+      // Navigate immediately after successful login
+      router.replace('/(tabs)');
     } catch (err: any) {
+      const data = err?.response?.data;
+      const status = err?.response?.status;
+
+      // Extract the most useful error message
       const msg =
-        err?.response?.data?.errors?.email?.[0] ??
-        err?.response?.data?.message ??
-        'فشل تسجيل الدخول، تحقق من بياناتك';
-      Alert.alert('خطأ', msg);
+        data?.errors?.email?.[0] ??
+        data?.errors?.password?.[0] ??
+        data?.message ??
+        (status ? `خطأ ${status} — تحقق من بياناتك` : 'تعذر الاتصال بالخادم');
+
+      Alert.alert('تعذر تسجيل الدخول', msg);
     } finally {
       setLoading(false);
     }

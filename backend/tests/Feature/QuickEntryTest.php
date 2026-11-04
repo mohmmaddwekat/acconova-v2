@@ -135,6 +135,43 @@ class QuickEntryTest extends TestCase
         ]);
     }
 
+    public function test_a_purchase_can_be_paid_by_endorsing_a_check_on_hand(): void
+    {
+        $this->signIn();
+        $customerId = $this->party('customer', 'Check Giver');
+        $supplierId = $this->party('supplier', 'Check Receiver');
+        $productId = $this->product('Quick Product E');
+
+        $received = $this->postJson('/api/finance/quick-entry', [
+            'rows' => [[
+                'type' => 'receipt',
+                'date' => '2026-01-01',
+                'party_id' => $customerId,
+                'payment' => ['amount' => '300', 'method' => 'check', 'check_number' => 'CH-77', 'check_due_date' => '2026-06-01'],
+            ]],
+        ])->assertOk()->json('data.0');
+        $this->assertTrue($received['ok'], json_encode($received));
+
+        $this->getJson('/api/finance/cash-movements/cheques-on-hand')
+            ->assertOk()->assertJsonPath('data.0.id', $received['movement_id']);
+
+        $paid = $this->postJson('/api/finance/quick-entry', [
+            'rows' => [[
+                'type' => 'purchase',
+                'date' => '2026-02-01',
+                'party_id' => $supplierId,
+                'lines' => [['product_id' => $productId, 'quantity' => '1', 'unit_price' => '300']],
+                'payment' => ['amount' => '300', 'method' => 'check', 'endorsed_movement_id' => $received['movement_id']],
+            ]],
+        ])->assertOk()->json('data.0');
+
+        $this->assertTrue($paid['ok'], json_encode($paid));
+        $this->assertDatabaseHas('financial_documents', ['id' => $paid['document_id'], 'status' => 'paid']);
+        $this->assertDatabaseHas('cash_movements', ['id' => $paid['movement_id'], 'direction' => 'outgoing', 'check_number' => 'CH-77']);
+
+        $this->getJson('/api/finance/cash-movements/cheques-on-hand')->assertOk()->assertJsonCount(0, 'data');
+    }
+
     private function signIn(): void
     {
         $user = User::factory()->create();

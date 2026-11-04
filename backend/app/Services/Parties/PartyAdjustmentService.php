@@ -86,6 +86,7 @@ class PartyAdjustmentService
             $adjustment = PartyAdjustment::create([
                 'party_id' => $party->id,
                 'financial_document_id' => $document?->id,
+                'offset_group' => $data['offset_group'] ?? null,
                 'number' => $this->numbers->next('party_adjustments', 'ADJ'),
                 'side' => $data['side'],
                 'direction' => $data['direction'],

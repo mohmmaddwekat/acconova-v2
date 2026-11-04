@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Workspace\WorkspacePermissions;
 use App\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class ClearTenantContext
     {
         $context = app(TenantContext::class);
         $context->clear();
+        WorkspacePermissions::flushCustomCache();
 
         try {
             return $next($request);

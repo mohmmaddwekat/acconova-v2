@@ -140,6 +140,10 @@ export function ContextBar({
             'إدخال الفواتير والدفعات',
             'Quick entry',
         ],
+        '/app/finance/offsets': [
+            'مقاصة العميل والمورد',
+            'Customer-supplier offsets',
+        ],
         '/app/finance/unallocated': [
             'دفعات غير مخصصة',
             'Unallocated payments',

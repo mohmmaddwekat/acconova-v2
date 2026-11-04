@@ -544,19 +544,20 @@ export function Taxes({
             {showObligationForm && (
                 <FPanel title={text('إضافة مستحق حكومي', 'Add government obligation')} icon={Landmark}>
                     <form onSubmit={(event) => void saveObligation(event)}>
+                        <p className="px-4 pt-4 text-xs text-[var(--ac-text-muted)]"><span className="text-red-500">*</span> {text('حقل إجباري', 'Required field')}</p>
                         <fieldset disabled={busy} className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('الجهة الحكومية', 'Authority')}
+                                {text('الجهة الحكومية', 'Authority')} <span className="text-red-500" aria-hidden="true">*</span>
                                 <input required name="authority_name" className={financeInput + ' mt-2'} />
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('اسم المستحق', 'Obligation title')}
+                                {text('اسم المستحق', 'Obligation title')} <span className="text-red-500" aria-hidden="true">*</span>
                                 <input required name="title" className={financeInput + ' mt-2'} />
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('النوع', 'Type')}
+                                {text('النوع', 'Type')} <span className="text-red-500" aria-hidden="true">*</span>
                                 <Select name="obligation_type" className={financeInput + ' mt-2'} defaultValue="vat">
                                     {[
                                         ['vat', 'VAT'],
@@ -577,7 +578,7 @@ export function Taxes({
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('قاعدة مرتبطة', 'Linked tax rule')}
+                                {text('قاعدة مرتبطة', 'Linked tax rule')} <span className="font-normal text-[var(--ac-text-muted)]">{text('(اختياري)', '(optional)')}</span>
                                 <Select name="tax_rule_id" className={financeInput + ' mt-2'} defaultValue="">
                                     <option value="">{text('بدون قاعدة', 'No rule')}</option>
                                     {rules.map((rule) => (
@@ -589,37 +590,38 @@ export function Taxes({
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('الدولة', 'Country')}
-                                <input required maxLength={2} name="country_code" className={financeInput + ' mt-2'} />
+                                {text('الدولة', 'Country')} <span className="text-red-500" aria-hidden="true">*</span>
+                                <input required maxLength={2} name="country_code" placeholder="PS" className={financeInput + ' mt-2 uppercase'} />
+                                <span className="mt-1 block text-[11px] font-normal text-[var(--ac-text-muted)]">{text('رمز من حرفين، مثل PS أو IL', 'Two-letter code, e.g. PS or IL')}</span>
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('الولاية / المنطقة', 'State / region')}
+                                {text('الولاية / المنطقة', 'State / region')} <span className="font-normal text-[var(--ac-text-muted)]">{text('(اختياري)', '(optional)')}</span>
                                 <input name="region_code" className={financeInput + ' mt-2'} />
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('بداية الفترة', 'Period start')}
+                                {text('بداية الفترة', 'Period start')} <span className="font-normal text-[var(--ac-text-muted)]">{text('(اختياري)', '(optional)')}</span>
                                 <input type="date" name="period_start" className={financeInput + ' mt-2'} />
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('نهاية الفترة', 'Period end')}
+                                {text('نهاية الفترة', 'Period end')} <span className="font-normal text-[var(--ac-text-muted)]">{text('(اختياري)', '(optional)')}</span>
                                 <input type="date" name="period_end" className={financeInput + ' mt-2'} />
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('تاريخ الاستحقاق', 'Due date')}
+                                {text('تاريخ الاستحقاق', 'Due date')} <span className="text-red-500" aria-hidden="true">*</span>
                                 <input required type="date" name="due_date" defaultValue={todayValue()} className={financeInput + ' mt-2'} />
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('المبلغ', 'Amount')}
+                                {text('المبلغ', 'Amount')} <span className="text-red-500" aria-hidden="true">*</span>
                                 <input required type="number" min="0.0001" step="0.0001" name="amount" className={financeInput + ' mt-2'} />
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
-                                {text('العملة', 'Currency')}
+                                {text('العملة', 'Currency')} <span className="text-red-500" aria-hidden="true">*</span>
                                 <input
                                     required
                                     readOnly
@@ -636,7 +638,7 @@ export function Taxes({
                             </label>
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)] md:col-span-2 xl:col-span-4">
-                                {text('ملاحظات', 'Notes')}
+                                {text('ملاحظات', 'Notes')} <span className="font-normal text-[var(--ac-text-muted)]">{text('(اختياري)', '(optional)')}</span>
                                 <textarea name="notes" className={financeInput + ' mt-2 min-h-24'} />
                             </label>
 

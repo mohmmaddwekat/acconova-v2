@@ -529,6 +529,11 @@ Route::middleware([
     )->name('app.finance.quick-entry');
 
     Route::get(
+        '/app/finance/offsets',
+        fn () => Inertia::render('Finance/PartyOffsets'),
+    )->name('app.finance.offsets');
+
+    Route::get(
         '/app/finance/unallocated',
         fn () => Inertia::render('Finance/AutoAllocation'),
     )->name('app.finance.unallocated');

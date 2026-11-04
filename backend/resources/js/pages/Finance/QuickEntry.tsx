@@ -47,11 +47,22 @@ type Row = {
     method: Method;
     checkNo: string;
     checkDue: string;
+    chequeId: number | null;
     open: boolean;
     error: string;
 };
 
 type OpenDoc = { n: string; d: string; bal: number };
+
+type Cheque = {
+    id: number;
+    number: string;
+    amount: string;
+    currency: string;
+    check_number: string | null;
+    check_due_date: string | null;
+    party_name: string | null;
+};
 
 type Plan = {
     total: number;
@@ -173,6 +184,7 @@ const newRow = (type: RowType, seed?: Partial<Row>): Row => ({
     method: 'cash',
     checkNo: '',
     checkDue: '',
+    chequeId: null,
     open: false,
     error: '',
     ...seed,
@@ -318,7 +330,7 @@ export default function QuickEntry() {
             found.pay = text('أدخل المبلغ', 'Enter the amount');
         }
 
-        if (row.type !== 'misc' && payOf(row) > 0 && row.method === 'check' && (! row.checkNo || ! parseDate(row.checkDue))) {
+        if (row.type !== 'misc' && payOf(row) > 0 && row.method === 'check' && ! row.chequeId && (! row.checkNo || ! parseDate(row.checkDue))) {
             found.check = text('رقم الشيك وتاريخ استحقاقه مطلوبان', 'Check number and due date are required');
         }
 
@@ -424,7 +436,25 @@ export default function QuickEntry() {
 
     /* ---------- data helpers ---------- */
     const patch = (id: number, changes: Partial<Row>) =>
-        setRows((current) => current.map((row) => (row.id === id ? { ...row, ...changes, error: '' } : row)));
+        setRows((current) => current.map((row) => {
+            if (row.id !== id) {
+                return row;
+            }
+
+            const contextChanged = ('partyId' in changes || 'date' in changes || 'method' in changes || 'type' in changes)
+                && ! ('chequeId' in changes);
+
+            return { ...row, ...changes, ...(contextChanged ? { chequeId: null } : {}), error: '' };
+        }));
+
+    /* Received cheques still on hand: they can be endorsed to a supplier. */
+    const [cheques, setCheques] = useState<Cheque[] | null>(null);
+
+    const loadCheques = useCallback(() => {
+        apiRequest<{ data: Cheque[] }>('/api/finance/cash-movements/cheques-on-hand')
+            .then((response) => setCheques(response.data))
+            .catch(() => setCheques([]));
+    }, []);
 
     const patchLine = (rowId: number, key: number, changes: Partial<Line>) =>
         setRows((current) => current.map((row) => (row.id === rowId
@@ -508,6 +538,12 @@ export default function QuickEntry() {
 
         return created;
     }
+
+    useEffect(() => {
+        if (cheques === null && rows.some((row) => row.method === 'check' && sideOf(row) === 'purchase')) {
+            loadCheques();
+        }
+    }, [rows, cheques, loadCheques]);
 
     useEffect(() => {
         const target = pendingFocus.current;
@@ -662,8 +698,9 @@ export default function QuickEntry() {
                             amount: isInvoice(row) && row.full ? undefined : amount,
                             full: isInvoice(row) && row.full ? true : undefined,
                             method: row.method,
-                            check_number: row.method === 'check' ? row.checkNo : undefined,
-                            check_due_date: row.method === 'check' ? parseDate(row.checkDue)?.iso : undefined,
+                            endorsed_movement_id: row.method === 'check' && row.chequeId ? row.chequeId : undefined,
+                            check_number: row.method === 'check' && ! row.chequeId ? row.checkNo : undefined,
+                            check_due_date: row.method === 'check' && ! row.chequeId ? parseDate(row.checkDue)?.iso : undefined,
                         },
                 };
             });
@@ -673,6 +710,7 @@ export default function QuickEntry() {
                 body: JSON.stringify({ rows: payload }),
             });
 
+            setCheques(null);
             const failed = new Map<number, string>();
             const savedIds = new Set<number>();
             let allocated = 0;
@@ -911,18 +949,71 @@ export default function QuickEntry() {
                             <option value="transfer">{text('تحويل', 'Transfer')}</option>
                         </select>
                     </div>
-                    {row.method === 'check' && (
-                        <>
-                            <div>
-                                <label className="mb-1 block text-[10px] font-semibold text-[var(--ac-text-muted)]">{text('رقم الشيك', 'Check number')}</label>
-                                <input className={field + ' text-left'} dir="ltr" value={row.checkNo} onChange={(e) => patch(row.id, { checkNo: e.target.value })} />
-                            </div>
-                            <div className="col-span-2">
-                                <label className="mb-1 block text-[10px] font-semibold text-[var(--ac-text-muted)]">{text('تاريخ استحقاق الشيك', 'Check due date')}</label>
-                                <input type="date" className={field} dir="ltr" min="2000-01-01" value={row.checkDue} onChange={(e) => patch(row.id, { checkDue: e.target.value })} />
-                            </div>
-                        </>
-                    )}
+                    {row.method === 'check' && (() => {
+                        const purchaseSide = sideOf(row) === 'purchase';
+                        const date = dateOf(row)?.iso ?? '';
+                        const available = purchaseSide
+                            ? (cheques ?? []).filter((cheque) => ! date || (cheque.check_due_date ?? '') >= date)
+                            : [];
+                        const chosen = available.find((cheque) => cheque.id === row.chequeId) ?? null;
+
+                        return (
+                            <>
+                                {purchaseSide && (
+                                    <div className="col-span-2">
+                                        <label className="mb-1 block text-[10px] font-semibold text-[var(--ac-text-muted)]">{text('شيك من شيكاتي (تجيير)', 'Check on hand (endorse)')}</label>
+                                        <select
+                                            className={field}
+                                            value={row.chequeId ?? ''}
+                                            onChange={(e) => {
+                                                const cheque = available.find((item) => String(item.id) === e.target.value);
+
+                                                if (! cheque) {
+                                                    patch(row.id, { chequeId: null, checkNo: '', checkDue: '' });
+
+                                                    return;
+                                                }
+
+                                                patch(row.id, {
+                                                    chequeId: cheque.id,
+                                                    checkNo: cheque.check_number ?? '',
+                                                    checkDue: cheque.check_due_date ?? '',
+                                                    full: false,
+                                                    pay: String(Number(cheque.amount)),
+                                                });
+                                            }}
+                                        >
+                                            <option value="">{text('شيك جديد (أكتب بياناته)', 'New check (enter details)')}</option>
+                                            {available.map((cheque) => (
+                                                <option key={cheque.id} value={cheque.id}>
+                                                    {(cheque.check_number || cheque.number) + ' — ' + (cheque.party_name ?? '') + ' — ' + text('يستحق ', 'due ') + (cheque.check_due_date ?? '') + ' — ' + fmt(Number(cheque.amount))}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                            {cheques === null
+                                                ? text('جارٍ تحميل الشيكات…', 'Loading checks…')
+                                                : available.length
+                                                    ? text('شيكات استلمتها من زبائن وما زالت عندك، يستحق كل منها بعد تاريخ المستند. يُدفع مبلغ الشيك كاملاً.', 'Checks received from customers still on hand, due after the document date. The full check amount is paid.')
+                                                    : text('لا توجد شيكات عندك يستحق موعدها بعد هذا التاريخ.', 'No checks on hand fall due after this date.')}
+                                        </p>
+                                    </div>
+                                )}
+                                {! chosen && (
+                                    <>
+                                        <div>
+                                            <label className="mb-1 block text-[10px] font-semibold text-[var(--ac-text-muted)]">{text('رقم الشيك', 'Check number')}</label>
+                                            <input className={field + ' text-left'} dir="ltr" value={row.checkNo} onChange={(e) => patch(row.id, { checkNo: e.target.value })} />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <label className="mb-1 block text-[10px] font-semibold text-[var(--ac-text-muted)]">{text('تاريخ استحقاق الشيك', 'Check due date')}</label>
+                                            <input type="date" className={field} dir="ltr" min="2000-01-01" value={row.checkDue} onChange={(e) => patch(row.id, { checkDue: e.target.value })} />
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        );
+                    })()}
                 </div>
                 {info && isInvoice(row) && row.full && <p className="mt-1.5 text-[10px] text-[var(--ac-text-muted)]">{text('يُدفع إجمالي الفاتورة كما يحسبه النظام.', 'The invoice total as calculated by the system is paid.')}</p>}
             </div>
@@ -930,8 +1021,56 @@ export default function QuickEntry() {
     }
 
     function renderLines(row: Row) {
+        /* Creates or trims empty lines so the table has exactly `wanted` rows; filled lines are never removed. */
+        const applyLineCount = (value: string) => {
+            const wanted = Math.min(Math.max(Math.trunc(Number(value)) || 0, 1), 250);
+
+            setRows((current) => current.map((candidate) => {
+                if (candidate.id !== row.id) {
+                    return candidate;
+                }
+
+                const lastFilled = candidate.lines.reduce((index, line, position) => (line.name || line.qty || line.price ? position : index), -1);
+                const target = Math.max(wanted, lastFilled + 1, 1);
+                const lines = candidate.lines.slice(0, target);
+
+                while (lines.length < target) {
+                    lines.push(newLine());
+                }
+
+                pendingFocus.current = { id: row.id, field: `line-${(lines.find((line) => ! line.name) ?? lines[0]).key}-name` };
+
+                return { ...candidate, lines, error: '' };
+            }));
+        };
+
         return (
             <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ac-text-muted)]">
+                    <label htmlFor={`line-count-${row.id}`} className="font-semibold">{text('عدد البنود', 'Number of lines')}</label>
+                    <input
+                        id={`line-count-${row.id}`}
+                        key={row.lines.length}
+                        type="number"
+                        min={1}
+                        max={250}
+                        dir="ltr"
+                        defaultValue={row.lines.length}
+                        className={field + ' !h-9 !w-20 text-center'}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                applyLineCount(e.currentTarget.value);
+                            }
+                        }}
+                        onBlur={(e) => {
+                            if (Number(e.target.value) !== row.lines.length) {
+                                applyLineCount(e.target.value);
+                            }
+                        }}
+                    />
+                    <span>{text('اكتب العدد ثم Enter لإنشاء كل الصفوف دفعة واحدة', 'Type a number and press Enter to create all rows at once')}</span>
+                </div>
                 <div className="overflow-hidden rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
                     <table className="w-full table-fixed text-xs">
                         <colgroup><col style={{ width: 28 }} /><col /><col style={{ width: 90 }} /><col style={{ width: 100 }} /><col style={{ width: 96 }} /><col style={{ width: 34 }} /></colgroup>

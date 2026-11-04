@@ -35,6 +35,7 @@ class PartyAdjustment extends Model
     protected $fillable = [
         'party_id',
         'financial_document_id',
+        'offset_group',
         'number',
         'side',
         'direction',

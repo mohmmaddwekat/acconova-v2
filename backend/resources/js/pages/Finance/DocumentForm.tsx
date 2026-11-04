@@ -644,6 +644,16 @@ export function DocumentForm({
     const [payAmount, setPayAmount] = useState('');
     const [payMethod, setPayMethod] = useState(payMethodChoices[0]?.[0] ?? 'cash');
     const [payRef, setPayRef] = useState('');
+    const [endorsedId, setEndorsedId] = useState('');
+    const [chequesOnHand, setChequesOnHand] = useState<Array<{
+        id: number;
+        number: string;
+        amount: string;
+        currency: string;
+        check_number: string | null;
+        check_due_date: string | null;
+        party_name: string | null;
+    }>>([]);
     const [oldInvoices, setOldInvoices] = useState<DocumentRow[]>([]);
     const [skippedInvoices, setSkippedInvoices] = useState<number[]>([]);
 
@@ -1902,10 +1912,40 @@ export function DocumentForm({
         };
     }, [payOn, partyId, kind, currency, initial?.id]);
 
+    /* Paying a supplier by a received cheque still on hand (endorsement). */
+    useEffect(() => {
+        if (sales || ! payOn || payMethod !== 'check') {
+            return;
+        }
+
+        let cancelled = false;
+
+        apiRequest<{ data: typeof chequesOnHand }>('/api/finance/cash-movements/cheques-on-hand')
+            .then(response => {
+                if (! cancelled) {
+                    setChequesOnHand(response.data.filter(cheque => cheque.currency === currency));
+                }
+            })
+            .catch(() => {
+                if (! cancelled) {
+                    setChequesOnHand([]);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [sales, payOn, payMethod, currency]);
+
     async function recordInlinePayment(
         issued: DocumentDetail,
     ): Promise<void> {
         const money = (value: number): string => value.toFixed(4);
+
+        if (payMethod === 'check' && ! endorsedId) {
+            throw new Error(text('اختر الشيك الذي ستجيّره للمورد.', 'Pick the check you will endorse to the supplier.'));
+        }
+
         const allocations = [
             {
                 financial_document_id: issued.id,
@@ -1940,6 +1980,13 @@ export function DocumentForm({
                             ].filter(Boolean).join(' · ')
                             : null,
                     reference: payRef || null,
+                    check_number: payMethod === 'check' ? chequesOnHand.find(item => String(item.id) === endorsedId)?.check_number ?? null : null,
+                    check_bank: null,
+                    check_due_date: payMethod === 'check' ? chequesOnHand.find(item => String(item.id) === endorsedId)?.check_due_date ?? null : null,
+                    check_status: payMethod === 'check' ? 'pending' : null,
+                    method_details: payMethod === 'check'
+                        ? { endorsed_movement_id: Number(endorsedId) }
+                        : null,
                     allocations,
                 }),
             },
@@ -4969,8 +5016,47 @@ export function DocumentForm({
                                             {payMethodChoices.map(([value, label]) => (
                                                 <option key={value} value={value}>{label}</option>
                                             ))}
+                                            {! sales && (
+                                                <option value="check">{text('شيك من شيكاتي (تجيير)', 'Check on hand (endorse)')}</option>
+                                            )}
                                         </Select>
                                     </label>
+
+                                    {! sales && payMethod === 'check' && (
+                                        <label className="block font-semibold text-[var(--ac-text-soft)]">
+                                            {text('الشيك', 'Check')}
+                                            <Select
+                                                className={financeInput + ' mt-1'}
+                                                value={endorsedId}
+                                                onChange={event => {
+                                                    const value = event.target.value;
+                                                    const cheque = chequesOnHand.find(item => String(item.id) === value);
+
+                                                    setEndorsedId(value);
+
+                                                    if (cheque) {
+                                                        setPayMode('custom');
+                                                        setPayAmount(String(Number(cheque.amount)));
+                                                    }
+                                                }}
+                                            >
+                                                <option value="">{text('اختر من شيكاتي…', 'Pick one of my checks…')}</option>
+                                                {chequesOnHand
+                                                    .filter(cheque => (cheque.check_due_date ?? '') >= selectedIssueDate)
+                                                    .map(cheque => (
+                                                        <option key={cheque.id} value={cheque.id}>
+                                                            {(cheque.check_number || cheque.number) + ' — ' + (cheque.party_name ?? '') + ' — ' + text('يستحق ', 'due ') + (cheque.check_due_date ?? '') + ' — ' + Number(cheque.amount).toFixed(2)}
+                                                        </option>
+                                                    ))}
+                                            </Select>
+                                            <span className="mt-1 block text-[10px] font-normal text-[var(--ac-text-muted)]">
+                                                {text(
+                                                    'شيكات استلمتها من زبائن وما زالت عندك، يستحق كل منها بعد تاريخ الفاتورة. يُدفع مبلغ الشيك كاملاً.',
+                                                    'Checks received from customers still on hand, due after the invoice date. The full check amount is paid.',
+                                                )}
+                                            </span>
+                                        </label>
+                                    )}
 
                                     <label className="block font-semibold text-[var(--ac-text-soft)]">
                                         {text('مرجع (اختياري)', 'Reference (optional)')}

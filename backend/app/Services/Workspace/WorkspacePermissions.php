@@ -113,12 +113,39 @@ class WorkspacePermissions
     ];
 
     /**
+     * Per-request memoization cache keyed by "userId:organizationId".
+     *
+     * @var array<string, WorkspaceRole|null>
+     */
+    private static array $customCache = [];
+
+    /**
+     * Clear the per-request memoization cache.
+     *
+     * Call this between requests in long-lived processes (e.g. Octane).
+     */
+    public static function flushCustomCache(): void
+    {
+        self::$customCache = [];
+    }
+
+    /**
      * Return the active custom role for one tenant membership.
+     *
+     * Results are memoized for the duration of the request to avoid duplicate
+     * queries when multiple callers (e.g. HandleInertiaRequests and
+     * TaskAccess::permissions) resolve the same membership in one request.
      */
     public static function custom(
         int $userId,
         int $organizationId,
     ): ?WorkspaceRole {
+        $key = "{$userId}:{$organizationId}";
+
+        if (array_key_exists($key, self::$customCache)) {
+            return self::$customCache[$key];
+        }
+
         $membership =
             Membership::withoutGlobalScopes()
                 ->where(
@@ -145,10 +172,10 @@ class WorkspacePermissions
             )
             || ! $membership->workspace_role_id
         ) {
-            return null;
+            return self::$customCache[$key] = null;
         }
 
-        return WorkspaceRole::withoutGlobalScopes()
+        return self::$customCache[$key] = WorkspaceRole::withoutGlobalScopes()
             ->where(
                 'organization_id',
                 $organizationId,

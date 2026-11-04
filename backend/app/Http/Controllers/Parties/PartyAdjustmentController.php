@@ -8,6 +8,7 @@ use App\Models\Party;
 use App\Models\PartyAdjustment;
 use App\Services\Finance\FinanceAuthorization;
 use App\Services\Parties\PartyAdjustmentService;
+use App\Services\Parties\PartyOffsetService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -68,6 +69,18 @@ class PartyAdjustmentController extends Controller
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:500'],
         ]);
+
+        if ($record->offset_group) {
+            abort_unless(
+                FinanceAuthorization::allows($request->user(), 'finance.sales.manage')
+                && FinanceAuthorization::allows($request->user(), 'finance.purchases.manage'),
+                403,
+            );
+
+            app(PartyOffsetService::class)->voidGroup($record->offset_group, $validated['reason'], (int) $request->user()->id);
+
+            return response()->json(['data' => $this->payload($record->refresh())]);
+        }
 
         return response()->json(['data' => $this->payload(
             $service->void($record, $validated['reason'], (int) $request->user()->id),

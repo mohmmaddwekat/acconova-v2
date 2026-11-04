@@ -3,6 +3,7 @@
 use App\Http\Controllers\Parties\CreditController;
 use App\Http\Controllers\Parties\PartyAccountController;
 use App\Http\Controllers\Parties\PartyAdjustmentController;
+use App\Http\Controllers\Parties\PartyOffsetController;
 use App\Http\Controllers\Parties\PartyBulkActionController;
 use App\Http\Controllers\Parties\PartyBulkEditController;
 use App\Http\Controllers\Parties\PartyCollectionsController;
@@ -114,6 +115,11 @@ Route::middleware([
     Route::post('parties/{party}/adjustments/{adjustment}/void', [PartyAdjustmentController::class, 'void'])
         ->whereNumber(['party', 'adjustment'])
         ->middleware('throttle:30,1');
+
+    Route::get('parties/offsets', [PartyOffsetController::class, 'index']);
+    Route::post('parties/{party}/offsets/preview', [PartyOffsetController::class, 'preview'])->whereNumber('party');
+    Route::post('parties/{party}/offsets', [PartyOffsetController::class, 'store'])->whereNumber('party')->middleware('throttle:30,1');
+    Route::post('parties/offsets/{group}/void', [PartyOffsetController::class, 'void'])->middleware('throttle:30,1');
 
     Route::get(
         'parties/{party}/account',

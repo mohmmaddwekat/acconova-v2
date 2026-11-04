@@ -39,6 +39,7 @@ class QuickEntryController extends Controller
             'rows.*.payment.amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'rows.*.payment.full' => ['nullable', 'boolean'],
             'rows.*.payment.method' => ['nullable', Rule::in(['cash', 'transfer', 'check'])],
+            'rows.*.payment.endorsed_movement_id' => ['nullable', 'integer'],
             'rows.*.payment.check_number' => ['nullable', 'string', 'max:120'],
             'rows.*.payment.check_due_date' => ['nullable', 'date_format:Y-m-d'],
         ]);
