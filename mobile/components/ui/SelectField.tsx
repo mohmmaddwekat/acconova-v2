@@ -1,7 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Colors, Radius } from '../../constants/theme';
 import { Icon } from './Icon';
+import { useStyles } from '../../lib/theme';
+import { Text } from './/Text';
 
 interface SelectFieldProps {
   label: string;
@@ -12,6 +14,7 @@ interface SelectFieldProps {
 }
 
 export function SelectField({ label, value, placeholder = 'اختر...', onPress, error }: SelectFieldProps) {
+  const styles = useStyles(createStyles);
   return (
     <View style={{ gap: 4 }}>
       <Pressable
@@ -33,13 +36,13 @@ export function SelectField({ label, value, placeholder = 'اختر...', onPress
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   field: {
     minHeight: 58, borderRadius: Radius.xs, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.surface,
     paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
   },
   texts: { flex: 1, gap: 1 },
-  label: { fontSize: 12, color: Colors.textMuted, fontWeight: '500', textAlign: 'right' },
-  value: { fontSize: 15, fontWeight: '700', color: Colors.text, textAlign: 'right' },
-  error: { fontSize: 12, color: Colors.danger, textAlign: 'right' },
+  label: { fontSize: 12, color: Colors.textMuted, fontWeight: '500', textAlign: 'auto' },
+  value: { fontSize: 15, fontWeight: '700', color: Colors.text, textAlign: 'auto' },
+  error: { fontSize: 12, color: Colors.danger, textAlign: 'auto' },
 });

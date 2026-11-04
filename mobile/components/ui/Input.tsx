@@ -1,21 +1,19 @@
 import React, { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TextInputProps,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, TextInputProps, TouchableOpacity, View } from 'react-native';
 import { Colors, Radius, Spacing } from '../../constants/theme';
-import { Icon } from './Icon';
+import { Icon, IconName } from './Icon';
+import { useStyles } from '../../lib/theme';
+import { Text } from './/Text';
+import { TextInput } from './/TextInput';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
+  icon?: IconName;
 }
 
-export function Input({ label, error, style, secureTextEntry, ...props }: InputProps) {
+export function Input({ label, error, icon, style, secureTextEntry, ...props }: InputProps) {
+  const styles = useStyles(createStyles);
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(secureTextEntry ?? false);
 
@@ -33,12 +31,18 @@ export function Input({ label, error, style, secureTextEntry, ...props }: InputP
             focused && styles.inputFocused,
             error && styles.inputError,
             isPassword && styles.inputWithToggle,
+            icon && styles.inputWithIcon,
             style,
           ]}
           placeholderTextColor={Colors.textFaint}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
+        {icon && (
+          <View style={styles.leadIcon} pointerEvents="none">
+            <Icon name={icon} size={18} color={focused ? Colors.accent : Colors.textMuted} />
+          </View>
+        )}
         {isPassword && (
           <TouchableOpacity
             style={styles.eyeBtn}
@@ -55,12 +59,12 @@ export function Input({ label, error, style, secureTextEntry, ...props }: InputP
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   wrapper: {
     gap: 6,
   },
   label: {
-    textAlign: 'right',
+    textAlign: 'auto',
     fontSize: 13,
     fontWeight: '500',
     color: Colors.textSoft,
@@ -69,7 +73,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   input: {
-    height: 48,
+    height: 52,
     borderRadius: Radius.xs,
     borderWidth: 1.5,
     borderColor: Colors.line,
@@ -79,7 +83,17 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   inputWithToggle: {
-    paddingRight: 48,
+    paddingEnd: 48,
+  },
+  inputWithIcon: {
+    paddingStart: 44,
+  },
+  leadIcon: {
+    position: 'absolute',
+    start: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
   inputFocused: {
     borderColor: Colors.accent,
@@ -89,7 +103,7 @@ const styles = StyleSheet.create({
   },
   eyeBtn: {
     position: 'absolute',
-    right: 12,
+    end: 4,
     top: 0,
     bottom: 0,
     justifyContent: 'center',

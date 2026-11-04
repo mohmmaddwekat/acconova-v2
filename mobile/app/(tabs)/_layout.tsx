@@ -1,9 +1,13 @@
 import { Tabs } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { QuickActionsSheet } from '../../components/QuickActionsSheet';
 import { Icon, IconName } from '../../components/ui/Icon';
 import { Colors, Layout } from '../../constants/theme';
 import { useAuth } from '../../lib/AuthContext';
+import { t, useI18n } from '../../lib/i18n';
+import { useStyles, useTheme } from '../../lib/theme';
 
 function tabIcon(name: IconName) {
   function TabIcon({ color }: { color: unknown }) {
@@ -13,6 +17,7 @@ function tabIcon(name: IconName) {
 }
 
 function EntryIcon() {
+  const styles = useStyles(createStyles);
   return (
     <View style={styles.fab}>
       <Icon name="plus" size={22} color="#fff" strokeWidth={2.4} />
@@ -20,51 +25,61 @@ function EntryIcon() {
   );
 }
 
-const HIDDEN = ['notifications', 'parties', 'reports', 'ai', 'invoice/[id]', 'party/[id]', 'new-invoice', 'employees'];
-
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { activeOrganizationId } = useAuth();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useTheme();
+  useI18n();
 
   return (
-    <Tabs
-      key={activeOrganizationId ?? 'none'}
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: Colors.accent,
-        tabBarInactiveTintColor: Colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.line,
-          borderTopWidth: 1,
-          height: Layout.tabBarHeight + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 8),
-        },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
-      }}
-    >
-      <Tabs.Screen name="index" options={{ title: 'الرئيسية', tabBarIcon: tabIcon('home') }} />
-      <Tabs.Screen name="invoices" options={{ title: 'الفواتير', tabBarIcon: tabIcon('file') }} />
-      <Tabs.Screen
-        name="quick-entry"
-        options={{
-          title: 'إدخال',
-          tabBarIcon: () => <EntryIcon />,
-          tabBarIconStyle: { width: 42, height: 42, marginTop: -8 },
+    <>
+      <Tabs
+        key={activeOrganizationId ?? 'none'}
+        screenOptions={{
+          headerShown: false,
           tabBarActiveTintColor: Colors.accent,
+          tabBarInactiveTintColor: Colors.textMuted,
+          tabBarStyle: {
+            backgroundColor: Colors.surface,
+            borderTopColor: Colors.line,
+            borderTopWidth: 1,
+            height: Layout.tabBarHeight + insets.bottom,
+            paddingTop: 6,
+            paddingBottom: Math.max(insets.bottom, 8),
+          },
+          tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
         }}
-      />
-      <Tabs.Screen name="approvals" options={{ title: 'موافقات', tabBarIcon: tabIcon('checkSquare') }} />
-      <Tabs.Screen name="more" options={{ title: 'المزيد', tabBarIcon: tabIcon('more') }} />
-      {HIDDEN.map((name) => (
-        <Tabs.Screen key={name} name={name} options={{ href: null }} />
-      ))}
-    </Tabs>
+      >
+        <Tabs.Screen name="index" options={{ title: t('الرئيسية'), tabBarIcon: tabIcon('home') }} />
+        <Tabs.Screen name="invoices" options={{ title: t('الفواتير'), tabBarIcon: tabIcon('file') }} />
+        <Tabs.Screen
+          name="quick-entry"
+          options={{
+            title: t('إضافة'),
+            tabBarIcon: () => <EntryIcon />,
+            tabBarIconStyle: { width: 42, height: 42, marginTop: -8 },
+            tabBarButton: (props) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('إضافة سريعة')}
+                onPress={() => setSheetOpen(true)}
+                style={props.style}
+              >
+                {props.children}
+              </Pressable>
+            ),
+          }}
+        />
+        <Tabs.Screen name="approvals" options={{ title: t('موافقات'), tabBarIcon: tabIcon('checkSquare') }} />
+        <Tabs.Screen name="more" options={{ title: t('المزيد'), tabBarIcon: tabIcon('more') }} />
+      </Tabs>
+      <QuickActionsSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   fab: {
     width: 42,
     height: 42,

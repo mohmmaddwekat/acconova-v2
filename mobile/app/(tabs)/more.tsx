@@ -1,12 +1,16 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon, IconName } from '../../components/ui/Icon';
 import { PickerSheet } from '../../components/ui/PickerSheet';
+import { Segmented } from '../../components/ui/Segmented';
 import { useToast } from '../../components/ui/Toast';
 import { Colors, Layout, Radius, Shadow, Spacing, StatusText, Tint } from '../../constants/theme';
 import { useAuth } from '../../lib/AuthContext';
+import { LanguagePreference, useI18n } from '../../lib/i18n';
+import { ThemePreference, useStyles, useTheme } from '../../lib/theme';
+import { Text } from '../../components/ui/Text';
 
 interface MenuItem {
   icon: IconName;
@@ -18,31 +22,36 @@ interface MenuItem {
   params?: Record<string, string>;
 }
 
-const GROUPS: { title: string; items: MenuItem[] }[] = [
+const getGroups = (): { title: string; items: MenuItem[] }[] => [
   {
     title: 'الموارد البشرية',
     items: [
-      { icon: 'users', fg: Tint.purple, bg: Tint.purpleBg, label: 'الموظفون', subtitle: 'قائمة الموظفين والبيانات', route: '/(tabs)/employees', params: { tab: 'all' } },
-      { icon: 'calendar', fg: StatusText.success, bg: Tint.successBg, label: 'الحضور والغياب', subtitle: 'تسجيل حضور اليوم', route: '/(tabs)/employees', params: { tab: 'attend' } },
-      { icon: 'banknote', fg: StatusText.warning, bg: Tint.warningBg, label: 'الرواتب', subtitle: 'صرف ومتابعة الرواتب', route: '/(tabs)/employees', params: { tab: 'salary' } },
+      { icon: 'users', fg: Tint.purple, bg: Tint.purpleBg, label: 'الموظفون', subtitle: 'قائمة الموظفين والبيانات', route: '/employees', params: { tab: 'all' } },
+      { icon: 'calendar', fg: StatusText.success, bg: Tint.successBg, label: 'الحضور والغياب', subtitle: 'تسجيل حضور اليوم', route: '/employees', params: { tab: 'attend' } },
+      { icon: 'banknote', fg: StatusText.warning, bg: Tint.warningBg, label: 'الرواتب', subtitle: 'صرف ومتابعة الرواتب', route: '/employees', params: { tab: 'salary' } },
     ],
   },
   {
     title: 'الأعمال',
     items: [
-      { icon: 'users', fg: Colors.accent, bg: Colors.accentSoft, label: 'العملاء والموردون', subtitle: 'الأطراف والأرصدة', route: '/(tabs)/parties' },
-      { icon: 'barChart', fg: Colors.accent, bg: Colors.accentSoft, label: 'التقارير', subtitle: 'التدفق النقدي والملخصات', route: '/(tabs)/reports' },
-      { icon: 'bell', fg: Colors.info, bg: Tint.infoBg, label: 'المتابعات', subtitle: 'تحصيل الديون والتنبيهات', route: '/(tabs)/notifications' },
-      { icon: 'chat', fg: Tint.purple, bg: Tint.purpleBg, label: 'المساعد الذكي', subtitle: 'تحليل وإجابات فورية', route: '/(tabs)/ai' },
+      { icon: 'users', fg: Colors.accent, bg: Colors.accentSoft, label: 'العملاء والموردون', subtitle: 'الأطراف والأرصدة', route: '/parties' },
+      { icon: 'banknote', fg: StatusText.success, bg: Tint.successBg, label: 'سجل المعاملات', subtitle: 'سندات القبض والدفع المرحّلة', route: '/transactions' },
+      { icon: 'file', fg: StatusText.warning, bg: Tint.warningBg, label: 'المخزون والمنتجات', subtitle: 'الأصناف والكميات والتنبيهات', route: '/inventory' },
+      { icon: 'barChart', fg: Colors.accent, bg: Colors.accentSoft, label: 'التقارير', subtitle: 'التدفق النقدي والملخصات', route: '/reports' },
+      { icon: 'bell', fg: Colors.info, bg: Tint.infoBg, label: 'الإشعارات والتحصيل', subtitle: 'تنبيهات الموقع ومتابعة الديون', route: '/notifications' },
+      { icon: 'chat', fg: Tint.purple, bg: Tint.purpleBg, label: 'المساعد الذكي', subtitle: 'تحليل وإجابات فورية', route: '/ai' },
     ],
   },
 ];
 
 export default function MoreScreen() {
+  const styles = useStyles(createStyles);
   const router = useRouter();
   const toast = useToast();
   const { user, logout, organizations, activeOrganizationId, switchOrganization } = useAuth();
   const [orgPicker, setOrgPicker] = useState(false);
+  const { preference, setPreference } = useTheme();
+  const { preference: languagePreference, setPreference: setLanguagePreference, needsRestart } = useI18n();
   const activeOrganization = organizations.find((o) => o.id === activeOrganizationId);
 
   return (
@@ -58,6 +67,34 @@ export default function MoreScreen() {
           </View>
         </View>
 
+        <View style={{ gap: 8 }}>
+          <Text style={styles.groupTitle}>المظهر</Text>
+          <Segmented<ThemePreference>
+            value={preference}
+            onChange={setPreference}
+            options={[
+              { key: 'system', label: 'تلقائي', icon: 'monitor' },
+              { key: 'light', label: 'فاتح', icon: 'sun' },
+              { key: 'dark', label: 'داكن', icon: 'moon' },
+            ]}
+          />
+          <Text style={styles.note}>«تلقائي» يتبع إعداد جهازك: داكن إذا كان جهازك داكناً، وفاتح إذا كان فاتحاً.</Text>
+        </View>
+
+        <View style={{ gap: 8 }}>
+          <Text style={styles.groupTitle}>اللغة</Text>
+          <Segmented<LanguagePreference>
+            value={languagePreference}
+            onChange={setLanguagePreference}
+            options={[
+              { key: 'system', label: 'تلقائي', icon: 'globe' },
+              { key: 'ar', label: 'العربية', icon: 'globe' },
+              { key: 'en', label: 'English', icon: 'globe' },
+            ]}
+          />
+          {needsRestart ? <Text style={[styles.note, { color: StatusText.warning, fontWeight: '700' }]}>أغلق التطبيق وافتحه من جديد ليتغيّر اتجاه الصفحات.</Text> : null}
+        </View>
+
         {organizations.length > 1 && (
           <Pressable accessibilityRole="button" onPress={() => setOrgPicker(true)} style={styles.orgRow}>
             <View style={[styles.rowIcon, { backgroundColor: Colors.accentSoft }]}>
@@ -71,7 +108,7 @@ export default function MoreScreen() {
           </Pressable>
         )}
 
-        {GROUPS.map((group) => (
+        {getGroups().map((group) => (
           <View key={group.title} style={{ gap: 8 }}>
             <Text style={styles.groupTitle}>{group.title}</Text>
             <View style={styles.section}>
@@ -104,6 +141,7 @@ export default function MoreScreen() {
           <Icon name="logout" size={20} color={StatusText.danger} />
           <Text style={styles.logoutText}>تسجيل الخروج</Text>
         </Pressable>
+        <Text style={styles.footer}>AccoNova — جميع الحقوق محفوظة</Text>
       </ScrollView>
       <PickerSheet
         visible={orgPicker}
@@ -120,7 +158,7 @@ export default function MoreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
   container: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: 40 },
   profile: {
@@ -129,9 +167,9 @@ const styles = StyleSheet.create({
   },
   avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 24, fontWeight: '800', color: '#fff' },
-  name: { fontSize: 18, fontWeight: '800', color: '#fff', textAlign: 'right' },
-  email: { fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'right', marginTop: 2 },
-  groupTitle: { fontSize: 14, fontWeight: '800', color: Colors.textMuted, textAlign: 'right' },
+  name: { fontSize: 18, fontWeight: '800', color: '#fff', textAlign: 'auto' },
+  email: { fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'auto', marginTop: 2 },
+  groupTitle: { fontSize: 14, fontWeight: '800', color: Colors.textMuted, textAlign: 'auto' },
   section: { backgroundColor: Colors.surface, borderRadius: Radius.md, overflow: 'hidden', borderWidth: 1, borderColor: Colors.line, ...Shadow.soft },
   row: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 12,
@@ -139,12 +177,14 @@ const styles = StyleSheet.create({
   },
   rowIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   rowContent: { flex: 1 },
-  rowLabel: { fontSize: 15, fontWeight: '700', color: Colors.text, textAlign: 'right' },
-  rowSub: { fontSize: 13, color: Colors.textMuted, marginTop: 2, textAlign: 'right' },
+  rowLabel: { fontSize: 15, fontWeight: '700', color: Colors.text, textAlign: 'auto' },
+  rowSub: { fontSize: 13, color: Colors.textMuted, marginTop: 2, textAlign: 'auto' },
+  note: { fontSize: 13, color: Colors.textMuted, lineHeight: 20, textAlign: 'auto' },
   orgRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, minHeight: 68,
     backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line,
   },
+  footer: { textAlign: 'center', fontSize: 12, color: Colors.textMuted },
   logoutBtn: {
     minHeight: Layout.minTouch + 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Tint.dangerBg,

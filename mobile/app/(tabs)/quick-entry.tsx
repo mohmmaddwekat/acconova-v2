@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
 import { Numpad } from '../../components/ui/Numpad';
@@ -11,13 +11,16 @@ import { StickyFooter } from '../../components/ui/StickyFooter';
 import { useToast } from '../../components/ui/Toast';
 import { Colors, Layout, Radius, StatusText } from '../../constants/theme';
 import { apiErrorMessage, CURRENCY_SYMBOL } from '../../lib/format';
-import { PartyOption, useParties } from '../../lib/lookups';
+import { PartyOption, partiesFor, useParties } from '../../lib/lookups';
 import { submitQuickEntry } from '../../lib/quickEntry';
+import { useStyles } from '../../lib/theme';
+import { Text } from '../../components/ui/Text';
+import { TextInput } from '../../components/ui/TextInput';
 
 type EntryType = 'receipt' | 'payment';
 type Method = 'cash' | 'transfer';
 
-const TYPES: { key: EntryType; label: string; color: string }[] = [
+const getTypes = (): { key: EntryType; label: string; color: string }[] => [
   { key: 'receipt', label: 'قبض (إيراد)', color: '#0570C4' },
   { key: 'payment', label: 'دفع (مصروف)', color: StatusText.danger },
 ];
@@ -35,9 +38,15 @@ function formatAmount(value: string): string {
 }
 
 export default function QuickEntryScreen() {
+  const styles = useStyles(createStyles);
   const toast = useToast();
   const { items: parties, loading: partiesLoading } = useParties();
-  const [type, setType] = useState<EntryType>('receipt');
+  const { type: typeParam } = useLocalSearchParams<{ type?: string }>();
+  const [type, setType] = useState<EntryType>(typeParam === 'payment' ? 'payment' : 'receipt');
+
+  useEffect(() => {
+    if (typeParam === 'payment' || typeParam === 'receipt') setType(typeParam);
+  }, [typeParam]);
   const [amount, setAmount] = useState('0');
   const [party, setParty] = useState<PartyOption | null>(null);
   const [method, setMethod] = useState<Method>('cash');
@@ -46,12 +55,10 @@ export default function QuickEntryScreen() {
   const [saving, setSaving] = useState(false);
   const [partyError, setPartyError] = useState<string | undefined>();
 
-  const active = TYPES.find((t) => t.key === type)!;
-  const wantedPartyType = type === 'receipt' ? 'customer' : 'supplier';
-  const eligibleParties = useMemo(
-    () => parties.filter((p) => !p.type || p.type === wantedPartyType),
-    [parties, wantedPartyType],
-  );
+  const types = getTypes();
+  const active = types.find((t) => t.key === type)!;
+  const wantedPartyType: 'customer' | 'supplier' = type === 'receipt' ? 'customer' : 'supplier';
+  const eligibleParties = useMemo(() => partiesFor(parties, wantedPartyType), [parties, wantedPartyType]);
 
   async function save(another: boolean) {
     if (Number(amount) <= 0) {
@@ -89,7 +96,7 @@ export default function QuickEntryScreen() {
       <ScreenHeader title="إدخال سريع" tone="solid" color={active.color} showBack={false}>
         <View style={styles.headerBody}>
           <View style={styles.toggle}>
-            {TYPES.map((t) => (
+            {types.map((t) => (
               <Pressable
                 key={t.key}
                 accessibilityRole="button"
@@ -188,7 +195,7 @@ export default function QuickEntryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.bg },
   headerBody: { gap: 10, paddingBottom: 8 },
   toggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 12, padding: 3, gap: 3 },
@@ -199,7 +206,7 @@ const styles = StyleSheet.create({
   amount: { textAlign: 'center', fontSize: 44, fontWeight: '800', color: '#fff', letterSpacing: -1 },
   body: { padding: 14, gap: 12 },
   divider: { height: 1, backgroundColor: Colors.line },
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: Colors.textMuted, textAlign: 'right' },
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: Colors.textMuted, textAlign: 'auto' },
   suggestRow: { gap: 8, flexDirection: 'row' },
   suggest: {
     minHeight: Layout.minTouch, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.line,
@@ -210,7 +217,7 @@ const styles = StyleSheet.create({
   methods: { flexDirection: 'row', gap: 8 },
   reference: {
     minHeight: 52, borderRadius: Radius.xs, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.surface,
-    paddingHorizontal: 14, fontSize: 15, color: Colors.text, textAlign: 'right',
+    paddingHorizontal: 14, fontSize: 15, color: Colors.text, textAlign: 'auto',
   },
   another: { paddingHorizontal: 14 },
 });

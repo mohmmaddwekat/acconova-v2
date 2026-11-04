@@ -1,7 +1,9 @@
 import React from 'react';
-import { I18nManager, Pressable, StyleSheet, Text, View } from 'react-native';
+import { I18nManager, Pressable, StyleSheet, View } from 'react-native';
 import { Colors, Radius } from '../../constants/theme';
 import { Icon } from './Icon';
+import { useStyles } from '../../lib/theme';
+import { Text } from './/Text';
 
 interface NumpadProps {
   value: string;
@@ -17,6 +19,7 @@ const ROWS = [
 ];
 
 export function Numpad({ value, onChange, maxDigits = 9 }: NumpadProps) {
+  const styles = useStyles(createStyles);
   // The pad must read 1-2-3 left to right in both layout directions.
   const rowDirection = I18nManager.isRTL ? 'row-reverse' : 'row';
 
@@ -62,7 +65,7 @@ export function Numpad({ value, onChange, maxDigits = 9 }: NumpadProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   pad: { gap: 8 },
   row: { gap: 8 },
   key: {

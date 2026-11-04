@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Colors, Layout, Radius, Tint } from '../../constants/theme';
+import { useStyles } from '../../lib/theme';
+import { Text } from './/Text';
+import { TextInput } from './/TextInput';
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -10,6 +13,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   loading?: boolean;
   amountInput?: { label: string; initial: string };
+  children?: React.ReactNode;
   onConfirm: (amount?: string) => void;
   onCancel: () => void;
 }
@@ -21,9 +25,11 @@ function Dialog({
   confirmLabel = 'تأكيد',
   loading = false,
   amountInput,
+  children,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const styles = useStyles(createStyles);
   const [amount, setAmount] = useState(amountInput?.initial ?? '');
 
   return (
@@ -55,6 +61,7 @@ function Dialog({
               />
             </View>
           )}
+          {children}
           <View style={styles.actions}>
             <Pressable accessibilityRole="button" style={[styles.btn, styles.cancel]} onPress={onCancel} disabled={loading}>
               <Text style={styles.cancelText}>إلغاء</Text>
@@ -79,18 +86,18 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
   return props.visible ? <Dialog {...props} /> : null;
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: Tint.overlay, justifyContent: 'center', padding: 24 },
   dialog: { backgroundColor: Colors.surface, borderRadius: 20, padding: 20, gap: 12 },
-  title: { fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'right' },
-  desc: { fontSize: 14, color: Colors.textMuted, lineHeight: 22, textAlign: 'right' },
+  title: { fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'auto' },
+  desc: { fontSize: 14, color: Colors.textMuted, lineHeight: 22, textAlign: 'auto' },
   rows: { backgroundColor: Colors.bg, borderRadius: 12, paddingHorizontal: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.line },
   rowLabel: { fontSize: 14, color: Colors.textMuted },
   rowValue: { fontSize: 14, fontWeight: '700', color: Colors.text },
   amountInput: {
     height: 52, borderRadius: Radius.xs, borderWidth: 1.5, borderColor: Colors.line,
-    paddingHorizontal: 14, fontSize: 20, fontWeight: '700', color: Colors.text, textAlign: 'right',
+    paddingHorizontal: 14, fontSize: 20, fontWeight: '700', color: Colors.text, textAlign: 'auto',
   },
   actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   btn: { flex: 1, height: 52, minHeight: Layout.minTouch, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

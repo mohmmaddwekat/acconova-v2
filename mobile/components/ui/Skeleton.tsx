@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, StyleSheet, View, ViewStyle } from 'react-native';
 import { Colors } from '../../constants/theme';
+import { useStyles } from '../../lib/theme';
 
 export function SkeletonBar({ height = 64, width = '100%', style }: { height?: number; width?: ViewStyle['width']; style?: ViewStyle }) {
+  const styles = useStyles(createStyles);
   const [pulse] = useState(() => new Animated.Value(0.45));
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export function SkeletonBar({ height = 64, width = '100%', style }: { height?: n
 }
 
 export function SkeletonList({ rows = 5 }: { rows?: number }) {
+  const styles = useStyles(createStyles);
   return (
     <View style={styles.list} accessibilityLabel="جارٍ التحميل" accessibilityLiveRegion="polite">
       <SkeletonBar height={18} width="40%" />
@@ -38,7 +41,7 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   bar: { borderRadius: 12, backgroundColor: Colors.surfaceStrong },
   list: { padding: 16, gap: 12 },
 });

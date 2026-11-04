@@ -1,12 +1,8 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  ViewStyle,
-} from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { Colors, Radius, Spacing } from '../../constants/theme';
+import { useStyles } from '../../lib/theme';
+import { Text } from './/Text';
 
 interface ButtonProps {
   label: string;
@@ -25,6 +21,7 @@ export function Button({
   variant = 'primary',
   style,
 }: ButtonProps) {
+  const styles = useStyles(createStyles);
   const isPrimary = variant === 'primary';
 
   return (
@@ -52,7 +49,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   base: {
     height: 52,
     borderRadius: Radius.sm,

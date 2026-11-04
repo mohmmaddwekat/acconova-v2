@@ -1,6 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { Colors, Layout } from '../../constants/theme';
+import { useStyles } from '../../lib/theme';
+import { Text } from './/Text';
 
 interface ChipProps {
   label: string;
@@ -9,6 +11,7 @@ interface ChipProps {
 }
 
 export function Chip({ label, selected, onPress }: ChipProps) {
+  const styles = useStyles(createStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -21,7 +24,7 @@ export function Chip({ label, selected, onPress }: ChipProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   chip: {
     flex: 1, minHeight: Layout.minTouch, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.line,
     backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',

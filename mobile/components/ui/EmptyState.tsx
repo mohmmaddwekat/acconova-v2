@@ -1,8 +1,10 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Colors } from '../../constants/theme';
 import { Button } from './Button';
 import { Icon, IconName } from './Icon';
+import { useStyles } from '../../lib/theme';
+import { Text } from './/Text';
 
 interface EmptyStateProps {
   icon: IconName;
@@ -14,6 +16,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ icon, title, message, actionLabel, onAction, compact }: EmptyStateProps) {
+  const styles = useStyles(createStyles);
   return (
     <View style={[styles.wrap, compact && { paddingVertical: 24 }]}>
       <View style={styles.circle}>
@@ -30,7 +33,7 @@ export function EmptyState({ icon, title, message, actionLabel, onAction, compac
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   wrap: { alignItems: 'center', gap: 10, paddingVertical: 48, paddingHorizontal: 28 },
   circle: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 16, fontWeight: '800', color: Colors.text, textAlign: 'center' },

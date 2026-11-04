@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Layout, Tint } from '../../constants/theme';
 import { EmptyState } from './EmptyState';
+import { useStyles } from '../../lib/theme';
+import { Text } from './/Text';
+import { TextInput } from './/TextInput';
 
 export interface PickerItem {
   id: number | string;
@@ -20,6 +23,7 @@ interface PickerSheetProps {
 }
 
 export function PickerSheet({ visible, title, items, loading, onSelect, onClose }: PickerSheetProps) {
+  const styles = useStyles(createStyles);
   const [query, setQuery] = useState('');
   const insets = useSafeAreaInsets();
 
@@ -73,19 +77,19 @@ export function PickerSheet({ visible, title, items, loading, onSelect, onClose 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: Tint.overlay, justifyContent: 'flex-end' },
   sheet: { maxHeight: '80%', backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 10 },
   grab: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.line, marginBottom: 12 },
-  title: { fontSize: 17, fontWeight: '800', color: Colors.text, textAlign: 'right', marginBottom: 10 },
+  title: { fontSize: 17, fontWeight: '800', color: Colors.text, textAlign: 'auto', marginBottom: 10 },
   search: {
     height: 48, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.bg,
-    paddingHorizontal: 14, fontSize: 15, color: Colors.text, textAlign: 'right', marginBottom: 6,
+    paddingHorizontal: 14, fontSize: 15, color: Colors.text, textAlign: 'auto', marginBottom: 6,
   },
   item: {
     minHeight: Layout.minTouch + 4, justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 6,
     borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
-  itemTitle: { fontSize: 15, fontWeight: '600', color: Colors.text, textAlign: 'right' },
-  itemSub: { fontSize: 12, color: Colors.textMuted, textAlign: 'right', marginTop: 2 },
+  itemTitle: { fontSize: 15, fontWeight: '600', color: Colors.text, textAlign: 'auto' },
+  itemSub: { fontSize: 12, color: Colors.textMuted, textAlign: 'auto', marginTop: 2 },
 });
