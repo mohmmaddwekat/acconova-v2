@@ -43,7 +43,16 @@ class MobileAuthController extends Controller
             'last_login_at' => now(),
         ])->save();
 
-        $token = $user->createToken('mobile')->accessToken;
+        try {
+            $token = $user->createToken('mobile')->accessToken;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Token issuance failed. Run `passport:keys` and `passport:client --personal` on the server.',
+                'code' => 'passport_not_configured',
+            ], 500);
+        }
 
         return response()->json([
             'token' => $token,
