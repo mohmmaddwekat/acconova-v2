@@ -47,7 +47,7 @@ const getGroups = (): { title: string; items: MenuItem[] }[] => [
   ...MODULE_GROUPS.map((title) => ({
     title,
     items: MODULES.filter((m) => m.group === title).map(
-      (m): MenuItem => ({ icon: m.icon, fg: Colors.accentStrong, bg: Colors.accentSoft, label: m.title, subtitle: m.subtitle, route: `/module/${m.key}` }),
+      (m): MenuItem => ({ icon: m.icon, fg: Colors.accentStrong, bg: Colors.accentSoft, label: m.title, subtitle: m.subtitle, route: m.route ?? `/module/${m.key}` }),
     ),
   })),
 ];

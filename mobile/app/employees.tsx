@@ -162,7 +162,7 @@ export default function EmployeesScreen() {
 
   return (
     <View style={styles.flex}>
-      <ScreenHeader title="الموظفون" />
+      <ScreenHeader title="الموظفون" actionIcon="plus" actionLabel="موظف جديد" onAction={() => router.push('/new-employee' as never)} />
 
       <View style={styles.tabs}>
         {TABS.map((t) => (

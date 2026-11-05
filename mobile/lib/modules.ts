@@ -26,6 +26,8 @@ export interface ModuleDef {
   subtitle: string;
   icon: IconName;
   endpoint: string;
+  /** Opens a dedicated screen instead of the generic list. */
+  route?: string;
   params?: Record<string, unknown>;
   /** Optional custom mapping; modules without one use the generic field detection. */
   row?: (raw: Record<string, unknown>) => ModuleRow | null;
@@ -61,52 +63,50 @@ function taskRow(raw: Record<string, unknown>): ModuleRow | null {
 }
 
 export const MODULES: ModuleDef[] = [
-  { key: 'tasks', group: 'المهام والفريق', title: 'إدارة المهام', subtitle: 'مهامك ومهام الفريق', icon: 'checkSquare', endpoint: '/task-management/tasks', params: { per_page: 50 }, row: taskRow, createRoute: '/new-task', createLabel: 'مهمة جديدة', rowAction: { label: 'تم الإنجاز', successMessage: 'تم إنجاز المهمة', visible: (r) => r.status !== 'completed', request: (r) => ({ method: 'patch', url: `/task-management/tasks/${r.id}`, body: { status: 'completed', progress: 100, ...(r.revision != null ? { revision: r.revision } : {}) } }) } },
-  { key: 'team-space', group: 'المهام والفريق', title: 'مساحة الفريق', subtitle: 'الأشخاص والرسائل', icon: 'chat', endpoint: '/team-space' },
-  { key: 'departments', group: 'المهام والفريق', title: 'الأقسام', subtitle: 'الأقسام وسقوف الصرف', icon: 'users', endpoint: '/departments' },
-  { key: 'roles', group: 'المهام والفريق', title: 'الأدوار والصلاحيات', subtitle: 'من يستطيع فعل ماذا', icon: 'lock', endpoint: '/workspace-roles' },
-  { key: 'notification-rules', group: 'المهام والفريق', title: 'قواعد الإشعارات', subtitle: 'ما يصلك وكيف', icon: 'bell', endpoint: '/notification-rules' },
+  { key: 'tasks', group: 'المهام والفريق', title: 'إدارة المهام', subtitle: 'مهامك ومهام الفريق', route: '/tasks', icon: 'checkSquare', endpoint: '/task-management/tasks', params: { per_page: 50 }, row: taskRow, createRoute: '/new-task', createLabel: 'مهمة جديدة', rowAction: { label: 'تم الإنجاز', successMessage: 'تم إنجاز المهمة', visible: (r) => r.status !== 'completed', request: (r) => ({ method: 'patch', url: `/task-management/tasks/${r.id}`, body: { status: 'completed', progress: 100, ...(r.revision != null ? { revision: r.revision } : {}) } }) } },
+  { key: 'team-space', group: 'المهام والفريق', title: 'مساحة الفريق', subtitle: 'الأشخاص والرسائل', icon: 'chat', endpoint: '/team-space', route: '/team-space' },
+  { key: 'departments', group: 'المهام والفريق', title: 'الأقسام', subtitle: 'الأقسام وسقوف الصرف', icon: 'users', endpoint: '/departments', route: '/departments' },
+  { key: 'roles', group: 'المهام والفريق', title: 'الأدوار والصلاحيات', subtitle: 'من يستطيع فعل ماذا', icon: 'lock', endpoint: '/workspace-roles', route: '/roles' },
+  { key: 'notification-rules', group: 'المهام والفريق', title: 'قواعد الإشعارات', subtitle: 'ما يصلك وكيف', icon: 'bell', endpoint: '/notification-rules', route: '/notification-rules' },
 
   { key: 'bank-reconciliation', group: 'المالية', title: 'المطابقة البنكية', subtitle: 'مطابقة الحركات البنكية', icon: 'card', endpoint: '/bank-reconciliation' },
-  { key: 'taxes', group: 'المالية', title: 'الضرائب', subtitle: 'ملخص الضرائب', icon: 'dollar', endpoint: '/finance/taxes' },
-  { key: 'anomalies', group: 'المالية', title: 'العمليات غير المعتادة', subtitle: 'تنبيهات يكتشفها النظام', icon: 'alertCircle', endpoint: '/business-pulse/anomalies' },
-  { key: 'auto-allocation', group: 'المالية', title: 'التخصيص التلقائي', subtitle: 'ربط الدفعات بالفواتير', icon: 'refresh', endpoint: '/finance/auto-allocation' },
-  { key: 'party-offsets', group: 'المالية', title: 'مقاصة الأطراف', subtitle: 'مقاصة بين العملاء والموردين', icon: 'refresh', endpoint: '/parties/offsets' },
-  { key: 'payment-plans', group: 'المالية', title: 'خطط الدفع', subtitle: 'جداول السداد والتذكيرات', icon: 'calendar', endpoint: '/payment-plans' },
+  { key: 'taxes', group: 'المالية', title: 'الضرائب', subtitle: 'ملخص الضرائب', icon: 'dollar', endpoint: '/finance/taxes', route: '/taxes' },
+  { key: 'anomalies', group: 'المالية', title: 'العمليات غير المعتادة', subtitle: 'تنبيهات يكتشفها النظام', icon: 'alertCircle', endpoint: '/business-pulse/anomalies', route: '/anomalies' },
+  { key: 'auto-allocation', group: 'المالية', title: 'التخصيص التلقائي', subtitle: 'ربط الدفعات بالفواتير', icon: 'refresh', endpoint: '/finance/auto-allocation', route: '/auto-allocation' },
+  { key: 'party-offsets', group: 'المالية', title: 'مقاصة الأطراف', subtitle: 'مقاصة بين العملاء والموردين', icon: 'refresh', endpoint: '/parties/offsets', route: '/party-offsets' },
+  { key: 'payment-plans', group: 'المالية', title: 'خطط الدفع', subtitle: 'جداول السداد والتذكيرات', icon: 'calendar', endpoint: '/payment-plans', route: '/payment-plans' },
   { key: 'supplier-plans', group: 'المالية', title: 'خطط سداد الموردين', subtitle: 'جدولة مدفوعات الموردين', icon: 'calendar', endpoint: '/finance/supplier-payment-plans' },
   { key: 'archive', group: 'المالية', title: 'الأرشيف المالي', subtitle: 'المستندات المؤرشفة', icon: 'file', endpoint: '/finance/archive' },
 
-  { key: 'requisitions', group: 'المشتريات والأطراف', title: 'طلبات الشراء', subtitle: 'طلبات بانتظار الموافقة', icon: 'fileDown', endpoint: '/purchase-requisitions' },
-  { key: 'customer-intelligence', group: 'المشتريات والأطراف', title: 'ذكاء العملاء', subtitle: 'شرائح العملاء والمخاطر', icon: 'barChart', endpoint: '/customer-intelligence' },
-  { key: 'credit-policy', group: 'المشتريات والأطراف', title: 'سياسة الائتمان', subtitle: 'حدود وشروط الائتمان', icon: 'lock', endpoint: '/credit-policy' },
+  { key: 'requisitions', group: 'المشتريات والأطراف', title: 'طلبات الشراء', subtitle: 'طلبات بانتظار الموافقة', icon: 'fileDown', endpoint: '/purchase-requisitions', route: '/requisitions' },
+  { key: 'customer-intelligence', group: 'المشتريات والأطراف', title: 'ذكاء العملاء', subtitle: 'شرائح العملاء والمخاطر', icon: 'barChart', endpoint: '/customer-intelligence', route: '/intelligence/customers' },
+  { key: 'credit-policy', group: 'المشتريات والأطراف', title: 'سياسة الائتمان', subtitle: 'حدود وشروط الائتمان', icon: 'lock', endpoint: '/credit-policy', route: '/credit-policy' },
 
-  { key: 'warehouses', group: 'المخزون والإنتاج', title: 'المستودعات', subtitle: 'مواقع التخزين', icon: 'home', endpoint: '/warehouses' },
-  { key: 'transfers', group: 'المخزون والإنتاج', title: 'تحويلات المستودعات', subtitle: 'طلبات النقل بين المستودعات', icon: 'refresh', endpoint: '/inventory/transfer-requests' },
-  { key: 'inventory-intelligence', group: 'المخزون والإنتاج', title: 'ذكاء المخزون', subtitle: 'إعادة الطلب والراكد', icon: 'barChart', endpoint: '/inventory/intelligence' },
-  { key: 'production', group: 'المخزون والإنتاج', title: 'الإنتاج', subtitle: 'أوامر الإنتاج', icon: 'checkSquare', endpoint: '/production-runs' },
+  { key: 'warehouses', group: 'المخزون والإنتاج', title: 'المستودعات', subtitle: 'مواقع التخزين', icon: 'home', endpoint: '/warehouses', route: '/warehouses' },
+  { key: 'transfers', group: 'المخزون والإنتاج', title: 'تحويلات المستودعات', subtitle: 'طلبات النقل بين المستودعات', icon: 'refresh', endpoint: '/inventory/transfer-requests', route: '/transfers' },
+  { key: 'inventory-intelligence', group: 'المخزون والإنتاج', title: 'ذكاء المخزون', subtitle: 'إعادة الطلب والراكد', icon: 'barChart', endpoint: '/inventory/intelligence', route: '/intelligence/inventory' },
+  { key: 'production', group: 'المخزون والإنتاج', title: 'الإنتاج', subtitle: 'أوامر الإنتاج', icon: 'checkSquare', endpoint: '/production-runs', route: '/production' },
 
-  { key: 'scheduled-reports', group: 'التقارير', title: 'التقارير المجدولة', subtitle: 'تصلك دورياً', icon: 'clock', endpoint: '/scheduled-reports' },
+  { key: 'scheduled-reports', group: 'التقارير', title: 'التقارير المجدولة', subtitle: 'تصلك دورياً', icon: 'clock', endpoint: '/scheduled-reports', route: '/scheduled-reports' },
 
-  { key: 'audit', group: 'الإدارة والأمان', title: 'مركز التدقيق', subtitle: 'من فعل ماذا ومتى', icon: 'eye', endpoint: '/audit-center' },
-  { key: 'bulk-actions', group: 'الإدارة والأمان', title: 'العمليات الجماعية', subtitle: 'سجل التعديلات الجماعية', icon: 'file', endpoint: '/bulk-action-history' },
-  { key: 'restore', group: 'الإدارة والأمان', title: 'مركز الاسترجاع', subtitle: 'عناصر محذوفة', icon: 'refresh', endpoint: '/restore-center' },
-  { key: 'security', group: 'الإدارة والأمان', title: 'مركز الأمان', subtitle: 'الجلسات والتحقق', icon: 'lock', endpoint: '/security/overview' },
-  { key: 'system-checks', group: 'الإدارة والأمان', title: 'فحوصات النظام', subtitle: 'صحة النظام', icon: 'checkSquare', endpoint: '/system-checks' },
-  { key: 'billing', group: 'الإدارة والأمان', title: 'الاشتراك والفوترة', subtitle: 'الخطة والاستخدام', icon: 'card', endpoint: '/billing/overview' },
-  { key: 'mcp', group: 'الإدارة والأمان', title: 'MCP Hub', subtitle: 'تكاملات الذكاء الاصطناعي', icon: 'globe', endpoint: '/mcp/dashboard' },
-  { key: 'customization', group: 'الإدارة والأمان', title: 'تخصيص النظام', subtitle: 'إعدادات المساحة', icon: 'monitor', endpoint: '/workspace-customization' },
-  { key: 'payments', group: 'المالية', title: 'المدفوعات', subtitle: 'سجل المدفوعات', icon: 'dollar', endpoint: '/payment-records' },
-  { key: 'petty-cash', group: 'المالية', title: 'صناديق النثريات', subtitle: 'أرصدة وصرف الصناديق', icon: 'banknote', endpoint: '/control/petty-cash' },
-  { key: 'recurring-expenses', group: 'المالية', title: 'المصاريف المتكررة', subtitle: 'الالتزامات الدورية', icon: 'refresh', endpoint: '/control/recurring-expenses' },
-  { key: 'budgets', group: 'المالية', title: 'الميزانية مقابل الفعلي', subtitle: 'متابعة الميزانيات', icon: 'barChart', endpoint: '/control/budgets' },
-  { key: 'exchange-rates', group: 'المالية', title: 'أسعار الصرف', subtitle: 'أسعار العملات', icon: 'globe', endpoint: '/control/exchange-rates' },
-  { key: 'landed-costs', group: 'المشتريات والأطراف', title: 'تكلفة الاستيراد والتوريد', subtitle: 'توزيع الشحن والجمارك', icon: 'fileDown', endpoint: '/control/landed-costs' },
-  { key: 'contracts', group: 'المشتريات والأطراف', title: 'العقود', subtitle: 'العقود وتواريخ انتهائها', icon: 'file', endpoint: '/control/contracts' },
-  { key: 'expiry-alerts', group: 'المخزون والإنتاج', title: 'انتهاء الصلاحية', subtitle: 'دفعات تقترب من الانتهاء', icon: 'clock', endpoint: '/control/expiry-alerts' },
-  { key: 'expense-claims', group: 'المهام والفريق', title: 'مطالبات المصاريف', subtitle: 'مطالبات الموظفين', icon: 'banknote', endpoint: '/control/expense-claims' },
-  { key: 'document-expiry', group: 'المهام والفريق', title: 'انتهاء الوثائق', subtitle: 'إقامات ورخص وعقود', icon: 'calendar', endpoint: '/control/document-expiry' },
-  { key: 'spending-limits', group: 'المهام والفريق', title: 'سقوف صرف الأقسام', subtitle: 'الصرف الشهري لكل قسم', icon: 'lock', endpoint: '/control/spending-limits' },
-  { key: 'data-quality', group: 'الإدارة والأمان', title: 'جودة البيانات', subtitle: 'مكررات وبيانات ناقصة', icon: 'checkSquare', endpoint: '/control/data-quality' },
+  { key: 'audit', group: 'الإدارة والأمان', title: 'مركز التدقيق', subtitle: 'من فعل ماذا ومتى', icon: 'eye', endpoint: '/audit-center', route: '/admin/audit' },
+  { key: 'bulk-actions', group: 'الإدارة والأمان', title: 'العمليات الجماعية', subtitle: 'سجل التعديلات الجماعية', icon: 'file', endpoint: '/bulk-action-history', route: '/admin/bulk' },
+  { key: 'restore', group: 'الإدارة والأمان', title: 'مركز الاسترجاع', subtitle: 'عناصر محذوفة', icon: 'refresh', endpoint: '/restore-center', route: '/admin/restore' },
+  { key: 'security', group: 'الإدارة والأمان', title: 'مركز الأمان', subtitle: 'الجلسات والتحقق', icon: 'lock', endpoint: '/security/overview', route: '/admin/security' },
+  { key: 'system-checks', group: 'الإدارة والأمان', title: 'فحوصات النظام', subtitle: 'صحة النظام', icon: 'checkSquare', endpoint: '/system-checks', route: '/admin/checks' },
+  { key: 'billing', group: 'الإدارة والأمان', title: 'الاشتراك والفوترة', subtitle: 'الخطة والاستخدام', icon: 'card', endpoint: '/billing/overview', route: '/billing' },
+  { key: 'customization', group: 'الإدارة والأمان', title: 'تخصيص النظام', subtitle: 'إعدادات المساحة', icon: 'monitor', endpoint: '/workspace-customization', route: '/workspace-settings' },
+  { key: 'payments', group: 'المالية', title: 'المدفوعات', subtitle: 'سجل المدفوعات', icon: 'dollar', endpoint: '/payment-records', route: '/transactions' },
+  { key: 'petty-cash', group: 'المالية', title: 'صناديق النثريات', subtitle: 'أرصدة وصرف الصناديق', icon: 'banknote', endpoint: '/control/petty-cash', route: '/control/petty-cash' },
+  { key: 'recurring-expenses', group: 'المالية', title: 'المصاريف المتكررة', subtitle: 'الالتزامات الدورية', icon: 'refresh', endpoint: '/control/recurring-expenses', route: '/control/recurring-expenses' },
+  { key: 'budgets', group: 'المالية', title: 'الميزانية مقابل الفعلي', subtitle: 'متابعة الميزانيات', icon: 'barChart', endpoint: '/control/budgets', route: '/control/budgets' },
+  { key: 'landed-costs', group: 'المشتريات والأطراف', title: 'تكلفة الاستيراد والتوريد', subtitle: 'توزيع الشحن والجمارك', icon: 'fileDown', endpoint: '/control/landed-costs', route: '/control/landed-costs' },
+  { key: 'contracts', group: 'المشتريات والأطراف', title: 'العقود', subtitle: 'العقود وتواريخ انتهائها', icon: 'file', endpoint: '/control/contracts', route: '/control/contracts' },
+  { key: 'expiry-alerts', group: 'المخزون والإنتاج', title: 'انتهاء الصلاحية', subtitle: 'دفعات تقترب من الانتهاء', icon: 'clock', endpoint: '/control/expiry-alerts', route: '/control/expiry-alerts' },
+  { key: 'expense-claims', group: 'المهام والفريق', title: 'مطالبات المصاريف', subtitle: 'مطالبات الموظفين', icon: 'banknote', endpoint: '/control/expense-claims', route: '/control/expense-claims' },
+  { key: 'document-expiry', group: 'المهام والفريق', title: 'انتهاء الوثائق', subtitle: 'إقامات ورخص وعقود', icon: 'calendar', endpoint: '/control/document-expiry', route: '/control/document-expiry' },
+  { key: 'spending-limits', group: 'المهام والفريق', title: 'سقوف صرف الأقسام', subtitle: 'الصرف الشهري لكل قسم', icon: 'lock', endpoint: '/control/spending-limits', route: '/control/spending-limits' },
+  { key: 'data-quality', group: 'الإدارة والأمان', title: 'جودة البيانات', subtitle: 'مكررات وبيانات ناقصة', icon: 'checkSquare', endpoint: '/control/data-quality', route: '/admin/quality' },
 ];
 
 export const MODULE_GROUPS = [...new Set(MODULES.map((m) => m.group))];

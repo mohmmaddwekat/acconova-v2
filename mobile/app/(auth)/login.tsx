@@ -41,7 +41,10 @@ export default function LoginScreen() {
       const status = err?.response?.status;
 
       // Extract the most useful error message
+      // An HTML body means the host's firewall answered, not the app, so the credentials were never checked.
+      const blockedByHost = (status === 403 || status === 429) && typeof data === 'string';
       const msg =
+        (blockedByHost ? 'الخادم رفض الاتصال قبل فحص بياناتك (جدار حماية الاستضافة). جرّب شبكة أخرى أو راجع إعدادات الحماية.' : null) ??
         data?.errors?.email?.[0] ??
         data?.errors?.password?.[0] ??
         data?.message ??

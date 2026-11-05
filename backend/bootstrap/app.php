@@ -14,6 +14,7 @@ use App\Support\SafeErrorResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -80,7 +81,12 @@ $app = Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(
-            replace: [ValidateCsrfToken::class => AppValidateCsrfToken::class],
+            // Laravel 13 lists PreventRequestForgery in the web group (ValidateCsrfToken is its deprecated alias),
+            // so both names are replaced or mobile bearer requests would be rejected with 419.
+            replace: [
+                ValidateCsrfToken::class => AppValidateCsrfToken::class,
+                PreventRequestForgery::class => AppValidateCsrfToken::class,
+            ],
             append: [
                 ApplyMobileOrganization::class,
                 ForcePasswordChange::class,

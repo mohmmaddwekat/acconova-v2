@@ -161,13 +161,25 @@ export default function NotificationsScreen() {
   const unread = general.filter((n) => !n.read_at).length;
 
   async function markAllRead() {
+    const markLocally = () => setGeneral((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
     try {
-      await api.post('/notifications/read-all');
-      setGeneral((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
+      await api.post('/notifications/read-all', {});
+      markLocally();
       await refreshCount();
       toast('تم تحديد الكل كمقروء');
     } catch (err: any) {
-      toast(apiErrorMessage(err, 'تعذّر التحديث'));
+      // If the bulk endpoint refuses the request, mark the unread items one by one instead.
+      const unreadItems = general.filter((n) => !n.read_at);
+      const results = await Promise.allSettled(unreadItems.map((n) => api.patch(`/notifications/${n.id}/read`, {})));
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (unreadItems.length > 0 && failed === 0) {
+        markLocally();
+        await refreshCount();
+        toast('تم تحديد الكل كمقروء');
+      } else {
+        const status = err?.response?.status;
+        toast(`${apiErrorMessage(err, 'تعذّر التحديث')}${status ? ` (رمز ${status})` : ''}`);
+      }
     }
   }
 

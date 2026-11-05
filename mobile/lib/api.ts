@@ -10,12 +10,18 @@ export const api = axios.create({
   timeout: 15000,
   headers: {
     'Accept': 'application/json',
+    // Hosting firewalls often answer 403 to the default "okhttp" agent that React Native sends on Android.
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36 AccoNovaMobile/1.0',
     'Content-Type': 'application/json',
   },
 });
 
 // Attach Bearer token to every request
 api.interceptors.request.use(async (config) => {
+  // The login route is guest-only: a stale token or workspace header from an earlier session must not reach it.
+  if (config.url === '/mobile/login') return config;
+  // A body-less POST/PATCH is sent without a Content-Type and some servers then treat it as a bare browser form post.
+  if (['post', 'put', 'patch'].includes(config.method ?? '') && config.data === undefined) config.data = {};
   const token = await SecureStore.getItemAsync(TOKEN_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

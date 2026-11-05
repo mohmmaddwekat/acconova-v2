@@ -54,7 +54,7 @@ const KEY_LABELS: Record<string, string> = {
   seats: 'المقاعد', used: 'المستخدم', limit: 'الحد', remaining: 'المتبقي',
 };
 
-const humanKey = (key: string) => KEY_LABELS[key.toLowerCase()] ?? null;
+export const humanKey = (key: string) => KEY_LABELS[key.toLowerCase()] ?? null;
 const isCode = (s: string) => /^[a-z][a-z0-9_.:-]*$/i.test(s) && !/\s/.test(s);
 const hasLatin = (s: string) => /[A-Za-z]/.test(s);
 
@@ -98,7 +98,7 @@ function pickHuman(o: Obj, paths: string[]): string | null {
   return null;
 }
 
-function formatScalar(key: string, value: unknown): string {
+export function formatScalar(key: string, value: unknown): string {
   if (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value)))) {
     return MONEY_KEY.test(key) ? formatMoney(value as number | string) : String(Number(value));
   }
@@ -111,8 +111,8 @@ export function autoRow(raw: Obj, index: number): ModuleRow | null {
   const title = pickHuman(raw, ['title', 'name', 'label', 'number', 'subject', 'reference', 'full_name', 'party.name', 'product.name', 'entity', 'currency', 'code', 'issue', 'description', 'action', 'event', 'type']);
   if (!title) return null;
   const subtitle = [
-    pickHuman(raw, ['party.name', 'company_name', 'department.name', 'user.name', 'actor.name', 'issue', 'email']),
-    pickHuman(raw, ['due_date', 'due_on', 'date', 'movement_date', 'created_at', 'starts_on']),
+    pickHuman(raw, ['party.name', 'party_name', 'submitted_by_name', 'custodian', 'department', 'department.name', 'company_name', 'user.name', 'actor.name', 'merchant', 'subject_label', 'issue', 'email']),
+    pickHuman(raw, ['due_date', 'due_on', 'next_due_on', 'expires_on', 'ends_on', 'expense_date', 'month', 'date', 'movement_date', 'created_at', 'starts_on']),
   ]
     .filter((x) => x && x !== title)
     .map((x) => String(x).slice(0, 10).length === 10 && /^\d{4}-\d{2}-\d{2}/.test(String(x)) ? String(x).slice(0, 10) : x)
@@ -120,7 +120,7 @@ export function autoRow(raw: Obj, index: number): ModuleRow | null {
   const dayKey = ['days_until_expiry', 'days_until_due'].find((k) => typeof raw[k] === 'number');
   const days = dayKey ? Number(raw[dayKey]) : null;
   const dayText = days == null ? null : days < 0 ? `منتهي منذ ${Math.abs(days)} يوم` : days === 0 ? 'ينتهي اليوم' : `بعد ${days} يوم`;
-  const valueKey = ['amount', 'total', 'balance_due', 'balance', 'actual', 'spent', 'allocated_cost', 'rate', 'value', 'outstanding', 'quantity', 'count'].find((k) => raw[k] != null && !isObj(raw[k]));
+  const valueKey = ['amount', 'total', 'balance_due', 'balance', 'limit_amount', 'monthly_limit', 'actual', 'spent', 'allocated_cost', 'rate', 'value', 'outstanding', 'quantity', 'count'].find((k) => raw[k] != null && !isObj(raw[k]));
   const status = pick(raw, ['alert_level', 'status', 'state', 'severity', 'priority']);
   const statusText = status ? humanValue(status) : null;
   return {
@@ -133,7 +133,7 @@ export function autoRow(raw: Obj, index: number): ModuleRow | null {
 }
 
 /** Finds the main list plus the top-level numbers in whatever the endpoint returned. */
-function extract(body: unknown): { list: Obj[]; stats: { key: string; value: unknown }[] } {
+export function extract(body: unknown): { list: Obj[]; stats: { key: string; value: unknown }[] } {
   const root: unknown = isObj(body) && body.data !== undefined ? body.data : body;
   let list: Obj[] = [];
   const stats: { key: string; value: unknown }[] = [];

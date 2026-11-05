@@ -27,10 +27,24 @@
     "plugins": [
       [
         "expo-router",
-        { "root": "./app" }
+        {
+          "root": "./app"
+        }
       ],
       "expo-secure-store",
       "expo-status-bar"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "root": "./app",
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "46305870-052e-4d93-a6cb-ed4eeb71126b"
+      }
+    },
+    "owner": "mhmaddws-team"
   }
 }

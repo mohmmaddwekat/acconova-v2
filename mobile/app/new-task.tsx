@@ -12,6 +12,7 @@ import { Colors, Layout, Radius } from '../constants/theme';
 import { api } from '../lib/api';
 import { apiErrorMessage, todayISO } from '../lib/format';
 import { t } from '../lib/i18n';
+import { listOf } from '../lib/tasks';
 import { useStyles } from '../lib/theme';
 
 const PRIORITIES: { key: string; label: string }[] = [
@@ -33,18 +34,20 @@ export default function NewTaskScreen() {
   const [project, setProject] = useState<PickerItem | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(true);
+  const [members, setMembers] = useState<{ id: number; name: string; job: string | null }[]>([]);
+  const [assignees, setAssignees] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; project?: string; due?: string }>({});
 
   useEffect(() => {
     api
-      .get('/task-management/projects')
+      .get('/task-management')
       .then((res) => {
-        const body = res.data?.data ?? res.data;
-        const list: { id: number; name?: string; title?: string }[] = Array.isArray(body) ? body : body?.projects ?? body?.data ?? [];
-        const items = list.map((p) => ({ id: p.id, title: p.name ?? p.title ?? `#${p.id}` }));
+        const root = res.data?.data ?? res.data;
+        const items = listOf<{ id: number; name?: string }>(root, 'projects').map((p) => ({ id: p.id, title: p.name ?? `#${p.id}` }));
         setProjects(items);
         if (items.length === 1) setProject(items[0]);
+        setMembers(listOf<{ id: number; name?: string; job_title?: string | null }>(root, 'members').map((m) => ({ id: m.id, name: m.name ?? `#${m.id}`, job: m.job_title ?? null })));
       })
       .catch(() => setProjects([]))
       .finally(() => setLoadingProjects(false));
@@ -66,6 +69,7 @@ export default function NewTaskScreen() {
         task_project_id: project!.id,
         priority,
         status: 'todo',
+        ...(assignees.length ? { assignees } : {}),
         ...(dueOn ? { due_on: dueOn } : {}),
       });
       toast('تمت إضافة المهمة');
@@ -105,6 +109,27 @@ export default function NewTaskScreen() {
             ))}
           </View>
         </View>
+        {members.length > 0 ? (
+          <View style={{ gap: 8 }}>
+            <Text style={styles.label}>المسؤولون عن المهمة</Text>
+            <View style={styles.row}>
+              {members.map((m) => {
+                const on = assignees.includes(m.id);
+                return (
+                  <Pressable
+                    key={m.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    onPress={() => setAssignees((cur) => (on ? cur.filter((x) => x !== m.id) : [...cur, m.id]))}
+                    style={[styles.chip, on && styles.chipOn]}
+                  >
+                    <Text style={[styles.chipText, on && { color: Colors.accent }]}>{m.name}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
         <Input label="تاريخ الاستحقاق (اختياري)" value={dueOn} onChangeText={setDueOn} placeholder={todayISO()} keyboardType="numbers-and-punctuation" error={errors.due} />
         <Input label="الوصف (اختياري)" value={description} onChangeText={setDescription} multiline placeholder="تفاصيل المهمة" style={{ minHeight: 96, textAlignVertical: 'top' }} />
       </ScrollView>

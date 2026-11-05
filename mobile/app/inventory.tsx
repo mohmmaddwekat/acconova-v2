@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Gradient } from '../components/ui/Gradient';
 import { Icon } from '../components/ui/Icon';
@@ -70,7 +71,7 @@ export default function InventoryScreen() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -105,6 +106,19 @@ export default function InventoryScreen() {
           <Text style={styles.statValue}>{metrics?.out_of_stock_products ?? '—'}</Text>
           <Text style={styles.statLabel}>نفد من المخزون</Text>
         </View>
+      </View>
+
+      <View style={styles.shortcuts}>
+        {[
+          { label: 'المستودعات', route: '/warehouses' },
+          { label: 'التحويلات', route: '/transfers' },
+          { label: 'الإنتاج', route: '/production' },
+          { label: '+ صنف جديد', route: '/new-product' },
+        ].map((x) => (
+          <Pressable key={x.route} accessibilityRole="button" onPress={() => router.push(x.route as never)} style={styles.shortcut}>
+            <Text style={styles.shortcutText}>{x.label}</Text>
+          </Pressable>
+        ))}
       </View>
 
       <View style={styles.searchWrap}>
@@ -150,7 +164,7 @@ export default function InventoryScreen() {
       renderItem={({ item }) => {
         const state = stockState(item);
         return (
-          <View style={styles.card}>
+          <Pressable accessibilityRole="button" onPress={() => router.push(`/stock/${item.id}` as never)} style={({ pressed }) => [styles.card, pressed && { backgroundColor: Colors.bgSoft }]}>
             <View style={styles.cardMain}>
               <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.sku}>{item.sku ?? '—'}</Text>
@@ -165,7 +179,7 @@ export default function InventoryScreen() {
                 </View>
               ) : null}
             </View>
-          </View>
+          </Pressable>
         );
       }}
     />
@@ -188,6 +202,9 @@ const createStyles = () => StyleSheet.create({
   statLabel: { fontSize: 14, color: Colors.textMuted, textAlign: 'auto' },
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, minHeight: 48, borderRadius: Radius.sm, backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.line },
   search: { flex: 1, fontSize: 16, color: Colors.text, textAlign: 'auto', minHeight: 44 },
+  shortcuts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  shortcut: { flexGrow: 1, minHeight: 44, paddingHorizontal: 12, borderRadius: Radius.sm, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center' },
+  shortcutText: { fontSize: 14, fontWeight: '800', color: Colors.accentStrong },
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, padding: 16, ...Shadow.soft },
   cardMain: { flex: 1, gap: 4 },
   cardSide: { alignItems: 'flex-end', gap: 8 },
