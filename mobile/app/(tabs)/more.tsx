@@ -8,6 +8,7 @@ import { Segmented } from '../../components/ui/Segmented';
 import { useToast } from '../../components/ui/Toast';
 import { Colors, Layout, Radius, Shadow, Spacing, StatusText, Tint } from '../../constants/theme';
 import { useAuth } from '../../lib/AuthContext';
+import { MODULE_GROUPS, MODULES } from '../../lib/modules';
 import { LanguagePreference, useI18n } from '../../lib/i18n';
 import { ThemePreference, useStyles, useTheme } from '../../lib/theme';
 import { Text } from '../../components/ui/Text';
@@ -36,12 +37,19 @@ const getGroups = (): { title: string; items: MenuItem[] }[] => [
     items: [
       { icon: 'users', fg: Colors.accent, bg: Colors.accentSoft, label: 'العملاء والموردون', subtitle: 'الأطراف والأرصدة', route: '/parties' },
       { icon: 'banknote', fg: StatusText.success, bg: Tint.successBg, label: 'سجل المعاملات', subtitle: 'سندات القبض والدفع المرحّلة', route: '/transactions' },
+      { icon: 'card', fg: Colors.accentStrong, bg: Tint.infoBg, label: 'الشيكات', subtitle: 'الواردة والصادرة وتواريخ الاستحقاق', route: '/cheques' },
       { icon: 'file', fg: StatusText.warning, bg: Tint.warningBg, label: 'المخزون والمنتجات', subtitle: 'الأصناف والكميات والتنبيهات', route: '/inventory' },
       { icon: 'barChart', fg: Colors.accent, bg: Colors.accentSoft, label: 'التقارير', subtitle: 'التدفق النقدي والملخصات', route: '/reports' },
       { icon: 'bell', fg: Colors.info, bg: Tint.infoBg, label: 'الإشعارات والتحصيل', subtitle: 'تنبيهات الموقع ومتابعة الديون', route: '/notifications' },
       { icon: 'chat', fg: Tint.purple, bg: Tint.purpleBg, label: 'المساعد الذكي', subtitle: 'تحليل وإجابات فورية', route: '/ai' },
     ],
   },
+  ...MODULE_GROUPS.map((title) => ({
+    title,
+    items: MODULES.filter((m) => m.group === title).map(
+      (m): MenuItem => ({ icon: m.icon, fg: Colors.accentStrong, bg: Colors.accentSoft, label: m.title, subtitle: m.subtitle, route: `/module/${m.key}` }),
+    ),
+  })),
 ];
 
 export default function MoreScreen() {

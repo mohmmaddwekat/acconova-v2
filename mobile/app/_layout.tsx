@@ -62,7 +62,8 @@ function RootNavigator() {
         <Stack.Screen name="reports" options={titled('التقارير')} />
         <Stack.Screen name="transactions" options={titled('سجل المعاملات')} />
         <Stack.Screen name="inventory" options={titled('المخزون والمنتجات')} />
-        <Stack.Screen name="ai"options={titled('المساعد الذكي')} />
+        <Stack.Screen name="cheques" options={titled('الشيكات')} />
+        <Stack.Screen name="ai" options={titled('المساعد الذكي')} />
       </Stack>
     </>
   );

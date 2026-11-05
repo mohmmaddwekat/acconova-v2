@@ -28,6 +28,11 @@ interface Totals {
   expensesChange: number | null;
 }
 
+interface ChequeAlerts {
+  incomingDue: number;
+  outgoingDue: number;
+}
+
 interface QuickAction {
   label: string;
   icon: IconName;
@@ -84,6 +89,7 @@ export default function DashboardScreen() {
   const [totals, setTotals] = useState<Totals | null>(null);
   const [bars, setBars] = useState<MonthBar[] | null>(null);
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [cheques, setCheques] = useState<ChequeAlerts | null>(null);
   const { unread } = useNotifications();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -108,6 +114,22 @@ export default function DashboardScreen() {
 
       if (userData.status === 'fulfilled') setUser(userData.value);
       if (mv.status === 'fulfilled') setMovements(Array.isArray(mv.value.data?.data) ? mv.value.data.data.slice(0, 5) : []);
+
+      // Cheques are cash movements with method=check; only pending ones due within a week matter here.
+      const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+      const dueCount = (direction: 'incoming' | 'outgoing') =>
+        api
+          .get('/finance/cash-movements', { params: { method: 'check', status: 'posted', direction, per_page: 100 } })
+          .then((r) =>
+            (Array.isArray(r.data?.data) ? r.data.data : []).filter(
+              (c: { check_status?: string; check_due_date?: string }) =>
+                (c.check_status ?? 'pending') === 'pending' && !!c.check_due_date && c.check_due_date <= weekAhead,
+            ).length,
+          );
+      const [inc, out] = await Promise.allSettled([dueCount('incoming'), dueCount('outgoing')]);
+      setCheques(
+        inc.status === 'fulfilled' && out.status === 'fulfilled' ? { incomingDue: inc.value, outgoingDue: out.value } : null,
+      );
 
       const core = [sm, pm, sl, pl, sa, pa];
       if (core.every((r) => r.status === 'fulfilled')) {
@@ -193,7 +215,7 @@ export default function DashboardScreen() {
             </Pressable>
           )}
 
-          <Gradient colors={[Colors.accent, Colors.accentStrong]} style={styles.hero}>
+          <View style={styles.hero}>
             <View style={styles.heroGlow} />
             <Text style={styles.heroLabel}>{period ? `صافي شهر ${period.label}` : 'صافي هذا الشهر'}</Text>
             <Text style={styles.heroValue} numberOfLines={1} adjustsFontSizeToFit>
@@ -216,7 +238,25 @@ export default function DashboardScreen() {
                 <Text style={styles.heroCellValue} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(shown?.expenses)}</Text>
               </View>
             </View>
-          </Gradient>
+          </View>
+
+          {cheques && cheques.incomingDue + cheques.outgoingDue > 0 && (
+            <Pressable accessibilityRole="button" onPress={() => router.push('/cheques')} style={styles.alertCard}>
+              <View style={styles.alertIcon}>
+                <Icon name="card" size={20} color={StatusText.warning} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.alertTitle}>شيكات تستحق خلال 7 أيام</Text>
+                <Text style={styles.alertSub}>
+                  {[
+                    cheques.incomingDue > 0 ? `${cheques.incomingDue} واردة للتحصيل` : null,
+                    cheques.outgoingDue > 0 ? `${cheques.outgoingDue} صادرة للصرف` : null,
+                  ].filter(Boolean).join(' • ')}
+                </Text>
+              </View>
+              <Icon name="chevronLeft" size={20} color={Colors.textFaint} />
+            </Pressable>
+          )}
 
           <Text style={styles.sectionTitle}>المستحقات والالتزامات</Text>
           <View style={styles.kpiGrid}>
@@ -296,7 +336,7 @@ const createStyles = () => StyleSheet.create({
   },
   badgeText: { fontSize: 11, fontWeight: '800', color: '#fff' },
   scroll: { padding: 16, gap: 16, paddingBottom: 32 },
-  hero: { borderRadius: Radius.lg, padding: 24, gap: 8 },
+  hero: { borderRadius: Radius.lg, padding: 24, gap: 8, backgroundColor: Colors.accentStrong, overflow: 'hidden' },
   heroGlow: { position: 'absolute', top: -48, right: -48, width: 160, height: 160, borderRadius: 80, backgroundColor: '#fff', opacity: 0.12 },
   heroLabel: { fontSize: 14, fontWeight: '600', color: '#fff', opacity: 0.85, textAlign: 'auto' },
   heroValue: { fontSize: 32, fontWeight: '800', color: '#fff', textAlign: 'auto' },
@@ -346,5 +386,12 @@ const createStyles = () => StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   seeAll: { minHeight: Layout.minTouch, justifyContent: 'center', paddingHorizontal: 4 },
   seeAllText: { fontSize: 14, fontWeight: '800', color: Colors.accent },
+  alertCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, minHeight: Layout.minTouch,
+    backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, ...Shadow.soft,
+  },
+  alertIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: Tint.warningBg, alignItems: 'center', justifyContent: 'center' },
+  alertTitle: { fontSize: 16, fontWeight: '800', color: Colors.text, textAlign: 'auto' },
+  alertSub: { fontSize: 14, color: Colors.textMuted, textAlign: 'auto' },
   txEmpty: { fontSize: 14, color: Colors.textMuted, textAlign: 'center', padding: 20 },
 });

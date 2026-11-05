@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { PartyPricingPanel } from '../../components/PartyPricingPanel';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Gradient } from '../../components/ui/Gradient';
 import { Icon } from '../../components/ui/Icon';
@@ -130,6 +131,8 @@ export default function PartyDetailScreen() {
               </View>
             </View>
           )}
+
+          {account.party.roles?.includes('customer') && <PartyPricingPanel partyId={account.party.id} />}
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>الحركات ({account.summary.transaction_count})</Text>

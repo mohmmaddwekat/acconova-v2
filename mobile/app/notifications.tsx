@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -27,6 +28,7 @@ interface AppNotification {
   id: number;
   kind: string;
   category: string;
+  url?: string | null;
   data: { name?: string; detail?: string | null; amount?: string | number } | null;
   read_at: string | null;
   created_at: string;
@@ -36,12 +38,42 @@ type Tab = 'general' | 'collection';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'general', label: 'الإشعارات' },
-  { key: 'collection', label: 'التحصيل' },
+  { key: 'collection', label: 'متابعة الديون' },
+];
+
+type Category = 'all' | 'stock' | 'payments' | 'activity' | 'messages';
+
+const CATEGORIES: { key: Category; label: string }[] = [
+  { key: 'all', label: 'الكل' },
+  { key: 'stock', label: 'المخزون' },
+  { key: 'payments', label: 'المدفوعات' },
+  { key: 'activity', label: 'النشاط' },
+  { key: 'messages', label: 'الرسائل' },
 ];
 
 function kindMeta(kind: string): { title: string; icon: IconName; fg: string; bg: string } {
+  if (kind === 'low_stock') return { title: 'مخزون منخفض', icon: 'alertCircle', fg: StatusText.warning, bg: Tint.warningBg };
+  if (kind === 'out_of_stock') return { title: 'نفاد مخزون', icon: 'alertCircle', fg: StatusText.danger, bg: Tint.dangerBg };
   if (kind.includes('stock')) return { title: 'تنبيه مخزون', icon: 'alertCircle', fg: StatusText.warning, bg: Tint.warningBg };
   switch (kind) {
+    case 'mention':
+      return { title: 'تم ذكرك في سجل داخلي', icon: 'chat', fg: Colors.info, bg: Tint.infoBg };
+    case 'approval_required':
+      return { title: 'موافقة مطلوبة', icon: 'checkSquare', fg: StatusText.warning, bg: Tint.warningBg };
+    case 'approval_approved':
+      return { title: 'تمت الموافقة', icon: 'check', fg: StatusText.success, bg: Tint.successBg };
+    case 'approval_rejected':
+      return { title: 'تم رفض الموافقة', icon: 'close', fg: StatusText.danger, bg: Tint.dangerBg };
+    case 'approval_progress':
+      return { title: 'تقدم في الموافقة', icon: 'clock', fg: Colors.info, bg: Tint.infoBg };
+    case 'inventory_expiry':
+      return { title: 'تنبيه صلاحية مخزون', icon: 'alertCircle', fg: StatusText.warning, bg: Tint.warningBg };
+    case 'contract_expiry':
+      return { title: 'تنبيه انتهاء عقد', icon: 'file', fg: StatusText.warning, bg: Tint.warningBg };
+    case 'document_expiry':
+      return { title: 'تنبيه انتهاء وثيقة', icon: 'file', fg: StatusText.warning, bg: Tint.warningBg };
+    case 'scheduled_report_ready':
+      return { title: 'تقرير مجدول جاهز', icon: 'barChart', fg: Colors.accent, bg: Colors.accentSoft };
     case 'message':
       return { title: 'رسالة جديدة', icon: 'chat', fg: Colors.info, bg: Tint.infoBg };
     case 'payment_recorded':
@@ -59,6 +91,16 @@ function kindMeta(kind: string): { title: string; icon: IconName; fg: string; bg
     default:
       return { title: 'تنبيه', icon: 'bell', fg: Colors.info, bg: Tint.infoBg };
   }
+}
+
+/** Where a notification leads in the app; null when only the website has that screen. */
+function routeFor(n: AppNotification): string | 'collection' | null {
+  if (n.kind === 'follow_up_due') return 'collection';
+  if (n.kind.startsWith('approval')) return '/(tabs)/approvals';
+  const path = (n.url ?? '').replace(/^https?:\/\/[^/]+/, '');
+  if (n.category === 'stock' || path.startsWith('/app/inventory') || path.startsWith('/app/products')) return '/inventory';
+  if (n.category === 'payments' || path.startsWith('/app/payments')) return '/transactions';
+  return null;
 }
 
 function timeAgo(iso: string): string {
@@ -87,8 +129,9 @@ export default function NotificationsScreen() {
   const styles = useStyles(createStyles);
   const bottomInset = useBottomInset();
   const toast = useToast();
-  const { refresh: refreshCount } = useNotifications();
+  const { refresh: refreshCount, unread: totalUnread } = useNotifications();
   const [tab, setTab] = useState<Tab>('general');
+  const [category, setCategory] = useState<Category>('all');
   const [general, setGeneral] = useState<AppNotification[]>([]);
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +143,7 @@ export default function NotificationsScreen() {
     try {
       setFailed(false);
       const [n, f] = await Promise.all([
-        api.get('/notifications', { params: { per_page: 30 } }),
+        api.get('/notifications', { params: { per_page: 50, ...(category === 'all' ? {} : { category }) } }),
         api.get('/collections/follow-ups').catch(() => null),
       ]);
       setGeneral(Array.isArray(n.data?.data) ? n.data.data : []);
@@ -111,7 +154,7 @@ export default function NotificationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [category]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -121,7 +164,8 @@ export default function NotificationsScreen() {
     try {
       await api.post('/notifications/read-all');
       setGeneral((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
-      void refreshCount();
+      await refreshCount();
+      toast('تم تحديد الكل كمقروء');
     } catch (err: any) {
       toast(apiErrorMessage(err, 'تعذّر التحديث'));
     }
@@ -131,6 +175,15 @@ export default function NotificationsScreen() {
     if (item.read_at) return;
     setGeneral((prev) => prev.map((n) => (n.id === item.id ? { ...n, read_at: new Date().toISOString() } : n)));
     api.patch(`/notifications/${item.id}/read`).then(() => refreshCount()).catch(() => {});
+  }
+
+  /** Marks the notification read and opens the matching screen of the app. */
+  function open(item: AppNotification) {
+    void markRead(item);
+    const target = routeFor(item);
+    if (target === 'collection') setTab('collection');
+    else if (target) router.push(target as any);
+    else toast('هذا الإشعار يُفتح من الموقع');
   }
 
   async function act(item: FollowUp, kind: 'snooze' | 'resolve') {
@@ -168,6 +221,33 @@ export default function NotificationsScreen() {
         ))}
       </View>
 
+      {tab === 'general' && (
+        <View style={styles.toolbar}>
+          <View style={styles.chips}>
+            {CATEGORIES.map((c) => (
+              <Pressable
+                key={c.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: category === c.key }}
+                onPress={() => { if (category !== c.key) { setCategory(c.key); setLoading(true); } }}
+                style={[styles.chip, category === c.key && styles.chipOn]}
+              >
+                <Text style={[styles.chipText, category === c.key && { color: '#fff' }]}>{c.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {totalUnread > 0 && (
+            <Pressable accessibilityRole="button" onPress={markAllRead} style={styles.readAll}>
+              <Icon name="check" size={16} color="#fff" strokeWidth={2.5} />
+              <Text style={styles.readAllText}>تحديد الكل كمقروء ({totalUnread})</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+      {tab === 'collection' && (
+        <Text style={styles.tabHint}>عملاء تأخروا عن السداد، لمتابعتهم بالاتصال أو التأجيل أو الإغلاق (من وحدة متابعة الديون في الموقع).</Text>
+      )}
+
       {loading ? (
         <SkeletonList rows={4} />
       ) : failed ? (
@@ -179,23 +259,19 @@ export default function NotificationsScreen() {
         >
           {tab === 'general' && (
             <>
-              {unread > 0 && (
-                <Pressable accessibilityRole="button" onPress={markAllRead} style={styles.readAll}>
-                  <Text style={styles.readAllText}>تحديد الكل كمقروء</Text>
-                </Pressable>
-              )}
               {general.length === 0 ? (
                 <EmptyState icon="bell" title="لا توجد إشعارات" message="ستظهر هنا تنبيهات المخزون والدفعات والرسائل." />
               ) : (
                 <View style={styles.listCard}>
                   {general.map((n, i) => {
                     const meta = kindMeta(n.kind);
-                    const detail = [n.data?.name, n.data?.detail, n.data?.amount != null ? formatMoney(n.data.amount) : null].filter(Boolean).join(' · ');
+                    const subject = n.data?.name ?? '';
+                    const detail = [n.data?.detail, n.data?.amount != null ? formatMoney(n.data.amount) : null].filter(Boolean).join(' · ');
                     return (
                       <Pressable
                         key={n.id}
                         accessibilityRole="button"
-                        onPress={() => markRead(n)}
+                        onPress={() => open(n)}
                         style={[styles.notif, !n.read_at && styles.notifUnread, i === general.length - 1 && { borderBottomWidth: 0 }]}
                       >
                         <View style={[styles.dot, n.read_at ? styles.dotRead : styles.dotUnread]} />
@@ -204,6 +280,7 @@ export default function NotificationsScreen() {
                         </View>
                         <View style={{ flex: 1, gap: 2 }}>
                           <Text style={styles.notifTitle}>{meta.title}</Text>
+                          {subject ? <Text style={styles.notifSubject}>{subject}</Text> : null}
                           {detail ? <Text style={styles.notifDesc}>{detail}</Text> : null}
                           <Text style={styles.notifTime}>{timeAgo(n.created_at)}</Text>
                         </View>
@@ -274,8 +351,15 @@ const createStyles = () => StyleSheet.create({
   countBadge: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
   countText: { fontSize: 11, fontWeight: '800', color: '#fff' },
   scroll: { padding: 14, gap: 12, flexGrow: 1 },
-  readAll: { alignSelf: 'flex-start', minHeight: Layout.minTouch, justifyContent: 'center', paddingHorizontal: 4 },
-  readAllText: { fontSize: 13, fontWeight: '700', color: Colors.accent },
+  toolbar: { paddingHorizontal: 14, paddingTop: 12, gap: 10 },
+  tabHint: { fontSize: 13, color: Colors.textMuted, lineHeight: 20, paddingHorizontal: 14, paddingTop: 12, textAlign: 'auto' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { minHeight: 36, paddingHorizontal: 14, borderRadius: 18, justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.line },
+  chipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  chipText: { fontSize: 13, fontWeight: '700', color: Colors.textSoft },
+  notifSubject: { fontSize: 14, fontWeight: '700', color: Colors.accentStrong, textAlign: 'auto' },
+  readAll: { minHeight: Layout.minTouch, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 12, backgroundColor: Colors.accent },
+  readAllText: { fontSize: 14, fontWeight: '800', color: '#fff' },
   listCard: { backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, overflow: 'hidden', ...Shadow.soft },
   notif: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.line },
   notifUnread: { backgroundColor: Colors.accentSoft },

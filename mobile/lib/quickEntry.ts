@@ -13,7 +13,7 @@ export type QuickEntryRow =
       party_id: number;
       reference?: string;
       lines: { product_id: number; quantity: number; unit_price: number }[];
-      payment?: { full: boolean; method: 'cash' | 'transfer' | 'check' };
+      payment?: { full?: boolean; amount?: number; method: 'cash' | 'transfer' | 'check' };
     };
 
 /** Posts one row and throws an Error carrying the server message when the row is rejected. */

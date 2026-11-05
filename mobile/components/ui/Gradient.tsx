@@ -12,7 +12,7 @@ interface GradientProps {
 export function Gradient({ colors, style, children }: GradientProps) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   return (
-    <View style={[styles.wrap, style]}>
+    <View style={[styles.wrap, { backgroundColor: colors[0] }, style]}>
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
         <Defs>
           <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
