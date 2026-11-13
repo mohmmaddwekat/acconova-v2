@@ -50,7 +50,7 @@ class QuickEntryTest extends TestCase
         ]);
     }
 
-    public function test_one_failing_row_does_not_block_the_others_and_rows_run_oldest_first(): void
+    public function test_same_day_rows_merge_and_a_failing_row_does_not_block_the_others(): void
     {
         $this->signIn();
         $customerId = $this->party('customer', 'Order Customer');
@@ -66,11 +66,14 @@ class QuickEntryTest extends TestCase
         ])->assertOk()->json('data');
 
         $this->assertTrue($results[0]['ok']);
-        $this->assertFalse($results[1]['ok']);
+        $this->assertTrue($results[1]['ok']);
+        $this->assertTrue($results[1]['merged']);
+        $this->assertSame('200.0000', $results[1]['total']);
         $this->assertTrue($results[2]['ok']);
-        $this->assertSame('100.0000', $results[2]['allocated']);
-        $this->assertSame('50.0000', $results[2]['advance']);
-        $this->assertDatabaseHas('financial_documents', ['id' => $results[0]['document_id'], 'status' => 'paid']);
+        $this->assertSame('150.0000', $results[2]['allocated']);
+        $this->assertSame('0.0000', $results[2]['advance']);
+        $this->assertDatabaseHas('financial_documents', ['id' => $results[0]['document_id'], 'status' => 'superseded']);
+        $this->assertDatabaseHas('financial_documents', ['id' => $results[1]['document_id'], 'status' => 'partially_paid', 'balance_due' => '50.0000']);
     }
 
     public function test_misc_sale_is_paid_in_cash_and_a_check_without_a_number_is_rejected(): void
@@ -133,6 +136,54 @@ class QuickEntryTest extends TestCase
             'status' => 'paid',
             'balance_due' => '0.0000',
         ]);
+    }
+
+    public function test_a_second_invoice_on_the_same_day_is_merged_into_the_first_and_keeps_its_payment(): void
+    {
+        $this->signIn();
+        $customerId = $this->party('customer', 'Twice A Day');
+        $productA = $this->product('Merge Product A');
+        $productB = $this->product('Merge Product B');
+
+        $first = $this->postJson('/api/finance/quick-entry', [
+            'rows' => [[
+                'type' => 'sale',
+                'date' => '2026-05-01',
+                'party_id' => $customerId,
+                'lines' => [['product_id' => $productA, 'quantity' => '2', 'unit_price' => '100']],
+                'payment' => ['amount' => '50', 'method' => 'cash'],
+            ]],
+        ])->assertOk()->json('data.0');
+        $this->assertTrue($first['ok'], json_encode($first));
+        $this->assertFalse($first['merged']);
+
+        $second = $this->postJson('/api/finance/quick-entry', [
+            'rows' => [[
+                'type' => 'sale',
+                'date' => '2026-05-01',
+                'party_id' => $customerId,
+                'lines' => [
+                    ['product_id' => $productA, 'quantity' => '1', 'unit_price' => '100'],
+                    ['product_id' => $productB, 'quantity' => '3', 'unit_price' => '20'],
+                ],
+                'payment' => ['full' => true, 'method' => 'cash'],
+            ]],
+        ])->assertOk()->json('data.0');
+
+        $this->assertTrue($second['ok'], json_encode($second));
+        $this->assertTrue($second['merged']);
+        $this->assertSame('360.0000', $second['total']);
+        $this->assertSame('160.0000', $second['paid']);
+
+        $this->assertDatabaseHas('financial_documents', ['id' => $first['document_id'], 'status' => 'superseded']);
+        $this->assertDatabaseHas('financial_documents', [
+            'id' => $second['document_id'],
+            'status' => 'partially_paid',
+            'total' => '360.0000',
+            'paid_total' => '210.0000',
+            'balance_due' => '150.0000',
+        ]);
+        $this->assertDatabaseCount('financial_document_lines', 3);
     }
 
     public function test_a_purchase_can_be_paid_by_endorsing_a_check_on_hand(): void

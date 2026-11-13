@@ -798,6 +798,12 @@ export function PartyDetailDrawer({
                         ar={locale === 'ar'}
                     />
 
+                    <PartyPricingPanel
+                        partyId={resolvedParty.id}
+                        canEdit={canEdit}
+                        ar={locale === 'ar'}
+                    />
+
                     <RecordCollaborationPanel
                         type="party"
                         recordId={resolvedParty.id}

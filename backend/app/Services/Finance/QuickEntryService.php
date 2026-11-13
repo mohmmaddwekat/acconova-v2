@@ -38,6 +38,7 @@ class QuickEntryService
         private readonly MiscSaleService $miscSales,
         private readonly ApprovalWorkflowService $approvals,
         private readonly TenantContext $tenant,
+        private readonly SameDayInvoiceMergeService $merger,
     ) {}
 
     /**
@@ -135,34 +136,44 @@ class QuickEntryService
             $this->allow($user, $sale ? 'finance.cash.receive' : 'finance.cash.pay');
         }
 
-        $draft = $this->documents->createDraft([
-            'kind' => $kind,
-            'party_id' => $party->id,
-            'external_number' => $row['reference'] ?? null,
-            'issue_date' => $row['date'],
-            'due_date' => null,
-            'currency' => $this->currency(),
-            'exchange_rate' => '1',
-            'shipping_total' => '0',
-            'document_discount_type' => $row['discount_type'] ?? 'percent',
-            'document_discount_value' => $row['discount_value'] ?? '0',
-            'lines' => $this->lines($row, $sale ? 'sale' : 'purchase'),
-        ], $user->id);
+        $existing = $this->merger->find($kind, $party->id, $row['date']);
+        $newLines = $this->lines($row, $sale ? 'sale' : 'purchase');
+        $addedTotal = null;
 
-        $this->approvals->assertDocumentApproved($draft, $user->id);
+        if ($existing) {
+            $invoice = $this->merger->merge($existing, $newLines, $row['discount_type'] ?? 'percent', (float) ($row['discount_value'] ?? 0), $row['reference'] ?? null, $user->id);
+            $addedTotal = round((float) $invoice->total - (float) $existing->total, 4);
+        } else {
+            $draft = $this->documents->createDraft([
+                'kind' => $kind,
+                'party_id' => $party->id,
+                'external_number' => $row['reference'] ?? null,
+                'issue_date' => $row['date'],
+                'due_date' => null,
+                'currency' => $this->currency(),
+                'exchange_rate' => '1',
+                'shipping_total' => '0',
+                'document_discount_type' => $row['discount_type'] ?? 'percent',
+                'document_discount_value' => $row['discount_value'] ?? '0',
+                'lines' => $newLines,
+            ], $user->id);
 
-        $invoice = $this->documents->issue($draft, $user->id, true);
+            $this->approvals->assertDocumentApproved($draft, $user->id);
+
+            $invoice = $this->documents->issue($draft, $user->id, true);
+        }
 
         $result = [
             'document_id' => $invoice->id,
             'document_number' => $invoice->number,
+            'merged' => $existing !== null,
             'total' => $invoice->total,
             'paid' => '0.0000',
             'allocated' => '0.0000',
             'advance' => '0.0000',
         ];
 
-        $payment = $this->payment($row, (float) $invoice->total);
+        $payment = $this->payment($row, $addedTotal ?? (float) $invoice->total);
 
         if ($payment === null) {
             return $result;

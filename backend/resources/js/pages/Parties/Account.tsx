@@ -7,6 +7,7 @@ import { useLiveRefresh } from '@/lib/live';
 import { downloadCsv } from '@/pages/Finance/shared';
 import { PartyAdjustmentDialog } from '@/pages/Parties/PartyAdjustmentDialog';
 import { PartyFinancialOperations } from '@/pages/Parties/PartyFinancialOperations';
+import { PartyPricingPanel } from '@/features/parties/components/PartyPricingPanel';
 import { Head, Link } from '@inertiajs/react';
 import {
     ArrowLeft,
@@ -2046,6 +2047,15 @@ export default function PartyAccount({
                                         </div>
                                     </section>
                                 </div>
+
+                                {data.party.roles.includes('customer')
+                                    && data.permissions.sales_view && (
+                                    <PartyPricingPanel
+                                        partyId={data.party.id}
+                                        canEdit={data.permissions.sales_manage}
+                                        ar={ar}
+                                    />
+                                )}
                             </section>
                         )}
 

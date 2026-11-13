@@ -2580,8 +2580,26 @@ export function DocumentForm({
                 initial?.id
                 ?? savedDraftId.current;
 
-            const response =
-                await apiRequest<{
+            /*
+             * A new invoice for a party that already has one on the same day is
+             * added to that invoice by the server (a documented correction).
+             */
+            let mergedDocument: DocumentDetail | null = null;
+
+            if (issue && ! draftId) {
+                const attempt = await apiRequest<{
+                    data: { merged: boolean; document?: DocumentDetail };
+                }>('/api/finance/documents/merge-same-day', {
+                    method: 'POST',
+                    body: JSON.stringify(payload()),
+                });
+
+                mergedDocument = attempt.data.merged ? attempt.data.document ?? null : null;
+            }
+
+            const response = mergedDocument
+                ? { data: mergedDocument }
+                : await apiRequest<{
                     data:
                         DocumentDetail;
                 }>(
@@ -2609,7 +2627,15 @@ export function DocumentForm({
             savedDraftId.current =
                 document.id;
 
-            if (issue) {
+            if (issue && mergedDocument) {
+                if (payOn && payment.raw > 0.00005) {
+                    try {
+                        await recordInlinePayment(document);
+                    } catch (failure) {
+                        paymentFailure = apiErrorText(failure);
+                    }
+                }
+            } else if (issue) {
                 const preflight =
                     await apiRequest<{
                         data: string[];

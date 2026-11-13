@@ -870,7 +870,8 @@ export function CommandRail({
                     </button>
                 </div>
 
-                <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-5">
+                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+                <nav className="flex shrink-0 flex-col gap-1.5 px-3 py-4">
                     {visibleItems.map(
                         (
                             item,
@@ -921,7 +922,7 @@ export function CommandRail({
                     </div>
                 )}
 
-                <div className="m-3 rounded-[18px] bg-[var(--ac-accent-soft)] p-4">
+                <div className="m-3 shrink-0 rounded-[18px] bg-[var(--ac-accent-soft)] p-4">
                     <div className="flex items-center gap-2 text-[var(--ac-accent-strong)]">
                         <Sparkles
                             size={
@@ -941,6 +942,7 @@ export function CommandRail({
                             'ui.keep_the_business_moving_from_one_operating_surface',
                         )}
                     </p>
+                </div>
                 </div>
             </aside>
         </>
@@ -1142,7 +1144,7 @@ function MobileNavigationItem({
         >
             <div
                 className={[
-                    'flex size-10 items-center justify-center rounded-[13px]',
+                    'flex size-10 shrink-0 items-center justify-center rounded-[13px]',
                     active
                         ? 'bg-white shadow-[var(--ac-shadow-soft)]'
                         : 'bg-[var(--ac-bg-soft)]',
@@ -1157,7 +1159,7 @@ function MobileNavigationItem({
                 />
             </div>
 
-            <div>
+            <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">
                     {
                         item.label

@@ -3,8 +3,12 @@ import type { Product } from '@/features/products/types';
 import { apiRequest } from '@/lib/http';
 import {
     BadgeDollarSign,
+    Check,
+    Pencil,
     Plus,
+    Sparkles,
     Trash2,
+    X,
 } from 'lucide-react';
 import {
     useEffect,
@@ -23,6 +27,15 @@ type PartyPrice = {
     updated_at: string;
 };
 
+type PriceSuggestion = {
+    product_id: number;
+    product_name: string;
+    sku: string | null;
+    stored_price: string;
+    last_used_price: string;
+    last_invoice_date: string;
+};
+
 export function PartyPricingPanel({
     partyId,
     canEdit,
@@ -34,11 +47,16 @@ export function PartyPricingPanel({
 }) {
     const [prices, setPrices] = useState<PartyPrice[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
+    const [suggestions, setSuggestions] = useState<PriceSuggestion[]>([]);
+    const [dismissedIds, setDismissedIds] = useState<number[]>([]);
     const [productId, setProductId] = useState('');
     const [unitPrice, setUnitPrice] = useState('');
     const [note, setNote] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
+    const [editingId, setEditingId] = useState<number | null>(null);
+    const [editPrice, setEditPrice] = useState('');
+    const [editNote, setEditNote] = useState('');
 
     const text = (arabic: string, english: string): string =>
         ar ? arabic : english;
@@ -48,6 +66,17 @@ export function PartyPricingPanel({
             '/api/parties/' + String(partyId) + '/prices',
         );
         setPrices(response.data);
+    }
+
+    async function loadSuggestions(): Promise<void> {
+        try {
+            const response = await apiRequest<{ data: PriceSuggestion[] }>(
+                '/api/parties/' + String(partyId) + '/prices/suggestions',
+            );
+            setSuggestions(response.data);
+        } catch {
+            // silent — suggestions are optional
+        }
     }
 
     useEffect(() => {
@@ -79,6 +108,8 @@ export function PartyPricingPanel({
                 }
             });
 
+        void loadSuggestions();
+
         return () => controller.abort();
     }, [partyId, ar]);
 
@@ -93,12 +124,13 @@ export function PartyPricingPanel({
         [products, prices],
     );
 
+    const visibleSuggestions = useMemo(
+        () => suggestions.filter((s) => ! dismissedIds.includes(s.product_id)),
+        [suggestions, dismissedIds],
+    );
+
     async function save(): Promise<void> {
-        if (
-            busy
-            || ! productId
-            || unitPrice.trim() === ''
-        ) {
+        if (busy || ! productId || unitPrice.trim() === '') {
             return;
         }
 
@@ -122,11 +154,96 @@ export function PartyPricingPanel({
             setUnitPrice('');
             setNote('');
             await load();
+            await loadSuggestions();
         } catch {
             setError(
                 text(
                     'تعذر حفظ السعر الخاص.',
                     'Customer-specific price could not be saved.',
+                ),
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    function startEdit(price: PartyPrice): void {
+        setEditingId(price.product_id);
+        setEditPrice(price.unit_price);
+        setEditNote(price.note ?? '');
+    }
+
+    function cancelEdit(): void {
+        setEditingId(null);
+        setEditPrice('');
+        setEditNote('');
+    }
+
+    async function saveEdit(productIdToEdit: number): Promise<void> {
+        if (busy || editPrice.trim() === '') {
+            return;
+        }
+
+        setBusy(true);
+        setError('');
+
+        try {
+            await apiRequest(
+                '/api/parties/' + String(partyId) + '/prices',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        product_id: productIdToEdit,
+                        unit_price: editPrice,
+                        note: editNote.trim() || null,
+                    }),
+                },
+            );
+
+            setEditingId(null);
+            await load();
+            await loadSuggestions();
+        } catch {
+            setError(
+                text(
+                    'تعذر حفظ السعر الخاص.',
+                    'Customer-specific price could not be saved.',
+                ),
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function applySuggestion(suggestion: PriceSuggestion): Promise<void> {
+        if (busy) {
+            return;
+        }
+
+        setBusy(true);
+        setError('');
+
+        try {
+            await apiRequest(
+                '/api/parties/' + String(partyId) + '/prices',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        product_id: suggestion.product_id,
+                        unit_price: suggestion.last_used_price,
+                        note: null,
+                    }),
+                },
+            );
+
+            setDismissedIds((prev) => [...prev, suggestion.product_id]);
+            await load();
+            await loadSuggestions();
+        } catch {
+            setError(
+                text(
+                    'تعذر تحديث السعر.',
+                    'Could not update the price.',
                 ),
             );
         } finally {
@@ -153,7 +270,11 @@ export function PartyPricingPanel({
                 },
             );
 
+            if (editingId === product) {
+                setEditingId(null);
+            }
             await load();
+            await loadSuggestions();
         } catch {
             setError(
                 text(
@@ -192,6 +313,58 @@ export function PartyPricingPanel({
             {error && (
                 <div className="mt-3 rounded-[12px] border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                     {error}
+                </div>
+            )}
+
+            {canEdit && visibleSuggestions.length > 0 && (
+                <div className="mt-4 space-y-2">
+                    {visibleSuggestions.map((suggestion) => (
+                        <div
+                            key={suggestion.product_id}
+                            className="flex flex-wrap items-center gap-2 rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2.5"
+                        >
+                            <Sparkles size={13} className="shrink-0 text-amber-500" />
+                            <p className="min-w-0 flex-1 text-xs text-amber-800">
+                                <span className="font-semibold">{suggestion.product_name}</span>
+                                {' — '}
+                                {text(
+                                    'آخر سعر استخدمته بالفاتورة',
+                                    'last price used on invoice',
+                                )}
+                                {' '}
+                                <strong className="font-bold">
+                                    {Number(suggestion.last_used_price).toLocaleString()}
+                                </strong>
+                                {text(' بدل ', ' vs stored ')}
+                                <span className="line-through opacity-60">
+                                    {Number(suggestion.stored_price).toLocaleString()}
+                                </span>
+                            </p>
+                            <div className="flex gap-1">
+                                <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void applySuggestion(suggestion)}
+                                    className="inline-flex h-7 items-center gap-1 rounded-[8px] bg-amber-500 px-2.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                                >
+                                    <Check size={11} />
+                                    {text('تحديث', 'Update')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setDismissedIds((prev) => [
+                                            ...prev,
+                                            suggestion.product_id,
+                                        ])
+                                    }
+                                    className="flex size-7 items-center justify-center rounded-[8px] text-amber-600 hover:bg-amber-100"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 
@@ -261,33 +434,86 @@ export function PartyPricingPanel({
                     prices.map((price) => (
                         <div
                             key={price.product_id}
-                            className="flex items-center gap-3 rounded-[12px] bg-[var(--ac-surface-soft)] px-3 py-2"
+                            className="rounded-[12px] bg-[var(--ac-surface-soft)] px-3 py-2"
                         >
-                            <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-semibold text-[var(--ac-text)]">
-                                    {price.product_name}
-                                </p>
-                                <p className="mt-0.5 text-[9px] text-[var(--ac-text-muted)]">
-                                    {[price.sku, price.note]
-                                        .filter(Boolean)
-                                        .join(' · ')}
-                                </p>
-                            </div>
+                            {editingId === price.product_id ? (
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <p className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--ac-text)]">
+                                        {price.product_name}
+                                    </p>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.0001"
+                                        value={editPrice}
+                                        onChange={(e) => setEditPrice(e.target.value)}
+                                        placeholder={text('السعر', 'Price')}
+                                        className="h-9 w-32 rounded-[9px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)]"
+                                        autoFocus
+                                    />
+                                    <input
+                                        value={editNote}
+                                        onChange={(e) => setEditNote(e.target.value)}
+                                        placeholder={text('ملاحظة', 'Note')}
+                                        className="h-9 flex-1 rounded-[9px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs text-[var(--ac-text)]"
+                                    />
+                                    <div className="flex gap-1">
+                                        <button
+                                            type="button"
+                                            disabled={busy || editPrice.trim() === ''}
+                                            onClick={() => void saveEdit(price.product_id)}
+                                            className="flex size-8 items-center justify-center rounded-[9px] bg-[var(--ac-accent-solid)] text-[var(--ac-accent-solid-text)] disabled:opacity-45"
+                                        >
+                                            <Check size={13} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={cancelEdit}
+                                            className="flex size-8 items-center justify-center rounded-[9px] text-[var(--ac-text-muted)] hover:bg-[var(--ac-line)]"
+                                        >
+                                            <X size={13} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-xs font-semibold text-[var(--ac-text)]">
+                                            {price.product_name}
+                                        </p>
+                                        <p className="mt-0.5 text-[9px] text-[var(--ac-text-muted)]">
+                                            {[price.sku, price.note]
+                                                .filter(Boolean)
+                                                .join(' · ')}
+                                        </p>
+                                    </div>
 
-                            <strong className="text-xs text-[var(--ac-accent)]">
-                                {Number(price.unit_price).toLocaleString()}
-                                {price.currency ? ' ' + price.currency : ''}
-                            </strong>
+                                    <strong className="text-xs text-[var(--ac-accent)]">
+                                        {Number(price.unit_price).toLocaleString()}
+                                        {price.currency ? ' ' + price.currency : ''}
+                                    </strong>
 
-                            {canEdit && (
-                                <button
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => void remove(price.product_id)}
-                                    className="flex size-8 items-center justify-center rounded-[9px] text-[var(--ac-text-muted)] hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                                >
-                                    <Trash2 size={12} />
-                                </button>
+                                    {canEdit && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                onClick={() => startEdit(price)}
+                                                className="flex size-8 items-center justify-center rounded-[9px] text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface)] hover:text-[var(--ac-accent)] disabled:opacity-50"
+                                            >
+                                                <Pencil size={12} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                onClick={() => void remove(price.product_id)}
+                                                className="flex size-8 items-center justify-center rounded-[9px] text-[var(--ac-text-muted)] hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             )}
                         </div>
                     ))

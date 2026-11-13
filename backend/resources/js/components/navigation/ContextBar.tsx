@@ -305,7 +305,7 @@ export function ContextBar({
 
     return (
         <header className="ac-app-header sticky top-0 z-40 border-b border-[var(--ac-line)] bg-[var(--ac-chrome)]">
-            <div className="mx-auto flex h-14 w-full max-w-[1760px] min-w-0 items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-5 lg:px-8">
+            <div className="mx-auto flex min-h-14 w-full max-w-[1760px] min-w-0 flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2 sm:h-16 sm:flex-nowrap sm:gap-3 sm:px-5 sm:py-0 lg:px-8">
                 <button
                     type="button"
                     aria-label={t(
@@ -352,11 +352,11 @@ export function ContextBar({
                     </button>
                 )}
 
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-0">
                     <WorkspaceSwitcher />
                 </div>
 
-                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <div className="flex w-full min-w-0 items-center justify-between gap-1 sm:w-auto sm:shrink-0 sm:justify-start sm:gap-2">
                     <CommandCenter />
 
                     <button
@@ -408,7 +408,7 @@ export function ContextBar({
                             )
                         }
                         className={[
-                            'flex size-10 items-center justify-center rounded-[13px] border transition',
+                            'hidden size-9 shrink-0 items-center justify-center rounded-[13px] border transition sm:flex sm:size-10',
                             pagePinned
                                 ? 'border-amber-400/50 bg-[var(--ac-surface-soft)] text-amber-500'
                                 : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-muted)] hover:bg-[var(--ac-surface-soft)]',
@@ -424,7 +424,9 @@ export function ContextBar({
                         />
                     </button>
 
-                    <AiToggleButton />
+                    <div className="hidden sm:block">
+                        <AiToggleButton />
+                    </div>
 
                     <LanguageSwitcher />
 

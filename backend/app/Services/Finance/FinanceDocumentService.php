@@ -309,6 +309,8 @@ class FinanceDocumentService
 
             $this->recalculatePaymentState($locked);
 
+            $this->syncCustomerPrices($locked);
+
             $this->audit->record(
                 $locked,
                 $previous ? 'correction_issued' : 'issued',
@@ -320,6 +322,50 @@ class FinanceDocumentService
 
             return $locked->fresh($this->relations());
         }, 3);
+    }
+
+    /**
+     * Keeps existing customer-specific prices aligned with the price actually
+     * invoiced. Only products that already have a special price are touched.
+     */
+    private function syncCustomerPrices(FinancialDocument $document): void
+    {
+        if (! $document->isSale() || $document->is_misc_sale || ! $document->party_id) {
+            return;
+        }
+
+        $latestByProduct = $document->lines
+            ->whereNotNull('product_id')
+            ->where('unit_price', '>', 0)
+            ->sortBy('position')
+            ->keyBy('product_id');
+
+        if ($latestByProduct->isEmpty()) {
+            return;
+        }
+
+        $stored = DB::table('party_product_prices')
+            ->where('organization_id', $document->organization_id)
+            ->where('party_id', $document->party_id)
+            ->whereIn('product_id', $latestByProduct->keys())
+            ->pluck('unit_price', 'product_id');
+
+        foreach ($stored as $productId => $storedPrice) {
+            $invoiced = (float) $latestByProduct[$productId]->unit_price;
+
+            if (abs($invoiced - (float) $storedPrice) <= 0.0001) {
+                continue;
+            }
+
+            DB::table('party_product_prices')
+                ->where('organization_id', $document->organization_id)
+                ->where('party_id', $document->party_id)
+                ->where('product_id', $productId)
+                ->update([
+                    'unit_price' => $latestByProduct[$productId]->unit_price,
+                    'updated_at' => now(),
+                ]);
+        }
     }
 
     public function startCorrection(

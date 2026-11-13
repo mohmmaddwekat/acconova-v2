@@ -1086,6 +1086,11 @@ Route::prefix(
         )->whereNumber(['party', 'product']);
 
         Route::get(
+            'parties/{party}/prices/suggestions',
+            [PartyPricingController::class, 'suggestions'],
+        )->whereNumber('party');
+
+        Route::get(
             'finance/invoice-automation',
             [InvoiceAutomationController::class, 'index'],
         );
@@ -1400,6 +1405,7 @@ Route::prefix(
 
         Route::get('finance/documents', [FinanceDocumentController::class, 'index']);
         Route::post('finance/documents', [FinanceDocumentController::class, 'store']);
+        Route::post('finance/documents/merge-same-day', [FinanceDocumentController::class, 'mergeSameDay']);
         Route::get('finance/documents/{document}', [FinanceDocumentController::class, 'show'])->whereNumber('document');
         Route::get('finance/documents/{document}/warnings', [FinanceDocumentController::class, 'warnings'])->whereNumber('document');
         Route::patch('finance/documents/{document}', [FinanceDocumentController::class, 'update'])->whereNumber('document');

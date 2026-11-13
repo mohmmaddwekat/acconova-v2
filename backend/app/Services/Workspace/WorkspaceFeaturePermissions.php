@@ -2460,6 +2460,7 @@ final class WorkspaceFeaturePermissions
             ['GET', 'api/finance/lookups', 'finance.lookups.view'],
             ['GET', 'api/finance/reference-price', 'finance.reference_price.view'],
             ['POST', 'api/finance/documents', 'finance.documents.create'],
+            ['POST', 'api/finance/documents/merge-same-day', 'finance.documents.create'],
             ['PATCH', 'api/finance/documents/*', 'finance.documents.update'],
             ['DELETE', 'api/finance/documents/*', 'finance.documents.delete'],
             ['POST', 'api/finance/documents/*/issue', 'finance.documents.issue'],

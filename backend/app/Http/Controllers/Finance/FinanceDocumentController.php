@@ -11,6 +11,7 @@ use App\Services\Finance\CashMovementService;
 use App\Services\Finance\FinanceArchiveService;
 use App\Services\Finance\FinanceAuthorization;
 use App\Services\Finance\FinanceDocumentService;
+use App\Services\Finance\SameDayInvoiceMergeService;
 use App\Services\Governance\ApprovalWorkflowService;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -335,6 +336,44 @@ class FinanceDocumentController extends Controller
         );
 
         return response()->json(['data' => $this->detail($document, $service)], 201);
+    }
+
+    /**
+     * A new invoice for a party that already has one on the same day is added to
+     * that invoice. Returns merged=false when there is nothing to merge into.
+     */
+    public function mergeSameDay(
+        Request $request,
+        SameDayInvoiceMergeService $merger,
+        FinanceDocumentService $service,
+    ): JsonResponse {
+        abort_unless(
+            FinanceAuthorization::allows($request->user(), 'finance.sales.manage')
+            || FinanceAuthorization::allows($request->user(), 'finance.purchases.manage'),
+            403,
+        );
+
+        $data = $this->validatedDocument($request);
+        $this->authorizeKind($request, $data['kind'], true);
+        FinanceAuthorization::authorize($request->user(), 'finance.documents.issue');
+        FinanceAuthorization::authorize($request->user(), 'finance.documents.correct');
+
+        $existing = $merger->find($data['kind'], (int) $data['party_id'], (string) $data['issue_date']);
+
+        if (! $existing) {
+            return response()->json(['data' => ['merged' => false]]);
+        }
+
+        $document = $merger->merge(
+            $existing,
+            $data['lines'],
+            (string) ($data['document_discount_type'] ?? 'percent'),
+            (float) ($data['document_discount_value'] ?? 0),
+            $data['external_number'] ?? null,
+            (int) $request->user()->id,
+        );
+
+        return response()->json(['data' => ['merged' => true, 'document' => $this->detail($document, $service)]]);
     }
 
     public function update(
