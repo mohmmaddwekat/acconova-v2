@@ -71,7 +71,8 @@ export default function TabsLayout() {
             ),
           }}
         />
-        <Tabs.Screen name="approvals" options={{ title: t('موافقات'), tabBarIcon: tabIcon('checkSquare') }} />
+        <Tabs.Screen name="inventory" options={{ title: t('المخزون'), tabBarIcon: tabIcon('package') }} />
+        <Tabs.Screen name="approvals" options={{ href: null }} />
         <Tabs.Screen name="more" options={{ title: t('المزيد'), tabBarIcon: tabIcon('more') }} />
       </Tabs>
       <QuickActionsSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />

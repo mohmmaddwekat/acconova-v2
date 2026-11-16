@@ -19,7 +19,7 @@ class QuickEntryTest extends TestCase
         $productId = $this->product('Quick Product A');
         $olderId = $this->issuedInvoice($customerId, $productId, '500', '2026-01-10');
 
-        $result = $this->postJson('/api/finance/quick-entry', [
+        $result = $this->postJson('/api/quick-entry', [
             'rows' => [[
                 'type' => 'sale',
                 'date' => '2026-01-20',
@@ -57,7 +57,7 @@ class QuickEntryTest extends TestCase
         $productId = $this->product('Quick Product B');
         $line = [['product_id' => $productId, 'quantity' => '1', 'unit_price' => '100']];
 
-        $results = $this->postJson('/api/finance/quick-entry', [
+        $results = $this->postJson('/api/quick-entry', [
             'rows' => [
                 ['type' => 'sale', 'date' => '2026-02-05', 'party_id' => $customerId, 'lines' => $line],
                 ['type' => 'sale', 'date' => '2026-02-05', 'party_id' => $customerId, 'lines' => $line],
@@ -82,7 +82,7 @@ class QuickEntryTest extends TestCase
         $supplierId = $this->party('supplier', 'Quick Supplier');
         $productId = $this->product('Quick Product C');
 
-        $results = $this->postJson('/api/finance/quick-entry', [
+        $results = $this->postJson('/api/quick-entry', [
             'rows' => [
                 ['type' => 'misc', 'date' => '2026-03-01', 'lines' => [['product_id' => $productId, 'quantity' => '3', 'unit_price' => '50']]],
                 [
@@ -117,7 +117,7 @@ class QuickEntryTest extends TestCase
             'tax_rate' => '16',
         ])->assertCreated()->json('data.id');
 
-        $result = $this->postJson('/api/finance/quick-entry', [
+        $result = $this->postJson('/api/quick-entry', [
             'rows' => [[
                 'type' => 'sale',
                 'date' => '2026-04-01',
@@ -145,7 +145,7 @@ class QuickEntryTest extends TestCase
         $productA = $this->product('Merge Product A');
         $productB = $this->product('Merge Product B');
 
-        $first = $this->postJson('/api/finance/quick-entry', [
+        $first = $this->postJson('/api/quick-entry', [
             'rows' => [[
                 'type' => 'sale',
                 'date' => '2026-05-01',
@@ -157,7 +157,7 @@ class QuickEntryTest extends TestCase
         $this->assertTrue($first['ok'], json_encode($first));
         $this->assertFalse($first['merged']);
 
-        $second = $this->postJson('/api/finance/quick-entry', [
+        $second = $this->postJson('/api/quick-entry', [
             'rows' => [[
                 'type' => 'sale',
                 'date' => '2026-05-01',
@@ -186,6 +186,62 @@ class QuickEntryTest extends TestCase
         $this->assertDatabaseCount('financial_document_lines', 3);
     }
 
+    public function test_petty_rows_are_posted_and_progress_reports_where_entry_stopped(): void
+    {
+        $this->signIn();
+
+        $results = $this->postJson('/api/quick-entry', [
+            'rows' => [
+                ['type' => 'petty', 'date' => '2026-05-03', 'category' => 'utilities', 'amount' => '120', 'notes' => 'كهرباء'],
+                ['type' => 'petty', 'date' => '2026-05-07', 'category' => 'rent', 'amount' => '500'],
+                ['type' => 'petty', 'date' => '2026-05-07', 'category' => 'bogus', 'amount' => '10'],
+            ],
+        ])->assertOk()->json('data');
+
+        $this->assertTrue($results[0]['ok'], json_encode($results[0]));
+        $this->assertTrue($results[1]['ok']);
+        $this->assertFalse($results[2]['ok']);
+        $this->assertDatabaseHas('cash_movements', ['id' => $results[0]['movement_id'], 'status' => 'posted', 'category' => 'utilities', 'party_id' => null]);
+
+        $progress = $this->getJson('/api/quick-entry/progress?from=2026-04-01')->assertOk()->json('data');
+
+        $this->assertSame('2026-05-07', $progress['petty']['last']);
+        $this->assertSame(1, $progress['petty']['days']['2026-05-03']);
+        $this->assertNull($progress['sale']['last']);
+    }
+
+    public function test_attendance_and_staff_rows_are_saved_and_appear_in_progress(): void
+    {
+        $this->signIn();
+
+        $staffId = (int) $this->postJson('/api/staff', [
+            'name' => 'Quick Worker', 'job_title' => 'Clerk', 'basis' => 'month', 'rate' => '3000', 'monthly_allowance' => '0',
+            'currency' => 'ILS', 'started_on' => '2026-01-01',
+        ])->assertCreated()->json('data.id');
+
+        $results = $this->postJson('/api/quick-entry', [
+            'rows' => [
+                ['type' => 'attendance', 'date' => '2026-05-04', 'staff_id' => $staffId, 'attendance_status' => 'present'],
+                ['type' => 'attendance', 'date' => '2026-05-05', 'staff_id' => $staffId, 'attendance_status' => 'absent', 'notes' => 'مرض'],
+                ['type' => 'attendance', 'date' => '2025-12-01', 'staff_id' => $staffId, 'attendance_status' => 'present'],
+                ['type' => 'staff', 'date' => '2026-05-05', 'staff_id' => $staffId, 'staff_kind' => 'advance', 'amount' => '200'],
+            ],
+        ])->assertOk()->json('data');
+
+        $this->assertTrue($results[0]['ok'], json_encode($results[0]));
+        $this->assertTrue($results[1]['ok'], json_encode($results[1]));
+        $this->assertFalse($results[2]['ok']);
+        $this->assertTrue($results[3]['ok'], json_encode($results[3]));
+        $this->assertDatabaseHas('staff_attendances', ['staff_member_id' => $staffId, 'status' => 'absent']);
+        $this->assertDatabaseHas('staff_entries', ['staff_member_id' => $staffId, 'kind' => 'advance', 'amount' => '-200.0000']);
+
+        $progress = $this->getJson('/api/quick-entry/progress?from=2026-04-01')->assertOk()->json('data');
+
+        $this->assertSame('2026-05-05', $progress['attendance']['last']);
+        $this->assertSame(1, $progress['attendance']['days']['2026-05-04']);
+        $this->assertSame('2026-05-05', $progress['staff']['last']);
+    }
+
     public function test_a_purchase_can_be_paid_by_endorsing_a_check_on_hand(): void
     {
         $this->signIn();
@@ -193,7 +249,7 @@ class QuickEntryTest extends TestCase
         $supplierId = $this->party('supplier', 'Check Receiver');
         $productId = $this->product('Quick Product E');
 
-        $received = $this->postJson('/api/finance/quick-entry', [
+        $received = $this->postJson('/api/quick-entry', [
             'rows' => [[
                 'type' => 'receipt',
                 'date' => '2026-01-01',
@@ -206,7 +262,7 @@ class QuickEntryTest extends TestCase
         $this->getJson('/api/finance/cash-movements/cheques-on-hand')
             ->assertOk()->assertJsonPath('data.0.id', $received['movement_id']);
 
-        $paid = $this->postJson('/api/finance/quick-entry', [
+        $paid = $this->postJson('/api/quick-entry', [
             'rows' => [[
                 'type' => 'purchase',
                 'date' => '2026-02-01',

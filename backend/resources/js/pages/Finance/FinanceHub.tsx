@@ -81,12 +81,12 @@ export function FinanceHub({
                 || lookups.permissions.recurring_payments_view,
         },
         {
-            title: text('إدخال الفواتير والدفعات', 'Quick entry'),
+            title: text('الإدخال السريع', 'Quick entry'),
             description: text(
-                'إدخال سريع لفواتير البيع والشراء والمتفرقات والقبض والدفع، بمنتجاتها وخصمها ودفعتها، في جدول واحد.',
-                'Fast entry of sales, purchase and walk-in invoices, receipts and payments with products, discount and payment in one table.',
+                'فواتير ودفعات ونثريات وإنتاج وموظفين في جدول واحد، مع معرفة أين وصلت في كل نوع.',
+                'Invoices, payments, petty expenses, production and staff in one table, with where you stopped for each type.',
             ),
-            href: '/app/finance/quick-entry',
+            href: '/app/quick-entry',
             icon: FilePlus2,
             visible: lookups.permissions.sales_manage
                 || lookups.permissions.purchases_manage

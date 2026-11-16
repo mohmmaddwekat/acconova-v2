@@ -1,17 +1,18 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { EmptyState } from '../components/ui/EmptyState';
-import { Gradient } from '../components/ui/Gradient';
-import { Icon } from '../components/ui/Icon';
-import { SkeletonList } from '../components/ui/Skeleton';
-import { Text } from '../components/ui/Text';
-import { TextInput } from '../components/ui/TextInput';
-import { Colors, Radius, Shadow, StatusText, Tint } from '../constants/theme';
-import { api } from '../lib/api';
-import { formatMoney } from '../lib/format';
-import { useBottomInset } from '../lib/insets';
-import { useStyles } from '../lib/theme';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Gradient } from '../../components/ui/Gradient';
+import { Icon } from '../../components/ui/Icon';
+import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { SkeletonList } from '../../components/ui/Skeleton';
+import { Text } from '../../components/ui/Text';
+import { TextInput } from '../../components/ui/TextInput';
+import { Colors, Radius, Shadow, StatusText, Tint } from '../../constants/theme';
+import { api } from '../../lib/api';
+import { formatMoney } from '../../lib/format';
+import { useBottomInset } from '../../lib/insets';
+import { useStyles } from '../../lib/theme';
 
 interface Metrics {
   active_warehouses: number;
@@ -42,7 +43,7 @@ function stockState(p: Product): { label: string; fg: string; bg: string } | nul
   return { label: 'متوفر', fg: StatusText.success, bg: Tint.successBg };
 }
 
-export default function InventoryScreen() {
+function InventoryContent() {
   const styles = useStyles(createStyles);
   const bottomInset = useBottomInset();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -214,3 +215,12 @@ const createStyles = () => StyleSheet.create({
   badge: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 12, fontWeight: '700' },
 });
+
+export default function InventoryTab() {
+  return (
+    <View style={{ flex: 1, backgroundColor: Colors.bg }}>
+      <ScreenHeader title="المخزون" showBack={false} actionIcon="plus" actionLabel="صنف جديد" onAction={() => router.push('/new-product' as never)} />
+      <InventoryContent />
+    </View>
+  );
+}

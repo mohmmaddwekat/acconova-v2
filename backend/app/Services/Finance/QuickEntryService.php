@@ -3,14 +3,24 @@
 namespace App\Services\Finance;
 
 use App\Exceptions\SafeValidationException;
+use App\Http\Controllers\Finance\PettyExpenseController;
+use App\Http\Controllers\Staff\StaffController;
 use App\Models\FinancialDocument;
 use App\Models\Party;
 use App\Models\Product;
+use App\Models\StaffEntry;
+use App\Models\StaffMember;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Services\Governance\ApprovalWorkflowService;
+use App\Services\Production\QuickProductionEntryService;
+use App\Services\Staff\StaffBulkAttendanceService;
+use App\Support\InventoryQuantity as Decimal;
+use App\Support\ProductionRunAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Ramsey\Uuid\Uuid;
 
 /**
  * Bulk entry of historical paper documents: sales and purchase invoices (with
@@ -39,6 +49,8 @@ class QuickEntryService
         private readonly ApprovalWorkflowService $approvals,
         private readonly TenantContext $tenant,
         private readonly SameDayInvoiceMergeService $merger,
+        private readonly QuickProductionEntryService $production,
+        private readonly StaffBulkAttendanceService $attendance,
     ) {}
 
     /**
@@ -88,6 +100,10 @@ class QuickEntryService
         return match ($row['type']) {
             'misc' => $this->miscSale($row, $user),
             'sale', 'purchase' => $this->invoice($row, $user),
+            'petty' => $this->pettyExpense($row, $user),
+            'prod' => $this->productionRun($row, $user),
+            'staff' => $this->staffEntry($row, $user),
+            'attendance' => $this->attendanceEntry($row, $user),
             default => $this->standalonePayment($row, $user),
         };
     }
@@ -189,6 +205,209 @@ class QuickEntryService
             'allocated' => $movement['allocated'],
             'advance' => $movement['advance'],
         ];
+    }
+
+    /**
+     * One petty expense: a posted cash payment with no payee.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function pettyExpense(array $row, User $user): array
+    {
+        $this->allow($user, 'finance.cash.pay');
+
+        $category = (string) ($row['category'] ?? '');
+        $amount = (float) ($row['amount'] ?? 0);
+
+        if (! in_array($category, PettyExpenseController::CATEGORIES, true) || $amount <= 0) {
+            throw ValidationException::withMessages(['amount' => ['أدخل تصنيف النثرية ومبلغها.']]);
+        }
+
+        $movement = $this->cash->createDraft([
+            'direction' => 'outgoing',
+            'party_id' => null,
+            'government_obligation_id' => null,
+            'department_id' => null,
+            'category' => $category,
+            'amount' => number_format($amount, 4, '.', ''),
+            'currency' => $this->currency(),
+            'movement_date' => $row['date'],
+            'method' => 'cash',
+            'account_label' => null,
+            'branch_label' => null,
+            'cost_center' => null,
+            'reference' => 'PETTY-'.str_replace('-', '', $row['date']).'-'.$category,
+            'check_number' => null,
+            'check_bank' => null,
+            'check_due_date' => null,
+            'check_status' => null,
+            'notes' => filled($row['notes'] ?? null) ? $row['notes'] : null,
+            'allocations' => [],
+        ], $user->id);
+
+        $this->approvals->assertPaymentApproved($movement, $user->id);
+
+        $posted = $this->cash->post($movement, $user->id);
+
+        return [
+            'movement_id' => $posted->id,
+            'movement_number' => $posted->number,
+            'paid' => number_format($amount, 4, '.', ''),
+            'allocated' => '0.0000',
+            'advance' => '0.0000',
+        ];
+    }
+
+    /**
+     * One production run from the product's active recipe.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function productionRun(array $row, User $user): array
+    {
+        if (! ProductionRunAccess::canManage($user)) {
+            throw ValidationException::withMessages(['permission' => ['ليس لديك صلاحية الإنتاج.']]);
+        }
+
+        $warehouseId = (int) ($row['warehouse_id'] ?? 0)
+            ?: (int) (Warehouse::query()->where('is_default', true)->value('id') ?? Warehouse::query()->value('id'));
+
+        if (! $warehouseId) {
+            throw ValidationException::withMessages(['warehouse_id' => ['لا يوجد مستودع لتسجيل الإنتاج فيه.']]);
+        }
+
+        $result = $this->production->enter([[
+            'occurred_on' => $row['date'],
+            'product_id' => (int) ($row['product_id'] ?? 0),
+            'quantity' => $row['quantity'] ?? 0,
+        ]], $warehouseId, true, $user->id)[0];
+
+        if ($result['status'] === 'failed') {
+            $reasons = [
+                'no_active_recipe' => 'لا توجد وصفة فعّالة لهذا المنتج.',
+                'product_not_found' => 'المنتج غير موجود.',
+                'no_materials_available' => 'لا توجد مواد متاحة في الوصفة.',
+            ];
+
+            throw ValidationException::withMessages(['product_id' => [$reasons[$result['message']] ?? (string) $result['message']]]);
+        }
+
+        return [
+            'run_id' => $result['run_id'],
+            'document_number' => $result['run_number'],
+            'status' => $result['status'],
+            'message' => $result['message'],
+        ];
+    }
+
+    /**
+     * One payroll transaction (advance, deduction, bonus…) for an employee.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function staffEntry(array $row, User $user): array
+    {
+        $all = StaffController::allowed('staff.pay');
+
+        if (! $all && ! StaffController::allowed('staff.team_pay')) {
+            throw ValidationException::withMessages(['permission' => ['ليس لديك صلاحية دفعات الموظفين.']]);
+        }
+
+        $kind = (string) ($row['staff_kind'] ?? '');
+        $amount = (string) ($row['amount'] ?? '');
+
+        if (! in_array($kind, ['payment', 'bonus', 'allowance', 'deduction', 'advance'], true) || ! preg_match('/^\d+(\.\d{1,4})?$/', $amount) || (float) $amount <= 0) {
+            throw ValidationException::withMessages(['amount' => ['أدخل نوع الحركة ومبلغاً صحيحاً.']]);
+        }
+
+        $member = StaffMember::query()
+            ->when(! $all, fn ($query) => $query->whereIn('department_id', StaffController::managedDepartmentIds()))
+            ->find((int) ($row['staff_id'] ?? 0));
+
+        if (! $member || ! StaffController::canPay($member)) {
+            throw ValidationException::withMessages(['staff_id' => ['اختر موظفاً مسموحاً لك بالدفع له.']]);
+        }
+
+        $units = Decimal::toUnits($amount);
+        $negative = in_array($kind, ['deduction', 'payment', 'advance'], true);
+
+        $entry = StaffEntry::create([
+            'staff_member_id' => $member->id,
+            'created_by' => $user->id,
+            'request_id' => Uuid::uuid4()->toString(),
+            'kind' => $kind,
+            'occurred_on' => $row['date'],
+            'amount' => Decimal::fromUnits($negative ? -$units : $units),
+            'quantity' => null,
+            'rate' => null,
+            'notes' => filled($row['notes'] ?? null) ? $row['notes'] : null,
+            'terms' => [
+                'basis' => $member->basis,
+                'unit' => $member->unit,
+                'currency' => $member->currency,
+                'monthly_allowance' => $member->monthly_allowance,
+                'bulk' => true,
+            ],
+        ]);
+
+        return ['staff_entry_id' => $entry->id, 'document_number' => $member->name];
+    }
+
+    /**
+     * Present or absent for one employee on one day. Saving the same day again
+     * updates the existing attendance row instead of duplicating it.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function attendanceEntry(array $row, User $user): array
+    {
+        $all = StaffController::allowed('staff.attendance');
+
+        if (! $all && ! StaffController::allowed('staff.team_attendance')) {
+            throw ValidationException::withMessages(['permission' => ['ليس لديك صلاحية الحضور والغياب.']]);
+        }
+
+        $status = (string) ($row['attendance_status'] ?? '');
+
+        if (! in_array($status, ['present', 'absent'], true)) {
+            throw ValidationException::withMessages(['attendance_status' => ['اختر حاضر أو غائب.']]);
+        }
+
+        $member = StaffMember::query()
+            ->where('active', true)
+            ->whereDate('started_on', '<=', $row['date'])
+            ->when(! $all, fn ($query) => $query->whereIn('department_id', StaffController::managedDepartmentIds()))
+            ->find((int) ($row['staff_id'] ?? 0));
+
+        if (! $member) {
+            throw ValidationException::withMessages(['staff_id' => ['الموظف غير متاح في هذا التاريخ (غير فعّال أو بدأ بعده).']]);
+        }
+
+        $quantity = (float) ($row['quantity'] ?? 0);
+
+        $result = $this->attendance->save(
+            collect([$member]),
+            $row['date'],
+            [
+                'status' => $status,
+                'quantity' => $quantity > 0 ? (string) $quantity : '0',
+                'overtime_hours' => '0',
+                'overtime_rate' => '0',
+                'notes' => filled($row['notes'] ?? null) ? $row['notes'] : null,
+            ],
+            [],
+            $user->id,
+        );
+
+        if ($result['skipped'] !== []) {
+            throw ValidationException::withMessages(['staff_id' => ['تعذّر تسجيل الحضور: '.($result['skipped'][0]['reason'] ?? 'غير مسموح')]]);
+        }
+
+        return ['document_number' => $member->name];
     }
 
     /**

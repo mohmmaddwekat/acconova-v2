@@ -90,6 +90,8 @@ export default function DashboardScreen() {
   const [bars, setBars] = useState<MonthBar[] | null>(null);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [cheques, setCheques] = useState<ChequeAlerts | null>(null);
+  const [stock, setStock] = useState<{ low: number; out: number; value: string } | null>(null);
+  const [staff, setStaff] = useState<{ total: number; present: number; absent: number; missing: number } | null>(null);
   const { unread } = useNotifications();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -114,6 +116,22 @@ export default function DashboardScreen() {
 
       if (userData.status === 'fulfilled') setUser(userData.value);
       if (mv.status === 'fulfilled') setMovements(Array.isArray(mv.value.data?.data) ? mv.value.data.data.slice(0, 5) : []);
+
+      api
+        .get('/inventory/overview')
+        .then((r) => {
+          const m = r.data?.data?.metrics;
+          setStock(m ? { low: Number(m.low_stock_products), out: Number(m.out_of_stock_products), value: String(m.inventory_value) } : null);
+        })
+        .catch(() => setStock(null));
+
+      api
+        .get('/staff-overview')
+        .then((r) => {
+          const o = r.data;
+          setStaff(o?.totals ? { total: Number(o.totals.active ?? o.totals.employees), present: Number(o.attendance?.present_today ?? 0), absent: Number(o.attendance?.absent_today ?? 0), missing: Number(o.attendance?.missing_today ?? 0) } : null);
+        })
+        .catch(() => setStaff(null));
 
       // Cheques are cash movements with method=check; only pending ones due within a week matter here.
       const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
@@ -258,6 +276,48 @@ export default function DashboardScreen() {
             </Pressable>
           )}
 
+          {stock && (
+            <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/inventory' as never)} style={styles.alertCard}>
+              <View style={styles.alertIcon}>
+                <Icon name="package" size={20} color={stock.low + stock.out > 0 ? StatusText.warning : Colors.accentStrong} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.alertTitle}>المخزون</Text>
+                <Text style={styles.alertSub}>
+                  {stock.low + stock.out > 0 ? `${stock.low} منخفض • ${stock.out} نفد • ` : 'كل الأصناف متوفرة • '}القيمة {formatMoney(stock.value)}
+                </Text>
+              </View>
+              <Icon name="chevronLeft" size={20} color={Colors.textFaint} />
+            </Pressable>
+          )}
+
+          {staff && (
+            <View style={styles.staffCard}>
+              <View style={styles.staffTop}>
+                <View style={styles.alertIcon}>
+                  <Icon name="users" size={20} color={Tint.purple} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.alertTitle}>الموظفون والحضور</Text>
+                  <Text style={styles.alertSub}>
+                    {staff.present} حاضر • {staff.absent} غائب{staff.missing > 0 ? ` • ${staff.missing} لم يُسجَّل بعد` : ''} من {staff.total}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.staffActions}>
+                <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/employees', params: { tab: 'attend' } })} style={[styles.staffBtn, { backgroundColor: Tint.successBg }]}>
+                  <Text style={[styles.staffBtnText, { color: StatusText.success }]}>تسجيل الحضور</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => router.push('/employees')} style={styles.staffBtn}>
+                  <Text style={styles.staffBtnText}>الموظفون</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => router.push('/new-employee' as never)} style={styles.staffBtn}>
+                  <Text style={styles.staffBtnText}>+ موظف</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
           <Text style={styles.sectionTitle}>المستحقات والالتزامات</Text>
           <View style={styles.kpiGrid}>
             <KpiCard
@@ -390,6 +450,11 @@ const createStyles = () => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, minHeight: Layout.minTouch,
     backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, ...Shadow.soft,
   },
+  staffCard: { gap: 12, padding: 16, backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, ...Shadow.soft },
+  staffTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  staffActions: { flexDirection: 'row', gap: 8 },
+  staffBtn: { flex: 1, minHeight: Layout.minTouch, borderRadius: Radius.sm, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
+  staffBtnText: { fontSize: 14, fontWeight: '800', color: Colors.accentStrong },
   alertIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: Tint.warningBg, alignItems: 'center', justifyContent: 'center' },
   alertTitle: { fontSize: 16, fontWeight: '800', color: Colors.text, textAlign: 'auto' },
   alertSub: { fontSize: 14, color: Colors.textMuted, textAlign: 'auto' },

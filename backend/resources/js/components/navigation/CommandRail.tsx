@@ -30,6 +30,7 @@ import {
     Users,
     Warehouse,
     X,
+    Zap,
     type LucideIcon,
 } from 'lucide-react';
 
@@ -219,6 +220,15 @@ export function CommandRail({
 
             icon:
                 Sparkles,
+        },
+
+        {
+            label: locale === 'ar' ? 'الإدخال السريع' : 'Quick entry',
+            description: locale === 'ar'
+                ? 'فواتير ونثريات وإنتاج وموظفين بسرعة'
+                : 'Invoices, petty, production & staff fast',
+            href: '/app/quick-entry',
+            icon: Zap,
         },
 
         ...(canAdminMcp

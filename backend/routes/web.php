@@ -524,9 +524,11 @@ Route::middleware([
     )->name('app.finance.anomalies');
 
     Route::get(
-        '/app/finance/quick-entry',
-        fn () => Inertia::render('Finance/QuickEntry'),
-    )->name('app.finance.quick-entry');
+        '/app/quick-entry',
+        fn () => Inertia::render('QuickEntry/Index'),
+    )->name('app.quick-entry');
+
+    Route::redirect('/app/finance/quick-entry', '/app/quick-entry')->name('app.finance.quick-entry');
 
     Route::get(
         '/app/finance/offsets',
@@ -1416,7 +1418,9 @@ Route::prefix(
         Route::get('finance/documents/{document}/available-credits', [FinanceDocumentController::class, 'availableCredits'])->whereNumber('document');
         Route::post('finance/documents/{document}/apply-credit', [FinanceDocumentController::class, 'applyCredit'])->whereNumber('document');
 
-        Route::post('finance/quick-entry', [QuickEntryController::class, 'store']);
+        Route::post('finance/quick-entry', [QuickEntryController::class, 'store']); // kept for the mobile app
+        Route::post('quick-entry', [QuickEntryController::class, 'store']);
+        Route::get('quick-entry/progress', [QuickEntryController::class, 'progress']);
 
         Route::get('finance/auto-allocation', [AutoAllocationController::class, 'index']);
         Route::post('finance/auto-allocation/preview', [AutoAllocationController::class, 'preview']);
