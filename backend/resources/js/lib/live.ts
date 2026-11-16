@@ -20,6 +20,16 @@ let watchers = 0;
 let channel: BroadcastChannel | null = null;
 
 const remountListeners = new Set<() => void>();
+const pendingListeners = new Set<() => void>();
+
+function setPending(value: boolean): void {
+    if (remountPending === value) {
+        return;
+    }
+
+    remountPending = value;
+    pendingListeners.forEach(listener => listener());
+}
 
 function liveChannel(): BroadcastChannel | null {
     if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') {
@@ -84,7 +94,7 @@ function isSafeToRemount(): boolean {
 }
 
 function remountNow(): void {
-    remountPending = false;
+    setPending(false);
     editedSinceMount = false;
 
     router.reload({
@@ -111,8 +121,31 @@ function handleRemoteChange(): void {
     if (isSafeToRemount()) {
         remountNow();
     } else {
-        remountPending = true;
+        setPending(true);
     }
+}
+
+/**
+ * True when other people's changes are waiting because this page has unsaved
+ * typing. The shell shows a small banner so the user can choose to refresh.
+ */
+export function useLivePending(): boolean {
+    return useSyncExternalStore(
+        listener => {
+            pendingListeners.add(listener);
+
+            return () => {
+                pendingListeners.delete(listener);
+            };
+        },
+        () => remountPending,
+        () => false,
+    );
+}
+
+/** Reload the page now, accepting that unsaved typing is discarded. */
+export function applyPendingRemount(): void {
+    remountNow();
 }
 
 async function checkVersion(): Promise<void> {
@@ -307,6 +340,44 @@ export function useLiveRefresh(
             document.removeEventListener('visibilitychange', catchUp);
         };
     }, [enabled, interval]);
+}
+
+/**
+ * Refresh lookup lists (a check, a party, a product…) quietly when data changes
+ * elsewhere, WITHOUT taking part in the page re-mount decision: the page is
+ * still re-mounted by the watcher when that is safe, and these lists stay
+ * current when it is not (for example while a form is half filled).
+ */
+export function useLiveSoftRefresh(refresh: () => void): void {
+    const latest = useRef(refresh);
+
+    useEffect(() => {
+        latest.current = refresh;
+    });
+
+    useEffect(() => {
+        liveChannel();
+
+        let debounce: number | undefined;
+
+        const run = (): void => {
+            window.clearTimeout(debounce);
+            debounce = window.setTimeout(() => {
+                if (! document.hidden) {
+                    latest.current();
+                }
+            }, 500);
+        };
+
+        window.addEventListener(DATA_CHANGED_EVENT, run);
+        window.addEventListener('focus', run);
+
+        return () => {
+            window.clearTimeout(debounce);
+            window.removeEventListener(DATA_CHANGED_EVENT, run);
+            window.removeEventListener('focus', run);
+        };
+    }, []);
 }
 
 /**

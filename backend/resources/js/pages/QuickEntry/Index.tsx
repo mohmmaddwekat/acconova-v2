@@ -1,18 +1,24 @@
 import { AppShell } from '@/layouts/AppShell';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
+import { useLiveRefresh } from '@/lib/live';
 import { apiErrorText } from '@/pages/Finance/shared';
 import type { FinanceLookups } from '@/pages/Finance/types';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import {
     CalendarDays,
+    Check,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     Copy,
-    Layers,
+    GripVertical,
     MapPin,
     Play,
     Plus,
     Save,
+    Search,
+    TriangleAlert,
     X,
     Zap,
 } from 'lucide-react';
@@ -22,6 +28,15 @@ type RowType = 'sale' | 'purchase' | 'misc' | 'receipt' | 'payment' | 'petty' | 
 type Method = 'cash' | 'transfer' | 'check';
 
 type Line = { key: number; productId: number | null; qty: string; price: string };
+
+/** An entry the system already holds for the same party and day, shown before the same one is typed twice. */
+type ExistingEntry = {
+    number: string | null;
+    amount: string;
+    method: string | null;
+    check_number: string | null;
+    lines: Array<{ name: string | null; quantity: string; unit_price: string; total: string }>;
+};
 
 type Row = {
     id: number;
@@ -45,7 +60,17 @@ type Row = {
     open: boolean;
     error: string;
     merged: boolean;
+    stock: boolean;
+    /** Entries found in the system for this row's party and day, until the user decides what to do. */
+    exist: ExistingEntry[] | null;
+    /** The user confirmed this row differs from what the system already holds. */
+    dupOk: boolean;
+    /** Show exactly what is missing in this row, field by field. */
+    flag: boolean;
 };
+
+/** One thing a row still needs: which field, what it is called, and why it is required. */
+type Issue = { key: 'date' | 'party' | 'employee' | 'product' | 'lines' | 'amount' | 'check'; label: string; why: string };
 
 type Cheque = {
     id: number;
@@ -102,8 +127,6 @@ const STAFF_KINDS: Array<[string, string, string]> = [
     ['payment', 'دفعة راتب', 'Payment'],
 ];
 
-const MONTHS_AR = ['كانون الثاني', 'شباط', 'آذار', 'نيسان', 'أيار', 'حزيران', 'تموز', 'آب', 'أيلول', 'تشرين الأول', 'تشرين الثاني', 'كانون الأول'];
-const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -159,12 +182,90 @@ const newRow = (type: RowType, date: string): Row => ({
     open: false,
     error: '',
     merged: false,
+    // Purchases add stock by default so raw material bought the same day can be used in production.
+    stock: type === 'purchase',
+    exist: null,
+    dupOk: false,
+    flag: false,
 });
+
+const MAX_PER_DAY = 50;
+const DRAFT_VERSION = 1;
+
+/** Date field that applies a typed date only once it is complete, so half-typed years never move the row. */
+function CommitDate({ value, max, label, className, onCommit }: { value: string; max: string; label: string; className: string; onCommit: (next: string) => void }) {
+    const [draft, setDraft] = useState<string | null>(null);
+    const timer = useRef<number | undefined>(undefined);
+    const shown = draft ?? value;
+
+    useEffect(() => () => window.clearTimeout(timer.current), []);
+
+    const commit = (next: string) => {
+        window.clearTimeout(timer.current);
+        setDraft(null);
+
+        if (next !== value && validDate(next) && next <= max) {
+            onCommit(next);
+        }
+    };
+
+    return (
+        <input
+            type="date"
+            aria-label={label}
+            className={className}
+            dir="ltr"
+            min="2000-01-01"
+            max={max}
+            value={shown}
+            onChange={(event) => {
+                const next = event.target.value;
+
+                setDraft(next);
+                window.clearTimeout(timer.current);
+
+                if (validDate(next) && next <= max) {
+                    timer.current = window.setTimeout(() => commit(next), 900);
+                }
+            }}
+            onBlur={(event) => {
+                const next = event.target.value;
+
+                window.setTimeout(() => commit(next), 250);
+            }}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commit((event.target as HTMLInputElement).value);
+                }
+            }}
+        />
+    );
+}
+
+function CountStepper({ value, label, onChange }: { value: number; label: string; onChange: (next: number) => void }) {
+    const clamp = (next: number): number => Math.min(Math.max(Math.trunc(next) || 0, 0), MAX_PER_DAY);
+    const step = 'inline-flex size-8 items-center justify-center rounded-[10px] border border-[var(--ac-line)] bg-[var(--ac-surface)] text-base font-bold text-[var(--ac-accent)] hover:bg-[var(--ac-accent-soft,#e3eeff)]';
+
+    return (
+        <span className="inline-flex items-center gap-1">
+            <button type="button" className={step} aria-label={`− ${label}`} onClick={() => onChange(clamp(value - 1))}>−</button>
+            <input
+                className={field + ' !h-8 !w-12 text-center'}
+                inputMode="numeric"
+                aria-label={label}
+                value={value}
+                onFocus={(event) => event.target.select()}
+                onChange={(event) => onChange(clamp(Number(event.target.value.replace(/\D/g, ''))))}
+            />
+            <button type="button" className={step} aria-label={`+ ${label}`} onClick={() => onChange(clamp(value + 1))}>+</button>
+        </span>
+    );
+}
 
 export default function QuickEntry() {
     const ar = useLocale() === 'ar';
     const text = (arabic: string, english: string): string => ar ? arabic : english;
-    const months = ar ? MONTHS_AR : MONTHS_EN;
     const today = todayIso();
     const year = Number(today.slice(0, 4));
 
@@ -180,24 +281,40 @@ export default function QuickEntry() {
     const [filter, setFilter] = useState<'all' | RowType>('all');
     const [selected, setSelected] = useState<string[]>([]);
     const [anchor, setAnchor] = useState<string | null>(null);
-    const [counts, setCounts] = useState<Record<RowType, number>>({ sale: 0, purchase: 0, misc: 0, receipt: 0, payment: 0, petty: 0, prod: 0, staff: 0, attendance: 0 });
+    // What to create: which types, and for every day its own count per type (never one number for all days).
+    const [plan, setPlan] = useState<Record<string, Partial<Record<RowType, number>>>>({});
+    const [activeDay, setActiveDay] = useState<string | null>(null);
+    const [typeMenu, setTypeMenu] = useState(false);
+    const [typeQuery, setTypeQuery] = useState('');
+    const [showMatrix, setShowMatrix] = useState(false);
+    const [collapsedDays, setCollapsedDays] = useState<string[]>([]);
+    const [dragId, setDragId] = useState<number | null>(null);
+    const [dropMark, setDropMark] = useState<{ id: number | string; where: 'before' | 'after' | 'day' } | null>(null);
+    const [copyingDay, setCopyingDay] = useState<string | null>(null);
+    const [dupRowId, setDupRowId] = useState<number | null>(null);
+    const askedExisting = useRef<Set<string>>(new Set());
     const [month, setMonth] = useState(Number(today.slice(5, 7)));
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const container = useRef<HTMLDivElement>(null);
     const pendingFocus = useRef<number | null>(null);
+    const pendingGrip = useRef<number | null>(null);
 
-    useEffect(() => {
+    const loadCheques = useCallback(() => {
+        apiRequest<{ data: Cheque[] }>('/api/finance/cash-movements/cheques-on-hand')
+            .then((response) => setCheques(response.data))
+            .catch(() => undefined);
+    }, []);
+
+    const loadLookups = useCallback(() => {
         apiRequest<FinanceLookups>('/api/finance/lookups')
             .then(setLookups)
             .catch((failure) => setError(apiErrorText(failure)));
+    }, []);
 
-        apiRequest<{ data: Cheque[] }>('/api/finance/cash-movements/cheques-on-hand')
-            .then((response) => setCheques(response.data))
-            .catch(() => setCheques([]));
-
-        (async () => {
+    const loadRosters = useCallback(async () => {
+        {
             const members: StaffMember[] = [];
 
             try {
@@ -237,8 +354,70 @@ export default function QuickEntry() {
             }
 
             setAttendanceStaff(present);
-        })();
+        }
     }, []);
+
+    useEffect(() => {
+        loadLookups();
+        loadCheques();
+        void loadRosters();
+    }, [loadLookups, loadCheques, loadRosters]);
+
+    /*
+     * Rows typed but not yet saved are kept as a draft in this browser, per user and workspace,
+     * so a reload, a failed save or a closed tab never throws the typing away.
+     */
+    const shared = usePage<{ auth?: { user?: { id: number } | null }; workspace?: { activeOrganization?: { id: number } | null } }>().props;
+    const draftKey = `acconova.quick-entry.draft.v${DRAFT_VERSION}.${shared.auth?.user?.id ?? 0}.${shared.workspace?.activeOrganization?.id ?? 0}`;
+    const [restored, setRestored] = useState(0);
+    const draftReady = useRef(false);
+
+    useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem(draftKey);
+            const draft = raw ? JSON.parse(raw) as { rows?: Row[]; selected?: string[] } : null;
+
+            if (draft && Array.isArray(draft.rows) && draft.rows.length) {
+                nextId = Math.max(nextId, ...draft.rows.map((row) => row.id + 1));
+                nextKey = Math.max(nextKey, ...draft.rows.flatMap((row) => row.lines.map((line) => line.key + 1)), 1);
+                // Restored rows were already checked against the system when they were typed.
+                draft.rows.forEach((row) => {
+                    const key = existingKey(row);
+
+                    if (key) {
+                        askedExisting.current.add(`${row.id}|${key}`);
+                    }
+                });
+                setRows(draft.rows.map((row) => ({ ...row, exist: null, flag: false, error: '' })));
+                setSelected(Array.isArray(draft.selected) ? draft.selected : []);
+                setRestored(draft.rows.length);
+            }
+        } catch {
+            // Storage is blocked or the draft is unreadable: start from an empty table.
+        }
+
+        draftReady.current = true;
+    }, [draftKey]);
+
+    useEffect(() => {
+        if (! draftReady.current) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            try {
+                if (rows.length) {
+                    window.localStorage.setItem(draftKey, JSON.stringify({ rows, selected, savedAt: Date.now() }));
+                } else {
+                    window.localStorage.removeItem(draftKey);
+                }
+            } catch {
+                // Storage is full or blocked: the page keeps working, just without a draft.
+            }
+        }, 600);
+
+        return () => window.clearTimeout(timer);
+    }, [rows, selected, draftKey]);
 
     const loadProgress = useCallback(() => {
         apiRequest<{ data: Progress }>(`/api/quick-entry/progress?from=${from}`)
@@ -249,6 +428,18 @@ export default function QuickEntry() {
     useEffect(() => {
         loadProgress();
     }, [loadProgress]);
+
+    /*
+     * Join the system-wide live refresh: any save made elsewhere (another page,
+     * tab or person) quietly reloads the lists here without touching your rows,
+     * and keeps this page from being re-mounted while you work.
+     */
+    useLiveRefresh(() => {
+        loadCheques();
+        loadLookups();
+        loadProgress();
+        void loadRosters();
+    });
 
     const perms = lookups?.permissions;
     const allowed = useMemo<Record<RowType, boolean>>(() => ({
@@ -297,45 +488,62 @@ export default function QuickEntry() {
     };
     const completeLine = (line: Line): boolean => !! line.productId && num(line.qty) > 0 && line.price !== '' && num(line.price) >= 0;
 
-    const problems = (row: Row): string[] => {
+    /** Everything this row still needs, each with the field it belongs to and why it is required. */
+    const issuesOf = (row: Row): Issue[] => {
         const meta = META[row.type];
-        const found: string[] = [];
+        const found: Issue[] = [];
 
         if (! validDate(row.date) || row.date > today) {
-            found.push(text('التاريخ', 'Date'));
+            found.push({ key: 'date', label: text('التاريخ', 'Date'), why: text('اختر تاريخاً صحيحاً لا يتجاوز اليوم، فالقيد يُسجَّل في هذا التاريخ.', 'Pick a valid date that is not in the future; the entry is booked on it.') });
         }
 
         if (meta.party && ! row.partyId) {
-            found.push(text('الطرف', 'Party'));
+            found.push({
+                key: 'party',
+                label: meta.party === 'c' ? text('العميل', 'Customer') : text('المورد', 'Supplier'),
+                why: meta.party === 'c'
+                    ? text('اختر العميل من عمود «الطرف / البيان»، فبدونه لا يُسجَّل المستند على حسابه.', 'Choose the customer in the “Party / item” column; without one the entry has no account to post to.')
+                    : text('اختر المورد من عمود «الطرف / البيان»، فبدونه لا يُسجَّل المستند على حسابه.', 'Choose the supplier in the “Party / item” column; without one the entry has no account to post to.'),
+            });
         }
 
         if ((row.type === 'staff' || row.type === 'attendance') && ! row.partyId) {
-            found.push(text('الموظف', 'Employee'));
+            found.push({ key: 'employee', label: text('الموظف', 'Employee'), why: text('اختر الموظف من عمود «الطرف / البيان».', 'Choose the employee in the “Party / item” column.') });
         }
 
         if (row.type === 'prod' && ! row.productId) {
-            found.push(text('المنتج', 'Product'));
+            found.push({ key: 'product', label: text('المنتج', 'Product'), why: text('اختر المنتج النهائي الذي تم إنتاجه من عمود «الطرف / البيان».', 'Choose the finished product in the “Party / item” column.') });
         }
 
         if (meta.invoice) {
             if (! row.lines.some(completeLine)) {
-                found.push(text('بند كامل', 'A complete line'));
+                found.push({ key: 'lines', label: text('بند كامل', 'A complete line'), why: text('كل فاتورة تحتاج بنداً واحداً على الأقل فيه المنتج والكمية والسعر. افتح «تفاصيل» وأكمل الخانات الحمراء.', 'Every invoice needs at least one line with product, quantity and price. Open “Details” and fill the red fields.') });
             }
         } else if (row.type !== 'attendance' && num(row.amt) <= 0) {
-            found.push(row.type === 'prod' ? text('الكمية', 'Quantity') : text('المبلغ', 'Amount'));
+            found.push({
+                key: 'amount',
+                label: row.type === 'prod' ? text('الكمية', 'Quantity') : text('المبلغ', 'Amount'),
+                why: row.type === 'prod' ? text('اكتب كمية الإنتاج، وتكون أكبر من صفر.', 'Type the produced quantity, greater than zero.') : text('اكتب المبلغ في عمود «الإجمالي / المبلغ»، ويكون أكبر من صفر.', 'Type the amount in the “Total / amount” column, greater than zero.'),
+            });
         }
 
         if (meta.pay && payOf(row) > 0 && row.method === 'check' && ! row.chequeId && (! row.checkNo || ! validDate(row.checkDue))) {
-            found.push(text('بيانات الشيك', 'Check details'));
+            found.push({ key: 'check', label: text('بيانات الشيك', 'Check details'), why: text('الدفعة بشيك: اكتب رقم الشيك وتاريخ استحقاقه في «تفاصيل»، أو اختر شيكاً من شيكاتك.', 'The payment is by check: enter the check number and due date in “Details”, or pick a check on hand.') });
         }
 
         return found;
     };
-    const isReady = (row: Row): boolean => problems(row).length === 0;
+    const problems = (row: Row): string[] => issuesOf(row).map((issue) => issue.label);
+    const isReady = (row: Row): boolean => issuesOf(row).length === 0;
+    /** Red outline for a field that is still missing, once the row has been flagged. */
+    const bad = (row: Row, ...keys: Issue['key'][]): string => (row.flag && issuesOf(row).some((issue) => keys.includes(issue.key)) ? ' !border-red-500 !ring-1 !ring-red-300' : '');
 
     /* ---------- row operations ---------- */
+    // Changing the party, day or type makes any earlier "already in the system" finding stale.
     const patch = (id: number, changes: Partial<Row>) =>
-        setRows((current) => current.map((row) => (row.id === id ? { ...row, ...changes, error: '' } : row)));
+        setRows((current) => current.map((row) => (row.id === id
+            ? { ...row, ...('partyId' in changes || 'date' in changes || 'type' in changes ? { exist: null, dupOk: false } : {}), ...changes, error: '' }
+            : row)));
 
     const patchLine = (rowId: number, key: number, changes: Partial<Line>) =>
         setRows((current) => current.map((row) => (row.id === rowId
@@ -344,8 +552,9 @@ export default function QuickEntry() {
 
     const remove = (id: number) => setRows((current) => current.filter((row) => row.id !== id));
 
+    // Rows keep the order the user gave them inside a day (drag to reorder); only the days are sorted.
     const sortedRows = useMemo(
-        () => [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : TYPES.indexOf(a.type) - TYPES.indexOf(b.type) || a.id - b.id)),
+        () => [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
         [rows],
     );
 
@@ -429,10 +638,8 @@ export default function QuickEntry() {
         });
     };
 
-    const duplicateDay = (date: string) => {
-        const target = window.prompt(text('انسخ صفوف هذا اليوم إلى تاريخ (YYYY-MM-DD):', 'Copy this day to date (YYYY-MM-DD):'), addDays(date, 1));
-
-        if (! target || ! validDate(target) || target > today) {
+    const duplicateDay = (date: string, target: string) => {
+        if (! validDate(target) || target > today || target === date) {
             return;
         }
 
@@ -444,10 +651,65 @@ export default function QuickEntry() {
                 date: target,
                 error: '',
                 merged: false,
+                exist: null,
+                dupOk: false,
                 lines: row.lines.map((line) => ({ ...line, key: nextKey++ })),
             })),
         ]);
         setSelected((current) => (current.includes(target) ? current : [...current, target]));
+        setCollapsedDays((current) => current.filter((day) => day !== target));
+        setCopyingDay(null);
+    };
+
+    /** Moves a row next to another one (or to the top of a day) and gives it that day's date. */
+    const moveRow = (id: number, target: { rowId: number; after: boolean } | { day: string }) => {
+        setRows((current) => {
+            const moving = current.find((row) => row.id === id);
+
+            if (! moving) {
+                return current;
+            }
+
+            const rest = current.filter((row) => row.id !== id);
+
+            if ('day' in target) {
+                const first = rest.findIndex((row) => row.date === target.day);
+                const placed = { ...moving, date: target.day };
+
+                return first < 0 ? [...rest, placed] : [...rest.slice(0, first), placed, ...rest.slice(first)];
+            }
+
+            const index = rest.findIndex((row) => row.id === target.rowId);
+
+            if (index < 0) {
+                return current;
+            }
+
+            const placed = { ...moving, date: rest[index].date };
+
+            return [...rest.slice(0, index + (target.after ? 1 : 0)), placed, ...rest.slice(index + (target.after ? 1 : 0))];
+        });
+    };
+
+    /** Keyboard alternative to dragging: swap the row with its neighbour in the same day. */
+    const nudgeRow = (row: Row, direction: -1 | 1) => {
+        const siblings = sortedRows.filter((candidate) => candidate.date === row.date && (filter === 'all' || candidate.type === filter));
+        const neighbour = siblings[siblings.indexOf(row) + direction];
+
+        if (! neighbour) {
+            return;
+        }
+
+        pendingGrip.current = row.id;
+        setRows((current) => {
+            const a = current.findIndex((candidate) => candidate.id === row.id);
+            const b = current.findIndex((candidate) => candidate.id === neighbour.id);
+            const next = [...current];
+
+            [next[a], next[b]] = [next[b], next[a]];
+
+            return next;
+        });
     };
 
     /* ---------- days ---------- */
@@ -469,6 +731,26 @@ export default function QuickEntry() {
         return days[days.length - 1] ?? from;
     }, [activeDays, from]);
 
+    /** How many saved entries a type has since the "show from" date, and how many working days it still misses before its last entry. */
+    const savedCount = (type: RowType): number => Object.values(progress?.[type]?.days ?? {}).reduce((sum, count) => sum + count, 0);
+    const gapCount = (type: RowType): number => {
+        const info = progress?.[type];
+
+        if (! info?.last) {
+            return 0;
+        }
+
+        let missing = 0;
+
+        for (let cursor = from; cursor <= info.last; cursor = addDays(cursor, 1)) {
+            if (! isWeekend(cursor) && ! info.days[cursor]) {
+                missing++;
+            }
+        }
+
+        return missing;
+    };
+
     const addSelected = (days: string[]) => {
         setSelected((current) => [...new Set([...current, ...days])]);
         setRows((current) => {
@@ -478,6 +760,31 @@ export default function QuickEntry() {
 
             return extra.length ? [...current, ...extra] : current;
         });
+    };
+
+    /** Takes a day out of the selection and drops its empty placeholder rows; rows already filled stay. */
+    const deselectDay = (day: string) => {
+        const keptFilled = rows.some((row) => row.date === day && ! isUntouched(row));
+
+        setSelected((current) => current.filter((value) => value !== day));
+        setRows((current) => current.filter((row) => ! (row.date === day && isUntouched(row))));
+        setPlan((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== day)));
+        setNotice(keptFilled
+            ? text(`أُزيل ${day} من التحديد، وبقيت صفوفه المعبأة في الجدول (احذفها بـ ✕ إن لم تُردها).`, `${day} was removed from the selection; its filled rows stay in the table (remove them with ✕ if you do not want them).`)
+            : '');
+    };
+
+    const clearSelection = () => {
+        const days = new Set(selected);
+        const keptFilled = rows.some((row) => days.has(row.date) && ! isUntouched(row));
+
+        setSelected([]);
+        setActiveDay(null);
+        setPlan({});
+        setRows((current) => current.filter((row) => ! (days.has(row.date) && isUntouched(row))));
+        setNotice(keptFilled
+            ? text('أُلغي تحديد الأيام، وبقيت الصفوف المعبأة في الجدول.', 'The day selection was cleared; filled rows stay in the table.')
+            : '');
     };
 
     const toggleDay = (day: string, shift: boolean) => {
@@ -493,9 +800,7 @@ export default function QuickEntry() {
 
             addSelected(range);
         } else if (selected.includes(day)) {
-            if (! rows.some((row) => row.date === day)) {
-                setSelected((current) => current.filter((value) => value !== day));
-            }
+            deselectDay(day);
         } else {
             addSelected([day]);
         }
@@ -537,15 +842,48 @@ export default function QuickEntry() {
 
         const created: Row[] = [];
 
-        days.forEach((day) => visibleTypes.forEach((type) => {
-            for (let i = 0; i < counts[type]; i++) {
+        days.forEach((day) => dayTypes(day).forEach((type) => {
+            for (let i = 0; i < (plan[day]?.[type] ?? 0); i++) {
                 created.push(newRow(type, day));
             }
         }));
 
-        setRows((current) => [...current.filter((row) => ! (created.length && isUntouched(row))), ...created]);
+        if (! created.length) {
+            return;
+        }
+
+        setRows((current) => [...current.filter((row) => ! isUntouched(row)), ...created]);
+        setCollapsedDays((current) => current.filter((day) => ! days.includes(day)));
         setNotice(text(`أنشأت ${created.length} صفاً على ${days.length} يوم`, `Created ${created.length} rows over ${days.length} days`));
     };
+
+    const plannedOf = (day: string, type: RowType): number => plan[day]?.[type] ?? 0;
+
+    /** The types chosen for one day only; every day keeps its own list, so adding or removing never touches another day. */
+    const dayTypes = (day: string): RowType[] => visibleTypes.filter((type) => plan[day] !== undefined && type in plan[day]);
+
+    const toggleDayType = (day: string, type: RowType) =>
+        setPlan((current) => {
+            const mine = { ...(current[day] ?? {}) };
+
+            if (type in mine) {
+                delete mine[type];
+            } else {
+                mine[type] = 1;
+            }
+
+            return { ...current, [day]: mine };
+        });
+
+    const setDayTypes = (day: string, types: RowType[]) =>
+        setPlan((current) => ({ ...current, [day]: Object.fromEntries(types.map((type) => [type, current[day]?.[type] ?? 1])) }));
+
+    const setPlanned = (day: string, type: RowType, value: number) =>
+        setPlan((current) => ({ ...current, [day]: { ...current[day], [type]: value } }));
+
+    /** Writes one day's counts onto every other selected day. */
+    const repeatDay = (day: string) =>
+        setPlan((current) => Object.fromEntries([...selected].map((other) => [other, other === day ? current[day] ?? {} : { ...(current[day] ?? {}) }])));
 
     const isUntouched = (row: Row): boolean =>
         ! row.partyId && ! row.amt && ! row.ref && ! row.notes && ! row.productId
@@ -592,16 +930,50 @@ export default function QuickEntry() {
             ...base,
             party_id: row.type === 'misc' ? null : row.partyId,
             lines: row.lines.filter(completeLine).map((line) => ({ product_id: line.productId, quantity: num(line.qty), unit_price: num(line.price) })),
+            affects_stock: row.stock,
             discount_type: percent ? 'percent' : 'fixed',
             discount_value: percent ? num(row.disc.trim().slice(0, -1)) : num(row.disc),
             payment: row.type === 'misc' ? undefined : (payOf(row) > 0 ? payment : undefined),
         };
     };
 
+    /** Opens the "what is missing" explanation of a row and scrolls to the first row that needs attention. */
+    const toggleFlag = (id: number, force?: boolean) =>
+        setRows((current) => current.map((row) => {
+            if (row.id !== id) {
+                return row;
+            }
+
+            const next = force ?? ! row.flag;
+
+            return { ...row, flag: next, open: row.open || (next && issuesOf(row).some((issue) => issue.key === 'lines' || issue.key === 'check')) };
+        }));
+
+    const scrollToIncomplete = () => {
+        window.setTimeout(() => container.current?.querySelector('[data-incomplete]')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 80);
+    };
+
     const save = async () => {
         const ready = sortedRows.filter(isReady);
+        const incomplete = sortedRows.filter((row) => ! isReady(row));
+
+        // Rows that cannot be saved yet are never skipped silently: each one shows exactly what it lacks.
+        if (incomplete.length) {
+            const ids = new Set(incomplete.map((row) => row.id));
+
+            setRows((current) => current.map((row) => (ids.has(row.id)
+                ? { ...row, flag: true, open: row.open || issuesOf(row).some((issue) => issue.key === 'lines' || issue.key === 'check') }
+                : row)));
+            scrollToIncomplete();
+        }
 
         if (! ready.length) {
+            setNotice('');
+            setError(text(
+                `لا توجد صفوف جاهزة للحفظ (${incomplete.length} ناقص). ما ينقص كل صف مكتوب تحته بالأحمر، والحقول الناقصة معلَّمة.`,
+                `No rows are ready to save (${incomplete.length} incomplete). What each row still needs is written under it in red, and the missing fields are marked.`,
+            ));
+
             return;
         }
 
@@ -635,14 +1007,16 @@ export default function QuickEntry() {
 
             setRows((current) => current
                 .filter((row) => ! saved.has(row.id))
-                .map((row) => (failed.has(row.id) ? { ...row, error: failed.get(row.id) ?? '', open: true } : row)));
+                .map((row) => (failed.has(row.id) ? { ...row, error: failed.get(row.id) ?? '', open: true, flag: true } : row)));
+            if (failed.size) {
+                scrollToIncomplete();
+            }
             setSelected((current) => current.filter((day) => rows.some((row) => row.date === day && ! saved.has(row.id))));
-            setCheques([]);
-            apiRequest<{ data: Cheque[] }>('/api/finance/cash-movements/cheques-on-hand').then((response) => setCheques(response.data)).catch(() => undefined);
+            loadCheques();
             loadProgress();
             setNotice(text(
-                `تم حفظ ${saved.size} صف${merged ? ` (منها ${merged} ضُمّت لفاتورة اليوم)` : ''}${failed.size ? `، وتعذّر ${failed.size} (انظر الصفوف الحمراء)` : ''}.`,
-                `Saved ${saved.size} row(s)${merged ? ` (${merged} merged into the day's invoice)` : ''}${failed.size ? `, ${failed.size} failed (see the red rows)` : ''}.`,
+                `تم حفظ ${saved.size} صف${merged ? ` (منها ${merged} ضُمّت لفاتورة اليوم)` : ''}${failed.size ? `، وتعذّر ${failed.size} (سبب الرفض مكتوب تحت كل صف أحمر)` : ''}${incomplete.length ? `، وبقي ${incomplete.length} ناقصاً لم يُحفظ (ما ينقصه مكتوب تحته)` : ''}. الصفوف التي لم تُحفظ بقيت كما أدخلتها.`,
+                `Saved ${saved.size} row(s)${merged ? ` (${merged} merged into the day's invoice)` : ''}${failed.size ? `, ${failed.size} rejected (the reason is written under each red row)` : ''}${incomplete.length ? `, ${incomplete.length} incomplete and not saved (what they lack is written under them)` : ''}. Rows that were not saved are kept as you typed them.`,
             ));
         } catch (failure) {
             setError(apiErrorText(failure));
@@ -660,6 +1034,33 @@ export default function QuickEntry() {
 
         pendingFocus.current = null;
         container.current?.querySelector<HTMLElement>(`[data-row="${id}"][data-main]`)?.focus();
+    });
+
+    useEffect(() => {
+        if (dupRowId === null) {
+            return;
+        }
+
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setDupRowId(null);
+            }
+        };
+
+        window.addEventListener('keydown', onKey);
+
+        return () => window.removeEventListener('keydown', onKey);
+    }, [dupRowId]);
+
+    useEffect(() => {
+        const id = pendingGrip.current;
+
+        if (id === null) {
+            return;
+        }
+
+        pendingGrip.current = null;
+        container.current?.querySelector<HTMLElement>(`[data-grip="${id}"]`)?.focus();
     });
 
     const onEnter = (event: React.KeyboardEvent, row: Row, last: boolean) => {
@@ -683,10 +1084,112 @@ export default function QuickEntry() {
     const filteredRows = sortedRows.filter((row) => filter === 'all' || row.type === filter);
     const dates = [...new Set(filteredRows.map((row) => row.date))];
     const readyCount = rows.filter(isReady).length;
-    const matrixTotal = visibleTypes.reduce((sum, type) => sum + counts[type], 0) * selected.length;
+    const selectedDays = [...selected].sort();
+    const matrixTypes = visibleTypes.filter((type) => selectedDays.some((day) => dayTypes(day).includes(type)));
+    const matrixTotal = selectedDays.reduce((sum, day) => sum + dayTypes(day).reduce((inner, type) => inner + plannedOf(day, type), 0), 0);
+    const currentDay = activeDay && selected.includes(activeDay) ? activeDay : (selectedDays[0] ?? null);
+    const currentTypes = currentDay ? dayTypes(currentDay) : [];
+    const dupRow = dupRowId === null ? null : (rows.find((row) => row.id === dupRowId) ?? null);
     const duplicates = (row: Row): boolean =>
         (row.type === 'sale' || row.type === 'purchase') && !! row.partyId
         && rows.some((other) => other.id < row.id && other.type === row.type && other.partyId === row.partyId && other.date === row.date);
+
+    /* ---------- warn when the system already holds this party's entry for the day ---------- */
+    const existingKey = (row: Row): string | null => {
+        if (! validDate(row.date) || row.date > today) {
+            return null;
+        }
+
+        if (row.type === 'sale' || row.type === 'purchase' || row.type === 'receipt' || row.type === 'payment') {
+            return row.partyId ? `${row.type}|${row.partyId}|${row.date}` : null;
+        }
+
+        return row.type === 'misc' && totals(row).total > 0 ? `misc||${row.date}` : null;
+    };
+
+    useEffect(() => {
+        rows.forEach((row) => {
+            const key = existingKey(row);
+
+            if (! key || askedExisting.current.has(`${row.id}|${key}`)) {
+                return;
+            }
+
+            askedExisting.current.add(`${row.id}|${key}`);
+
+            const query = new URLSearchParams({ type: row.type, date: row.date });
+
+            if (row.type !== 'misc' && row.partyId) {
+                query.set('party_id', String(row.partyId));
+            }
+
+            apiRequest<{ data: ExistingEntry[] }>(`/api/quick-entry/existing?${query.toString()}`)
+                .then((response) => {
+                    if (! response.data.length) {
+                        return;
+                    }
+
+                    setRows((current) => current.map((candidate) => (candidate.id === row.id && existingKey(candidate) === key
+                        ? { ...candidate, exist: response.data, dupOk: false }
+                        : candidate)));
+                    setDupRowId(row.id);
+                })
+                .catch(() => undefined);
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rows]);
+
+    const daySums = (group: Row[]) => {
+        const sums = { sales: 0, purchases: 0, received: 0, paid: 0, petty: 0 };
+
+        group.forEach((row) => {
+            if (row.type === 'sale') {
+                sums.sales += totals(row).total;
+                sums.received += payOf(row);
+            } else if (row.type === 'misc') {
+                sums.sales += totals(row).total;
+                sums.received += totals(row).total;
+            } else if (row.type === 'purchase') {
+                sums.purchases += totals(row).total;
+                sums.paid += payOf(row);
+            } else if (row.type === 'receipt') {
+                sums.received += payOf(row);
+            } else if (row.type === 'payment') {
+                sums.paid += payOf(row);
+            } else if (row.type === 'petty') {
+                sums.petty += num(row.amt);
+            }
+        });
+
+        return sums;
+    };
+
+    function sumChips(group: Row[]) {
+        const sums = daySums(group);
+        const items: Array<[string, number, string]> = [
+            [text('مبيعات', 'Sales'), sums.sales, ''],
+            [text('مشتريات', 'Purchases'), sums.purchases, ''],
+            [text('مقبوض', 'Received'), sums.received, 'text-emerald-600'],
+            [text('مدفوع', 'Paid'), sums.paid, 'text-red-600'],
+            [text('نثريات', 'Petty'), sums.petty, ''],
+        ];
+        const visible = items.filter(([, value]) => value > 0);
+
+        if (! visible.length) {
+            return <span className="text-xs font-normal text-[var(--ac-text-muted)]">{text('لا مبالغ بعد', 'No amounts yet')}</span>;
+        }
+
+        const chip = 'inline-flex items-baseline gap-1 rounded-full border border-[var(--ac-line)] bg-[var(--ac-surface)] px-2.5 py-0.5 text-[11px] font-normal text-[var(--ac-text-muted)]';
+
+        return (
+            <>
+                {visible.map(([label, value, tone]) => (
+                    <span key={label} className={chip}>{label} <b className={'font-bold tabular-nums text-[var(--ac-text)] ' + tone}>{money(value)}</b></span>
+                ))}
+                <span className={chip}>{text('صافي النقد', 'Net cash')} <b className="font-bold tabular-nums text-[var(--ac-text)]">{money(sums.received - sums.paid - sums.petty)}</b></span>
+            </>
+        );
+    }
 
     /* ---------- render ---------- */
     function partySelect(row: Row) {
@@ -694,7 +1197,7 @@ export default function QuickEntry() {
 
         if (meta.party) {
             return (
-                <select data-main data-row={row.id} className={field} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
+                <select data-main data-row={row.id} className={field + bad(row, 'party')} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
                     <option value="">{meta.party === 'c' ? text('اسم العميل', 'Customer') : text('اسم المورد', 'Supplier')}</option>
                     {(meta.party === 'c' ? customers : suppliers).map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
                 </select>
@@ -715,7 +1218,7 @@ export default function QuickEntry() {
 
         if (row.type === 'prod') {
             return (
-                <select data-main data-row={row.id} className={field} value={row.productId ?? ''} onChange={(event) => patch(row.id, { productId: event.target.value ? Number(event.target.value) : null })}>
+                <select data-main data-row={row.id} className={field + bad(row, 'product')} value={row.productId ?? ''} onChange={(event) => patch(row.id, { productId: event.target.value ? Number(event.target.value) : null })}>
                     <option value="">{text('المنتج النهائي', 'Finished product')}</option>
                     {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
                 </select>
@@ -725,7 +1228,7 @@ export default function QuickEntry() {
         const roster = row.type === 'attendance' ? attendanceStaff : staff;
 
         return (
-            <select data-main data-row={row.id} className={field} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
+            <select data-main data-row={row.id} className={field + bad(row, 'employee')} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
                 <option value="">{text('الموظف', 'Employee')}</option>
                 {roster.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
             </select>
@@ -768,7 +1271,7 @@ export default function QuickEntry() {
                     )}
                     <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
                         {text('الطريقة', 'Method')}
-                        <select className={field + ' mt-1'} value={row.method} onChange={(event) => patch(row.id, { method: event.target.value as Method, chequeId: null })}>
+                        <select className={field + ' mt-1'} value={row.method} onChange={(event) => { patch(row.id, { method: event.target.value as Method, chequeId: null }); if (event.target.value === 'check') { loadCheques(); } }}>
                             <option value="cash">{text('نقدي', 'Cash')}</option>
                             <option value="check">{text('شيك', 'Check')}</option>
                             <option value="transfer">{text('تحويل', 'Transfer')}</option>
@@ -776,7 +1279,10 @@ export default function QuickEntry() {
                     </label>
                     {row.method === 'check' && meta.party === 's' && (
                         <label className="col-span-2 text-[11px] font-bold text-[var(--ac-text-muted)]">
-                            {text('شيك من شيكاتي (تجيير)', 'Check on hand (endorse)')}
+                            <span className="flex items-center justify-between">
+                                {text('شيك من شيكاتي (تجيير)', 'Check on hand (endorse)')}
+                                <button type="button" className="text-[11px] font-bold text-[var(--ac-accent)]" onClick={loadCheques}>{text('تحديث القائمة', 'Refresh list')}</button>
+                            </span>
                             <select className={field + ' mt-1'} value={row.chequeId ?? ''} onChange={(event) => chooseCheque(row, event.target.value)}>
                                 <option value="">{text('شيك جديد (أكتب بياناته)', 'New check (enter details)')}</option>
                                 {dueCheques.map((cheque) => (
@@ -796,11 +1302,11 @@ export default function QuickEntry() {
                         <>
                             <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
                                 {text('رقم الشيك', 'Check number')}
-                                <input className={field + ' mt-1 text-left'} dir="ltr" value={row.checkNo} onChange={(event) => patch(row.id, { checkNo: event.target.value })} />
+                                <input className={field + ' mt-1 text-left' + bad(row, 'check')} dir="ltr" value={row.checkNo} onChange={(event) => patch(row.id, { checkNo: event.target.value })} />
                             </label>
                             <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
                                 {text('تاريخ الاستحقاق', 'Due date')}
-                                <input type="date" className={field + ' mt-1'} dir="ltr" min="2000-01-01" value={row.checkDue} onChange={(event) => patch(row.id, { checkDue: event.target.value })} />
+                                <input type="date" className={field + ' mt-1' + bad(row, 'check')} dir="ltr" min="2000-01-01" value={row.checkDue} onChange={(event) => patch(row.id, { checkDue: event.target.value })} />
                             </label>
                         </>
                     )}
@@ -854,13 +1360,13 @@ export default function QuickEntry() {
                                 {row.lines.map((line) => (
                                     <tr key={line.key}>
                                         <td className="py-1 pe-1">
-                                            <select className={field} value={line.productId ?? ''} onChange={(event) => void chooseProduct(row, line, event.target.value ? Number(event.target.value) : null)}>
+                                            <select className={field + (bad(row, 'lines') && ! line.productId ? ' !border-red-500 !ring-1 !ring-red-300' : '')} value={line.productId ?? ''} onChange={(event) => void chooseProduct(row, line, event.target.value ? Number(event.target.value) : null)}>
                                                 <option value="">{text('المنتج', 'Product')}</option>
                                                 {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
                                             </select>
                                         </td>
-                                        <td className="py-1 pe-1"><input className={field + ' !w-20 text-left'} dir="ltr" value={line.qty} onChange={(event) => patchLine(row.id, line.key, { qty: event.target.value })} /></td>
-                                        <td className="py-1 pe-1"><input className={field + ' !w-24 text-left'} dir="ltr" value={line.price} onChange={(event) => patchLine(row.id, line.key, { price: event.target.value })} /></td>
+                                        <td className="py-1 pe-1"><input className={field + ' !w-20 text-left' + (bad(row, 'lines') && ! (num(line.qty) > 0) ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.qty} onChange={(event) => patchLine(row.id, line.key, { qty: event.target.value })} /></td>
+                                        <td className="py-1 pe-1"><input className={field + ' !w-24 text-left' + (bad(row, 'lines') && line.price === '' ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.price} onChange={(event) => patchLine(row.id, line.key, { price: event.target.value })} /></td>
                                         <td className="py-1 pe-1 text-left" dir="ltr">{money(lineTotal(line))}</td>
                                         <td>
                                             <button type="button" aria-label={text('حذف البند', 'Remove line')} className="p-1.5 text-red-500" onClick={() => setRows((current) => current.map((candidate) => (candidate.id === row.id ? { ...candidate, lines: candidate.lines.length > 1 ? candidate.lines.filter((l) => l.key !== line.key) : [newLine()] } : candidate)))}>
@@ -875,6 +1381,10 @@ export default function QuickEntry() {
                             <button type="button" className={btnSecondary} onClick={() => setRows((current) => current.map((candidate) => (candidate.id === row.id ? { ...candidate, lines: [...candidate.lines, newLine()] } : candidate)))}>
                                 <Plus size={14} />{text('بند', 'Line')}
                             </button>
+                            <label className="flex items-center gap-1.5 text-xs font-bold text-[var(--ac-text-muted)]">
+                                <input type="checkbox" className="size-4" checked={row.stock} onChange={(event) => patch(row.id, { stock: event.target.checked })} />
+                                {row.type === 'purchase' ? text('يُضاف للمخزون (للمنتجات المتتبَّعة)', 'Adds to stock (tracked products)') : text('يُخصم من المخزون (للمنتجات المتتبَّعة)', 'Deducts from stock (tracked products)')}
+                            </label>
                             <span className="text-xs text-[var(--ac-text-muted)]">
                                 {text('المجموع', 'Subtotal')} <b>{money(x.subtotal)}</b> · {text('الخصم', 'Discount')} <b>{money(x.discount)}</b> · {text('الإجمالي', 'Total')} <b>{money(x.total)}</b>
                             </span>
@@ -929,20 +1439,106 @@ export default function QuickEntry() {
 
         return (
             <Fragment key={row.id}>
-                <tr className={row.error ? 'bg-red-500/5' : ''}>
+                <tr
+                    className={(row.error ? 'bg-red-500/5 ' : '') + (dragId === row.id ? 'opacity-40' : '')}
+                    style={dropMark?.id === row.id && dropMark.where !== 'day'
+                        ? { boxShadow: dropMark.where === 'before' ? 'inset 0 2px 0 var(--ac-accent)' : 'inset 0 -2px 0 var(--ac-accent)' }
+                        : undefined}
+                    onDragOver={(event) => {
+                        if (dragId === null || dragId === row.id) {
+                            return;
+                        }
+
+                        event.preventDefault();
+
+                        const rect = event.currentTarget.getBoundingClientRect();
+
+                        setDropMark({ id: row.id, where: event.clientY < rect.top + rect.height / 2 ? 'before' : 'after' });
+                    }}
+                    onDrop={(event) => {
+                        if (dragId === null) {
+                            return;
+                        }
+
+                        event.preventDefault();
+
+                        const rect = event.currentTarget.getBoundingClientRect();
+
+                        if (dragId !== row.id) {
+                            moveRow(dragId, { rowId: row.id, after: event.clientY >= rect.top + rect.height / 2 });
+                        }
+
+                        setDragId(null);
+                        setDropMark(null);
+                    }}
+                >
+                    <td className="w-6 px-0.5">
+                        <span
+                            role="button"
+                            tabIndex={0}
+                            draggable
+                            data-grip={row.id}
+                            title={text('اسحب لتغيير الترتيب', 'Drag to reorder')}
+                            aria-label={text('تغيير ترتيب الصف: اسحب، أو استخدم السهمين للأعلى والأسفل', 'Reorder row: drag, or use the up and down arrow keys')}
+                            className="inline-flex size-6 cursor-grab items-center justify-center rounded-md text-[var(--ac-text-muted)] hover:bg-[var(--ac-accent-soft,#e3eeff)] active:cursor-grabbing"
+                            onDragStart={(event) => {
+                                setDragId(row.id);
+                                event.dataTransfer.effectAllowed = 'move';
+                                event.dataTransfer.setData('text/plain', String(row.id));
+
+                                const tr = event.currentTarget.closest('tr');
+
+                                if (tr) {
+                                    event.dataTransfer.setDragImage(tr, 24, 16);
+                                }
+                            }}
+                            onDragEnd={() => {
+                                setDragId(null);
+                                setDropMark(null);
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                                    event.preventDefault();
+                                    nudgeRow(row, event.key === 'ArrowUp' ? -1 : 1);
+                                }
+                            }}
+                        >
+                            <GripVertical size={14} />
+                        </span>
+                    </td>
                     <td className="w-7 text-center text-xs text-[var(--ac-text-muted)]">{index + 1}</td>
                     <td className="px-1.5 py-1.5">
-                        <select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
+                        <select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: event.target.value === 'purchase', lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
                             {visibleTypes.map((type) => <option key={type} value={type}>{typeName(type)}</option>)}
                         </select>
                     </td>
                     <td className="px-1.5 py-1.5">
-                        <input type="date" className={field + ' min-w-[128px]'} dir="ltr" max={today} min="2000-01-01" value={row.date} onChange={(event) => { patch(row.id, { date: event.target.value }); if (validDate(event.target.value)) { setSelected((current) => [...new Set([...current, event.target.value])]); } }} />
+                        <CommitDate
+                            label={text('التاريخ', 'Date')}
+                            className={field + ' min-w-[128px]' + bad(row, 'date')}
+                            value={row.date}
+                            max={today}
+                            onCommit={(next) => {
+                                patch(row.id, { date: next });
+                                setSelected((current) => [...new Set([...current, next])]);
+                                setCollapsedDays((current) => current.filter((day) => day !== next));
+                            }}
+                        />
                     </td>
                     <td className="min-w-[160px] px-1.5 py-1.5">
                         {partySelect(row)}
                         {duplicates(row) && <div className="mt-1 inline-block rounded-[8px] bg-violet-500/10 px-2 py-0.5 text-[11px] font-bold text-violet-600">{text('ستُضمّ لفاتورة اليوم', 'Will merge into the day\'s invoice')}</div>}
                         {row.merged && <div className="mt-1 inline-block rounded-[8px] bg-violet-500/10 px-2 py-0.5 text-[11px] font-bold text-violet-600">{text('ضُمّت', 'Merged')}</div>}
+                        {row.exist && (
+                            <button type="button" className="mt-1 inline-flex items-center gap-1 rounded-[8px] bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-700" onClick={() => setDupRowId(row.id)}>
+                                <TriangleAlert size={12} />{text('يوجد إدخال سابق · راجع', 'Already entered · review')}
+                            </button>
+                        )}
+                        {! row.exist && row.dupOk && (
+                            <div className="mt-1 inline-block rounded-[8px] bg-violet-500/10 px-2 py-0.5 text-[11px] font-bold text-violet-600">
+                                {meta.invoice ? text('مؤكَّدة: تُضمّ لفاتورة اليوم', 'Confirmed: merges into the day\'s invoice') : text('مؤكَّد: قيد إضافي', 'Confirmed: separate entry')}
+                            </div>
+                        )}
                     </td>
                     <td className="min-w-[110px] px-1.5 py-1.5">
                         <input data-main data-row={row.id} className={field} placeholder={text('رقم ورقي', 'Paper no.')} value={row.ref} onChange={(event) => patch(row.id, { ref: event.target.value })} onKeyDown={(event) => onEnter(event, row, false)} />
@@ -959,17 +1555,21 @@ export default function QuickEntry() {
                                 <option value="absent">{text('غائب', 'Absent')}</option>
                             </select>
                         ) : (
-                            <input data-main data-row={row.id} className={field + ' text-left'} dir="ltr" placeholder={row.type === 'prod' ? text('الكمية', 'Quantity') : text('المبلغ', 'Amount')} value={row.amt} onChange={(event) => patch(row.id, { amt: event.target.value })} onKeyDown={(event) => onEnter(event, row, true)} />
+                            <input data-main data-row={row.id} className={field + ' text-left' + bad(row, 'amount')} dir="ltr" placeholder={row.type === 'prod' ? text('الكمية', 'Quantity') : text('المبلغ', 'Amount')} value={row.amt} onChange={(event) => patch(row.id, { amt: event.target.value })} onKeyDown={(event) => onEnter(event, row, true)} />
                         )}
                     </td>
                     <td className="px-1.5 py-1.5 text-xs text-[var(--ac-text-muted)]">
                         {meta.invoice ? (meta.pay ? (payOf(row) > 0 ? money(payOf(row)) : text('بدون دفعة', 'No payment')) : text('نقداً فوراً', 'Cash now')) : meta.pay ? (row.method === 'check' ? text('شيك', 'Check') : row.method === 'transfer' ? text('تحويل', 'Transfer') : text('نقدي', 'Cash')) : '—'}
                     </td>
-                    <td className="px-1.5 py-1.5">
+                    <td className="min-w-[150px] px-1.5 py-1.5">
                         {row.error
-                            ? <span className="rounded-full bg-red-500/10 px-2.5 py-0.5 text-[11px] font-bold text-red-600">{row.error}</span>
+                            ? <button type="button" className="rounded-full bg-red-500/10 px-2.5 py-0.5 text-start text-[11px] font-bold text-red-600" onClick={() => toggleFlag(row.id)}>{text('رفضه النظام · اضغط لترى السبب', 'Rejected · tap for the reason')}</button>
                             : missing.length
-                                ? <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">{text('ينقص: ', 'Missing: ')}{missing[0]}</span>
+                                ? (
+                                    <button type="button" title={text('اضغط لترى ما الناقص ولماذا', 'Tap to see what is missing and why')} className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-start text-[11px] font-bold text-amber-700" onClick={() => toggleFlag(row.id)}>
+                                        {text('ينقص: ', 'Missing: ')}{missing[0]}{missing.length > 1 ? ` +${missing.length - 1}` : ''}
+                                    </button>
+                                )
                                 : <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">{text('جاهز', 'Ready')}</span>}
                     </td>
                     <td className="px-1.5 py-1.5">
@@ -983,8 +1583,39 @@ export default function QuickEntry() {
                         <button type="button" aria-label={text('حذف الصف', 'Remove row')} className="p-2 text-red-500" onClick={() => remove(row.id)}><X size={16} /></button>
                     </td>
                 </tr>
+                {(row.error || (row.flag && missing.length > 0)) && (
+                    <tr data-incomplete className="bg-red-500/5">
+                        <td />
+                        <td />
+                        <td colSpan={9} className="px-3 pb-3 pt-1">
+                            <div className="rounded-[12px] border border-red-500/30 bg-red-500/10 p-3 text-sm text-[var(--ac-text)]">
+                                {row.error && (
+                                    <div className="mb-2">
+                                        <b className="text-red-600">{text('رفض النظام هذا الصف:', 'The system rejected this row:')}</b> {row.error}
+                                        <div className="mt-0.5 text-xs text-[var(--ac-text-muted)]">{text('صحّح ما ذُكر ثم اضغط «حفظ الجاهز» مرة ثانية. بقية بيانات الصف محفوظة كما كتبتها.', 'Fix what is mentioned, then press “Save ready” again. The rest of the row is kept as you typed it.')}</div>
+                                    </div>
+                                )}
+                                {missing.length > 0 && (
+                                    <>
+                                        <b className="text-red-600">{text(`ما ينقص هذا الصف (${missing.length}):`, `What this row still needs (${missing.length}):`)}</b>
+                                        <ul className="mt-1 space-y-1">
+                                            {issuesOf(row).map((issue) => (
+                                                <li key={issue.key} className="flex flex-wrap items-baseline gap-2">
+                                                    <span className="rounded-md bg-red-600 px-2 py-0.5 text-xs font-bold text-white">{issue.label}</span>
+                                                    <span className="text-xs text-[var(--ac-text-muted)]">{issue.why}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </>
+                                )}
+                                {! row.error && <button type="button" className={btnSecondary + ' mt-2'} onClick={() => toggleFlag(row.id, false)}>{text('إخفاء', 'Hide')}</button>}
+                            </div>
+                        </td>
+                    </tr>
+                )}
                 {row.open && (
                     <tr className="bg-[var(--ac-surface-soft,#fafcff)]">
+                        <td />
                         <td />
                         <td colSpan={9} className="px-3 py-3">{detailPanel(row)}</td>
                     </tr>
@@ -1038,14 +1669,23 @@ export default function QuickEntry() {
                             <h1 className="text-2xl font-bold tracking-[-0.03em] text-[var(--ac-text)]">{text('الإدخال السريع', 'Quick entry')}</h1>
                         </div>
                         <p className="mt-1 max-w-3xl text-sm text-[var(--ac-text-muted)]">
-                            {text('فواتير ودفعات ونثريات وإنتاج وموظفين في جدول واحد. اختر الأيام، حدد كم صفاً من كل نوع لكل يوم، واملأ الجدول.', 'Invoices, payments, petty expenses, production and staff in one table. Pick the days, set how many rows of each type per day, then fill the table.')}
+                            {text('فواتير ودفعات ونثريات وإنتاج وموظفين في جدول واحد. اختر الأيام والأنواع، حدد عدد كل نوع في كل يوم على حدة، واملأ الجدول.', 'Invoices, payments, petty expenses, production and staff in one table. Pick the days and types, set the count of each type for each day separately, then fill the table.')}
                         </p>
                     </div>
-                    <button type="button" className={btnPrimary} disabled={! readyCount || saving} onClick={() => void save()}>
+                    <button type="button" className={btnPrimary} disabled={! rows.length || saving} onClick={() => void save()}>
                         <Save size={16} />{saving ? text('جارٍ الحفظ…', 'Saving…') : text(`حفظ الجاهز (${readyCount})`, `Save ready (${readyCount})`)}
                     </button>
                 </header>
 
+                {restored > 0 && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] border border-sky-500/25 bg-sky-500/10 p-3 text-sm text-[var(--ac-text)]">
+                        <span>{text(`استُعيد ${restored} صف من آخر مرة. تُحفظ مسودتك تلقائياً في هذا المتصفح، ولم تُرسل للنظام بعد حتى تضغط «حفظ الجاهز».`, `${restored} row(s) were restored from last time. Your draft is kept automatically in this browser and is not sent to the system until you press “Save ready”.`)}</span>
+                        <span className="flex gap-2">
+                            <button type="button" className={btnSecondary} onClick={() => setRestored(0)}>{text('تمام', 'OK')}</button>
+                            <button type="button" className={btnSecondary} onClick={() => { setRows([]); setSelected([]); setRestored(0); }}>{text('تجاهل المسودة', 'Discard draft')}</button>
+                        </span>
+                    </div>
+                )}
                 {error && <div className="rounded-[14px] border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
                 {notice && <div className="rounded-[14px] border border-emerald-500/25 bg-emerald-500/10 p-3 text-sm text-emerald-700">{notice}</div>}
 
@@ -1063,14 +1703,19 @@ export default function QuickEntry() {
                                 <p className="mb-2 mt-1 text-xs text-[var(--ac-text-muted)]">
                                     {info?.last ? `${text('وصلت: ', 'Reached: ')}${info.last} · ${info.ref ?? ''}` : text('لا إدخال في هذه الفترة', 'No entries in this period')}
                                 </p>
+                                <div className="mb-2 flex flex-wrap gap-1 text-[11px] font-bold">
+                                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-700" title={text('مدخلات محفوظة في النظام منذ تاريخ «عرض من»', 'Entries saved in the system since the “show from” date')}>{savedCount(type)} {text('محفوظ', 'saved')}</span>
+                                    {gapCount(type) > 0 && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700" title={text('أيام عمل قبل آخر إدخال ليس فيها إدخال من هذا النوع', 'Working days before the last entry with none of this type')}>{gapCount(type)} {text('يوم فراغ', 'gap days')}</span>}
+                                    {rows.filter((row) => row.type === type).length > 0 && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-sky-700" title={text('صفوف في الجدول لم تُحفظ بعد', 'Rows in the table not saved yet')}>{rows.filter((row) => row.type === type).length} {text('بالجدول', 'in table')}</span>}
+                                </div>
                                 <button type="button" className={btnSecondary + ' w-full justify-center'} onClick={() => continueFrom(type)}><Play size={13} />{text('تابع من هنا', 'Continue here')}</button>
                             </div>
                         );
                     })}
                 </section>
 
-                <div className="grid items-start gap-4 xl:grid-cols-[1fr_340px]">
-                    <div className="space-y-3">
+                <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="min-w-0 space-y-3">
                         <nav className="flex flex-wrap gap-1 rounded-[16px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-1.5" aria-label={text('نوع الإدخال', 'Entry type')}>
                             {(['all', ...visibleTypes] as Array<'all' | RowType>).map((type) => (
                                 <button key={type} type="button" className={'inline-flex min-h-10 items-center gap-1.5 rounded-[11px] px-3 text-sm font-bold ' + (filter === type ? 'bg-[var(--ac-accent)] text-white' : 'text-[var(--ac-text-muted)]')} onClick={() => setFilter(type)}>
@@ -1081,12 +1726,182 @@ export default function QuickEntry() {
                             ))}
                         </nav>
 
+                        <section className={card + ' !border-2 !border-[var(--ac-accent)]'} aria-labelledby="qe-compose">
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <h3 id="qe-compose" className="text-sm font-bold">{text('إضافة صفوف', 'Add rows')}</h3>
+                                <span className="text-xs text-[var(--ac-text-muted)]">{text('لكل يوم أنواعه وأعداده الخاصة، ولا يتأثر بغيره.', 'Every day has its own types and counts and is never affected by the others.')}</span>
+                            </div>
+
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <div>
+                                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                                        <p className="text-xs font-bold text-[var(--ac-text-muted)]">{text('الأيام المحددة', 'Selected days')}{selectedDays.length ? ` (${selectedDays.length})` : ''}</p>
+                                        {selectedDays.length > 0 && <button type="button" className="text-xs font-bold text-[var(--ac-accent)] hover:underline" onClick={clearSelection}>{text('إلغاء التحديد', 'Clear selection')}</button>}
+                                    </div>
+                                    <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+                                        {selectedDays.length ? selectedDays.map((day) => (
+                                            <span key={day} className={'inline-flex items-center rounded-full border text-xs font-bold ' + (day === currentDay ? 'border-[var(--ac-accent)] bg-[var(--ac-accent)] text-white' : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text)]')}>
+                                                <button type="button" aria-pressed={day === currentDay} aria-label={text(`تعديل أنواع وأعداد ${day}`, `Edit types and counts for ${day}`)} className="rounded-full px-2.5 py-1 hover:bg-black/10" onClick={() => setActiveDay(day)}>
+                                                    <bdi dir="ltr">{day.slice(8)}/{day.slice(5, 7)}</bdi>
+                                                    {dayTypes(day).length > 0 && <span className="ms-1.5 opacity-80">· {dayTypes(day).reduce((sum, type) => sum + plannedOf(day, type), 0)}</span>}
+                                                </button>
+                                                <button type="button" aria-label={text(`إزالة ${day}`, `Remove ${day}`)} className="rounded-full px-1.5 py-1 hover:bg-black/10" onClick={() => deselectDay(day)}>
+                                                    <X size={12} />
+                                                </button>
+                                            </span>
+                                        )) : <span className="text-xs text-[var(--ac-text-muted)]">{text('لم تحدد أياماً بعد. اختر من التقويم.', 'No days yet. Pick them from the calendar.')}</span>}
+                                    </div>
+                                    {currentDay && (
+                                        <div className="mt-3">
+                                                <button type="button" aria-expanded={typeMenu} className={btnSecondary + ' w-full justify-between'} onClick={() => setTypeMenu((open) => ! open)}>
+                                                    <span>{text(`إضافة أنواع ليوم ${currentDay.slice(8)}/${currentDay.slice(5, 7)}`, `Add types to ${currentDay.slice(8)}/${currentDay.slice(5, 7)}`)}</span>
+                                                    <ChevronDown size={16} className={typeMenu ? 'rotate-180' : ''} />
+                                                </button>
+
+                                                {typeMenu && (
+                                                    <div className="mt-2 overflow-hidden rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
+                                                        <label className="flex items-center gap-2 border-b border-[var(--ac-line)] px-3">
+                                                            <Search size={14} className="text-[var(--ac-text-muted)]" />
+                                                            <input className="h-10 w-full bg-transparent text-sm outline-none" placeholder={text('ابحث عن نوع…', 'Search types…')} value={typeQuery} onChange={(event) => setTypeQuery(event.target.value)} />
+                                                        </label>
+                                                        <ul role="listbox" aria-multiselectable="true" className="max-h-[220px] overflow-y-auto">
+                                                            {visibleTypes
+                                                                .filter((type) => `${META[type].ar} ${META[type].en}`.toLowerCase().includes(typeQuery.trim().toLowerCase()))
+                                                                .map((type) => {
+                                                                    const on = currentTypes.includes(type);
+
+                                                                    return (
+                                                                        <li key={type} role="option" aria-selected={on}>
+                                                                            <button type="button" className={'flex min-h-9 w-full items-center gap-2 px-3 text-start text-sm hover:bg-[var(--ac-accent-soft,#e3eeff)] ' + (on ? 'bg-[var(--ac-accent-soft,#eef4ff)]' : '')} onClick={() => toggleDayType(currentDay, type)}>
+                                                                                <span className={'grid size-[18px] place-items-center rounded-[5px] border ' + (on ? 'border-[var(--ac-accent)] bg-[var(--ac-accent)] text-white' : 'border-[var(--ac-line)] bg-[var(--ac-surface)]')}>{on && <Check size={12} />}</span>
+                                                                                <span className="size-2.5 rounded-full" style={{ background: META[type].color }} />
+                                                                                <span className="flex-1">{typeName(type)}</span>
+                                                                                <small className="text-[11px] text-[var(--ac-text-muted)]">{text(`حتى ${MAX_PER_DAY} في اليوم`, `up to ${MAX_PER_DAY} per day`)}</small>
+                                                                            </button>
+                                                                        </li>
+                                                                    );
+                                                                })}
+                                                        </ul>
+                                                        <div className="flex gap-2 border-t border-[var(--ac-line)] p-2">
+                                                            <button type="button" className={btnSecondary} onClick={() => setDayTypes(currentDay, [...visibleTypes])}>{text('كل الأنواع لهذا اليوم', 'All types for this day')}</button>
+                                                            <button type="button" className={btnSecondary} onClick={() => setDayTypes(currentDay, [])}>{text('مسح أنواع هذا اليوم', 'Clear this day')}</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    {currentDay ? (
+                                        <div className="rounded-[14px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft,#f8fbff)] p-3">
+                                            <div className="mb-2 flex items-center justify-between gap-2">
+                                                <button type="button" className={btnSecondary + ' !px-2'} aria-label={text('اليوم السابق', 'Previous day')} disabled={selectedDays.indexOf(currentDay) <= 0} onClick={() => setActiveDay(selectedDays[selectedDays.indexOf(currentDay) - 1])}>
+                                                    {ar ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                                                </button>
+                                                <div className="text-center text-sm font-bold">
+                                                    {(ar ? DAYS_AR : DAYS_EN)[weekday(currentDay)]} <bdi dir="ltr">{currentDay.slice(8)}/{currentDay.slice(5, 7)}/{currentDay.slice(0, 4)}</bdi>
+                                                    <div className="text-[11px] font-normal text-[var(--ac-text-muted)]">{text(`اليوم ${selectedDays.indexOf(currentDay) + 1} من ${selectedDays.length} · أنواع هذا اليوم فقط`, `Day ${selectedDays.indexOf(currentDay) + 1} of ${selectedDays.length} · types for this day only`)}</div>
+                                                </div>
+                                                <button type="button" className={btnSecondary + ' !px-2'} aria-label={text('اليوم التالي', 'Next day')} disabled={selectedDays.indexOf(currentDay) >= selectedDays.length - 1} onClick={() => setActiveDay(selectedDays[selectedDays.indexOf(currentDay) + 1])}>
+                                                    {ar ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+                                                </button>
+                                            </div>
+
+                                            <div className="mt-2 max-h-[240px] overflow-y-auto pe-1">
+                                                {currentTypes.length === 0 ? (
+                                                    <p className="text-xs text-[var(--ac-text-muted)]">{text('لم تُضف أنواعاً لهذا اليوم بعد. اضغط «إضافة أنواع لهذا اليوم».', 'No types added to this day yet. Press “Add types to this day”.')}</p>
+                                                ) : currentTypes.map((type) => (
+                                                    <div key={type} className="flex items-center gap-2 border-b border-[var(--ac-line)] py-1 last:border-b-0">
+                                                        <span className="size-2.5 rounded-full" style={{ background: META[type].color }} />
+                                                        <span className="flex-1 text-sm">{typeName(type)}</span>
+                                                        <CountStepper value={plannedOf(currentDay, type)} label={`${typeName(type)} ${currentDay}`} onChange={(value) => setPlanned(currentDay, type, value)} />
+                                                        <button type="button" aria-label={text(`إزالة ${typeName(type)} من هذا اليوم فقط`, `Remove ${typeName(type)} from this day only`)} title={text('إزالة من هذا اليوم فقط', 'Remove from this day only')} className="rounded-md p-1.5 text-red-500 hover:bg-red-500/10" onClick={() => toggleDayType(currentDay, type)}>
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {currentTypes.length > 0 && (
+                                                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                                                    <span className="text-xs text-[var(--ac-text-muted)]">{text('مجموع هذا اليوم', 'This day')}: <b className="text-[var(--ac-text)]">{currentTypes.reduce((sum, type) => sum + plannedOf(currentDay, type), 0)}</b></span>
+                                                    {selectedDays.length > 1 && <button type="button" className={btnSecondary} title={text('ينسخ أنواع وأعداد هذا اليوم إلى كل الأيام المحددة', 'Copies this day\'s types and counts to every selected day')} onClick={() => repeatDay(currentDay)}>{text('كرّر على بقية الأيام', 'Repeat on the other days')}</button>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="rounded-[14px] border border-dashed border-[var(--ac-line)] p-4 text-sm text-[var(--ac-text-muted)]">{text('اختر يوماً من التقويم أولاً، ثم أضف له أنواعه وأعدادها.', 'Pick a day from the calendar first, then add its types and counts.')}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {selectedDays.length > 0 && matrixTypes.length > 0 && (
+                                <div className="mt-3">
+                                    <button type="button" className={btnSecondary} aria-expanded={showMatrix} onClick={() => setShowMatrix((open) => ! open)}>
+                                        {showMatrix ? text('إخفاء جدول كل الأيام', 'Hide all-days table') : text('عرض جدول كل الأيام', 'Show all-days table')}
+                                    </button>
+                                    {showMatrix && (
+                                        <div className="mt-2 max-h-[320px] overflow-auto">
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="text-xs font-bold text-[var(--ac-text-muted)]">
+                                                        <th className="px-2 py-2 text-start">{text('اليوم', 'Day')}</th>
+                                                        {matrixTypes.map((type) => (
+                                                            <th key={type} className="px-2 py-2 text-center"><span className="me-1.5 inline-block size-2 rounded-full" style={{ background: META[type].color }} />{typeName(type)}</th>
+                                                        ))}
+                                                        <th className="px-2 py-2 text-center">{text('المجموع', 'Total')}</th>
+                                                        <th />
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {selectedDays.map((day) => (
+                                                        <tr key={day} className="border-t border-[var(--ac-line)]">
+                                                            <th className="whitespace-nowrap px-2 py-1.5 text-start text-sm font-bold">{(ar ? DAYS_AR : DAYS_EN)[weekday(day)]} <bdi dir="ltr">{day.slice(8)}/{day.slice(5, 7)}</bdi></th>
+                                                            {matrixTypes.map((type) => (
+                                                                <td key={type} className="px-2 py-1.5 text-center">
+                                                                    {dayTypes(day).includes(type) ? (
+                                                                        <span className="inline-flex items-center gap-1">
+                                                                            <CountStepper value={plannedOf(day, type)} label={`${typeName(type)} ${day}`} onChange={(value) => setPlanned(day, type, value)} />
+                                                                            <button type="button" aria-label={text(`إزالة ${typeName(type)} من ${day} فقط`, `Remove ${typeName(type)} from ${day} only`)} className="rounded-md p-1 text-red-500 hover:bg-red-500/10" onClick={() => toggleDayType(day, type)}><X size={13} /></button>
+                                                                        </span>
+                                                                    ) : (
+                                                                        <button type="button" className={btnSecondary} onClick={() => toggleDayType(day, type)}><Plus size={12} />{text('أضف', 'Add')}</button>
+                                                                    )}
+                                                                </td>
+                                                            ))}
+                                                            <td className="px-2 py-1.5 text-center font-bold tabular-nums">{dayTypes(day).reduce((sum, type) => sum + plannedOf(day, type), 0)}</td>
+                                                            <td className="px-2 py-1.5">{selectedDays.length > 1 && <button type="button" className={btnSecondary} onClick={() => repeatDay(day)}>{text('كرّر على الباقي', 'Repeat on the rest')}</button>}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr className="border-t border-[var(--ac-line)] text-xs font-bold text-[var(--ac-text-muted)]">
+                                                        <th className="px-2 py-2 text-start">{text('المجموع', 'Total')}</th>
+                                                        {matrixTypes.map((type) => <td key={type} className="px-2 py-2 text-center tabular-nums">{selectedDays.reduce((sum, day) => sum + (dayTypes(day).includes(type) ? plannedOf(day, type) : 0), 0)}</td>)}
+                                                        <td className="px-2 py-2 text-center tabular-nums">{matrixTotal}</td>
+                                                        <td />
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <button type="button" className={btnPrimary + ' mt-3 w-full justify-center'} disabled={! selected.length || ! matrixTotal} onClick={createRows}>
+                                <MapPin size={15} />{text(`أنشئ ${matrixTotal} صف على ${selected.length} يوم`, `Create ${matrixTotal} rows over ${selected.length} days`)}
+                            </button>
+                        </section>
+
                         <div className="overflow-hidden rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ac-line)] bg-[var(--ac-accent-soft,#eef4ff)] px-4 py-2.5 text-xs text-[var(--ac-text-muted)]">
                                 <span><kbd className="rounded border border-[var(--ac-line)] bg-white px-1.5">Enter</kbd> {text('الحقل التالي، وفي آخر حقل صف جديد بنفس اليوم والنوع. كل صف يحتفظ بتاريخه.', 'next field; in the last field a new row on the same day and type. Every row keeps its own date.')}</span>
-                                <span className="flex gap-1.5">
-                                    <button type="button" className={btnSecondary} onClick={() => setRows((current) => current.map((row) => ({ ...row, open: false })))}>{text('طيّ الكل', 'Collapse all')}</button>
-                                    <button type="button" className={btnSecondary} onClick={() => setRows((current) => current.map((row) => ({ ...row, open: true })))}>{text('توسيع الكل', 'Expand all')}</button>
+                                <span className="flex flex-wrap gap-1.5">
+                                    <button type="button" className={btnSecondary} onClick={() => setCollapsedDays(dates)}>{text('طيّ الأيام', 'Collapse days')}</button>
+                                    <button type="button" className={btnSecondary} onClick={() => setCollapsedDays([])}>{text('فتح الأيام', 'Open days')}</button>
+                                    <button type="button" className={btnSecondary} onClick={() => setRows((current) => current.map((row) => ({ ...row, open: false })))}>{text('طيّ التفاصيل', 'Collapse details')}</button>
+                                    <button type="button" className={btnSecondary} onClick={() => setRows((current) => current.map((row) => ({ ...row, open: true })))}>{text('توسيع التفاصيل', 'Expand details')}</button>
                                 </span>
                             </div>
 
@@ -1100,7 +1915,7 @@ export default function QuickEntry() {
                                     <table className="w-full text-start">
                                         <thead>
                                             <tr className="border-b border-[var(--ac-line)] text-[11px] font-bold text-[var(--ac-text-muted)]">
-                                                <th />
+                                                <th /><th />
                                                 <th className="px-2 py-2.5 text-start">{text('النوع', 'Type')}</th>
                                                 <th className="px-2 py-2.5 text-start">{text('التاريخ', 'Date')}</th>
                                                 <th className="px-2 py-2.5 text-start">{text('الطرف / البيان', 'Party / item')}</th>
@@ -1119,24 +1934,67 @@ export default function QuickEntry() {
                                                     .map((type) => `${typeName(type)} ${group.filter((row) => row.type === type).length}`)
                                                     .join(' · ');
 
+                                                const folded = collapsedDays.includes(date);
+
                                                 return (
                                                     <Fragment key={date}>
-                                                        <tr className="bg-[var(--ac-accent-soft,#e3eeff)]">
-                                                            <td colSpan={10} className="px-4 py-2">
+                                                        <tr
+                                                            className="bg-[var(--ac-accent-soft,#e3eeff)]"
+                                                            style={dropMark?.where === 'day' && dropMark.id === date ? { boxShadow: 'inset 0 0 0 2px var(--ac-accent)' } : undefined}
+                                                            onDragOver={(event) => {
+                                                                if (dragId === null) {
+                                                                    return;
+                                                                }
+
+                                                                event.preventDefault();
+                                                                setDropMark({ id: date, where: 'day' });
+                                                            }}
+                                                            onDrop={(event) => {
+                                                                if (dragId === null) {
+                                                                    return;
+                                                                }
+
+                                                                event.preventDefault();
+                                                                moveRow(dragId, { day: date });
+                                                                setCollapsedDays((current) => current.filter((day) => day !== date));
+                                                                setDragId(null);
+                                                                setDropMark(null);
+                                                            }}
+                                                        >
+                                                            <td colSpan={11} className="px-4 py-2">
                                                                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-bold">
-                                                                    <span>
-                                                                        {(ar ? DAYS_AR : DAYS_EN)[weekday(date)]} {Number(date.slice(8))} {months[Number(date.slice(5, 7)) - 1]}
+                                                                    <span className="flex flex-wrap items-center">
+                                                                        <button
+                                                                            type="button"
+                                                                            aria-expanded={! folded}
+                                                                            aria-label={folded ? text('فتح هذا اليوم', 'Open this day') : text('طيّ هذا اليوم', 'Collapse this day')}
+                                                                            className="me-1 grid size-7 place-items-center rounded-md text-[var(--ac-accent)] hover:bg-[var(--ac-surface)]"
+                                                                            onClick={() => setCollapsedDays((current) => (current.includes(date) ? current.filter((day) => day !== date) : [...current, date]))}
+                                                                        >
+                                                                            <ChevronDown size={16} className={folded ? (ar ? 'rotate-90' : '-rotate-90') : ''} />
+                                                                        </button>
+                                                                        {(ar ? DAYS_AR : DAYS_EN)[weekday(date)]}&nbsp;<bdi dir="ltr">{date.slice(8)}/{date.slice(5, 7)}/{date.slice(0, 4)}</bdi>
                                                                         <span className="ms-2 rounded-full bg-[var(--ac-surface)] px-2 py-0.5 text-[11px] text-[var(--ac-accent)]">{group.filter(isReady).length}/{group.length} {text('جاهز', 'ready')}</span>
-                                                                        <span className="ms-2 text-xs font-normal text-[var(--ac-text-muted)]">{summary}</span>
+                                                                        <span className="ms-2 text-xs font-normal text-[var(--ac-text-muted)]">{group.length} {text('صف', 'rows')} · {summary}</span>
                                                                     </span>
-                                                                    <span className="flex gap-1.5">
-                                                                        <button type="button" className={btnSecondary} onClick={() => addRowAt(date, filter === 'all' ? (visibleTypes[0] ?? 'sale') : filter)}><Plus size={13} />{text('صف', 'Row')}</button>
-                                                                        <button type="button" className={btnSecondary} onClick={() => duplicateDay(date)}><Copy size={13} />{text('انسخ ليوم آخر', 'Copy to another day')}</button>
+                                                                    <span className="flex items-center gap-1.5">
+                                                                        {copyingDay === date ? (
+                                                                            <>
+                                                                                <CommitDate label={text('انسخ إلى يوم', 'Copy to day')} className={field + ' !h-8 w-[150px]'} value="" max={today} onCommit={(next) => duplicateDay(date, next)} />
+                                                                                <button type="button" className={btnSecondary} onClick={() => setCopyingDay(null)}>{text('إلغاء', 'Cancel')}</button>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <button type="button" className={btnSecondary} onClick={() => addRowAt(date, filter === 'all' ? (visibleTypes[0] ?? 'sale') : filter)}><Plus size={13} />{text('صف', 'Row')}</button>
+                                                                                <button type="button" className={btnSecondary} onClick={() => setCopyingDay(date)}><Copy size={13} />{text('انسخ ليوم آخر', 'Copy to another day')}</button>
+                                                                            </>
+                                                                        )}
                                                                     </span>
                                                                 </div>
+                                                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">{sumChips(group)}</div>
                                                             </td>
                                                         </tr>
-                                                        {group.map((row, index) => mainRow(row, index, index === group.length - 1))}
+                                                        {! folded && group.map((row, index) => mainRow(row, index, index === group.length - 1))}
                                                     </Fragment>
                                                 );
                                             })}
@@ -1152,12 +2010,12 @@ export default function QuickEntry() {
                         </div>
                     </div>
 
-                    <aside className="space-y-3 xl:sticky xl:top-3">
+                    <aside className="min-w-0 space-y-3 xl:sticky xl:top-3">
                         <section className={card}>
                             <h3 className="mb-2 flex items-center gap-2 text-sm font-bold"><CalendarDays size={16} />{text('الأيام', 'Days')} {filter === 'all' ? text('(كل الأنواع)', '(all types)') : '— ' + typeName(filter)}</h3>
                             <div className="mb-2 flex items-center justify-between gap-2">
                                 <button type="button" aria-label={text('الشهر السابق', 'Previous month')} className={btnSecondary} onClick={() => setMonth(Math.max(1, month - 1))}>‹</button>
-                                <b className="text-sm">{months[month - 1]} {year}</b>
+                                <b className="text-sm"><bdi dir="ltr">{String(month).padStart(2, '0')} / {year}</bdi></b>
                                 <button type="button" aria-label={text('الشهر التالي', 'Next month')} className={btnSecondary} onClick={() => setMonth(Math.min(12, month + 1))}>›</button>
                             </div>
                             <div className="grid grid-cols-7 gap-1 text-center">
@@ -1187,33 +2045,94 @@ export default function QuickEntry() {
                             <div className="mt-2 flex flex-wrap gap-2">
                                 <button type="button" className={btnSecondary} onClick={pickGaps}>{text('حدد أيام الفراغ في الشهر', 'Select gaps this month')}</button>
                                 <button type="button" className={btnSecondary} onClick={() => setSelected([...new Set(rows.map((row) => row.date))])}>{text('أزل غير المستخدم', 'Clear unused')}</button>
+                                <button type="button" className={btnSecondary} onClick={clearSelection}>{text('إلغاء التحديد', 'Clear selection')}</button>
                             </div>
                             <div className="mt-2 flex flex-wrap gap-1.5">
                                 {selected.length
                                     ? [...selected].sort().map((day) => (
-                                        <button key={day} type="button" className="rounded-full bg-[var(--ac-accent-soft,#e3eeff)] px-2.5 py-0.5 text-xs font-bold text-[var(--ac-accent)]" onClick={() => toggleDay(day, false)}>{Number(day.slice(8))} {months[Number(day.slice(5, 7)) - 1]} ✕</button>
+                                        <button key={day} type="button" className="rounded-full bg-[var(--ac-accent-soft,#e3eeff)] px-2.5 py-0.5 text-xs font-bold text-[var(--ac-accent)]" onClick={() => toggleDay(day, false)}><bdi dir="ltr">{day.slice(8)}/{day.slice(5, 7)}</bdi> ✕</button>
                                     ))
                                     : <span className="text-xs text-[var(--ac-text-muted)]">{text('لم تحدد أياماً بعد', 'No days selected yet')}</span>}
                             </div>
                         </section>
-
-                        <section className={card}>
-                            <h3 className="mb-2 flex items-center gap-2 text-sm font-bold"><Layers size={16} />{text('كم صفاً من كل نوع لكل يوم؟', 'Rows of each type per day')}</h3>
-                            <div className="grid grid-cols-[1fr_70px] items-center gap-x-2 gap-y-1.5">
-                                {visibleTypes.map((type) => (
-                                    <Fragment key={type}>
-                                        <span className="flex items-center gap-2 text-sm"><span className="size-2.5 rounded-full" style={{ background: META[type].color }} />{typeName(type)}</span>
-                                        <input className={field + ' text-center'} inputMode="numeric" value={counts[type]} onChange={(event) => setCounts((current) => ({ ...current, [type]: Math.min(Math.max(Math.trunc(num(event.target.value)), 0), 50) }))} />
-                                    </Fragment>
-                                ))}
-                            </div>
-                            <p className="my-2 text-[11px] text-[var(--ac-text-muted)]">{text('مثال: نثريات 3، فواتير بيع 4، دفع 3 = 10 صفوف في كل يوم محدد.', 'Example: petty 3, sales 4, payments 3 = 10 rows on every selected day.')}</p>
-                            <button type="button" className={btnPrimary + ' w-full justify-center'} disabled={! selected.length || ! matrixTotal} onClick={createRows}>
-                                <MapPin size={15} />{text(`أنشئ ${matrixTotal} صف على ${selected.length} يوم`, `Create ${matrixTotal} rows over ${selected.length} days`)}
-                            </button>
-                        </section>
                     </aside>
                 </div>
+
+                {dupRow && dupRow.exist && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDupRowId(null)}>
+                        <div
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="qe-dup-title"
+                            className="max-h-[88vh] w-full max-w-[560px] overflow-auto rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-5 shadow-xl"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <h3 id="qe-dup-title" className="mb-2 flex items-center gap-2 text-lg font-bold text-[var(--ac-text)]">
+                                <TriangleAlert className="text-amber-600" size={20} />{text('يوجد إدخال سابق لنفس اليوم', 'Already entered for this day')}
+                            </h3>
+                            <p className="mb-3 text-sm text-[var(--ac-text)]">
+                                {dupRow.type === 'misc'
+                                    ? text('متفرقات مسجّلة بتاريخ ', 'Walk-in sales recorded on ')
+                                    : `${[...customers, ...suppliers].find((party) => party.id === dupRow.partyId)?.name ?? ''} — ${text(`لديه ${typeName(dupRow.type)} مسجّل بتاريخ `, `already has a ${typeName(dupRow.type)} on `)}`}
+                                <bdi dir="ltr">{dupRow.date.slice(8)}/{dupRow.date.slice(5, 7)}/{dupRow.date.slice(0, 4)}</bdi>
+                            </p>
+                            <div className="space-y-2">
+                                {dupRow.exist.map((entry, index) => (
+                                    <div key={`${entry.number ?? 'entry'}-${index}`} className="rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3">
+                                        <div className="flex items-baseline gap-2 text-sm">
+                                            <b>{entry.number ?? '—'}</b>
+                                            {entry.method && <span className="text-xs text-[var(--ac-text-muted)]">{entry.method === 'check' ? `${text('شيك', 'Check')} ${entry.check_number ?? ''}` : entry.method === 'cash' ? text('نقدي', 'Cash') : entry.method === 'bank_transfer' ? text('تحويل', 'Transfer') : entry.method}</span>}
+                                            <b className="ms-auto tabular-nums">{money(Number(entry.amount))}</b>
+                                        </div>
+                                        {entry.lines.length > 0 && (
+                                            <table className="mt-2 w-full text-xs">
+                                                <thead>
+                                                    <tr className="text-[10px] font-bold text-[var(--ac-text-muted)]">
+                                                        <th className="py-1 text-start">{text('المنتج', 'Product')}</th>
+                                                        <th className="py-1 text-start">{text('الكمية', 'Qty')}</th>
+                                                        <th className="py-1 text-start">{text('السعر', 'Price')}</th>
+                                                        <th className="py-1 text-start">{text('الإجمالي', 'Total')}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {entry.lines.map((line, lineIndex) => (
+                                                        <tr key={lineIndex}>
+                                                            <td className="py-0.5">{line.name ?? '—'}</td>
+                                                            <td className="py-0.5 tabular-nums">{money(Number(line.quantity))}</td>
+                                                            <td className="py-0.5 tabular-nums">{money(Number(line.unit_price))}</td>
+                                                            <td className="py-0.5 tabular-nums">{money(Number(line.total))}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            {(() => {
+                                const mine = META[dupRow.type].invoice ? totals(dupRow).total : num(dupRow.amt);
+
+                                return mine > 0 && dupRow.exist.some((entry) => Math.abs(Number(entry.amount) - mine) < 0.005)
+                                    ? <p className="mt-2 rounded-[10px] bg-amber-500/15 px-3 py-1.5 text-sm font-bold text-amber-700">{text(`المبلغ الذي أدخلته (${money(mine)}) يطابق إدخالاً سابقاً.`, `The amount you typed (${money(mine)}) matches an earlier entry.`)}</p>
+                                    : null;
+                            })()}
+                            <p className="mt-3 text-xs text-[var(--ac-text-muted)]">
+                                {META[dupRow.type].invoice
+                                    ? text('إن كانت نفس الفاتورة فلا حاجة لإدخال بنودها. وإن كانت مختلفة فتُضمّ تلقائياً لفاتورة نفس الطرف في ذلك اليوم.', 'If it is the same invoice there is no need to enter its lines. If it differs, it merges into that party\'s invoice for the day.')
+                                    : text('إن كان نفس القيد فلا حاجة لإدخاله مرة ثانية. وإن كان مختلفاً فيُسجَّل كقيد إضافي.', 'If it is the same entry there is no need to enter it again. If it differs, it is saved as a separate entry.')}
+                            </p>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                <button type="button" autoFocus className="min-h-11 flex-1 rounded-[12px] bg-red-600 px-4 text-sm font-bold text-white" onClick={() => { remove(dupRow.id); setDupRowId(null); }}>
+                                    {text('نفسه — احذف هذا الصف', 'Same — remove this row')}
+                                </button>
+                                <button type="button" className={btnPrimary + ' flex-1 justify-center'} onClick={() => { patch(dupRow.id, { exist: null, dupOk: true }); setDupRowId(null); }}>
+                                    {META[dupRow.type].invoice ? text('مختلف — أضِفه (يُضمّ تلقائياً)', 'Different — add it (merges)') : text('مختلف — أبقِه كقيد إضافي', 'Different — keep as separate entry')}
+                                </button>
+                            </div>
+                            <p className="mt-3 text-[11px] text-[var(--ac-text-muted)]">{text('Esc يغلق النافذة، وتبقى علامة «يوجد إدخال سابق» على الصف لتراجعه لاحقاً.', 'Esc closes this window; the row keeps an “already entered” mark so you can review it later.')}</p>
+                        </div>
+                    </div>
+                )}
             </main>
         </AppShell>
     );

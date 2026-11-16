@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Icon } from '../components/ui/Icon';
+import { DateField } from '../components/ui/DateField';
 import { PickerSheet } from '../components/ui/PickerSheet';
 import { ScreenHeader } from '../components/ui/ScreenHeader';
 import { SelectField } from '../components/ui/SelectField';
@@ -13,8 +13,8 @@ import { Text } from '../components/ui/Text';
 import { TextInput } from '../components/ui/TextInput';
 import { useToast } from '../components/ui/Toast';
 import { Colors, Layout, Radius, StatusText } from '../constants/theme';
-import { apiErrorMessage, formatMoney } from '../lib/format';
-import { dayISO, ENTRY_KINDS, EntryKind, fetchStaff, recordAttendance, recordEntry, StaffRow } from '../lib/staff';
+import { apiErrorMessage, formatMoney, todayISO } from '../lib/format';
+import { ENTRY_KINDS, EntryKind, fetchStaff, recordAttendance, recordEntry, StaffRow } from '../lib/staff';
 import { useStyles } from '../lib/theme';
 
 type Kind = 'attendance' | EntryKind;
@@ -43,7 +43,7 @@ export default function StaffActionScreen() {
   const [failed, setFailed] = useState(false);
   const [employee, setEmployee] = useState<StaffRow | null>(null);
   const [picker, setPicker] = useState(false);
-  const [dayOffset, setDayOffset] = useState(0);
+  const [date, setDate] = useState(todayISO());
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'present' | 'absent'>('present');
@@ -63,7 +63,6 @@ export default function StaffActionScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const date = dayISO(dayOffset);
   const balance = Number(employee?.balance ?? 0);
   const title = kind === 'attendance' ? 'تسجيل حضور' : ENTRY_KINDS[kind].label;
   const color = KIND_COLOR[kind];
@@ -143,24 +142,7 @@ export default function StaffActionScreen() {
             </View>
           )}
 
-          <View style={styles.dateRow}>
-            <Pressable accessibilityRole="button" accessibilityLabel="اليوم السابق" onPress={() => setDayOffset((d) => d - 1)} style={styles.dateBtn}>
-              <Icon name="chevronRight" size={20} color={Colors.text} />
-            </Pressable>
-            <View style={styles.dateBox}>
-              <Icon name="calendar" size={18} color={Colors.textMuted} />
-              <Text style={styles.dateText}>{date}{dayOffset === 0 ? ' · اليوم' : ''}</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="اليوم التالي"
-              disabled={dayOffset >= 0}
-              onPress={() => setDayOffset((d) => Math.min(0, d + 1))}
-              style={[styles.dateBtn, dayOffset >= 0 && { opacity: 0.4 }]}
-            >
-              <Icon name="chevronLeft" size={20} color={Colors.text} />
-            </Pressable>
-          </View>
+          <DateField label="التاريخ" value={date} onChange={(d) => d && setDate(d)} max={todayISO()} stepper />
 
           {kind === 'attendance' ? (
             <>
@@ -272,13 +254,6 @@ const createStyles = () => StyleSheet.create({
   balance: { fontSize: 18, fontWeight: '800' },
   hint: { fontSize: 13, color: Colors.textMuted, lineHeight: 20, textAlign: 'auto' },
   label: { fontSize: 13, fontWeight: '700', color: Colors.textMuted, textAlign: 'auto' },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dateBtn: { width: Layout.minTouch, height: Layout.minTouch, borderRadius: 12, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
-  dateBox: {
-    flex: 1, minHeight: Layout.minTouch, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: Radius.xs, backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.line,
-  },
-  dateText: { fontSize: 14, fontWeight: '700', color: Colors.textSoft },
   chips: { flexDirection: 'row', gap: 8 },
   field: {
     minHeight: 52, borderRadius: Radius.xs, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.surface,

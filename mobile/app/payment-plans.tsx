@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { Button } from '../components/ui/Button';
+import { DateField } from '../components/ui/DateField';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Gradient } from '../components/ui/Gradient';
 import { Input } from '../components/ui/Input';
@@ -193,7 +194,7 @@ export default function PaymentPlansScreen() {
             <Input label="المبلغ" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
             <Text style={styles.label}>التكرار</Text>
             {chipRow(FREQUENCY, frequency, setFrequency)}
-            <Input label="الاستحقاق القادم" value={nextDue} onChangeText={setNextDue} keyboardType="numbers-and-punctuation" />
+            <DateField label="الاستحقاق القادم" value={nextDue} onChange={setNextDue} />
             <Input label="تذكير قبل (أيام)" value={reminder} onChangeText={setReminder} keyboardType="number-pad" />
             <Input label="الطرف (اختياري)" value={counterparty} onChangeText={setCounterparty} />
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -258,7 +259,7 @@ export default function PaymentPlansScreen() {
                 {isRecording ? (
                   <View style={{ gap: 12 }}>
                     <Input label="المبلغ المدفوع" value={paidAmount} onChangeText={setPaidAmount} keyboardType="decimal-pad" />
-                    <Input label="تاريخ الدفع" value={paidOn} onChangeText={setPaidOn} keyboardType="numbers-and-punctuation" />
+                    <DateField label="تاريخ الدفع" value={paidOn} onChange={setPaidOn} max={todayISO()} />
                     <Text style={styles.label}>طريقة الدفع</Text>
                     {chipRow(METHOD, method, setMethod)}
                     <Input label="ملاحظات (اختياري)" value={notes} onChangeText={setNotes} />

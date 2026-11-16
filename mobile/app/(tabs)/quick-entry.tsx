@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
+import { DateField } from '../../components/ui/DateField';
 import { Numpad } from '../../components/ui/Numpad';
 import { PickerSheet } from '../../components/ui/PickerSheet';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
@@ -10,7 +11,7 @@ import { SelectField } from '../../components/ui/SelectField';
 import { StickyFooter } from '../../components/ui/StickyFooter';
 import { useToast } from '../../components/ui/Toast';
 import { Colors, Layout, Radius, StatusText } from '../../constants/theme';
-import { apiErrorMessage, CURRENCY_SYMBOL } from '../../lib/format';
+import { apiErrorMessage, CURRENCY_SYMBOL, todayISO } from '../../lib/format';
 import { PartyOption, partiesFor, useParties } from '../../lib/lookups';
 import { submitQuickEntry } from '../../lib/quickEntry';
 import { useStyles } from '../../lib/theme';
@@ -18,7 +19,7 @@ import { Text } from '../../components/ui/Text';
 import { TextInput } from '../../components/ui/TextInput';
 
 type EntryType = 'receipt' | 'payment';
-type Method = 'cash' | 'transfer';
+type Method = 'cash' | 'transfer' | 'check';
 
 const getTypes = (): { key: EntryType; label: string; color: string }[] => [
   { key: 'receipt', label: 'قبض (إيراد)', color: '#0570C4' },
@@ -28,6 +29,7 @@ const getTypes = (): { key: EntryType; label: string; color: string }[] => [
 const METHODS: { key: Method; label: string }[] = [
   { key: 'cash', label: 'نقدي' },
   { key: 'transfer', label: 'تحويل' },
+  { key: 'check', label: 'شيك' },
 ];
 
 function formatAmount(value: string): string {
@@ -51,6 +53,9 @@ export default function QuickEntryScreen() {
   const [party, setParty] = useState<PartyOption | null>(null);
   const [method, setMethod] = useState<Method>('cash');
   const [reference, setReference] = useState('');
+  const [date, setDate] = useState(todayISO());
+  const [checkNumber, setCheckNumber] = useState('');
+  const [checkDue, setCheckDue] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [partyError, setPartyError] = useState<string | undefined>();
@@ -69,17 +74,38 @@ export default function QuickEntryScreen() {
       setPartyError('اختر الطرف');
       return;
     }
+    if (method === 'check') {
+      if (!checkNumber.trim()) {
+        toast('أدخل رقم الشيك');
+        return;
+      }
+      if (!checkDue) {
+        toast('اختر تاريخ استحقاق الشيك');
+        return;
+      }
+      if (checkDue < date) {
+        toast('تاريخ استحقاق الشيك لا يمكن أن يسبق تاريخ القيد');
+        return;
+      }
+    }
     setSaving(true);
     try {
       await submitQuickEntry({
         type,
         party_id: party.id,
+        date,
         reference: reference.trim() || undefined,
-        payment: { amount: Number(amount), method },
+        payment: {
+          amount: Number(amount),
+          method,
+          ...(method === 'check' ? { check_number: checkNumber.trim(), check_due_date: checkDue } : {}),
+        },
       });
       toast('تم حفظ القيد');
       setAmount('0');
       setReference('');
+      setCheckNumber('');
+      setCheckDue('');
       if (!another) {
         setParty(null);
         router.navigate('/(tabs)');
@@ -153,6 +179,8 @@ export default function QuickEntryScreen() {
             error={partyError}
           />
 
+          <DateField label="تاريخ القيد" value={date} onChange={setDate} max={todayISO()} />
+
           <View style={{ gap: 6 }}>
             <Text style={styles.sectionLabel}>طريقة الدفع</Text>
             <View style={styles.methods}>
@@ -161,6 +189,21 @@ export default function QuickEntryScreen() {
               ))}
             </View>
           </View>
+
+          {method === 'check' && (
+            <View style={{ gap: 12 }}>
+              <TextInput
+                value={checkNumber}
+                onChangeText={setCheckNumber}
+                placeholder="رقم الشيك"
+                placeholderTextColor={Colors.textFaint}
+                style={styles.reference}
+                maxLength={120}
+                accessibilityLabel="رقم الشيك"
+              />
+              <DateField label="تاريخ استحقاق الشيك" value={checkDue} onChange={setCheckDue} min={date} />
+            </View>
+          )}
 
           <TextInput
             value={reference}

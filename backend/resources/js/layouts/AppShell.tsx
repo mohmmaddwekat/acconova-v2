@@ -13,8 +13,9 @@ import { GoogleImportSourceBar } from '@/components/imports/GoogleImportSourceBa
 import { CommandRail } from '@/components/navigation/CommandRail';
 import { ContextBar } from '@/components/navigation/ContextBar';
 import { StaffSalaryAdjuster } from '@/components/staff/StaffSalaryAdjuster';
+import { useLocale } from '@/lib/i18n';
 import { apiRequest } from '@/lib/http';
-import { useLiveWatcher } from '@/lib/live';
+import { applyPendingRemount, useLivePending, useLiveWatcher } from '@/lib/live';
 import {
     applyProfilePreferences,
     bindSystemTheme,
@@ -36,6 +37,8 @@ export function AppShell({ children }: PropsWithChildren) {
     const page = usePage();
 
     useLiveWatcher();
+    const livePending = useLivePending();
+    const liveAr = useLocale() === 'ar';
 
     const currentPath = page.url.split('?')[0];
     const supportsGoogleImportSource = currentPath.endsWith('/import')
@@ -190,6 +193,29 @@ export function AppShell({ children }: PropsWithChildren) {
 
     return (
         <div className="ac-app-shell relative min-h-dvh min-w-0 overflow-x-clip bg-[var(--ac-bg)] text-[var(--ac-text)]">
+            {livePending && (
+                <div
+                    role="status"
+                    className="fixed inset-x-0 bottom-4 z-[80] mx-auto flex w-max max-w-[92vw] items-center gap-3 rounded-[14px] bg-[#0e2347] px-4 py-2.5 text-sm text-white shadow-lg"
+                >
+                    <span>
+                        {liveAr
+                            ? 'تغيّرت بيانات من مكان آخر. لم أحدّث الصفحة حتى لا تضيع كتابتك.'
+                            : 'Data changed elsewhere. The page was not refreshed so your typing is kept.'}
+                    </span>
+                    <button
+                        type="button"
+                        className="rounded-[10px] bg-white px-3 py-1 text-xs font-bold text-[#0e2347]"
+                        onClick={() => {
+                            if (window.confirm(liveAr ? 'سيتم تحديث الصفحة وتضيع الكتابة غير المحفوظة. متابعة؟' : 'The page will refresh and unsaved typing will be lost. Continue?')) {
+                                applyPendingRemount();
+                            }
+                        }}
+                    >
+                        {liveAr ? 'حدّث الآن' : 'Refresh now'}
+                    </button>
+                </div>
+            )}
             <div
                 aria-hidden="true"
                 className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"

@@ -642,6 +642,9 @@ class FinanceDocumentController extends Controller
                 'movement_date' => $allocation->movement?->movement_date?->format('Y-m-d'),
                 'method' => $allocation->movement?->method,
                 'status' => $allocation->movement?->status,
+                'check_number' => $allocation->movement?->check_number,
+                'check_due_date' => $allocation->movement?->check_due_date?->format('Y-m-d'),
+                'check_status' => $allocation->movement?->check_status,
             ])->values(),
         ];
     }

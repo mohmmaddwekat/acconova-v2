@@ -2,10 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OrganizationRole;
 use App\Models\Organization;
+use App\Models\Product;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Tenancy\OrganizationAccess;
+use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class QuickEntryTest extends TestCase
@@ -242,6 +247,48 @@ class QuickEntryTest extends TestCase
         $this->assertSame('2026-05-05', $progress['staff']['last']);
     }
 
+    public function test_production_can_use_material_bought_the_same_day_even_when_entered_before_the_purchase(): void
+    {
+        $this->signIn();
+
+        $warehouse = Warehouse::create(['code' => 'MAIN', 'name' => 'Main', 'is_default' => true]);
+        $resin = Product::factory()->create(['type' => 'raw_material', 'name' => 'Same Day Resin', 'unit' => 'kg', 'track_inventory' => true]);
+        $box = Product::factory()->create(['type' => 'product', 'name' => 'Same Day Box', 'unit' => 'piece', 'track_inventory' => true]);
+        $supplierId = $this->party('supplier', 'Resin Supplier');
+
+        $this->postJson("/api/products/{$box->id}/production-recipe", [
+            'components' => [[
+                'name' => 'Resin',
+                'options' => [['raw_material_id' => $resin->id, 'quantity_per_unit' => '0.2500', 'is_default' => true]],
+            ]],
+        ])->assertCreated();
+
+        $results = $this->postJson('/api/quick-entry', [
+            'rows' => [
+                ['type' => 'prod', 'date' => '2026-05-10', 'product_id' => $box->id, 'quantity' => '100'],
+                [
+                    'type' => 'purchase',
+                    'date' => '2026-05-10',
+                    'party_id' => $supplierId,
+                    'affects_stock' => true,
+                    'lines' => [['product_id' => $resin->id, 'quantity' => '100', 'unit_price' => '3']],
+                ],
+            ],
+        ])->assertOk()->json('data');
+
+        $this->assertTrue($results[1]['ok'], json_encode($results[1]));
+        $this->assertTrue($results[0]['ok'], json_encode($results[0]));
+        $this->assertEqualsWithDelta(75.0, (float) DB::table('inventory_balances')->where('product_id', $resin->id)->where('warehouse_id', $warehouse->id)->value('on_hand'), 0.0001);
+        $this->assertEqualsWithDelta(100.0, (float) DB::table('inventory_balances')->where('product_id', $box->id)->where('warehouse_id', $warehouse->id)->value('on_hand'), 0.0001);
+
+        $short = $this->postJson('/api/quick-entry', [
+            'rows' => [['type' => 'prod', 'date' => '2026-05-11', 'product_id' => $box->id, 'quantity' => '1000']],
+        ])->assertOk()->json('data.0');
+
+        $this->assertFalse($short['ok']);
+        $this->assertDatabaseCount('production_runs', 1);
+    }
+
     public function test_a_purchase_can_be_paid_by_endorsing_a_check_on_hand(): void
     {
         $this->signIn();
@@ -284,6 +331,7 @@ class QuickEntryTest extends TestCase
         $user = User::factory()->create();
         $organization = Organization::create(['name' => 'Quick entry workspace']);
         $organization->users()->attach($user->id, ['role' => 'owner']);
+        app(TenantContext::class)->set($organization, OrganizationRole::Owner);
 
         $this->actingAs($user)->withSession([
             OrganizationAccess::SESSION_KEY => $organization->id,

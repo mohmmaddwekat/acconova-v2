@@ -1,5 +1,6 @@
 import { AppShell } from '@/layouts/AppShell';
 import { apiRequest } from '@/lib/http';
+import { useLiveSoftRefresh } from '@/lib/live';
 import { useLocale } from '@/lib/i18n';
 import { Head } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
@@ -31,6 +32,10 @@ export default function FinanceIndex({
     const [lookups, setLookups] = useState<FinanceLookups | null>(null);
     const [error, setError] = useState('');
 
+    const [lookupsTick, setLookupsTick] = useState(0);
+
+    useLiveSoftRefresh(() => setLookupsTick((value) => value + 1));
+
     useEffect(() => {
         const controller = new AbortController();
         setError('');
@@ -51,7 +56,7 @@ export default function FinanceIndex({
             });
 
         return () => controller.abort();
-    }, []);
+    }, [lookupsTick]);
 
     const title = (() => {
         switch (financeView) {

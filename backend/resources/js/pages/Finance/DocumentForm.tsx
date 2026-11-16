@@ -1,6 +1,7 @@
 import { SearchableSelect } from '@/components/data/SearchableSelect';
 import { KeepOpenToggle, SavedNote, useKeepOpenPreference } from '@/components/data/KeepOpenToggle';
 import { apiRequest } from '@/lib/http';
+import { useLiveSoftRefresh } from '@/lib/live';
 import {
     useGlobalSave,
     useUnsavedChanges,
@@ -1912,6 +1913,10 @@ export function DocumentForm({
         };
     }, [payOn, partyId, kind, currency, initial?.id]);
 
+    const [chequesTick, setChequesTick] = useState(0);
+
+    useLiveSoftRefresh(() => setChequesTick(value => value + 1));
+
     /* Paying a supplier by a received cheque still on hand (endorsement). */
     useEffect(() => {
         if (sales || ! payOn || payMethod !== 'check') {
@@ -1935,7 +1940,7 @@ export function DocumentForm({
         return () => {
             cancelled = true;
         };
-    }, [sales, payOn, payMethod, currency]);
+    }, [sales, payOn, payMethod, currency, chequesTick]);
 
     async function recordInlinePayment(
         issued: DocumentDetail,

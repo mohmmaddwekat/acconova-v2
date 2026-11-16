@@ -2,6 +2,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button } from '../components/ui/Button';
+import { DateField } from '../components/ui/DateField';
 import { Input } from '../components/ui/Input';
 import { PickerItem, PickerSheet } from '../components/ui/PickerSheet';
 import { SelectField } from '../components/ui/SelectField';
@@ -106,7 +107,7 @@ export default function NewEmployeeScreen() {
 
         <Input label="الأجر" value={rate} onChangeText={setRate} keyboardType="decimal-pad" placeholder="2500" error={errors.rate} />
         <Input label="البدلات الشهرية" value={allowance} onChangeText={setAllowance} keyboardType="decimal-pad" error={errors.allowance ?? errors.monthly_allowance} />
-        <Input label="تاريخ المباشرة" value={startedOn} onChangeText={setStartedOn} keyboardType="numbers-and-punctuation" error={errors.started ?? errors.started_on} />
+        <DateField label="تاريخ المباشرة" value={startedOn} onChange={setStartedOn} error={errors.started ?? errors.started_on} />
       </ScrollView>
 
       <StickyFooter safeBottom>

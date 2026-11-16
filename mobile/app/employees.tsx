@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { DateField } from '../components/ui/DateField';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Gradient } from '../components/ui/Gradient';
 import { Icon } from '../components/ui/Icon';
@@ -13,9 +14,9 @@ import { TextInput } from '../components/ui/TextInput';
 import { useToast } from '../components/ui/Toast';
 import { Colors, Layout, Radius, Shadow, StatusText, Tint } from '../constants/theme';
 import { api } from '../lib/api';
-import { apiErrorMessage, formatMoney } from '../lib/format';
+import { apiErrorMessage, formatMoney, todayISO } from '../lib/format';
 import { useBottomInset } from '../lib/insets';
-import { BASIS_LABEL, bulkEntries, dayISO, fetchStaff, recordAttendance, StaffRow } from '../lib/staff';
+import { BASIS_LABEL, bulkEntries, fetchStaff, recordAttendance, StaffRow } from '../lib/staff';
 import { useStyles } from '../lib/theme';
 
 interface AttendanceRow {
@@ -53,7 +54,7 @@ export default function EmployeesScreen() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
-  const [dayOffset, setDayOffset] = useState(0);
+  const [date, setDate] = useState(todayISO());
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,15 +63,13 @@ export default function EmployeesScreen() {
   const [payAll, setPayAll] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const date = dayISO(dayOffset);
-
   const load = useCallback(async () => {
     try {
       setFailed(false);
       const [o, s, a] = await Promise.all([
         api.get('/staff-overview'),
         fetchStaff(),
-        api.get('/staff-attendance/bulk', { params: { date: dayISO(dayOffset), per_page: 100 } }),
+        api.get('/staff-attendance/bulk', { params: { date, per_page: 100 } }),
       ]);
       setOverview(o.data);
       setStaff(s);
@@ -81,7 +80,7 @@ export default function EmployeesScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [dayOffset]);
+  }, [date]);
 
   useFocusEffect(
     useCallback(() => {
@@ -230,24 +229,13 @@ export default function EmployeesScreen() {
 
           {tab === 'attend' && (
             <>
-              <View style={styles.dateRow}>
-                <Pressable accessibilityRole="button" accessibilityLabel="اليوم السابق" onPress={() => { setLoading(true); setDayOffset((d) => d - 1); }} style={styles.dateBtn}>
-                  <Icon name="chevronRight" size={20} color={Colors.text} />
-                </Pressable>
-                <View style={styles.dateBox}>
-                  <Icon name="calendar" size={18} color={Colors.textMuted} />
-                  <Text style={styles.dateText}>{date}{dayOffset === 0 ? ' · اليوم' : ''}</Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="اليوم التالي"
-                  disabled={dayOffset >= 0}
-                  onPress={() => { setLoading(true); setDayOffset((d) => Math.min(0, d + 1)); }}
-                  style={[styles.dateBtn, dayOffset >= 0 && { opacity: 0.4 }]}
-                >
-                  <Icon name="chevronLeft" size={20} color={Colors.text} />
-                </Pressable>
-              </View>
+              <DateField
+                label="تاريخ الحضور"
+                value={date}
+                onChange={(d) => { if (d && d !== date) { setLoading(true); setDate(d); } }}
+                max={todayISO()}
+                stepper
+              />
 
               <View style={styles.statRow}>
                 <View style={[styles.stat, { backgroundColor: Tint.successBg }]}><Text style={[styles.statNum, { color: StatusText.success }]}>{present}</Text><Text style={styles.statLabel}>حاضر</Text></View>
@@ -382,13 +370,6 @@ const createStyles = () => StyleSheet.create({
   name: { fontSize: 15, fontWeight: '800', color: Colors.text, textAlign: 'auto' },
   sub: { fontSize: 13, color: Colors.textMuted, textAlign: 'auto' },
   amount: { fontSize: 14, fontWeight: '800' },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dateBtn: { width: Layout.minTouch, height: Layout.minTouch, borderRadius: 12, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
-  dateBox: {
-    flex: 1, minHeight: Layout.minTouch, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: Radius.xs, backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.line,
-  },
-  dateText: { fontSize: 14, fontWeight: '700', color: Colors.textSoft },
   statRow: { flexDirection: 'row', gap: 8 },
   stat: { flex: 1, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
   statNum: { fontSize: 20, fontWeight: '800', color: Colors.text },

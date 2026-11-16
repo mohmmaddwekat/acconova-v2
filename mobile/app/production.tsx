@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { Button } from '../components/ui/Button';
+import { DateField } from '../components/ui/DateField';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Input } from '../components/ui/Input';
@@ -142,7 +143,7 @@ export default function ProductionScreen() {
           <SelectField label="المنتج" value={product?.title} placeholder="اختر المنتج" onPress={() => setPicker('product')} />
           <SelectField label="مستودع الإنتاج" value={warehouse?.title} placeholder="اختر المستودع" onPress={() => setPicker('warehouse')} />
           <Input label="الكمية المنتجة" value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" />
-          <Input label="تاريخ الإنتاج" value={date} onChangeText={setDate} keyboardType="numbers-and-punctuation" />
+          <DateField label="تاريخ الإنتاج" value={date} onChange={setDate} max={todayISO()} />
           <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: postNow }} onPress={() => setPostNow((v) => !v)} style={styles.checkRow}>
             <View style={[styles.box, postNow && styles.boxOn]}>{postNow ? <Text style={styles.tick}>✓</Text> : null}</View>
             <Text style={styles.small}>ترحيل مباشرة (خصم المواد الخام وإضافة المنتج للمخزون)</Text>

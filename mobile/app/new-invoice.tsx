@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { DateField } from '../components/ui/DateField';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Icon } from '../components/ui/Icon';
 import { PickerSheet } from '../components/ui/PickerSheet';
@@ -21,7 +22,7 @@ import { Text } from '../components/ui/Text';
 import { TextInput } from '../components/ui/TextInput';
 
 type Kind = 'sale' | 'purchase';
-type PayMode = 'credit' | 'cash' | 'transfer';
+type PayMode = 'credit' | 'cash' | 'transfer' | 'check';
 
 interface Line {
   key: string;
@@ -42,6 +43,7 @@ const PAY_MODES: { key: PayMode; label: string }[] = [
   { key: 'credit', label: 'آجل' },
   { key: 'cash', label: 'نقدي' },
   { key: 'transfer', label: 'تحويل' },
+  { key: 'check', label: 'شيك' },
 ];
 
 export default function NewInvoiceScreen() {
@@ -58,6 +60,9 @@ export default function NewInvoiceScreen() {
   const [payMode, setPayMode] = useState<PayMode>('credit');
   const [payAmount, setPayAmount] = useState('');
   const [reference, setReference] = useState('');
+  const [date, setDate] = useState(todayISO());
+  const [checkNumber, setCheckNumber] = useState('');
+  const [checkDue, setCheckDue] = useState('');
   const [partyPicker, setPartyPicker] = useState(false);
   const [productPicker, setProductPicker] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -156,6 +161,20 @@ export default function NewInvoiceScreen() {
         return false;
       }
     }
+    if (payMode === 'check') {
+      if (!checkNumber.trim()) {
+        toast('أدخل رقم الشيك');
+        return false;
+      }
+      if (!checkDue) {
+        toast('اختر تاريخ استحقاق الشيك');
+        return false;
+      }
+      if (checkDue < date) {
+        toast('تاريخ استحقاق الشيك لا يمكن أن يسبق تاريخ الفاتورة');
+        return false;
+      }
+    }
     return true;
   }
 
@@ -163,17 +182,19 @@ export default function NewInvoiceScreen() {
     if (!party) return;
     setSaving(true);
     try {
+      const checkFields = payMode === 'check' ? { check_number: checkNumber.trim(), check_due_date: checkDue } : {};
       await submitQuickEntry({
         type: kind,
         party_id: party.id,
+        date,
         reference: reference.trim() || undefined,
         lines: lines.map((l) => ({ product_id: l.product.id, quantity: l.quantity, unit_price: Number(l.unitPrice) || 0 })),
         payment:
           payMode === 'credit'
             ? undefined
             : payAmount !== ''
-              ? { amount: Number(payAmount), method: payMode }
-              : { full: true, method: payMode },
+              ? { amount: Number(payAmount), method: payMode, ...checkFields }
+              : { full: true, method: payMode, ...checkFields },
       });
       if (kind === 'sale') {
         const toSave = lines.filter((l) => l.savePrice && Number(l.unitPrice) >= 0);
@@ -227,10 +248,7 @@ export default function NewInvoiceScreen() {
             error={partyError}
           />
 
-          <View style={styles.dateBox}>
-            <Icon name="calendar" size={18} color={Colors.textMuted} />
-            <Text style={styles.dateText}>تاريخ الفاتورة: {todayISO()}</Text>
-          </View>
+          <DateField label="تاريخ الفاتورة" value={date} onChange={setDate} max={todayISO()} />
 
           <View style={{ gap: 6 }}>
             <Text style={styles.sectionLabel}>طريقة الدفع</Text>
@@ -250,6 +268,21 @@ export default function NewInvoiceScreen() {
                   style={styles.priceInput}
                   accessibilityLabel="المبلغ المدفوع"
                 />
+                {payMode === 'check' && (
+                  <View style={{ gap: 8, marginTop: 6 }}>
+                    <Text style={styles.priceLabel}>رقم الشيك</Text>
+                    <TextInput
+                      value={checkNumber}
+                      onChangeText={setCheckNumber}
+                      placeholder="رقم الشيك"
+                      placeholderTextColor={Colors.textFaint}
+                      style={styles.priceInput}
+                      maxLength={120}
+                      accessibilityLabel="رقم الشيك"
+                    />
+                    <DateField label="تاريخ استحقاق الشيك" value={checkDue} onChange={setCheckDue} min={date} />
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -411,11 +444,6 @@ const createStyles = () => StyleSheet.create({
   body: { padding: 14, gap: 12 },
   row: { flexDirection: 'row', gap: 8 },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: Colors.textMuted, textAlign: 'auto' },
-  dateBox: {
-    minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14,
-    borderRadius: Radius.xs, backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.line,
-  },
-  dateText: { fontSize: 14, fontWeight: '600', color: Colors.textSoft },
   itemsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   itemsTitle: { fontSize: 15, fontWeight: '800', color: Colors.text },
   addBtn: {

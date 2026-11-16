@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Switch, View } from 'react-native';
 import { Button } from '../components/ui/Button';
+import { DateField } from '../components/ui/DateField';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Gradient } from '../components/ui/Gradient';
 import { Input } from '../components/ui/Input';
@@ -158,7 +159,7 @@ export default function TaxesScreen() {
                 </Pressable>
               ))}
             </View>
-            <Input label="تاريخ الاستحقاق" value={due} onChangeText={setDue} keyboardType="numbers-and-punctuation" />
+            <DateField label="تاريخ الاستحقاق" value={due} onChange={setDue} />
             <Input label={`المبلغ (${currency})`} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
             <Input label="رمز الدولة (حرفان)" value={country} onChangeText={(v) => setCountry(v.slice(0, 2).toUpperCase())} autoCapitalize="characters" placeholder="PS" />
             <View style={{ flexDirection: 'row', gap: 8 }}>

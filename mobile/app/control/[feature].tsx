@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { autoRow, extract, formatScalar, humanKey } from '../../components/ResourceScreen';
 import { Button } from '../../components/ui/Button';
+import { DateField } from '../../components/ui/DateField';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Gradient } from '../../components/ui/Gradient';
 import { Input } from '../../components/ui/Input';
@@ -164,6 +165,9 @@ export default function ControlFeatureScreen() {
       const picked = items.find((i) => String(i.id) === vals[f.key]);
       return <SelectField key={f.key} label={f.label} value={picked?.title} placeholder={items.length ? 'اختر…' : 'لا توجد خيارات'} onPress={() => setPickerField(f)} />;
     }
+    if (f.type === 'date') {
+      return <DateField key={f.key} label={f.label} value={vals[f.key] ?? ''} onChange={(v) => set(f.key, v)} clearable={!f.required} />;
+    }
     return (
       <Input
         key={f.key}
@@ -171,7 +175,7 @@ export default function ControlFeatureScreen() {
         value={vals[f.key] ?? ''}
         onChangeText={(v) => set(f.key, f.key === 'currency' ? v.toUpperCase().slice(0, 3) : v)}
         placeholder={f.placeholder}
-        keyboardType={f.type === 'number' ? 'decimal-pad' : f.type === 'date' || f.type === 'month' ? 'numbers-and-punctuation' : 'default'}
+        keyboardType={f.type === 'number' ? 'decimal-pad' : f.type === 'month' ? 'numbers-and-punctuation' : 'default'}
         autoCapitalize={f.key === 'currency' ? 'characters' : 'sentences'}
       />
     );

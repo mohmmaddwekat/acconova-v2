@@ -45,6 +45,8 @@
         "projectId": "46305870-052e-4d93-a6cb-ed4eeb71126b"
       }
     },
+    "runtimeVersion": { "policy": "appVersion" },
+    "updates": { "url": "https://u.expo.dev/46305870-052e-4d93-a6cb-ed4eeb71126b" },
     "owner": "mhmaddws-team"
   }
 }

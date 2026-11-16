@@ -2,6 +2,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button } from '../components/ui/Button';
+import { DateField } from '../components/ui/DateField';
 import { Input } from '../components/ui/Input';
 import { PickerSheet, PickerItem } from '../components/ui/PickerSheet';
 import { SelectField } from '../components/ui/SelectField';
@@ -130,7 +131,7 @@ export default function NewTaskScreen() {
             </View>
           </View>
         ) : null}
-        <Input label="تاريخ الاستحقاق (اختياري)" value={dueOn} onChangeText={setDueOn} placeholder={todayISO()} keyboardType="numbers-and-punctuation" error={errors.due} />
+        <DateField label="تاريخ الاستحقاق (اختياري)" value={dueOn} onChange={setDueOn} min={todayISO()} clearable error={errors.due} />
         <Input label="الوصف (اختياري)" value={description} onChangeText={setDescription} multiline placeholder="تفاصيل المهمة" style={{ minHeight: 96, textAlignVertical: 'top' }} />
       </ScrollView>
 

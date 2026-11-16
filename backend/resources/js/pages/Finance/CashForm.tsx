@@ -1,5 +1,6 @@
 import { KeepOpenToggle } from '@/components/data/KeepOpenToggle';
 import { apiRequest } from '@/lib/http';
+import { useLiveSoftRefresh } from '@/lib/live';
 import {
     useGlobalSave,
     useUnsavedChanges,
@@ -585,6 +586,10 @@ export function CashForm({
         return response.data.filter((row) => row.currency === currency);
     }
 
+    const [chequesTick, setChequesTick] = useState(0);
+
+    useLiveSoftRefresh(() => setChequesTick((value) => value + 1));
+
     /* Paying by cheque offers the received cheques still on hand for endorsement. */
     useEffect(() => {
         if (incoming || method !== 'check') {
@@ -609,7 +614,7 @@ export function CashForm({
         return () => {
             cancelled = true;
         };
-    }, [incoming, method, initial?.id, currency]);
+    }, [incoming, method, initial?.id, currency, chequesTick]);
 
     function selectChequeOnHand(chequeId: string): void {
         setEndorsedChequeId(chequeId);

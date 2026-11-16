@@ -8,6 +8,7 @@ use App\Models\FinancialDocument;
 use App\Models\ProductionRun;
 use App\Models\StaffEntry;
 use App\Models\StaffMember;
+use App\Services\Finance\FinanceAuthorization;
 use App\Services\Finance\QuickEntryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class QuickEntryController extends Controller
             'rows.*.staff_id' => ['nullable', 'integer'],
             'rows.*.staff_kind' => ['nullable', Rule::in(['payment', 'bonus', 'allowance', 'deduction', 'advance'])],
             'rows.*.warehouse_id' => ['nullable', 'integer'],
+            'rows.*.affects_stock' => ['nullable', 'boolean'],
             'rows.*.date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'rows.*.reference' => ['nullable', 'string', 'max:96'],
             'rows.*.party_id' => ['nullable', 'integer'],
@@ -54,6 +56,79 @@ class QuickEntryController extends Controller
         return response()->json([
             'data' => $service->process($data['rows'], $request->user()),
         ]);
+    }
+
+    /**
+     * What the system already holds for one party (or the day's walk-in sales) on one date,
+     * so the page can warn before the same invoice or payment is typed in twice.
+     */
+    public function existing(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        abort_unless($user !== null, 403);
+
+        $data = $request->validate([
+            'type' => ['required', Rule::in(['sale', 'purchase', 'misc', 'receipt', 'payment'])],
+            'date' => ['required', 'date_format:Y-m-d'],
+            'party_id' => ['nullable', 'integer', 'required_unless:type,misc'],
+        ]);
+
+        $permission = match ($data['type']) {
+            'sale', 'misc' => 'finance.sales.manage',
+            'purchase' => 'finance.purchases.manage',
+            'receipt' => 'finance.cash.receive',
+            default => 'finance.cash.pay',
+        };
+
+        abort_unless(FinanceAuthorization::allows($user, $permission), 403);
+
+        if (in_array($data['type'], ['receipt', 'payment'], true)) {
+            $incoming = $data['type'] === 'receipt';
+
+            $entries = CashMovement::query()
+                ->where('status', 'posted')
+                ->whereNull('reversal_of_id')
+                ->where('direction', $incoming ? 'incoming' : 'outgoing')
+                ->where('category', $incoming ? 'customer_receipt' : 'supplier_payment')
+                ->where('party_id', $data['party_id'])
+                ->whereDate('movement_date', $data['date'])
+                ->orderBy('id')
+                ->get()
+                ->map(fn (CashMovement $movement): array => [
+                    'number' => $movement->number,
+                    'amount' => $movement->amount,
+                    'method' => $movement->method,
+                    'check_number' => $movement->check_number,
+                    'lines' => [],
+                ]);
+
+            return response()->json(['data' => $entries->values()]);
+        }
+
+        $documents = FinancialDocument::query()
+            ->where('kind', $data['type'] === 'purchase' ? 'purchase_invoice' : 'sale_invoice')
+            ->where('is_misc_sale', $data['type'] === 'misc')
+            ->whereIn('status', ['issued', 'partially_paid', 'paid', 'overpaid'])
+            ->whereDate('issue_date', $data['date'])
+            ->when($data['type'] !== 'misc', fn ($query) => $query->where('party_id', $data['party_id']))
+            ->with('lines:id,financial_document_id,description,quantity,unit_price,line_total')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (FinancialDocument $document): array => [
+                'number' => $document->number,
+                'amount' => $document->total,
+                'method' => null,
+                'check_number' => null,
+                'lines' => $document->lines->map(fn ($line): array => [
+                    'name' => $line->description,
+                    'quantity' => $line->quantity,
+                    'unit_price' => $line->unit_price,
+                    'total' => $line->line_total,
+                ])->values(),
+            ]);
+
+        return response()->json(['data' => $documents->values()]);
     }
 
     /**

@@ -106,7 +106,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'expense-claims', group: 'المهام والفريق', title: 'مطالبات المصاريف', subtitle: 'مطالبات الموظفين', icon: 'banknote', endpoint: '/control/expense-claims', route: '/control/expense-claims' },
   { key: 'document-expiry', group: 'المهام والفريق', title: 'انتهاء الوثائق', subtitle: 'إقامات ورخص وعقود', icon: 'calendar', endpoint: '/control/document-expiry', route: '/control/document-expiry' },
   { key: 'spending-limits', group: 'المهام والفريق', title: 'سقوف صرف الأقسام', subtitle: 'الصرف الشهري لكل قسم', icon: 'lock', endpoint: '/control/spending-limits', route: '/control/spending-limits' },
-  { key: 'data-quality', group: 'الإدارة والأمان', title: 'جودة البيانات', subtitle: 'مكررات وبيانات ناقصة', icon: 'checkSquare', endpoint: '/control/data-quality', route: '/admin/quality' },
+  { key: 'data-quality', group: 'الإدارة والأمان', title: 'جودة البيانات', subtitle: 'أخطاء في بياناتك وكيف تصلحها', icon: 'checkSquare', endpoint: '/control/data-quality', route: '/data-quality' },
 ];
 
 export const MODULE_GROUPS = [...new Set(MODULES.map((m) => m.group))];

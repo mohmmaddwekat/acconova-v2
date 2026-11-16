@@ -59,14 +59,50 @@ class QuickEntryService
      */
     public function process(array $rows, User $user): array
     {
+        /*
+         * Oldest day first. Inside one day the order follows how stock really
+         * moves: purchases add raw material, production uses it and makes
+         * finished goods, sales use those; payments come after their invoices.
+         */
+        $priority = ['purchase' => 1, 'prod' => 2, 'sale' => 3, 'misc' => 4, 'payment' => 5, 'receipt' => 6, 'petty' => 7, 'staff' => 8, 'attendance' => 9];
+
         $ordered = collect($rows)
             ->map(fn (array $row, int $index): array => [...$row, '_index' => $index])
-            ->sortBy([['date', 'asc'], ['_index', 'asc']])
+            ->sortBy(fn (array $row): array => [$row['date'], $priority[$row['type']] ?? 9, $row['_index']])
             ->values();
 
         $results = [];
+        $waitingForStock = [];
 
         foreach ($ordered as $row) {
+            $index = $row['_index'];
+
+            try {
+                $results[$index] = [
+                    'index' => $index,
+                    'ok' => true,
+                    ...DB::transaction(fn (): array => $this->processRow($row, $user)),
+                ];
+            } catch (ValidationException $exception) {
+                if ($row['type'] === 'prod' && isset($exception->errors()['stock'])) {
+                    $waitingForStock[] = $row;
+
+                    continue;
+                }
+
+                $results[$index] = [
+                    'index' => $index,
+                    'ok' => false,
+                    'code' => $exception instanceof SafeValidationException ? 'safe' : 'validation',
+                    'errors' => $exception->errors(),
+                    'message' => collect($exception->errors())->flatten()->first(),
+                ];
+            }
+        }
+
+        // A production row that lacked material gets one more try after every
+        // other row (for example a purchase dated later in the same batch).
+        foreach ($waitingForStock as $row) {
             $index = $row['_index'];
 
             try {
@@ -79,7 +115,7 @@ class QuickEntryService
                 $results[$index] = [
                     'index' => $index,
                     'ok' => false,
-                    'code' => $exception instanceof SafeValidationException ? 'safe' : 'validation',
+                    'code' => 'validation',
                     'errors' => $exception->errors(),
                     'message' => collect($exception->errors())->flatten()->first(),
                 ];
@@ -292,6 +328,12 @@ class QuickEntryService
             ];
 
             throw ValidationException::withMessages(['product_id' => [$reasons[$result['message']] ?? (string) $result['message']]]);
+        }
+
+        if ($result['status'] === 'draft' && $result['message']) {
+            // Roll the draft back: the row is retried after the other rows, and
+            // reported as failed when the material is still missing.
+            throw ValidationException::withMessages(['stock' => [(string) $result['message']]]);
         }
 
         return [
@@ -595,7 +637,12 @@ class QuickEntryService
             ->get()
             ->keyBy('id');
 
-        return collect($lines)->map(function (array $line) use ($products): array {
+        $moveStock = (bool) ($row['affects_stock'] ?? false);
+        $warehouseId = $moveStock
+            ? (int) (Warehouse::query()->where('is_default', true)->value('id') ?? Warehouse::query()->value('id'))
+            : 0;
+
+        return collect($lines)->map(function (array $line) use ($products, $moveStock, $warehouseId): array {
             $product = $products->get((int) $line['product_id']);
 
             if (! $product) {
@@ -615,7 +662,8 @@ class QuickEntryService
                 'discount_type' => 'percent',
                 'discount_value' => '0',
                 'tax_rate' => $product->tax_rate ?? '0',
-                'affects_inventory' => false,
+                'warehouse_id' => $moveStock && $warehouseId && $product->tracksInventory() ? $warehouseId : null,
+                'affects_inventory' => $moveStock && $warehouseId && $product->tracksInventory(),
             ];
         })->values()->all();
     }
