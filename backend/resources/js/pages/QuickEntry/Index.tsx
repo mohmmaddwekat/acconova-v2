@@ -28,7 +28,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 type RowType = 'sale' | 'purchase' | 'misc' | 'receipt' | 'payment' | 'petty' | 'prod' | 'staff' | 'attendance';
 type Method = 'cash' | 'transfer' | 'check';
 
-type Line = { key: number; productId: number | null; qty: string; price: string };
+/** `typed` is false while the price is one the system filled in, so choosing another product may replace it. */
+type Line = { key: number; productId: number | null; qty: string; price: string; typed?: boolean };
 
 /** An entry the system already holds for the same party and day, shown before the same one is typed twice. */
 type ExistingEntry = {
@@ -650,7 +651,8 @@ export default function QuickEntry() {
         patchLine(row.id, line.key, { productId });
         const product = productId ? productById.get(productId) : null;
 
-        if (! product || line.price !== '') {
+        // A price the user typed by hand stays; one the system filled in follows the newly chosen product.
+        if (! product || (line.price !== '' && line.typed !== false)) {
             return;
         }
 
@@ -667,7 +669,7 @@ export default function QuickEntry() {
             }
         }
 
-        patchLine(row.id, line.key, { productId, price: String(Number(price) || 0) });
+        patchLine(row.id, line.key, { productId, price: String(Number(price) || 0), typed: false });
     };
 
     const makeLines = (row: Row, value: string) => {
@@ -1462,7 +1464,7 @@ export default function QuickEntry() {
                                             </Select>
                                         </td>
                                         <td className="py-1 pe-1"><input className={field + ' !w-20 text-left' + (bad(row, 'lines') && ! (num(line.qty) > 0) ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.qty} onChange={(event) => patchLine(row.id, line.key, { qty: event.target.value })} /></td>
-                                        <td className="py-1 pe-1"><input className={field + ' !w-24 text-left' + (bad(row, 'lines') && line.price === '' ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.price} onChange={(event) => patchLine(row.id, line.key, { price: event.target.value })} /></td>
+                                        <td className="py-1 pe-1"><input className={field + ' !w-24 text-left' + (bad(row, 'lines') && line.price === '' ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.price} onChange={(event) => patchLine(row.id, line.key, { price: event.target.value, typed: event.target.value !== '' })} /></td>
                                         <td className="py-1 pe-1 text-left" dir="ltr">{money(lineTotal(line))}</td>
                                         <td>
                                             <button type="button" aria-label={text('حذف البند', 'Remove line')} className="p-1.5 text-red-500" onClick={() => setRows((current) => current.map((candidate) => (candidate.id === row.id ? { ...candidate, lines: candidate.lines.length > 1 ? candidate.lines.filter((l) => l.key !== line.key) : [newLine()] } : candidate)))}>
