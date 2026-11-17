@@ -25,6 +25,8 @@ return [
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
+            // "Keep me signed in" lasts 30 days (minutes).
+            'remember' => 60 * 24 * 30,
         ],
         'api' => [
             'driver' => 'passport',

@@ -17,14 +17,21 @@ class AuthenticateUser
      *
      * @param  array{
      *     email: string,
-     *     password: string
+     *     password: string,
+     *     remember?: bool
      * }  $credentials
      *
      * @throws ValidationException
      */
     public function execute(array $credentials): User
     {
-        if (! Auth::attempt($credentials)) {
+        // Only the identity fields are matched against the users table; "remember" asks for a long-lived sign-in cookie.
+        $remember = (bool) ($credentials['remember'] ?? false);
+
+        if (! Auth::attempt([
+            'email' => $credentials['email'],
+            'password' => $credentials['password'],
+        ], $remember)) {
             throw ValidationException::withMessages([
                 'email' => [
                     'The provided credentials are incorrect.',

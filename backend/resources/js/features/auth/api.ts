@@ -3,6 +3,7 @@ import { apiRequest } from '@/lib/http';
 export type LoginPayload = {
     email: string;
     password: string;
+    remember?: boolean;
 };
 
 export type LoginResponse = {

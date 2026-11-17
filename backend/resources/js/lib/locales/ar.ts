@@ -107,6 +107,7 @@ export default {
     "ui.account_email": "بريد الحساب الإلكتروني",
     "ui.send_recovery_link": "إرسال رابط الاستعادة",
     "ui.forgot_password": "نسيت كلمة المرور؟",
+    "ui.remember_me": "ابقَني مسجّل الدخول",
     "ui.new_to_acconova": "جديد في AccoNova؟",
     "ui.create_account": "إنشاء حساب",
     "ui.acconova_could_not_complete_the_sign_in_request": "تعذر إكمال طلب تسجيل الدخول.",

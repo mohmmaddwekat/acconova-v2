@@ -53,6 +53,9 @@ export default function Login() {
     const [password, setPassword] =
         useState('');
 
+    const [remember, setRemember] =
+        useState(true);
+
     const [busy, setBusy] =
         useState(false);
 
@@ -81,6 +84,7 @@ export default function Login() {
             const response = await login({
                 email,
                 password,
+                remember,
             });
 
             window.location.assign(
@@ -146,7 +150,16 @@ export default function Login() {
                             errors.password?.[0]
                         }
                     />
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-between gap-3">
+                        <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-[var(--ac-text)]">
+                            <input
+                                type="checkbox"
+                                className="size-4 accent-[var(--ac-accent)]"
+                                checked={remember}
+                                onChange={(event) => setRemember(event.target.checked)}
+                            />
+                            {t('ui.remember_me')}
+                        </label>
                         <Link
                             href="/forgot-password"
                             className="text-xs font-semibold text-[var(--ac-accent-strong)]"

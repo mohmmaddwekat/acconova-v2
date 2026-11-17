@@ -105,6 +105,7 @@ export default {
     "ui.account_email": "Account email",
     "ui.send_recovery_link": "Send recovery link",
     "ui.forgot_password": "Forgot password?",
+    "ui.remember_me": "Keep me signed in",
     "ui.new_to_acconova": "New to AccoNova?",
     "ui.create_account": "Create account",
     "ui.acconova_could_not_complete_the_sign_in_request": "AccoNova could not complete the sign in request.",
