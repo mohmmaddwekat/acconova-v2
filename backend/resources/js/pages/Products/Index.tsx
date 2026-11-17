@@ -67,6 +67,7 @@ import {
 import {
     ProductListItem,
 } from '@/features/products/components/ProductListItem';
+import { adjustInventoryStock, fetchWarehouses } from '@/features/inventory/api';
 import { ProductSplitPreview } from '@/features/products/components/ProductSplitPreview';
 import { ProductTable } from '@/features/products/components/ProductTable';
 import {
@@ -709,13 +710,28 @@ function ProductsWorkspace() {
             return;
         }
 
+        const name = typeof patch.name === 'string'
+            ? patch.name.trim()
+            : product.name;
+
+        // The editor stays open on a blank name, so the user can fix it instead of losing the edit.
+        if (name === '') {
+            showToast(
+                ar ? 'اسم العنصر مطلوب.' : 'The item name is required.',
+                'error',
+            );
+
+            throw new Error('name_required');
+        }
+
         try {
             const updated = await updateProduct(
                 product.id,
                 {
                     type: product.type,
-                    name: product.name,
-                    sku: product.sku,
+                    usage: patch.usage ?? product.usage,
+                    name,
+                    sku: patch.sku !== undefined ? patch.sku : product.sku,
                     description: product.description,
                     unit:
                         typeof patch.unit === 'string'
@@ -725,7 +741,7 @@ function ProductsWorkspace() {
                         typeof patch.unit_price === 'string'
                             ? patch.unit_price
                             : product.unit_price,
-                    cost_price: product.cost_price,
+                    cost_price: patch.cost_price !== undefined ? patch.cost_price : product.cost_price,
                     tax_rate:
                         typeof patch.tax_rate === 'string'
                             ? patch.tax_rate
@@ -739,7 +755,7 @@ function ProductsWorkspace() {
                         ...current,
                         data: current.data.map((item) =>
                             item.id === updated.id
-                                ? updated
+                                ? { ...item, ...updated }
                                 : item,
                         ),
                     }
@@ -762,6 +778,80 @@ function ProductsWorkspace() {
                     : t('errors.unexpected'),
                 'error',
             );
+            throw exception;
+        }
+    }
+
+    /**
+     * Sets an item's on-hand stock to a new total typed in its table cell. The difference is booked
+     * as a normal stock adjustment in the default warehouse, so it stays in the stock history.
+     */
+    async function inlineAdjustStock(
+        product: Product,
+        quantity: string,
+    ): Promise<void> {
+        if (! allowEdit) {
+            return;
+        }
+
+        const target = Number(quantity.replace(/,/g, '').trim());
+
+        if (quantity.trim() === '' || ! Number.isFinite(target) || target < 0) {
+            showToast(
+                ar ? 'اكتب كمية صحيحة (صفراً أو أكثر).' : 'Enter a valid quantity (zero or more).',
+                'error',
+            );
+
+            throw new Error('quantity_invalid');
+        }
+
+        const difference = Math.round((target - Number(product.stock_on_hand ?? 0)) * 10000) / 10000;
+
+        if (difference === 0) {
+            return;
+        }
+
+        try {
+            const warehouses = await fetchWarehouses('active');
+            const warehouse = warehouses.find((item) => item.is_default) ?? warehouses[0];
+
+            if (! warehouse) {
+                showToast(ar ? 'أنشئ مستودعاً أولاً.' : 'Create a warehouse first.', 'error');
+
+                throw new Error('no_warehouse');
+            }
+
+            await adjustInventoryStock(product.id, {
+                warehouse_id: warehouse.id,
+                quantity: difference.toFixed(4),
+                note: ar ? 'تعديل سريع من جدول المنتجات' : 'Quick edit from the products table',
+            });
+
+            setResponse((current) =>
+                current
+                    ? {
+                        ...current,
+                        data: current.data.map((item) =>
+                            item.id === product.id
+                                ? { ...item, stock_on_hand: String(target) }
+                                : item,
+                        ),
+                    }
+                    : current,
+            );
+
+            showToast(
+                ar
+                    ? `تم تعديل المخزون إلى ${target} (${difference > 0 ? '+' : ''}${difference} في ${warehouse.name}).`
+                    : `Stock set to ${target} (${difference > 0 ? '+' : ''}${difference} in ${warehouse.name}).`,
+            );
+        } catch (exception) {
+            if (exception instanceof ApiError) {
+                showToast(exception.message, 'error');
+            } else if (! (exception instanceof Error) || exception.message !== 'no_warehouse') {
+                showToast(t('errors.unexpected'), 'error');
+            }
+
             throw exception;
         }
     }
@@ -1196,6 +1286,8 @@ function ProductsWorkspace() {
                                         onEdit={edit}
                                         onArchive={(value) => setPendingAction({ kind: 'archive', product: value })}
                                         onRestore={(value) => setPendingAction({ kind: 'restore', product: value })}
+                                        onInlineUpdate={inlineUpdateProduct}
+                                        onStockChange={inlineAdjustStock}
                                         sort={filters.sort}
                                         onSort={(next) => {
                                             setFilters((current) => ({ ...current, sort: next }));

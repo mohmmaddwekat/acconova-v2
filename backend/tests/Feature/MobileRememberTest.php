@@ -49,8 +49,9 @@ class MobileRememberTest extends TestCase
         $this->postJson('/api/mobile/login', $this->credentials(['remember' => false]))->assertOk();
         $this->postJson('/api/mobile/login', $this->credentials(['remember' => true]))->assertOk();
 
-        $lifetimes = DB::table('oauth_access_tokens')->orderBy('id')->pluck('expires_at')
-            ->map(fn ($expires) => (int) round(now()->diffInDays($expires)))->all();
+        // Passport token ids are random strings, so the lifetimes are compared as a sorted set, not by id order.
+        $lifetimes = DB::table('oauth_access_tokens')->pluck('expires_at')
+            ->map(fn ($expires) => (int) round(now()->diffInDays($expires)))->sort()->values()->all();
 
         $this->assertSame([1, 365], $lifetimes);
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\ProductType;
+use App\Enums\ProductUsage;
 use App\Models\Product;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
@@ -53,6 +54,13 @@ class UpdateProductRequest extends FormRequest
                 'required',
                 Rule::enum(
                     ProductType::class,
+                ),
+            ],
+
+            'usage' => [
+                'sometimes',
+                Rule::enum(
+                    ProductUsage::class,
                 ),
             ],
 

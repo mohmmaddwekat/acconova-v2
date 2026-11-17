@@ -181,6 +181,7 @@ class FinanceLookupController extends Controller
                     'name' => $product->name,
                     'sku' => $product->sku,
                     'type' => $product->type->value,
+                    'usage' => $product->usage?->value ?? 'both',
                     'unit' => $product->unit,
                     'unit_price' => $product->unit_price,
                     'cost_price' => $product->cost_price,

@@ -2,6 +2,7 @@ import type {
     Product,
     ProductIndexResponse,
     ProductType,
+    ProductUsage,
 } from '@/features/products/types';
 import {
     apiRequest,
@@ -52,6 +53,8 @@ export type ProductFilters = {
 
 export type ProductPayload = {
     type: ProductType;
+
+    usage?: ProductUsage;
 
     name: string;
 

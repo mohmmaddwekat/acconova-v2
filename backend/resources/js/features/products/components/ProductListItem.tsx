@@ -214,44 +214,42 @@ export function ProductListItem({
                     />
                 )}
 
-                <button
-                    type="button"
-                    onClick={() =>
-                        onView(
-                            product,
-                        )
-                    }
-                    className="flex min-w-0 flex-1 items-start gap-3 text-start lg:items-center"
-                >
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-surface-strong)] text-[var(--ac-text-soft)] transition duration-200 group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]">
-                        {product.type ===
-                        'service' ? (
-                            <Wrench
-                                size={
-                                    17
-                                }
-                            />
-                        ) : (
-                            <Package
-                                size={
-                                    17
-                                }
-                            />
-                        )}
-                    </div>
+                <div className="flex min-w-0 flex-1 items-start gap-3 text-start lg:items-center">
+                    <button
+                        type="button"
+                        aria-label={product.name}
+                        onClick={() => onView(product)}
+                        className="flex size-11 shrink-0 items-center justify-center rounded-[15px] bg-[var(--ac-surface-strong)] text-[var(--ac-text-soft)] transition duration-200 group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]"
+                    >
+                        {product.type === 'service' ? <Wrench size={17} /> : <Package size={17} />}
+                    </button>
 
-                    <div className="min-w-0">
-                        <p className="truncate text-[15px] font-semibold tracking-[-0.025em]">
-                            {
-                                product.name
-                            }
-                        </p>
+                    <div className="min-w-0 flex-1">
+                        <InlineEditValue
+                            value={product.name}
+                            display={(
+                                <button
+                                    type="button"
+                                    onClick={() => onView(product)}
+                                    className="block max-w-full truncate text-start text-[15px] font-semibold tracking-[-0.025em]"
+                                >
+                                    {product.name}
+                                </button>
+                            )}
+                            editable={! archived && canEdit && Boolean(onInlineUpdate)}
+                            onSave={(value) =>
+                                onInlineUpdate?.(
+                                    product,
+                                    {
+                                        name: value,
+                                    },
+                                )}
+                        />
 
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                             <span className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-accent-strong)]">
                                 {t(
-                                    product.type ===
-                                        'service'
+                                    product.type === 'service'
                                         ? 'ui.service'
                                         : product.type === 'raw_material' ? 'production.rawMaterial' : 'ui.product',
                                 )}
@@ -259,14 +257,12 @@ export function ProductListItem({
 
                             {archived && (
                                 <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase text-[var(--ac-danger)]">
-                                    {t(
-                                        'ui.archived',
-                                    )}
+                                    {t('ui.archived')}
                                 </span>
                             )}
                         </div>
                     </div>
-                </button>
+                </div>
             </div>
             )}
 

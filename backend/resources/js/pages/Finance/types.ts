@@ -39,6 +39,8 @@ export type LookupProduct = {
     name: string;
     sku: string | null;
     type: string;
+    /** Where the item is used; items without it (older data) count as both. */
+    usage?: 'sale' | 'purchase' | 'both';
     unit: string | null;
     unit_price: string;
     cost_price: string | null;

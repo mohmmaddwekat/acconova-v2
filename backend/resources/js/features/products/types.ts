@@ -3,7 +3,11 @@ export type ProductType =
     | 'raw_material'
     | 'service';
 
+/** Where an item is used: sold, bought, or both. */
+export type ProductUsage = 'sale' | 'purchase' | 'both';
+
 export type Product = {
+    usage: ProductUsage;
     stock_on_hand?: string | null;
     stock_reserved?: string | null;
     monthly_sales?: string | null;

@@ -12,6 +12,7 @@ import {
 } from '@/features/parties/components/PartyAgingBar';
 import type {
     Party,
+    PartyRole,
 } from '@/features/parties/types';
 import {
     t,
@@ -29,6 +30,11 @@ import {
     RotateCcw,
     UserRound,
 } from 'lucide-react';
+import {
+    useEffect,
+    useRef,
+    useState,
+} from 'react';
 import type {
     MouseEvent as ReactMouseEvent,
 } from 'react';
@@ -157,7 +163,112 @@ function partyLocation(
  * Shared desktop grid for the Party header and rows; both must stay in sync.
  */
 export const PARTY_ROW_GRID =
-    'lg:grid-cols-[auto_minmax(190px,1.2fr)_minmax(170px,1fr)_minmax(100px,0.55fr)_minmax(100px,0.55fr)_minmax(130px,0.7fr)_minmax(120px,0.65fr)_auto]';
+    'lg:grid-cols-[auto_minmax(190px,1.2fr)_minmax(130px,0.7fr)_minmax(170px,1fr)_minmax(100px,0.55fr)_minmax(100px,0.55fr)_minmax(130px,0.7fr)_minmax(120px,0.65fr)_auto]';
+
+const ROLE_OPTIONS: Array<{ value: PartyRole; key: 'role.customer' | 'role.supplier' | 'role.contact' }> = [
+    { value: 'customer', key: 'role.customer' },
+    { value: 'supplier', key: 'role.supplier' },
+    { value: 'contact', key: 'role.contact' },
+];
+
+/**
+ * Shows a party's types (customer, supplier, contact) and lets the user toggle them in place.
+ * At least one type must stay selected, matching the server rule.
+ */
+function PartyRolesEditor({
+    roles,
+    editable,
+    onChange,
+}: {
+    roles: PartyRole[];
+    editable: boolean;
+    onChange: (roles: PartyRole[]) => void | Promise<void>;
+}) {
+    const [open, setOpen] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const box = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (! open) {
+            return;
+        }
+
+        const close = (event: MouseEvent) => {
+            if (box.current && ! box.current.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', close);
+
+        return () => document.removeEventListener('mousedown', close);
+    }, [open]);
+
+    async function toggle(role: PartyRole): Promise<void> {
+        const next = roles.includes(role)
+            ? roles.filter((item) => item !== role)
+            : [...roles, role];
+
+        if (next.length === 0 || busy) {
+            return;
+        }
+
+        setBusy(true);
+
+        try {
+            await onChange(ROLE_OPTIONS.map((option) => option.value).filter((value) => next.includes(value)));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    const badges = (
+        <span className="flex flex-wrap gap-1.5">
+            {roles.map((role) => (
+                <span
+                    key={role}
+                    className="rounded-full bg-[var(--ac-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ac-accent-strong)]"
+                >
+                    {t(ROLE_OPTIONS.find((option) => option.value === role)?.key ?? 'role.contact')}
+                </span>
+            ))}
+        </span>
+    );
+
+    if (! editable) {
+        return badges;
+    }
+
+    return (
+        <div ref={box} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen((current) => ! current)}
+                className="flex max-w-full items-center gap-1.5 rounded-[10px] px-1 py-0.5 text-start transition hover:bg-[var(--ac-surface-soft)]"
+            >
+                {badges}
+                <Pencil size={11} className="shrink-0 text-[var(--ac-text-muted)]" />
+            </button>
+
+            {open && (
+                <div className="absolute start-0 top-full z-30 mt-1 grid min-w-[150px] gap-1 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2 shadow-[var(--ac-shadow-soft)]">
+                    {ROLE_OPTIONS.map((option) => (
+                        <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-1.5 text-xs font-semibold hover:bg-[var(--ac-surface-soft)]">
+                            <input
+                                type="checkbox"
+                                checked={roles.includes(option.value)}
+                                disabled={busy || (roles.length === 1 && roles.includes(option.value))}
+                                onChange={() => void toggle(option.value)}
+                                className="size-4 accent-[var(--ac-accent-strong)]"
+                            />
+                            {t(option.key)}
+                        </label>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
 /**
  * Render one selectable Party operating row.
@@ -170,6 +281,7 @@ export function PartyListItem({
     canArchive,
     columnOrder = [
         'identity',
+        'roles',
         'contact',
         'owed_to_us',
         'we_owe',
@@ -313,17 +425,16 @@ export function PartyListItem({
             )}
 
             {visibleColumn('identity') && (
-            <button
+            <div
                 style={columnStyle('identity')}
-                type="button"
-                onClick={() =>
-                    onView(
-                        party,
-                    )
-                }
                 className="flex min-w-0 items-start gap-3 text-start sm:gap-4 lg:items-center"
             >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)] transition duration-200 group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]">
+                <button
+                    type="button"
+                    aria-label={label}
+                    onClick={() => onView(party)}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[var(--ac-text-soft)] transition duration-200 group-hover:bg-[var(--ac-accent-soft)] group-hover:text-[var(--ac-accent-strong)]"
+                >
                     {party.type ===
                     'company' ? (
                         <Building2
@@ -338,36 +449,31 @@ export function PartyListItem({
                             }
                         />
                     )}
-                </div>
+                </button>
 
                 <div className="min-w-0 flex-1">
-                    <p className="break-words text-[15px] font-semibold leading-5 tracking-[-0.02em]">
-                        {
-                            label
-                        }
-                    </p>
+                    <InlineEditValue
+                        value={party.type === 'company' ? (party.company_name ?? '') : (party.name ?? '')}
+                        display={(
+                            <button
+                                type="button"
+                                onClick={() => onView(party)}
+                                className="block max-w-full break-words text-start text-[15px] font-semibold leading-5 tracking-[-0.02em]"
+                            >
+                                {label}
+                            </button>
+                        )}
+                        editable={! archived && canEdit && Boolean(onInlineUpdate)}
+                        onSave={(value) =>
+                            onInlineUpdate?.(
+                                party,
+                                party.type === 'company'
+                                    ? { company_name: value.trim() }
+                                    : { name: value.trim() },
+                            )}
+                    />
 
                     <div className="mt-1 flex flex-wrap gap-1.5">
-                        {party.roles.map(
-                            (
-                                role,
-                            ) => (
-                                <span
-                                    key={
-                                        role
-                                    }
-                                    className="rounded-full bg-[var(--ac-accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--ac-accent-strong)]"
-                                >
-                                    {t(
-                                        role ===
-                                            'customer'
-                                            ? 'role.customer'
-                                            : role === 'contact' ? 'role.contact' : 'role.supplier',
-                                    )}
-                                </span>
-                            ),
-                        )}
-
                         {archived && (
                             <span className="rounded-full bg-[var(--ac-danger)]/8 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--ac-danger)]">
                                 {t(
@@ -377,7 +483,17 @@ export function PartyListItem({
                         )}
                     </div>
                 </div>
-            </button>
+            </div>
+            )}
+
+            {visibleColumn('roles') && (
+            <div style={columnStyle('roles')} className="min-w-0">
+                <PartyRolesEditor
+                    roles={party.roles}
+                    editable={! archived && canEdit && Boolean(onInlineUpdate)}
+                    onChange={(roles) => onInlineUpdate?.(party, { roles })}
+                />
+            </div>
             )}
 
             {visibleColumn('contact') && (

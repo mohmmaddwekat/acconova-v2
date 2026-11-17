@@ -3742,6 +3742,7 @@ export function DocumentForm({
                                                                     'Search by name or SKU…',
                                                                 )}
                                                                 options={lookups.products
+                                                                    .filter(product => product.id === line.product_id || (sales ? product.usage !== 'purchase' : product.usage !== 'sale'))
                                                                     .filter(
                                                                         product =>
                                                                             product.id ===

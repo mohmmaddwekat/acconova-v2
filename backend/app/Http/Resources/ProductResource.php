@@ -29,6 +29,8 @@ class ProductResource extends JsonResource
 
             'description' => $this->description,
 
+            'usage' => $this->usage?->value ?? 'both',
+
             'unit' => $this->unit,
 
             'unit_price' => $this->unit_price,

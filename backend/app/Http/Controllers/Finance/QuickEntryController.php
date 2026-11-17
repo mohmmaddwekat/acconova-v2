@@ -43,6 +43,7 @@ class QuickEntryController extends Controller
             'rows.*.lines.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999999'],
             'rows.*.lines.*.unit_price' => ['required', 'numeric', 'min:0', 'max:999999999999'],
             'rows.*.discount_type' => ['nullable', Rule::in(['percent', 'fixed'])],
+            'rows.*.tax_rule_id' => ['nullable', 'integer'],
             'rows.*.discount_value' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'rows.*.payment' => ['nullable', 'array'],
             'rows.*.payment.amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],

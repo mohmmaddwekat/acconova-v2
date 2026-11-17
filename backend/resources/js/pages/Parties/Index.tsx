@@ -397,6 +397,10 @@ function PartiesWorkspace() {
             label: ar ? 'الجهة' : 'Party',
         },
         {
+            key: 'roles',
+            label: ar ? 'النوع' : 'Type',
+        },
+        {
             key: 'contact',
             label: ar ? 'التواصل' : 'Contact',
         },
@@ -423,7 +427,7 @@ function PartiesWorkspace() {
     ];
 
     const listPreferences = useListPreferences(
-        `acconova:list-preferences:parties-v3:${activeOrganization?.id ?? 'none'}`,
+        `acconova:list-preferences:parties-v4:${activeOrganization?.id ?? 'none'}`,
         partyColumns,
     );
 
@@ -867,7 +871,7 @@ function PartiesWorkspace() {
                 patch.country_code !== undefined
                     ? patch.country_code
                     : party.country_code,
-            roles: party.roles,
+            roles: patch.roles ?? party.roles,
         };
     }
 
@@ -877,6 +881,18 @@ function PartiesWorkspace() {
     ): Promise<void> {
         if (! allowEdit) {
             return;
+        }
+
+        // A blank name is refused here and the editor stays open, so the user can fix it.
+        const renamed = patch.company_name ?? patch.name;
+
+        if (typeof renamed === 'string' && renamed.trim() === '') {
+            showToast(
+                ar ? 'الاسم مطلوب.' : 'The name is required.',
+                'error',
+            );
+
+            throw new Error('name_required');
         }
 
         try {
@@ -1643,6 +1659,19 @@ function PartiesWorkspace() {
                                                 }}
                                             >
                                                 {ar ? 'الجهة' : 'Party'}
+                                            </span>
+                                        )}
+
+                                        {! listPreferences.hidden.includes('roles') && (
+                                            <span
+                                                style={{
+                                                    order: Math.max(
+                                                        listPreferences.order.indexOf('roles'),
+                                                        0,
+                                                    ),
+                                                }}
+                                            >
+                                                {ar ? 'النوع' : 'Type'}
                                             </span>
                                         )}
 

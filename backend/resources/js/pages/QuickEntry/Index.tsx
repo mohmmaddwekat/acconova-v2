@@ -52,6 +52,8 @@ type Row = {
     notes: string;
     lines: Line[];
     disc: string;
+    /** Tax rule applied to every line of an invoice row; none means the product's own rate. */
+    taxRuleId: number | null;
     pay: string;
     full: boolean;
     method: Method;
@@ -174,6 +176,7 @@ const newRow = (type: RowType, date: string): Row => ({
     notes: '',
     lines: META[type].invoice ? [newLine()] : [],
     disc: '',
+    taxRuleId: null,
     pay: '',
     full: false,
     method: 'cash',
@@ -184,7 +187,7 @@ const newRow = (type: RowType, date: string): Row => ({
     error: '',
     merged: false,
     // Purchases add stock by default so raw material bought the same day can be used in production.
-    stock: type === 'purchase',
+    stock: type === 'purchase' || type === 'sale',
     exist: null,
     dupOk: false,
     flag: false,
@@ -261,6 +264,67 @@ function CountStepper({ value, label, onChange }: { value: number; label: string
             />
             <button type="button" className={step} aria-label={`+ ${label}`} onClick={() => onChange(clamp(value + 1))}>+</button>
         </span>
+    );
+}
+
+type OffsetPlan = { sales_open: number; purchases_open: number; available: number };
+
+/**
+ * For a party that is both customer and supplier: shows what is open in each direction on
+ * saved invoices and offers to cancel the common part against each other (a "مقاصة").
+ */
+function OffsetHint({ partyId, name, ar }: { partyId: number; name: string; ar: boolean }) {
+    const [plan, setPlan] = useState<OffsetPlan | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [done, setDone] = useState('');
+    const [error, setError] = useState('');
+
+    const load = useCallback(() => {
+        apiRequest<{ data: OffsetPlan }>(`/api/parties/${partyId}/offsets/preview`, { method: 'POST', body: JSON.stringify({}) })
+            .then((response) => setPlan(response.data))
+            .catch(() => setPlan(null));
+    }, [partyId]);
+
+    useEffect(() => {
+        setDone('');
+        setError('');
+        load();
+    }, [load]);
+
+    async function apply(): Promise<void> {
+        setBusy(true);
+        setError('');
+
+        try {
+            const response = await apiRequest<{ data: { total: number } }>(`/api/parties/${partyId}/offsets`, { method: 'POST', body: JSON.stringify({}) });
+
+            setDone(ar ? `تمت المقاصة بمبلغ ${money(Number(response.data.total))}.` : `Offset of ${money(Number(response.data.total))} done.`);
+            load();
+        } catch (exception) {
+            setError(exception instanceof Error ? exception.message : (ar ? 'تعذّرت المقاصة.' : 'Offset failed.'));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    if (! plan || (plan.available <= 0 && ! done)) {
+        return null;
+    }
+
+    return (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-[14px] border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+            <span className="min-w-0 flex-1">
+                {done || (ar
+                    ? `${name}: له علينا ${money(plan.purchases_open)} وعليه لنا ${money(plan.sales_open)} (فواتير محفوظة مفتوحة). يمكن مقاصة ${money(plan.available)} من بعض بدون حركة نقد.`
+                    : `${name}: we owe ${money(plan.purchases_open)} and they owe ${money(plan.sales_open)} on saved open invoices. ${money(plan.available)} can be offset with no cash moving.`)}
+                {error && <b className="ms-2 text-red-600">{error}</b>}
+            </span>
+            {plan.available > 0 && (
+                <button type="button" disabled={busy} onClick={() => void apply()} className="rounded-full bg-amber-600 px-3 py-1 font-bold text-white disabled:opacity-60">
+                    {ar ? 'اعمل مقاصة' : 'Offset now'}
+                </button>
+            )}
+        </div>
     );
 }
 
@@ -474,11 +538,19 @@ export default function QuickEntry() {
 
         return value.endsWith('%') ? subtotal * num(value.slice(0, -1)) / 100 : num(value);
     };
+    const taxRuleOf = (row: Row) => (row.taxRuleId ? (lookups?.tax_rules ?? []).find((rule) => rule.id === row.taxRuleId) ?? null : null);
+    const taxRulesFor = (row: Row) => (lookups?.tax_rules ?? []).filter((rule) => rule.applies_to === 'both' || rule.applies_to === (row.type === 'sale' ? 'sales' : 'purchases'));
     const totals = (row: Row) => {
         const subtotal = row.lines.reduce((sum, line) => sum + lineTotal(line), 0);
         const discount = discountOf(row, subtotal);
 
-        return { subtotal, discount, total: Math.max(subtotal - discount, 0) };
+        const rule = taxRuleOf(row);
+        const taxable = Math.max(subtotal - discount, 0);
+        const rate = rule ? num(rule.rate) : 0;
+        const tax = rule && ! rule.inclusive ? taxable * rate / 100 : 0;
+        const included = rule?.inclusive && rate > 0 ? taxable - taxable / (1 + rate / 100) : 0;
+
+        return { subtotal, discount, tax, included, total: taxable + tax };
     };
     const payOf = (row: Row): number => {
         if (! META[row.type].pay) {
@@ -932,6 +1004,7 @@ export default function QuickEntry() {
             party_id: row.type === 'misc' ? null : row.partyId,
             lines: row.lines.filter(completeLine).map((line) => ({ product_id: line.productId, quantity: num(line.qty), unit_price: num(line.price) })),
             affects_stock: row.stock,
+            tax_rule_id: row.taxRuleId ?? undefined,
             discount_type: percent ? 'percent' : 'fixed',
             discount_value: percent ? num(row.disc.trim().slice(0, -1)) : num(row.disc),
             payment: row.type === 'misc' ? undefined : (payOf(row) > 0 ? payment : undefined),
@@ -1252,6 +1325,15 @@ export default function QuickEntry() {
                             <input className={field + ' mt-1 text-left'} dir="ltr" value={row.disc} placeholder="0" onChange={(event) => patch(row.id, { disc: event.target.value })} />
                         </label>
                     )}
+                    {meta.invoice && row.type !== 'misc' && taxRulesFor(row).length > 0 && (
+                        <label className="col-span-2 text-[11px] font-bold text-[var(--ac-text-muted)]">
+                            {text('الضريبة', 'Tax')}
+                            <Select className={field + ' mt-1'} value={row.taxRuleId ?? ''} onChange={(event) => patch(row.id, { taxRuleId: event.target.value ? Number(event.target.value) : null })}>
+                                <option value="">{text('بدون ضريبة إضافية', 'No extra tax')}</option>
+                                {taxRulesFor(row).map((rule) => <option key={rule.id} value={rule.id}>{rule.name} ({num(rule.rate)}%{rule.inclusive ? text('، شاملة', ', inclusive') : ''})</option>)}
+                            </Select>
+                        </label>
+                    )}
                     {meta.invoice && (
                         <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
                             {text('مبلغ الدفعة', 'Payment amount')}
@@ -1321,6 +1403,17 @@ export default function QuickEntry() {
         );
     }
 
+    /** The row's party when it is both customer and supplier and the user may offset; otherwise null. */
+    function offsetParty(row: Row) {
+        if (! row.partyId || ! ['sale', 'purchase', 'receipt', 'payment'].includes(row.type) || ! (perms?.sales_manage && perms?.purchases_manage)) {
+            return null;
+        }
+
+        const party = (lookups?.parties ?? []).find((candidate) => candidate.id === row.partyId);
+
+        return party && party.roles.includes('customer') && party.roles.includes('supplier') ? party : null;
+    }
+
     function detailPanel(row: Row) {
         const meta = META[row.type];
 
@@ -1363,7 +1456,9 @@ export default function QuickEntry() {
                                         <td className="py-1 pe-1">
                                             <Select className={field + (bad(row, 'lines') && ! line.productId ? ' !border-red-500 !ring-1 !ring-red-300' : '')} value={line.productId ?? ''} onChange={(event) => void chooseProduct(row, line, event.target.value ? Number(event.target.value) : null)}>
                                                 <option value="">{text('المنتج', 'Product')}</option>
-                                                {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                                                {products
+                                                    .filter((product) => product.id === line.productId || (row.type === 'purchase' ? product.usage !== 'sale' : product.usage !== 'purchase'))
+                                                    .map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
                                             </Select>
                                         </td>
                                         <td className="py-1 pe-1"><input className={field + ' !w-20 text-left' + (bad(row, 'lines') && ! (num(line.qty) > 0) ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.qty} onChange={(event) => patchLine(row.id, line.key, { qty: event.target.value })} /></td>
@@ -1387,7 +1482,7 @@ export default function QuickEntry() {
                                 {row.type === 'purchase' ? text('يُضاف للمخزون (للمنتجات المتتبَّعة)', 'Adds to stock (tracked products)') : text('يُخصم من المخزون (للمنتجات المتتبَّعة)', 'Deducts from stock (tracked products)')}
                             </label>
                             <span className="text-xs text-[var(--ac-text-muted)]">
-                                {text('المجموع', 'Subtotal')} <b>{money(x.subtotal)}</b> · {text('الخصم', 'Discount')} <b>{money(x.discount)}</b> · {text('الإجمالي', 'Total')} <b>{money(x.total)}</b>
+                                {text('المجموع', 'Subtotal')} <b>{money(x.subtotal)}</b> · {text('الخصم', 'Discount')} <b>{money(x.discount)}</b> · {(x.tax > 0 || x.included > 0) && <>{text('الضريبة', 'Tax')} <b>{money(x.tax || x.included)}</b> · </>}{text('الإجمالي', 'Total')} <b>{money(x.total)}</b>
                             </span>
                         </div>
                     </div>
@@ -1509,7 +1604,7 @@ export default function QuickEntry() {
                     </td>
                     <td className="w-7 text-center text-xs text-[var(--ac-text-muted)]">{index + 1}</td>
                     <td className="px-1.5 py-1.5">
-                        <Select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: event.target.value === 'purchase', lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
+                        <Select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: event.target.value === 'purchase' || event.target.value === 'sale', lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
                             {visibleTypes.map((type) => <option key={type} value={type}>{typeName(type)}</option>)}
                         </Select>
                     </td>
@@ -1618,7 +1713,10 @@ export default function QuickEntry() {
                     <tr className="bg-[var(--ac-surface-soft,#fafcff)]">
                         <td />
                         <td />
-                        <td colSpan={9} className="px-3 py-3">{detailPanel(row)}</td>
+                        <td colSpan={9} className="px-3 py-3">
+                            {offsetParty(row) && <OffsetHint partyId={row.partyId as number} name={offsetParty(row)?.name ?? ''} ar={ar} />}
+                            {detailPanel(row)}
+                        </td>
                     </tr>
                 )}
                 {lastInGroup && null}

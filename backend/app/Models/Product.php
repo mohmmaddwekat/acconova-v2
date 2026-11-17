@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProductType;
+use App\Enums\ProductUsage;
 use App\Models\Concerns\BelongsToOrganization;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,6 +22,7 @@ class Product extends Model
 
     protected $fillable = [
         'type',
+        'usage',
         'name',
         'sku',
         'description',
@@ -44,6 +46,8 @@ class Product extends Model
     {
         return [
             'type' => ProductType::class,
+
+            'usage' => ProductUsage::class,
 
             'unit_price' => 'decimal:4',
 

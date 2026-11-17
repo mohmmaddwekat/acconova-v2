@@ -10,6 +10,7 @@ use App\Models\Party;
 use App\Models\Product;
 use App\Models\StaffEntry;
 use App\Models\StaffMember;
+use App\Models\TaxRule;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Governance\ApprovalWorkflowService;
@@ -637,12 +638,13 @@ class QuickEntryService
             ->get()
             ->keyBy('id');
 
+        $taxRule = ! empty($row['tax_rule_id']) ? TaxRule::query()->find((int) $row['tax_rule_id']) : null;
         $moveStock = (bool) ($row['affects_stock'] ?? false);
         $warehouseId = $moveStock
             ? (int) (Warehouse::query()->where('is_default', true)->value('id') ?? Warehouse::query()->value('id'))
             : 0;
 
-        return collect($lines)->map(function (array $line) use ($products, $moveStock, $warehouseId): array {
+        return collect($lines)->map(function (array $line) use ($products, $moveStock, $warehouseId, $taxRule): array {
             $product = $products->get((int) $line['product_id']);
 
             if (! $product) {
@@ -661,7 +663,8 @@ class QuickEntryService
                 'discount_percent' => '0',
                 'discount_type' => 'percent',
                 'discount_value' => '0',
-                'tax_rate' => $product->tax_rate ?? '0',
+                'tax_rule_id' => $taxRule?->id,
+                'tax_rate' => $taxRule?->rate ?? $product->tax_rate ?? '0',
                 'warehouse_id' => $moveStock && $warehouseId && $product->tracksInventory() ? $warehouseId : null,
                 'affects_inventory' => $moveStock && $warehouseId && $product->tracksInventory(),
             ];

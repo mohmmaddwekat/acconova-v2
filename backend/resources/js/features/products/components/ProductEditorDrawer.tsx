@@ -11,6 +11,7 @@ import {
 import type {
     Product,
     ProductType,
+    ProductUsage,
 } from '@/features/products/types';
 import {
     ApiError,
@@ -67,6 +68,8 @@ type ProductEditorDrawerProps = {
 
 type ProductForm = {
     type: ProductType;
+
+    usage: ProductUsage;
 
     name: string;
 
@@ -213,6 +216,9 @@ function emptyForm(): ProductForm {
         type:
             'product',
 
+        usage:
+            'both',
+
         name:
             '',
 
@@ -242,6 +248,9 @@ function formFromProduct(
     return {
         type:
             product.type,
+
+        usage:
+            product.usage ?? 'both',
 
         name:
             product.name,
@@ -608,6 +617,9 @@ export function ProductEditorDrawer({
             ProductPayload = {
             type:
                 form.type,
+
+            usage:
+                form.usage,
 
             name:
                 form.name.trim(),
@@ -1065,7 +1077,46 @@ export function ProductEditorDrawer({
                                 </div>
                             </div>
 
+                            <div>
+                                <p className="mb-2 text-xs font-semibold text-[var(--ac-text-soft)]">
+                                    {ar ? 'يُستخدم في' : 'Used for'}
+                                </p>
+
+                                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={ar ? 'يُستخدم في' : 'Used for'}>
+                                    {([
+                                        ['both', ar ? 'بيع وشراء' : 'Sale and purchase'],
+                                        ['sale', ar ? 'للبيع فقط' : 'Sale only'],
+                                        ['purchase', ar ? 'للشراء فقط' : 'Purchase only'],
+                                    ] as Array<[ProductUsage, string]>).map(([value, text]) => (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={form.usage === value}
+                                            onClick={() => setForm((current) => ({ ...current, usage: value }))}
+                                            className={[
+                                                'rounded-full border px-4 py-2 text-xs font-semibold transition',
+                                                form.usage === value
+                                                    ? 'border-[var(--ac-accent)] bg-[var(--ac-accent-soft)] text-[var(--ac-accent-strong)]'
+                                                    : 'border-[var(--ac-line)] bg-[var(--ac-surface)] text-[var(--ac-text-soft)] hover:border-[var(--ac-line-strong)]',
+                                            ].join(' ')}
+                                        >
+                                            {text}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <p className="mt-1.5 text-[11px] leading-5 text-[var(--ac-text-soft)]">
+                                    {form.usage === 'sale'
+                                        ? (ar ? 'يظهر في فواتير البيع فقط، وبلا سعر شراء.' : 'Offered on sales invoices only, with no purchase price.')
+                                        : form.usage === 'purchase'
+                                            ? (ar ? 'يظهر في فواتير الشراء فقط، وبلا سعر بيع.' : 'Offered on purchase invoices only, with no selling price.')
+                                            : (ar ? 'يظهر في فواتير البيع والشراء، وله سعر بيع وسعر شراء.' : 'Offered on sales and purchase invoices, with a selling and a purchase price.')}
+                                </p>
+                            </div>
+
                             <div className="grid gap-5 sm:grid-cols-3">
+                                {form.usage !== 'purchase' && (
                                 <Field
                                     label={t(
                                         service
@@ -1107,7 +1158,9 @@ export function ProductEditorDrawer({
                                         className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] px-3.5 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                     />
                                 </Field>
+                                )}
 
+                                {form.usage !== 'sale' && (
                                 <Field
                                     label={t(
                                         'ui.cost',
@@ -1146,6 +1199,7 @@ export function ProductEditorDrawer({
                                         className="h-11 w-full rounded-[14px] border border-[var(--ac-line)] px-3.5 text-sm outline-none transition focus:border-[var(--ac-accent)] focus:ring-4 focus:ring-[var(--ac-accent-soft)]"
                                     />
                                 </Field>
+                                )}
 
                                 <Field
                                     label={t(

@@ -1,3 +1,5 @@
+import { InlineEditValue } from '@/components/data/InlineEditValue';
+import { Select } from '@/components/ui/Select';
 import { PermanentDeleteControl } from '@/components/data/PermanentDeleteControl';
 import {
     ColumnFilterText,
@@ -5,7 +7,7 @@ import {
     type TableSort,
 } from '@/components/data/SortableHeader';
 import type { ProductSort } from '@/features/products/api';
-import type { Product } from '@/features/products/types';
+import type { Product, ProductUsage } from '@/features/products/types';
 import { t, useLocale } from '@/lib/i18n';
 import { getLocale } from '@/lib/locale';
 import { Archive, ArrowUpRight, Pencil, RotateCcw } from 'lucide-react';
@@ -33,6 +35,12 @@ type ProductTableProps = {
     onArchive: (product: Product) => void;
 
     onRestore: (product: Product) => void;
+
+    /** Saves one edited field straight from its table cell. */
+    onInlineUpdate?: (product: Product, patch: Partial<Product>) => void | Promise<void>;
+
+    /** Sets the on-hand stock to a new total straight from its table cell. */
+    onStockChange?: (product: Product, quantity: string) => void | Promise<void>;
 
     sort: ProductSort;
 
@@ -112,6 +120,8 @@ export function ProductTable({
     onEdit,
     onArchive,
     onRestore,
+    onInlineUpdate,
+    onStockChange,
     sort,
     onSort,
     search,
@@ -146,7 +156,15 @@ export function ProductTable({
 
     const label = {
         product: ar ? 'المنتج' : 'Item',
-        price: ar ? 'السعر' : 'Price',
+        price: ar ? 'سعر البيع' : 'Selling price',
+        cost: ar ? 'سعر الشراء' : 'Purchase price',
+        sku: ar ? 'الرمز SKU' : 'SKU',
+        usage: ar ? 'الاستخدام' : 'Used for',
+        both: ar ? 'بيع وشراء' : 'Sale and purchase',
+        sale: ar ? 'للبيع فقط' : 'Sale only',
+        purchase: ar ? 'للشراء فقط' : 'Purchase only',
+        notForSale: ar ? 'هذا العنصر للشراء فقط، فلا سعر بيع له' : 'Purchase-only item: no selling price',
+        notForPurchase: ar ? 'هذا العنصر للبيع فقط، فلا سعر شراء له' : 'Sale-only item: no purchase price',
         stock: ar ? 'المخزون' : 'Stock',
         sales: ar ? 'مبيعات شهرياً' : 'Sales / month',
         cover: ar ? 'يكفي' : 'Lasts',
@@ -156,6 +174,13 @@ export function ProductTable({
         slow: ar ? 'راكد' : 'Slow moving',
         noSales: ar ? 'لا مبيعات' : 'No sales',
         months: ar ? 'شهر' : 'mo',
+    };
+
+    const editable = (product: Product): boolean => product.deleted_at === null && canEdit && Boolean(onInlineUpdate);
+
+    /** Runs an inline save from a dropdown, where a failure is already shown as a message. */
+    const saveFromSelect = (product: Product, patch: Partial<Product>): void => {
+        void Promise.resolve(onInlineUpdate?.(product, patch)).catch(() => undefined);
     };
 
     function coverText(product: Product): string {
@@ -203,7 +228,10 @@ export function ProductTable({
                             filterActive={search !== ''}
                             filter={<ColumnFilterText ar={ar} value={search} onChange={onSearch} placeholder={ar ? 'اسم المنتج أو الرمز' : 'Name or SKU'} />}
                         />
+                        <th className="px-3 py-2.5 text-start font-medium">{label.usage}</th>
+                        <th className="px-3 py-2.5 text-start font-medium">{label.sku}</th>
                         <SortableTh ar={ar} label={label.price} sortKey="price" sort={tableSort} onSort={changeSort} className="py-2.5 font-medium" />
+                        <th className="px-3 py-2.5 text-start font-medium">{label.cost}</th>
                         <SortableTh ar={ar} label={label.stock} sortKey="stock" sort={tableSort} onSort={changeSort} className="py-2.5 font-medium" />
                         <SortableTh ar={ar} label={label.sales} sortKey="sales" sort={tableSort} onSort={changeSort} className="py-2.5 font-medium" />
                         <th className="px-3 py-2.5 text-start font-medium">{label.cover}</th>
@@ -239,40 +267,106 @@ export function ProductTable({
                                 )}
 
                                 <td className="max-w-[320px] px-3 py-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => onView(product)}
-                                        className="block max-w-full truncate text-start font-medium hover:text-[var(--ac-accent-strong)]"
-                                    >
-                                        {product.name}
-                                    </button>
-                                    {(product.sku || archived) && (
+                                    <InlineEditValue
+                                        value={product.name}
+                                        display={(
+                                            <button
+                                                type="button"
+                                                onClick={() => onView(product)}
+                                                className="block max-w-full truncate text-start font-medium hover:text-[var(--ac-accent-strong)]"
+                                            >
+                                                {product.name}
+                                            </button>
+                                        )}
+                                        editable={! archived && canEdit && Boolean(onInlineUpdate)}
+                                        onSave={(value) => onInlineUpdate?.(product, { name: value })}
+                                    />
+                                    {archived && (
                                         <span className="block truncate text-[11px] text-[var(--ac-text-soft)]">
-                                            {archived ? (ar ? 'مؤرشف' : 'Archived') : ''}
-                                            {archived && product.sku ? ' · ' : ''}
-                                            {product.sku && <bdi>{product.sku}</bdi>}
+                                            {ar ? 'مؤرشف' : 'Archived'}
                                         </span>
                                     )}
                                 </td>
 
+                                <td className="px-3 py-2">
+                                    {editable(product) ? (
+                                        <Select
+                                            className="h-8 w-[124px] text-xs"
+                                            value={product.usage ?? 'both'}
+                                            aria-label={label.usage}
+                                            onChange={(event) => saveFromSelect(product, { usage: event.target.value as ProductUsage })}
+                                        >
+                                            <option value="both">{label.both}</option>
+                                            <option value="sale">{label.sale}</option>
+                                            <option value="purchase">{label.purchase}</option>
+                                        </Select>
+                                    ) : (
+                                        <span className="text-xs">{label[product.usage ?? 'both']}</span>
+                                    )}
+                                </td>
+
+                                <td className="px-3 py-2 text-xs">
+                                    <InlineEditValue
+                                        value={product.sku ?? ''}
+                                        display={<bdi dir="ltr">{product.sku ?? '—'}</bdi>}
+                                        editable={editable(product)}
+                                        onSave={(value) => onInlineUpdate?.(product, { sku: value.trim() === '' ? null : value.trim() })}
+                                    />
+                                </td>
+
                                 <td className="px-3 py-2 tabular-nums">
-                                    <bdi>{Number(product.unit_price) > 0 ? Number(product.unit_price).toFixed(2) : '—'}</bdi>
+                                    {product.usage === 'purchase' ? (
+                                        <span className="text-[var(--ac-text-soft)]" title={label.notForSale}>—</span>
+                                    ) : (
+                                        <InlineEditValue
+                                            value={product.unit_price}
+                                            display={<bdi>{Number(product.unit_price) > 0 ? Number(product.unit_price).toFixed(2) : '—'}</bdi>}
+                                            type="number"
+                                            inputMode="decimal"
+                                            editable={editable(product)}
+                                            onSave={(value) => onInlineUpdate?.(product, { unit_price: value })}
+                                        />
+                                    )}
+                                </td>
+
+                                <td className="px-3 py-2 tabular-nums">
+                                    {product.usage === 'sale' ? (
+                                        <span className="text-[var(--ac-text-soft)]" title={label.notForPurchase}>—</span>
+                                    ) : (
+                                        <InlineEditValue
+                                            value={product.cost_price ?? ''}
+                                            display={<bdi>{Number(product.cost_price ?? 0) > 0 ? Number(product.cost_price).toFixed(2) : '—'}</bdi>}
+                                            type="number"
+                                            inputMode="decimal"
+                                            editable={editable(product)}
+                                            onSave={(value) => onInlineUpdate?.(product, { cost_price: value.trim() === '' ? null : value })}
+                                        />
+                                    )}
                                 </td>
 
                                 <td className="px-3 py-2">
                                     {tracked ? (
-                                        <div className="grid min-w-[120px] gap-1">
-                                            <span className="tabular-nums">
-                                                <bdi>{number(stock)}</bdi>{' '}
-                                                <span className="text-[11px] text-[var(--ac-text-soft)]">{product.unit}</span>
-                                            </span>
-                                            <span className="h-1.5 overflow-hidden rounded-full bg-[var(--ac-bg-soft)]">
-                                                <span
-                                                    className={`block h-full rounded-full ${barClass[status ?? 'none']}`}
-                                                    style={{ width: `${Math.max(2, Math.round((Math.max(stock, 0) / maxStock) * 100))}%` }}
-                                                />
-                                            </span>
-                                        </div>
+                                        <InlineEditValue
+                                            value={String(stock)}
+                                            display={(
+                                                <div className="grid min-w-[120px] gap-1">
+                                                    <span className="tabular-nums">
+                                                        <bdi>{number(stock)}</bdi>{' '}
+                                                        <span className="text-[11px] text-[var(--ac-text-soft)]">{product.unit}</span>
+                                                    </span>
+                                                    <span className="h-1.5 overflow-hidden rounded-full bg-[var(--ac-bg-soft)]">
+                                                        <span
+                                                            className={`block h-full rounded-full ${barClass[status ?? 'none']}`}
+                                                            style={{ width: `${Math.max(2, Math.round((Math.max(stock, 0) / maxStock) * 100))}%` }}
+                                                        />
+                                                    </span>
+                                                </div>
+                                            )}
+                                            type="number"
+                                            inputMode="decimal"
+                                            editable={product.deleted_at === null && canEdit && Boolean(onStockChange)}
+                                            onSave={(value) => onStockChange?.(product, value)}
+                                        />
                                     ) : (
                                         <span className="text-[var(--ac-text-soft)]">—</span>
                                     )}
