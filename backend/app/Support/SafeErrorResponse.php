@@ -119,11 +119,9 @@ class SafeErrorResponse
                         $safeCode =
                             $safeCodes[0];
 
+                        // The exception already holds the translated message, including any named product or quantities.
                         $payload['errors'][$field] = [
-                            __(
-                                'feedback.'
-                                    .$safeCode,
-                            ),
+                            $messages[0] ?? __('feedback.'.$safeCode),
                         ];
 
                         $payload['error_codes'][$field] =

@@ -50,7 +50,7 @@ class InventoryStockService
                 $onHand = InventoryQuantity::toUnits($balance->on_hand);
                 $reserved = InventoryQuantity::toUnits($balance->reserved);
                 if ($units <= 0 || $onHand - $reserved < $units) {
-                    throw SafeValidationException::forField('inventory', 'inventory_insufficient_stock');
+                    throw SafeValidationException::insufficientStock($raw->name, $warehouse->name, $onHand - $reserved, $units);
                 }
                 $consumptions[] = [$raw, $balance, $units, $onHand, $reserved];
             }
@@ -374,10 +374,7 @@ class InventoryStockService
                 if (
                     $newOnHand < 0
                 ) {
-                    throw SafeValidationException::forField(
-                        'inventory',
-                        'inventory_insufficient_stock',
-                    );
+                    throw SafeValidationException::insufficientStock($lockedProduct->name, $warehouse->name, $onHand - $reserved, abs($deltaUnits));
                 }
 
                 if (
@@ -568,10 +565,7 @@ class InventoryStockService
                     $sourceAvailable <
                     $quantityUnits
                 ) {
-                    throw SafeValidationException::forField(
-                        'inventory',
-                        'inventory_insufficient_stock',
-                    );
+                    throw SafeValidationException::insufficientStock($lockedProduct->name, $source->name, $sourceAvailable, $quantityUnits);
                 }
 
                 $destinationOnHand =

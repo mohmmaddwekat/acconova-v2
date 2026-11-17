@@ -91,7 +91,7 @@ class FinanceInventoryService
             $newOnHand = $onHand + $delta;
 
             if ($newOnHand < 0 || $newOnHand < $reserved) {
-                throw SafeValidationException::forField('inventory', 'inventory_insufficient_stock');
+                throw SafeValidationException::insufficientStock($product->name, $warehouse->name, $availableBefore, abs($delta));
             }
 
             $balance->on_hand = InventoryQuantity::fromUnits($newOnHand);

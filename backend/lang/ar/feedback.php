@@ -37,6 +37,7 @@ return [
     'inventory_quantity_positive' => 'أدخل كمية مخزون أكبر من صفر.',
     'inventory_adjustment_non_zero' => 'لا يمكن أن يكون تعديل المخزون صفرًا.',
     'inventory_insufficient_stock' => 'لا توجد كمية متاحة كافية لتنفيذ هذه العملية.',
+    'inventory_insufficient_stock_item' => 'الكمية غير كافية للمنتج «:product» في المستودع «:warehouse»: المتاح :available والمطلوب :required.',
     'inventory_reserved_stock_blocked' => 'ستؤدي هذه العملية إلى خفض المخزون عن الكمية المحجوزة.',
     'inventory_transfer_same_warehouse' => 'اختر مستودعين مختلفين لإجراء التحويل.',
     'opening_stock_history_blocked' => 'يمكن تسجيل المخزون الافتتاحي فقط قبل وجود سجل حركات لهذا المنتج في المستودع المحدد.',

@@ -176,7 +176,8 @@ class InventoryStockWorkflowTest extends TestCase
             ->assertJsonPath(
                 'error_codes.inventory.0',
                 'inventory_insufficient_stock',
-            );
+            )
+            ->assertJsonPath('errors.inventory.0', fn (string $message): bool => str_contains($message, '5') && str_contains($message, '6') && str_contains($message, 'Main Warehouse'));
 
         $this->assertDatabaseHas(
             'inventory_balances',
