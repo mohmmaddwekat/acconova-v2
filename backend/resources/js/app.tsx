@@ -3,6 +3,7 @@ import { ManualPaymentRequestLauncher } from '@/components/billing/ManualPayment
 import { ToastProvider } from '@/components/feedback/ToastProvider';
 import { useLiveRemountKey } from '@/lib/live';
 import { initializeLocale } from '@/lib/locale';
+import { installNumberFieldGuards } from '@/lib/number-field-guard';
 import '../css/app.css';
 import '../css/ai-sidekick.css';
 import '../css/web-awesome-select.css';
@@ -11,6 +12,8 @@ import { createInertiaApp } from '@inertiajs/react';
 import type { ResolvedComponent } from '@inertiajs/react';
 import type { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
+
+installNumberFieldGuards();
 
 /**
  * Describe one lazily loaded Inertia page module.

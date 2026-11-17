@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use DateInterval;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Laravel\Passport\Passport;
 
 class MobileAuthController extends Controller
 {
@@ -43,7 +45,14 @@ class MobileAuthController extends Controller
             'last_login_at' => now(),
         ])->save();
 
+        /*
+         * "Keep me signed in" (the default) issues the usual one-year token. Without it the
+         * token only lives one day, so a shared phone is signed out by the next morning.
+         */
+        $previousLifetime = Passport::personalAccessTokensExpireIn();
+
         try {
+            Passport::personalAccessTokensExpireIn(new DateInterval($request->boolean('remember', true) ? 'P1Y' : 'P1D'));
             $token = $user->createToken('mobile')->accessToken;
         } catch (\Throwable $e) {
             report($e);
@@ -52,6 +61,8 @@ class MobileAuthController extends Controller
                 'message' => 'Token issuance failed. Run `passport:keys` and `passport:client --personal` on the server.',
                 'code' => 'passport_not_configured',
             ], 500);
+        } finally {
+            Passport::personalAccessTokensExpireIn($previousLifetime);
         }
 
         return response()->json([

@@ -1,3 +1,4 @@
+import { Select } from '@/components/ui/Select';
 import { AppShell } from '@/layouts/AppShell';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
@@ -440,7 +441,7 @@ export default function AutoAllocation() {
                         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ac-line)] px-4 py-2.5 text-xs text-[var(--ac-text-muted)]">
                             <label className="flex items-center gap-2">
                                 {text('عدد الصفوف', 'Rows per page')}
-                                <select
+                                <Select
                                     value={pageSize}
                                     onChange={(event) => {
                                         setPageSize(Number(event.target.value));
@@ -451,7 +452,7 @@ export default function AutoAllocation() {
                                     {PAGE_SIZES.map((size) => (
                                         <option key={size} value={size}>{size}</option>
                                     ))}
-                                </select>
+                                </Select>
                             </label>
                             <button
                                 type="button"

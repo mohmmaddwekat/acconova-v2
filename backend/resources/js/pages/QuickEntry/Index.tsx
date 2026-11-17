@@ -1,3 +1,4 @@
+import { Select } from '@/components/ui/Select';
 import { AppShell } from '@/layouts/AppShell';
 import { apiRequest } from '@/lib/http';
 import { useLocale } from '@/lib/i18n';
@@ -1197,10 +1198,10 @@ export default function QuickEntry() {
 
         if (meta.party) {
             return (
-                <select data-main data-row={row.id} className={field + bad(row, 'party')} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
+                <Select data-main data-row={row.id} className={field + bad(row, 'party')} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
                     <option value="">{meta.party === 'c' ? text('اسم العميل', 'Customer') : text('اسم المورد', 'Supplier')}</option>
                     {(meta.party === 'c' ? customers : suppliers).map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
-                </select>
+                </Select>
             );
         }
 
@@ -1210,28 +1211,28 @@ export default function QuickEntry() {
 
         if (row.type === 'petty') {
             return (
-                <select data-main data-row={row.id} className={field} value={row.cat} onChange={(event) => patch(row.id, { cat: event.target.value })}>
+                <Select data-main data-row={row.id} className={field} value={row.cat} onChange={(event) => patch(row.id, { cat: event.target.value })}>
                     {CATEGORIES.map(([value, arabic, english]) => <option key={value} value={value}>{text(arabic, english)}</option>)}
-                </select>
+                </Select>
             );
         }
 
         if (row.type === 'prod') {
             return (
-                <select data-main data-row={row.id} className={field + bad(row, 'product')} value={row.productId ?? ''} onChange={(event) => patch(row.id, { productId: event.target.value ? Number(event.target.value) : null })}>
+                <Select data-main data-row={row.id} className={field + bad(row, 'product')} value={row.productId ?? ''} onChange={(event) => patch(row.id, { productId: event.target.value ? Number(event.target.value) : null })}>
                     <option value="">{text('المنتج النهائي', 'Finished product')}</option>
                     {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
-                </select>
+                </Select>
             );
         }
 
         const roster = row.type === 'attendance' ? attendanceStaff : staff;
 
         return (
-            <select data-main data-row={row.id} className={field + bad(row, 'employee')} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
+            <Select data-main data-row={row.id} className={field + bad(row, 'employee')} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
                 <option value="">{text('الموظف', 'Employee')}</option>
                 {roster.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
-            </select>
+            </Select>
         );
     }
 
@@ -1271,11 +1272,11 @@ export default function QuickEntry() {
                     )}
                     <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
                         {text('الطريقة', 'Method')}
-                        <select className={field + ' mt-1'} value={row.method} onChange={(event) => { patch(row.id, { method: event.target.value as Method, chequeId: null }); if (event.target.value === 'check') { loadCheques(); } }}>
+                        <Select className={field + ' mt-1'} value={row.method} onChange={(event) => { patch(row.id, { method: event.target.value as Method, chequeId: null }); if (event.target.value === 'check') { loadCheques(); } }}>
                             <option value="cash">{text('نقدي', 'Cash')}</option>
                             <option value="check">{text('شيك', 'Check')}</option>
                             <option value="transfer">{text('تحويل', 'Transfer')}</option>
-                        </select>
+                        </Select>
                     </label>
                     {row.method === 'check' && meta.party === 's' && (
                         <label className="col-span-2 text-[11px] font-bold text-[var(--ac-text-muted)]">
@@ -1283,14 +1284,14 @@ export default function QuickEntry() {
                                 {text('شيك من شيكاتي (تجيير)', 'Check on hand (endorse)')}
                                 <button type="button" className="text-[11px] font-bold text-[var(--ac-accent)]" onClick={loadCheques}>{text('تحديث القائمة', 'Refresh list')}</button>
                             </span>
-                            <select className={field + ' mt-1'} value={row.chequeId ?? ''} onChange={(event) => chooseCheque(row, event.target.value)}>
+                            <Select className={field + ' mt-1'} value={row.chequeId ?? ''} onChange={(event) => chooseCheque(row, event.target.value)}>
                                 <option value="">{text('شيك جديد (أكتب بياناته)', 'New check (enter details)')}</option>
                                 {dueCheques.map((cheque) => (
                                     <option key={cheque.id} value={cheque.id}>
                                         {(cheque.check_number || cheque.number) + ' — ' + (cheque.party_name ?? '') + ' — ' + text('يستحق ', 'due ') + (cheque.check_due_date ?? '') + ' — ' + money(Number(cheque.amount))}
                                     </option>
                                 ))}
-                            </select>
+                            </Select>
                             <span className="mt-1 block text-[10px] font-normal">
                                 {dueCheques.length
                                     ? text('شيكات استلمتها من زبائن وتستحق بعد تاريخ المستند. يُدفع مبلغ الشيك كاملاً.', 'Checks received from customers due after the document date. The full check amount is paid.')
@@ -1360,10 +1361,10 @@ export default function QuickEntry() {
                                 {row.lines.map((line) => (
                                     <tr key={line.key}>
                                         <td className="py-1 pe-1">
-                                            <select className={field + (bad(row, 'lines') && ! line.productId ? ' !border-red-500 !ring-1 !ring-red-300' : '')} value={line.productId ?? ''} onChange={(event) => void chooseProduct(row, line, event.target.value ? Number(event.target.value) : null)}>
+                                            <Select className={field + (bad(row, 'lines') && ! line.productId ? ' !border-red-500 !ring-1 !ring-red-300' : '')} value={line.productId ?? ''} onChange={(event) => void chooseProduct(row, line, event.target.value ? Number(event.target.value) : null)}>
                                                 <option value="">{text('المنتج', 'Product')}</option>
                                                 {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
-                                            </select>
+                                            </Select>
                                         </td>
                                         <td className="py-1 pe-1"><input className={field + ' !w-20 text-left' + (bad(row, 'lines') && ! (num(line.qty) > 0) ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.qty} onChange={(event) => patchLine(row.id, line.key, { qty: event.target.value })} /></td>
                                         <td className="py-1 pe-1"><input className={field + ' !w-24 text-left' + (bad(row, 'lines') && line.price === '' ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.price} onChange={(event) => patchLine(row.id, line.key, { price: event.target.value })} /></td>
@@ -1416,9 +1417,9 @@ export default function QuickEntry() {
                     {row.type === 'staff' && (
                         <label className="mb-2 block text-[11px] font-bold text-[var(--ac-text-muted)]">
                             {text('نوع الحركة', 'Transaction')}
-                            <select className={field + ' mt-1'} value={row.staffKind} onChange={(event) => patch(row.id, { staffKind: event.target.value })}>
+                            <Select className={field + ' mt-1'} value={row.staffKind} onChange={(event) => patch(row.id, { staffKind: event.target.value })}>
                                 {STAFF_KINDS.map(([value, arabic, english]) => <option key={value} value={value}>{text(arabic, english)}</option>)}
-                            </select>
+                            </Select>
                         </label>
                     )}
                     <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
@@ -1508,9 +1509,9 @@ export default function QuickEntry() {
                     </td>
                     <td className="w-7 text-center text-xs text-[var(--ac-text-muted)]">{index + 1}</td>
                     <td className="px-1.5 py-1.5">
-                        <select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: event.target.value === 'purchase', lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
+                        <Select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: event.target.value === 'purchase', lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
                             {visibleTypes.map((type) => <option key={type} value={type}>{typeName(type)}</option>)}
-                        </select>
+                        </Select>
                     </td>
                     <td className="px-1.5 py-1.5">
                         <CommitDate
@@ -1550,10 +1551,10 @@ export default function QuickEntry() {
                                 <span className="text-[11px] text-[var(--ac-text-muted)]">{row.lines.filter(completeLine).length} {text('بنود', 'lines')}</span>
                             </div>
                         ) : row.type === 'attendance' ? (
-                            <select data-main data-row={row.id} className={field} value={row.staffKind} onChange={(event) => patch(row.id, { staffKind: event.target.value })} onKeyDown={(event) => onEnter(event, row, true)}>
+                            <Select data-main data-row={row.id} className={field} value={row.staffKind} onChange={(event) => patch(row.id, { staffKind: event.target.value })} onKeyDown={(event) => onEnter(event, row, true)}>
                                 <option value="present">{text('حاضر', 'Present')}</option>
                                 <option value="absent">{text('غائب', 'Absent')}</option>
-                            </select>
+                            </Select>
                         ) : (
                             <input data-main data-row={row.id} className={field + ' text-left' + bad(row, 'amount')} dir="ltr" placeholder={row.type === 'prod' ? text('الكمية', 'Quantity') : text('المبلغ', 'Amount')} value={row.amt} onChange={(event) => patch(row.id, { amt: event.target.value })} onKeyDown={(event) => onEnter(event, row, true)} />
                         )}
@@ -2035,11 +2036,11 @@ export default function QuickEntry() {
                                 </label>
                                 <label>
                                     {text('أيام العطلة', 'Days off')}
-                                    <select className={field + ' mt-1'} value={weekend} onChange={(event) => setWeekend(event.target.value as typeof weekend)}>
+                                    <Select className={field + ' mt-1'} value={weekend} onChange={(event) => setWeekend(event.target.value as typeof weekend)}>
                                         <option value="5">{text('الجمعة', 'Friday')}</option>
                                         <option value="5,6">{text('الجمعة والسبت', 'Friday & Saturday')}</option>
                                         <option value="">{text('لا يوجد', 'None')}</option>
-                                    </select>
+                                    </Select>
                                 </label>
                             </div>
                             <div className="mt-2 flex flex-wrap gap-2">

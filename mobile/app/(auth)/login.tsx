@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Button } from '../../components/ui/Button';
 import { Gradient } from '../../components/ui/Gradient';
 import { Input } from '../../components/ui/Input';
@@ -17,6 +17,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   async function handleLogin() {
@@ -33,7 +34,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      await login(email.trim().toLowerCase(), password);
+      await login(email.trim().toLowerCase(), password, remember);
       // Navigate immediately after successful login
       router.replace('/(tabs)');
     } catch (err: any) {
@@ -99,6 +100,15 @@ export default function LoginScreen() {
             autoComplete="password"
             error={errors.password}
           />
+          <View style={styles.rememberRow}>
+            <Text style={styles.rememberText}>ابقَني مسجّلاً</Text>
+            <Switch
+              value={remember}
+              onValueChange={setRemember}
+              accessibilityLabel="ابقَني مسجّلاً"
+              trackColor={{ true: Colors.accent, false: Colors.line }}
+            />
+          </View>
           <Button label="تسجيل الدخول" onPress={handleLogin} loading={loading} />
         </View>
         <Text style={styles.footer}>© {new Date().getFullYear()} AccoNova — جميع الحقوق محفوظة</Text>
@@ -150,5 +160,7 @@ const createStyles = () => StyleSheet.create({
   },
   welcome: { fontSize: 22, fontWeight: '800', color: Colors.text, textAlign: 'auto' },
   welcomeSub: { fontSize: 14, color: Colors.textMuted, marginTop: -8, textAlign: 'auto' },
+  rememberRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rememberText: { fontSize: 14, fontWeight: '600', color: Colors.text, textAlign: 'auto' },
   footer: { textAlign: 'center', fontSize: 12, color: Colors.textMuted },
 });

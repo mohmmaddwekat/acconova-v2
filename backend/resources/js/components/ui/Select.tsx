@@ -146,6 +146,7 @@ export function Select({
     id,
     title,
     style,
+    onKeyDown,
     ...rest
 }: SelectProps) {
     const options = useMemo(() => {
@@ -159,14 +160,18 @@ export function Select({
     const elementRef = useRef<WebAwesomeSelect | null>(null);
     const searchRef = useRef<HTMLInputElement | null>(null);
     const changeRef = useRef(onChange);
+    const keyRef = useRef(onKeyDown);
     const [inner, setInner] = useState(String(defaultValue ?? ''));
     const [query, setQuery] = useState('');
+    /** The option the arrow keys are on while the search box has focus. */
+    const [active, setActive] = useState<string | null>(null);
     const current = value !== undefined && value !== null
         ? String(value)
         : inner;
     const showSearch = searchable ?? options.length >= SEARCH_THRESHOLD;
 
     changeRef.current = onChange;
+    keyRef.current = onKeyDown;
 
     const needle = query.trim().toLowerCase();
     const visible = needle
@@ -178,6 +183,45 @@ export function Select({
         || ! options.some((option) => option.value === current)
         ? visible
         : [...visible, options.find((option) => option.value === current) as OptionData];
+
+    /*
+     * A parent's onKeyDown (for example "Enter jumps to the next field") listens on the host in the
+     * capture phase. When it handles the key it prevents the default, and then the dropdown must not
+     * also react to the same key, so the event is stopped before it reaches the control.
+     */
+    useEffect(() => {
+        const element = elementRef.current;
+
+        if (! element) {
+            return;
+        }
+
+        const forward = (event: Event): void => {
+            const handler = keyRef.current;
+
+            if (! handler) {
+                return;
+            }
+
+            handler(event as unknown as React.KeyboardEvent<HTMLSelectElement>);
+
+            if (event.defaultPrevented) {
+                event.stopPropagation();
+            }
+        };
+
+        element.addEventListener('keydown', forward, true);
+
+        return () => element.removeEventListener('keydown', forward, true);
+    }, []);
+
+    useEffect(() => {
+        if (active === null) {
+            return;
+        }
+
+        elementRef.current?.querySelector('wa-option[data-active]')?.scrollIntoView({ block: 'nearest' });
+    }, [active]);
 
     useEffect(() => {
         const element = elementRef.current;
@@ -218,7 +262,10 @@ export function Select({
         const handleShow = (): void => {
             window.setTimeout(() => searchRef.current?.focus(), 30);
         };
-        const handleHide = (): void => setQuery('');
+        const handleHide = (): void => {
+            setQuery('');
+            setActive(null);
+        };
 
         element.addEventListener('change', handleChange);
         element.addEventListener('wa-after-show', handleShow);
@@ -243,6 +290,7 @@ export function Select({
             class: layoutClasses(className),
             id,
             title,
+            ...Object.fromEntries(Object.entries(rest).filter(([key]) => key.startsWith('data-'))),
             dir: direction,
             disabled: disabled || undefined,
             required: required || undefined,
@@ -262,17 +310,32 @@ export function Select({
                     onKeyDown: (event: React.KeyboardEvent) => {
                         event.stopPropagation();
 
+                        const enabled = visible.filter((option) => ! option.disabled);
+
                         if (event.key === 'Escape') {
                             void (elementRef.current as unknown as { hide?: () => void } | null)?.hide?.();
+                        }
+
+                        // Up and down move through the (filtered) names while typing keeps filtering.
+                        if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && enabled.length) {
+                            event.preventDefault();
+
+                            const index = enabled.findIndex((option) => option.value === active);
+                            const step = event.key === 'ArrowDown' ? 1 : -1;
+                            const next = index < 0
+                                ? (step === 1 ? 0 : enabled.length - 1)
+                                : (index + step + enabled.length) % enabled.length;
+
+                            setActive(enabled[next].value);
                         }
 
                         if (event.key === 'Enter') {
                             event.preventDefault();
 
-                            const first = visible.find((option) => ! option.disabled);
+                            const chosen = enabled.find((option) => option.value === active) ?? enabled[0];
 
-                            if (first && elementRef.current) {
-                                elementRef.current.value = toInternal(first.value);
+                            if (chosen && elementRef.current) {
+                                elementRef.current.value = toInternal(chosen.value);
                                 elementRef.current.dispatchEvent(new Event('change', { bubbles: true }));
                                 void (elementRef.current as unknown as { hide?: () => void }).hide?.();
                             }
@@ -286,7 +349,10 @@ export function Select({
                     value: query,
                     placeholder: document.documentElement.lang === 'ar' ? 'بحث…' : 'Search…',
                     autoComplete: 'off',
-                    onChange: (event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value),
+                    onChange: (event: ChangeEvent<HTMLInputElement>) => {
+                        setQuery(event.target.value);
+                        setActive(null);
+                    },
                 }),
             )
             : null,
@@ -297,6 +363,7 @@ export function Select({
                     key: option.value,
                     value: toInternal(option.value),
                     disabled: option.disabled || undefined,
+                    'data-active': active === option.value ? '' : undefined,
                     style: visible.includes(option) ? undefined : { display: 'none' },
                 },
                 option.label,

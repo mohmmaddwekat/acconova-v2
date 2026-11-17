@@ -1,9 +1,16 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
 export const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://acconova.net').replace(/\/+$/, '');
 const TOKEN_KEY = 'mobile_access_token';
 const ORG_KEY = 'mobile_organization_id';
+const SESSION_KEY = 'mobile_session_cache';
+
+/** Token of a sign-in that must not outlive the app ("keep me signed in" switched off). */
+let memoryToken: string | null = null;
+/** Last known user and workspaces, so a dropped connection never looks like a signed-out user. */
+let memorySession: string | null = null;
 
 export const api = axios.create({
   baseURL: `${API_BASE}/api`,
@@ -22,7 +29,7 @@ api.interceptors.request.use(async (config) => {
   if (config.url === '/mobile/login') return config;
   // A body-less POST/PATCH is sent without a Content-Type and some servers then treat it as a bare browser form post.
   if (['post', 'put', 'patch'].includes(config.method ?? '') && config.data === undefined) config.data = {};
-  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  const token = await AuthStorage.getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -34,15 +41,34 @@ api.interceptors.request.use(async (config) => {
 });
 
 export const AuthStorage = {
-  async saveToken(token: string): Promise<void> {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
+  /** With `remember` the token survives closing the app; without it it lives in memory only. */
+  async saveToken(token: string, remember = true): Promise<void> {
+    memoryToken = token;
+    if (remember) await SecureStore.setItemAsync(TOKEN_KEY, token);
+    else await SecureStore.deleteItemAsync(TOKEN_KEY);
   },
   async getToken(): Promise<string | null> {
-    return SecureStore.getItemAsync(TOKEN_KEY);
+    return memoryToken ?? (await SecureStore.getItemAsync(TOKEN_KEY));
   },
   async clearToken(): Promise<void> {
+    memoryToken = null;
+    memorySession = null;
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(ORG_KEY);
+    await AsyncStorage.removeItem(SESSION_KEY).catch(() => undefined);
+  },
+  /** Remembers who is signed in; kept on the device only when the token itself is kept. */
+  async saveSession(session: unknown): Promise<void> {
+    memorySession = JSON.stringify(session);
+    if (await SecureStore.getItemAsync(TOKEN_KEY)) await AsyncStorage.setItem(SESSION_KEY, memorySession).catch(() => undefined);
+  },
+  async getCachedSession<T>(): Promise<T | null> {
+    try {
+      const raw = memorySession ?? (await AsyncStorage.getItem(SESSION_KEY));
+      return raw ? (JSON.parse(raw) as T) : null;
+    } catch {
+      return null;
+    }
   },
   async saveOrganizationId(id: number): Promise<void> {
     await SecureStore.setItemAsync(ORG_KEY, String(id));

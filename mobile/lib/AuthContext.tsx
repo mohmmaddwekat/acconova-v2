@@ -14,7 +14,7 @@ interface AuthContextValue {
   organizations: Organization[];
   activeOrganizationId: number | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, remember?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   switchOrganization: (id: number) => Promise<void>;
@@ -39,8 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refresh().finally(() => setLoading(false));
   }, []);
 
-  async function login(email: string, password: string) {
-    const session = await apiLogin(email, password);
+  async function login(email: string, password: string, remember = true) {
+    const session = await apiLogin(email, password, remember);
     setUser(session.user);
     setOrganizations(session.organizations);
     setActiveOrganizationId(await AuthStorage.getOrganizationId());

@@ -99,3 +99,9 @@ wa-select:focus-within::part(combobox) {
     color: var(--ac-text-muted);
     font-size: 0.75rem;
 }
+
+/* The option the arrow keys are on while typing in the search box. */
+wa-option[data-active]::part(base) {
+    background: var(--ac-accent-soft);
+    color: var(--ac-accent-strong);
+}

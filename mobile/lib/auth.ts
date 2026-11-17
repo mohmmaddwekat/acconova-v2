@@ -23,11 +23,13 @@ async function syncActiveOrganization(organizations: Organization[]): Promise<nu
   return active.id;
 }
 
-export async function login(email: string, password: string): Promise<{ user: User; organizations: Organization[] }> {
-  const { data } = await api.post('/mobile/login', { email, password });
-  await AuthStorage.saveToken(data.token);
+/** `remember` keeps the user signed in across app restarts (a year); without it the sign-in lasts one day and is not stored. */
+export async function login(email: string, password: string, remember = true): Promise<{ user: User; organizations: Organization[] }> {
+  const { data } = await api.post('/mobile/login', { email, password, remember });
+  await AuthStorage.saveToken(data.token, remember);
   const organizations: Organization[] = data.organizations ?? [];
   await syncActiveOrganization(organizations);
+  await AuthStorage.saveSession({ user: data.user, organizations });
   return { user: data.user, organizations };
 }
 
@@ -52,14 +54,17 @@ export async function getSession(): Promise<{ user: User; organizations: Organiz
     if (!data.user) return null;
     const organizations: Organization[] = data.organizations ?? [];
     await syncActiveOrganization(organizations);
+    await AuthStorage.saveSession({ user: data.user, organizations });
     return { user: data.user, organizations };
   } catch (error) {
+    // Only a 401 means the token is really gone (expired or revoked): sign the user out.
     if (isAxiosError(error) && error.response?.status === 401) {
       await AuthStorage.clearToken();
+      return null;
     }
-    // Return null on ANY error (network down, timeout, server error)
-    // so the app shows login instead of crashing
-    return null;
+    // Network down, timeout or a server hiccup: the token is still valid, so the user stays
+    // signed in from the last known session instead of being sent back to the login screen.
+    return AuthStorage.getCachedSession<{ user: User; organizations: Organization[] }>();
   }
 }
 

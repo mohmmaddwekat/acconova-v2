@@ -39,6 +39,7 @@ export const EN: Record<string, string> = {
   'البريد الإلكتروني': 'Email',
   'كلمة المرور': 'Password',
   'تسجيل الدخول': 'Sign in',
+  'ابقَني مسجّلاً': 'Keep me signed in',
   'تسجيل الخروج': 'Sign out',
   'البريد الإلكتروني مطلوب': 'Email is required',
   'كلمة المرور مطلوبة': 'Password is required',
