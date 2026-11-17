@@ -53,8 +53,8 @@ class MiscSaleService
                 'document_discount_value' => $data['document_discount_value'] ?? '0',
                 'lines' => collect($data['lines'])->map(fn (array $line): array => [
                     'product_id' => $line['product_id'] ?? null,
-                    'warehouse_id' => null,
-                    'tax_rule_id' => null,
+                    'warehouse_id' => $line['warehouse_id'] ?? null,
+                    'tax_rule_id' => $line['tax_rule_id'] ?? null,
                     'description' => $line['description'] ?? null,
                     'unit' => $line['unit'] ?? null,
                     'quantity' => $line['quantity'],
@@ -64,7 +64,7 @@ class MiscSaleService
                     'discount_type' => 'percent',
                     'discount_value' => '0',
                     'tax_rate' => $line['tax_rate'] ?? '0',
-                    'affects_inventory' => false,
+                    'affects_inventory' => (bool) ($line['affects_inventory'] ?? false),
                 ])->all(),
             ], $actorId);
 

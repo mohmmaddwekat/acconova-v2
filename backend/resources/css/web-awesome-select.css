@@ -101,7 +101,7 @@ wa-select:focus-within::part(combobox) {
 }
 
 /* The option the arrow keys are on while typing in the search box. */
-wa-option[data-active]::part(base) {
+wa-option[data-active] {
     background: var(--ac-accent-soft);
     color: var(--ac-accent-strong);
 }

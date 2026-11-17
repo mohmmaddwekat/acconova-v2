@@ -187,7 +187,7 @@ const newRow = (type: RowType, date: string): Row => ({
     error: '',
     merged: false,
     // Purchases add stock by default so raw material bought the same day can be used in production.
-    stock: type === 'purchase' || type === 'sale',
+    stock: type === 'purchase' || type === 'sale' || type === 'misc',
     exist: null,
     dupOk: false,
     flag: false,
@@ -1604,7 +1604,7 @@ export default function QuickEntry() {
                     </td>
                     <td className="w-7 text-center text-xs text-[var(--ac-text-muted)]">{index + 1}</td>
                     <td className="px-1.5 py-1.5">
-                        <Select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: event.target.value === 'purchase' || event.target.value === 'sale', lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
+                        <Select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: ['purchase', 'sale', 'misc'].includes(event.target.value), lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
                             {visibleTypes.map((type) => <option key={type} value={type}>{typeName(type)}</option>)}
                         </Select>
                     </td>

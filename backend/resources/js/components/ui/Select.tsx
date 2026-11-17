@@ -232,10 +232,24 @@ export function Select({
 
         let cancelled = false;
 
-        void customElements.whenDefined('wa-select').then(() => {
+        /*
+         * Many selects can mount in one go (a screen of new rows). The value has to be applied again once the
+         * element and its options have finished rendering, or the box stays blank until something else redraws it.
+         */
+        const apply = (): void => {
             if (! cancelled) {
                 element.value = toInternal(current);
             }
+        };
+
+        void customElements.whenDefined('wa-select').then(() => {
+            apply();
+
+            const pending = (element as unknown as { updateComplete?: Promise<unknown> }).updateComplete;
+
+            void pending?.then(apply);
+            window.requestAnimationFrame(apply);
+            window.setTimeout(apply, 120);
         });
 
         return () => {
@@ -298,6 +312,7 @@ export function Select({
             style: {
                 ...(height ? { '--wa-form-control-height': height } : {}),
                 ...(fontSizeFromClass(className) ? { fontSize: fontSizeFromClass(className) } : {}),
+                ...(style?.color ? { '--wa-form-control-value-color': style.color } : {}),
                 ...style,
             },
         },
