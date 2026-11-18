@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Staff\StaffController;
 use App\Models\CashMovement;
 use App\Models\FinancialDocument;
+use App\Models\Party;
 use App\Models\ProductionRun;
 use App\Models\StaffEntry;
 use App\Models\StaffMember;
 use App\Services\Finance\FinanceAuthorization;
 use App\Services\Finance\QuickEntryService;
+use App\Services\Finance\SettlementDiscountService;
+use App\Services\Parties\PartyBalanceSummary;
 use App\Support\ProductionRunAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,6 +40,8 @@ class QuickEntryController extends Controller
             'rows.*.staff_kind' => ['nullable', Rule::in(['payment', 'bonus', 'allowance', 'deduction', 'advance'])],
             'rows.*.warehouse_id' => ['nullable', 'integer'],
             'rows.*.affects_stock' => ['nullable', 'boolean'],
+            'rows.*.allow_duplicate' => ['nullable', 'boolean'],
+            'rows.*.settlement_discount' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'rows.*.date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'rows.*.reference' => ['nullable', 'string', 'max:96'],
             'rows.*.party_id' => ['nullable', 'integer'],
@@ -217,6 +222,35 @@ class QuickEntryController extends Controller
     }
 
     /**
+     * Saved balances of the parties shown in the table, so each row can say how much
+     * the party owes us or we owe it before and after the rows still waiting to be saved.
+     */
+    public function balances(Request $request, PartyBalanceSummary $summary): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:200'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $user = $request->user();
+        $canSales = FinanceAuthorization::allows($user, 'finance.sales.view');
+        $canPurchases = FinanceAuthorization::allows($user, 'finance.purchases.view');
+        $canCash = FinanceAuthorization::allows($user, 'finance.cash.view');
+
+        $parties = Party::query()->whereIn('id', array_map('intval', $data['ids']))->get(['id']);
+        $balances = $summary->forParties($parties, $canSales, $canPurchases, $canCash);
+
+        return response()->json([
+            'data' => $parties->mapWithKeys(fn (Party $party): array => [
+                $party->id => [
+                    'owed_to_us' => round((float) ($balances[$party->id]['owed_to_us'] ?? 0), 4),
+                    'we_owe' => round((float) ($balances[$party->id]['we_owe'] ?? 0), 4),
+                ],
+            ]),
+        ]);
+    }
+
+    /**
      * Where the user stopped entering paper records: for each entry type the last
      * date and reference, and how many records exist on each day.
      */
@@ -287,5 +321,26 @@ class QuickEntryController extends Controller
         ];
 
         return response()->json(['data' => $result]);
+    }
+
+    /**
+     * A discount typed by hand on what is left after a payment (see SettlementDiscountService).
+     */
+    public function settlementDiscount(Request $request, SettlementDiscountService $service): JsonResponse
+    {
+        $data = $request->validate([
+            'party_id' => ['required', 'integer'],
+            'side' => ['required', Rule::in(['customer', 'supplier'])],
+            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999'],
+            'date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'notes' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $party = Party::query()->findOrFail((int) $data['party_id']);
+        abort_unless($request->user()?->can('view', $party), 403);
+
+        $applied = $service->apply($party, $data['side'] === 'customer', $data['date'], (float) $data['amount'], $data['notes'] ?? null, $request->user());
+
+        return response()->json(['data' => ['discount' => number_format($applied, 4, '.', '')]], 201);
     }
 }

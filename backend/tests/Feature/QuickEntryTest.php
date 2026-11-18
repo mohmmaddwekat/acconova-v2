@@ -297,6 +297,75 @@ class QuickEntryTest extends TestCase
         $this->assertDatabaseCount('production_runs', 1);
     }
 
+    public function test_balances_endpoint_reports_what_a_party_owes_and_what_we_owe_it(): void
+    {
+        $this->signIn();
+        $both = $this->party('customer', 'Balance Customer');
+        $productId = $this->product('Balance Product');
+
+        $this->postJson('/api/quick-entry', ['rows' => [[
+            'type' => 'sale',
+            'date' => '2026-05-01',
+            'party_id' => $both,
+            'lines' => [['product_id' => $productId, 'quantity' => '4', 'unit_price' => '1000']],
+        ]]])->assertOk();
+
+        $this->getJson("/api/quick-entry/balances?ids[]={$both}")
+            ->assertOk()
+            ->assertJsonPath("data.{$both}.owed_to_us", 4000)
+            ->assertJsonPath("data.{$both}.we_owe", 0);
+    }
+
+    public function test_a_typed_discount_on_a_receipt_closes_the_leftover_across_open_invoices(): void
+    {
+        $this->signIn();
+        $customerId = $this->party('customer', 'Almost Paid');
+        $productId = $this->product('Settlement Product');
+        $first = $this->issuedInvoice($customerId, $productId, '3000', '2026-05-01');
+        $second = $this->issuedInvoice($customerId, $productId, '725', '2026-05-02');
+
+        $result = $this->postJson('/api/quick-entry', ['rows' => [[
+            'type' => 'receipt',
+            'date' => '2026-05-10',
+            'party_id' => $customerId,
+            'payment' => ['amount' => '3600', 'method' => 'cash'],
+            'settlement_discount' => 125,
+        ]]])->assertOk()->json('data.0');
+
+        $this->assertTrue($result['ok'], json_encode($result));
+        $this->assertSame('125.0000', $result['discount']);
+        $this->assertDatabaseHas('financial_documents', ['id' => $first, 'status' => 'paid', 'balance_due' => '0.0000']);
+        $this->assertDatabaseHas('financial_documents', ['id' => $second, 'status' => 'paid', 'balance_due' => '0.0000']);
+        $this->assertDatabaseHas('party_adjustments', ['party_id' => $customerId, 'amount' => '125.0000', 'status' => 'posted', 'financial_document_id' => $first]);
+
+        $tooMuch = $this->postJson('/api/quick-entry', ['rows' => [[
+            'type' => 'receipt',
+            'date' => '2026-05-11',
+            'party_id' => $customerId,
+            'payment' => ['amount' => '10', 'method' => 'cash'],
+            'settlement_discount' => 50,
+        ]]])->assertOk()->json('data.0');
+
+        $this->assertFalse($tooMuch['ok']);
+        $this->assertDatabaseCount('party_adjustments', 1);
+    }
+
+    public function test_the_settlement_discount_endpoint_closes_what_is_left_after_a_payment(): void
+    {
+        $this->signIn();
+        $supplierId = $this->party('supplier', 'Forgiving Supplier');
+        $productId = $this->product('Forgive Product');
+        $invoice = $this->purchaseInvoice($supplierId, $productId, '1000', '2026-05-01');
+
+        $this->postJson('/api/finance/settlement-discount', ['party_id' => $supplierId, 'side' => 'supplier', 'amount' => 30, 'date' => '2026-05-02'])
+            ->assertCreated()->assertJsonPath('data.discount', '30.0000');
+
+        $this->assertDatabaseHas('financial_documents', ['id' => $invoice, 'status' => 'partially_paid', 'balance_due' => '970.0000']);
+
+        $this->postJson('/api/finance/settlement-discount', ['party_id' => $supplierId, 'side' => 'supplier', 'amount' => 5000, 'date' => '2026-05-02'])
+            ->assertUnprocessable();
+    }
+
     public function test_a_purchase_can_be_paid_by_endorsing_a_check_on_hand(): void
     {
         $this->signIn();
@@ -332,6 +401,18 @@ class QuickEntryTest extends TestCase
         $this->assertDatabaseHas('cash_movements', ['id' => $paid['movement_id'], 'direction' => 'outgoing', 'check_number' => 'CH-77']);
 
         $this->getJson('/api/finance/cash-movements/cheques-on-hand')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    private function purchaseInvoice(int $partyId, int $productId, string $price, string $date): int
+    {
+        $id = (int) $this->postJson('/api/finance/documents', [
+            'kind' => 'purchase_invoice', 'party_id' => $partyId, 'issue_date' => $date, 'currency' => 'ILS',
+            'lines' => [['product_id' => $productId, 'description' => 'Line', 'quantity' => '1', 'unit' => 'unit', 'unit_price' => $price, 'discount_percent' => '0', 'tax_rate' => '0', 'affects_inventory' => false]],
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson("/api/finance/documents/{$id}/issue", ['acknowledge_warnings' => true])->assertOk();
+
+        return $id;
     }
 
     private function signIn(): void

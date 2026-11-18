@@ -63,6 +63,7 @@ class PartyOffsetTest extends TestCase
     {
         $user = User::factory()->create();
         $organization = Organization::create(['name' => 'Offset workspace']);
+        $organization->forceFill(['preferences' => ['auto_party_offset' => false]])->save();
         $organization->users()->attach($user->id, ['role' => 'owner']);
 
         $this->actingAs($user)->withSession([

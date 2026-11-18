@@ -12,6 +12,7 @@ use App\Models\PartyAdjustment;
 use App\Models\Product;
 use App\Models\TaxRule;
 use App\Models\Warehouse;
+use App\Services\Parties\PartyOffsetService;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -286,6 +287,12 @@ class FinanceDocumentService
                         'financial_document_id' => $locked->id,
                     ]);
 
+                PartyAdjustment::query()
+                    ->where('financial_document_id', $previous->id)
+                    ->update([
+                        'financial_document_id' => $locked->id,
+                    ]);
+
                 $previous->status = 'superseded';
                 $previous->updated_by = $actorId;
                 $previous->save();
@@ -311,6 +318,8 @@ class FinanceDocumentService
 
             $this->syncCustomerPrices($locked);
 
+            $this->offsetAgainstTheOtherSide($locked, $actorId);
+
             $this->audit->record(
                 $locked,
                 $previous ? 'correction_issued' : 'issued',
@@ -322,6 +331,55 @@ class FinanceDocumentService
 
             return $locked->fresh($this->relations());
         }, 3);
+    }
+
+    /**
+     * A party that is both a customer and a supplier: what it owes us on sales
+     * and what we owe it on purchases cancel each other automatically, oldest
+     * invoices first and with no cash moving. Switch it off per workspace with
+     * the "auto_party_offset" preference set to false.
+     */
+    private function offsetAgainstTheOtherSide(FinancialDocument $document, int $actorId): void
+    {
+        if ($document->is_misc_sale || ! $document->party_id || ! in_array($document->kind, ['sale_invoice', 'purchase_invoice'], true)) {
+            return;
+        }
+
+        $preferences = app(TenantContext::class)->organization()->preferences ?? [];
+
+        if (($preferences['auto_party_offset'] ?? true) === false) {
+            return;
+        }
+
+        $party = Party::query()->with('roles')->find($document->party_id);
+
+        if (! $party) {
+            return;
+        }
+
+        $roles = $party->roles
+            ->map(fn ($role): string => $role->role instanceof \BackedEnum ? $role->role->value : (string) $role->role)
+            ->all();
+
+        if (! in_array('customer', $roles, true) || ! in_array('supplier', $roles, true)) {
+            return;
+        }
+
+        $offsets = app(PartyOffsetService::class);
+
+        if ($offsets->plan($party)['pairs'] === []) {
+            return;
+        }
+
+        $offsets->apply(
+            $party,
+            null,
+            null,
+            'مقاصة تلقائية عند إصدار '.$document->number,
+            $actorId,
+            null,
+            false,
+        );
     }
 
     /**

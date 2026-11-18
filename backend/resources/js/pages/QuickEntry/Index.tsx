@@ -427,6 +427,7 @@ export default function QuickEntry() {
     const [attendanceStaff, setAttendanceStaff] = useState<StaffMember[]>([]);
     const [cheques, setCheques] = useState<Cheque[]>([]);
     const [progress, setProgress] = useState<Progress | null>(null);
+    const [balances, setBalances] = useState<Record<number, { owed_to_us: number; we_owe: number }>>({});
     const [from, setFrom] = useState(`${year}-01-01`);
     const [weekend, setWeekend] = useState<'5' | '5,6' | ''>('5');
 
@@ -588,7 +589,29 @@ export default function QuickEntry() {
      * tab or person) quietly reloads the lists here without touching your rows,
      * and keeps this page from being re-mounted while you work.
      */
+    const partyIdsKey = useMemo(
+        () => [...new Set(rows.filter((row) => row.partyId && ['sale', 'purchase', 'receipt', 'payment'].includes(row.type)).map((row) => row.partyId as number))].sort((a, b) => a - b).join(','),
+        [rows],
+    );
+
+    const loadBalances = useCallback(() => {
+        if (! partyIdsKey) {
+            return;
+        }
+
+        const query = partyIdsKey.split(',').map((id) => `ids[]=${id}`).join('&');
+
+        apiRequest<{ data: Record<string, { owed_to_us: number; we_owe: number }> }>(`/api/quick-entry/balances?${query}`)
+            .then((response) => setBalances((current) => ({ ...current, ...Object.fromEntries(Object.entries(response.data).map(([id, value]) => [Number(id), value])) })))
+            .catch(() => undefined);
+    }, [partyIdsKey]);
+
+    useEffect(() => {
+        loadBalances();
+    }, [loadBalances]);
+
     useLiveRefresh(() => {
+        loadBalances();
         loadCheques();
         loadLookups();
         loadProgress();
@@ -1133,7 +1156,7 @@ export default function QuickEntry() {
             : undefined;
 
         if (! META[row.type].invoice) {
-            return { ...base, party_id: row.partyId, payment };
+            return { ...base, party_id: row.partyId, payment, settlement_discount: num(row.disc) || undefined };
         }
 
         const percent = row.disc.trim().endsWith('%');
@@ -1227,6 +1250,7 @@ export default function QuickEntry() {
             setSelected((current) => current.filter((day) => rows.some((row) => row.date === day && ! saved.has(row.id))));
             loadCheques();
             loadProgress();
+            loadBalances();
             setNotice(text(
                 `تم حفظ ${saved.size} صف${merged ? ` (منها ${merged} ضُمّت لفاتورة اليوم)` : ''}${failed.size ? `، وتعذّر ${failed.size} (سبب الرفض مكتوب تحت كل صف أحمر)` : ''}${incomplete.length ? `، وبقي ${incomplete.length} ناقصاً لم يُحفظ (ما ينقصه مكتوب تحته)` : ''}. الصفوف التي لم تُحفظ بقيت كما أدخلتها.`,
                 `Saved ${saved.size} row(s)${merged ? ` (${merged} merged into the day's invoice)` : ''}${failed.size ? `, ${failed.size} rejected (the reason is written under each red row)` : ''}${incomplete.length ? `, ${incomplete.length} incomplete and not saved (what they lack is written under them)` : ''}. Rows that were not saved are kept as you typed them.`,
@@ -1433,15 +1457,70 @@ export default function QuickEntry() {
     }
 
     /* ---------- render ---------- */
+    /* How a row moves what the party owes us (positive = they owe us), before it is saved. */
+    function balanceEffect(row: Row): number {
+        const meta = META[row.type];
+
+        if (meta.invoice) {
+            const net = totals(row).total - payOf(row);
+
+            return row.type === 'sale' ? net : row.type === 'purchase' ? -net : 0;
+        }
+
+        if (row.type === 'receipt') {
+            return -(num(row.amt) + num(row.disc));
+        }
+
+        if (row.type === 'payment') {
+            return num(row.amt) + num(row.disc);
+        }
+
+        return 0;
+    }
+
+    const formatNet = (value: number): string =>
+        Math.abs(value) < 0.005
+            ? text('الحساب مسوّى', 'Settled')
+            : value > 0
+                ? text(`لي عليه ${money(value)}`, `They owe ${money(value)}`)
+                : text(`له علي ${money(-value)}`, `We owe ${money(-value)}`);
+
+    function balanceChip(row: Row) {
+        const saved = row.partyId ? balances[row.partyId] : undefined;
+
+        if (! row.partyId || ! saved || ! ['sale', 'purchase', 'receipt', 'payment'].includes(row.type)) {
+            return null;
+        }
+
+        const current = saved.owed_to_us - saved.we_owe;
+        const pending = rows
+            .filter((other) => other.partyId === row.partyId && ['sale', 'purchase', 'receipt', 'payment'].includes(other.type))
+            .reduce((sum, other) => sum + balanceEffect(other), 0);
+        const after = current + pending;
+        const tone = (value: number): string => Math.abs(value) < 0.005 ? 'text-[var(--ac-text-muted)]' : value > 0 ? 'text-emerald-700' : 'text-red-600';
+
+        return (
+            <div className="mt-1 space-y-0.5 text-[11px] leading-4" title={text('الرصيد المحفوظ الآن، وبعد حفظ كل الصفوف المكتوبة لهذا الطرف. لا يتغير شيء قبل الحفظ.', 'Saved balance now, and after saving every row typed for this party. Nothing changes before you save.')}>
+                <div className="text-[var(--ac-text-muted)]">{text('الآن: ', 'Now: ')}<b className={tone(current)}>{formatNet(current)}</b></div>
+                {Math.abs(pending) >= 0.005 && (
+                    <div className="text-[var(--ac-text-muted)]">{text('بعد الحفظ: ', 'After saving: ')}<b className={tone(after)}>{formatNet(after)}</b></div>
+                )}
+            </div>
+        );
+    }
+
     function partySelect(row: Row) {
         const meta = META[row.type];
 
         if (meta.party) {
             return (
-                <Select data-main data-row={row.id} className={field + bad(row, 'party')} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
-                    <option value="">{meta.party === 'c' ? text('اسم العميل', 'Customer') : text('اسم المورد', 'Supplier')}</option>
-                    {(meta.party === 'c' ? customers : suppliers).map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
-                </Select>
+                <>
+                    <Select data-main data-row={row.id} className={field + bad(row, 'party')} value={row.partyId ?? ''} onChange={(event) => patch(row.id, { partyId: event.target.value ? Number(event.target.value) : null })}>
+                        <option value="">{meta.party === 'c' ? text('اسم العميل', 'Customer') : text('اسم المورد', 'Supplier')}</option>
+                        {(meta.party === 'c' ? customers : suppliers).map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
+                    </Select>
+                    {balanceChip(row)}
+                </>
             );
         }
 
@@ -1486,6 +1565,15 @@ export default function QuickEntry() {
                     {meta.invoice ? text('الخصم والدفعة (الدفعة اختيارية)', 'Discount and payment (optional)') : text('الدفعة', 'Payment')}
                 </h4>
                 <div className="grid grid-cols-2 gap-2.5">
+                    {! meta.invoice && (
+                        <label className="col-span-2 text-[11px] font-bold text-[var(--ac-text-muted)]">
+                            {row.type === 'receipt' ? text('خصم على الباقي (مبلغ، اختياري)', 'Discount on what is left (amount, optional)') : text('خصم مكتسب على الباقي (مبلغ، اختياري)', 'Discount received on what is left (amount, optional)')}
+                            <input className={field + ' mt-1 text-left'} dir="ltr" inputMode="decimal" placeholder="0" value={row.disc} onChange={(event) => patch(row.id, { disc: event.target.value })} />
+                            <span className="mt-1 block text-[10px] font-normal">
+                                {text('لا يُحسب تلقائياً: تكتبه أنت فقط. يُوزَّع على فواتير الطرف المفتوحة من الأقدم فتُغلق، مثلاً عليه 3725 دفع 3600 فاكتب 125.', 'Never automatic: only what you type. It is spread over the party\'s open invoices from the oldest so they close, e.g. owes 3725, pays 3600, type 125.')}
+                            </span>
+                        </label>
+                    )}
                     {meta.invoice && (
                         <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
                             {text('الخصم (5% أو مبلغ)', 'Discount (5% or amount)')}

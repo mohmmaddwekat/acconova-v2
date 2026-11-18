@@ -587,6 +587,34 @@ export function CashForm({
     }
 
     const [chequesTick, setChequesTick] = useState(0);
+    const [settleDiscount, setSettleDiscount] = useState('');
+    const [partyBalance, setPartyBalance] = useState<{ owed_to_us: number; we_owe: number } | null>(null);
+    const [balanceTick, setBalanceTick] = useState(0);
+
+    useLiveSoftRefresh(() => setBalanceTick((value) => value + 1));
+
+    /* What the chosen party owes us or we owe it, kept current while the form is open. */
+    useEffect(() => {
+        if (! partyId) {
+            setPartyBalance(null);
+
+            return;
+        }
+
+        let cancelled = false;
+
+        apiRequest<{ data: Record<string, { owed_to_us: number; we_owe: number }> }>('/api/quick-entry/balances?ids[]=' + partyId)
+            .then((response) => {
+                if (! cancelled) {
+                    setPartyBalance(response.data[partyId] ?? null);
+                }
+            })
+            .catch(() => undefined);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [partyId, balanceTick]);
 
     useLiveSoftRefresh(() => setChequesTick((value) => value + 1));
 
@@ -976,6 +1004,28 @@ export function CashForm({
                 );
 
                 movement = posted.data;
+
+                const discount = Number(settleDiscount) || 0;
+
+                if (discount > 0 && partyId && ['customer_receipt', 'supplier_payment'].includes(category)) {
+                    try {
+                        await apiRequest('/api/finance/settlement-discount', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                party_id: Number(partyId),
+                                side: incoming ? 'customer' : 'supplier',
+                                amount: discount,
+                                date: movementDate,
+                                notes: movement.number,
+                            }),
+                        });
+                    } catch (failure) {
+                        window.alert(text(
+                            'تم تسجيل الدفعة، لكن الخصم لم يُسجَّل: ' + apiErrorText(failure) + '. يمكنك تسجيله لاحقاً كقيد فروقات.',
+                            'The payment was saved, but the discount was not: ' + apiErrorText(failure) + '. You can add it later as a difference entry.',
+                        ));
+                    }
+                }
             }
 
             clearLocalDraft(
@@ -1196,7 +1246,49 @@ export function CashForm({
                                         </option>
                                     ))}
                                 </Select>
+                                {partyBalance && (() => {
+                                    const current = partyBalance.owed_to_us - partyBalance.we_owe;
+                                    const typed = (Number(amount) || 0) + (Number(settleDiscount) || 0);
+                                    const after = current + (incoming ? -typed : typed);
+                                    const label = (value: number): string => Math.abs(value) < 0.005
+                                        ? text('الحساب مسوّى', 'Settled')
+                                        : value > 0
+                                            ? text('لي عليه ', 'They owe ') + new Intl.NumberFormat().format(Math.round(value * 100) / 100)
+                                            : text('له علي ', 'We owe ') + new Intl.NumberFormat().format(Math.round(-value * 100) / 100);
+                                    const tone = (value: number): string => Math.abs(value) < 0.005 ? 'text-[var(--ac-text-muted)]' : value > 0 ? 'text-emerald-600' : 'text-red-600';
+
+                                    return (
+                                        <span className="mt-2 block space-y-0.5 text-[11px] font-normal leading-5 text-[var(--ac-text-muted)]">
+                                            <span className="block">{text('الرصيد الآن: ', 'Balance now: ')}<b className={tone(current)}>{label(current)}</b></span>
+                                            {typed > 0 && <span className="block">{text('بعد هذه الدفعة: ', 'After this payment: ')}<b className={tone(after)}>{label(after)}</b></span>}
+                                            <span className="block">{text('(لي عليه = يدين لك · له علي = تدين له)', '(They owe = owed to you · We owe = you owe them)')}</span>
+                                        </span>
+                                    );
+                                })()}
                             </label>
+
+                            {partyId && ['customer_receipt', 'supplier_payment'].includes(category) && (
+                                <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
+                                    {incoming
+                                        ? text('خصم على الباقي (اختياري)', 'Discount on what is left (optional)')
+                                        : text('خصم مكتسب على الباقي (اختياري)', 'Discount received on what is left (optional)')}
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        className={financeInput + ' mt-2'}
+                                        placeholder="0"
+                                        value={settleDiscount}
+                                        onChange={(event) => setSettleDiscount(event.target.value)}
+                                    />
+                                    <span className="mt-1 block text-[10px] font-normal text-[var(--ac-text-muted)]">
+                                        {text(
+                                            'يدوي فقط: يُوزَّع على فواتير الطرف المفتوحة من الأقدم بعد الدفعة فتُغلق. مثال: عليه 3725 دفع 3600 فاكتب 125. يُسجَّل عند الاعتماد.',
+                                            'Manual only: spread over the party\'s open invoices from the oldest after the payment so they close. Example: owes 3725, pays 3600, type 125. Saved when you post.',
+                                        )}
+                                    </span>
+                                </label>
+                            )}
 
                             <label className="text-xs font-semibold text-[var(--ac-text-soft)]">
                                 {text('المبلغ *', 'Amount *')}

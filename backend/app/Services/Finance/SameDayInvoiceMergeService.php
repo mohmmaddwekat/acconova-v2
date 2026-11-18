@@ -3,7 +3,6 @@
 namespace App\Services\Finance;
 
 use App\Models\FinancialDocument;
-use App\Models\PartyAdjustment;
 use App\Services\Governance\ApprovalWorkflowService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -48,15 +47,6 @@ class SameDayInvoiceMergeService
         int $actorId,
     ): FinancialDocument {
         return DB::transaction(function () use ($existing, $newLines, $discountType, $discountValue, $reference, $actorId): FinancialDocument {
-            $hasLinkedAdjustments = PartyAdjustment::query()
-                ->where('financial_document_id', $existing->id)
-                ->where('status', PartyAdjustment::STATUS_POSTED)
-                ->exists();
-
-            if ($hasLinkedAdjustments) {
-                $this->fail('على الفاتورة '.$existing->number.' خصم أو مقاصة مرتبطة بها، فلا يمكن ضم بنود إليها تلقائياً.');
-            }
-
             $oldDiscount = (float) $existing->document_discount_value;
 
             if ($discountValue > 0 && $oldDiscount > 0) {

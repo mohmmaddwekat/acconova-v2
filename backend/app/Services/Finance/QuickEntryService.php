@@ -52,6 +52,7 @@ class QuickEntryService
         private readonly SameDayInvoiceMergeService $merger,
         private readonly QuickProductionEntryService $production,
         private readonly StaffBulkAttendanceService $attendance,
+        private readonly SettlementDiscountService $discounts,
     ) {}
 
     /**
@@ -480,13 +481,31 @@ class QuickEntryService
             $user,
         );
 
+        $discount = $this->settlementDiscount($row, $party, $sale, $user);
+
         return [
             'movement_id' => $movement['movement_id'],
             'movement_number' => $movement['movement_number'],
             'paid' => $movement['amount'],
             'allocated' => $movement['allocated'],
             'advance' => $movement['advance'],
+            'discount' => number_format($discount, 4, '.', ''),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function settlementDiscount(array $row, Party $party, bool $sale, User $user): float
+    {
+        return $this->discounts->apply(
+            $party,
+            $sale,
+            $row['date'],
+            (float) ($row['settlement_discount'] ?? 0),
+            filled($row['reference'] ?? null) ? 'إدخال سريع — '.$row['reference'] : 'إدخال سريع',
+            $user,
+        );
     }
 
     /**

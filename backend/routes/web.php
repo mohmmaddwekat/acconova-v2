@@ -1421,6 +1421,8 @@ Route::prefix(
         Route::post('finance/quick-entry', [QuickEntryController::class, 'store']); // kept for the mobile app
         Route::post('quick-entry', [QuickEntryController::class, 'store']);
         Route::get('quick-entry/progress', [QuickEntryController::class, 'progress']);
+        Route::get('quick-entry/balances', [QuickEntryController::class, 'balances']);
+        Route::post('finance/settlement-discount', [QuickEntryController::class, 'settlementDiscount'])->middleware('throttle:60,1');
         Route::get('quick-entry/existing', [QuickEntryController::class, 'existing']);
 
         Route::get('finance/auto-allocation', [AutoAllocationController::class, 'index']);

@@ -28,6 +28,7 @@ class PartyCollectionsTest extends TestCase
 
         $this->owner = User::factory()->create();
         $this->organization = Organization::create(['name' => 'Collections Co']);
+        $this->organization->forceFill(['preferences' => ['auto_party_offset' => false]])->save();
         $this->organization->users()->attach($this->owner->id, ['role' => 'owner']);
         $this->as($this->owner);
 
@@ -225,6 +226,20 @@ class PartyCollectionsTest extends TestCase
         $this->assertSame([], $supplier['promises']);
         $this->assertTrue($supplier['reconciliation']['reconciled']);
         $this->assertSame('550.0000', $this->statement()['summary']['outstanding']);
+    }
+
+    public function test_an_automatic_offset_keeps_the_statement_reconciled_on_both_sides(): void
+    {
+        $this->scenario();
+        $this->organization->forceFill(['preferences' => ['auto_party_offset' => true]])->save();
+        $this->invoice('purchase_invoice', 400, 50, 20);
+
+        $supplier = $this->statement('?side=supplier');
+
+        $this->assertSame('0.0000', $supplier['summary']['outstanding']);
+        $this->assertTrue($supplier['reconciliation']['reconciled'], json_encode($supplier['reconciliation']));
+        $this->assertTrue($this->statement()['reconciliation']['reconciled']);
+        $this->assertSame('150.0000', $this->statement()['summary']['outstanding']);
     }
 
     public function test_promises_and_follow_ups_are_shown_with_their_lateness(): void

@@ -6,6 +6,7 @@ use App\Models\CashAllocation;
 use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Models\Party;
+use App\Models\PartyAdjustment;
 use App\Models\PartyOpeningBalance;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
@@ -55,13 +56,22 @@ final class PartyCollectionsStatement
             ->filter(fn (CashAllocation $allocation): bool => $this->counts($allocation->movement, $asOf))
             ->groupBy('financial_document_id');
 
+        // Discounts and offsets linked to an invoice reduce what is owed on it just like a payment.
+        $adjusted = PartyAdjustment::query()
+            ->whereIn('financial_document_id', $documents->pluck('id'))
+            ->where('status', PartyAdjustment::STATUS_POSTED)
+            ->whereDate('adjustment_date', '<=', $asOf->toDateString())
+            ->get()
+            ->groupBy('financial_document_id')
+            ->map(fn (Collection $group): float => (float) $group->sum('amount'));
+
         /*
          * Balances are rebuilt from the allocations that counted on the as-of
          * date, so a past statement does not show today's stored balance.
          */
-        $position = $documents->mapWithKeys(function (FinancialDocument $document) use ($allocations): array {
+        $position = $documents->mapWithKeys(function (FinancialDocument $document) use ($allocations, $adjusted): array {
             $mine = $allocations->get($document->id, collect());
-            $paid = (float) $mine->sum('amount');
+            $paid = (float) $mine->sum('amount') + (float) $adjusted->get($document->id, 0.0);
             $pending = (float) $mine->filter(fn (CashAllocation $allocation): bool => $this->isPendingCheque($allocation->movement))->sum('amount');
             $total = (float) $document->total;
             $balance = max($total - $paid, 0.0);
@@ -78,7 +88,7 @@ final class PartyCollectionsStatement
 
         $rows = $documents
             ->filter(fn (FinancialDocument $document): bool => $position[$document->id]['uncollected'] > 0.00005)
-            ->map(fn (FinancialDocument $document): array => $this->documentRow($document, $allocations->get($document->id, collect()), $asOf, $position[$document->id]['balance'], $position[$document->id]['uncollected']))
+            ->map(fn (FinancialDocument $document): array => $this->documentRow($document, $allocations->get($document->id, collect()), $asOf, $position[$document->id]['balance'], $position[$document->id]['uncollected'], (float) $adjusted->get($document->id, 0.0)))
             ->values();
 
         $outstanding = (float) $rows->sum('uncollected_balance');
@@ -135,12 +145,12 @@ final class PartyCollectionsStatement
      * @param  Collection<int, CashAllocation>  $allocations
      * @return array<string, mixed>
      */
-    private function documentRow(FinancialDocument $document, Collection $allocations, CarbonImmutable $asOf, float $balance, float $uncollected): array
+    private function documentRow(FinancialDocument $document, Collection $allocations, CarbonImmutable $asOf, float $balance, float $uncollected, float $adjusted = 0.0): array
     {
         $due = CarbonImmutable::parse(($document->due_date ?: $document->issue_date)->toDateString());
         $daysOverdue = $due->lt($asOf) ? (int) $due->diffInDays($asOf) : 0;
         $pending = (float) $allocations->filter(fn (CashAllocation $allocation): bool => $this->isPendingCheque($allocation->movement))->sum('amount');
-        $paid = (float) $allocations->sum('amount');
+        $paid = (float) $allocations->sum('amount') + $adjusted;
         $lastPaid = $allocations->map(fn (CashAllocation $allocation) => $allocation->movement->movement_date)->max();
 
         return [
