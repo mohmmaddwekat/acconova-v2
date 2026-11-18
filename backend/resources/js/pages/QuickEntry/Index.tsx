@@ -37,6 +37,8 @@ type ExistingEntry = {
     amount: string;
     method: string | null;
     check_number: string | null;
+    /** What kind of entry it is, for entries that have no number (a petty category, a staff payment kind). */
+    label?: string;
     lines: Array<{ name: string | null; quantity: string; unit_price: string; total: string }>;
 };
 
@@ -156,6 +158,31 @@ const dayDiff = (a: string, b: string): number =>
     Math.round((new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000);
 const weekday = (value: string): number => new Date(value + 'T00:00:00').getDay();
 const num = (value: string | number): number => Number(String(value).replace(/,/g, '')) || 0;
+/**
+ * Focuses a field. A dropdown (wa-select) that has only just been added has no inner input yet and its focus()
+ * throws, which would blank the whole page, so wait for it to finish rendering and never let a failed focus escape.
+ */
+const safeFocus = (element: HTMLElement | null | undefined): void => {
+    if (! element) {
+        return;
+    }
+
+    const pending = (element as unknown as { updateComplete?: Promise<unknown> }).updateComplete;
+    const run = (): void => {
+        try {
+            element.focus();
+        } catch {
+            // Nothing to focus yet.
+        }
+    };
+
+    if (pending) {
+        void pending.then(run, run);
+    } else {
+        run();
+    }
+};
+
 const money = (value: number): string => value.toLocaleString('en', { maximumFractionDigits: 2 });
 const validDate = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= '2000-01-01' && ! Number.isNaN(new Date(value + 'T00:00:00').getTime());
 
@@ -242,6 +269,66 @@ function CommitDate({ value, max, label, className, onCommit }: { value: string;
                 if (event.key === 'Enter') {
                     event.preventDefault();
                     commit((event.target as HTMLInputElement).value);
+                }
+            }}
+        />
+    );
+}
+
+/**
+ * The "number of lines" box of an invoice: applies by itself shortly after typing (no Enter needed) and selects the
+ * old number when it is clicked, so a new number can simply be typed over it.
+ */
+function LineCountField({ count, className, onApply }: { count: number; className: string; onApply: (value: string) => void }) {
+    const [value, setValue] = useState(String(count));
+    const focused = useRef(false);
+    const timer = useRef<number | undefined>(undefined);
+
+    useEffect(() => {
+        if (! focused.current) {
+            setValue(String(count));
+        }
+    }, [count]);
+
+    useEffect(() => () => window.clearTimeout(timer.current), []);
+
+    return (
+        <input
+            className={className}
+            inputMode="numeric"
+            value={value}
+            onFocus={(event) => {
+                focused.current = true;
+                event.target.select();
+            }}
+            onChange={(event) => {
+                const next = event.target.value.replace(/[^0-9]/g, '');
+
+                setValue(next);
+                window.clearTimeout(timer.current);
+
+                if (next !== '') {
+                    timer.current = window.setTimeout(() => onApply(next), 350);
+                }
+            }}
+            onBlur={() => {
+                focused.current = false;
+                window.clearTimeout(timer.current);
+
+                if (value !== '' && value !== String(count)) {
+                    onApply(value);
+                }
+
+                setValue(String(count));
+            }}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    window.clearTimeout(timer.current);
+
+                    if (value !== '') {
+                        onApply(value);
+                    }
                 }
             }}
         />
@@ -366,6 +453,7 @@ export default function QuickEntry() {
     const container = useRef<HTMLDivElement>(null);
     const pendingFocus = useRef<number | null>(null);
     const pendingGrip = useRef<number | null>(null);
+    const pendingLineFocus = useRef<string | null>(null);
 
     const loadCheques = useCallback(() => {
         apiRequest<{ data: Cheque[] }>('/api/finance/cash-movements/cheques-on-hand')
@@ -645,6 +733,55 @@ export default function QuickEntry() {
 
             return [...current.slice(0, index + 1), created, ...current.slice(index + 1)];
         });
+    };
+
+    /**
+     * Keyboard movement inside an invoice's lines: Enter goes product, quantity, price, then the next line's product
+     * (a new line is added after the last one); up and down keep the same column on the line above or below.
+     */
+    const lineKey = (event: React.KeyboardEvent, row: Row, index: number, field: 'p' | 'q' | 'r') => {
+        const target = (line: Line | undefined, column: 'p' | 'q' | 'r') => (line ? `${row.id}:${line.key}:${column}` : null);
+        let next: string | null = null;
+
+        if (event.key === 'Enter') {
+            if (field === 'p') {
+                next = target(row.lines[index], 'q');
+            } else if (field === 'q') {
+                next = target(row.lines[index], 'r');
+            } else if (row.lines[index + 1]) {
+                next = target(row.lines[index + 1], 'p');
+            } else {
+                const created = newLine();
+
+                setRows((current) => current.map((candidate) => (candidate.id === row.id ? { ...candidate, lines: [...candidate.lines, created] } : candidate)));
+                next = target(created, 'p');
+            }
+        } else if (field !== 'p' && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+            next = target(row.lines[index + (event.key === 'ArrowDown' ? 1 : -1)], field);
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            // Columns run product, quantity, price from the reading start; in a right-to-left page that start is the right edge.
+            const columns: Array<'p' | 'q' | 'r'> = ['p', 'q', 'r'];
+            const rtl = document.documentElement.dir === 'rtl';
+            const forward = (event.key === 'ArrowLeft') === rtl;
+            const input = event.target instanceof HTMLInputElement ? event.target : null;
+            // Inside a number box the arrows move the caret until it reaches the edge in that direction.
+            const atEdge = ! input || (event.key === 'ArrowLeft'
+                ? input.selectionStart === 0 && input.selectionEnd === 0
+                : input.selectionStart === input.value.length && input.selectionEnd === input.value.length);
+            const column = columns[columns.indexOf(field) + (forward ? 1 : -1)];
+
+            if (atEdge && column) {
+                next = target(row.lines[index], column);
+            }
+        }
+
+        if (next === null) {
+            return;
+        }
+
+        event.preventDefault();
+        pendingLineFocus.current = next;
+        safeFocus(container.current?.querySelector<HTMLElement>(`[data-lf="${next}"]`));
     };
 
     const chooseProduct = async (row: Row, line: Line, productId: number | null) => {
@@ -1109,7 +1246,18 @@ export default function QuickEntry() {
         }
 
         pendingFocus.current = null;
-        container.current?.querySelector<HTMLElement>(`[data-row="${id}"][data-main]`)?.focus();
+        safeFocus(container.current?.querySelector<HTMLElement>(`[data-row="${id}"][data-main]`));
+    });
+
+    useEffect(() => {
+        const target = pendingLineFocus.current;
+
+        if (target === null) {
+            return;
+        }
+
+        pendingLineFocus.current = null;
+        safeFocus(container.current?.querySelector<HTMLElement>(`[data-lf="${target}"]`));
     });
 
     useEffect(() => {
@@ -1153,7 +1301,7 @@ export default function QuickEntry() {
         }
 
         const inputs = Array.from(container.current?.querySelectorAll<HTMLElement>('[data-main]') ?? []);
-        inputs[inputs.indexOf(event.target as HTMLElement) + 1]?.focus();
+        safeFocus(inputs[inputs.indexOf(event.target as HTMLElement) + 1]);
     };
 
     /* ---------- derived ---------- */
@@ -1180,6 +1328,14 @@ export default function QuickEntry() {
             return row.partyId ? `${row.type}|${row.partyId}|${row.date}` : null;
         }
 
+        if (row.type === 'prod') {
+            return row.productId ? `prod|${row.productId}|${row.date}` : null;
+        }
+
+        if (row.type === 'staff' || row.type === 'attendance') {
+            return row.partyId ? `${row.type}|${row.partyId}|${row.date}` : null;
+        }
+
         return row.type === 'misc' && totals(row).total > 0 ? `misc||${row.date}` : null;
     };
 
@@ -1195,9 +1351,18 @@ export default function QuickEntry() {
 
             const query = new URLSearchParams({ type: row.type, date: row.date });
 
-            if (row.type !== 'misc' && row.partyId) {
+            if (['sale', 'purchase', 'receipt', 'payment'].includes(row.type) && row.partyId) {
                 query.set('party_id', String(row.partyId));
             }
+
+            if (row.type === 'prod' && row.productId) {
+                query.set('product_id', String(row.productId));
+            }
+
+            if ((row.type === 'staff' || row.type === 'attendance') && row.partyId) {
+                query.set('staff_id', String(row.partyId));
+            }
+
 
             apiRequest<{ data: ExistingEntry[] }>(`/api/quick-entry/existing?${query.toString()}`)
                 .then((response) => {
@@ -1428,19 +1593,8 @@ export default function QuickEntry() {
                         <h4 className="mb-2 text-xs font-bold text-[var(--ac-text-muted)]">{text('البنود (كل فاتورة بمنتجاتها)', 'Lines (every invoice with its products)')}</h4>
                         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ac-text-muted)]">
                             {text('عدد البنود', 'Lines')}
-                            <input
-                                className={field + ' !w-16 text-center'}
-                                inputMode="numeric"
-                                defaultValue={row.lines.length}
-                                key={row.lines.length}
-                                onKeyDown={(event) => {
-                                    if (event.key === 'Enter') {
-                                        event.preventDefault();
-                                        makeLines(row, (event.target as HTMLInputElement).value);
-                                    }
-                                }}
-                            />
-                            {text('اكتب العدد ثم Enter لإنشاء كل الصفوف دفعة واحدة', 'Type a number and press Enter to create all lines at once')}
+                            <LineCountField className={field + ' !w-16 text-center'} count={row.lines.length} onApply={(value) => makeLines(row, value)} />
+                            {text('اكتب العدد وتُنشأ البنود تلقائياً', 'Type a number and the lines are created automatically')}
                         </div>
                         <table className="w-full text-xs">
                             <thead>
@@ -1453,18 +1607,18 @@ export default function QuickEntry() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {row.lines.map((line) => (
+                                {row.lines.map((line, lineIndex) => (
                                     <tr key={line.key}>
                                         <td className="py-1 pe-1">
-                                            <Select className={field + (bad(row, 'lines') && ! line.productId ? ' !border-red-500 !ring-1 !ring-red-300' : '')} value={line.productId ?? ''} onChange={(event) => void chooseProduct(row, line, event.target.value ? Number(event.target.value) : null)}>
+                                            <Select data-lf={`${row.id}:${line.key}:p`} onKeyDown={(event) => lineKey(event, row, lineIndex, 'p')} className={field + (bad(row, 'lines') && ! line.productId ? ' !border-red-500 !ring-1 !ring-red-300' : '')} value={line.productId ?? ''} onChange={(event) => void chooseProduct(row, line, event.target.value ? Number(event.target.value) : null)}>
                                                 <option value="">{text('المنتج', 'Product')}</option>
                                                 {products
                                                     .filter((product) => product.id === line.productId || (row.type === 'purchase' ? product.usage !== 'sale' : product.usage !== 'purchase'))
                                                     .map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
                                             </Select>
                                         </td>
-                                        <td className="py-1 pe-1"><input className={field + ' !w-20 text-left' + (bad(row, 'lines') && ! (num(line.qty) > 0) ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.qty} onChange={(event) => patchLine(row.id, line.key, { qty: event.target.value })} /></td>
-                                        <td className="py-1 pe-1"><input className={field + ' !w-24 text-left' + (bad(row, 'lines') && line.price === '' ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.price} onChange={(event) => patchLine(row.id, line.key, { price: event.target.value, typed: event.target.value !== '' })} /></td>
+                                        <td className="py-1 pe-1"><input data-lf={`${row.id}:${line.key}:q`} onKeyDown={(event) => lineKey(event, row, lineIndex, 'q')} className={field + ' !w-20 text-left' + (bad(row, 'lines') && ! (num(line.qty) > 0) ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.qty} onChange={(event) => patchLine(row.id, line.key, { qty: event.target.value })} /></td>
+                                        <td className="py-1 pe-1"><input data-lf={`${row.id}:${line.key}:r`} onKeyDown={(event) => lineKey(event, row, lineIndex, 'r')} className={field + ' !w-24 text-left' + (bad(row, 'lines') && line.price === '' ? ' !border-red-500 !ring-1 !ring-red-300' : '')} dir="ltr" value={line.price} onChange={(event) => patchLine(row.id, line.key, { price: event.target.value, typed: event.target.value !== '' })} /></td>
                                         <td className="py-1 pe-1 text-left" dir="ltr">{money(lineTotal(line))}</td>
                                         <td>
                                             <button type="button" aria-label={text('حذف البند', 'Remove line')} className="p-1.5 text-red-500" onClick={() => setRows((current) => current.map((candidate) => (candidate.id === row.id ? { ...candidate, lines: candidate.lines.length > 1 ? candidate.lines.filter((l) => l.key !== line.key) : [newLine()] } : candidate)))}>
@@ -2174,14 +2328,27 @@ export default function QuickEntry() {
                             <p className="mb-3 text-sm text-[var(--ac-text)]">
                                 {dupRow.type === 'misc'
                                     ? text('متفرقات مسجّلة بتاريخ ', 'Walk-in sales recorded on ')
-                                    : `${[...customers, ...suppliers].find((party) => party.id === dupRow.partyId)?.name ?? ''} — ${text(`لديه ${typeName(dupRow.type)} مسجّل بتاريخ `, `already has a ${typeName(dupRow.type)} on `)}`}
+                                    : dupRow.type === 'prod'
+                                            ? `${productById.get(dupRow.productId ?? 0)?.name ?? ''} — ${text('إنتاج مسجّل بتاريخ ', 'production recorded on ')}`
+                                            : dupRow.type === 'staff' || dupRow.type === 'attendance'
+                                                ? `${[...staff, ...attendanceStaff].find((member) => member.id === dupRow.partyId)?.name ?? ''} — ${text(`لديه ${typeName(dupRow.type)} مسجّل بتاريخ `, `already has a ${typeName(dupRow.type)} on `)}`
+                                                : `${[...customers, ...suppliers].find((party) => party.id === dupRow.partyId)?.name ?? ''} — ${text(`لديه ${typeName(dupRow.type)} مسجّل بتاريخ `, `already has a ${typeName(dupRow.type)} on `)}`}
                                 <bdi dir="ltr">{dupRow.date.slice(8)}/{dupRow.date.slice(5, 7)}/{dupRow.date.slice(0, 4)}</bdi>
                             </p>
+                            {(() => {
+                                const mine = new Set(dupRow.lines.filter((line) => line.productId).map((line) => productById.get(line.productId as number)?.name));
+                                const shared = [...new Set(dupRow.exist.flatMap((entry) => entry.lines.map((line) => line.name)).filter((name) => name && mine.has(name)))];
+
+                                return shared.length > 0
+                                    ? <p className="mb-2 rounded-[10px] bg-amber-500/15 px-3 py-1.5 text-sm font-bold text-amber-700">{text('منتجات موجودة فعلاً في إدخال اليوم: ', 'Products already in this day\'s entry: ')}{shared.join('، ')}</p>
+                                    : null;
+                            })()}
                             <div className="space-y-2">
                                 {dupRow.exist.map((entry, index) => (
                                     <div key={`${entry.number ?? 'entry'}-${index}`} className="rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] p-3">
                                         <div className="flex items-baseline gap-2 text-sm">
-                                            <b>{entry.number ?? '—'}</b>
+                                            <b>{entry.number ?? entry.label ?? '—'}</b>
+                                            {entry.number && entry.label && <span className="text-xs text-[var(--ac-text-muted)]">{entry.label}</span>}
                                             {entry.method && <span className="text-xs text-[var(--ac-text-muted)]">{entry.method === 'check' ? `${text('شيك', 'Check')} ${entry.check_number ?? ''}` : entry.method === 'cash' ? text('نقدي', 'Cash') : entry.method === 'bank_transfer' ? text('تحويل', 'Transfer') : entry.method}</span>}
                                             <b className="ms-auto tabular-nums">{money(Number(entry.amount))}</b>
                                         </div>
@@ -2198,7 +2365,7 @@ export default function QuickEntry() {
                                                 <tbody>
                                                     {entry.lines.map((line, lineIndex) => (
                                                         <tr key={lineIndex}>
-                                                            <td className="py-0.5">{line.name ?? '—'}</td>
+                                                            <td className="py-0.5">{line.name ?? '—'}{line.name && dupRow.lines.some((mine) => mine.productId && productById.get(mine.productId)?.name === line.name) && <span className="ms-1.5 rounded-full bg-amber-500/15 px-1.5 text-[10px] font-bold text-amber-700">{text('موجود في إدخالك', 'in your entry')}</span>}</td>
                                                             <td className="py-0.5 tabular-nums">{money(Number(line.quantity))}</td>
                                                             <td className="py-0.5 tabular-nums">{money(Number(line.unit_price))}</td>
                                                             <td className="py-0.5 tabular-nums">{money(Number(line.total))}</td>
@@ -2226,9 +2393,9 @@ export default function QuickEntry() {
                                 <button type="button" autoFocus className="min-h-11 flex-1 rounded-[12px] bg-red-600 px-4 text-sm font-bold text-white" onClick={() => { remove(dupRow.id); setDupRowId(null); }}>
                                     {text('نفسه — احذف هذا الصف', 'Same — remove this row')}
                                 </button>
-                                <button type="button" className={btnPrimary + ' flex-1 justify-center'} onClick={() => { patch(dupRow.id, { exist: null, dupOk: true }); setDupRowId(null); }}>
+                                {(dupRow.type !== 'prod' || ! dupRow.exist.some((entry) => Math.abs(Number(entry.amount) - num(dupRow.amt)) < 0.00005)) && <button type="button" className={btnPrimary + ' flex-1 justify-center'} onClick={() => { patch(dupRow.id, { exist: null, dupOk: true }); setDupRowId(null); }}>
                                     {META[dupRow.type].invoice ? text('مختلف — أضِفه (يُضمّ تلقائياً)', 'Different — add it (merges)') : text('مختلف — أبقِه كقيد إضافي', 'Different — keep as separate entry')}
-                                </button>
+                                </button>}
                             </div>
                             <p className="mt-3 text-[11px] text-[var(--ac-text-muted)]">{text('Esc يغلق النافذة، وتبقى علامة «يوجد إدخال سابق» على الصف لتراجعه لاحقاً.', 'Esc closes this window; the row keeps an “already entered” mark so you can review it later.')}</p>
                         </div>

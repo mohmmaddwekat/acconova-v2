@@ -292,3 +292,36 @@ export async function quickProductionEntry(payload: {
 
     return response.data;
 }
+
+export type DuplicateRunGroup = {
+    date: string;
+    product_id: number;
+    product: string;
+    quantity: string;
+    runs: Array<{
+        id: number;
+        run_number: string;
+        status: string;
+        revision: number;
+        created_at: string | null;
+    }>;
+};
+
+/**
+ * Runs that share the same day, product and quantity.
+ */
+export async function fetchDuplicateRuns(): Promise<DuplicateRunGroup[]> {
+    const response = await apiRequest<{ data: DuplicateRunGroup[] }>('/api/production-runs/duplicates');
+
+    return response.data;
+}
+
+/**
+ * Archive one Production Draft (it can be restored from the archive).
+ */
+export async function deleteProductionDraft(runId: number, revision: number): Promise<void> {
+    await apiRequest(`/api/production-runs/${runId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ expected_revision: revision }),
+    });
+}

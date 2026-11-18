@@ -115,6 +115,22 @@ function layoutClasses(className?: string): string | undefined {
         .join(' ') || undefined;
 }
 
+/*
+ * Tailwind's utilities live in a cascade layer, so the unlayered `wa-select { min-width: 0 }` rule beats a
+ * `min-w-[112px]` class. The minimum width is therefore also applied inline, where it always wins.
+ */
+function minWidthFromClass(className?: string): string | undefined {
+    const arbitrary = className?.match(/(?:^|\s)min-w-\[([^\]]+)\](?:\s|$)/);
+
+    if (arbitrary) {
+        return arbitrary[1];
+    }
+
+    const scale = className?.match(/(?:^|\s)min-w-(\d+(?:\.\d+)?)(?:\s|$)/);
+
+    return scale ? `${Number(scale[1]) * 0.25}rem` : undefined;
+}
+
 function fontSizeFromClass(className?: string): string | undefined {
     if (/(?:^|\s)text-xs(?:\s|$)/.test(className ?? '')) {
         return '0.75rem';
@@ -199,7 +215,8 @@ export function Select({
         const forward = (event: Event): void => {
             const handler = keyRef.current;
 
-            if (! handler) {
+            // While the list is open the keys belong to the list (arrows, Enter to pick), not to the page around it.
+            if (! handler || (element as unknown as { open?: boolean }).open) {
                 return;
             }
 
@@ -311,6 +328,7 @@ export function Select({
             'aria-label': rest['aria-label'],
             style: {
                 ...(height ? { '--wa-form-control-height': height } : {}),
+                ...(minWidthFromClass(className) ? { minWidth: minWidthFromClass(className) } : {}),
                 ...(fontSizeFromClass(className) ? { fontSize: fontSizeFromClass(className) } : {}),
                 ...(style?.color ? { '--wa-form-control-value-color': style.color } : {}),
                 ...style,

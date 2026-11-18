@@ -281,6 +281,14 @@ class QuickEntryTest extends TestCase
         $this->assertEqualsWithDelta(75.0, (float) DB::table('inventory_balances')->where('product_id', $resin->id)->where('warehouse_id', $warehouse->id)->value('on_hand'), 0.0001);
         $this->assertEqualsWithDelta(100.0, (float) DB::table('inventory_balances')->where('product_id', $box->id)->where('warehouse_id', $warehouse->id)->value('on_hand'), 0.0001);
 
+        $twice = $this->postJson('/api/quick-entry', [
+            'rows' => [['type' => 'prod', 'date' => '2026-05-10', 'product_id' => $box->id, 'quantity' => '100']],
+        ])->assertOk()->json('data.0');
+
+        $this->assertFalse($twice['ok']);
+        $this->assertStringContainsString('PR-000001', $twice['message']);
+        $this->assertDatabaseCount('production_runs', 1);
+
         $short = $this->postJson('/api/quick-entry', [
             'rows' => [['type' => 'prod', 'date' => '2026-05-11', 'product_id' => $box->id, 'quantity' => '1000']],
         ])->assertOk()->json('data.0');

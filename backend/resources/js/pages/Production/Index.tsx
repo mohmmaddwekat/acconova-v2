@@ -1,4 +1,5 @@
 import { InventoryDataActions } from '@/components/data/InventoryDataActions';
+import { DuplicateRunsDialog } from '@/features/production/components/DuplicateRunsDialog';
 import { QuickProductionEntry } from '@/features/production/components/QuickProductionEntry';
 import { DataPagination } from '@/components/data/DataPagination';
 import {
@@ -19,6 +20,7 @@ import {
     ArrowLeftRight,
     Beaker,
     CheckCircle2,
+    Copy,
     Factory,
     FlaskConical,
     PackagePlus,
@@ -1235,6 +1237,7 @@ export default function ProductionIndex() {
      * Open a new Production Draft editor.
      */
     const [quickOpen, setQuickOpen] = useState(false);
+    const [duplicatesOpen, setDuplicatesOpen] = useState(false);
 
     function openNewRun(): void {
         setEditingRun(
@@ -1369,6 +1372,16 @@ export default function ProductionIndex() {
                     {canManage && ! archived && (
                         <button
                             type="button"
+                            onClick={() => setDuplicatesOpen(true)}
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm font-semibold"
+                        >
+                            <Copy size={16} />
+                            {locale === 'ar' ? 'الأوامر المكررة' : 'Duplicate runs'}
+                        </button>
+                    )}
+                    {canManage && ! archived && (
+                        <button
+                            type="button"
                             onClick={() => setQuickOpen(true)}
                             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--ac-line)] bg-[var(--ac-surface)] px-4 text-sm font-semibold"
                         >
@@ -1423,6 +1436,14 @@ export default function ProductionIndex() {
                     <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                         {error}
                     </div>
+                )}
+
+                {duplicatesOpen && (
+                    <DuplicateRunsDialog
+                        ar={locale === 'ar'}
+                        onClose={() => setDuplicatesOpen(false)}
+                        onChanged={() => void loadRuns()}
+                    />
                 )}
 
                 {quickOpen && (

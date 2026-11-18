@@ -43,6 +43,7 @@ return [
     'opening_stock_history_blocked' => 'Opening stock can be recorded only before this Product has stock history in the selected warehouse.',
 
     'production_run_outputs_required' => 'Add at least one finished Product to this production run.',
+    'production_run_duplicate' => 'A similar production run (:run) already exists for the same day, product and quantity, so it cannot be repeated. If the quantity differs, change it.',
     'production_run_not_draft' => 'Only a Draft production run can be edited or deleted.',
     'production_run_must_be_posted' => 'Only a Posted production run can be reversed.',
     'production_run_revision_conflict' => 'This production run changed after you opened it. Reload the latest version before continuing.',

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Staff\StaffController;
 use App\Models\CashMovement;
 use App\Models\FinancialDocument;
 use App\Models\ProductionRun;
@@ -10,6 +11,7 @@ use App\Models\StaffEntry;
 use App\Models\StaffMember;
 use App\Services\Finance\FinanceAuthorization;
 use App\Services\Finance\QuickEntryService;
+use App\Support\ProductionRunAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,10 +72,17 @@ class QuickEntryController extends Controller
         abort_unless($user !== null, 403);
 
         $data = $request->validate([
-            'type' => ['required', Rule::in(['sale', 'purchase', 'misc', 'receipt', 'payment'])],
+            'type' => ['required', Rule::in(['sale', 'purchase', 'misc', 'receipt', 'payment', 'petty', 'prod', 'staff', 'attendance'])],
             'date' => ['required', 'date_format:Y-m-d'],
-            'party_id' => ['nullable', 'integer', 'required_unless:type,misc'],
+            'party_id' => ['nullable', 'integer', 'required_if:type,sale,purchase,receipt,payment'],
+            'product_id' => ['nullable', 'integer', 'required_if:type,prod'],
+            'staff_id' => ['nullable', 'integer', 'required_if:type,staff,attendance'],
+            'category' => ['nullable', 'string', 'max:60'],
         ]);
+
+        if (in_array($data['type'], ['petty', 'prod', 'staff', 'attendance'], true)) {
+            return response()->json(['data' => $this->existingOther($data, $user)]);
+        }
 
         $permission = match ($data['type']) {
             'sale', 'misc' => 'finance.sales.manage',
@@ -130,6 +139,81 @@ class QuickEntryController extends Controller
             ]);
 
         return response()->json(['data' => $documents->values()]);
+    }
+
+    /**
+     * Entries already saved for the same day as a petty expense, production run, staff payment or attendance mark.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<array<string, mixed>>
+     */
+    private function existingOther(array $data, $user): array
+    {
+        $entry = fn (?string $number, string $amount, string $label): array => [
+            'number' => $number,
+            'amount' => $amount,
+            'method' => null,
+            'check_number' => null,
+            'label' => $label,
+            'lines' => [],
+        ];
+
+        if ($data['type'] === 'petty') {
+            abort_unless(FinanceAuthorization::allows($user, 'finance.cash.pay'), 403);
+
+            return CashMovement::query()
+                ->where('status', 'posted')
+                ->whereNull('reversal_of_id')
+                ->where('direction', 'outgoing')
+                ->whereNull('party_id')
+                ->whereIn('category', PettyExpenseController::CATEGORIES)
+                ->when(! empty($data['category']), fn ($query) => $query->where('category', $data['category']))
+                ->whereDate('movement_date', $data['date'])
+                ->orderBy('id')
+                ->get()
+                ->map(fn (CashMovement $movement): array => $entry($movement->number, (string) $movement->amount, (string) $movement->category))
+                ->values()
+                ->all();
+        }
+
+        if ($data['type'] === 'prod') {
+            abort_unless(ProductionRunAccess::canManage($user), 403);
+
+            return ProductionRun::query()
+                ->whereIn('status', ['posted', 'draft', 'partially_reversed'])
+                ->whereDate('occurred_on', $data['date'])
+                ->whereHas('outputs', fn ($query) => $query->where('product_id', $data['product_id']))
+                ->with(['outputs' => fn ($query) => $query->where('product_id', $data['product_id'])])
+                ->orderBy('id')
+                ->get()
+                ->map(fn (ProductionRun $run): array => $entry($run->run_number, number_format((float) $run->outputs->sum('quantity'), 4, '.', ''), ''))
+                ->values()
+                ->all();
+        }
+
+        if ($data['type'] === 'staff') {
+            abort_unless(StaffController::allowed('staff.pay') || StaffController::allowed('staff.team_pay'), 403);
+
+            return StaffEntry::query()
+                ->where('staff_member_id', $data['staff_id'])
+                ->where('kind', '!=', 'terms')
+                ->whereDate('occurred_on', $data['date'])
+                ->orderBy('id')
+                ->get()
+                ->map(fn (StaffEntry $staffEntry): array => $entry(null, (string) $staffEntry->amount, (string) $staffEntry->kind))
+                ->values()
+                ->all();
+        }
+
+        abort_unless(StaffController::allowed('staff.attendance') || StaffController::allowed('staff.team_attendance'), 403);
+
+        return DB::table('staff_attendances')
+            ->whereIn('staff_member_id', StaffMember::query()->where('id', $data['staff_id'])->select('id'))
+            ->whereDate('occurred_on', $data['date'])
+            ->get()
+            ->map(fn ($mark): array => $entry(null, (string) $mark->quantity, (string) $mark->status))
+            ->values()
+            ->all();
     }
 
     /**

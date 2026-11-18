@@ -146,6 +146,50 @@ class ProductionRunController extends Controller
     }
 
     /**
+     * Production runs that look duplicated: single-product runs on the same
+     * day with the same product and quantity. The oldest of each group is kept
+     * as the original; the others are the candidates to remove or reverse.
+     */
+    public function duplicates(): JsonResponse
+    {
+        $this->authorizeView();
+
+        $runs = ProductionRun::query()
+            ->with(['outputs:id,production_run_id,product_id,quantity', 'outputs.product:id,name'])
+            ->whereNotIn('status', ['reversed'])
+            ->orderBy('id')
+            ->get(['id', 'run_number', 'status', 'revision', 'occurred_on', 'created_at']);
+
+        $groups = $runs
+            ->filter(fn (ProductionRun $run): bool => $run->outputs->count() === 1)
+            ->groupBy(fn (ProductionRun $run): string => substr((string) $run->getRawOriginal('occurred_on'), 0, 10)
+                .'|'.$run->outputs->first()->product_id
+                .'|'.number_format((float) $run->outputs->first()->quantity, 4, '.', ''))
+            ->filter(fn ($group): bool => $group->count() > 1)
+            ->map(function ($group): array {
+                $first = $group->first();
+
+                return [
+                    'date' => substr((string) $first->getRawOriginal('occurred_on'), 0, 10),
+                    'product_id' => (int) $first->outputs->first()->product_id,
+                    'product' => (string) ($first->outputs->first()->product?->name ?? ''),
+                    'quantity' => number_format((float) $first->outputs->first()->quantity, 4, '.', ''),
+                    'runs' => $group->map(fn (ProductionRun $run): array => [
+                        'id' => $run->id,
+                        'run_number' => $run->run_number,
+                        'status' => $run->status instanceof \BackedEnum ? $run->status->value : (string) $run->status,
+                        'revision' => (int) $run->revision,
+                        'created_at' => $run->created_at?->toDateTimeString(),
+                    ])->values()->all(),
+                ];
+            })
+            ->sortByDesc('date')
+            ->values();
+
+        return response()->json(['data' => $groups]);
+    }
+
+    /**
      * Create one Production Draft.
      */
     public function store(

@@ -62,6 +62,7 @@ class ProductionRunService
                 $this->replaceDraftOutputs(
                     $run,
                     $data['outputs'],
+                    (string) $data['occurred_on'],
                 );
 
                 return $this->loadRun(
@@ -105,6 +106,7 @@ class ProductionRunService
                 $this->replaceDraftOutputs(
                     $locked,
                     $data['outputs'],
+                    (string) $data['occurred_on'],
                 );
 
                 $locked->forceFill([
@@ -579,6 +581,7 @@ class ProductionRunService
     private function replaceDraftOutputs(
         ProductionRun $run,
         array $outputs,
+        string $occurredOn,
     ): void {
         $this->guardDraft(
             $run,
@@ -590,6 +593,8 @@ class ProductionRunService
                 'production_run_outputs_required',
             );
         }
+
+        $this->guardDuplicate($run, $outputs, $occurredOn);
 
         $run
             ->outputs()
@@ -1221,6 +1226,37 @@ class ProductionRunService
     /**
      * Reject Draft mutation after Posting.
      */
+    /**
+     * One product is never produced twice in a day in the same quantity: that is almost always an entry typed
+     * twice. A different quantity for the same product and day is allowed.
+     *
+     * @param  list<array<string, mixed>>  $outputs
+     */
+    private function guardDuplicate(
+        ProductionRun $run,
+        array $outputs,
+        string $occurredOn,
+    ): void {
+        foreach ($outputs as $output) {
+            $existing = ProductionRun::query()
+                ->whereKeyNot($run->id)
+                ->whereDate('occurred_on', $occurredOn)
+                ->whereNotIn('status', ['reversed'])
+                ->whereHas('outputs', fn ($query) => $query
+                    ->where('product_id', (int) $output['product_id'])
+                    ->where('quantity', number_format((float) $output['quantity'], 4, '.', '')))
+                ->first(['run_number']);
+
+            if ($existing) {
+                throw SafeValidationException::forField(
+                    'outputs',
+                    'production_run_duplicate',
+                    ['run' => (string) $existing->run_number],
+                );
+            }
+        }
+    }
+
     private function guardDraft(
         ProductionRun $run,
     ): void {

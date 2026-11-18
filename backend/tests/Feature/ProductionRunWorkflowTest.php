@@ -915,6 +915,66 @@ class ProductionRunWorkflowTest extends TestCase
         );
     }
 
+    public function test_the_same_product_day_and_quantity_cannot_be_produced_twice(): void
+    {
+        $workspace = $this->workspace();
+        $this->recipe($workspace['red_box'], [['material' => $workspace['plastic'], 'rate' => '0.2500']]);
+
+        $row = ['occurred_on' => '2026-10-01', 'product_id' => $workspace['red_box']->id, 'quantity' => '100'];
+        $response = $this->postJson('/api/production-runs/quick', [
+            'warehouse_id' => $workspace['raw']->id,
+            'post' => true,
+            'rows' => [$row, $row, ['occurred_on' => '2026-10-02', 'product_id' => $workspace['red_box']->id, 'quantity' => '40']],
+        ])->assertCreated();
+
+        $response
+            ->assertJsonPath('data.0.status', 'posted')
+            ->assertJsonPath('data.1.status', 'failed')
+            ->assertJsonPath('data.2.status', 'posted');
+
+        $this->assertDatabaseCount('production_runs', 2);
+        $this->getJson('/api/production-runs/duplicates')->assertOk()->assertJsonCount(0, 'data');
+        $this->assertEqualsWithDelta(965.0, (float) DB::table('inventory_balances')->where('product_id', $workspace['plastic']->id)->where('warehouse_id', $workspace['raw']->id)->value('on_hand'), 0.0001);
+    }
+
+    public function test_old_duplicate_runs_are_listed_and_a_duplicate_draft_can_be_removed(): void
+    {
+        $workspace = $this->workspace();
+        $this->recipe($workspace['red_box'], [['material' => $workspace['plastic'], 'rate' => '0.2500']]);
+
+        $this->postJson('/api/production-runs/quick', [
+            'warehouse_id' => $workspace['raw']->id,
+            'post' => true,
+            'rows' => [['occurred_on' => '2026-10-01', 'product_id' => $workspace['red_box']->id, 'quantity' => '100']],
+        ])->assertCreated();
+
+        // A copy that was saved before the duplicate guard existed.
+        $original = DB::table('production_runs')->first();
+        $copyId = DB::table('production_runs')->insertGetId([
+            'organization_id' => $original->organization_id,
+            'run_number' => 'PR-COPY-1',
+            'occurred_on' => $original->occurred_on,
+            'status' => 'draft',
+            'revision' => 1,
+            'created_by' => $original->created_by,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $output = (array) DB::table('production_run_outputs')->where('production_run_id', $original->id)->first();
+        unset($output['id']);
+        DB::table('production_run_outputs')->insert([...$output, 'production_run_id' => $copyId, 'posted_movement_id' => null]);
+
+        $groups = $this->getJson('/api/production-runs/duplicates')->assertOk()->json('data');
+
+        $this->assertCount(1, $groups);
+        $this->assertSame([$original->id, $copyId], array_column($groups[0]['runs'], 'id'));
+        $this->assertSame('draft', $groups[0]['runs'][1]['status']);
+
+        $this->deleteJson("/api/production-runs/{$copyId}", ['expected_revision' => 1])->assertNoContent();
+
+        $this->getJson('/api/production-runs/duplicates')->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_quick_entry_without_posting_only_saves_drafts(): void
     {
         $workspace = $this->workspace();

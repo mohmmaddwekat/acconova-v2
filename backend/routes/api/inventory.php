@@ -48,6 +48,14 @@ Route::middleware([
         );
 
         Route::get(
+            'production-runs/duplicates',
+            [
+                ProductionRunController::class,
+                'duplicates',
+            ],
+        );
+
+        Route::get(
             'production-runs/{run}',
             [
                 ProductionRunController::class,
