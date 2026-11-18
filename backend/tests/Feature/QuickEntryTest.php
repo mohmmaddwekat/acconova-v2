@@ -366,6 +366,52 @@ class QuickEntryTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_an_invoice_can_be_paid_with_cash_and_several_cheques_at_once(): void
+    {
+        $this->signIn();
+        $customerId = $this->party('customer', 'Mixed Payer');
+        $productId = $this->product('Mixed Pay Product');
+
+        $result = $this->postJson('/api/quick-entry', ['rows' => [[
+            'type' => 'sale',
+            'date' => '2026-05-01',
+            'party_id' => $customerId,
+            'lines' => [['product_id' => $productId, 'quantity' => '1', 'unit_price' => '3000']],
+            'payment' => [
+                'amount' => '1000',
+                'method' => 'cash',
+                'extra' => [
+                    ['method' => 'check', 'amount' => '1200', 'check_number' => '101', 'check_due_date' => '2026-07-01'],
+                    ['method' => 'check', 'amount' => '800', 'check_number' => '102', 'check_due_date' => '2026-08-01'],
+                ],
+            ],
+        ]]])->assertOk()->json('data.0');
+
+        $this->assertTrue($result['ok'], json_encode($result));
+        $this->assertSame(3, $result['payments']);
+        $this->assertSame('3000.0000', $result['paid']);
+        $this->assertDatabaseHas('financial_documents', ['id' => $result['document_id'], 'status' => 'paid']);
+        $this->assertDatabaseHas('cash_movements', ['check_number' => '101', 'amount' => '1200.0000', 'direction' => 'incoming']);
+        $this->assertDatabaseHas('cash_movements', ['check_number' => '102', 'amount' => '800.0000']);
+        $this->assertDatabaseCount('cash_movements', 3);
+
+        $full = $this->postJson('/api/quick-entry', ['rows' => [[
+            'type' => 'sale',
+            'date' => '2026-05-02',
+            'party_id' => $customerId,
+            'lines' => [['product_id' => $productId, 'quantity' => '1', 'unit_price' => '500']],
+            'payment' => [
+                'full' => true,
+                'method' => 'cash',
+                'extra' => [['method' => 'check', 'amount' => '200', 'check_number' => '103', 'check_due_date' => '2026-09-01']],
+            ],
+        ]]])->assertOk()->json('data.0');
+
+        $this->assertTrue($full['ok'], json_encode($full));
+        $this->assertSame('500.0000', $full['paid']);
+        $this->assertDatabaseHas('cash_movements', ['method' => 'cash', 'amount' => '300.0000']);
+    }
+
     public function test_a_purchase_can_be_paid_by_endorsing_a_check_on_hand(): void
     {
         $this->signIn();

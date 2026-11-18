@@ -100,6 +100,21 @@ wa-select:focus-within::part(combobox) {
     font-size: 0.75rem;
 }
 
+/* An option with its own colour (the quick-entry row types): coloured text and a bar on the start side. */
+wa-option[data-color] {
+    color: var(--option-color);
+    font-weight: 700;
+    border-inline-start: 4px solid var(--option-color);
+    margin-block: 2px;
+}
+
+wa-option[data-color]:hover,
+wa-option[data-color][data-active],
+wa-option[data-color][aria-selected='true'] {
+    background: color-mix(in srgb, var(--option-color) 14%, transparent);
+    color: var(--option-color);
+}
+
 /* The option the arrow keys are on while typing in the search box. */
 wa-option[data-active] {
     background: var(--ac-accent-soft);

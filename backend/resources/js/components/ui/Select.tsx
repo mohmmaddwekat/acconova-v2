@@ -19,6 +19,8 @@ type OptionData = {
     value: string;
     label: string;
     disabled: boolean;
+    /** Optional colour for the option's text and side bar (from data-color). */
+    color?: string;
 };
 
 type SelectProps = Omit<
@@ -67,6 +69,7 @@ function collectOptions(children: ReactNode, out: OptionData[]): void {
             value?: string | number;
             disabled?: boolean;
             children?: ReactNode;
+            'data-color'?: string;
         }>(child)) {
             return;
         }
@@ -80,6 +83,7 @@ function collectOptions(children: ReactNode, out: OptionData[]): void {
                     : String(child.props.value),
                 label,
                 disabled: Boolean(child.props.disabled),
+                color: child.props['data-color'],
             });
 
             return;
@@ -397,7 +401,11 @@ export function Select({
                     value: toInternal(option.value),
                     disabled: option.disabled || undefined,
                     'data-active': active === option.value ? '' : undefined,
-                    style: visible.includes(option) ? undefined : { display: 'none' },
+                    'data-color': option.color,
+                    style: {
+                        ...(option.color ? { '--option-color': option.color, '--wa-color-text-normal': option.color } : {}),
+                        ...(visible.includes(option) ? {} : { display: 'none' }),
+                    },
                 },
                 option.label,
             ),

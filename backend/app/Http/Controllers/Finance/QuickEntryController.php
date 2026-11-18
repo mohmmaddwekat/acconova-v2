@@ -59,6 +59,12 @@ class QuickEntryController extends Controller
             'rows.*.payment.endorsed_movement_id' => ['nullable', 'integer'],
             'rows.*.payment.check_number' => ['nullable', 'string', 'max:120'],
             'rows.*.payment.check_due_date' => ['nullable', 'date_format:Y-m-d'],
+            'rows.*.payment.extra' => ['nullable', 'array', 'max:10'],
+            'rows.*.payment.extra.*.amount' => ['required', 'numeric', 'gt:0', 'max:999999999999'],
+            'rows.*.payment.extra.*.method' => ['required', Rule::in(['cash', 'transfer', 'check'])],
+            'rows.*.payment.extra.*.endorsed_movement_id' => ['nullable', 'integer'],
+            'rows.*.payment.extra.*.check_number' => ['nullable', 'string', 'max:120'],
+            'rows.*.payment.extra.*.check_due_date' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
         return response()->json([

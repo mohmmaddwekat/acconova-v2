@@ -28,6 +28,9 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 type RowType = 'sale' | 'purchase' | 'misc' | 'receipt' | 'payment' | 'petty' | 'prod' | 'staff' | 'attendance';
 type Method = 'cash' | 'transfer' | 'check';
 
+/** One more payment on the same document: a second cash amount, a transfer or one more check. */
+type ExtraPart = { key: number; method: Method; amt: string; chequeId: number | null; checkNo: string; checkDue: string };
+
 /** `typed` is false while the price is one the system filled in, so choosing another product may replace it. */
 type Line = { key: number; productId: number | null; qty: string; price: string; typed?: boolean };
 
@@ -63,6 +66,7 @@ type Row = {
     chequeId: number | null;
     checkNo: string;
     checkDue: string;
+    extra: ExtraPart[];
     open: boolean;
     error: string;
     merged: boolean;
@@ -211,6 +215,7 @@ const newRow = (type: RowType, date: string): Row => ({
     chequeId: null,
     checkNo: '',
     checkDue: '',
+    extra: [],
     open: false,
     error: '',
     merged: false,
@@ -664,13 +669,18 @@ export default function QuickEntry() {
 
         return { subtotal, discount, tax, included, total: taxable + tax };
     };
-    const payOf = (row: Row): number => {
+    const extrasTotal = (row: Row): number => row.extra.reduce((sum, part) => sum + num(part.amt), 0);
+    /** The first payment part; "Full" pays what the invoice total leaves after the extra parts. */
+    const mainPay = (row: Row): number => {
         if (! META[row.type].pay) {
             return 0;
         }
 
-        return META[row.type].invoice ? (row.full ? totals(row).total : num(row.pay)) : num(row.amt);
+        return META[row.type].invoice
+            ? (row.full ? Math.max(totals(row).total - extrasTotal(row), 0) : num(row.pay))
+            : num(row.amt);
     };
+    const payOf = (row: Row): number => (META[row.type].pay ? mainPay(row) + extrasTotal(row) : 0);
     const completeLine = (line: Line): boolean => !! line.productId && num(line.qty) > 0 && line.price !== '' && num(line.price) >= 0;
 
     /** Everything this row still needs, each with the field it belongs to and why it is required. */
@@ -710,6 +720,10 @@ export default function QuickEntry() {
                 label: row.type === 'prod' ? text('الكمية', 'Quantity') : text('المبلغ', 'Amount'),
                 why: row.type === 'prod' ? text('اكتب كمية الإنتاج، وتكون أكبر من صفر.', 'Type the produced quantity, greater than zero.') : text('اكتب المبلغ في عمود «الإجمالي / المبلغ»، ويكون أكبر من صفر.', 'Type the amount in the “Total / amount” column, greater than zero.'),
             });
+        }
+
+        if (meta.pay && row.extra.some((part) => num(part.amt) <= 0 || (part.method === 'check' && ! part.chequeId && (! part.checkNo || ! validDate(part.checkDue))))) {
+            found.push({ key: 'check', label: text('بيانات الدفعات الإضافية', 'Extra payment details'), why: text('كل دفعة إضافية تحتاج مبلغاً، والشيك يحتاج رقماً وتاريخ استحقاق (أو شيكاً من شيكاتك).', 'Every extra payment needs an amount, and a check needs a number and due date (or a check on hand).') });
         }
 
         if (meta.pay && payOf(row) > 0 && row.method === 'check' && ! row.chequeId && (! row.checkNo || ! validDate(row.checkDue))) {
@@ -889,6 +903,7 @@ export default function QuickEntry() {
                 exist: null,
                 dupOk: false,
                 lines: row.lines.map((line) => ({ ...line, key: nextKey++ })),
+                extra: row.extra.map((part) => ({ ...part, key: nextKey++ })),
             })),
         ]);
         setSelected((current) => (current.includes(target) ? current : [...current, target]));
@@ -1146,9 +1161,18 @@ export default function QuickEntry() {
 
         const payment = META[row.type].pay
             ? {
-                amount: META[row.type].invoice && row.full ? undefined : payOf(row),
+                amount: META[row.type].invoice && row.full ? undefined : mainPay(row),
                 full: META[row.type].invoice && row.full ? true : undefined,
                 method: row.method,
+                extra: row.extra.length
+                    ? row.extra.map((part) => ({
+                        method: part.method,
+                        amount: num(part.amt),
+                        endorsed_movement_id: part.method === 'check' && part.chequeId ? part.chequeId : undefined,
+                        check_number: part.method === 'check' && ! part.chequeId ? part.checkNo : undefined,
+                        check_due_date: part.method === 'check' && ! part.chequeId ? part.checkDue : undefined,
+                    }))
+                    : undefined,
                 endorsed_movement_id: row.method === 'check' && row.chequeId ? row.chequeId : undefined,
                 check_number: row.method === 'check' && ! row.chequeId ? row.checkNo : undefined,
                 check_due_date: row.method === 'check' && ! row.chequeId ? row.checkDue : undefined,
@@ -1598,7 +1622,7 @@ export default function QuickEntry() {
                                     dir="ltr"
                                     disabled={row.full}
                                     placeholder={text('بدون دفعة', 'No payment')}
-                                    value={row.full ? money(totals(row).total) : row.pay}
+                                    value={row.full ? money(mainPay(row)) : row.pay}
                                     onChange={(event) => patch(row.id, { pay: event.target.value, full: false })}
                                 />
                                 <button type="button" className={'shrink-0 rounded-[10px] border px-2.5 text-xs font-bold ' + (row.full ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-[var(--ac-line)] text-[var(--ac-accent)]')} onClick={() => patch(row.id, { full: ! row.full, pay: '' })}>
@@ -1649,6 +1673,86 @@ export default function QuickEntry() {
                         </>
                     )}
                 </div>
+
+                {row.extra.map((part, index) => (
+                    <div key={part.key} className="mt-3 rounded-[12px] border border-dashed border-[var(--ac-line)] p-2.5">
+                        <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-[var(--ac-text-muted)]">
+                            <span>{text(`دفعة إضافية ${index + 2}`, `Extra payment ${index + 2}`)}</span>
+                            <button type="button" aria-label={text('حذف الدفعة', 'Remove payment')} className="p-1 text-red-500" onClick={() => patch(row.id, { extra: row.extra.filter((other) => other.key !== part.key) })}><X size={14} /></button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                            <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
+                                {text('الطريقة', 'Method')}
+                                <Select className={field + ' mt-1'} value={part.method} onChange={(event) => { patch(row.id, { extra: row.extra.map((other) => (other.key === part.key ? { ...other, method: event.target.value as Method, chequeId: null } : other)) }); if (event.target.value === 'check') { loadCheques(); } }}>
+                                    <option value="cash">{text('نقدي', 'Cash')}</option>
+                                    <option value="check">{text('شيك', 'Check')}</option>
+                                    <option value="transfer">{text('تحويل', 'Transfer')}</option>
+                                </Select>
+                            </label>
+                            <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
+                                {text('المبلغ', 'Amount')}
+                                <input className={field + ' mt-1 text-left'} dir="ltr" inputMode="decimal" placeholder="0" value={part.amt} onChange={(event) => patch(row.id, { extra: row.extra.map((other) => (other.key === part.key ? { ...other, amt: event.target.value } : other)) })} />
+                            </label>
+                            {part.method === 'check' && meta.party === 's' && (
+                                <label className="col-span-2 text-[11px] font-bold text-[var(--ac-text-muted)]">
+                                    {text('شيك من شيكاتي (تجيير)', 'Check on hand (endorse)')}
+                                    <Select
+                                        className={field + ' mt-1'}
+                                        value={part.chequeId ?? ''}
+                                        onChange={(event) => {
+                                            const cheque = cheques.find((candidate) => String(candidate.id) === event.target.value);
+
+                                            patch(row.id, { extra: row.extra.map((other) => (other.key === part.key
+                                                ? { ...other, chequeId: cheque ? cheque.id : null, checkNo: cheque?.check_number ?? '', checkDue: cheque?.check_due_date ?? '', amt: cheque ? String(Number(cheque.amount)) : other.amt }
+                                                : other)) });
+                                        }}
+                                    >
+                                        <option value="">{text('شيك جديد (أكتب بياناته)', 'New check (enter details)')}</option>
+                                        {dueCheques
+                                            .filter((cheque) => cheque.id !== row.chequeId && ! row.extra.some((other) => other.key !== part.key && other.chequeId === cheque.id))
+                                            .map((cheque) => (
+                                                <option key={cheque.id} value={cheque.id}>
+                                                    {(cheque.check_number || cheque.number) + ' — ' + (cheque.party_name ?? '') + ' — ' + text('يستحق ', 'due ') + (cheque.check_due_date ?? '') + ' — ' + money(Number(cheque.amount))}
+                                                </option>
+                                            ))}
+                                    </Select>
+                                </label>
+                            )}
+                            {part.method === 'check' && ! part.chequeId && (
+                                <>
+                                    <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
+                                        {text('رقم الشيك', 'Check number')}
+                                        <input className={field + ' mt-1 text-left'} dir="ltr" value={part.checkNo} onChange={(event) => patch(row.id, { extra: row.extra.map((other) => (other.key === part.key ? { ...other, checkNo: event.target.value } : other)) })} />
+                                    </label>
+                                    <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
+                                        {text('تاريخ الاستحقاق', 'Due date')}
+                                        <input type="date" className={field + ' mt-1'} dir="ltr" min="2000-01-01" value={part.checkDue} onChange={(event) => patch(row.id, { extra: row.extra.map((other) => (other.key === part.key ? { ...other, checkDue: event.target.value } : other)) })} />
+                                    </label>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                ))}
+
+                <button
+                    type="button"
+                    className={btnSecondary + ' mt-3'}
+                    disabled={row.extra.length >= 10}
+                    onClick={() => patch(row.id, { extra: [...row.extra, { key: nextKey++, method: 'check', amt: '', chequeId: null, checkNo: '', checkDue: '' }] })}
+                >
+                    <Plus size={13} />{text('دفعة أخرى (نقدي أو شيك)', 'Another payment (cash or check)')}
+                </button>
+                {row.extra.length > 0 && (
+                    <p className="mt-2 text-[11px] text-[var(--ac-text-muted)]">
+                        {text('مجموع الدفعات: ', 'Total payments: ')}<b>{money(payOf(row))}</b>
+                        {meta.invoice && totals(row).total > 0 && (
+                            <>
+                                {' · '}{payOf(row) > totals(row).total + 0.005 ? text('الفائض يسدد فواتير أقدم', 'Excess settles older invoices') : text('المتبقي: ', 'Left: ')}
+                                {payOf(row) <= totals(row).total + 0.005 && <b>{money(Math.max(totals(row).total - payOf(row), 0))}</b>}
+                            </>
+                        )}
+                    </p>
+                )}
                 <p className="mt-2 text-[11px] text-[var(--ac-text-muted)]">
                     {meta.invoice
                         ? text('الفائض عن الفاتورة يسدد فواتير أقدم، والباقي رصيد دفعة مقدمة.', 'Any excess settles older invoices; the rest stays as an advance.')
@@ -1781,9 +1885,12 @@ export default function QuickEntry() {
             <Fragment key={row.id}>
                 <tr
                     className={(row.error ? 'bg-red-500/5 ' : '') + (dragId === row.id ? 'opacity-40' : '')}
-                    style={dropMark?.id === row.id && dropMark.where !== 'day'
-                        ? { boxShadow: dropMark.where === 'before' ? 'inset 0 2px 0 var(--ac-accent)' : 'inset 0 -2px 0 var(--ac-accent)' }
-                        : undefined}
+                    style={{
+                        backgroundColor: `color-mix(in srgb, ${meta.color} 18%, transparent)`,
+                        ...(dropMark?.id === row.id && dropMark.where !== 'day'
+                            ? { boxShadow: dropMark.where === 'before' ? 'inset 0 2px 0 var(--ac-accent)' : 'inset 0 -2px 0 var(--ac-accent)' }
+                            : {}),
+                    }}
                     onDragOver={(event) => {
                         if (dragId === null || dragId === row.id) {
                             return;
@@ -1812,7 +1919,7 @@ export default function QuickEntry() {
                         setDropMark(null);
                     }}
                 >
-                    <td className="w-6 px-0.5">
+                    <td className="w-6 px-0.5" style={{ borderInlineStart: `6px solid ${meta.color}` }}>
                         <span
                             role="button"
                             tabIndex={0}
@@ -1849,7 +1956,7 @@ export default function QuickEntry() {
                     <td className="w-7 text-center text-xs text-[var(--ac-text-muted)]">{index + 1}</td>
                     <td className="px-1.5 py-1.5">
                         <Select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: ['purchase', 'sale', 'misc'].includes(event.target.value), lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
-                            {visibleTypes.map((type) => <option key={type} value={type}>{typeName(type)}</option>)}
+                            {visibleTypes.map((type) => <option key={type} value={type} data-color={META[type].color}>{typeName(type)}</option>)}
                         </Select>
                     </td>
                     <td className="px-1.5 py-1.5">
@@ -1954,7 +2061,7 @@ export default function QuickEntry() {
                     </tr>
                 )}
                 {row.open && (
-                    <tr className="bg-[var(--ac-surface-soft,#fafcff)]">
+                    <tr className="bg-[var(--ac-surface-soft,#fafcff)]" style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 9%, var(--ac-surface))`, boxShadow: `inset 6px 0 0 ${meta.color}` }}>
                         <td />
                         <td />
                         <td colSpan={9} className="px-3 py-3">

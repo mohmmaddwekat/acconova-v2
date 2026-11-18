@@ -227,21 +227,47 @@ class QuickEntryService
             'advance' => '0.0000',
         ];
 
-        $payment = $this->payment($row, $addedTotal ?? (float) $invoice->total);
+        $parts = $this->paymentParts($row, $addedTotal ?? (float) $invoice->total);
 
-        if ($payment === null) {
+        if ($parts === []) {
             return $result;
         }
 
-        $movement = $this->settle($row, $party, $kind, $payment, $sale, $user);
+        return [...$result, ...$this->settleParts($row, $party, $kind, $parts, $sale, $user)];
+    }
+
+    /**
+     * Settle each payment part (cash, transfer or one cheque each) as its own posted movement.
+     *
+     * @param  array<string, mixed>  $row
+     * @param  list<array<string, mixed>>  $parts
+     * @return array<string, mixed>
+     */
+    private function settleParts(array $row, Party $party, string $kind, array $parts, bool $incoming, User $user): array
+    {
+        $paid = 0.0;
+        $allocated = 0.0;
+        $advance = 0.0;
+        $numbers = [];
+        $firstId = null;
+
+        foreach ($parts as $part) {
+            $movement = $this->settle($row, $party, $kind, $part, $incoming, $user);
+
+            $paid += (float) $movement['amount'];
+            $allocated += (float) $movement['allocated'];
+            $advance += (float) $movement['advance'];
+            $numbers[] = $movement['movement_number'];
+            $firstId ??= $movement['movement_id'];
+        }
 
         return [
-            ...$result,
-            'movement_id' => $movement['movement_id'],
-            'movement_number' => $movement['movement_number'],
-            'paid' => $movement['amount'],
-            'allocated' => $movement['allocated'],
-            'advance' => $movement['advance'],
+            'movement_id' => $firstId,
+            'movement_number' => implode(' + ', $numbers),
+            'payments' => count($parts),
+            'paid' => number_format($paid, 4, '.', ''),
+            'allocated' => number_format($allocated, 4, '.', ''),
+            'advance' => number_format($advance, 4, '.', ''),
         ];
     }
 
@@ -464,33 +490,18 @@ class QuickEntryService
         $this->allow($user, $sale ? 'finance.cash.receive' : 'finance.cash.pay');
 
         $party = $this->party($row);
-        $payment = $this->payment($row);
+        $parts = $this->paymentParts($row);
 
-        if ($payment === null) {
+        if ($parts === []) {
             throw ValidationException::withMessages([
                 'payment' => ['أدخل مبلغ السند.'],
             ]);
         }
 
-        $movement = $this->settle(
-            $row,
-            $party,
-            $sale ? 'sale_invoice' : 'purchase_invoice',
-            $payment,
-            $sale,
-            $user,
-        );
-
+        $result = $this->settleParts($row, $party, $sale ? 'sale_invoice' : 'purchase_invoice', $parts, $sale, $user);
         $discount = $this->settlementDiscount($row, $party, $sale, $user);
 
-        return [
-            'movement_id' => $movement['movement_id'],
-            'movement_number' => $movement['movement_number'],
-            'paid' => $movement['amount'],
-            'allocated' => $movement['allocated'],
-            'advance' => $movement['advance'],
-            'discount' => number_format($discount, 4, '.', ''),
-        ];
+        return [...$result, 'discount' => number_format($discount, 4, '.', '')];
     }
 
     /**
@@ -595,6 +606,26 @@ class QuickEntryService
 
     /**
      * @param  array<string, mixed>  $row
+     * @return list<array{amount: float, method: string, endorsed_id: ?int, check_number: ?string, check_due_date: ?string}>
+     */
+    private function paymentParts(array $row, ?float $invoiceTotal = null): array
+    {
+        $extras = collect($row['payment']['extra'] ?? [])
+            ->map(fn (array $extra): ?array => $this->payment(['payment' => $extra]))
+            ->filter()
+            ->values()
+            ->all();
+
+        $extrasTotal = round((float) collect($extras)->sum('amount'), 4);
+
+        // "Full" pays what the invoice total leaves after the extra cheques or cash parts.
+        $main = $this->payment($row, $invoiceTotal !== null ? round($invoiceTotal - $extrasTotal, 4) : null);
+
+        return array_values(array_filter([$main, ...$extras]));
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
      * @return array{amount: float, method: string, endorsed_id: ?int, check_number: ?string, check_due_date: ?string}|null
      */
     private function payment(array $row, ?float $invoiceTotal = null): ?array
@@ -634,7 +665,9 @@ class QuickEntryService
     {
         $payment = $row['payment'] ?? null;
 
-        return (bool) ($payment['full'] ?? false) || (float) ($payment['amount'] ?? 0) > 0;
+        return (bool) ($payment['full'] ?? false)
+            || (float) ($payment['amount'] ?? 0) > 0
+            || collect($payment['extra'] ?? [])->contains(fn (array $extra): bool => (float) ($extra['amount'] ?? 0) > 0);
     }
 
     /**
