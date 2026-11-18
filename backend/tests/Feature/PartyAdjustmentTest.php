@@ -168,6 +168,52 @@ class PartyAdjustmentTest extends TestCase
         $this->assertSame('100.0000', $invoice->fresh()->balance_due);
     }
 
+    public function test_a_difference_entry_can_be_edited_instead_of_voided_and_retyped(): void
+    {
+        $customerId = $this->seedWorkspace(['customer']);
+
+        $id = $this->postJson("/api/parties/{$customerId}/adjustments", [
+            'direction' => 'owed_to_us', 'amount' => '150', 'adjustment_date' => '2026-10-10', 'reason' => 'فرق أسعار',
+        ])->assertCreated()->json('data.id');
+
+        $this->patchJson("/api/parties/{$customerId}/adjustments/{$id}", [
+            'amount' => '175.5', 'adjustment_date' => '2026-10-12', 'reason' => 'فرق أسعار (معدّل)',
+        ])->assertOk()->assertJsonPath('data.amount', '175.5000')->assertJsonPath('data.adjustment_date', '2026-10-12');
+
+        $this->assertDatabaseHas('party_adjustments', ['id' => $id, 'amount' => '175.5000', 'status' => 'posted', 'reason' => 'فرق أسعار (معدّل)']);
+
+        $this->patchJson("/api/parties/{$customerId}/adjustments/{$id}", ['amount' => '0', 'adjustment_date' => '2026-10-12'])->assertUnprocessable();
+        $this->patchJson("/api/parties/{$customerId}/adjustments/{$id}", ['amount' => '10', 'adjustment_date' => '2027-01-01'])->assertUnprocessable();
+
+        $this->postJson("/api/parties/{$customerId}/adjustments/{$id}/void", ['reason' => 'خطأ'])->assertOk();
+        $this->patchJson("/api/parties/{$customerId}/adjustments/{$id}", ['amount' => '10', 'adjustment_date' => '2026-10-12'])->assertUnprocessable();
+    }
+
+    public function test_editing_an_invoice_discount_updates_the_invoice_and_cannot_exceed_it(): void
+    {
+        $customerId = $this->seedWorkspace(['customer']);
+        $tenant = app(TenantContext::class);
+        $tenant->set(Organization::query()->firstOrFail(), OrganizationRole::Owner);
+        $invoice = FinancialDocument::create([
+            'party_id' => $customerId, 'kind' => 'sale_invoice', 'number' => 'INV-EDIT', 'status' => 'issued', 'issue_date' => '2026-10-01',
+            'currency' => 'ILS', 'total' => '1000', 'paid_total' => '0', 'balance_due' => '1000', 'credit_total' => '0',
+        ]);
+        $tenant->clear();
+
+        $id = $this->postJson("/api/parties/{$customerId}/adjustments", [
+            'direction' => 'owed_to_us', 'amount' => '100', 'adjustment_date' => '2026-10-10', 'reason' => 'خصم', 'financial_document_id' => $invoice->id,
+        ])->assertCreated()->json('data.id');
+
+        $this->patchJson("/api/parties/{$customerId}/adjustments/{$id}", ['amount' => '250', 'adjustment_date' => '2026-10-11'])->assertOk();
+        $this->assertSame('750.0000', $invoice->fresh()->balance_due);
+
+        $this->patchJson("/api/parties/{$customerId}/adjustments/{$id}", ['amount' => '1000', 'adjustment_date' => '2026-10-11'])->assertOk();
+        $this->assertSame('paid', $invoice->fresh()->status);
+
+        $this->patchJson("/api/parties/{$customerId}/adjustments/{$id}", ['amount' => '1001', 'adjustment_date' => '2026-10-11'])
+            ->assertUnprocessable()->assertJsonValidationErrors('amount');
+    }
+
     /**
      * @param  list<string>  $roles
      */

@@ -548,7 +548,7 @@ export default function QuickEntry() {
                         askedExisting.current.add(`${row.id}|${key}`);
                     }
                 });
-                setRows(draft.rows.map((row) => ({ ...row, exist: null, flag: false, error: '' })));
+                setRows(draft.rows.map((row) => ({ ...row, extra: row.extra ?? [], exist: null, flag: false, error: '' })));
                 setSelected(Array.isArray(draft.selected) ? draft.selected : []);
                 setRestored(draft.rows.length);
             }

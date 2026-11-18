@@ -59,6 +59,25 @@ class PartyAdjustmentController extends Controller
         return response()->json(['data' => $this->payload($adjustment)], 201);
     }
 
+    public function update(Request $request, int $party, int $adjustment, PartyAdjustmentService $service): JsonResponse
+    {
+        $this->party($request, $party);
+        $record = PartyAdjustment::query()->where('party_id', $party)->findOrFail($adjustment);
+
+        $this->authorizeSide($request, $record->side);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999'],
+            'adjustment_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'reason' => ['nullable', 'string', 'max:160'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        return response()->json(['data' => $this->payload(
+            $service->update($record, $validated, (int) $request->user()->id),
+        )]);
+    }
+
     public function void(Request $request, int $party, int $adjustment, PartyAdjustmentService $service): JsonResponse
     {
         $this->party($request, $party);

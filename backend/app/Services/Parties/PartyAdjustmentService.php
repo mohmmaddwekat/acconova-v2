@@ -141,6 +141,97 @@ class PartyAdjustmentService
         return $document;
     }
 
+    /**
+     * Correct the amount, date or wording of a posted entry instead of voiding it and typing it again.
+     * Entries that belong to an offset pair are not edited one by one: the pair is voided together.
+     *
+     * @param  array{amount: numeric-string|float, adjustment_date: string, reason?: string|null, notes?: string|null}  $data
+     */
+    public function update(PartyAdjustment $adjustment, array $data, int $actorId): PartyAdjustment
+    {
+        return DB::transaction(function () use ($adjustment, $data, $actorId): PartyAdjustment {
+            $locked = PartyAdjustment::query()->lockForUpdate()->findOrFail($adjustment->id);
+
+            if ($locked->status !== PartyAdjustment::STATUS_POSTED) {
+                throw ValidationException::withMessages([
+                    'status' => [$this->message('لا يمكن تعديل قيد ملغى.', 'A voided entry cannot be edited.')],
+                ]);
+            }
+
+            if ($locked->offset_group) {
+                throw ValidationException::withMessages([
+                    'status' => [$this->message('هذا القيد جزء من مقاصة. ألغِ المقاصة كاملة من صفحة المقاصة ثم أعدها.', 'This entry belongs to an offset. Void the whole offset and redo it.')],
+                ]);
+            }
+
+            $amount = round((float) $data['amount'], 4);
+            $document = null;
+
+            if ($locked->financial_document_id) {
+                $document = FinancialDocument::query()->lockForUpdate()->find($locked->financial_document_id);
+
+                if (! $document || ! in_array($document->status, ['issued', 'partially_paid', 'paid', 'overpaid'], true)) {
+                    throw ValidationException::withMessages([
+                        'amount' => [$this->message('الفاتورة المرتبطة بهذا القيد لم تعد فعّالة.', 'The invoice linked to this entry is no longer active.')],
+                    ]);
+                }
+
+                // The invoice balance already counts this entry, so the new amount may use that part again.
+                $room = (float) $document->balance_due + (float) $locked->amount;
+
+                if ($amount > $room + 0.00005) {
+                    throw ValidationException::withMessages([
+                        'amount' => [$this->message(
+                            'المبلغ أكبر مما تتحمله الفاتورة ('.number_format($room, 2, '.', '').').',
+                            'The amount is more than the invoice can take ('.number_format($room, 2, '.', '').').',
+                        )],
+                    ]);
+                }
+            } else {
+                $other = PartyAdjustment::query()
+                    ->where('party_id', $locked->party_id)
+                    ->where('side', $locked->side)
+                    ->whereNull('financial_document_id')
+                    ->where('status', PartyAdjustment::STATUS_POSTED)
+                    ->where('id', '!=', $locked->id)
+                    ->whereDate('adjustment_date', $data['adjustment_date'])
+                    ->first(['number']);
+
+                if ($other) {
+                    throw ValidationException::withMessages([
+                        'adjustment_date' => [$this->message(
+                            'يوجد قيد فروقات آخر لنفس الطرف بنفس التاريخ ('.$other->number.').',
+                            'Another difference entry exists for this party on this date ('.$other->number.').',
+                        )],
+                    ]);
+                }
+            }
+
+            $before = $locked->only(['amount', 'adjustment_date', 'reason', 'notes']);
+
+            $locked->amount = number_format($amount, 4, '.', '');
+            $locked->adjustment_date = $data['adjustment_date'];
+
+            if (array_key_exists('reason', $data) && filled($data['reason'])) {
+                $locked->reason = trim((string) $data['reason']);
+            }
+
+            if (array_key_exists('notes', $data)) {
+                $locked->notes = filled($data['notes']) ? trim((string) $data['notes']) : null;
+            }
+
+            $locked->save();
+
+            $this->audit->record($locked, 'edited', $actorId, $locked->reason, $before, $locked->only(['amount', 'adjustment_date', 'reason', 'notes']));
+
+            if ($document) {
+                $this->documents->recalculatePaymentState($document);
+            }
+
+            return $locked;
+        }, 3);
+    }
+
     public function void(PartyAdjustment $adjustment, string $reason, int $actorId): PartyAdjustment
     {
         return DB::transaction(function () use ($adjustment, $reason, $actorId): PartyAdjustment {

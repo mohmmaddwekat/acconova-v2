@@ -112,6 +112,9 @@ Route::middleware([
             ->middleware('throttle:20,1');
     }
     Route::post('parties/{party}/adjustments', [PartyAdjustmentController::class, 'store'])->whereNumber('party')->middleware('throttle:30,1');
+    Route::patch('parties/{party}/adjustments/{adjustment}', [PartyAdjustmentController::class, 'update'])
+        ->whereNumber(['party', 'adjustment'])
+        ->middleware('throttle:30,1');
     Route::post('parties/{party}/adjustments/{adjustment}/void', [PartyAdjustmentController::class, 'void'])
         ->whereNumber(['party', 'adjustment'])
         ->middleware('throttle:30,1');

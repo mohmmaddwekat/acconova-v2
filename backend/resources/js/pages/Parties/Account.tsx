@@ -6,6 +6,7 @@ import { useLocale } from '@/lib/i18n';
 import { useLiveRefresh } from '@/lib/live';
 import { downloadCsv } from '@/pages/Finance/shared';
 import { PartyAdjustmentDialog } from '@/pages/Parties/PartyAdjustmentDialog';
+import { PartyAdjustmentEditDialog } from '@/pages/Parties/PartyAdjustmentEditDialog';
 import { PartyFinancialOperations } from '@/pages/Parties/PartyFinancialOperations';
 import { PartyPricingPanel } from '@/features/parties/components/PartyPricingPanel';
 import { Head, Link } from '@inertiajs/react';
@@ -97,6 +98,8 @@ type AccountTransaction = {
     method: string | null;
     allocated?: string;
     unallocated?: string;
+    editable?: boolean;
+    adjustment_reason?: string | null;
 };
 
 type PartyAccountResponse = {
@@ -585,6 +588,7 @@ export default function PartyAccount({
     );
 
     const [adjustmentOpen, setAdjustmentOpen] = useState(false);
+    const [editingAdjustment, setEditingAdjustment] = useState<AccountTransaction | null>(null);
 
     async function voidAdjustment(transaction: AccountTransaction): Promise<void> {
         const reason = window.prompt(ar ? 'سبب إلغاء قيد الفروقات ' + transaction.reference + ':' : 'Reason for voiding ' + transaction.reference + ':');
@@ -2362,6 +2366,13 @@ export default function PartyAccount({
                                                                 ? () => void voidAdjustment(transaction)
                                                                 : undefined
                                                         }
+                                                        onEdit={
+                                                            transaction.type === 'adjustment'
+                                                            && transaction.editable
+                                                            && (transaction.side === 'customer' ? data.permissions.sales_manage : data.permissions.purchases_manage)
+                                                                ? () => setEditingAdjustment(transaction)
+                                                                : undefined
+                                                        }
                                                     />
                                                 ),
                                             )}
@@ -2565,6 +2576,20 @@ export default function PartyAccount({
                                     setAdjustmentOpen(false);
                                     void load();
                                 }}
+                            />
+                        )}
+
+                        {editingAdjustment && (
+                            <PartyAdjustmentEditDialog
+                                partyId={data.party.id}
+                                adjustmentId={editingAdjustment.source_id}
+                                reference={editingAdjustment.reference}
+                                initialAmount={editingAdjustment.amount}
+                                initialDate={editingAdjustment.date}
+                                initialReason={editingAdjustment.adjustment_reason ?? ''}
+                                ar={ar}
+                                onClose={() => setEditingAdjustment(null)}
+                                onSaved={() => void load()}
                             />
                         )}
                     </>
@@ -3116,6 +3141,7 @@ function TransactionRow({
     locale,
     ar,
     onVoid,
+    onEdit,
 }: {
     transaction:
         AccountTransaction;
@@ -3124,6 +3150,7 @@ function TransactionRow({
     locale: string;
     ar: boolean;
     onVoid?: () => void;
+    onEdit?: () => void;
 }) {
     return (
         <tr
@@ -3201,6 +3228,16 @@ function TransactionRow({
                         ar,
                     )}
                 </div>
+
+                {onEdit && (
+                    <button
+                        type="button"
+                        onClick={onEdit}
+                        className="me-3 mt-1 text-[9px] font-semibold text-[var(--ac-accent)] hover:underline print:hidden"
+                    >
+                        {ar ? 'تعديل' : 'Edit'}
+                    </button>
+                )}
 
                 {onVoid && (
                     <button

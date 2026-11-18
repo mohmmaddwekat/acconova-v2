@@ -1319,6 +1319,9 @@ class PartyAccountController extends Controller
             'url' => null,
             'status' => $adjustment->status,
             'method' => null,
+            'editable' => $adjustment->status === PartyAdjustment::STATUS_POSTED && $adjustment->offset_group === null,
+            'adjustment_reason' => $adjustment->reason,
+            'adjustment_notes' => $adjustment->notes,
             'sort_key' => '4-'.str_pad((string) $adjustment->id, 12, '0', STR_PAD_LEFT),
         ];
     }
