@@ -1352,6 +1352,132 @@ export default function QuickEntry() {
         safeFocus(inputs[inputs.indexOf(event.target as HTMLElement) + 1]);
     };
 
+    /*
+     * Spreadsheet-style movement. Up/Down jump to the same column in the row above or below (across days
+     * too), Left/Right to the next cell, PageUp/PageDown to the previous or next day. In a text box the
+     * arrows only leave when it is empty or fully selected, so typing and editing keep working; Ctrl+arrow
+     * moves from any cell, including the dropdowns and date boxes where the arrows have their own meaning.
+     */
+    const navigateTable = (event: React.KeyboardEvent<HTMLElement>) => {
+        const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'];
+
+        if (! keys.includes(event.key) || event.altKey || event.shiftKey || event.metaKey) {
+            return;
+        }
+
+        const target = event.target as HTMLElement;
+        const tr = target.closest<HTMLTableRowElement>('tr[data-mainrow]');
+        const cell = target.closest<HTMLTableCellElement>('td');
+
+        if (! tr || ! cell || (target as unknown as { open?: boolean }).open) {
+            return;
+        }
+
+        const tag = target.tagName.toLowerCase();
+        const input = tag === 'input' ? (target as HTMLInputElement) : null;
+        const textual = input !== null && ! ['date', 'checkbox', 'radio', 'time', 'datetime-local', 'month', 'week'].includes(input.type);
+        const ctrl = event.ctrlKey;
+        const vertical = event.key === 'ArrowUp' || event.key === 'ArrowDown';
+        const horizontal = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
+        const paging = event.key === 'PageUp' || event.key === 'PageDown';
+
+        if (! ctrl) {
+            if (paging && ! textual && tag !== 'button' && tag !== 'span') {
+                // PageUp/PageDown inside a dropdown or date box keep their own meaning.
+                return;
+            }
+
+            if (vertical && ! textual) {
+                return;
+            }
+
+            if (horizontal) {
+                if (! textual) {
+                    return;
+                }
+
+                const whole = input.selectionStart === 0 && input.selectionEnd === input.value.length;
+
+                if (input.value !== '' && ! whole) {
+                    return;
+                }
+            }
+        }
+
+        const rtl = document.documentElement.dir === 'rtl';
+        const rowsList = Array.from(container.current?.querySelectorAll<HTMLTableRowElement>('tr[data-mainrow]') ?? []);
+        const rowIndex = rowsList.indexOf(tr);
+        const column = Array.from(tr.children).indexOf(cell);
+        let nextRow = rowIndex;
+        let nextColumn = column;
+
+        if (event.key === 'ArrowDown') {
+            nextRow = rowIndex + 1;
+        } else if (event.key === 'ArrowUp') {
+            nextRow = rowIndex - 1;
+        } else if (paging) {
+            const day = tr.dataset.day;
+
+            if (event.key === 'PageDown') {
+                nextRow = rowsList.findIndex((row, index) => index > rowIndex && row.dataset.day !== day);
+            } else {
+                // The first row of the previous day.
+                const before = rowsList.slice(0, rowIndex).reverse().find((row) => row.dataset.day !== day);
+
+                nextRow = before ? rowsList.findIndex((row) => row.dataset.day === before.dataset.day) : -1;
+            }
+        } else if (horizontal) {
+            // In a right-to-left page the first column is on the right, so Left means the next column.
+            const forward = rtl ? event.key === 'ArrowLeft' : event.key === 'ArrowRight';
+
+            nextColumn = column + (forward ? 1 : -1);
+        }
+
+        if (nextRow < 0 || nextRow >= rowsList.length || nextColumn < 0) {
+            return;
+        }
+
+        const focusableIn = (row: HTMLTableRowElement, index: number): HTMLElement | null => {
+            const td = row.children[index];
+
+            return td
+                ? td.querySelector<HTMLElement>('input:not([type="hidden"]):not([disabled]), wa-select:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [role="button"]')
+                : null;
+        };
+
+        const destination = rowsList[nextRow];
+        let found: HTMLElement | null = null;
+
+        // Walk outward from the wanted column to the nearest cell that can take focus.
+        for (let offset = 0; offset <= destination.children.length && ! found; offset++) {
+            const order = horizontal ? [offset * (nextColumn >= column ? 1 : -1)] : [offset, -offset];
+
+            for (const delta of order) {
+                found = focusableIn(destination, nextColumn + delta);
+
+                if (found) {
+                    break;
+                }
+            }
+
+            if (horizontal) {
+                break;
+            }
+        }
+
+        if (! found) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        safeFocus(found);
+
+        if (found instanceof HTMLInputElement && ! ['date', 'checkbox'].includes(found.type)) {
+            window.setTimeout(() => found instanceof HTMLInputElement && found.select(), 0);
+        }
+    };
+
     /* ---------- derived ---------- */
     const filteredRows = sortedRows.filter((row) => filter === 'all' || row.type === filter);
     const dates = [...new Set(filteredRows.map((row) => row.date))];
@@ -1884,6 +2010,8 @@ export default function QuickEntry() {
         return (
             <Fragment key={row.id}>
                 <tr
+                    data-mainrow={row.id}
+                    data-day={row.date}
                     className={(row.error ? 'bg-red-500/5 ' : '') + (dragId === row.id ? 'opacity-40' : '')}
                     style={{
                         backgroundColor: `color-mix(in srgb, ${meta.color} 18%, transparent)`,
@@ -2347,6 +2475,10 @@ export default function QuickEntry() {
                         <div className="overflow-hidden rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)]">
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ac-line)] bg-[var(--ac-accent-soft,#eef4ff)] px-4 py-2.5 text-xs text-[var(--ac-text-muted)]">
                                 <span><kbd className="rounded border border-[var(--ac-line)] bg-white px-1.5">Enter</kbd> {text('الحقل التالي، وفي آخر حقل صف جديد بنفس اليوم والنوع. كل صف يحتفظ بتاريخه.', 'next field; in the last field a new row on the same day and type. Every row keeps its own date.')}</span>
+                                <span className="text-[11px]">
+                                    <kbd className="rounded border border-[var(--ac-line)] bg-white px-1.5">↑ ↓ ← →</kbd> {text('تنقّل بين الخلايا (Ctrl + سهم من أي خلية)', 'move between cells (Ctrl + arrow from any cell)')}
+                                    {' · '}<kbd className="rounded border border-[var(--ac-line)] bg-white px-1.5">PgUp / PgDn</kbd> {text('اليوم السابق / التالي', 'previous / next day')}
+                                </span>
                                 <span className="flex flex-wrap gap-1.5">
                                     <button type="button" className={btnSecondary} onClick={() => setCollapsedDays(dates)}>{text('طيّ الأيام', 'Collapse days')}</button>
                                     <button type="button" className={btnSecondary} onClick={() => setCollapsedDays([])}>{text('فتح الأيام', 'Open days')}</button>
@@ -2361,7 +2493,7 @@ export default function QuickEntry() {
                                     {text('اختر يوماً أو أكثر من التقويم، حدد كم صفاً من كل نوع، واضغط «أنشئ الصفوف».', 'Pick one or more days from the calendar, set how many rows of each type, and press “Create rows”.')}
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto" onKeyDown={navigateTable}>
                                     <table className="w-full text-start">
                                         <thead>
                                             <tr className="border-b border-[var(--ac-line)] text-[11px] font-bold text-[var(--ac-text-muted)]">
