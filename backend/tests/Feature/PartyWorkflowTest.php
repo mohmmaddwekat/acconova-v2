@@ -198,6 +198,8 @@ class PartyWorkflowTest extends TestCase
         $organization = Organization::create([
             'name' => 'Dual Party Ledger',
         ]);
+        // This test is about opening balances and advances, so invoices are not offset against each other here.
+        $organization->forceFill(['preferences' => ['auto_party_offset' => false]])->save();
         $organization->users()->attach(
             $user->id,
             ['role' => 'owner'],
