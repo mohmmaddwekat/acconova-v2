@@ -31,6 +31,9 @@ class CashMovementService
                 $data['method'] ?? null,
                 $data['check_number'] ?? null,
                 $data['check_bank'] ?? null,
+                null,
+                isset($data['party_id']) ? (int) $data['party_id'] : null,
+                $data['check_due_date'] ?? null,
             );
 
             $movement = CashMovement::create([
@@ -83,6 +86,8 @@ class CashMovementService
                 $data['check_number'] ?? null,
                 $data['check_bank'] ?? null,
                 $locked,
+                isset($data['party_id']) ? (int) $data['party_id'] : null,
+                $data['check_due_date'] ?? null,
             );
 
             $locked->fill([
@@ -132,6 +137,8 @@ class CashMovementService
                 $locked->check_number,
                 $locked->check_bank,
                 $locked,
+                $locked->party_id ? (int) $locked->party_id : null,
+                $locked->check_due_date?->format('Y-m-d'),
             );
 
             if (! $locked->corrected_from_id && ! $locked->reversal_of_id) {
@@ -670,6 +677,8 @@ class CashMovementService
         ?string $checkNumber,
         ?string $checkBank,
         ?CashMovement $self = null,
+        ?int $partyId = null,
+        ?string $dueDate = null,
     ): void {
         $number = $this->normalizeChequeNumber($checkNumber);
 
@@ -694,19 +703,22 @@ class CashMovementService
                     $query->where('id', '!=', $self->corrected_from_id);
                 }
             })
-            ->get(['id', 'number', 'check_number', 'check_bank'])
-            ->first(function (CashMovement $movement) use ($number, $bank): bool {
+            ->get(['id', 'number', 'check_number', 'check_bank', 'party_id', 'check_due_date'])
+            ->first(function (CashMovement $movement) use ($number, $bank, $partyId, $dueDate): bool {
                 $otherBank = $this->normalizeBank($movement->check_bank);
 
+                // The same check is the same party, due date and number, and the same bank when both name one.
                 return $this->normalizeChequeNumber($movement->check_number) === $number
+                    && ($movement->party_id === null ? null : (int) $movement->party_id) === $partyId
+                    && substr((string) $movement->getRawOriginal('check_due_date'), 0, 10) === substr((string) $dueDate, 0, 10)
                     && ($bank === '' || $otherBank === '' || $bank === $otherBank);
             });
 
         if ($duplicate) {
             throw ValidationException::withMessages([
                 'check_number' => [$this->message(
-                    sprintf('هذا الشيك مسجل من قبل في الحركة %s (نفس رقم الشيك ونفس البنك).', $duplicate->number),
-                    sprintf('This cheque is already recorded in %s (same cheque number and bank).', $duplicate->number),
+                    sprintf('هذا الشيك مسجل من قبل في الحركة %s (نفس الاسم ونفس تاريخ الاستحقاق ونفس رقم الشيك ونفس البنك).', $duplicate->number),
+                    sprintf('This cheque is already recorded in %s (same party, due date, cheque number and bank).', $duplicate->number),
                 )],
             ]);
         }

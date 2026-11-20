@@ -1241,6 +1241,7 @@ class PartyAccountController extends Controller
                 ->values()
                 ->all(),
             'amount' => $document->total,
+            'balance_due' => $document->balance_due,
             'currency' => $document->currency,
             'effect_customer' => $side === 'customer'
                     ? (float) $document

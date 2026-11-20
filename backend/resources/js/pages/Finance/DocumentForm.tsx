@@ -648,6 +648,7 @@ export function DocumentForm({
     const [endorsedId, setEndorsedId] = useState('');
     const [payCheckNo, setPayCheckNo] = useState('');
     const [payCheckDue, setPayCheckDue] = useState('');
+    const [payCheckBank, setPayCheckBank] = useState('');
     /* More payments on the same invoice: a second cash amount, a transfer or more checks. */
     const [payExtra, setPayExtra] = useState<Array<{
         key: number;
@@ -655,6 +656,7 @@ export function DocumentForm({
         amount: string;
         endorsedId: string;
         checkNo: string;
+        checkBank: string;
         checkDue: string;
     }>>([]);
     const [chequesOnHand, setChequesOnHand] = useState<Array<{
@@ -663,6 +665,7 @@ export function DocumentForm({
         amount: string;
         currency: string;
         check_number: string | null;
+        check_bank: string | null;
         check_due_date: string | null;
         party_name: string | null;
     }>>([]);
@@ -1007,6 +1010,16 @@ export function DocumentForm({
             setPartyId(
                 requestedPartyId,
             );
+        }
+
+        const requestedDate = params.get('issue_date');
+
+        if (
+            requestedDate
+            && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+            && requestedDate <= todayValue()
+        ) {
+            setSelectedIssueDate(requestedDate);
         }
 
         const copyFrom =
@@ -1966,15 +1979,16 @@ export function DocumentForm({
     ): Promise<void> {
         const money = (value: number): string => value.toFixed(4);
 
-        type Part = { method: string; amount: number; endorsedId: string; checkNo: string; checkDue: string };
+        type Part = { method: string; amount: number; endorsedId: string; checkNo: string; checkBank: string; checkDue: string };
 
         const parts: Part[] = [
-            { method: payMethod, amount: payment.raw, endorsedId, checkNo: payCheckNo, checkDue: payCheckDue },
+            { method: payMethod, amount: payment.raw, endorsedId, checkNo: payCheckNo, checkBank: payCheckBank, checkDue: payCheckDue },
             ...payExtra.map(part => ({
                 method: part.method,
                 amount: Number(part.amount) || 0,
                 endorsedId: part.endorsedId,
                 checkNo: part.checkNo,
+                checkBank: part.checkBank,
                 checkDue: part.checkDue,
             })),
         ].filter(part => part.amount > 0.00005);
@@ -2042,7 +2056,7 @@ export function DocumentForm({
                                 : null,
                         reference: payRef || null,
                         check_number: part.method === 'check' ? (cheque?.check_number ?? part.checkNo.trim()) : null,
-                        check_bank: null,
+                        check_bank: part.method === 'check' ? (cheque?.check_bank ?? (part.checkBank.trim() || null)) : null,
                         check_due_date: part.method === 'check' ? (cheque?.check_due_date ?? part.checkDue) : null,
                         check_status: part.method === 'check' ? 'pending' : null,
                         method_details: part.method === 'check' && cheque
@@ -5153,6 +5167,10 @@ export function DocumentForm({
                                                 {text('رقم الشيك', 'Check number')}
                                                 <input className={financeInput + ' mt-1'} dir="ltr" value={payCheckNo} onChange={event => setPayCheckNo(event.target.value)} />
                                             </label>
+                                            <label className="col-span-2 block font-semibold text-[var(--ac-text-soft)]">
+                                                {text('البنك (يميّز شيكين بنفس الرقم من بنكين)', 'Bank (tells apart two checks with the same number)')}
+                                                <input className={financeInput + ' mt-1'} value={payCheckBank} onChange={event => setPayCheckBank(event.target.value)} />
+                                            </label>
                                             <label className="block font-semibold text-[var(--ac-text-soft)]">
                                                 {text('تاريخ الاستحقاق', 'Due date')}
                                                 <input type="date" className={financeInput + ' mt-1'} dir="ltr" min="2000-01-01" value={payCheckDue} onChange={event => setPayCheckDue(event.target.value)} />
@@ -5218,6 +5236,10 @@ export function DocumentForm({
                                                             {text('رقم الشيك', 'Check number')}
                                                             <input className={financeInput + ' mt-1'} dir="ltr" value={part.checkNo} onChange={event => setPayExtra(current => current.map(other => (other.key === part.key ? { ...other, checkNo: event.target.value } : other)))} />
                                                         </label>
+                                                        <label className="col-span-2 block font-semibold text-[var(--ac-text-soft)]">
+                                                            {text('البنك', 'Bank')}
+                                                            <input className={financeInput + ' mt-1'} value={part.checkBank} onChange={event => setPayExtra(current => current.map(other => (other.key === part.key ? { ...other, checkBank: event.target.value } : other)))} />
+                                                        </label>
                                                         <label className="block font-semibold text-[var(--ac-text-soft)]">
                                                             {text('تاريخ الاستحقاق', 'Due date')}
                                                             <input type="date" className={financeInput + ' mt-1'} dir="ltr" min="2000-01-01" value={part.checkDue} onChange={event => setPayExtra(current => current.map(other => (other.key === part.key ? { ...other, checkDue: event.target.value } : other)))} />
@@ -5232,7 +5254,7 @@ export function DocumentForm({
                                         type="button"
                                         className={financeButton}
                                         disabled={payExtra.length >= 10}
-                                        onClick={() => setPayExtra(current => [...current, { key: Date.now() + current.length, method: 'check', amount: '', endorsedId: '', checkNo: '', checkDue: '' }])}
+                                        onClick={() => setPayExtra(current => [...current, { key: Date.now() + current.length, method: 'check', amount: '', endorsedId: '', checkNo: '', checkBank: '', checkDue: '' }])}
                                     >
                                         <Plus size={14} />
                                         {text('دفعة أخرى (نقدي أو شيك)', 'Another payment (cash or check)')}

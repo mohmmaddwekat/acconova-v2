@@ -29,7 +29,7 @@ type RowType = 'sale' | 'purchase' | 'misc' | 'receipt' | 'payment' | 'petty' | 
 type Method = 'cash' | 'transfer' | 'check';
 
 /** One more payment on the same document: a second cash amount, a transfer or one more check. */
-type ExtraPart = { key: number; method: Method; amt: string; chequeId: number | null; checkNo: string; checkDue: string };
+type ExtraPart = { key: number; method: Method; amt: string; chequeId: number | null; checkNo: string; checkBank: string; checkDue: string };
 
 /** `typed` is false while the price is one the system filled in, so choosing another product may replace it. */
 type Line = { key: number; productId: number | null; qty: string; price: string; typed?: boolean };
@@ -65,6 +65,7 @@ type Row = {
     method: Method;
     chequeId: number | null;
     checkNo: string;
+    checkBank: string;
     checkDue: string;
     extra: ExtraPart[];
     open: boolean;
@@ -214,6 +215,7 @@ const newRow = (type: RowType, date: string): Row => ({
     method: 'cash',
     chequeId: null,
     checkNo: '',
+    checkBank: '',
     checkDue: '',
     extra: [],
     open: false,
@@ -1170,11 +1172,13 @@ export default function QuickEntry() {
                         amount: num(part.amt),
                         endorsed_movement_id: part.method === 'check' && part.chequeId ? part.chequeId : undefined,
                         check_number: part.method === 'check' && ! part.chequeId ? part.checkNo : undefined,
+                        check_bank: part.method === 'check' && ! part.chequeId ? part.checkBank || undefined : undefined,
                         check_due_date: part.method === 'check' && ! part.chequeId ? part.checkDue : undefined,
                     }))
                     : undefined,
                 endorsed_movement_id: row.method === 'check' && row.chequeId ? row.chequeId : undefined,
                 check_number: row.method === 'check' && ! row.chequeId ? row.checkNo : undefined,
+                check_bank: row.method === 'check' && ! row.chequeId ? row.checkBank || undefined : undefined,
                 check_due_date: row.method === 'check' && ! row.chequeId ? row.checkDue : undefined,
             }
             : undefined;
@@ -1792,6 +1796,10 @@ export default function QuickEntry() {
                                 {text('رقم الشيك', 'Check number')}
                                 <input className={field + ' mt-1 text-left' + bad(row, 'check')} dir="ltr" value={row.checkNo} onChange={(event) => patch(row.id, { checkNo: event.target.value })} />
                             </label>
+                            <label className="col-span-2 text-[11px] font-bold text-[var(--ac-text-muted)]">
+                                {text('البنك (يميّز شيكين بنفس الرقم من بنكين)', 'Bank (tells apart two checks with the same number)')}
+                                <input className={field + ' mt-1'} value={row.checkBank} onChange={(event) => patch(row.id, { checkBank: event.target.value })} />
+                            </label>
                             <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
                                 {text('تاريخ الاستحقاق', 'Due date')}
                                 <input type="date" className={field + ' mt-1' + bad(row, 'check')} dir="ltr" min="2000-01-01" value={row.checkDue} onChange={(event) => patch(row.id, { checkDue: event.target.value })} />
@@ -1850,6 +1858,10 @@ export default function QuickEntry() {
                                         {text('رقم الشيك', 'Check number')}
                                         <input className={field + ' mt-1 text-left'} dir="ltr" value={part.checkNo} onChange={(event) => patch(row.id, { extra: row.extra.map((other) => (other.key === part.key ? { ...other, checkNo: event.target.value } : other)) })} />
                                     </label>
+                                    <label className="col-span-2 text-[11px] font-bold text-[var(--ac-text-muted)]">
+                                        {text('البنك', 'Bank')}
+                                        <input className={field + ' mt-1'} value={part.checkBank} onChange={(event) => patch(row.id, { extra: row.extra.map((other) => (other.key === part.key ? { ...other, checkBank: event.target.value } : other)) })} />
+                                    </label>
                                     <label className="text-[11px] font-bold text-[var(--ac-text-muted)]">
                                         {text('تاريخ الاستحقاق', 'Due date')}
                                         <input type="date" className={field + ' mt-1'} dir="ltr" min="2000-01-01" value={part.checkDue} onChange={(event) => patch(row.id, { extra: row.extra.map((other) => (other.key === part.key ? { ...other, checkDue: event.target.value } : other)) })} />
@@ -1864,7 +1876,7 @@ export default function QuickEntry() {
                     type="button"
                     className={btnSecondary + ' mt-3'}
                     disabled={row.extra.length >= 10}
-                    onClick={() => patch(row.id, { extra: [...row.extra, { key: nextKey++, method: 'check', amt: '', chequeId: null, checkNo: '', checkDue: '' }] })}
+                    onClick={() => patch(row.id, { extra: [...row.extra, { key: nextKey++, method: 'check', amt: '', chequeId: null, checkNo: '', checkBank: '', checkDue: '' }] })}
                 >
                     <Plus size={13} />{text('دفعة أخرى (نقدي أو شيك)', 'Another payment (cash or check)')}
                 </button>

@@ -319,6 +319,11 @@ export function CashForm({
         const obligationId = params.get('government_obligation_id');
         const partyIdParam = params.get('party_id');
         const amountParam = params.get('amount');
+        const dateParam = params.get('date');
+
+        if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && dateParam <= todayValue()) {
+            setMovementDate(dateParam);
+        }
 
         if (
             ! documentId

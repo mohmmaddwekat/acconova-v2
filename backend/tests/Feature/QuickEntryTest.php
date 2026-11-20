@@ -412,6 +412,31 @@ class QuickEntryTest extends TestCase
         $this->assertDatabaseHas('cash_movements', ['method' => 'cash', 'amount' => '300.0000']);
     }
 
+    public function test_a_check_is_a_duplicate_only_when_party_due_date_number_and_bank_all_match(): void
+    {
+        $this->signIn();
+        $first = $this->party('customer', 'Check Owner One');
+        $second = $this->party('customer', 'Check Owner Two');
+
+        $row = fn (int $party, string $due, ?string $bank): array => [
+            'type' => 'receipt', 'date' => '2026-05-02', 'party_id' => $party,
+            'payment' => ['amount' => '100', 'method' => 'check', 'check_number' => '28', 'check_due_date' => $due, 'check_bank' => $bank],
+        ];
+        $save = fn (array $rows): array => $this->postJson('/api/quick-entry', ['rows' => $rows])->assertOk()->json('data.0');
+
+        $this->assertTrue($save([$row($first, '2026-12-01', 'Palestine Investment Bank')])['ok']);
+
+        // Same party, due date and number (the bank is not written): it is the same check.
+        $this->assertFalse($save([$row($first, '2026-12-01', null)])['ok']);
+        $this->assertFalse($save([$row($first, '2026-12-01', 'Palestine Investment Bank')])['ok']);
+
+        // The same number from another party, on another due date, or at another bank is a different check.
+        $this->assertTrue($save([$row($second, '2026-12-01', null)])['ok']);
+        $this->assertTrue($save([$row($first, '2027-01-01', null)])['ok']);
+        $this->assertTrue($save([$row($first, '2026-12-01', 'Bank of Palestine')])['ok']);
+        $this->assertDatabaseHas('cash_movements', ['check_number' => '28', 'check_bank' => 'Bank of Palestine']);
+    }
+
     public function test_a_purchase_can_be_paid_by_endorsing_a_check_on_hand(): void
     {
         $this->signIn();

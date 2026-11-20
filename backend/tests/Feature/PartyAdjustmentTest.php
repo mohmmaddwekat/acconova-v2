@@ -214,6 +214,28 @@ class PartyAdjustmentTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('amount');
     }
 
+    public function test_the_statement_shows_what_is_left_on_each_invoice_so_a_discount_can_be_added_from_its_row(): void
+    {
+        $customerId = $this->seedWorkspace(['customer']);
+        $tenant = app(TenantContext::class);
+        $tenant->set(Organization::query()->firstOrFail(), OrganizationRole::Owner);
+        $invoice = FinancialDocument::create([
+            'party_id' => $customerId, 'kind' => 'sale_invoice', 'number' => 'INV-ROW', 'status' => 'issued', 'issue_date' => '2026-10-01',
+            'currency' => 'ILS', 'total' => '1000', 'paid_total' => '0', 'balance_due' => '1000', 'credit_total' => '0',
+        ]);
+        $tenant->clear();
+
+        $this->postJson("/api/parties/{$customerId}/adjustments", [
+            'direction' => 'owed_to_us', 'amount' => '125', 'adjustment_date' => '2026-10-10', 'reason' => 'خصم متفق عليه', 'financial_document_id' => $invoice->id,
+        ])->assertCreated();
+
+        $entry = collect($this->getJson("/api/parties/{$customerId}/account?scope=customer&date_from=2026-01-01&date_to=2026-10-17")
+            ->assertOk()->json('transactions'))->firstWhere('reference', 'INV-ROW');
+
+        $this->assertSame('875.0000', $entry['balance_due']);
+        $this->assertSame('partially_paid', $entry['status']);
+    }
+
     /**
      * @param  list<string>  $roles
      */

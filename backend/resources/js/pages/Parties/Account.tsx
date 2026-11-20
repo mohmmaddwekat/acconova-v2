@@ -6,7 +6,9 @@ import { useLocale } from '@/lib/i18n';
 import { useLiveRefresh } from '@/lib/live';
 import { downloadCsv } from '@/pages/Finance/shared';
 import { PartyAdjustmentDialog } from '@/pages/Parties/PartyAdjustmentDialog';
+import { InvoiceDiscountDialog } from '@/pages/Parties/InvoiceDiscountDialog';
 import { PartyAdjustmentEditDialog } from '@/pages/Parties/PartyAdjustmentEditDialog';
+import { StatementInsert, type InsertChoice } from '@/pages/Parties/StatementInsert';
 import { PartyFinancialOperations } from '@/pages/Parties/PartyFinancialOperations';
 import { PartyPricingPanel } from '@/features/parties/components/PartyPricingPanel';
 import { Head, Link } from '@inertiajs/react';
@@ -38,6 +40,7 @@ import {
     X,
 } from 'lucide-react';
 import {
+    Fragment,
     useEffect,
     useMemo,
     useRef,
@@ -100,6 +103,7 @@ type AccountTransaction = {
     unallocated?: string;
     editable?: boolean;
     adjustment_reason?: string | null;
+    balance_due?: string;
 };
 
 type PartyAccountResponse = {
@@ -589,6 +593,93 @@ export default function PartyAccount({
 
     const [adjustmentOpen, setAdjustmentOpen] = useState(false);
     const [editingAdjustment, setEditingAdjustment] = useState<AccountTransaction | null>(null);
+    const [discountInvoice, setDiscountInvoice] = useState<AccountTransaction | null>(null);
+    const [insertDate, setInsertDate] = useState<string | undefined>(undefined);
+
+    /* What can be added on the line between two rows: a difference entry, and a discount on a neighbouring invoice. */
+    function insertChoices(above: AccountTransaction | undefined, below: AccountTransaction | undefined): InsertChoice[] {
+        if (! data) {
+            return [];
+        }
+
+        const date = (above ?? below)?.date ?? '';
+        const canAdjust = data.permissions.sales_manage || data.permissions.purchases_manage;
+        const choices: InsertChoice[] = [];
+
+        if (canAdjust) {
+            choices.push({
+                key: 'adjustment',
+                label: ar ? 'قيد فروقات (خصم أو فرق)' : 'Difference entry (discount or difference)',
+                hint: ar ? 'بتاريخ ' + date : 'Dated ' + date,
+                onChoose: () => {
+                    setInsertDate(date);
+                    setAdjustmentOpen(true);
+                },
+            });
+        }
+
+        // New documents for this party on this date, according to what the party is (customer, supplier or both).
+        const roles = data.party.roles;
+        const partyId = String(data.party.id);
+        const dated = '&' + (date ? 'issue_date=' + date : '');
+        const isCustomer = roles.includes('customer');
+        const isSupplier = roles.includes('supplier');
+
+        if (isCustomer && data.permissions.sales_manage) {
+            choices.push({
+                key: 'new-sale',
+                label: ar ? 'فاتورة بيع بتاريخ ' + date : 'Sales invoice dated ' + date,
+                onChoose: () => window.location.assign('/app/invoices/sales/create?party_id=' + partyId + dated),
+            });
+        }
+
+        if (isSupplier && data.permissions.purchases_manage) {
+            choices.push({
+                key: 'new-purchase',
+                label: ar ? 'فاتورة شراء بتاريخ ' + date : 'Purchase invoice dated ' + date,
+                onChoose: () => window.location.assign('/app/invoices/purchases/create?party_id=' + partyId + dated),
+            });
+        }
+
+        if (isCustomer && data.permissions.cash_receive) {
+            choices.push({
+                key: 'new-receipt',
+                label: ar ? 'سند قبض بتاريخ ' + date : 'Receipt dated ' + date,
+                onChoose: () => window.location.assign('/app/receipts/create?party_id=' + partyId + '&date=' + date),
+            });
+        }
+
+        if (isSupplier && data.permissions.cash_pay) {
+            choices.push({
+                key: 'new-payment',
+                label: ar ? 'سند دفع بتاريخ ' + date : 'Payment dated ' + date,
+                onChoose: () => window.location.assign('/app/payments/create?party_id=' + partyId + '&date=' + date),
+            });
+        }
+
+        [above, below].forEach((neighbour) => {
+            if (
+                neighbour
+                && neighbour.type === 'invoice'
+                && ['issued', 'partially_paid'].includes(neighbour.status)
+                && toNumber(neighbour.balance_due ?? '0') > 0.005
+                && (neighbour.side === 'customer' ? data.permissions.sales_manage : data.permissions.purchases_manage)
+                && ! choices.some((choice) => choice.key === 'discount-' + neighbour.id)
+            ) {
+                choices.push({
+                    key: 'discount-' + neighbour.id,
+                    label: (ar ? 'خصم على ' : 'Discount on ') + neighbour.reference,
+                    hint: (ar ? 'المتبقي ' : 'Left ') + toNumber(neighbour.balance_due ?? '0').toLocaleString('en', { maximumFractionDigits: 2 }),
+                    onChoose: () => {
+                        setInsertDate(date);
+                        setDiscountInvoice(neighbour);
+                    },
+                });
+            }
+        });
+
+        return choices;
+    }
 
     async function voidAdjustment(transaction: AccountTransaction): Promise<void> {
         const reason = window.prompt(ar ? 'سبب إلغاء قيد الفروقات ' + transaction.reference + ':' : 'Reason for voiding ' + transaction.reference + ':');
@@ -2349,6 +2440,7 @@ export default function PartyAccount({
                                         <tbody>
                                             {visibleTransactions.map(
                                                 (transaction, index) => (
+                                                    <Fragment key={transaction.id}>
                                                     <TransactionRow
                                                         key={transaction.id}
                                                         transaction={transaction}
@@ -2366,6 +2458,14 @@ export default function PartyAccount({
                                                                 ? () => void voidAdjustment(transaction)
                                                                 : undefined
                                                         }
+                                                        onDiscount={
+                                                            transaction.type === 'invoice'
+                                                            && ['issued', 'partially_paid'].includes(transaction.status)
+                                                            && toNumber(transaction.balance_due ?? '0') > 0.005
+                                                            && (transaction.side === 'customer' ? data.permissions.sales_manage : data.permissions.purchases_manage)
+                                                                ? () => setDiscountInvoice(transaction)
+                                                                : undefined
+                                                        }
                                                         onEdit={
                                                             transaction.type === 'adjustment'
                                                             && transaction.editable
@@ -2374,6 +2474,16 @@ export default function PartyAccount({
                                                                 : undefined
                                                         }
                                                     />
+                                                    <tr className="h-0 print:hidden">
+                                                        <td colSpan={9} className="relative h-0 p-0">
+                                                            <StatementInsert
+                                                                ar={ar}
+                                                                date={transaction.date}
+                                                                choices={insertChoices(transaction, visibleTransactions[index + 1])}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                    </Fragment>
                                                 ),
                                             )}
 
@@ -2571,11 +2681,33 @@ export default function PartyAccount({
                                 currency={data.currency}
                                 locale={locale}
                                 ar={ar}
-                                onClose={() => setAdjustmentOpen(false)}
+                                initialDate={insertDate}
+                                onClose={() => {
+                                    setAdjustmentOpen(false);
+                                    setInsertDate(undefined);
+                                }}
                                 onSaved={() => {
                                     setAdjustmentOpen(false);
+                                    setInsertDate(undefined);
                                     void load();
                                 }}
+                            />
+                        )}
+
+                        {discountInvoice && (
+                            <InvoiceDiscountDialog
+                                partyId={data.party.id}
+                                documentId={discountInvoice.source_id}
+                                reference={discountInvoice.reference}
+                                remaining={discountInvoice.balance_due ?? '0'}
+                                currency={data.currency}
+                                ar={ar}
+                                initialDate={insertDate}
+                                onClose={() => {
+                                    setDiscountInvoice(null);
+                                    setInsertDate(undefined);
+                                }}
+                                onSaved={() => void load()}
                             />
                         )}
 
@@ -3142,6 +3274,7 @@ function TransactionRow({
     ar,
     onVoid,
     onEdit,
+    onDiscount,
 }: {
     transaction:
         AccountTransaction;
@@ -3151,6 +3284,7 @@ function TransactionRow({
     ar: boolean;
     onVoid?: () => void;
     onEdit?: () => void;
+    onDiscount?: () => void;
 }) {
     return (
         <tr
@@ -3228,6 +3362,16 @@ function TransactionRow({
                         ar,
                     )}
                 </div>
+
+                {onDiscount && (
+                    <button
+                        type="button"
+                        onClick={onDiscount}
+                        className="me-3 mt-1 text-[9px] font-semibold text-violet-600 hover:underline print:hidden"
+                    >
+                        {ar ? 'إضافة خصم' : 'Add discount'}
+                    </button>
+                )}
 
                 {onEdit && (
                     <button

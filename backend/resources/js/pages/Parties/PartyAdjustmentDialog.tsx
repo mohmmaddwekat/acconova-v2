@@ -21,6 +21,8 @@ type Props = {
     ar: boolean;
     onClose: () => void;
     onSaved: () => void;
+    /** The date to start from (for example the date of the row the "+" was pressed on). */
+    initialDate?: string;
 };
 
 const REASONS: Array<[string, string]> = [
@@ -52,6 +54,7 @@ export function PartyAdjustmentDialog({
     ar,
     onClose,
     onSaved,
+    initialDate,
 }: Props) {
     const text = (arabic: string, english: string): string => (ar ? arabic : english);
     const sides: Side[] = (['customer', 'supplier'] as Side[]).filter(
@@ -62,7 +65,7 @@ export function PartyAdjustmentDialog({
     const [side, setSide] = useState<Side | null>(sides.length === 1 ? sides[0] : null);
     const [direction, setDirection] = useState<Direction>('owed_to_us');
     const [amount, setAmount] = useState('');
-    const [date, setDate] = useState(todayValue());
+    const [date, setDate] = useState(initialDate && initialDate <= todayValue() ? initialDate : todayValue());
     const [reasonIndex, setReasonIndex] = useState<number>(0);
     const [otherReason, setOtherReason] = useState('');
     const [showPreview, setShowPreview] = useState(true);

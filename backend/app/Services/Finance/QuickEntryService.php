@@ -524,7 +524,7 @@ class QuickEntryService
      * invoices, newest first from the movement date backwards.
      *
      * @param  array<string, mixed>  $row
-     * @param  array{amount: float, method: string, endorsed_id: ?int, check_number: ?string, check_due_date: ?string}  $payment
+     * @param  array{amount: float, method: string, endorsed_id: ?int, check_bank: ?string, check_number: ?string, check_due_date: ?string}  $payment
      * @return array<string, mixed>
      */
     private function settle(array $row, Party $party, string $kind, array $payment, bool $incoming, User $user): array
@@ -546,7 +546,7 @@ class QuickEntryService
             'cost_center' => null,
             'reference' => $row['reference'] ?? null,
             'check_number' => $payment['check_number'],
-            'check_bank' => null,
+            'check_bank' => $payment['check_bank'] ?? null,
             'check_due_date' => $payment['check_due_date'],
             'method_details' => $payment['endorsed_id'] !== null && ! $incoming
                 ? ['endorsed_movement_id' => $payment['endorsed_id']]
@@ -606,7 +606,7 @@ class QuickEntryService
 
     /**
      * @param  array<string, mixed>  $row
-     * @return list<array{amount: float, method: string, endorsed_id: ?int, check_number: ?string, check_due_date: ?string}>
+     * @return list<array{amount: float, method: string, endorsed_id: ?int, check_bank: ?string, check_number: ?string, check_due_date: ?string}>
      */
     private function paymentParts(array $row, ?float $invoiceTotal = null): array
     {
@@ -626,7 +626,7 @@ class QuickEntryService
 
     /**
      * @param  array<string, mixed>  $row
-     * @return array{amount: float, method: string, endorsed_id: ?int, check_number: ?string, check_due_date: ?string}|null
+     * @return array{amount: float, method: string, endorsed_id: ?int, check_bank: ?string, check_number: ?string, check_due_date: ?string}|null
      */
     private function payment(array $row, ?float $invoiceTotal = null): ?array
     {
@@ -653,6 +653,7 @@ class QuickEntryService
             'amount' => $amount,
             'method' => $method,
             'endorsed_id' => $endorsedId,
+            'check_bank' => $method === 'check' ? (trim((string) ($payment['check_bank'] ?? '')) ?: null) : null,
             'check_number' => $method === 'check' ? (string) ($payment['check_number'] ?? '') : null,
             'check_due_date' => $method === 'check' ? (string) ($payment['check_due_date'] ?? '') : null,
         ];
