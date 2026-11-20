@@ -95,6 +95,11 @@ export function CashList({
     const [category, setCategory] = useState('');
     const [advancedConditions, setAdvancedConditions] =
         useState<AdvancedFilterCondition[]>([]);
+    const [partyId, setPartyId] = useState(() => {
+        const value = new URLSearchParams(window.location.search).get('party_id') ?? '';
+
+        return /^d+$/.test(value) ? value : '';
+    });
     const [tableSort, setTableSort] = useState<TableSort>(null);
     const [columnFilters, setColumnFilters] = useState({
         min_amount: '',
@@ -193,6 +198,10 @@ export function CashList({
             per_page: String(perPage),
         });
 
+        if (partyId) {
+            params.set('party_id', partyId);
+        }
+
         if (search.trim()) {
             params.set('search', search.trim());
         }
@@ -257,6 +266,7 @@ export function CashList({
         page,
         perPage,
         search,
+        partyId,
         method,
         status,
         category,
@@ -278,6 +288,7 @@ export function CashList({
         || Object.values(columnFilters).some((value) => value !== '');
 
     function clearAllFilters(): void {
+        setPartyId('');
         setSearch('');
         setMethod('');
         setStatus('');
@@ -667,6 +678,17 @@ export function CashList({
                 </div>
             </FPanel>
 
+            {partyId && (
+                <div className="flex items-center gap-2 text-xs">
+                    <span className="rounded-full bg-[var(--ac-accent-soft)] px-3 py-1 font-semibold text-[var(--ac-accent-strong)]">
+                        {text('مصفّاة على الطرف: ', 'Filtered to party: ')}{response?.data[0]?.party?.name ?? '#' + partyId}
+                    </span>
+                    <button type="button" className="font-semibold text-[var(--ac-accent)] underline" onClick={() => { setPartyId(''); setPage(1); }}>
+                        {text('إزالة', 'Remove')}
+                    </button>
+                </div>
+            )}
+
             {error && (
                 <div role="alert" className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                     {error}
@@ -952,6 +974,32 @@ export function CashList({
                                         </tr>
                                     ))}
                                 </tbody>
+                                {response && response.data.length > 0 && (
+                                    <tfoot className="border-t-2 border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[11px] font-bold">
+                                        {[
+                                            {
+                                                label: text('هذه الصفحة (المرحَّلة)', 'This page (posted)'),
+                                                amount: response.data
+                                                    .filter((row) => row.status === 'posted')
+                                                    .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+                                            },
+                                            {
+                                                label: text('كل النتائج المرحَّلة', 'All posted results'),
+                                                amount: Number(incoming ? response.summary.posted_incoming : response.summary.posted_outgoing) || 0,
+                                            },
+                                        ].map((line, lineIndex) => (
+                                            <tr key={lineIndex}>
+                                                {listPreferences.visibleKeys.map((key, keyIndex) => (
+                                                    <td key={key} className="px-3 py-2">
+                                                        {key === 'amount'
+                                                            ? <Money value={String(line.amount)} currency={response.data[0]?.currency} compact />
+                                                            : keyIndex === 0 ? line.label : ''}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tfoot>
+                                )}
                             </table>
                         </div>
 

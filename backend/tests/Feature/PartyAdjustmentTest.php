@@ -45,6 +45,10 @@ class PartyAdjustmentTest extends TestCase
 
         $adjustments = collect($statement)->where('type', 'adjustment')->values();
         $this->assertCount(2, $adjustments);
+
+        $this->getJson("/api/parties/{$customerId}/account?scope=customer&date_from=2026-01-01&date_to=2026-10-17")
+            ->assertJsonPath('rollups.adjustments.count', 2)
+            ->assertJsonPath('rollups.sales.count', 0);
         $this->assertSame('فرق أسعار', $adjustments[0]['description']);
     }
 

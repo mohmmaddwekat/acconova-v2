@@ -106,6 +106,51 @@ export function PettyExpenses({
         { key: 1, category: 'operating_expense', amount: '', notes: '' },
     ]);
 
+    /* A daily template: the usual items kept on this device, loaded into the form with one press. */
+    const templateKey = 'acconova:petty-template';
+    const [hasTemplate, setHasTemplate] = useState(() => {
+        try {
+            return window.localStorage.getItem(templateKey) !== null;
+        } catch {
+            return false;
+        }
+    });
+
+    const saveTemplate = () => {
+        const items = entries
+            .filter((entry) => entry.amount !== '' || entry.notes.trim() !== '')
+            .map(({ category: entryCategory, amount, notes }) => ({ category: entryCategory, amount, notes }));
+
+        if (items.length === 0) {
+            setNotice(text('أضف بنداً واحداً على الأقل ثم احفظه كقالب.', 'Add at least one item, then save it as a template.'));
+
+            return;
+        }
+
+        try {
+            window.localStorage.setItem(templateKey, JSON.stringify(items));
+            setHasTemplate(true);
+            setNotice(text('حُفظ القالب (' + items.length + ' بند) على هذا الجهاز.', 'Template saved (' + items.length + ' items) on this device.'));
+        } catch {
+            setNotice(text('تعذّر حفظ القالب على هذا المتصفح.', 'The template could not be saved in this browser.'));
+        }
+    };
+
+    const loadTemplate = () => {
+        try {
+            const items = JSON.parse(window.localStorage.getItem(templateKey) ?? '[]') as Array<{ category: string; amount: string; notes: string }>;
+
+            if (! Array.isArray(items) || items.length === 0) {
+                return;
+            }
+
+            setEntries(items.map((item, index) => ({ key: nextKey + index, category: item.category, amount: item.amount, notes: item.notes })));
+            setNextKey(nextKey + items.length);
+        } catch {
+            setNotice(text('القالب غير صالح.', 'The template is not valid.'));
+        }
+    };
+
     const loadSummary = useCallback(() => {
         apiRequest<{ data: Summary }>('/api/finance/petty-expenses/summary')
             .then((response) => setSummary(response.data))
@@ -498,6 +543,14 @@ export function PettyExpenses({
                                 <Plus size={15} />
                                 {text('إضافة بند', 'Add item')}
                             </button>
+                            <button type="button" className={financeButton} onClick={saveTemplate}>
+                                {text('حفظ كقالب يومي', 'Save as daily template')}
+                            </button>
+                            {hasTemplate && (
+                                <button type="button" className={financeButton} onClick={loadTemplate}>
+                                    {text('تحميل القالب اليومي', 'Load daily template')}
+                                </button>
+                            )}
                             <button type="button" className={financePrimary} disabled={saving} onClick={save}>
                                 {saving
                                     ? text('جارٍ الحفظ…', 'Saving…')

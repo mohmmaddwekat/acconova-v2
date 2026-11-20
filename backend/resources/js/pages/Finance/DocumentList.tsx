@@ -167,7 +167,13 @@ export function DocumentList({
         setAdvancedConditions,
     ] = useState<AdvancedFilterCondition[]>([]);
 
+    const [partyId, setPartyId] = useState(() => {
+        const value = new URLSearchParams(window.location.search).get('party_id') ?? '';
+
+        return /^d+$/.test(value) ? value : '';
+    });
     const [tableSort, setTableSort] = useState<TableSort>(null);
+    const [groupBy, setGroupBy] = useState<'' | 'party' | 'status' | 'month'>('');
 
     const [columnFilters, setColumnFilters] = useState({
         min_total: '',
@@ -260,6 +266,44 @@ export function DocumentList({
         },
     ];
 
+    const groupedItems: (
+        | { kind: 'row'; row: DocumentRow }
+        | { kind: 'group'; key: string; label: string; count: number; total: number; paid: number; outstanding: number }
+    )[] = [];
+
+    if (response) {
+        if (groupBy === '') {
+            response.data.forEach((row) => groupedItems.push({ kind: 'row', row }));
+        } else {
+            const buckets = new Map<string, DocumentRow[]>();
+
+            response.data.forEach((row) => {
+                const key = groupBy === 'party'
+                    ? (row.party?.name ?? '—')
+                    : groupBy === 'status'
+                        ? row.status
+                        : String(row.issue_date ?? '').slice(0, 7) || '—';
+
+                buckets.set(key, [...(buckets.get(key) ?? []), row]);
+            });
+
+            Array.from(buckets.entries())
+                .sort(([a], [b]) => (groupBy === 'month' ? b.localeCompare(a) : a.localeCompare(b)))
+                .forEach(([key, rows]) => {
+                    groupedItems.push({
+                        kind: 'group',
+                        key,
+                        label: key,
+                        count: rows.length,
+                        total: rows.reduce((sum, row) => sum + (Number(row.total) || 0), 0),
+                        paid: rows.reduce((sum, row) => sum + (Number(row.paid_total) || 0), 0),
+                        outstanding: rows.reduce((sum, row) => sum + (Number(row.balance_due) || 0), 0),
+                    });
+                    rows.forEach((row) => groupedItems.push({ kind: 'row', row }));
+                });
+        }
+    }
+
     const listPreferences = useListPreferences(
         `acconova:list-preferences:finance:${kind}${misc ? ':misc' : ''}`,
         invoiceColumns,
@@ -325,6 +369,10 @@ export function DocumentList({
 
         if (misc) {
             params.set('misc', '1');
+        }
+
+        if (partyId) {
+            params.set('party_id', partyId);
         }
 
         if (search.trim()) {
@@ -393,6 +441,7 @@ export function DocumentList({
         page,
         perPage,
         search,
+        partyId,
         status,
         advancedFilterValues.min_total,
         advancedFilterValues.max_total,
@@ -501,6 +550,7 @@ export function DocumentList({
 
     function clearAllFilters(): void {
         setSearch('');
+        setPartyId('');
         setStatus('');
         setAdvancedConditions([]);
         setColumnFilters({
@@ -725,6 +775,20 @@ export function DocumentList({
                         canManage={canManage}
                     />
 
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--ac-text-muted)]">
+                        {text('تجميع حسب', 'Group by')}
+                        <Select
+                            className="h-9 rounded-[12px] border border-[var(--ac-line)] bg-[var(--ac-bg)] px-2 text-xs"
+                            value={groupBy}
+                            onChange={(event) => setGroupBy(event.target.value as '' | 'party' | 'status' | 'month')}
+                        >
+                            <option value="">{text('بدون', 'None')}</option>
+                            <option value="party">{text('الطرف', 'Party')}</option>
+                            <option value="status">{text('الحالة', 'Status')}</option>
+                            <option value="month">{text('الشهر', 'Month')}</option>
+                        </Select>
+                    </label>
+
                     <SavedViews
                         storageKey={`acconova:saved-views:finance-documents:${kind}`}
                         ar={ar}
@@ -744,6 +808,17 @@ export function DocumentList({
                     />
                 </div>
             </FPanel>
+
+            {partyId && (
+                <div className="flex items-center gap-2 text-xs">
+                    <span className="rounded-full bg-[var(--ac-accent-soft)] px-3 py-1 font-semibold text-[var(--ac-accent-strong)]">
+                        {text('مصفّاة على الطرف: ', 'Filtered to party: ')}{response?.data[0]?.party?.name ?? '#' + partyId}
+                    </span>
+                    <button type="button" className="font-semibold text-[var(--ac-accent)] underline" onClick={() => { setPartyId(''); setPage(1); }}>
+                        {text('إزالة', 'Remove')}
+                    </button>
+                </div>
+            )}
 
             {error && (
                 <div
@@ -939,7 +1014,24 @@ export function DocumentList({
                                             </td>
                                         </tr>
                                     )}
-                                    {response?.data.map((row) => (
+                                    {groupedItems.map((item) => {
+                                        if (item.kind === 'group') {
+                                            return (
+                                                <tr key={'group-' + item.key} className="border-t border-[var(--ac-line)] bg-[var(--ac-accent-soft)] text-[11px] font-bold text-[var(--ac-text)]">
+                                                    <td colSpan={listPreferences.visibleKeys.length} className="px-3 py-2">
+                                                        {groupBy === 'status' ? <StatusBadge status={item.label} ar={ar} /> : item.label}
+                                                        {' · '}{item.count}{' · '}
+                                                        {text('الإجمالي ', 'Total ')}<Money value={String(item.total)} currency={response?.data[0]?.currency} compact />
+                                                        {' · '}{text('المدفوع ', 'Paid ')}<Money value={String(item.paid)} currency={response?.data[0]?.currency} compact />
+                                                        {' · '}{text('المتبقي ', 'Left ')}<Money value={String(item.outstanding)} currency={response?.data[0]?.currency} compact />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }
+
+                                        const row = item.row;
+
+                                        return (
                                         <tr
                                             key={row.id}
                                             className="border-t border-[var(--ac-line)] text-[var(--ac-text-soft)] hover:bg-[var(--ac-surface-soft)]"
@@ -1060,8 +1152,48 @@ export function DocumentList({
                                                 );
                                             })}
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
+                                {response && response.data.length > 0 && (
+                                    <tfoot className="border-t-2 border-[var(--ac-line)] bg-[var(--ac-surface-soft)] text-[11px] font-bold">
+                                        {[
+                                            {
+                                                label: text('هذه الصفحة', 'This page'),
+                                                total: response.data.reduce((sum, row) => sum + (Number(row.total) || 0), 0),
+                                                paid: response.data.reduce((sum, row) => sum + (Number(row.paid_total) || 0), 0),
+                                                outstanding: response.data.reduce((sum, row) => sum + (Number(row.balance_due) || 0), 0),
+                                            },
+                                            {
+                                                label: text('كل النتائج المفلترة', 'All filtered results'),
+                                                total: Number(response.summary.total) || 0,
+                                                paid: Number(response.summary.paid) || 0,
+                                                outstanding: Number(response.summary.outstanding) || 0,
+                                            },
+                                        ].map((line, lineIndex) => (
+                                            <tr key={lineIndex}>
+                                                {listPreferences.visibleKeys.map((key, keyIndex) => {
+                                                    const cellClass = 'px-3 py-2';
+                                                    const currency = response.data[0]?.currency;
+
+                                                    if (key === 'total') {
+                                                        return <td key={key} className={cellClass}><Money value={String(line.total)} currency={currency} compact /></td>;
+                                                    }
+
+                                                    if (key === 'paid') {
+                                                        return <td key={key} className={cellClass + ' text-emerald-600'}><Money value={String(line.paid)} currency={currency} compact /></td>;
+                                                    }
+
+                                                    if (key === 'outstanding') {
+                                                        return <td key={key} className={cellClass + ' text-red-600'}><Money value={String(line.outstanding)} currency={currency} compact /></td>;
+                                                    }
+
+                                                    return <td key={key} className={cellClass}>{keyIndex === 0 ? line.label : ''}</td>;
+                                                })}
+                                            </tr>
+                                        ))}
+                                    </tfoot>
+                                )}
                             </table>
                         </div>
 

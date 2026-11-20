@@ -794,6 +794,7 @@ class PartyAccountController extends Controller
                     $supplierOpening,
                 ),
             ],
+            'rollups' => $this->rollups($party),
             'aging' => $aging,
             'aging_as_of' => $agingAsOf->toDateString(),
             'aging_breakdown' => [
@@ -1716,6 +1717,72 @@ class PartyAccountController extends Controller
                     'Y-m-d',
                 ),
             'notes' => $opening->notes,
+        ];
+    }
+
+    /**
+     * Everything linked to the party at a glance: how much was sold, bought, received and paid,
+     * cheques still waiting, the products moved most, and when the dealings started and last happened.
+     *
+     * @return array<string, mixed>
+     */
+    private function rollups(Party $party): array
+    {
+        $live = ['issued', 'partially_paid', 'paid', 'overpaid'];
+
+        $documents = FinancialDocument::query()
+            ->where('party_id', $party->id)
+            ->whereIn('status', $live);
+
+        $cash = CashMovement::query()
+            ->where('party_id', $party->id)
+            ->where('status', 'posted');
+
+        $figure = fn ($query): array => [
+            'count' => (int) (clone $query)->count(),
+            'total' => number_format((float) (clone $query)->sum('total'), 4, '.', ''),
+        ];
+
+        $cashFigure = fn (string $direction): array => [
+            'count' => (int) (clone $cash)->where('direction', $direction)->count(),
+            'total' => number_format((float) (clone $cash)->where('direction', $direction)->sum('amount'), 4, '.', ''),
+        ];
+
+        $topProducts = FinancialDocumentLine::query()
+            ->whereIn('financial_document_id', (clone $documents)->select('id'))
+            ->whereNotNull('product_id')
+            ->selectRaw('product_id, MAX(description) as description, SUM(quantity) as quantity, SUM(line_total) as total')
+            ->groupBy('product_id')
+            ->orderByDesc('total')
+            ->limit(5)
+            ->get()
+            ->map(fn ($row): array => [
+                'product_id' => (int) $row->product_id,
+                'name' => (string) $row->description,
+                'quantity' => number_format((float) $row->quantity, 2, '.', ''),
+                'total' => number_format((float) $row->total, 4, '.', ''),
+            ])
+            ->all();
+
+        $firstDocument = (clone $documents)->min('issue_date');
+        $lastDocument = (clone $documents)->max('issue_date');
+        $lastCash = (clone $cash)->max('movement_date');
+
+        return [
+            'sales' => $figure((clone $documents)->where('kind', 'sale_invoice')),
+            'purchases' => $figure((clone $documents)->where('kind', 'purchase_invoice')),
+            'receipts' => $cashFigure('incoming'),
+            'payments' => $cashFigure('outgoing'),
+            'cheques_waiting' => [
+                'count' => (int) (clone $cash)->whereNotNull('check_number')->where('check_status', 'pending')->count(),
+                'total' => number_format((float) (clone $cash)->whereNotNull('check_number')->where('check_status', 'pending')->sum('amount'), 4, '.', ''),
+            ],
+            'adjustments' => [
+                'count' => (int) PartyAdjustment::query()->where('party_id', $party->id)->whereNull('voided_at')->count(),
+            ],
+            'first_date' => $firstDocument,
+            'last_date' => collect([$lastDocument, $lastCash])->filter()->max(),
+            'top_products' => $topProducts,
         ];
     }
 }

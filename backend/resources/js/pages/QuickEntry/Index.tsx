@@ -450,6 +450,11 @@ export default function QuickEntry() {
     const [showMatrix, setShowMatrix] = useState(false);
     const [collapsedDays, setCollapsedDays] = useState<string[]>([]);
     const [dragId, setDragId] = useState<number | null>(null);
+    /* Rows ticked for a change that applies to all of them at once. */
+    const [picked, setPicked] = useState<number[]>([]);
+    const lastPicked = useRef<number | null>(null);
+    const [bulkField, setBulkField] = useState('');
+    const [bulkValue, setBulkValue] = useState('');
     const [dropMark, setDropMark] = useState<{ id: number | string; where: 'before' | 'after' | 'day' } | null>(null);
     const [copyingDay, setCopyingDay] = useState<string | null>(null);
     const [dupRowId, setDupRowId] = useState<number | null>(null);
@@ -753,11 +758,143 @@ export default function QuickEntry() {
 
     const remove = (id: number) => setRows((current) => current.filter((row) => row.id !== id));
 
+    const rowIds = new Set(rows.map((row) => row.id));
+    const pickedIds = picked.filter((id) => rowIds.has(id));
+    const pickedSet = new Set(pickedIds);
+
+    const togglePick = (id: number, shift: boolean, order: number[]) => {
+        setPicked((current) => {
+            if (shift && lastPicked.current !== null && order.includes(lastPicked.current)) {
+                const a = order.indexOf(lastPicked.current);
+                const b = order.indexOf(id);
+                const range = order.slice(Math.min(a, b), Math.max(a, b) + 1);
+
+                return [...new Set([...current, ...range])];
+            }
+
+            return current.includes(id) ? current.filter((value) => value !== id) : [...current, id];
+        });
+        lastPicked.current = id;
+    };
+
+    const pickMany = (ids: number[], on: boolean) =>
+        setPicked((current) => (on ? [...new Set([...current, ...ids])] : current.filter((id) => ! ids.includes(id))));
+
+    /** Change one field on every ticked row it makes sense for, and say how many were changed. */
+    const applyToPicked = (label: string, change: (row: Row) => Partial<Row> | null) => {
+        const targets = rows.filter((row) => pickedSet.has(row.id) && change(row) !== null);
+
+        if (! targets.length) {
+            setNotice(text('لا يوجد بين الصفوف المحددة ما ينطبق عليه «' + label + '».', 'None of the ticked rows can take “' + label + '”.'));
+
+            return;
+        }
+
+        const ids = new Set(targets.map((row) => row.id));
+
+        setRows((current) => current.map((row) => (ids.has(row.id) ? { ...row, ...(change(row) ?? {}), error: '' } : row)));
+        setNotice(text('طُبّق «' + label + '» على ' + targets.length + ' من ' + pickedIds.length + ' صف محدد.', 'Applied “' + label + '” to ' + targets.length + ' of ' + pickedIds.length + ' ticked rows.'));
+    };
+
+    const copyPickedTo = (target: string) => {
+        if (! validDate(target) || target > today) {
+            return;
+        }
+
+        setRows((current) => [
+            ...current,
+            ...current.filter((row) => pickedSet.has(row.id)).map((row) => ({
+                ...row,
+                id: nextId++,
+                date: target,
+                error: '',
+                merged: false,
+                exist: null,
+                dupOk: false,
+                lines: row.lines.map((line) => ({ ...line, key: nextKey++ })),
+                extra: row.extra.map((part) => ({ ...part, key: nextKey++ })),
+            })),
+        ]);
+        setSelected((current) => (current.includes(target) ? current : [...current, target]));
+        setNotice(text('نُسخ ' + pickedIds.length + ' صف إلى ' + target, 'Copied ' + pickedIds.length + ' rows to ' + target));
+    };
+
+    const applyBulk = () => {
+        const value = bulkValue.trim();
+
+        switch (bulkField) {
+            case 'date':
+                if (! validDate(value) || value > today) {
+                    return;
+                }
+
+                applyToPicked(text('التاريخ', 'Date'), () => ({ date: value }));
+                setSelected((current) => (current.includes(value) ? current : [...current, value]));
+                break;
+            case 'type':
+                applyToPicked(text('النوع', 'Type'), (row) => (value && value !== row.type
+                    ? {
+                        type: value as RowType,
+                        partyId: null,
+                        staffKind: value === 'attendance' ? 'present' : 'advance',
+                        stock: ['purchase', 'sale', 'misc'].includes(value),
+                        lines: META[value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines,
+                    }
+                    : null));
+                break;
+            case 'party': {
+                const [side, id] = value.split(':');
+
+                applyToPicked(text('الطرف', 'Party'), (row) => (META[row.type].party === side && id ? { partyId: Number(id) } : null));
+                break;
+            }
+            case 'category':
+                applyToPicked(text('التصنيف', 'Category'), (row) => (row.type === 'petty' && value ? { cat: value } : null));
+                break;
+            case 'method':
+                applyToPicked(text('طريقة الدفع', 'Payment method'), (row) => (META[row.type].pay && value ? { method: value as Method, chequeId: null } : null));
+                break;
+            case 'amount':
+                applyToPicked(text('المبلغ', 'Amount'), (row) => (! META[row.type].invoice && row.type !== 'attendance' && num(value) > 0 ? { amt: String(num(value)) } : null));
+                break;
+            case 'discount':
+                applyToPicked(text('الخصم', 'Discount'), (row) => (META[row.type].invoice ? { disc: value } : null));
+                break;
+            case 'notes':
+                applyToPicked(text('الملاحظات', 'Notes'), () => ({ notes: value }));
+                break;
+            case 'copy':
+                copyPickedTo(value);
+                break;
+            default:
+                break;
+        }
+    };
+
+    useEffect(() => {
+        if (! pickedIds.length) {
+            return;
+        }
+
+        const escape = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape' && ! (event.target as HTMLElement | null)?.closest('wa-select, [role="dialog"]')) {
+                setPicked([]);
+            }
+        };
+
+        document.addEventListener('keydown', escape);
+
+        return () => document.removeEventListener('keydown', escape);
+    }, [pickedIds.length]);
+
     // Rows keep the order the user gave them inside a day (drag to reorder); only the days are sorted.
     const sortedRows = useMemo(
         () => [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
         [rows],
     );
+
+    const [addType, setAddType] = useState<RowType | ''>('');
+    const [addCount, setAddCount] = useState(1);
 
     const addRowAt = (date: string, type: RowType, after?: Row) => {
         const created = newRow(type, date);
@@ -1137,6 +1274,115 @@ export default function QuickEntry() {
     const repeatDay = (day: string) =>
         setPlan((current) => Object.fromEntries([...selected].map((other) => [other, other === day ? current[day] ?? {} : { ...(current[day] ?? {}) }])));
 
+    /* ---------- undo (Ctrl+Z), duplicate row (Ctrl+D), "/" to change the type ---------- */
+    const undoStack = useRef<Row[][]>([]);
+    const previousRows = useRef<Row[]>([]);
+    const undoing = useRef(false);
+    const burstTimer = useRef<number | undefined>(undefined);
+    const [undoCount, setUndoCount] = useState(0);
+
+    useEffect(() => {
+        if (undoing.current) {
+            undoing.current = false;
+            previousRows.current = rows;
+
+            return;
+        }
+
+        if (previousRows.current !== rows) {
+            // Typing in a box is one step, not one step per letter: a pause of 0.7s ends the step.
+            if (burstTimer.current === undefined && previousRows.current.length > 0) {
+                undoStack.current = [...undoStack.current.slice(-49), previousRows.current];
+                setUndoCount(undoStack.current.length);
+            }
+
+            window.clearTimeout(burstTimer.current);
+            burstTimer.current = window.setTimeout(() => {
+                burstTimer.current = undefined;
+            }, 700);
+            previousRows.current = rows;
+        }
+    }, [rows]);
+
+    const undo = () => {
+        const previous = undoStack.current.pop();
+
+        setUndoCount(undoStack.current.length);
+
+        if (! previous) {
+            return;
+        }
+
+        window.clearTimeout(burstTimer.current);
+        burstTimer.current = undefined;
+        undoing.current = true;
+        setRows(previous);
+        setNotice(text('تم التراجع عن آخر تعديل.', 'Last change undone.'));
+    };
+
+    const duplicateRow = (id: number) => {
+        const created = nextId++;
+
+        setRows((current) => {
+            const index = current.findIndex((row) => row.id === id);
+
+            if (index < 0) {
+                return current;
+            }
+
+            const source = current[index];
+            const copy: Row = {
+                ...source,
+                id: created,
+                error: '',
+                merged: false,
+                exist: null,
+                dupOk: false,
+                lines: source.lines.map((line) => ({ ...line, key: nextKey++ })),
+                extra: source.extra.map((part) => ({ ...part, key: nextKey++ })),
+            };
+
+            return [...current.slice(0, index + 1), copy, ...current.slice(index + 1)];
+        });
+        pendingFocus.current = created;
+        setNotice(text('نُسخ الصف.', 'Row duplicated.'));
+    };
+
+    const rowShortcuts = (event: React.KeyboardEvent<HTMLElement>): boolean => {
+        const target = event.target as HTMLElement;
+        const tag = target.tagName.toLowerCase();
+        const typing = tag === 'textarea' || (tag === 'input' && ! ['checkbox', 'radio', 'button'].includes((target as HTMLInputElement).type));
+        const tr = target.closest<HTMLTableRowElement>('tr[data-mainrow]');
+        const modifier = event.ctrlKey || event.metaKey;
+
+        if (modifier && event.key.toLowerCase() === 'z' && ! event.shiftKey && ! typing) {
+            event.preventDefault();
+            undo();
+
+            return true;
+        }
+
+        if (modifier && event.key.toLowerCase() === 'd' && tr) {
+            event.preventDefault();
+            duplicateRow(Number(tr.dataset.mainrow));
+
+            return true;
+        }
+
+        if (event.key === '/' && tr && ! modifier && (! typing || (target as HTMLInputElement).value === '')) {
+            const typeBox = tr.querySelector<HTMLElement>('[data-typecell]');
+
+            if (typeBox) {
+                event.preventDefault();
+                typeBox.focus();
+
+                return true;
+            }
+        }
+
+        return false;
+    };
+
     const isUntouched = (row: Row): boolean =>
         ! row.partyId && ! row.amt && ! row.ref && ! row.notes && ! row.productId
         && row.lines.every((line) => ! line.productId && ! line.qty && ! line.price) && ! row.pay && ! row.disc;
@@ -1363,6 +1609,10 @@ export default function QuickEntry() {
      * moves from any cell, including the dropdowns and date boxes where the arrows have their own meaning.
      */
     const navigateTable = (event: React.KeyboardEvent<HTMLElement>) => {
+        if (rowShortcuts(event)) {
+            return;
+        }
+
         const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'];
 
         if (! keys.includes(event.key) || event.altKey || event.shiftKey || event.metaKey) {
@@ -2026,7 +2276,8 @@ export default function QuickEntry() {
                     data-day={row.date}
                     className={(row.error ? 'bg-red-500/5 ' : '') + (dragId === row.id ? 'opacity-40' : '')}
                     style={{
-                        backgroundColor: `color-mix(in srgb, ${meta.color} 18%, transparent)`,
+                        backgroundColor: `color-mix(in srgb, ${meta.color} ${pickedSet.has(row.id) ? 34 : 18}%, transparent)`,
+                        ...(pickedSet.has(row.id) ? { outline: '2px solid var(--ac-accent)', outlineOffset: '-2px' } : {}),
                         ...(dropMark?.id === row.id && dropMark.where !== 'day'
                             ? { boxShadow: dropMark.where === 'before' ? 'inset 0 2px 0 var(--ac-accent)' : 'inset 0 -2px 0 var(--ac-accent)' }
                             : {}),
@@ -2059,7 +2310,16 @@ export default function QuickEntry() {
                         setDropMark(null);
                     }}
                 >
-                    <td className="w-6 px-0.5" style={{ borderInlineStart: `6px solid ${meta.color}` }}>
+                    <td className="w-14 px-0.5" style={{ borderInlineStart: `6px solid ${meta.color}` }}>
+                        <div className="flex items-center gap-1">
+                        <input
+                            type="checkbox"
+                            className="size-4 shrink-0 cursor-pointer accent-[var(--ac-accent)]"
+                            aria-label={text('تحديد الصف ' + (index + 1), 'Tick row ' + (index + 1))}
+                            checked={pickedSet.has(row.id)}
+                            onChange={() => undefined}
+                            onClick={(event) => togglePick(row.id, event.shiftKey, filteredRows.map((candidate) => candidate.id))}
+                        />
                         <span
                             role="button"
                             tabIndex={0}
@@ -2092,10 +2352,11 @@ export default function QuickEntry() {
                         >
                             <GripVertical size={14} />
                         </span>
+                        </div>
                     </td>
                     <td className="w-7 text-center text-xs text-[var(--ac-text-muted)]">{index + 1}</td>
                     <td className="px-1.5 py-1.5">
-                        <Select className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: ['purchase', 'sale', 'misc'].includes(event.target.value), lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
+                        <Select data-typecell className={field + ' min-w-[112px] font-bold'} style={{ color: meta.color }} value={row.type} onChange={(event) => patch(row.id, { type: event.target.value as RowType, partyId: null, staffKind: event.target.value === 'attendance' ? 'present' : 'advance', stock: ['purchase', 'sale', 'misc'].includes(event.target.value), lines: META[event.target.value as RowType].invoice && ! row.lines.length ? [newLine()] : row.lines })}>
                             {visibleTypes.map((type) => <option key={type} value={type} data-color={META[type].color}>{typeName(type)}</option>)}
                         </Select>
                     </td>
@@ -2492,6 +2753,7 @@ export default function QuickEntry() {
                                     {' · '}<kbd className="rounded border border-[var(--ac-line)] bg-white px-1.5">PgUp / PgDn</kbd> {text('اليوم السابق / التالي', 'previous / next day')}
                                 </span>
                                 <span className="flex flex-wrap gap-1.5">
+                                    <button type="button" disabled={undoCount === 0} title="Ctrl+Z" className={btnSecondary + ' disabled:opacity-40'} onClick={undo}>{text('تراجع', 'Undo')}{undoCount > 0 ? ' (' + undoCount + ')' : ''}</button>
                                     <button type="button" className={btnSecondary} onClick={() => setCollapsedDays(dates)}>{text('طيّ الأيام', 'Collapse days')}</button>
                                     <button type="button" className={btnSecondary} onClick={() => setCollapsedDays([])}>{text('فتح الأيام', 'Open days')}</button>
                                     <button type="button" className={btnSecondary} onClick={() => setRows((current) => current.map((row) => ({ ...row, open: false })))}>{text('طيّ التفاصيل', 'Collapse details')}</button>
@@ -2509,7 +2771,15 @@ export default function QuickEntry() {
                                     <table className="w-full text-start">
                                         <thead>
                                             <tr className="border-b border-[var(--ac-line)] text-[11px] font-bold text-[var(--ac-text-muted)]">
-                                                <th /><th />
+                                                <th className="px-1">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="size-4 cursor-pointer accent-[var(--ac-accent)]"
+                                                        aria-label={text('تحديد كل الصفوف', 'Tick all rows')}
+                                                        checked={filteredRows.length > 0 && filteredRows.every((row) => pickedSet.has(row.id))}
+                                                        onChange={(event) => pickMany(filteredRows.map((row) => row.id), event.target.checked)}
+                                                    />
+                                                </th><th />
                                                 <th className="px-2 py-2.5 text-start">{text('النوع', 'Type')}</th>
                                                 <th className="px-2 py-2.5 text-start">{text('التاريخ', 'Date')}</th>
                                                 <th className="px-2 py-2.5 text-start">{text('الطرف / البيان', 'Party / item')}</th>
@@ -2567,6 +2837,13 @@ export default function QuickEntry() {
                                                                         >
                                                                             <ChevronDown size={16} className={folded ? (ar ? 'rotate-90' : '-rotate-90') : ''} />
                                                                         </button>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="me-2 size-4 cursor-pointer accent-[var(--ac-accent)]"
+                                                                            aria-label={text('تحديد صفوف هذا اليوم', 'Tick this day\'s rows')}
+                                                                            checked={group.length > 0 && group.every((row) => pickedSet.has(row.id))}
+                                                                            onChange={(event) => pickMany(group.map((row) => row.id), event.target.checked)}
+                                                                        />
                                                                         {(ar ? DAYS_AR : DAYS_EN)[weekday(date)]}&nbsp;<bdi dir="ltr">{date.slice(8)}/{date.slice(5, 7)}/{date.slice(0, 4)}</bdi>
                                                                         <span className="ms-2 rounded-full bg-[var(--ac-surface)] px-2 py-0.5 text-[11px] text-[var(--ac-accent)]">{group.filter(isReady).length}/{group.length} {text('جاهز', 'ready')}</span>
                                                                         <span className="ms-2 text-xs font-normal text-[var(--ac-text-muted)]">{group.length} {text('صف', 'rows')} · {summary}</span>
@@ -2579,7 +2856,11 @@ export default function QuickEntry() {
                                                                             </>
                                                                         ) : (
                                                                             <>
-                                                                                <button type="button" className={btnSecondary} onClick={() => addRowAt(date, filter === 'all' ? (visibleTypes[0] ?? 'sale') : filter)}><Plus size={13} />{text('صف', 'Row')}</button>
+                                                                                <Select aria-label={text('نوع الصف', 'Row type')} className={field + ' !h-8 min-w-[120px] font-bold'} value={addType || (filter === 'all' ? (visibleTypes[0] ?? 'sale') : filter)} onChange={(event) => setAddType(event.target.value as RowType)}>
+                                                                                    {visibleTypes.map((type) => <option key={type} value={type} data-color={META[type].color}>{text(META[type].ar, META[type].en)}</option>)}
+                                                                                </Select>
+                                                                                <input type="number" min={1} max={50} dir="ltr" aria-label={text('عدد الصفوف', 'Number of rows')} title={text('عدد الصفوف', 'Number of rows')} className={field + ' !h-8 !w-16 text-center'} value={addCount} onChange={(event) => setAddCount(Math.min(50, Math.max(1, Number(event.target.value) || 1)))} />
+                                                                                <button type="button" className={btnSecondary} onClick={() => { const type = (addType || (filter === 'all' ? (visibleTypes[0] ?? 'sale') : filter)) as RowType; for (let i = 0; i < addCount; i += 1) { addRowAt(date, type); } }}><Plus size={13} />{text('صف', 'Row')}</button>
                                                                                 <button type="button" className={btnSecondary} onClick={() => setCopyingDay(date)}><Copy size={13} />{text('انسخ ليوم آخر', 'Copy to another day')}</button>
                                                                             </>
                                                                         )}
@@ -2741,6 +3022,79 @@ export default function QuickEntry() {
                     </div>
                 )}
             </main>
+            {pickedIds.length > 0 && (
+                <div
+                    role="toolbar"
+                    aria-label={text('تعديل جماعي للصفوف المحددة', 'Bulk edit of the ticked rows')}
+                    className="fixed inset-x-3 bottom-4 z-[60] mx-auto flex max-w-[980px] flex-wrap items-center gap-2 rounded-[18px] border border-[var(--ac-line)] bg-[var(--ac-surface)] p-2.5 shadow-2xl"
+                >
+                    <span className="rounded-full bg-[var(--ac-accent)] px-3 py-1 text-xs font-bold text-white">{pickedIds.length} {text('محدد', 'selected')}</span>
+
+                    <Select className={field + ' !w-44'} value={bulkField} onChange={(event) => { setBulkField(event.target.value); setBulkValue(''); }}>
+                        <option value="">{text('عدّل الحقل…', 'Edit field…')}</option>
+                        <option value="date">{text('التاريخ', 'Date')}</option>
+                        <option value="type">{text('النوع', 'Type')}</option>
+                        <option value="party">{text('الطرف', 'Party')}</option>
+                        <option value="category">{text('تصنيف النثريات', 'Petty category')}</option>
+                        <option value="method">{text('طريقة الدفع', 'Payment method')}</option>
+                        <option value="amount">{text('المبلغ / الكمية', 'Amount / quantity')}</option>
+                        <option value="discount">{text('خصم الفاتورة', 'Invoice discount')}</option>
+                        <option value="notes">{text('الملاحظات', 'Notes')}</option>
+                        <option value="copy">{text('نسخ إلى يوم', 'Copy to a day')}</option>
+                    </Select>
+
+                    {bulkField === 'date' || bulkField === 'copy' ? (
+                        <input type="date" className={field + ' !w-40'} dir="ltr" max={today} min="2000-01-01" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} />
+                    ) : bulkField === 'type' ? (
+                        <Select className={field + ' !w-44'} value={bulkValue} onChange={(event) => setBulkValue(event.target.value)}>
+                            <option value="">{text('اختر النوع', 'Pick a type')}</option>
+                            {visibleTypes.map((type) => <option key={type} value={type} data-color={META[type].color}>{typeName(type)}</option>)}
+                        </Select>
+                    ) : bulkField === 'party' ? (
+                        <Select className={field + ' !w-56'} value={bulkValue} onChange={(event) => setBulkValue(event.target.value)}>
+                            <option value="">{text('اختر الطرف', 'Pick a party')}</option>
+                            {customers.map((party) => <option key={'c' + party.id} value={'c:' + party.id}>{text('عميل: ', 'Customer: ')}{party.name}</option>)}
+                            {suppliers.map((party) => <option key={'s' + party.id} value={'s:' + party.id}>{text('مورد: ', 'Supplier: ')}{party.name}</option>)}
+                        </Select>
+                    ) : bulkField === 'category' ? (
+                        <Select className={field + ' !w-44'} value={bulkValue} onChange={(event) => setBulkValue(event.target.value)}>
+                            <option value="">{text('اختر التصنيف', 'Pick a category')}</option>
+                            {CATEGORIES.map(([value, arabic, english]) => <option key={value} value={value}>{text(arabic, english)}</option>)}
+                        </Select>
+                    ) : bulkField === 'method' ? (
+                        <Select className={field + ' !w-36'} value={bulkValue} onChange={(event) => setBulkValue(event.target.value)}>
+                            <option value="">{text('اختر الطريقة', 'Pick a method')}</option>
+                            <option value="cash">{text('نقدي', 'Cash')}</option>
+                            <option value="check">{text('شيك', 'Check')}</option>
+                            <option value="transfer">{text('تحويل', 'Transfer')}</option>
+                        </Select>
+                    ) : bulkField ? (
+                        <input className={field + ' !w-44' + (bulkField === 'amount' || bulkField === 'discount' ? ' text-left' : '')} dir={bulkField === 'notes' ? undefined : 'ltr'} placeholder={bulkField === 'discount' ? '5% / 20' : bulkField === 'amount' ? '0' : text('اكتب النص', 'Type the text')} value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { applyBulk(); } }} />
+                    ) : null}
+
+                    {bulkField && (
+                        <button type="button" className={btnPrimary + ' !min-h-9'} disabled={! bulkValue.trim()} onClick={applyBulk}>{bulkField === 'copy' ? text('انسخ', 'Copy') : text('طبّق على المحدد', 'Apply to ticked')}</button>
+                    )}
+
+                    <span className="ms-auto flex items-center gap-1.5">
+                        <button type="button" className={btnSecondary} onClick={() => setRows((current) => current.map((row) => (pickedSet.has(row.id) ? { ...row, open: true } : row)))}>{text('فتح التفاصيل', 'Open details')}</button>
+                        <button type="button" className={btnSecondary} onClick={() => setRows((current) => current.map((row) => (pickedSet.has(row.id) ? { ...row, open: false } : row)))}>{text('طيّ', 'Fold')}</button>
+                        <button
+                            type="button"
+                            className={btnSecondary + ' !border-red-300 !text-red-600'}
+                            onClick={() => {
+                                if (window.confirm(text('حذف ' + pickedIds.length + ' صف محدد؟ لم تُحفظ بعد، فتختفي من الجدول فقط.', 'Delete ' + pickedIds.length + ' ticked rows? They are not saved yet, so they only leave the table.'))) {
+                                    setRows((current) => current.filter((row) => ! pickedSet.has(row.id)));
+                                    setPicked([]);
+                                }
+                            }}
+                        >
+                            <X size={13} />{text('حذف المحدد', 'Delete ticked')}
+                        </button>
+                        <button type="button" className={btnSecondary} onClick={() => setPicked([])}>{text('إلغاء التحديد', 'Clear')}</button>
+                    </span>
+                </div>
+            )}
         </AppShell>
     );
 }

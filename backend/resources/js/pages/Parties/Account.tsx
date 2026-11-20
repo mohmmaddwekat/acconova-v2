@@ -153,6 +153,17 @@ type PartyAccountResponse = {
         customer: OpeningBalance;
         supplier: OpeningBalance;
     };
+    rollups?: {
+        sales: { count: number; total: string };
+        purchases: { count: number; total: string };
+        receipts: { count: number; total: string };
+        payments: { count: number; total: string };
+        cheques_waiting: { count: number; total: string };
+        adjustments: { count: number };
+        first_date: string | null;
+        last_date: string | null;
+        top_products: { product_id: number; name: string; quantity: string; total: string }[];
+    };
     aging: Aging;
     aging_as_of: string;
     aging_breakdown: {
@@ -2142,6 +2153,59 @@ export default function PartyAccount({
                                         </div>
                                     </section>
                                 </div>
+
+                                {data.rollups && (
+                                    <section className={panel + ' mt-4 p-5'}>
+                                        <h3 className="text-sm font-bold text-[var(--ac-text)]">
+                                            {ar ? 'الروابط والإجماليات' : 'Links and totals'}
+                                        </h3>
+                                        <p className="mt-1 text-[10px] text-[var(--ac-text-muted)]">
+                                            {ar
+                                                ? 'كل ما يرتبط بهذا الطرف: ' + (data.rollups.first_date ? 'من ' + data.rollups.first_date : '') + (data.rollups.last_date ? ' إلى ' + data.rollups.last_date : '')
+                                                : 'Everything linked to this party' + (data.rollups.first_date ? ' from ' + data.rollups.first_date : '') + (data.rollups.last_date ? ' to ' + data.rollups.last_date : '')}
+                                        </p>
+                                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                            {([
+                                                [ar ? 'فواتير بيع' : 'Sales invoices', data.rollups.sales, '/app/invoices?party_id=' + String(data.party.id)],
+                                                [ar ? 'فواتير شراء' : 'Purchase invoices', data.rollups.purchases, '/app/invoices/purchases?party_id=' + String(data.party.id)],
+                                                [ar ? 'سندات قبض' : 'Receipts', data.rollups.receipts, '/app/receipts?party_id=' + String(data.party.id)],
+                                                [ar ? 'سندات دفع' : 'Payments', data.rollups.payments, '/app/payments?party_id=' + String(data.party.id)],
+                                            ] as [string, { count: number; total: string }, string][])
+                                                .filter(([, figure]) => figure.count > 0)
+                                                .map(([label, figure, href]) => (
+                                                    <a key={label} href={href} className="rounded-[12px] bg-[var(--ac-bg-soft)] p-3 hover:ring-1 hover:ring-[var(--ac-accent)]">
+                                                        <span className="block text-[10px] text-[var(--ac-text-muted)]">{label} ({figure.count})</span>
+                                                        <b className="mt-1 block" dir="ltr">{toNumber(figure.total).toLocaleString('en', { maximumFractionDigits: 2 })} {data.currency}</b>
+                                                    </a>
+                                                ))}
+                                            {data.rollups.cheques_waiting.count > 0 && (
+                                                <div className="rounded-[12px] bg-amber-50 p-3 text-amber-800">
+                                                    <span className="block text-[10px]">{ar ? 'شيكات بانتظار الصرف (' + String(data.rollups.cheques_waiting.count) + ')' : 'Cheques waiting (' + String(data.rollups.cheques_waiting.count) + ')'}</span>
+                                                    <b className="mt-1 block" dir="ltr">{toNumber(data.rollups.cheques_waiting.total).toLocaleString('en', { maximumFractionDigits: 2 })} {data.currency}</b>
+                                                </div>
+                                            )}
+                                            {data.rollups.adjustments.count > 0 && (
+                                                <div className="rounded-[12px] bg-violet-50 p-3 text-violet-800">
+                                                    <span className="block text-[10px]">{ar ? 'قيود فروقات' : 'Difference entries'}</span>
+                                                    <b className="mt-1 block">{data.rollups.adjustments.count}</b>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {data.rollups.top_products.length > 0 && (
+                                            <div className="mt-3">
+                                                <div className="mb-1 text-[10px] font-bold text-[var(--ac-text-muted)]">{ar ? 'أكثر المنتجات تعاملاً' : 'Most traded products'}</div>
+                                                <ul className="space-y-1 text-xs">
+                                                    {data.rollups.top_products.map((product) => (
+                                                        <li key={product.product_id} className="flex items-center justify-between gap-2">
+                                                            <a href={'/app/products/' + String(product.product_id)} className="truncate hover:underline">{product.name}</a>
+                                                            <span dir="ltr" className="shrink-0 text-[var(--ac-text-muted)]">{toNumber(product.quantity).toLocaleString('en')} · {toNumber(product.total).toLocaleString('en', { maximumFractionDigits: 0 })}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </section>
+                                )}
 
                                 {data.party.roles.includes('customer')
                                     && data.permissions.sales_view && (
